@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --msq-accent: #0f172a; } /* Slate-900 */

@@ -1,0 +1,51 @@
+---
+import '../styles/global.css';
+const { title = 'Muse Square', description = 'Data & Engagement', noIndex = false } = Astro.props;
+const plausible = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN;
+---
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noIndex && <meta name="robots" content="noindex" />}
+    {plausible && <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>}
+  </head>
+  <body class="bg-white text-slate-900">
+    <header class="border-b">
+      <nav class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+        <a href="/" class="font-semibold">Muse Square</a>
+        <ul class="flex gap-5 text-sm">
+          <li><a href="/offres" class="hover:underline">Offres</a></li>
+          <li><a href="/references" class="hover:underline">Références</a></li>
+          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+          <li><a href="/contact" class="hover:underline">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <slot />
+    </main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+          </div>
+          <div class="flex gap-4">
+            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+          </div>
+        </div>
+        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+      </div>
+      <script type="module" src="/kpi.js"></script>
+    </footer>
+  </body>
+</html>
+
