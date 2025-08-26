@@ -1,0 +1,864 @@
+Last login: Tue Aug 26 12:13:53 on ttys000
+(base) julendeajuriaguerra@julens-macbook-pro ~ % cd ~/Documents/Muse_Square_Website/muse-square
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % >....               
+        <a href="/" class="font-semibold">Muse Square</a>
+        <ul class="flex gap-5 text-sm">
+          <li><a href="/offres" class="hover:underline">Offres</a></li>
+          <li><a href="/references" class="hover:underline">Références</a></li>
+          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+          <li><a href="/contact" class="hover:underline">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <slot />
+    </main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noreferre_
+
+heredoc> 
+heredoc> >....                                                                  
+    {noIndex && <meta name="robots" content="noindex" />}
+    {plausible && (
+      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    )}
+  </head>
+  <body class="h-full bg-white text-slate-900">
+    <header class="border-b">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <a href="/" class="font-semibold">Muse Square</a>
+        <ul class="flex gap-5 text-sm">
+          <li><a href="/offres" class="hover:underline">Offres</a></li>
+          <li><a href="/references" class="hover:underline">Références</a></li>
+          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+          <li><a href="/contact" class="hover:underline">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <slot />
+    </main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+          </div>
+          <div class="flex gap-4">
+            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+          </div>
+        </div>
+        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+      </div>
+      <script type="module" src="/kpi.js"></script>
+    </footer>
+  </body>
+</html>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/index.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Muse Square — Data & Engagement">
+  <section class="py-10 sm:py-16">
+    <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight">Astro + Layout OK</h1>
+    <p class="mt-4 text-lg text-slate-600">Header, footer et tracking sont en place.</p>
+  </section>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % test -f src/layouts/BaseLayout.astro && echo "Layout OK"
+sed -n '1,6p' src/pages/index.astro
+
+Layout OK
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Muse Square — Data & Engagement">
+  <section class="py-10 sm:py-16">
+    <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight">Astro + Layout OK</h1>
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % >....               
+    {noIndex && <meta name="robots" content="noindex" />}
+    {plausible && (
+      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    )}
+  </head>
+  <body class="h-full bg-white text-slate-900">
+    <header class="border-b">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <a href="/" class="font-semibold">Muse Square</a>
+        <ul class="flex gap-5 text-sm">
+          <li><a href="/offres" class="hover:underline">Offres</a></li>
+          <li><a href="/references" class="hover:underline">Références</a></li>
+          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+          <li><a href="/contact" class="hover:underline">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <slot />
+    </main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+          </div>
+          <div class="flex gap-4">
+            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+          </div>
+        </div>
+        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+      </div>
+      <script type="module" src="/kpi.js"></script>
+    </footer>
+  </body>
+</html>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % nl -ba src/layouts/BaseLayout.astro | sed -n '1,120p'
+
+     1	---
+     2	const { title = 'Muse Square', description = 'Data & Engagement', noIndex = false } = Astro.props;
+     3	const plausible = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN;
+     4	import '../styles/global.css';
+     5	---
+     6	<!doctype html>
+     7	<html lang="fr" class="h-full">
+     8	  <head>
+     9	    <meta charset="utf-8" />
+    10	    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    11	    <title>{title}</title>
+    12	    <meta name="description" content={description} />
+    13	    {noIndex && <meta name="robots" content="noindex" />}
+    14	    {plausible && (
+    15	      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    16	    )}
+    17	  </head>
+    18	  <body class="h-full bg-white text-slate-900">
+    19	    <header class="border-b">
+    20	      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    21	        <a href="/" class="font-semibold">Muse Square</a>
+    22	        <ul class="flex gap-5 text-sm">
+    23	          <li><a href="/offres" class="hover:underline">Offres</a></li>
+    24	          <li><a href="/references" class="hover:underline">Références</a></li>
+    25	          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+    26	          <li><a href="/contact" class="hover:underline">Contact</a></li>
+    27	        </ul>
+    28	      </nav>
+    29	    </header>
+    30	
+    31	    <main class="mx-auto max-w-6xl px-4 py-10">
+    32	      <slot />
+    33	    </main>
+    34	
+    35	    <footer class="mt-16 border-t">
+    36	      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+    37	        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    38	          <div class="flex items-center gap-4">
+    39	            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+    40	            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+    41	          </div>
+    42	          <div class="flex gap-4">
+    43	            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+    44	            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+    45	          </div>
+    46	        </div>
+    47	        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+    48	      </div>
+    49	      <script type="module" src="/kpi.js"></script>
+    50	    </footer>
+    51	  </body>
+    52	</html>
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % nl -ba src/layouts/BaseLayout.astro | sed -n '1,120p'
+
+     1	---
+     2	const { title = 'Muse Square', description = 'Data & Engagement', noIndex = false } = Astro.props;
+     3	const plausible = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN;
+     4	import '../styles/global.css';
+     5	---
+     6	<!doctype html>
+     7	<html lang="fr" class="h-full">
+     8	  <head>
+     9	    <meta charset="utf-8" />
+    10	    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    11	    <title>{title}</title>
+    12	    <meta name="description" content={description} />
+    13	    {noIndex && <meta name="robots" content="noindex" />}
+    14	    {plausible && (
+    15	      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    16	    )}
+    17	  </head>
+    18	  <body class="h-full bg-white text-slate-900">
+    19	    <header class="border-b">
+    20	      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    21	        <a href="/" class="font-semibold">Muse Square</a>
+    22	        <ul class="flex gap-5 text-sm">
+    23	          <li><a href="/offres" class="hover:underline">Offres</a></li>
+    24	          <li><a href="/references" class="hover:underline">Références</a></li>
+    25	          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+    26	          <li><a href="/contact" class="hover:underline">Contact</a></li>
+    27	        </ul>
+    28	      </nav>
+    29	    </header>
+    30	
+    31	    <main class="mx-auto max-w-6xl px-4 py-10">
+    32	      <slot />
+    33	    </main>
+    34	
+    35	    <footer class="mt-16 border-t">
+    36	      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+    37	        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    38	          <div class="flex items-center gap-4">
+    39	            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+    40	            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+    41	          </div>
+    42	          <div class="flex gap-4">
+    43	            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+    44	            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+    45	          </div>
+    46	        </div>
+    47	        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+    48	      </div>
+    49	      <script type="module" src="/kpi.js"></script>
+    50	    </footer>
+    51	  </body>
+    52	</html>
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % >....               
+    {noIndex && <meta name="robots" content="noindex" />}
+    {plausible && (
+      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    )}
+  </head>
+  <body class="h-full bg-white text-slate-900">
+    <header class="border-b">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <a href="/" class="font-semibold">Muse Square</a>
+        <ul class="flex gap-5 text-sm">
+          <li><a href="/offres" class="hover:underline">Offres</a></li>
+          <li><a href="/references" class="hover:underline">Références</a></li>
+          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+          <li><a href="/contact" class="hover:underline">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <slot />
+    </main>
+
+    <footer class="mt-16 border-t">
+      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-4">
+            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+          </div>
+          <div class="flex gap-4">
+            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+          </div>
+        </div>
+        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+      </div>
+      <script type="module" src="/kpi.js"></script>
+    </footer>
+  </body>
+</html>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % nl -ba src/layouts/BaseLayout.astro | sed -n '1,120p'
+
+     1	---
+     2	const { title = 'Muse Square', description = 'Data & Engagement', noIndex = false } = Astro.props;
+     3	const plausible = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN;
+     4	import '../styles/global.css';
+     5	---
+     6	<!doctype html>
+     7	<html lang="fr" class="h-full">
+     8	  <head>
+     9	    <meta charset="utf-8" />
+    10	    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    11	    <title>{title}</title>
+    12	    <meta name="description" content={description} />
+    13	    {noIndex && <meta name="robots" content="noindex" />}
+    14	    {plausible && (
+    15	      <script defer data-domain={plausible} src="https://plausible.io/js/script.js"></script>
+    16	    )}
+    17	  </head>
+    18	  <body class="h-full bg-white text-slate-900">
+    19	    <header class="border-b">
+    20	      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    21	        <a href="/" class="font-semibold">Muse Square</a>
+    22	        <ul class="flex gap-5 text-sm">
+    23	          <li><a href="/offres" class="hover:underline">Offres</a></li>
+    24	          <li><a href="/references" class="hover:underline">Références</a></li>
+    25	          <li><a href="/a-propos" class="hover:underline">À propos</a></li>
+    26	          <li><a href="/contact" class="hover:underline">Contact</a></li>
+    27	        </ul>
+    28	      </nav>
+    29	    </header>
+    30	
+    31	    <main class="mx-auto max-w-6xl px-4 py-10">
+    32	      <slot />
+    33	    </main>
+    34	
+    35	    <footer class="mt-16 border-t">
+    36	      <div class="mx-auto max-w-6xl px-4 py-8 text-sm">
+    37	        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    38	          <div class="flex items-center gap-4">
+    39	            <a href="mailto:hello@musesquare.com" class="underline" data-kpi="click_email">hello@musesquare.com</a>
+    40	            <a href="https://www.linkedin.com/" target="_blank" rel="noreferrer" class="underline" data-kpi="click_linkedin">LinkedIn</a>
+    41	          </div>
+    42	          <div class="flex gap-4">
+    43	            <a href="/mentions-legales" class="hover:underline">Mentions légales</a>
+    44	            <a href="/privacy" class="hover:underline">Politique de confidentialité</a>
+    45	          </div>
+    46	        </div>
+    47	        <p class="mt-4 text-slate-500">© {new Date().getFullYear()} Muse Square</p>
+    48	      </div>
+    49	      <script type="module" src="/kpi.js"></script>
+    50	    </footer>
+    51	  </body>
+    52	</html>
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cd ~/Documents/Muse_Square_Website/muse-square
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e src/layouts/BaseLayout.astro
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % grep -n '^[[:space:]]*\.' src/layouts/BaseLayout.astro || echo "OK (pas de point parasite)"
+
+OK (pas de point parasite)
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cd ~/Documents/Muse_Square_Website/muse-square
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git rev-parse --is-inside-work-tree 2>/dev/null || git init
+
+Initialized empty Git repository in /Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square/.git/
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git rev-parse --is-inside-work-tree 2>/dev/null || git init
+
+true
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % printf '%s\n' \
+'# Muse Square (Astro + Tailwind)' \
+'Dev: npm run dev — Build: npm run build — Preview: npm run preview' > README.md 
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git status
+
+On branch main
+
+No commits yet
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.gitignore
+	.vscode/
+	README.md
+	astro.config.mjs
+	package-lock.json
+	package.json
+	public/
+	src/
+	tailwind.config.cjs
+	tsconfig.json
+
+nothing added to commit but untracked files present (use "git add" to track)
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % grep -n 'vscode' .gitignore || echo "ajouter .vscode/ au .gitignore"
+
+ajouter .vscode/ au .gitignore
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % printf '.vscode/\n' >> .gitignore
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git status --porcelain
+
+?? .gitignore
+?? README.md
+?? astro.config.mjs
+?? package-lock.json
+?? package.json
+?? public/
+?? src/
+?? tailwind.config.cjs
+?? tsconfig.json
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git add -A
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git status
+
+On branch main
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+	new file:   .gitignore
+	new file:   README.md
+	new file:   astro.config.mjs
+	new file:   package-lock.json
+	new file:   package.json
+	new file:   public/favicon.svg
+	new file:   src/layouts/BaseLayout.astro
+	new file:   src/pages/index.astro
+	new file:   src/styles/global.css
+	new file:   tailwind.config.cjs
+	new file:   tsconfig.json
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git commit -m "chore: init Astro + Tailwind + BaseLayout + KPI"
+
+[main (root-commit) c223101] chore: init Astro + Tailwind + BaseLayout + KPI
+ 11 files changed, 7338 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 README.md
+ create mode 100644 astro.config.mjs
+ create mode 100644 package-lock.json
+ create mode 100644 package.json
+ create mode 100644 public/favicon.svg
+ create mode 100644 src/layouts/BaseLayout.astro
+ create mode 100644 src/pages/index.astro
+ create mode 100644 src/styles/global.css
+ create mode 100644 tailwind.config.cjs
+ create mode 100644 tsconfig.json
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git remote add origin https://github.com/<ton-user>/muse-square.git
+zsh: no such file or directory: ton-user
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git remote -v
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cd ~/Documents/Muse_Square_Website/muse-square
+git remote add origin https://github.com/Ajuria/muse-square.git
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git remote -v
+
+origin	https://github.com/Ajuria/muse-square.git (fetch)
+origin	https://github.com/Ajuria/muse-square.git (push)
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git push -u origin main
+
+Username for 'https://github.com': 
+Password for 'https://github.com': 
+remote: No anonymous write access.
+fatal: Authentication failed for 'https://github.com/Ajuria/muse-square.git/'
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % pwd   # doit finir par /Documents/Muse_Square_Website/muse-square
+mkdir -p content public/docs src/components
+
+pwd: too many arguments
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % pwd
+
+/Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git remote -v
+
+origin	git@github.com:Ajuria/muse-square.git (fetch)
+origin	git@github.com:Ajuria/muse-square.git (push)
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % mkdir -p content public/docs src/components
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e content/home.mdx
+
+The file /Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square/content/home.mdx does not exist.
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % ---
+title: "Home"
+---
+import Hero from "../src/components/Hero.astro";
+import OfferCard from "../src/components/OfferCard.astro";
+
+<Hero
+  title="Data & Engagement for Culture, Tourism & Premium Lifestyle"
+  subtitle="Mesurer ce qui compte. Activer ce qui performe."
+  cta1={{ label: "Télécharger les fiches offres (PDF)", href: "/offres#pdf" }}
+  cta2={{ label: "Prendre un RDV de 20 min (Calendly)", href: "/contact#rdv" }}
+/>
+
+### Preuves
+- **15+ ans** entre culture & premium lifestyle
+- **Modern data stack** (BigQuery, dbt, Looker, Airbyte, Python/SQL)
+- **Impact** : attractivité, conversion, fidélisation
+
+### Nos offres (aperçu)
+<div class="grid sm:grid-cols-2 gap-4">
+  <OfferCard
+    title="Blueprint"
+    desc="Vision claire + tracking propre + dashboard exécutif (10–15 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#blueprint" }}
+  />
+  <OfferCard
+    title="Engagement Lift"
+    desc="Segmentation + A/B tests + quick wins mesurables (15–20 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#engagement-lift" }}
+  />
+</div>
+
+### Réassurance
+Logos / noms clés (WTC Memorial, Chantilly, etc.)
+
+> “Mini-témoignage 1 (placeholder véridique)”
+> “Mini-témoignage 2 (placeholder véridique)”
+
+zsh: parse error near `}'
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e src/components/Hero.astro
+
+The file /Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square/src/components/Hero.astro does not exist.
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % ---
+const { title, subtitle, cta1, cta2 } = Astro.props; // cta: { label, href }
+---
+<section class="py-10 sm:py-16">
+  <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight">{title}</h1>
+  <p class="mt-4 text-lg text-slate-600">{subtitle}</p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    {cta1 && <a href={cta1.href} class="rounded bg-slate-900 px-4 py-2 text-white" data-kpi="cta_downloads">{cta1.label}</a>}
+    {cta2 && <a href={cta2.href} class="rounded border px-4 py-2" data-kpi="cta_calendly">{cta2.label}</a>}
+  </div>
+</section>
+
+zsh: parse error near `}'
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e src/components/OfferCard.astro
+
+The file /Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square/src/components/OfferCard.astro does not exist.
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % ---
+const { title, desc, cta } = Astro.props; // cta: { label, href }
+---
+<article class="rounded-lg border p-5 shadow-sm">
+  <h3 class="text-xl font-semibold">{title}</h3>
+  <p class="mt-2 text-slate-600">{desc}</p>
+  <a class="mt-4 inline-block underline" href={cta.href}>{cta.label}</a>
+</article>
+
+zsh: parse error near `}'
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e src/pages/index.astro
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % open -e src/pages/index.astro
+mkdir -p content
+cat > content/home.mdx <<'EOF'
+---
+title: "Home"
+---
+import Hero from "../src/components/Hero.astro";
+import OfferCard from "../src/components/OfferCard.astro";
+
+<Hero
+  title="Data & Engagement for Culture, Tourism & Premium Lifestyle"
+  subtitle="Mesurer ce qui compte. Activer ce qui performe."
+  cta1={{ label: "Télécharger les fiches offres (PDF)", href: "/offres#pdf" }}
+  cta2={{ label: "Prendre un RDV de 20 min (Calendly)", href: "/contact#rdv" }}
+/>
+
+### Preuves
+- **15+ ans** entre culture & premium lifestyle
+- **Modern data stack** (BigQuery, dbt, Looker, Airbyte, Python/SQL)
+- **Impact** : attractivité, conversion, fidélisation
+
+### Nos offres (aperçu)
+<div class="grid sm:grid-cols-2 gap-4">
+  <OfferCard
+    title="Blueprint"
+    desc="Vision claire + tracking propre + dashboard exécutif (10–15 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#blueprint" }}
+  />
+  <OfferCard
+    title="Engagement Lift"
+    desc="Segmentation + A/B tests + quick wins mesurables (15–20 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#engagement-lift" }}
+  />
+</div>
+
+### Réassurance
+Logos / noms clés (WTC Memorial, Chantilly, etc.)
+
+> “Mini-témoignage 1 (placeholder véridique)”
+> “Mini-témoignage 2 (placeholder véridique)”
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % mkdir -p src/components
+cat > src/components/Hero.astro <<'EOF'
+---
+const { title, subtitle, cta1, cta2 } = Astro.props; // cta: { label, href }
+---
+<section class="py-10 sm:py-16">
+  <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight">{title}</h1>
+  <p class="mt-4 text-lg text-slate-600">{subtitle}</p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    {cta1 && <a href={cta1.href} class="rounded bg-slate-900 px-4 py-2 text-white" data-kpi="cta_downloads">{cta1.label}</a>}
+    {cta2 && <a href={cta2.href} class="rounded border px-4 py-2" data-kpi="cta_calendly">{cta2.label}</a>}
+  </div>
+</section>
+EOF
+
+cat > src/components/OfferCard.astro <<'EOF'
+---
+const { title, desc, cta } = Astro.props; // cta: { label, href }
+---
+<article class="rounded-lg border p-5 shadow-sm">
+  <h3 class="text-xl font-semibold">{title}</h3>
+  <p class="mt-2 text-slate-600">{desc}</p>
+  <a class="mt-4 inline-block underline" href={cta.href}>{cta.label}</a>
+</article>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/index.astro <<'EOF' 
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Home from '../../content/home.mdx';
+---
+<BaseLayout title="Muse Square — Data & Engagement">
+  <Home />
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % mkdir -p content
+cat > content/offres.mdx <<'EOF'
+---
+title: "Offres"
+---
+
+## <a id="blueprint"></a>Blueprint
+**Objectif** — Vision claire, assainir le tracking, outiller la décision.
+**Livrables** — Cartographie & priorités, plan de tracking propre, dashboard exécutif.
+**Valeur ajoutée** — Lisibilité, vitesse de décision, ROI canaux.
+**Cibles** — Dir. marketing, data leads, directions culture/tourisme/premium.
+
+[👉 Demander un audit express (30 min)](/contact)
+[👉 Télécharger la fiche PDF](/docs/blueprint.pdf)
+
+---
+
+## <a id="engagement-lift"></a>Engagement Lift
+**Objectif** — Segmentation audience, A/B tests, quick wins mesurables.
+**Livrables** — Segments actionnables, backlog d’expés, rapport d’impact.
+**Valeur ajoutée** — +Conversion, +Rétention, meilleure fidélisation.
+**Cibles** — Growth/CRM, billetterie, e-commerce, tourisme.
+
+[👉 Estimer l’impact potentiel](/contact)
+[👉 Télécharger la fiche PDF](/docs/engagement-lift.pdf)
+
+---
+
+## <a id="pdf"></a>Fiches PDF
+- [Blueprint (PDF)](/docs/blueprint.pdf)
+- [Engagement Lift (PDF)](/docs/engagement-lift.pdf)
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/offres.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Offres from '../../content/offres.mdx';
+---
+<BaseLayout title="Offres — Muse Square">
+  <article class="prose max-w-none"><Offres /></article>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > content/references.md <<'EOF' 
+# Références
+
+## Cas 1 — CAR
+**Contexte** : …
+**Actions** : …
+**Résultats** : **+12% rétention**
+
+## Cas 2 — CAR
+**Contexte** : …
+**Actions** : …
+**Résultats** : **+18% réservations**
+
+## Cas 3 — CAR
+**Contexte** : …
+**Actions** : …
+**Résultats** : **+22% participants**
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/references.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Refs from '../../content/references.md';
+---
+<BaseLayout title="Références — Muse Square">
+  <article class="prose"><Refs /></article>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > content/a-propos.md <<'EOF'
+# À propos
+
+Spécialiste data & engagement pour la culture, le tourisme et le premium lifestyle.
+Version “présent” (6–8 lignes) orientée LinkedIn : expertise analytics, modern data stack, activation orientée résultats, accompagnement de la vision à l’exécution rapide.
+
+**Pile outils (logo-wall discret)** : BigQuery, dbt, Looker, Airbyte, Python, SQL.
+**Valeurs** : sobriété, mesure, exigence.
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/a-propos.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AP from '../../content/a-propos.md';
+---
+<BaseLayout title="À propos — Muse Square">
+  <article class="prose"><AP /></article>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > content/contact.mdx <<'EOF'
+---
+title: "Contact"
+---
+
+# Contact
+
+Laisse-nous un message — on revient vers toi rapidement.
+
+<form action={import.meta.env.PUBLIC_FORMS_ENDPOINT} method="POST" class="mt-4 grid gap-4 max-w-xl" data-kpi="form_view">
+  <label class="grid gap-1">
+    <span>Nom</span>
+    <input required name="name" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Email</span>
+    <input required type="email" name="email" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Organisation</span>
+    <input name="org" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Message</span>
+    <textarea required name="message" rows="5" class="border rounded px-3 py-2"></textarea>
+  </label>
+  <button class="rounded bg-slate-900 text-white px-4 py-2" data-kpi="form_submit">Envoyer</button>
+  <p class="text-sm text-slate-500">En envoyant, vous acceptez notre <a class="underline" href="/privacy">politique de confidentialité</a>.</p>
+</form>
+
+## <a id="rdv"></a>Prendre un RDV (20 min)
+<div class="mt-6">
+  <iframe
+    src={`${import.meta.env.PUBLIC_CALENDLY_URL}?hide_event_type_details=1&hide_gdpr_banner=1`} 
+    width="100%" height="700" frameborder="0"></iframe>
+</div>
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/contact.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Contact from '../../content/contact.mdx';
+---
+<BaseLayout title="Contact — Muse Square">
+  <article class="prose max-w-none"><Contact /></article>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/mentions-legales.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Mentions légales — Muse Square">
+  <h1>Mentions légales</h1>
+  <p>(Éditeur, Contact, Hébergeur Vercel — à compléter.)</p>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > src/pages/privacy.astro <<'EOF'
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Politique de confidentialité — Muse Square">
+  <h1>Politique de confidentialité</h1>
+  <p>(Base légale, conservation, sous-traitants, droits RGPD — à compléter.)</p>
+</BaseLayout>
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % mkdir -p public/docs
+: > public/docs/blueprint.pdf
+: > public/docs/engagement-lift.pdf
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > .env.example <<'EOF'
+PUBLIC_PLAUSIBLE_DOMAIN=
+PUBLIC_FORMS_ENDPOINT=
+PUBLIC_CALENDLY_URL=https://calendly.com/
+EOF
+
+cp -n .env.example .env 2>/dev/null || true
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % git add -A
+git commit -m "feat: pages Offres/Références/À-propos/Contact + légal + contenu MDX/MD + PDFs placeholders + .env.example"
+git push
+
+[main 21498e3] feat: pages Offres/Références/À-propos/Contact + légal + contenu MDX/MD + PDFs placeholders + .env.example
+ 17 files changed, 191 insertions(+), 4 deletions(-)
+ create mode 100644 .env.example
+ create mode 100644 content/a-propos.md
+ create mode 100644 content/contact.mdx
+ create mode 100644 content/home.mdx
+ create mode 100644 content/offres.mdx
+ create mode 100644 content/references.md
+ create mode 100644 public/docs/blueprint.pdf
+ create mode 100644 public/docs/engagement-lift.pdf
+ create mode 100644 src/components/Hero.astro
+ create mode 100644 src/components/OfferCard.astro
+ create mode 100644 src/pages/a-propos.astro
+ create mode 100644 src/pages/contact.astro
+ create mode 100644 src/pages/mentions-legales.astro
+ create mode 100644 src/pages/offres.astro
+ create mode 100644 src/pages/privacy.astro
+ create mode 100644 src/pages/references.astro
+Enumerating objects: 29, done.
+Counting objects: 100% (29/29), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (23/23), done.
+Writing objects: 100% (24/24), 5.28 KiB | 5.28 MiB/s, done.
+Total 24 (delta 1), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+To github.com:Ajuria/muse-square.git
+   c223101..21498e3  main -> main
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % cat > public/kpi.js <<'EOF'
+(function () {
+  function send(name, props = {}) {
+    if (window.plausible) window.plausible(name, { props });
+  }
+  // Drapeaux data-kpi="..."
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-kpi]');
+    if (!el) return;
+    send(el.getAttribute('data-kpi'));
+  });
+  // Téléchargements PDF
+  document.querySelectorAll('a[href$=".pdf"]').forEach((a) => {
+    a.addEventListener('click', () => send('download_pdf', { href: a.getAttribute('href') }));
+  });
+  // Calendly (widget)
+  window.addEventListener('message', function (e) {
+    if (e?.data?.event === 'calendly.event_scheduled') { send('calendly_booked'); }
+  });
+})();
+EOF
+
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % 
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % ls -l public/kpi.js           # vérifie que le fichier existe
+git add -A
+git commit -m "feat: KPI tracking (Plausible + PDF + Calendly)"
+git push
+
+ls: #: No such file or directory
+ls: existe: No such file or directory
+ls: fichier: No such file or directory
+ls: le: No such file or directory
+ls: que: No such file or directory
+ls: vérifie: No such file or directory
+-rw-r--r--  1 julendeajuriaguerra  staff  667 Aug 26 15:49 public/kpi.js
+[main 75237d5] feat: KPI tracking (Plausible + PDF + Calendly)
+ 1 file changed, 19 insertions(+)
+ create mode 100644 public/kpi.js
+Enumerating objects: 6, done.
+Counting objects: 100% (6/6), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 773 bytes | 773.00 KiB/s, done.
+Total 4 (delta 1), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+To github.com:Ajuria/muse-square.git
+   21498e3..75237d5  main -> main
+(base) julendeajuriaguerra@julens-macbook-pro muse-square % 
