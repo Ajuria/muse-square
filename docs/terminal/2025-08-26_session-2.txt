@@ -1,0 +1,10 @@
+Script started on Tue Aug 26 15:59:06 2025
+[1m[7m%[27m[1m[0m                                                                                               ]7;file://julens-macbook-pro.home/Users/julendeajuriaguerra/Documents/Muse_Square_Website/muse-square[0m[27m[24m[J(base) julendeajuriaguerra@julens-macbook-pro muse-square % [K[?2004h[7mexit[27m
+[K[A[60C[27me[27mx[27mi[27mt[1B[K[?2004l
+
+Saving session...
+...copying shared history...
+...saving history...truncating history files...
+...completed.
+
+Script done on Tue Aug 26 16:00:48 2025
