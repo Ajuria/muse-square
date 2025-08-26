@@ -1,0 +1,11 @@
+---
+const { title, subtitle, cta1, cta2 } = Astro.props; // cta: { label, href }
+---
+<section class="py-10 sm:py-16">
+  <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight">{title}</h1>
+  <p class="mt-4 text-lg text-slate-600">{subtitle}</p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    {cta1 && <a href={cta1.href} class="rounded bg-slate-900 px-4 py-2 text-white" data-kpi="cta_downloads">{cta1.label}</a>}
+    {cta2 && <a href={cta2.href} class="rounded border px-4 py-2" data-kpi="cta_calendly">{cta2.label}</a>}
+  </div>
+</section>

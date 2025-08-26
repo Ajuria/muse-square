@@ -1,0 +1,8 @@
+---
+const { title, desc, cta } = Astro.props; // cta: { label, href }
+---
+<article class="rounded-lg border p-5 shadow-sm">
+  <h3 class="text-xl font-semibold">{title}</h3>
+  <p class="mt-2 text-slate-600">{desc}</p>
+  <a class="mt-4 inline-block underline" href={cta.href}>{cta.label}</a>
+</article>

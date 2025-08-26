@@ -1,0 +1,36 @@
+---
+title: "Contact"
+---
+
+# Contact
+
+Laisse-nous un message — on revient vers toi rapidement.
+
+<form action={import.meta.env.PUBLIC_FORMS_ENDPOINT} method="POST" class="mt-4 grid gap-4 max-w-xl" data-kpi="form_view">
+  <label class="grid gap-1">
+    <span>Nom</span>
+    <input required name="name" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Email</span>
+    <input required type="email" name="email" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Organisation</span>
+    <input name="org" class="border rounded px-3 py-2" />
+  </label>
+  <label class="grid gap-1">
+    <span>Message</span>
+    <textarea required name="message" rows="5" class="border rounded px-3 py-2"></textarea>
+  </label>
+  <button class="rounded bg-slate-900 text-white px-4 py-2" data-kpi="form_submit">Envoyer</button>
+  <p class="text-sm text-slate-500">En envoyant, vous acceptez notre <a class="underline" href="/privacy">politique de confidentialité</a>.</p>
+</form>
+
+## <a id="rdv"></a>Prendre un RDV (20 min)
+<div class="mt-6">
+  <iframe
+    src={`${import.meta.env.PUBLIC_CALENDLY_URL}?hide_event_type_details=1&hide_gdpr_banner=1`}
+    width="100%" height="700" frameborder="0"></iframe>
+</div>
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>

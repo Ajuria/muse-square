@@ -1,0 +1,37 @@
+---
+title: "Home"
+---
+import Hero from "../src/components/Hero.astro";
+import OfferCard from "../src/components/OfferCard.astro";
+
+<Hero
+  title="Data & Engagement for Culture, Tourism & Premium Lifestyle"
+  subtitle="Mesurer ce qui compte. Activer ce qui performe."
+  cta1={{ label: "Télécharger les fiches offres (PDF)", href: "/offres#pdf" }}
+  cta2={{ label: "Prendre un RDV de 20 min (Calendly)", href: "/contact#rdv" }}
+/>
+
+### Preuves
+- **15+ ans** entre culture & premium lifestyle
+- **Modern data stack** (BigQuery, dbt, Looker, Airbyte, Python/SQL)
+- **Impact** : attractivité, conversion, fidélisation
+
+### Nos offres (aperçu)
+<div class="grid sm:grid-cols-2 gap-4">
+  <OfferCard
+    title="Blueprint"
+    desc="Vision claire + tracking propre + dashboard exécutif (10–15 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#blueprint" }}
+  />
+  <OfferCard
+    title="Engagement Lift"
+    desc="Segmentation + A/B tests + quick wins mesurables (15–20 j)."
+    cta={{ label: "Voir l’offre", href: "/offres#engagement-lift" }}
+  />
+</div>
+
+### Réassurance
+Logos / noms clés (WTC Memorial, Chantilly, etc.)
+
+> “Mini-témoignage 1 (placeholder véridique)”
+> “Mini-témoignage 2 (placeholder véridique)”
