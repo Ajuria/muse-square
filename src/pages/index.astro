@@ -1,7 +1,24 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Home from '../../content/home.mdx';
+import Hero from '../components/home/Hero.astro';
+import Proofs from '../components/home/Proofs.astro';
+import MiniOffers from '../components/home/MiniOffers.astro';
+import SocialProof from '../components/home/SocialProof.astro';
 ---
+
 <BaseLayout title="Muse Square — Data & Engagement">
-  <Home />
+  <Hero />
+
+  <!-- Divider between blocks -->
+  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+
+  <Proofs />
+
+  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+
+  <MiniOffers />
+
+  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+
+  <SocialProof />
 </BaseLayout>

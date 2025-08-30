@@ -1,0 +1,35 @@
+---
+const items = [
+  { href: '/offres', label: 'Solutions' },
+  { href: '/references', label: 'Références' },
+  { href: '/a-propos', label: 'À propos' },
+  { href: '/contact', label: 'Contact' }
+];
+---
+<header class="w-full bg-background border-b border-border">
+  <nav class="msq-container h-[64px] flex items-center justify-between">
+    <a href="/" class="flex items-center gap-[48px]">
+      <img src="/MuseSquare-logo-NB-OK2.jpg" alt="Muse Square logo" class="h-[32px]" loading="lazy" />
+    </a>
+    <button class="md:hidden p-2" aria-label="Ouvrir le menu" id="menuBtn">
+      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="#000"/></svg>
+    </button>
+    <ul class="hidden md:flex items-center gap-8 font-heading text-[15px] font-medium leading-[24px] capitalize text-primary">
+      {items.map(i => (
+        <li><a class="hover:underline focus:ring-2 focus:ring-ring focus:ring-offset-2" href={i.href}>{i.label}</a></li>
+      ))}
+    </ul>
+  </nav>
+  <div id="mobileMenu" class="md:hidden hidden border-t border-border bg-background">
+    <ul class="msq-container py-4 grid gap-[24px] font-heading text-[15px] font-medium capitalize">
+      {items.map(i => (
+        <li><a class="hover:underline focus:ring-2 focus:ring-ring focus:ring-offset-2 block" href={i.href}>{i.label}</a></li>
+      ))}
+    </ul>
+  </div>
+  <script is:inline>
+    const btn = document.getElementById('menuBtn');
+    const menu = document.getElementById('mobileMenu');
+    btn?.addEventListener('click', () => menu.classList.toggle('hidden'));
+  </script>
+</header>

@@ -1,0 +1,23 @@
+---
+// props: { title, subtitle, cta1, cta2 }
+const {
+  title = "Mesurer ce qui compte. Activer ce qui performe.",
+  subtitle = "Des solutions data pour la culture, le tourisme et le lifestyle",
+  cta1 = { label: "Télécharger les fiches Services (PDF)", href: "/docs/blueprint.pdf" },
+  cta2 = { label: "Prendre un RDV téléphonique (Calendly)", href: "/contact#rdv" },
+} = Astro.props;
+---
+<section class="mx-auto max-w-[1140px] px-[24px] pt-[100px] pb-[60px]">
+  <h1 class="font-heading font-bold text-[48px] leading-[1.1] text-primary max-w-[900px]">{title}</h1>
+  <p class="mt-4 text-[20px] leading-[1.6] text-secondary max-w-[800px]">{subtitle}</p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    <a href={cta1.href}
+       class="font-heading font-medium text-[16px] underline-offset-2 hover:underline
+              focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+       data-kpi="download_pdf">{cta1.label}</a>
+    <a href={cta2.href}
+       class="font-heading font-medium text-[16px] underline-offset-2 hover:underline
+              focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+       data-kpi="cta_calendly">{cta2.label}</a>
+  </div>
+</section>

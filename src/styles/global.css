@@ -2,4 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --msq-accent: #0f172a; } /* Slate-900 */
+@layer base {
+  html { @apply bg-background text-text; }
+  body { @apply antialiased; }
+  h1,h2,h3,h4 { @apply font-heading text-primary; }
+  a { @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2; }
+}
+
+.skip-link {
+  position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
+}
+.skip-link:focus {
+  left: 16px; top: 16px; width: auto; height: auto; padding: 8px 12px; background: #000; color: #fff; z-index: 50;
+}
+
+@layer components {
+  .msq-container { @apply mx-auto max-w-msq px-[16px] md:px-[16px] lg:px-[24px]; }
+  .msq-btn {
+    @apply uppercase tracking-button font-bold text-[16px] h-[48px] px-4 border border-black bg-transparent text-black
+           hover:bg-primary hover:text-white active:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .msq-input { @apply h-[44px] px-[12px] border border-border rounded-[4px] bg-background placeholder:italic placeholder:text-[#999] text-[16px]; }
+  .msq-textarea { @apply px-[12px] py-[12px] border border-border rounded-[4px] bg-background placeholder:italic placeholder:text-[#999] text-[16px]; }
+  .msq-divider { @apply border-t border-border my-[32px] md:my-[40px] lg:my-[60px]; }
+}
+
+.prose ul { list-style: disc; list-style-position: inside; }
