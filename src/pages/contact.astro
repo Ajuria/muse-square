@@ -1,7 +1,46 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Contact from '../../content/contact.mdx';
 ---
+
 <BaseLayout title="Contact — Muse Square">
-  <article class="prose max-w-none"><Contact /></article>
+  <!-- Hero banner (placeholder) -->
+  <section class="w-full aspect-[1440/500] bg-muted" aria-hidden="true"></section>
+
+  <!-- Intro -->
+  <section class="mx-auto max-w-[1140px] px-[24px] pt-[100px] pb-[60px] text-center">
+    <h1 class="font-heading font-bold text-[32px] text-primary">Contact</h1>
+    <p class="mt-4 mx-auto max-w-[800px] font-body text-[18px] leading-[28px] text-secondary">
+      Vous avez besoin d’un accompagnement personnalisé ? Laissez-nous votre message
+      ou planifiez un rendez-vous téléphonique.
+    </p>
+  </section>
+
+  <!-- Form -->
+  <section class="mx-auto max-w-[700px] px-[24px] pb-[100px]">
+    <form class="space-y-5" method="post" action="#">
+      <div>
+        <label class="block font-heading text-[14px]">Nom</label>
+        <input class="h-[44px] w-full px-[12px] border border-border rounded bg-white" placeholder="Votre nom" />
+      </div>
+      <div>
+        <label class="block font-heading text-[14px]">Email</label>
+        <input type="email" class="h-[44px] w-full px-[12px] border border-border rounded bg-white" placeholder="vous@example.com" />
+      </div>
+      <div>
+        <label class="block font-heading text-[14px]">Organisation</label>
+        <input class="h-[44px] w-full px-[12px] border border-border rounded bg-white" placeholder="Votre organisation" />
+      </div>
+      <div>
+        <label class="block font-heading text-[14px]">Message</label>
+        <textarea rows="5" class="w-full px-[12px] py-[12px] border border-border rounded bg-white" placeholder="Expliquez votre besoin…"></textarea>
+      </div>
+      <button type="submit" class="font-heading font-bold text-[16px] uppercase border border-black px-4 py-3 hover:bg-black hover:text-white">
+        Envoyer
+      </button>
+      <a href="/contact#rdv" class="font-heading text-[16px] ml-4 hover:underline">Planifier un RDV de 20 min</a>
+    </form>
+
+    <!-- Calendly placeholder anchor -->
+    <div id="rdv" class="mt-10"></div>
+  </section>
 </BaseLayout>

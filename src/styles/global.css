@@ -2,29 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Base type ---------- */
 @layer base {
-  html { @apply bg-background text-text; }
-  body { @apply antialiased; }
-  h1,h2,h3,h4 { @apply font-heading text-primary; }
-  a { @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2; }
+  html, body { @apply bg-background text-text; }
+  body { @apply font-body; }
+  h1, h2, h3 { @apply font-heading text-primary; }
 }
 
-.skip-link {
-  position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
-}
-.skip-link:focus {
-  left: 16px; top: 16px; width: auto; height: auto; padding: 8px 12px; background: #000; color: #fff; z-index: 50;
-}
-
+/* ---------- Site utilities (single source of truth) ---------- */
 @layer components {
-  .msq-container { @apply mx-auto max-w-msq px-[16px] md:px-[16px] lg:px-[24px]; }
-  .msq-btn {
-    @apply uppercase tracking-button font-bold text-[16px] h-[48px] px-4 border border-black bg-transparent text-black
-           hover:bg-primary hover:text-white active:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-  .msq-input { @apply h-[44px] px-[12px] border border-border rounded-[4px] bg-background placeholder:italic placeholder:text-[#999] text-[16px]; }
-  .msq-textarea { @apply px-[12px] py-[12px] border border-border rounded-[4px] bg-background placeholder:italic placeholder:text-[#999] text-[16px]; }
-  .msq-divider { @apply border-t border-border my-[32px] md:my-[40px] lg:my-[60px]; }
-}
+  /* Headings */
+  .ms-h1 { @apply font-heading font-bold text-[28px] sm:text-[32px] lg:text-[36px] leading-[1.1] lg:whitespace-nowrap text-primary; }
+  .ms-h2 { @apply font-heading font-bold text-[28px] leading-[36px] text-primary; }
+  .ms-h3 { @apply font-heading font-bold text-[24px] leading-[32px] text-primary; }
 
-.prose ul { list-style: disc; list-style-position: inside; }
+  /* Lead / subtitle text */
+  .ms-lead { @apply font-body text-[18px] leading-[28px] text-secondary max-w-[800px]; }
+  /* (If you ever want 16px on small screens only, you can do: sm:text-[16px] here) */
+
+  /* Layout tokens */
+  /* Max width 1140px, px 16 on mobile/tablet, px 24 on desktop */
+  .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
+
+  /* Major sections: 40 (mobile), 60 (tablet), 100 (desktop) */
+  .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
+
+  /* Divider: 32 (mobile), 40 (tablet), 60 (desktop) */
+  .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px]; }
+
+  /* Links & Buttons */
+  .msq-link {
+    @apply font-heading font-medium text-[16px] text-primary
+           hover:underline underline-offset-2
+           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .msq-btn-ghost {
+    @apply uppercase tracking-[0.5px] font-bold text-[16px]
+           border border-black px-4 py-3
+           hover:bg-primary hover:text-white
+           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+}

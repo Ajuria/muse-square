@@ -1,7 +1,104 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Offres from '../../content/offres.mdx';
 ---
-<BaseLayout title="Offres — Muse Square">
-  <article class="prose max-w-none"><Offres /></article>
+<BaseLayout title="Solutions — Muse Square">
+  <!-- Hero banner (placeholder image area) -->
+  <section class="w-full aspect-[1440/500] bg-muted" aria-hidden="true"></section>
+
+  <!-- Intro block -->
+  <section class="mx-auto max-w-[1140px] px-[24px] pt-[100px] pb-[60px]">
+    <h1 class="ms-h1">Solutions</h1>
+    <p class="mt-[16px] max-w-[800px] font-body text-[18px] leading-[28px] text-secondary">
+      Nos solutions pour transformer vos données en leviers de décision et de développement.
+    </p>
+  </section>
+
+  <div class="border-t border-border my-[60px]"></div>
+
+  <!-- Offer 1: Blueprint -->
+  <section id="blueprint" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+    <div>
+      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Blueprint — Vision & feuille de route data</h2>
+      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">Vos données au service de votre stratégie</p>
+
+      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
+        <li>Cadrage objectifs & KPI</li>
+        <li>Cartographie des données</li>
+        <li>Roadmap priorisée</li>
+      </ul>
+
+      <div class="mt-6">
+        <p class="font-heading font-semibold text-[16px]">Résultat</p>
+        <p class="font-body text-[16px] text-secondary">Vision claire + plan d’action priorisé.</p>
+      </div>
+
+      <div class="mt-6 flex gap-4">
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_blueprint_contact">Contactez-nous</a>
+        <a href="/docs/blueprint.pdf" class="msq-btn-ghost" data-kpi="download_pdf_blueprint">Télécharger</a>
+      </div>
+    </div>
+
+    <!-- Image placeholder -->
+    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
+  </section>
+
+  <div class="border-t border-border my-[60px]"></div>
+
+  <!-- Offer 2: Engagement Lift -->
+  <section id="engagement-lift" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+    <div>
+      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Engagement Lift — Croissance & diversification des publics</h2>
+      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">Vos données au service de vos publics et visiteurs</p>
+
+      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
+        <li>Segmentation & ciblage</li>
+        <li>AB tests & quick wins mesurables</li>
+        <li>Itération orientée impact</li>
+      </ul>
+
+      <div class="mt-6">
+        <p class="font-heading font-semibold text-[16px]">Résultat</p>
+        <p class="font-body text-[16px] text-secondary">+ attractivité, + conversion, + fidélisation.</p>
+      </div>
+
+      <div class="mt-6 flex gap-4">
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_engagement_contact">Contactez-nous</a>
+        <a href="/docs/engagement-lift.pdf" class="msq-btn-ghost" data-kpi="download_pdf_engagement">Télécharger</a>
+      </div>
+    </div>
+
+    <!-- Image placeholder -->
+    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
+  </section>
+
+  <div class="border-t border-border my-[60px]"></div>
+
+  <!-- Offer 3: Part-time Analytics -->
+  <section id="fractional-analytics" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+    <div>
+      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Part-time Analytics (DA/AE)</h2>
+      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">
+        Renfort analytique à temps partiel (1–2 j/sem) pour prioriser, instrumenter et itérer sur vos KPIs.
+      </p>
+
+      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
+        <li>Disponibilité flexible</li>
+        <li>Analyses ad-hoc & instrumentation d’événements</li>
+        <li>Amélioration continue des dashboards & KPIs</li>
+      </ul>
+
+      <div class="mt-6">
+        <p class="font-heading font-semibold text-[16px]">Résultat</p>
+        <p class="font-body text-[16px] text-secondary">Velocity sans recruter, impact mesurable rapidement.</p>
+      </div>
+
+      <div class="mt-6 flex gap-4">
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_fractional_contact">Contactez-nous</a>
+        <a href="/docs/part-time-analytics.pdf" class="msq-btn-ghost" data-kpi="download_pdf_fractional">Télécharger</a>
+      </div>
+    </div>
+
+    <!-- Image placeholder -->
+    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
+  </section>
 </BaseLayout>
