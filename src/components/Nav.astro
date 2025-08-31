@@ -1,35 +1,83 @@
 ---
 const items = [
-  { href: '/offres', label: 'Solutions' },
-  { href: '/references', label: 'Références' },
-  { href: '/a-propos', label: 'À propos' },
-  { href: '/contact', label: 'Contact' }
+  { href: '/offres',      label: 'Solutions' },
+  { href: '/references',  label: 'Références' },
+  { href: '/a-propos',    label: 'À propos' },
+  { href: '/contact',     label: 'Contact' }
 ];
+
+// active path for aria-current
+const pathname = Astro.url.pathname;
+
 ---
-<header class="w-full bg-background border-b border-border">
-  <nav class="msq-container h-[64px] flex items-center justify-between">
-    <a href="/" class="flex items-center gap-[48px]">
-      <img src="/MuseSquare-logo-NB-OK2.jpg" alt="Muse Square logo" class="h-[32px]" loading="lazy" />
+<header class="sticky top-0 z-50 w-full bg-background border-b border-border">
+  <nav class="ms-container py-3 md:py-4 flex items-center justify-between">
+
+    <!-- Logo (responsive heights; matches old UI feel) -->
+    <a href="/" class="flex items-center gap-[16px]">
+      <img
+        src="/images/muse-square-logo.png?v=2"
+        alt="Muse Square logo"
+        class="block h-8 md:h-10 lg:h-10 w-auto object-contain"
+        loading="lazy"
+        decoding="async"
+      />
     </a>
-    <button class="md:hidden p-2" aria-label="Ouvrir le menu" id="menuBtn">
-      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="#000"/></svg>
+
+    <!-- Mobile menu button -->
+    <button
+      id="menuBtn"
+      class="md:hidden p-2"
+      aria-label="Ouvrir le menu"
+      aria-controls="mobileMenu"
+      aria-expanded="false"
+    >
+      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6h18M3 12h18M3 18h18" stroke="#000"/>
+      </svg>
     </button>
-    <ul class="hidden md:flex items-center gap-8 font-heading text-[15px] font-medium leading-[24px] capitalize text-primary">
+
+    <!-- Desktop nav -->
+    <ul class="hidden md:flex items-center gap-8 font-heading text-[15px] font-medium leading-[24px] uppercase tracking-[0.5px] text-primary">
       {items.map(i => (
-        <li><a class="hover:underline focus:ring-2 focus:ring-ring focus:ring-offset-2" href={i.href}>{i.label}</a></li>
+        <li>
+          <a
+            href={i.href}
+            aria-current={pathname === i.href ? 'page' : undefined}
+            class="hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            {i.label}
+          </a>
+        </li>
       ))}
     </ul>
   </nav>
+
+  <!-- Mobile nav -->
   <div id="mobileMenu" class="md:hidden hidden border-t border-border bg-background">
-    <ul class="msq-container py-4 grid gap-[24px] font-heading text-[15px] font-medium capitalize">
+    <ul class="ms-container py-4 grid gap-[24px] font-heading text-[15px] font-medium uppercase tracking-[0.5px]">
       {items.map(i => (
-        <li><a class="hover:underline focus:ring-2 focus:ring-ring focus:ring-offset-2 block" href={i.href}>{i.label}</a></li>
+        <li>
+          <a
+            href={i.href}
+            aria-current={pathname === i.href ? 'page' : undefined}
+            class="block hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            {i.label}
+          </a>
+        </li>
       ))}
     </ul>
   </div>
+
   <script is:inline>
     const btn = document.getElementById('menuBtn');
     const menu = document.getElementById('mobileMenu');
-    btn?.addEventListener('click', () => menu.classList.toggle('hidden'));
+    btn?.addEventListener('click', () => {
+      menu.classList.toggle('hidden');
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!expanded));
+    });
   </script>
 </header>
+

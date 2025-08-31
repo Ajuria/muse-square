@@ -10,16 +10,15 @@ import Nav from '../components/Nav.astro';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
   </head>
-  <body class="h-full bg-white text-slate-900">
+  <body>
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
       Aller au contenu principal
     </a>
 
-    <!-- ✅ Nav appears here -->
+    <!-- Site header (Nav renders its own header + ms-container/sticky) -->
     <Nav />
 
-    <main id="main" class="mx-auto max-w-[1140px] px-[24px]">
+    <!-- Main content rail -->
+    <main id="main" class="ms-container ms-first-tight">
       <slot />
     </main>
-  </body>
-</html>

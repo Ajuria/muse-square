@@ -12,7 +12,7 @@
 /* ---------- Site utilities (single source of truth) ---------- */
 @layer components {
   /* Headings */
-  .ms-h1 { @apply font-heading font-bold text-[28px] sm:text-[32px] lg:text-[36px] leading-[1.1] lg:whitespace-nowrap text-primary; }
+  .ms-h1 { @apply font-heading font-normal text-[28px] sm:text-[32px] lg:text-[36px] leading-[1.1] lg:whitespace-nowrap text-primary; }
   .ms-h2 { @apply font-heading font-bold text-[28px] leading-[36px] text-primary; }
   .ms-h3 { @apply font-heading font-bold text-[24px] leading-[32px] text-primary; }
 
@@ -28,7 +28,7 @@
   .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
 
   /* Divider: 32 (mobile), 40 (tablet), 60 (desktop) */
-  .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px]; }
+  .ms-divider { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
 
   /* Links & Buttons */
   .msq-link {
@@ -37,10 +37,27 @@
            focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
   }
 
+  /* Bouton ghost normalisé */
   .msq-btn-ghost {
-    @apply uppercase tracking-[0.5px] font-bold text-[16px]
-           border border-black px-4 py-3
-           hover:bg-primary hover:text-white
-           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+    @apply inline-flex items-center justify-center
+         h-[44px] px-3
+         font-heading uppercase tracking-[0.5px] font-bold text-[14px] md:text-[16px]
+         border border-black bg-transparent text-black
+         hover:bg-black hover:text-white
+         focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+}
+
+@layer utilities {
+  /* Fixed header height (fits 32/40px logo) */
+  .ms-nav-h { @apply h-[64px] md:h-[72px]; }
+
+  /* Page offset equal to header height */
+  .ms-main-offset { @apply pt-[64px] md:pt-[72px]; }
+
+  /* Keep the first content block tight under the header */
+  .ms-first-tight > *:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 }

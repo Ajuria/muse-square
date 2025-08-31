@@ -1,24 +1,62 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Hero from '../components/home/Hero.astro';
 import Proofs from '../components/home/Proofs.astro';
 import MiniOffers from '../components/home/MiniOffers.astro';
 import SocialProof from '../components/home/SocialProof.astro';
 ---
 
 <BaseLayout title="Muse Square — Data & Engagement">
-  <Hero />
+  <!-- Full-bleed decorative hero banner with text overlay (PNG-only for now) -->
+  <section
+    class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]"
+  >
+    <picture class="absolute inset-0" aria-hidden="true">
+      <!-- Desktop PNG -->
+      <source
+        srcset="/images/home-hero-1440x500.png"
+        media="(min-width: 768px)"
+        type="image/png" />
+      <!-- Mobile PNG -->
+      <source
+        srcset="/images/home-hero-768x300.png"
+        media="(max-width: 767px)"
+        type="image/png" />
+      <!-- Fallback -->
+      <img
+        src="/images/home-hero-768x300.png"
+        alt=""
+        width="1440" height="500"
+        class="w-full h-full object-cover"
+        loading="eager" decoding="async" />
+    </picture>
 
-  <!-- Divider between blocks -->
-  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+    <!-- Overlay content (inside banner) -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <div>
+          <h1 class="ms-h1">Mesurez ce qui compte. Activez ce qui performe</h1>
+          <p class="mt-[16px] ms-lead italic text-[20px]">
+            La data au service de l'art, la culture et le tourisme
+          </p>
+          <div class="mt-[16px] flex flex-wrap gap-3">
+            <a href="/offres"  class="msq-btn-ghost" data-kpi="cta_view_offres">Consulter offres</a>
+            <a href="/contact" class="msq-btn-ghost" data-kpi="cta_contact">Nous contacter</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
+  <!-- Rest of the home page -->
   <Proofs />
 
-  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+  <!-- Content-width divider (main already supplies the rail) -->
+  <div class="ms-divider"></div>
 
   <MiniOffers />
 
-  <div class="border-t border-border my-[60px] sm:my-[40px]"></div>
+  <!-- Content-width divider (main already supplies the rail) -->
+  <div class="ms-divider"></div>
 
   <SocialProof />
 </BaseLayout>
