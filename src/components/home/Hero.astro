@@ -2,39 +2,20 @@
 const {
   title = 'Mesurez ce qui compte. Activez ce qui performe.',
   subtitle = 'Des solutions data pour la culture, le tourisme et le lifestyle',
-  cta1 = { label: 'Télécharger les fiches Services (PDF)', href: '/docs/blueprint.pdf' },
-  cta2 = { label: 'Prendre un RDV téléphonique (Calendly)', href: '/contact#rdv' },
+  cta1 = { label: 'Consulter offres', href: '/offres' },
+  cta2 = { label: 'Nous contacter', href: '/contact' },
 } = Astro.props;
 ---
-<section class="max-w-[1140px] mx-auto px-[24px] pt-[100px] pb-[60px]">
-  <h1
-    class="font-heading font-bold text-[28px] sm:text-[32px] lg:text-[36px] leading-[1.1] text-primary lg:whitespace-nowrap"
-  >
-    {title}
-  </h1>
-
-  <p class="mt-[16px] font-body text-[18px] leading-[1.6] text-secondary max-w-[800px]">
-    {subtitle}
-  </p>
+<section class="ms-container pt-[100px] pb-[60px]">
+  <h1 class="ms-h1">{title}</h1>
+  <p class="mt-[16px] ms-lead">{subtitle}</p>
 
   <div class="mt-[16px] flex flex-wrap gap-3">
-    {cta1 && (
-      <a
-        href={cta1.href}
-        class="font-heading font-medium text-[16px] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        data-kpi="download_pdf"
-      >
-        {cta1.label}
-      </a>
-    )}
-    {cta2 && (
-      <a
-        href={cta2.href}
-        class="font-heading font-medium text-[16px] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        data-kpi="cta_calendly"
-      >
-        {cta2.label}
-      </a>
-    )}
+    <a href={cta1.href} class="msq-btn-ghost" data-kpi="cta_view_offres">
+      {cta1.label}
+    </a>
+    <a href={cta2.href} class="msq-btn-ghost" data-kpi="cta_contact">
+      {cta2.label}
+    </a>
   </div>
 </section>
