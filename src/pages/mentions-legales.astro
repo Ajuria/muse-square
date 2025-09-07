@@ -5,16 +5,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <BaseLayout title="Mentions légales — Muse Square">
   <section class="ms-section">
     <div class="max-w-[900px]">
+      <!-- Page title -->
+      <h1 class="ms-h1 mb-[24px] md:mb-[32px]">
+        Mentions légales &amp; Politique de confidentialité
+      </h1>
 
-      <!-- Page title with extra bottom space -->
-      <h1 class="ms-h1 mb-[24px] md:mb-[32px]">Mentions légales &amp; Politique de confidentialité</h1>
-
-      <!-- Helpers (match CGU page) -->
+      <!-- Helpers (no @layer) -->
       <style is:global>
         .legal-h2   { @apply font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]; }
         .legal-h3   { @apply font-heading text-[18px] leading-[26px] text-primary mt-[14px]; }
-        .legal-body { @apply ms-body text-secondary mt-[8px]; }
-        .legal-list { @apply list-disc pl-5 ms-body text-secondary mt-[8px] space-y-1; }
+        .legal-body { @apply font-body text-[18px] leading-[28px] text-secondary mt-[8px]; }
+        .legal-list { @apply list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1; }
       </style>
 
       <!-- 1. Mentions légales -->
@@ -143,7 +144,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         Vous pouvez configurer votre navigateur pour bloquer les cookies ou être averti lors de leur dépôt. Le refus de
         certains cookies peut toutefois limiter des fonctionnalités du site.
       </p>
-
     </div>
   </section>
 </BaseLayout>
