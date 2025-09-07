@@ -1,14 +1,15 @@
 ---
 const {
-  title = 'Mesurez ce qui compte. Activez ce qui performe.',
-  subtitle = 'Des solutions data pour la culture, le tourisme et le lifestyle',
+  title = 'Comprenez votre audience, développez ce qui performe',
+  subtitle = 'La data au service de la culture et du tourisme',
   cta1 = { label: 'Consulter offres', href: '/offres' },
   cta2 = { label: 'Nous contacter', href: '/contact' },
 } = Astro.props;
 ---
-<section class="ms-container pt-[100px] pb-[60px]">
+
+<section class="ms-section">
   <h1 class="ms-h1">{title}</h1>
-  <p class="mt-[16px] ms-lead">{subtitle}</p>
+  <p class="mt-[16px] ms-lead italic font-bold">{subtitle}</p>
 
   <div class="mt-[16px] flex flex-wrap gap-3">
     <a href={cta1.href} class="msq-btn-ghost" data-kpi="cta_view_offres">

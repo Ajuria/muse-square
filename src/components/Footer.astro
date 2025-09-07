@@ -1,36 +1,59 @@
+---
+const year = new Date().getFullYear();
+---
+
 <footer class="w-full bg-background border-t border-border">
-  <div class="msq-container py-[48px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-[32px]">
-    <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase text-primary mb-[16px]">Muse Square</h4>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/a-propos">À propos</a>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/references">Références</a>
+  <!-- Top row: Logo + 3 columns (single separator only at top of footer) -->
+  <div class="ms-container py-[48px] grid grid-cols-1 md:grid-cols-4 gap-[32px] items-start">
+    <!-- Brand (smaller to align visually with column headings) -->
+    <div class="flex items-center md:items-start">
+      <img
+        src="/images/muse-square-logo.png?v=2"
+        alt="Muse Square"
+        class="h-[28px] w-auto object-contain"
+      />
     </div>
+
+    <!-- Column 1 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase text-primary mb-[16px]">Services</h4>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/offres#blueprint">Blueprint</a>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/offres#engagement-lift">Engagement Lift</a>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/offres#pdf">Télécharger nos offres</a>
+      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+        Muse Square
+      </h4>
+      <ul class="mt-[12px] space-y-[8px]">
+        <li><a href="/a-propos"   class="font-heading text-[14px] md:text-[16px] hover:opacity-80">À propos</a></li>
+        <li><a href="/references" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Références</a></li>
+        <li><a href="https://www.linkedin.com/company/muse-square" target="_blank" rel="noopener noreferrer" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">LinkedIn</a></li>
+      </ul>
     </div>
+
+    <!-- Column 2 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase text-primary mb-[16px]">Mentions légales</h4>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/mentions-legales">Mentions légales</a>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="/privacy">Protections des données</a>
+      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+        Services
+      </h4>
+      <ul class="mt-[12px] space-y-[8px]">
+        <li><a href="/offres#blueprint"            class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Feuille de route data</a></li>
+        <li><a href="/offres#engagement-lift"      class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Engagement & Fidélisation</a></li>
+        <li><a href="/offres#fractional-analytics" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Analyste data à temps partiel</a></li>
+      </ul>
     </div>
+
+    <!-- Column 3 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase text-primary mb-[16px]">Contact</h4>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="mailto:hello@musesquare.com" data-kpi="click_email">Email</a>
-      <a class="block font-body text-[13px] capitalize leading-[20px] hover:underline mb-[8px]" href="https://www.linkedin.com/" target="_blank" rel="noreferrer" data-kpi="click_linkedin">LinkedIn</a>
+      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+        Mentions légales
+      </h4>
+      <ul class="mt-[12px] space-y-[8px]">
+        <li><a href="/mentions-legales"     class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Mentions légales</a></li>
+        <li><a href="/conditions-generales" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Conditions générales d’utilisation</a></li>
+      </ul>
     </div>
   </div>
-  <div class="msq-container flex flex-col md:flex-row items-center justify-between mt-[40px] pt-[24px] border-t border-border gap-4">
-    <div class="flex items-center gap-3">
-      <img src="/MuseSquare-logo-NB-OK2.jpg" alt="Muse Square logo" class="h-[24px] grayscale" />
-      <span class="text-[12px] text-[#777]">© Muse Square {new Date().getFullYear()}. All rights reserved</span>
-    </div>
-    <div class="flex items-center gap-[16px]">
-      <a aria-label="LinkedIn" href="https://www.linkedin.com/" target="_blank" rel="noreferrer">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8h4V24h-4V8zm7.98 0h3.84v2.2h.06c.54-1.02 1.86-2.1 3.83-2.1 4.1 0 4.86 2.7 4.86 6.22V24h-4v-6.8c0-1.62-.03-3.71-2.26-3.71-2.26 0-2.61 1.77-2.61 3.6V24h-4V8z"/></svg>
-      </a>
-    </div>
+
+  <!-- Bottom row: centered copyright, no logo, no social icons, more space from bottom -->
+  <div class="ms-container flex justify-center pt-[12px] pb-[48px]">
+    <span class="ms-body text-[14px] opacity-80 text-secondary text-center">
+      © Muse Square {year}. Tous droits réservés.
+    </span>
   </div>
 </footer>

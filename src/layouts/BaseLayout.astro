@@ -2,6 +2,7 @@
 const { title = 'Muse Square' } = Astro.props;
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
 ---
 <!doctype html>
 <html lang="fr">
@@ -9,17 +10,25 @@ import Nav from '../components/Nav.astro';
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+
+    <!-- Favicons -->
+    <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+    <link rel="shortcut icon" href="/favicon-32.png?v=2" />
   </head>
-  <body class="h-full bg-white text-slate-900">
+  <body>
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
       Aller au contenu principal
     </a>
 
-    <!-- ✅ Nav appears here -->
     <Nav />
 
-    <main id="main" class="mx-auto max-w-[1140px] px-[24px]">
+    <main id="main" class="ms-container ms-first-tight">
       <slot />
     </main>
+
+    <Footer />
   </body>
 </html>

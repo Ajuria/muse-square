@@ -2,37 +2,267 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout title="À propos — Muse Square">
-  <section>
-    <h1 class="ms-h1">À propos de Muse Square</h1>
-    <p class="ms-lead mt-4">Présentation courte placeholder…</p>
-  </section>
+  <!-- Full-bleed hero with overlay title -->
+  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
+    <!-- Background image -->
+    <picture class="absolute inset-0 block" aria-hidden="true">
+      <source srcset="/images/banner-apropos-300k.svg" type="image/svg+xml" />
+      <img
+        src="/images/banner-apropos-300k.svg"
+        alt=""
+        class="w-full h-full object-cover"
+        sizes="100vw"
+        loading="eager"
+        decoding="async"
+      />
+    </picture>
 
-  <div class="ms-divider"></div>
+    <!-- Subtle overlay for legibility -->
+    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
 
-  <section class="grid lg:grid-cols-2 gap-[48px]">
-    <div class="justify-self-center"><div class="w-[300px] h-[300px] rounded-full bg-muted" aria-hidden="true"></div></div>
-    <div>
-      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Qui sommes-nous</h2>
-      <p class="ms-lead mt-3">Texte placeholder…</p>
+    <!-- Overlay title -->
+    <!-- Overlay title -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <h1 class="ms-h1 text-primary">L’expertise derrière Muse Square</h1>
+      </div>
     </div>
   </section>
 
-  <div class="ms-divider"></div>
+  <!-- QUI NOUS SOMMES (replaces the old intro section) -->
+  <section class="ms-section" aria-labelledby="about-who">
+    <h2
+      id="about-who"
+      class="font-heading font-bold uppercase text-[28px] leading-[36px] tracking-[0.5px] text-center text-primary"
+    >
+      Qui nous sommes
+    </h2>
 
-  <section class="grid lg:grid-cols-2 gap-[48px]">
-    <div>
-      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Ce que nous faisons</h2>
-      <ul class="mt-4 space-y-4">
-        <li>
-          <h3 class="font-heading font-semibold text-[20px]">Pilier 1</h3>
-          <p class="font-body text-[16px] leading-[1.6] text-secondary">Description…</p>
-        </li>
-        <li>
-          <h3 class="font-heading font-semibold text-[20px]">Pilier 2</h3>
-          <p class="font-body text-[16px] leading-[1.6] text-secondary">Description…</p>
-        </li>
-      </ul>
+    <div class="mt-[20px] max-w-[800px] mx-auto space-y-[12px] font-body text-[18px] leading-[28px] text-secondary">
+      <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
+        Julen de Ajuriaguerra, expert en data appliquée à la culture et au tourisme
+      </p>
+      <p>          
+        Ancien chercheur à l’Université de Genève et diplômé d’HEC Paris, j’accompagne les musées, les lieux patrimoniaux et les destinations touristiques dans la valorisation stratégique de leurs données.
+        J’ai fondé Muse Square avec une mission claire : rendre la donnée accessible, lisible et directement utile aux équipes culturelles et touristiques. Je pilote personnellement chaque mission, de la phase de cadrage stratégique à l’activation opérationnelle.
+      
+      </p>
+        Pour chaque projet, je constitue une équipe sur-mesure en m’entourant de professionnels spécialisés – analystes, développeurs, designers ou experts métier – en fonction des besoins identifiés. Cette approche garantit à la fois agilité, précision et efficacité.
+        Mon exigence reste la même : transformer vos données en leviers concrets de pilotage, d’action et d’impact mesurable.
+      </p>
     </div>
-    <div class="max-w-[500px]"><div class="w-full aspect-[5/4] bg-muted" aria-hidden="true"></div></div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Connaissance métier -->
+  <section class="ms-section">
+    <div class="grid md:grid-cols-2 gap-[40px]">
+      <!-- Texte -->
+      <div>
+        <h2 class="ms-h2">Notre connaissance métier</h2>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Chaque lieu, chaque projet, chaque territoire a ses propres enjeux : attirer l’attention des publics, 
+          comprendre les usages, évaluer l’impact d’une action culturelle ou touristique.
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Chez Muse Square, nous connaissons les réalités du terrain : temporalités complexes, outils souvent hétérogènes, 
+          diversité des publics, contraintes budgétaires, exigences des financeurs. Nous intervenons auprès d’acteurs aux profils variés, 
+          quel que soit leur niveau de maturité dans l’usage des données.
+        </p>
+       
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Nos dispositifs s’adaptent à vos contextes : que vous partiez de fichiers Excel ou disposiez déjà d’un entrepôt de données, 
+          nous structurons des analyses utiles au pilotage stratégique, à l’action opérationnelle et à la valorisation de vos résultats.
+        </p>
+
+        <!-- LIRE PLUS : heading + list + 'Notre objectif…' entirely inside -->
+        <details class="mt-3 group">
+          <summary class="msq-link font-heading cursor-pointer" data-kpi="about_expand_metier" aria-controls="about-metier-more">
+            <span class="group-open:hidden">Lire plus</span>
+            <span class="hidden group-open:inline">Lire moins</span>
+          </summary>
+
+          <div id="about-metier-more" class="mt-3">
+            <p class="mt-[16px] font-heading font-semibold text-[18px] text-primary">
+              Nous intervenons notamment pour&nbsp;:
+            </p>
+            <ul class="mt-[8px] list-disc pl-5 font-body text-[16px] leading-[26px] text-secondary space-y-[4px]">
+              <li>mesurer l’attractivité d’une exposition, d’un festival ou d’une destination touristique</li>
+              <li>croiser les données de fréquentation physique et d'usage numérique</li>
+              <li>évaluer l’impact de dispositifs de médiation ou des campagnes de communication</li>
+              <li>analyser les retombées économiques, sociales ou médiatiques d’un événement ou d’une saison touristique.</li>
+            </ul>
+
+            <p class="mt-[16px] font-body text-[18px] leading-[28px] text-secondary">
+              Notre objectif&nbsp;: vous aider à piloter avec clarté, partager vos résultats et valoriser l’impact de vos actions
+              auprès de vos parties prenantes.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Visuel (constrain width so it never scales up → no pixelation) -->
+      <div class="md:justify-self-end">
+        <figure class="w-[240px] sm:w-[280px] md:w-[320px] lg:w-[360px]">
+          <img
+            src="/images/metier.png"
+            alt="Julen de Ajuriaguerra"
+            width="360"
+            height="450"
+            class="block w-full h-auto object-contain bg-muted"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Notre approche -->
+  <section class="ms-section">
+    <div class="grid md:grid-cols-2 gap-[40px]">
+      <!-- Texte -->
+      <div>
+        <h2 class="ms-h2">Notre approche</h2>
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Notre méthodologie repose sur une compréhension fine de vos enjeux métiers et de vos systèmes d'information. Chaque mission débute par un audit structuré de vos équipes, de vos processus et de vos flux de données. Nous combinons expertise sectorielle et maîtrise des outils analytiques pour produire des livrables exploitables, orientés résultats. 
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary"> 
+          Notre accompagnement s’adapte aux spécificités de chaque organisation et s’inscrit dans une logique de montée en compétence interne, en s'appuyant sur une méthodologie simple et éprouvée&nbsp;:
+        </p>
+
+        <!-- LIRE PLUS : 3-step block + concluding paragraph inside -->
+        <details class="mt-4 group">
+          <summary class="msq-link font-heading cursor-pointer" data-kpi="about_expand_approche" aria-controls="about-approche-more">
+            <span class="group-open:hidden">Lire plus</span>
+            <span class="hidden group-open:inline">Lire moins</span>
+          </summary>
+
+          <div id="about-approche-more" class="mt-3 space-y-[12px] font-body text-[18px] leading-[28px] text-secondary">
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Cadrer</h3>
+              <p>Identifier les bons indicateurs, clarifier les objectifs et structurer vos flux de données.</p>
+            </div>
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Analyser</h3>
+              <p>Transformer les données en insights pertinents grâce à des méthodes quantitatives et qualitatives adaptées au secteur culturel et touristique.</p>
+            </div>
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Activer</h3>
+              <p>Traduire ces insights en actions concrètes, suivies dans le temps à l’aide de tableaux de bord clairs et partagés.</p>
+            </div>
+
+            <p class="mt-[16px]">
+              Chaque projet inclut un transfert de compétences. Ateliers, documentation, outils pédagogiques et accompagnement
+              continu font partie intégrante de ma démarche&nbsp;: l’objectif est de vous rendre autonomes dans la gestion
+              et l’interprétation de vos données.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Visuel -->
+      <img
+        src="/images/approche.png"
+        alt="Schéma de l’approche Muse Square (cadrer, analyser, activer)"
+        class="w-full max-w-[560px] aspect-[3/2] object-cover shadow-sm md:ml-auto"
+        loading="lazy"
+        decoding="async"
+      />
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Notre bousole (values-model) -->
+  <section class="ms-section">
+    <h2 class="ms-h2">Notre bousole</h2>
+
+    <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+      Chaque mission s’appuie sur un socle de principes concrets, appliqués à chaque étape : cadrage, analyse, restitution, transmission. 
+      Ces engagements structurent notre manière de travailler, orientent nos méthodes et garantissent la qualité des livrables comme des échanges.
+    </p>
+      
+    <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+      Écoute des équipes, rigueur dans l’analyse, éthique des données et autonomie des organisations : quatre piliers qui traduisent notre exigence professionnelle et notre approche orientée résultats.
+    </p>
+
+    <div class="mt-10 md:mt-15 grid md:grid-cols-2 gap-[24px] md:gap-[32px]">
+
+      <!-- Ecoute des équipes -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-network.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Vision transversale</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Prise en compte des attentes métiers à tous les niveaux de l’organisation</li>
+              <li>Méthodologie adaptée aux rôles, expertises et contraintes de chaque équipe</li>
+              <li>Coordination fluide du cadrage stratégique à l’activation opérationnelle</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Rigueur -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-excellence.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Rigueur</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>KPIs alignés avec vos objectifs stratégiques</li>
+              <li>Analyses robustes et recommandations concrètes</li>
+              <li>Livrables conçus selon les meilleures pratiques du secteur</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Éthique -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-hands.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Éthique</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Confidentialité des données sensibles</li>
+              <li>Méthodes transparentes et vérifiables</li>
+              <li>Intégration de critères RSE dans vos KPIs et analyses</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Autonomie -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-key.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Autonomie</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Transfert de compétences intégré à chaque mission</li>
+              <li>Approche inspirée du data mesh pour responsabiliser chaque équipe</li>
+              <li>Montée en indépendance progressive de vos équipes</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+    </div>
   </section>
 </BaseLayout>
