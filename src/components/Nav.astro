@@ -1,24 +1,28 @@
 ---
 const items = [
-  { href: '/offres',      label: 'Solutions' },
-  { href: '/references',  label: 'Références' },
-  { href: '/a-propos',    label: 'À propos' },
-  { href: '/contact',     label: 'Contact' }
+  { href: '/offres',     label: 'Services' },
+  { href: '/references', label: 'Références' },
+  { href: '/a-propos',   label: 'À propos' },
+  { href: '/contact',    label: 'Contact' },
 ];
 
-// active path for aria-current
-const pathname = Astro.url.pathname;
-
+// normalize paths and detect "active" for child routes too
+const normalize = (p: string) => (p.replace(/\/+$/, '') || '/');
+const currentPath = normalize(Astro.url.pathname);
+const isActive = (href: string) => {
+  const h = normalize(href);
+  return currentPath === h || (h !== '/' && currentPath.startsWith(h + '/'));
+};
 ---
+
 <header class="sticky top-0 z-50 w-full bg-background border-b border-border">
   <nav class="ms-container py-3 md:py-4 flex items-center justify-between">
-
-    <!-- Logo (responsive heights; matches old UI feel) -->
+    <!-- Logo -->
     <a href="/" class="flex items-center gap-[16px]">
       <img
         src="/images/muse-square-logo.png?v=2"
         alt="Muse Square logo"
-        class="block h-8 md:h-10 lg:h-10 w-auto object-contain"
+        class="block h-8 md:h-10 w-auto object-contain"
         loading="lazy"
         decoding="async"
       />
@@ -39,12 +43,15 @@ const pathname = Astro.url.pathname;
 
     <!-- Desktop nav -->
     <ul class="hidden md:flex items-center gap-8 font-heading text-[15px] font-medium leading-[24px] uppercase tracking-[0.5px] text-primary">
-      {items.map(i => (
+      {items.map((i) => (
         <li>
           <a
             href={i.href}
-            aria-current={pathname === i.href ? 'page' : undefined}
-            class="hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            aria-current={isActive(i.href) ? 'page' : undefined}
+            class={`font-heading relative inline-block pb-2 transition-opacity
+                     hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
+                     ${isActive(i.href) ? 'after:bg-primary' : 'after:bg-transparent'}`}
           >
             {i.label}
           </a>
@@ -55,13 +62,16 @@ const pathname = Astro.url.pathname;
 
   <!-- Mobile nav -->
   <div id="mobileMenu" class="md:hidden hidden border-t border-border bg-background">
-    <ul class="ms-container py-4 grid gap-[24px] font-heading text-[15px] font-medium uppercase tracking-[0.5px]">
-      {items.map(i => (
+    <ul class="ms-container py-4 grid gap-[24px] font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
+      {items.map((i) => (
         <li>
           <a
             href={i.href}
-            aria-current={pathname === i.href ? 'page' : undefined}
-            class="block hover:underline focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            aria-current={isActive(i.href) ? 'page' : undefined}
+            class={`font-heading relative inline-block pb-2 transition-opacity
+                     hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
+                     ${isActive(i.href) ? 'after:bg-primary' : 'after:bg-transparent'}`}
           >
             {i.label}
           </a>
@@ -73,11 +83,32 @@ const pathname = Astro.url.pathname;
   <script is:inline>
     const btn = document.getElementById('menuBtn');
     const menu = document.getElementById('mobileMenu');
-    btn?.addEventListener('click', () => {
+
+    const toggle = () => {
+      if (!menu || !btn) return;
       menu.classList.toggle('hidden');
       const expanded = btn.getAttribute('aria-expanded') === 'true';
       btn.setAttribute('aria-expanded', String(!expanded));
+    };
+
+    btn?.addEventListener('click', toggle);
+
+    // Close menu on link click (mobile) — JS-only, no TS casts
+    menu?.addEventListener('click', (e) => {
+      const target = e.target;
+      const link = target instanceof Element ? target.closest('a') : null;
+      if (link) {
+        menu.classList.add('hidden');
+        btn?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu && !menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        btn?.setAttribute('aria-expanded', 'false');
+      }
     });
   </script>
 </header>
-

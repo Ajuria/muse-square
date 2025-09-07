@@ -1,7 +1,149 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
+
 <BaseLayout title="Mentions légales — Muse Square">
-  <h1>Mentions légales</h1>
-  <p>(Éditeur, Contact, Hébergeur Vercel — à compléter.)</p>
+  <section class="ms-section">
+    <div class="max-w-[900px]">
+
+      <!-- Page title with extra bottom space -->
+      <h1 class="ms-h1 mb-[24px] md:mb-[32px]">Mentions légales &amp; Politique de confidentialité</h1>
+
+      <!-- Helpers (match CGU page) -->
+      <style is:global>
+        .legal-h2   { @apply font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]; }
+        .legal-h3   { @apply font-heading text-[18px] leading-[26px] text-primary mt-[14px]; }
+        .legal-body { @apply ms-body text-secondary mt-[8px]; }
+        .legal-list { @apply list-disc pl-5 ms-body text-secondary mt-[8px] space-y-1; }
+      </style>
+
+      <!-- 1. Mentions légales -->
+      <h2 class="legal-h2">1. Mentions légales</h2>
+
+      <h3 class="legal-h3">1.1. Éditeur du site</h3>
+      <p class="legal-body">
+        Le site www.musesquare.com est édité par Muse Square, [Association loi 1901 / SAS / autre],
+        dont le siège social est situé à [adresse complète].<br />
+        Numéro SIRET : [à renseigner] — TVA intracommunautaire : [à renseigner]<br />
+        Directeur de la publication : [Nom et fonction]<br />
+        Contact : [adresse email] — [numéro de téléphone]
+      </p>
+
+      <h3 class="legal-h3">1.2. Hébergement</h3>
+      <p class="legal-body">
+        Le site est hébergé par [Nom de l’hébergeur], situé à [adresse complète], joignable au [numéro de l’hébergeur].
+      </p>
+
+      <h3 class="legal-h3">1.3. Propriété intellectuelle</h3>
+      <p class="legal-body">
+        Tous les éléments du site (textes, images, graphismes, logos, vidéos, codes sources) sont protégés par le
+        Code de la propriété intellectuelle. Toute reproduction ou adaptation, totale ou partielle, sans accord écrit
+        préalable, est interdite et pourra engager la responsabilité de son auteur.
+      </p>
+
+      <h3 class="legal-h3">1.4. Responsabilité</h3>
+      <p class="legal-body">
+        Muse Square met tout en œuvre pour assurer l’exactitude des informations diffusées. Néanmoins, aucune garantie
+        n’est apportée quant à leur exhaustivité ou leur actualité. L’utilisateur reconnaît utiliser le site sous sa
+        responsabilité exclusive. Muse Square ne pourra être tenue responsable des dommages directs ou indirects liés à
+        l’utilisation du site, ni du contenu des sites accessibles via des liens hypertextes.
+      </p>
+
+      <h3 class="legal-h3">1.5. Droit applicable</h3>
+      <p class="legal-body">
+        Les présentes mentions légales sont régies par le droit français. Tout litige sera soumis aux tribunaux
+        compétents du ressort du siège social de Muse Square.
+      </p>
+
+      <!-- 2. Politique de confidentialité -->
+      <h2 class="legal-h2">2. Politique de confidentialité</h2>
+
+      <h3 class="legal-h3">2.1. Objet de la politique</h3>
+      <p class="legal-body">
+        Cette politique explique comment Muse Square collecte, utilise et protège vos données personnelles dans le
+        cadre de l’utilisation du site www.musesquare.com.
+      </p>
+
+      <h3 class="legal-h3">2.2. Données collectées</h3>
+      <ul class="legal-list">
+        <li>Informations de contact (nom, prénom, email, téléphone) via les formulaires du site ;</li>
+        <li>Données de navigation (IP anonymisée, pages consultées, durée de visite) via Google Analytics 4 ;</li>
+        <li>Préférences cookies (consentements et choix).</li>
+      </ul>
+      <p class="legal-body">
+        Muse Square ne collecte pas de données sensibles au sens du RGPD.
+      </p>
+
+      <h3 class="legal-h3">2.3. Finalités et base légale</h3>
+      <ul class="legal-list">
+        <li>Répondre à vos demandes de contact ;</li>
+        <li>Assurer le suivi de la relation avec les utilisateurs ;</li>
+        <li>Analyser la fréquentation et améliorer le site.</li>
+      </ul>
+      <p class="legal-body">
+        Ces traitements reposent sur votre consentement (cookies, newsletter), sur l’exécution d’un contrat
+        (réponse à vos demandes) et sur notre intérêt légitime (sécurité, amélioration continue).
+      </p>
+
+      <h3 class="legal-h3">2.4. Durée de conservation</h3>
+      <p class="legal-body">
+        Les données de contact sont conservées jusqu’à trois ans après le dernier échange. Les données issues des cookies
+        / GA4 sont conservées treize mois maximum.
+      </p>
+
+      <h3 class="legal-h3">2.5. Destinataires des données</h3>
+      <p class="legal-body">
+        Les données sont traitées par Muse Square et, le cas échéant, par ses prestataires techniques
+        (hébergeur, mesure d’audience). Elles ne sont jamais revendues ni transmises à des tiers à des fins commerciales.
+      </p>
+
+      <h3 class="legal-h3">2.6. Vos droits</h3>
+      <p class="legal-body">
+        Conformément au RGPD, vous disposez d’un droit d’accès, de rectification, de suppression, de limitation,
+        d’opposition et de portabilité de vos données. Ces droits peuvent être exercés en écrivant à
+        [adresse email de contact]. Vous pouvez aussi saisir la CNIL (www.cnil.fr).
+      </p>
+
+      <h3 class="legal-h3">2.7. Sécurité des données</h3>
+      <p class="legal-body">
+        Muse Square met en place des mesures techniques et organisationnelles adaptées (contrôle d’accès, sauvegardes,
+        hébergement sécurisé) afin de protéger vos données contre toute perte, altération ou accès non autorisé.
+      </p>
+
+      <!-- 3. Politique cookies -->
+      <h2 class="legal-h2">3. Politique cookies</h2>
+
+      <h3 class="legal-h3">3.1. Définition</h3>
+      <p class="legal-body">
+        Un cookie est un petit fichier déposé sur votre appareil lors de la navigation. Il mémorise certaines
+        informations pour faciliter l’expérience et améliorer le fonctionnement du site.
+      </p>
+
+      <h3 class="legal-h3">3.2. Cookies utilisés</h3>
+      <ul class="legal-list">
+        <li>Cookies techniques, indispensables au fonctionnement (exemptés de consentement) ;</li>
+        <li>Cookies de mesure d’audience (Google Analytics 4) pour analyser la fréquentation et améliorer les services
+            (soumis à votre consentement).</li>
+      </ul>
+
+      <h3 class="legal-h3">3.3. Consentement et gestion</h3>
+      <p class="legal-body">
+        Lors de votre première visite, un bandeau vous informe de l’usage des cookies. Vous pouvez accepter,
+        refuser ou personnaliser vos choix, et les modifier à tout moment via le lien « Gérer mes cookies ».
+      </p>
+
+      <h3 class="legal-h3">3.4. Durée de conservation</h3>
+      <p class="legal-body">
+        Les cookies ont une durée de vie maximale de treize mois. Les données collectées via ces traceurs sont utilisées
+        à des fins statistiques internes uniquement.
+      </p>
+
+      <h3 class="legal-h3">3.5. Paramétrage du navigateur</h3>
+      <p class="legal-body">
+        Vous pouvez configurer votre navigateur pour bloquer les cookies ou être averti lors de leur dépôt. Le refus de
+        certains cookies peut toutefois limiter des fonctionnalités du site.
+      </p>
+
+    </div>
+  </section>
 </BaseLayout>

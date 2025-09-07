@@ -1,14 +1,135 @@
-<section class="ms-section">
-  <div class="max-w-[900px] mx-auto">
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 items-center opacity-80">
-      <div class="h-10 bg-muted" aria-hidden="true"></div>
-      <div class="h-10 bg-muted" aria-hidden="true"></div>
-      <div class="h-10 bg-muted" aria-hidden="true"></div>
-      <div class="h-10 bg-muted" aria-hidden="true"></div>
+---
+const quotes = [
+  {
+    text:
+      "“Je suis ravi du succès de l’exposition : j’ai vendu plus d’œuvres que prévu et la relation avec la galerie a été excellente. Je réutiliserai la plateforme Muse Square à l’avenir.”",
+    author: "Véronique Le Gall",
+    role: "Artiste",
+  },
+  {
+    text:
+      "“La mise en place des tableaux de bord nous a permis d’objectiver nos décisions de programmation et d’améliorer la fidélisation.”",
+    author: "Responsable des publics",
+    role: "Institution culturelle",
+  },
+  {
+    text:
+      "“Des campagnes mieux ciblées et un ROI clarifié : nous avons gagné en efficacité et en lisibilité auprès des partenaires.”",
+    author: "Direction marketing",
+    role: "Office de tourisme",
+  },
+];
+---
+
+<section class="ms-section" aria-labelledby="social-proof-title">
+  <div class="max-w-[980px] mx-auto">
+    <!-- Seule l’icône d’intro -->
+    <div class="flex justify-center">
+      <img
+        src="/images/quote-icon.png"
+        alt=""
+        width="84"
+        height="84"
+        class="w-[84px] h-[84px] object-contain opacity-90"
+        loading="lazy"
+        decoding="async"
+        aria-hidden="true"
+      />
     </div>
-    <div class="mt-6 space-y-2 font-body text-[16px] text-secondary">
-      <p>“Mini-témoignage 1 (placeholder véridique)”</p>
-      <p>“Mini-témoignage 2 (placeholder véridique)”</p>
+
+    <h2 id="social-proof-title" class="sr-only">Ils nous font confiance</h2>
+
+    <div class="relative mt-8">
+      <!-- Slides (zone de texte à hauteur fixe pour éviter de pousser le footer) -->
+      {quotes.map((q, i) => (
+        <figure
+          data-sp-slide
+          data-index={i}
+          class={`text-center ${i === 0 ? '' : 'hidden'}`}
+          aria-live={i === 0 ? 'polite' : undefined}
+        >
+          <div
+            class="mx-auto max-w-[820px] px-8 md:px-16
+                   h-[210px] md:h-[240px] overflow-hidden
+                   flex flex-col items-center justify-center"
+          >
+            <blockquote class="ms-quote">{q.text}</blockquote>
+            <figcaption class="mt-4 ms-eyebrow text-secondary">{q.author} — {q.role}</figcaption>
+          </div>
+        </figure>
+      ))}
+
+      <!-- Chevrons uniquement (pas de carrés) -->
+      <button
+        id="sp-prev"
+        class="absolute left-0 top-1/2 -translate-y-1/2 p-3 md:p-4 z-10 select-none
+               text-secondary hover:text-primary focus:text-primary active:text-primary
+               focus:outline-none"
+        aria-label="Témoignage précédent"
+        type="button"
+      >
+        <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
+          <path d="M15 19 8 12l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <button
+        id="sp-next"
+        class="absolute right-0 top-1/2 -translate-y-1/2 p-3 md:p-4 z-10 select-none
+               text-secondary hover:text-primary focus:text-primary active:text-primary
+               focus:outline-none"
+        aria-label="Témoignage suivant"
+        type="button"
+      >
+        <svg viewBox="0 0 24 24" class="w-6 h-6" aria-hidden="true">
+          <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Points -->
+    <div class="mt-6 flex items-center justify-center gap-3">
+      {quotes.map((_, i) => (
+        <button
+          data-sp-dot
+          data-index={i}
+          class={`h-2.5 w-2.5 rounded-full border border-primary ${i === 0 ? 'bg-primary' : 'bg-transparent'}`}
+          aria-label={`Aller au témoignage ${i + 1}`}
+          type="button"
+        />
+      ))}
     </div>
   </div>
+
+  <script is:inline>
+    (() => {
+      const slides = Array.from(document.querySelectorAll('[data-sp-slide]'));
+      const dots   = Array.from(document.querySelectorAll('[data-sp-dot]'));
+      const prev   = document.getElementById('sp-prev');
+      const next   = document.getElementById('sp-next');
+      if (!slides.length) return;
+
+      let idx = 0;
+      const show = (i) => {
+        slides[idx].classList.add('hidden');
+        dots[idx].classList.remove('bg-primary');
+        dots[idx].classList.add('bg-transparent');
+
+        idx = (i + slides.length) % slides.length;
+
+        slides[idx].classList.remove('hidden');
+        dots[idx].classList.add('bg-primary');
+        dots[idx].classList.remove('bg-transparent');
+      };
+
+      prev?.addEventListener('click', () => show(idx - 1));
+      next?.addEventListener('click', () => show(idx + 1));
+      dots.forEach((d, i) => d.addEventListener('click', () => show(i)));
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') show(idx - 1);
+        if (e.key === 'ArrowRight') show(idx + 1);
+      });
+    })();
+  </script>
 </section>

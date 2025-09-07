@@ -1,3 +1,9 @@
+/* src/styles/global.css */
+
+/* 1) Load your font-face rules first */
+@import "./fonts.css";
+
+/* 2) Then Tailwind layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -30,6 +36,10 @@
   /* Divider: 32 (mobile), 40 (tablet), 60 (desktop) */
   .ms-divider { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
 
+  /* Divider (compact/tight variants reuse the same line, smaller margins) */
+  .ms-divider--compact { @apply my-[20px] sm:my-[28px] lg:my-[36px]; }
+  .ms-divider--tight   { @apply my-[14px] sm:my-[18px] lg:my-[24px]; }
+
   /* Links & Buttons */
   .msq-link {
     @apply font-heading font-medium text-[16px] text-primary
@@ -60,4 +70,19 @@
     margin-top: 0 !important;
     padding-top: 0 !important;
   }
+}
+
+/* ---------- Typographic helpers (brand-safe) ---------- */
+@layer components {
+  /* Small UI label */
+  .ms-eyebrow { @apply font-heading uppercase tracking-[0.5px] text-[12px] text-secondary; }
+
+  /* Editorial quote / pullout */
+  .ms-quote   { @apply font-body italic text-[20px] leading-[32px] text-primary; }
+
+  /* KPI numbers */
+  .ms-kpi     { @apply font-heading text-[28px] leading-[1]; font-variant-numeric: tabular-nums; }
+
+  /* Default body paragraph helper */
+  .ms-body    { @apply font-body text-[18px] leading-[28px] text-secondary; }
 }

@@ -2,103 +2,292 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout title="Solutions — Muse Square">
-  <!-- Hero banner (placeholder image area) -->
-  <section class="w-full aspect-[1440/500] bg-muted" aria-hidden="true"></section>
+  <!-- Full-bleed hero with overlay title (streamlined with Références) -->
+  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
+    <!-- Background image -->
+    <picture class="absolute inset-0 block" aria-hidden="true">
+      <source srcset="/images/banner-services-300k.png" type="image/png" />
+      <img
+        src="/images/banner-services-300k.png"
+        alt=""
+        class="w-full h-full object-cover"
+        sizes="100vw"
+        loading="eager"
+        decoding="async"
+      />
+    </picture>
 
-  <!-- Intro block -->
-  <section class="mx-auto max-w-[1140px] px-[24px] pt-[100px] pb-[60px]">
-    <h1 class="ms-h1">Solutions</h1>
-    <p class="mt-[16px] max-w-[800px] font-body text-[18px] leading-[28px] text-secondary">
-      Nos solutions pour transformer vos données en leviers de décision et de développement.
-    </p>
-  </section>
+    <!-- (optional) subtle legibility overlay; keep or remove -->
+    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
 
-  <div class="ms-container"><div class="msq-divider"></div></div>
-
-  <!-- Offer 1: Blueprint -->
-  <section id="blueprint" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
-    <div>
-      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Blueprint — Vision & feuille de route data</h2>
-      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">Vos données au service de votre stratégie</p>
-
-      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
-        <li>Cadrage objectifs & KPI</li>
-        <li>Cartographie des données</li>
-        <li>Roadmap priorisée</li>
-      </ul>
-
-      <div class="mt-6">
-        <p class="font-heading font-semibold text-[16px]">Résultat</p>
-        <p class="font-body text-[16px] text-secondary">Vision claire + plan d’action priorisé.</p>
-      </div>
-
-      <div class="mt-6 flex gap-4">
-        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_blueprint_contact">Contactez-nous</a>
-        <a href="/docs/blueprint.pdf" class="msq-btn-ghost" data-kpi="download_pdf_blueprint">Télécharger</a>
+    <!-- Overlay content: title only, aligned to the rail -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <h1 class="ms-h1 text-white">Nos solutions sur mesure</h1>
       </div>
     </div>
-
-    <!-- Image placeholder -->
-    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
-  </section>
-  
-  <div class="ms-container"><div class="msq-divider"></div></div>
-
-  <!-- Offer 2: Engagement Lift -->
-  <section id="engagement-lift" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
-    <div>
-      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Engagement Lift — Croissance & diversification des publics</h2>
-      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">Vos données au service de vos publics et visiteurs</p>
-
-      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
-        <li>Segmentation & ciblage</li>
-        <li>AB tests & quick wins mesurables</li>
-        <li>Itération orientée impact</li>
-      </ul>
-
-      <div class="mt-6">
-        <p class="font-heading font-semibold text-[16px]">Résultat</p>
-        <p class="font-body text-[16px] text-secondary">+ attractivité, + conversion, + fidélisation.</p>
-      </div>
-
-      <div class="mt-6 flex gap-4">
-        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_engagement_contact">Contactez-nous</a>
-        <a href="/docs/engagement-lift.pdf" class="msq-btn-ghost" data-kpi="download_pdf_engagement">Télécharger</a>
-      </div>
-    </div>
-
-    <!-- Image placeholder -->
-    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
   </section>
 
-  <div class="ms-container"><div class="msq-divider"></div></div>
-
-  <!-- Offer 3: Part-time Analytics -->
-  <section id="fractional-analytics" class="mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
-    <div>
-      <h2 class="font-heading font-bold text-[28px] leading-[36px] text-primary">Part-time Analytics (DA/AE)</h2>
-      <p class="mt-3 font-body text-[18px] leading-[28px] text-secondary">
-        Renfort analytique à temps partiel (1–2 j/sem) pour prioriser, instrumenter et itérer sur vos KPIs.
+  <!-- Intro block (below the banner) -->
+  <section class="ms-section">
+    <div class="max-w-[800px] space-y-[12px]">
+      <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
+        Trois services pour mettre vos données au service de vos décisions
       </p>
 
-      <ul class="mt-4 list-disc pl-5 font-body text-[16px] leading-[1.6] text-secondary">
-        <li>Disponibilité flexible</li>
-        <li>Analyses ad-hoc & instrumentation d’événements</li>
-        <li>Amélioration continue des dashboards & KPIs</li>
-      </ul>
+      <p class="ms-lead">
+        La <strong>Feuille de route</strong> data vous aide à clarifier vos besoins, à identifier les bons indicateurs et à construire un plan réaliste pour piloter votre stratégie.
+      </p>
 
-      <div class="mt-6">
-        <p class="font-heading font-semibold text-[16px]">Résultat</p>
-        <p class="font-body text-[16px] text-secondary">Velocity sans recruter, impact mesurable rapidement.</p>
+      <p class="ms-lead">
+        L’offre <strong>Activation &amp; Fidélisation</strong> transforme vos données de billetterie, CRM ou enquêtes en actions concrètes : campagnes mieux ciblées, fidélisation renforcée, nouvelles audiences identifiées.
+      </p>
+
+      <p class="ms-lead">
+        Avec un <strong>Analyste à temps partiel</strong>, vous disposez d’un expert opérationnel 1 à 2 jours par semaine pour suivre vos KPIs, améliorer vos dashboards et répondre à vos questions au fil de l’eau.
+      </p>
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 1: Feuille de route data -->
+  <section id="feuille-de-route-data" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px] items-start">
+    <div class="relative z-10">
+    <h2 class="ms-h2">
+      Feuille de route data
+      <span class="block font-normal italic">De la vision aux indicateurs de performance</span>
+    </h2>
+
+    <!-- Short service description (no bullets) -->
+    <p class="mt-[16px] ms-body text-secondary">
+      <strong>Objectifs&nbsp;:</strong> Clarifier vos besoins, structurer vos flux et définir une feuille de route durable.
+    </p>
+    <p class="mt-[8px] ms-body text-secondary">
+      <strong>Résultats&nbsp;:</strong> Une vision claire de votre écosystème data, des flux structurés et un plan de mise en œuvre réaliste pour orienter vos décisions stratégiques.
+    </p>
+
+    <!-- Expand/collapse long description -->
+    <details class="mt-4 group">
+      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_blueprint" aria-controls="blueprint-more">
+        <span class="group-open:hidden">Lire plus</span>
+        <span class="hidden group-open:inline">Lire moins</span>
+      </summary>
+
+      <div id="feuille-de-route-data-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Service</h3>
+          <p>Un plan stratégique qui relie vos données à vos priorités. Blueprint clarifie vos besoins métiers, assainit vos flux de données et définit une gouvernance adaptée à vos équipes et à vos moyens.</p>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Méthode</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Entretiens avec vos équipes (direction, publics, communication, mécénat, billetterie, tourisme)</li>
+            <li>Cartographie de vos outils existants (billetterie, GA4, CRM mécénat, newsletter, réseaux sociaux, bases touristiques)</li>
+            <li>Définition des KPIs essentiels pour piloter vos priorités stratégiques</li>
+            <li>Construction d’une architecture cible cohérente et réaliste</li>
+            <li>Élaboration d’une feuille de route priorisée : quick wins et chantiers long terme</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Cartographie de l’écosystème data actuel</li>
+            <li>Cadre de gouvernance inspiré du data mesh (chaque équipe responsable de ses données)</li>
+            <li>Roadmap data priorisée et actionnable, intégrant court et long terme</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Une vision claire et partagée de votre écosystème data</li>
+            <li>Des KPIs alignés sur vos objectifs (publics, visiteurs, communication, mécénat, billetterie)</li>
+            <li>Un plan concret pour avancer pas à pas, selon vos ressources</li>
+            <li>Une meilleure coordination entre services et une prise de décision accélérée</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Option : Insight Dashboard</h3>
+          <p>Si besoin, nous assurons aussi la mise en place opérationnelle : flux automatisés, centralisation des données et dashboards sur mesure, accompagnés d’une formation pour vos équipes.</p>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
+          <p>Directions générales et culturelles, offices de tourisme, responsables des publics, responsables marketing et communication, billetterie/CRM, mécénat et partenariats.</p>
+        </div>
       </div>
+    </details>
 
+    <!-- Primary CTA -->
+    <div class="mt-6 flex gap-4">
+      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_blueprint_contact">Contactez-nous</a>
+    </div>
+  </div>
+
+  <!-- Image de l'Offre 1 -->
+    <img
+      src="/images/roadmap.png"
+      alt="Illustration de la feuille de route data"
+      class="w-full h-[300px] object-cover bg-muted/20"
+      loading="lazy"
+      decoding="async"
+    />
+  </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 2: Activation & Fidélisation (renamed, keep id for anchors) -->
+  <section id="activation-fidelisation" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+    <!-- Colonne texte (1/2) -->
+    <div class="relative z-10">
+      <h2 class="ms-h2">
+        Activation & Fidélisation
+        <span class="block font-normal italic">Segmentez, testez, engagez vos audiences</span>
+      </h2>
+
+      <p class="mt-[16px] ms-body text-secondary"></p>
+        <strong>Objectifs&nbsp;:</strong> Mieux comprendre vos publics, renforcer leur fidélité et diversifier vos audiences.
+      </p>
+      <p class="mt-[8px] ms-body text-secondary"></p>
+        <strong>Résultats&nbsp;:</strong> Des actions concrètes, pilotées par la donnée&nbsp;: fidélisation renforcée, campagnes à fort impact et nouvelles audiences identifiées.
+      </p>
+
+      <!-- Lire plus (reste bien DANS la colonne texte) -->
+      <details class="mt-4 group">
+        <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_activation" aria-controls="activation-fidelisation-more">
+          <span class="group-open:hidden">Lire plus</span>
+          <span class="hidden group-open:inline">Lire moins</span>
+        </summary>
+
+        <div id="activation-fidelisation-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+          <div>
+            <h3 class="font-heading font-semibold text-[18px] text-primary">Service</h3>
+            <p>Activation pilotée par la donnée : segmentation des publics, scénarios de campagne, tests A/B et boucles d’apprentissage courtes.</p>
+          </div>
+
+          <div>
+            <h3 class="font-heading font-semibold text-[18px] text-primary">Méthode</h3>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Analyse des audiences (CRM/GA4/billetterie/newsletter)</li>
+              <li>Scoring d’engagement et identification des opportunités</li>
+              <li>Design de campagnes & tests A/B (créas, canaux, offres)</li>
+              <li>Suivi des KPIs (portée, conversion, récurrence)</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Plan d’activation priorisé par audience</li>
+              <li>Tableau de bord d’itération des campagnes</li>
+              <li>Guidelines d’optimisation continue</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Fidélisation mesurable et diversification des publics</li>
+              <li>ROI marketing clarifié et activable par les équipes</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
+      <!-- CTA -->
       <div class="mt-6 flex gap-4">
-        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_fractional_contact">Contactez-nous</a>
-        <a href="/docs/part-time-analytics.pdf" class="msq-btn-ghost" data-kpi="download_pdf_fractional">Télécharger</a>
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_engagement_contact">Contactez-nous</a>
       </div>
     </div>
 
-    <!-- Image placeholder -->
-    <div class="w-full h-[300px] bg-muted" aria-hidden="true"></div>
+    <!-- Colonne image (2/2) -->
+    <img
+      src="/images/services.png"
+      alt="Illustration des services d’activation et de fidélisation"
+      class="w-full h-[300px] object-cover rounded-[8px] bg-muted/20"
+      loading="lazy"
+      decoding="async"
+    />
   </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 3: Analyste Data à Temps Partiel (keep id for anchors) -->
+  <section id="fractional-analytics" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+  <!-- Colonne texte (1/2) -->
+  <div class="relative z-10">
+    <h2 class="ms-h2">
+      Analyste data à temps partiel
+      <span class="block font-normal italic">Expertise data à la carte</span>
+    </h2>
+
+    <p class="mt-[16px] ms-body text-secondary"></p>
+      Un soutien de 1 à 2 jours par semaine assuré par un Analyste Data / AE. Analyses ad hoc, instrumentation ciblée, amélioration continue des dashboards et KPIs, avec des recommandations sur mesure.
+    </p>
+    <p class="mt-[8px] ms-body text-secondary"></p>
+      <strong>Résultats&nbsp;:</strong> Un pilotage agile et data-driven, sans les contraintes d’un recrutement.
+    </p>
+
+    <!-- Lire plus -->
+    <details class="mt-4 group">
+      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_fractional" aria-controls="fractional-analytics-more">
+        <span class="group-open:hidden">Lire plus</span>
+        <span class="hidden group-open:inline">Lire moins</span>
+      </summary>
+
+      <div id="fractional-analytics-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Service</h3>
+          <p>Un·e analyste dédié·e 0,2–0,4 ETP qui pilote vos analyses, la qualité des données et vos tableaux de bord au fil de l’eau.</p>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Interventions types</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Analyses ad hoc et cadrage d’indicateurs</li>
+            <li>Instrumentation / tracking ciblé (GA4, CRM, billetterie)</li>
+            <li>Amélioration continue des dashboards & data quality</li>
+            <li>Documentation et transfert de compétences</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Backlog de demandes & roadmap mensuelle</li>
+            <li>Rapport de suivi avec recommandations</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Bénéfices</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Souplesse budgétaire et montée en autonomie</li>
+            <li>Décisions plus rapides, basées sur des données fiables</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+    <!-- CTA -->
+    <div class="mt-6 flex gap-4">
+      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_fractional_contact">Contactez-nous</a>
+    </div>
+  </div>
+
+  <!-- Colonne image (2/2) -->
+  <img
+    src="/images/part-time.png"
+    alt="Illustration de l’analyste data à temps partiel"
+    class="w-full h-[300px] object-cover bg-muted/20"
+    loading="lazy"
+    decoding="async"
+  />
+</section>
+
 </BaseLayout>

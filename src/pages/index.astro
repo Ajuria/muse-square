@@ -34,7 +34,7 @@ import SocialProof from '../components/home/SocialProof.astro';
     <div class="absolute inset-0">
       <div class="ms-container h-full flex items-center">
         <div>
-          <h1 class="ms-h1">Mesurez ce qui compte. Activez ce qui performe</h1>
+          <h1 class="ms-h1">Comprenez votre audience, développez ce qui performe</h1>
           <p class="mt-[16px] ms-lead italic text-[20px]">
             La data au service de l'art, la culture et le tourisme
           </p>
@@ -47,16 +47,10 @@ import SocialProof from '../components/home/SocialProof.astro';
     </div>
   </section>
 
-  <!-- Rest of the home page -->
-  <Proofs />
+    <!-- Rest of the home page -->
+    <MiniOffers />
+    <Proofs />
+    <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+    <SocialProof />
 
-  <!-- Content-width divider (main already supplies the rail) -->
-  <div class="ms-divider"></div>
 
-  <MiniOffers />
-
-  <!-- Content-width divider (main already supplies the rail) -->
-  <div class="ms-divider"></div>
-
-  <SocialProof />
-</BaseLayout>
