@@ -1,0 +1,22 @@
+---
+import type { PackagerOutput } from "../../lib/ai/ui/types";
+
+type Props = { o: PackagerOutput };
+const { o } = Astro.props;
+---
+
+<div class="rounded-2xl border p-4">
+  <div class="text-base font-semibold">{o.headline}</div>
+
+  {o.summary && <div class="mt-2 text-sm leading-5">{o.summary}</div>}
+
+  {Array.isArray(o.key_facts) && o.key_facts.length > 0 && (
+    <ul class="mt-3 space-y-1 text-sm">
+      {o.key_facts.map((f) => (
+        <li class="list-disc ml-5">{f}</li>
+      ))}
+    </ul>
+  )}
+
+  {o.caveat ? <div class="mt-3 text-sm opacity-80">{o.caveat}</div> : null}
+</div>

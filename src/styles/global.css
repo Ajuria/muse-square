@@ -1,88 +1,522 @@
 /* src/styles/global.css */
 
-/* 1) Load your font-face rules first */
+/* 0) Load surface and global design tokens */
+@import "./design-tokens.css";
+@import "./app-surface.css";
+
+/* 1) Load font-face rules first */
 @import "./fonts.css";
 
-/* 2) Then Tailwind layers */
+/* 2) Tailwind layers */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
+/* Insight Event — Bottom bar */
+:root{
+    --ms-bottombar-nav-h: 64px;
+    --ms-bottombar-actions-h: 56px;
+    --ms-bottombar-total-h: calc(var(--ms-bottombar-nav-h) + var(--ms-bottombar-actions-h));
+  }
+
 /* ---------- Base type ---------- */
 @layer base {
   html, body { @apply bg-background text-text; }
+  /* Avenir everywhere (body + headings) */
   body { @apply font-body; }
-  h1, h2, h3 { @apply font-heading text-primary; }
+  h1, h2, h3 { @apply font-body text-primary; }
 }
 
-/* ---------- Site utilities (single source of truth) ---------- */
-@layer components {
-  /* Headings */
-  .ms-h1 { @apply font-heading font-normal text-[28px] sm:text-[32px] lg:text-[36px] leading-[1.1] lg:whitespace-nowrap text-primary; }
-  .ms-h2 { @apply font-heading font-bold text-[28px] leading-[36px] text-primary; }
-  .ms-h3 { @apply font-heading font-bold text-[24px] leading-[32px] text-primary; }
+@layer base {
+  strong, b { font-weight: 600; }   /* semibold, not 700 */
+}
 
-  /* Lead / subtitle text */
-  .ms-lead { @apply font-body text-[18px] leading-[28px] text-secondary max-w-[800px]; }
-  /* (If you ever want 16px on small screens only, you can do: sm:text-[16px] here) */
+/* Brand stack (Avenir only now) */
+.font-body { font-family: "Avenir Next LT Pro", "Avenir", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+/* ---------- Site tokens ---------- */
+@layer components {
+  /* Headings (Avenir) — keep same sizes/leading */
+  /* H1: 28 (mobile), 32 (tablet), 40 (desktop) */
+  .ms-h1 { @apply font-body font-semibold text-[28px] sm:text-[32px] lg:text-[40px] leading-[1.15] text-primary; }
+  /* H2: 22 (mobile), 24 (tablet), 28 (desktop) */
+  .ms-h2 { @apply font-body font-semibold text-[22px] sm:text-[24px] lg:text-[28px] leading-[1.2] text-primary; }
+  /* H3: 18 (mobile), 20 (tablet), 22 (desktop) */
+  .ms-h3 { @apply font-body font-semibold text-[18px] sm:text-[20px] lg:text-[22px] leading-[1.2] text-primary; }
+
+  /* Body / lead (Avenir) */
+  .ms-lead { @apply font-body text-[16px] lg:text-[18px] leading-[1.55] text-secondary; }
+  .ms-body { @apply font-body text-[15px] sm:text-[16px] leading-[1.55] text-secondary; }
+
+  /* Bottom bar */
+  .ms-bottombar{
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #fff;
+    border-top: 1px solid rgba(17,24,39,0.10);
+    z-index: 50;
+  }
+
+  .ms-bottombar-actions{
+    border-bottom: 1px solid rgba(17,24,39,0.08);
+    background: #fff;
+  }
+  .ms-bottombar-actions-inner{
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    min-height: var(--ms-bottombar-actions-h);
+  }
+
+  .ms-bottombar-btn{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 14px;
+    line-height: 1;
+    user-select: none;
+  }
+  .ms-bottombar-btn--ghost{
+    border: 1px solid rgba(17,24,39,0.20);
+    background: transparent;
+    color: #111827;
+  }
+  .ms-bottombar-btn--ghost:hover{ border-color: #111827; }
+
+  .ms-bottombar-btn--primary{
+    border: 1px solid #000;
+    background: #000;
+    color: #fff;
+  }
+  .ms-bottombar-btn--primary:hover{ background: #111827; border-color: #111827; }
+
+  .ms-bottombar-nav{
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    min-height: var(--ms-bottombar-nav-h);
+  }
+
+  .ms-bottombar-item{
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    color: rgba(17,24,39,0.55);
+    padding: 8px 10px;
+    border-radius: 12px;
+    line-height: 1;
+  }
+
+  .ms-bottombar-ico{
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ms-bottombar-label{
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .ms-bottombar-item.is-active{
+    color: #111827;
+    background: rgba(17,24,39,0.06);
+  }
+  .ms-bottombar-item:focus-visible{
+    outline: 2px solid #111827;
+    outline-offset: 2px;
+  }
+
+  /* Nav links (Avenir 400, 15px, slight tracking) */
+  .ms-nav-link { @apply font-body text-[15px] font-normal tracking-[0.2px] text-primary; }
+
+  /* Footer (Avenir) — readable, still discreet */
+  .ms-footer{
+    @apply font-body italic text-[13px] leading-[1.55];
+    color: rgba(17,24,39,0.72);   /* darker than #666, still not “black” */
+    font-weight: 400;             /* keep normal (not bold) */
+  }
+  
+  /* Optional: tidy footer links without changing italics */
+  
+  .ms-footer a { @apply underline-offset-2 hover:underline; }
+
+  /* Buttons & pills (Avenir 700, 15px, caps) */
+  .ms-btn {
+    @apply inline-flex items-center justify-center
+          text-[15px] font-semibold leading-[1.2] uppercase tracking-[0.2px]
+          px-4 py-2 border border-black rounded-none text-black bg-transparent
+          hover:bg-black hover:text-white
+          focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .msq-btn-ghost { @apply ms-btn h-[44px]; }
 
   /* Layout tokens */
-  /* Max width 1140px, px 16 on mobile/tablet, px 24 on desktop */
   .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
-
-  /* Major sections: 40 (mobile), 60 (tablet), 100 (desktop) */
   .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
-
-  /* Divider: 32 (mobile), 40 (tablet), 60 (desktop) */
-  .ms-divider { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
-
-  /* Divider (compact/tight variants reuse the same line, smaller margins) */
+  .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
   .ms-divider--compact { @apply my-[20px] sm:my-[28px] lg:my-[36px]; }
   .ms-divider--tight   { @apply my-[14px] sm:my-[18px] lg:my-[24px]; }
 
-  /* Links & Buttons */
-  .msq-link {
-    @apply font-heading font-medium text-[16px] text-primary
-           hover:underline underline-offset-2
-           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
-  }
-
-  /* Bouton ghost normalisé */
-  .msq-btn-ghost {
-    @apply inline-flex items-center justify-center
-         h-[44px] px-3
-         font-heading uppercase tracking-[0.5px] font-bold text-[14px] md:text-[16px]
-         border border-black bg-transparent text-black
-         hover:bg-black hover:text-white
-         focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
-  }
-}
-
-@layer utilities {
-  /* Fixed header height (fits 32/40px logo) */
-  .ms-nav-h { @apply h-[64px] md:h-[72px]; }
-
-  /* Page offset equal to header height */
-  .ms-main-offset { @apply pt-[64px] md:pt-[72px]; }
-
-  /* Keep the first content block tight under the header */
-  .ms-first-tight > *:first-child {
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-  }
-}
-
-/* ---------- Typographic helpers (brand-safe) ---------- */
-@layer components {
-  /* Small UI label */
-  .ms-eyebrow { @apply font-heading uppercase tracking-[0.5px] text-[12px] text-secondary; }
-
-  /* Editorial quote / pullout */
+  /* Typographic helpers (Avenir) */
+  .ms-eyebrow { @apply font-body uppercase tracking-[0.5px] text-[12px] text-secondary; }
   .ms-quote   { @apply font-body italic text-[20px] leading-[32px] text-primary; }
+  .ms-kpi     { @apply font-body text-[28px] leading-[1]; font-variant-numeric: tabular-nums; }
+}
 
-  /* KPI numbers */
-  .ms-kpi     { @apply font-heading text-[28px] leading-[1]; font-variant-numeric: tabular-nums; }
+/* ================================
+   Clerk (Sign-in / Sign-up) — flat, no card
+   ================================ */
 
-  /* Default body paragraph helper */
-  .ms-body    { @apply font-body text-[18px] leading-[28px] text-secondary; }
+/* Center the auth content in the page body (between header + footer visually) */
+.auth-center {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  /* 👇 THIS is the spacing you want */
+  padding-top: 120px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* ================================
+   Clerk — headings should be semibold (600), not bold
+   ================================ */
+.cl-headerTitle,
+.cl-headerSubtitle {
+  font-family: "Avenir Next LT Pro", "Avenir", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.cl-headerTitle {
+  font-weight: 600 !important;
+}
+
+.cl-headerSubtitle {
+  font-weight: 400 !important;
+}
+
+/* Remove Clerk card look */
+.cl-rootBox,
+.cl-cardBox,
+.cl-card,
+.cl-main {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Remove extra padding that creates the "card" feel */
+.cl-card,
+.cl-main {
+  padding: 0 !important;
+}
+
+/* ✅ WIDTH: use page width (not tiny auth box) */
+.cl-rootBox { width: 100% !important; }
+.cl-cardBox {
+  width: min(720px, 100%) !important;  /* adjust 720 -> 840 if you want wider */
+  margin: 0 auto !important;
+}
+.cl-main { width: 100% !important; }
+
+/* Hide Clerk badge/footer area */
+.cl-footer,
+.cl-badge {
+  display: none !important;
+}
+
+/* ✅ Inputs gabarit (covers Clerk variants) */
+.cl-formFieldInput,
+.cl-otpCodeFieldInput,
+.cl-formFieldInputWrapper input,
+.cl-input,
+.cl-textInput {
+  width: 100% !important;
+  padding: 16px 24px !important;  /* py-4 px-6 */
+  font-size: 16px !important;     /* text-base */
+  line-height: 24px !important;   /* text-base default */
+  border: 0 !important;           /* border-0 */
+  min-height: 56px !important;    /* ensures “not thin” */
+  border-radius: 0 !important;
+  background: rgba(17, 24, 39, 0.04) !important;
+  box-shadow: none !important;
+}
+
+/* Placeholder readable */
+.cl-formFieldInput::placeholder,
+.cl-formFieldInputWrapper input::placeholder {
+  opacity: 0.65 !important;
+}
+
+/* Clerk — buttons: match "S’inscrire" style, but NOT bold */
+.cl-formButtonPrimary,
+.cl-socialButtonsBlockButton {
+  padding: 16px 24px !important;
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+  min-height: 56px !important;
+
+  /* size + center */
+  width: auto !important;
+  min-width: 320px !important;
+  max-width: 420px !important;
+  display: flex !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+
+  /* kill Clerk primary look */
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+
+  /* "S’inscrire" look */
+  border: 1px solid #000 !important;
+  border-radius: 0 !important;
+  color: #000 !important;
+
+  font-family: inherit !important;
+  font-weight: 400 !important;              /* ✅ NOT bold */
+  text-transform: uppercase !important;
+  letter-spacing: 0.2px !important;
+}
+
+.cl-formButtonPrimary:hover,
+.cl-socialButtonsBlockButton:hover {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+/* Fix clipping: Clerk wrappers often clip child input/outline */
+.cl-formFieldInputWrapper,
+.cl-otpCodeFieldInputWrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Ensure the input fits inside the wrapper (no overflow) */
+.cl-formFieldInput,
+.cl-otpCodeFieldInput,
+.cl-formFieldInputWrapper input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* If Clerk applies border/padding on wrapper, neutralize it */
+.cl-formFieldInputWrapper {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* Fallback (no :has support): keep form fields centered consistently */
+.cl-formField {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Clerk — keep email/identifier field + its label aligned to the same 320px column */
+.cl-formField:has(input[name="identifier"]) {
+  max-width: 320px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* ensure wrapper doesn’t re-expand */
+.cl-formField:has(input[name="identifier"]) .cl-formFieldInputWrapper,
+.cl-formField:has(input[name="identifier"]) .cl-formFieldInput {
+  width: 100% !important;
+  max-width: 320px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* label aligns with the input (not the page) */
+.cl-formField:has(input[name="identifier"]) .cl-formFieldLabel {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 0 8px 0 !important;
+  text-align: left !important;
+}
+
+/* ================================
+   FORCE vertical offset for Clerk auth
+   ================================ */
+
+.cl-rootBox {
+  display: block !important;
+  margin-top: 60px !important;
+}
+
+
+
+/* Month intro overlay (v1) — fully scoped (prevents collateral effects) */
+#ms-month-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+#ms-month-intro.hidden {
+  display: none;
+}
+
+#ms-month-intro .ms-month-intro__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+}
+
+#ms-month-intro .ms-month-intro__card {
+  position: relative;
+  width: min(560px, calc(100vw - 32px));
+  margin: 0 auto;
+  top: 14vh;
+  background: #fff;
+  border-radius: 28px;
+  padding: 28px 24px 22px 24px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.22);
+}
+
+#ms-month-intro .ms-month-intro__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  margin: 0 auto 22px auto; /* space below icon */
+}
+
+#ms-month-intro .ms-month-intro__title {
+  text-align: center;
+  margin: 0 0 18px 0;
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+#ms-month-intro .ms-month-intro__list {
+  margin: 0 0 28px 0; /* space between text and CTA */
+  padding-left: 18px;
+  color: rgba(17,24,39,0.80);
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+#ms-month-intro .ms-month-intro__list li { margin: 10px 0; }
+
+/* CTA: 50% width, centered, "S'inscrire" outline, not bold */
+#ms-month-intro .ms-month-intro__cta {
+  width: 50% !important;
+  max-width: 420px !important;
+  height: 56px !important;
+
+  display: flex !important;              /* ensures centering works */
+  margin: 24px auto 0 auto !important;   /* centers horizontally */
+
+  align-items: center !important;
+  justify-content: center !important;
+
+  border: 1px solid #000 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #000 !important;
+
+  font-weight: 400 !important;           /* not bold */
+  letter-spacing: 0.2px !important;
+  text-transform: uppercase !important;
+
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+#ms-month-intro .ms-month-intro__cta:hover {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+#ms-month-intro .ms-month-intro__cta:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 3px;
+}
+
+/* === Month intro overlay: FORCE spacing (put at END of file) === */
+#ms-month-intro .ms-month-intro__icon {
+  margin-bottom: 28px !important; /* space icon -> title/text */
+}
+
+#ms-month-intro .ms-month-intro__title {
+  margin-top: 0 !important;
+}
+
+#ms-month-intro .ms-month-intro__list {
+  margin-top: 14px !important;    /* space title -> list */
+  margin-bottom: 28px !important; /* space list -> CTA */
+}
+
+#ms-month-intro .ms-month-intro__cta {
+  margin-top: 0 !important;       /* rely on list margin-bottom */
+}
+
+/* ================================
+   Footer legibility (global)
+   Goal: darker text, no size change, no bold
+   ================================ */
+
+.ms-footer {
+  /* Keep your existing italic + 13px if you want,
+     but make it readable */
+  color: rgba(17, 24, 39, 0.72) !important;
+  font-weight: 500 !important;
+}
+
+/* Footer links: same readable tone */
+.ms-footer a {
+  color: inherit !important;
+}
+
+/* Footer small copyright line */
+.ms-footer .ms-footer__copyright {
+  color: rgba(17, 24, 39, 0.72) !important;
+  font-weight: 400 !important;
+}
+
+/* Footer section titles: slightly heavier, but NOT bold */
+.ms-footer .ms-footer__title {
+  font-weight: 600 !important; /* semibold */
+}
+
+/* ===== Footer readability hard override (scoped) ===== */
+footer.ms-footer,
+footer.ms-footer a {
+  color: rgba(17,24,39,0.72) !important;
+  opacity: 1 !important;
+}
+
+footer.ms-footer a:hover {
+  text-decoration: none !important;
 }

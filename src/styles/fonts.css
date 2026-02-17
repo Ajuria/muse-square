@@ -1,53 +1,58 @@
 /* ================= Avenir Next LT Pro (Sans) ================= */
+/* Files live in: public/fonts/Avenir-Next-lt-Pro/ */
 
-/* Regular (400) */
 @font-face {
   font-family: "Avenir Next LT Pro";
-  src: url("/fonts/avenir-next-lt-pro/AvenirNextLTPro-Regular.otf") format("opentype");
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-DemiIt.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir Next LT Pro";
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-UltLt.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir Next LT Pro";
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-UltLtIt.otf") format("opentype");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir Next LT Pro";
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
-/* UltraLight (200) */
 @font-face {
   font-family: "Avenir Next LT Pro";
-  src: url("/fonts/avenir-next-lt-pro/AvenirNextLTPro-UltLt.otf") format("opentype");
-  font-weight: 200;
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-Heavy.otf") format("opentype");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-/* UltraLight Italic (200 italic) */
 @font-face {
   font-family: "Avenir Next LT Pro";
-  src: url("/fonts/avenir-next-lt-pro/AvenirNextLTPro-UltLtIt.otf") format("opentype");
-  font-weight: 200;
-  font-style: italic;
-  font-display: swap;
-}
-
-/* Heavy (800) */
-@font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/avenir-next-lt-pro/AvenirNextLTPro-Heavy.otf") format("opentype");
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Heavy Italic (800 italic) */
-@font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/avenir-next-lt-pro/AvenirNextLTPro-HeavyIt.otf") format("opentype");
-  font-weight: 800;
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-HeavyIt.otf") format("opentype");
+  font-weight: 700;
   font-style: italic;
   font-display: swap;
 }
 
 /* ================ Garamond Premier Pro (Serif) ================ */
+/* We have 400 and 600. Alias 700 to 600 so bolds don’t get “fake bolded”. */
 
-/* Regular (400) */
+/* 400 */
 @font-face {
   font-family: "Garamond Premier Pro";
   src: url("/fonts/garamond-premier-pro/garamondpremrpro.otf") format("opentype");
@@ -55,8 +60,6 @@
   font-style: normal;
   font-display: swap;
 }
-
-/* Regular Italic (400 italic) */
 @font-face {
   font-family: "Garamond Premier Pro";
   src: url("/fonts/garamond-premier-pro/garamondpremrpro-it.otf") format("opentype");
@@ -65,7 +68,7 @@
   font-display: swap;
 }
 
-/* Semibold (600) */
+/* 600 (Semibold – exact match) */
 @font-face {
   font-family: "Garamond Premier Pro";
   src: url("/fonts/garamond-premier-pro/garamondpremrpro-smbd.otf") format("opentype");
@@ -73,11 +76,39 @@
   font-style: normal;
   font-display: swap;
 }
-
-/* Semibold Italic (600 italic) */
 @font-face {
   font-family: "Garamond Premier Pro";
   src: url("/fonts/garamond-premier-pro/garamondpremrpro-smbdit.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 700 (alias to 600) */
+@font-face {
+  font-family: "Garamond Premier Pro";
+  src: url("/fonts/garamond-premier-pro/garamondpremrpro-smbd.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Garamond Premier Pro";
+  src: url("/fonts/garamond-premier-pro/garamondpremrpro-smbdit.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Prevent synthetic bold/italic which changes appearance */
+:root {
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
+}
+
+@font-face {
+  font-family: "Avenir Next LT Pro";
+  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-DemiIt.otf") format("opentype");
   font-weight: 600;
   font-style: italic;
   font-display: swap;

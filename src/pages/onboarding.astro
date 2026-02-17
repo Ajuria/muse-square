@@ -1,0 +1,219 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Activez votre Intelligence - Muse Square" hideSurveyCta={true}>
+  <main id="ms-onboarding">
+    <section class="ms-wrap">
+      <div class="ms-content">
+        <!-- Icon cluster -->
+        <div class="ms-iconBlock">
+          <div class="ms-iconStack">
+            <div class="ms-glow" aria-hidden="true"></div>
+
+            <div class="ms-mainCircle" aria-hidden="true">
+              <img class="ms-mainIcon" src="/images/context.png" alt="Intelligence métier" />
+            </div>
+
+            <div class="ms-editBadge" aria-hidden="true">
+              <svg class="ms-editSvg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Title -->
+        <h1 class="ms-h1">
+          Activez votre<br />Intelligence métier
+        </h1>
+
+        <!-- Body -->
+        <p class="ms-p">
+          Pour recevoir des prévisions ultra-précises, renseignez votre contexte d'activité.
+        </p>
+
+        <!-- CTA -->
+        <button
+          type="button"
+          class="ms-btn h-[56px] font-normal"
+          data-kpi="contact_submit"
+          onclick="window.location.href='/onboarding/form';"
+        >
+          COMPLÉTER MON PROFIL
+        </button>
+
+        <!-- Notice -->
+        <p class="ms-note">ÉTAPE REQUISE POUR CONTINUER</p>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    /* =========================================
+       Onboarding isolation layer (wins vs BaseLayout)
+       ========================================= */
+    #ms-onboarding{
+      position: relative;
+      min-height: auto;
+      overflow: hidden;
+      background: #fff !important;
+    }
+
+    /* Dots layer */
+    #ms-onboarding::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0.22;
+      background-image: radial-gradient(circle, rgba(17,24,39,0.22) 1px, transparent 1px);
+      background-size: 34px 34px;
+      z-index:0;
+    }
+
+    /* Soft halo (behind icon/title area) */
+    #ms-onboarding::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top: 210px;
+      transform: translateX(-50%);
+      width: 820px;
+      height: 820px;
+      pointer-events:none;
+      background: radial-gradient(circle,
+        rgba(17,24,39,0.08) 0%,
+        rgba(17,24,39,0.04) 22%,
+        rgba(17,24,39,0.00) 60%
+      );
+      filter: blur(1px);
+      z-index:0;
+    }
+
+    /* Layout */
+    #ms-onboarding .ms-wrap{
+      position: relative;
+      z-index: 1;
+      padding: 0 16px;
+    }
+
+    #ms-onboarding .ms-content{
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      text-align: center;
+
+      /* template-like vertical placement (NOT centered) */
+      padding-top: 112px;
+      padding-bottom: 96px;
+    }
+
+    /* Icon cluster */
+    #ms-onboarding .ms-iconBlock{
+      display:flex;
+      justify-content:center;
+      margin-bottom: 40px;
+    }
+
+    #ms-onboarding .ms-iconStack{
+      position: relative;
+      width: 120px;
+      height: 120px;
+    }
+
+    #ms-onboarding .ms-glow{
+      position:absolute;
+      inset: -10px;
+      border-radius: 9999px;
+      background: rgba(0,0,0,0.18);
+      filter: blur(34px);
+      z-index: 0;
+    }
+
+    #ms-onboarding .ms-mainCircle{
+      position: relative;
+      width: 120px;
+      height: 120px;
+      border-radius: 9999px;
+      background: #000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index: 1;
+    }
+
+    /* Critical: prevent your asset from rendering huge/with its own intrinsic layout */
+    #ms-onboarding .ms-mainIcon{
+      width: 72px !important;
+      height: 72px !important;
+      max-width: 72px !important;
+      max-height: 72px !important;
+      object-fit: contain !important;
+      display:block !important;
+    }
+
+    #ms-onboarding .ms-editBadge{
+      position:absolute;
+      right: -8px;
+      bottom: -8px;
+      width: 58px;
+      height: 58px;
+      border-radius: 9999px;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border: 6px solid #fff;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      z-index: 2;
+    }
+
+    #ms-onboarding .ms-editSvg{
+      width: 24px;
+      height: 24px;
+      color:#000;
+      display:block;
+    }
+
+    /* Typography: force exact sizes regardless of BaseLayout/global CSS */
+    #ms-onboarding .ms-h1{
+      margin: 0 0 20px 0 !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.02em !important;
+      line-height: 1.05 !important;
+      font-size: 48px !important;
+      color: #000 !important;
+    }
+
+    #ms-onboarding .ms-p{
+      margin: 0 auto 40px auto !important;
+      max-width: 420px !important;
+      font-size: 18px !important;
+      line-height: 1.85 !important;
+      color: rgba(107,114,128,0.92) !important;
+      font-style: italic !important;
+    }
+
+    /* CTA */
+    #ms-onboarding .ms-note{
+      margin: 28px 0 0 0 !important;
+      font-size: 11px !important;
+      letter-spacing: 0.22em !important;
+      text-transform: uppercase !important;
+      color: rgba(156,163,175,0.85) !important;
+    }
+
+    /* Responsive: keep mobile similar to your template screenshot */
+    @media (max-width: 480px){
+      #ms-onboarding .ms-content{ padding-top: 92px; }
+      #ms-onboarding .ms-h1{ font-size: 38px !important; }
+    }
+
+  </style>
+</BaseLayout>

@@ -1,0 +1,135 @@
+---
+/**
+ * SectionQuestionnaire.astro — Option A (link out)
+ * Implements model: large icons, no circle edge line, arrows centered & thick,
+ * uppercase CTA. Uses site tokens (.ms-h2, .ms-body) as the source of truth.
+ */
+export interface Props {
+  formUrl: string;
+  mode?: "link" | "modal";
+}
+const { formUrl, mode = "link" } = Astro.props;
+---
+
+<section aria-labelledby="questionnaire-title" class="py-16 md:py-24">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6">
+
+    <!-- Title + paragraph -->
+    <div class="text-center space-y-3 mb-10 md:mb-12">
+      <h2 id="questionnaire-title" class="ms-h2">
+        Développez des outils de pilotage sur mesure
+      </h2>
+      <p class="ms-body">
+        Connectez Muse Square insights à vos données internes selon les meilleurs standards de sécurité, de confidentialité et de gouvernance des données.
+      </p>
+    </div>
+
+    <!-- Steps row (md+: single row with arrows; mobile: stacked) -->
+    <div class="grid grid-cols-1 md:grid-cols-8 gap-12 md:gap-10">
+
+    <!-- ÉTAPE 1 -->
+    <div class="text-center md:col-span-2 flex flex-col items-center">
+        <!-- Circle unchanged; icon scaled larger and perfectly centered -->
+        <div class="relative mx-auto mb-6 h-44 w-44 rounded-full bg-[#f5f5f5] overflow-hidden">
+        <img
+            src="/images/icon-survey.png"
+            alt=""
+            class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                h-44 w-44 object-contain origin-center scale-[1.3]"
+            loading="lazy"
+        />
+        </div>
+
+        <!-- Fixed heights to align baselines across all steps -->
+        <div class="min-h-[28px] flex items-center">
+        <p class="ms-body font-bold leading-none">Étape 1</p>
+        </div>
+        <div class="min-h-[56px] flex items-center">
+        <p class="ms-body text-gray-600">Contactez-nous</p>
+        </div>
+    </div>
+
+    <!-- ARROW 1 (desktop only) — exact midline of 44px circle -->
+    <div class="hidden md:flex md:col-span-1 h-44 items-center justify-center" aria-hidden="true">
+        <svg width="220" height="40" viewBox="0 0 220 40" xmlns="http://www.w3.org/2000/svg">
+            <!-- line -->
+            <path d="M10 20 H190"
+                stroke="#FBC400" stroke-width="6" stroke-linecap="round"/>
+            <!-- open arrow head -->
+            <path d="M190 10 L210 20 L190 30"
+                stroke="#FBC400" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+    </div>
+
+    <!-- ÉTAPE 2 -->
+    <div class="text-center md:col-span-2 flex flex-col items-center">
+        <div class="relative mx-auto mb-6 h-44 w-44 rounded-full bg-[#f5f5f5] overflow-hidden">
+            <img
+            src="/images/icon-time.png"
+            alt=""
+            class="absolute left-1/2 top-1/2
+                    translate-x-[calc(-50%_-_10px)] translate-y-[calc(-50%_+_2px)]
+                    h-44 w-44 object-contain origin-center scale-[1.3] pointer-events-none select-none"
+            loading="lazy"
+            />
+        </div>
+
+        <div class="min-h-[28px] flex items-center">
+            <p class="ms-body font-bold leading-none">Étape 2</p>
+        </div>
+        <div class="min-h-[56px] flex items-center">
+            <p class="ms-body text-gray-600">Recevez rapidement une feuille de route personnalisée</p>
+        </div>
+    </div>
+
+    <!-- ARROW 2 -->
+    <div class="hidden md:flex md:col-span-1 h-44 items-center justify-center" aria-hidden="true">
+        <svg width="220" height="40" viewBox="0 0 220 40" xmlns="http://www.w3.org/2000/svg">
+            <!-- line -->
+            <path d="M10 20 H190"
+                stroke="#FBC400" stroke-width="6" stroke-linecap="round"/>
+            <!-- open arrow head -->
+            <path d="M190 10 L210 20 L190 30"
+                stroke="#FBC400" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+    </div>
+
+    <!-- ÉTAPE 3 -->
+    <div class="text-center md:col-span-2 flex flex-col items-center">
+        <div class="relative mx-auto mb-6 h-44 w-44 rounded-full bg-[#f5f5f5] overflow-hidden">
+        <img
+            src="/images/icon-contact.png"
+            alt=""
+            class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+                h-44 w-44 object-contain origin-center scale-[1.3]"
+            loading="lazy"
+        />
+        </div>
+
+        <div class="min-h-[28px] flex items-center">
+        <p class="ms-body font-bold leading-none">Étape 3</p>
+        </div>
+        <div class="min-h-[56px] flex items-center">
+        <p class="ms-body text-gray-600">Développons ensemble votre outil sur mesure</p>
+        </div>
+    </div>
+  </div>
+
+    <!-- CTA (Option A) -->
+    {mode === "link" && (
+        <div class="mt-12 text-center">
+            <a
+            href="/contact"
+            class="inline-flex items-center justify-center border border-gray-900 px-7 py-3 rounded-none
+                    uppercase tracking-[0.2px] text-[15px] font-bold leading-[1.2]
+                    transition shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 mx-auto"
+            data-kpi="cta_contact"
+            >
+            NOUS CONTACTER
+            <span class="ml-2" aria-hidden="true">↗</span>
+            </a>
+        </div>
+    )}
+  </div>
+</section>

@@ -2,10 +2,10 @@
 const year = new Date().getFullYear();
 ---
 
-<footer class="w-full bg-background border-t border-border">
-  <!-- Top row: Logo + 3 columns (single separator only at top of footer) -->
+<footer class="ms-footer w-full bg-background border-t border-border text-slate-700">
+  <!-- Top row: Logo + 3 columns -->
   <div class="ms-container py-[48px] grid grid-cols-1 md:grid-cols-4 gap-[32px] items-start">
-    <!-- Brand (smaller to align visually with column headings) -->
+    <!-- Brand -->
     <div class="flex items-center md:items-start">
       <img
         src="/images/muse-square-logo.png?v=2"
@@ -16,44 +16,63 @@ const year = new Date().getFullYear();
 
     <!-- Column 1 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+      <h4 class="not-italic uppercase tracking-[0.5px]">
         Muse Square
       </h4>
       <ul class="mt-[12px] space-y-[8px]">
-        <li><a href="/a-propos"   class="font-heading text-[14px] md:text-[16px] hover:opacity-80">À propos</a></li>
-        <li><a href="/references" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Références</a></li>
-        <li><a href="https://www.linkedin.com/company/muse-square" target="_blank" rel="noopener noreferrer" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">LinkedIn</a></li>
+        <li><a href="/a-propos" class="font-body italic text-[13px] font-normal text-inherit">À propos</a></li>
+        <li>
+          <a
+            href="https://www.linkedin.com/in/julen-de-ajuriaguerra/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-body italic text-[13px] font-normal text-inherit hover:underline underline-offset-2"
+          >
+            LinkedIn
+          </a>
+        </li>
       </ul>
     </div>
 
     <!-- Column 2 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+      <h4 class="not-italic uppercase tracking-[0.5px]">
         Services
       </h4>
       <ul class="mt-[12px] space-y-[8px]">
-        <li><a href="/offres#blueprint"            class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Feuille de route data</a></li>
-        <li><a href="/offres#engagement-lift"      class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Engagement & Fidélisation</a></li>
-        <li><a href="/offres#fractional-analytics" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Analyste data à temps partiel</a></li>
+        <li><a href="/offres#blueprint"            class="font-body text-[13px] hover:underline underline-offset-2">insight event</a></li>
+        <li><a href="/offres#engagement-lift"      class="font-body text-[13px] hover:underline underline-offset-2">insight marketing</a></li>
+        <li><a href="/offres#fractional-analytics" class="font-body text-[13px] hover:underline underline-offset-2">Agence Muse Square</a></li>
+        <li>
+          <a
+            href="https://calendly.com/julen-deajuriaguerra/30min"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-body text-[13px] hover:underline underline-offset-2"
+          >
+            Planifier un RDV
+          </a>
+        </li>
       </ul>
     </div>
 
     <!-- Column 3 -->
     <div>
-      <h4 class="font-heading text-[13px] font-bold uppercase tracking-[0.5px] text-primary">
+      <h4 class="not-italic uppercase tracking-[0.5px]">
         Mentions légales
       </h4>
       <ul class="mt-[12px] space-y-[8px]">
-        <li><a href="/mentions-legales"     class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Mentions légales</a></li>
-        <li><a href="/conditions-generales" class="font-heading text-[14px] md:text-[16px] hover:opacity-80">Conditions générales d’utilisation</a></li>
+        <li><a href="/mentions-legales"     class="font-body text-[13px] hover:underline underline-offset-2">Mentions légales</a></li>
+        <li><a href="/conditions-generales" class="font-body text-[13px] hover:underline underline-offset-2">Conditions générales d’utilisation</a></li>
       </ul>
     </div>
   </div>
 
-  <!-- Bottom row: centered copyright, no logo, no social icons, more space from bottom -->
+  <!-- Bottom row -->
   <div class="ms-container flex justify-center pt-[12px] pb-[48px]">
-    <span class="ms-body text-[14px] opacity-80 text-secondary text-center">
+    <span class="font-body italic text-[13px] leading-[1.45] text-slate-600 text-center">
       © Muse Square {year}. Tous droits réservés.
     </span>
   </div>
 </footer>
+

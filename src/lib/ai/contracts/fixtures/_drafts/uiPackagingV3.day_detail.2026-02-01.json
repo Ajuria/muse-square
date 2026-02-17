@@ -1,0 +1,69 @@
+{
+  "v": 3,
+  "kind": "day_detail",
+  "trace": {
+    "horizon": "day",
+    "intent": "DAY_WHY",
+    "used_dates": ["2026-02-01"],
+    "source": "decision_payload"
+  },
+  "header": {
+    "title": "Pourquoi ce jour ?",
+    "summary": "Analyse détaillée du dimanche 01/02/2026.",
+    "timeframe": {
+      "display_label": "Dimanche 01/02/2026"
+    }
+  },
+  "dates": [
+    {
+      "date": "2026-02-01",
+      "date_label": "Dimanche 01/02/2026",
+      "sections": [
+        {
+          "id": "score",
+          "title": "Évaluation globale",
+          "facts": [
+            "Catégorie B",
+            "Score d’opportunité 54",
+            "Médaille B+"
+          ]
+        },
+        {
+          "id": "concurrence",
+          "title": "Concurrence événementielle",
+          "facts": [
+            "0 événement à ≤10 km",
+            "84 événements à ≤50 km",
+            "Présence concurrentielle régionale"
+          ],
+          "implications": [
+            "Pression concurrentielle indirecte possible",
+            "Facteur principal identifié : Concurrence"
+          ]
+        },
+        {
+          "id": "calendrier",
+          "title": "Calendrier",
+          "facts": [
+            "Week-end",
+            "Temps fort commercial actif",
+            "Pas de vacances scolaires",
+            "Pas de jour férié"
+          ]
+        },
+        {
+          "id": "meteo_faisabilite",
+          "title": "Météo / Faisabilité",
+          "facts": [
+            "Nuageux",
+            "Alerte météo niveau 0",
+            "Pluie maximale 40 %",
+            "Vent maximal 9.8 km/h",
+            "Température 2.1°C – 11.2°C"
+          ]
+        }
+      ]
+    }
+  ],
+  "lookup": []
+}

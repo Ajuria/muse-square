@@ -1,8 +1,20 @@
 ---
-const { title = 'Muse Square' } = Astro.props;
-import '../styles/global.css';
-import Nav from '../components/Nav.astro';
-import Footer from '../components/Footer.astro';
+const {
+  title = "Muse Square",
+  hideSurveyCta = false,
+  hideFooter = false,
+  hideNav = false,
+} = Astro.props;
+
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import SectionQuestionnaire from "../components/SectionQuestionnaire.astro";
+
+const FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQSm_qlYD1RTahTw_ligFT2D20AoopA/viewform?usp=header";
+
+const isApp = Astro.url.pathname.startsWith("/app");
 ---
 <!doctype html>
 <html lang="fr">
@@ -14,21 +26,166 @@ import Footer from '../components/Footer.astro';
     <!-- Favicons -->
     <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png?v=2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png?v=2" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
     <link rel="shortcut icon" href="/favicon-32.png?v=2" />
+
+    <!-- Page Loader (BaseLayout) -->
+    <style>
+      /* Loader visible immediately to avoid "collapsed" UI during client fetch/hydration */
+      #ms-page-loader {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        /* critical: do not block UI */
+        pointer-events: none;
+
+        background: transparent;
+        opacity: 1;
+        transition: opacity 120ms ease;
+      }
+
+      #ms-page-loader[aria-hidden="true"] {
+        opacity: 0;
+      }
+
+      .ms-loader-gif {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+      }
+      
+      .ms-loader-label {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(0, 0, 0, 0.55);
+      }
+    </style>
+
+    <!-- Ensure loader is ON before first paint -->
+    <script is:inline>
+      (function () {
+        try {
+          document.documentElement.classList.add("ms-loading");
+          document.body && document.body.classList.add("ms-loading");
+        } catch (_) {}
+      })();
+    </script>
   </head>
-  <body>
-    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2">
+
+  <body data-ms-app={isApp ? "1" : undefined}>
+    <!-- Loader overlay -->
+    <div id="ms-page-loader" aria-hidden="false" aria-live="polite" aria-busy="true">
+      <img class="ms-loader-gif" src="/icons/load/ms_load_icon.gif" alt="Chargement…" />
+    </div>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
+    >
       Aller au contenu principal
     </a>
 
-    <Nav />
+    {!hideNav && <Nav />}
 
-    <main id="main" class="ms-container ms-first-tight">
+    <main
+      id="main"
+      class={`ms-container ms-first-tight ${isApp ? "pb-0" : "pb-20"}`}
+      style={
+        isApp
+          ? "padding-bottom: calc(var(--ms-bottombar-total-h, 0px) + env(safe-area-inset-bottom, 0px));"
+          : undefined
+      }
+    >
       <slot />
     </main>
 
-    <Footer />
+    {!hideSurveyCta && <SectionQuestionnaire mode="link" formUrl={FORM_URL} />}
+    {!hideFooter && <Footer />}
+
+    <!-- Loader controller -->
+    <script is:inline>
+      (function () {
+        var loader = document.getElementById("ms-page-loader");
+        if (!loader) return;
+
+        function hide() {
+          loader.setAttribute("aria-hidden", "true");
+          loader.setAttribute("aria-busy", "false");
+          window.setTimeout(function () {
+            if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+          }, 180);
+        }
+
+        // Hide as soon as DOM is ready, with a max visible time of 500ms.
+        var hardCap = window.setTimeout(hide, 500);
+
+        if (document.readyState === "loading") {
+          document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+              window.clearTimeout(hardCap);
+              // tiny delay so the GIF can show briefly without blocking anything
+              window.setTimeout(hide, 120);
+            },
+            { once: true }
+          );
+        } else {
+          window.clearTimeout(hardCap);
+          window.setTimeout(hide, 120);
+        }
+      })();
+    </script>
+
+    <!-- Logout wiring (global) -->
+    <script is:inline>
+      (function () {
+        function wire() {
+          var buttons = document.querySelectorAll(".logoutBtn");
+          if (!buttons.length) return;
+
+          var clerk = window.Clerk;
+          if (!clerk || typeof clerk.signOut !== "function") {
+            // Clerk not ready yet → retry a bit
+            var attempts = 0;
+            var t = window.setInterval(function () {
+              attempts++;
+              clerk = window.Clerk;
+              if (clerk && typeof clerk.signOut === "function") {
+                window.clearInterval(t);
+                wire(); // try again now that Clerk exists
+              } else if (attempts >= 30) {
+                window.clearInterval(t);
+                console.error("[logout] window.Clerk not available after retries");
+              }
+            }, 100);
+            return;
+          }
+
+          buttons.forEach(function (btn) {
+            if (btn.__msLogoutWired) return; // prevent double binding
+            btn.__msLogoutWired = true;
+
+            btn.addEventListener("click", function (e) {
+              e.preventDefault();
+              clerk.signOut({ redirectUrl: "/" }).catch(function (err) {
+                console.error("[logout] failed", err);
+              });
+            });
+          });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", wire, { once: true });
+        } else {
+          wire();
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -1,0 +1,49 @@
+/* Surface feel, using legacy Hex existing tokens */
+:root{
+  --ie-card-bg: var(--color-bg-card);
+  --ie-card-border: 1px solid var(--color-border);
+  --ie-card-radius: var(--radius-sm);
+  --ie-card-shadow: var(--shadow-md);
+}
+
+/* Apply to your month surfaces */
+#ie-30d-root{
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+}
+
+/* Card surfaces */
+.ie-top3-card,
+#ie-30d-takeaway-card,
+#ie-30d-calendar-card{
+  background: var(--ie-card-bg);
+  border: var(--ie-card-border);
+  border-radius: var(--ie-card-radius);
+  box-shadow: var(--ie-card-shadow);
+}
+
+/* Hover behaves like Hex */
+.ie-top3-card:hover,
+#ie-30d-calendar-card:hover{
+  border-color: var(--color-border-hover);
+}
+
+/* Top3 typography closer to Hex */
+.ie-top3-day{
+  font-size: var(--font-size-hero);
+  line-height: 1;
+}
+.ie-top3-score{
+  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+}
+
+/* ================================
+   App surface guardrails
+   ================================ */
+
+body[data-ms-app="1"] .ms-section {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}

@@ -1,88 +1,209 @@
 ---
+import { SignedOut, SignedIn } from "@clerk/astro/components";
+
 const items = [
-  { href: '/offres',     label: 'Services' },
-  { href: '/references', label: 'Références' },
-  { href: '/a-propos',   label: 'À propos' },
-  { href: '/contact',    label: 'Contact' },
+  { href: "/offres", label: "Solutions" },
+  { href: "/a-propos", label: "À propos" },
+  { href: "/contact", label: "Contact" },
 ];
 
 // normalize paths and detect "active" for child routes too
-const normalize = (p: string) => (p.replace(/\/+$/, '') || '/');
+const normalize = (p: string) => (p.replace(/\/+$/, "") || "/");
 const currentPath = normalize(Astro.url.pathname);
 const isActive = (href: string) => {
   const h = normalize(href);
-  return currentPath === h || (h !== '/' && currentPath.startsWith(h + '/'));
+  return currentPath === h || (h !== "/" && currentPath.startsWith(h + "/"));
 };
+
+const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname === "/profile";
+const isInsightEvent = currentPath.startsWith("/app/insightevent");
+const isProfile = currentPath === "/profile" || currentPath.startsWith("/profile/");
+const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
+const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
+const isAppShell = isApp;
 ---
 
 <header class="sticky top-0 z-50 w-full bg-background border-b border-border">
   <nav class="ms-container py-3 md:py-4 flex items-center justify-between">
     <!-- Logo -->
-    <a href="/" class="flex items-center gap-[16px]">
+    <a
+      href={isAppShell ? "/app/insightevent/prompt" : "/"}
+      class="flex items-center gap-[16px]"
+    >
       <img
-        src="/images/muse-square-logo.png?v=2"
-        alt="Muse Square logo"
+        src={isAppShell ? "/images/logo_ms_insight.svg" : "/images/muse-square-logo.png?v=2"}
+        alt={isAppShell ? "Muse Square Insight" : "Muse Square"}
         class="block h-8 md:h-10 w-auto object-contain"
         loading="lazy"
         decoding="async"
       />
     </a>
 
-    <!-- Mobile menu button -->
-    <button
-      id="menuBtn"
-      class="md:hidden p-2"
-      aria-label="Ouvrir le menu"
-      aria-controls="mobileMenu"
-      aria-expanded="false"
-    >
-      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 6h18M3 12h18M3 18h18" stroke="#000"/>
-      </svg>
-    </button>
+      <>
+        <!-- Mobile menu button -->
+        <button
+          id="menuBtn"
+          class="md:hidden p-2"
+          aria-label="Ouvrir le menu"
+          aria-controls="mobileMenu"
+          aria-expanded="false"
+        >
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" stroke="#000" />
+          </svg>
+        </button>
+      </>
+    
+      <div class="hidden md:flex items-center gap-10">
+        <!-- Primary nav -->
+        <ul class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
+          {!isApp && items.map((i) => (
+            <li>
+              <a
+                href={i.href}
+                aria-current={isActive(i.href) ? "page" : undefined}
+                class="ms-nav-link"
+              >
+                {i.label}
+              </a>
+            </li>
+          ))}
+          {/* Signed-in on marketing site: show Insight only (no logout) */}
+          {!isApp && (
+            <SignedIn>
+              <li>
+                <a href="/app/insightevent/prompt" class="ms-nav-link">
+                  Insight
+                </a>
+              </li>
+            </SignedIn>
+          )}
 
-    <!-- Desktop nav -->
-    <ul class="hidden md:flex items-center gap-8 font-heading text-[15px] font-medium leading-[24px] uppercase tracking-[0.5px] text-primary">
-      {items.map((i) => (
-        <li>
-          <a
-            href={i.href}
-            aria-current={isActive(i.href) ? 'page' : undefined}
-            class={`font-heading relative inline-block pb-2 transition-opacity
-                     hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                     ${isActive(i.href) ? 'after:bg-primary' : 'after:bg-transparent'}`}
-          >
-            {i.label}
-          </a>
-        </li>
-      ))}
-    </ul>
-  </nav>
+          {/* App-only menu + logout */}
+          {isApp && (
+            <>
+              <li>
+                <a href="/app/insightevent/prompt" class="ms-nav-link">
+                  Event
+                </a>
+              </li>
 
+              <li>
+                <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">
+                  Marketing
+                </span>
+              </li>
+
+              <li>
+                <a href="/profile" class="ms-nav-link italic normal-case">
+                  Profil
+                </a>
+              </li>
+
+              <SignedIn>
+                <li>
+                  <button type="button" class="logoutBtn ms-nav-link italic normal-case">
+                    Log out
+                  </button>
+                </li>
+              </SignedIn>
+            </>
+          )}
+        </ul>
+
+        {/* Auth actions: only when signed out */}
+        <SignedOut>
+          <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
+            <a href="/sign-in" class="ms-nav-link">
+              Se connecter
+            </a>
+
+            <a href="/sign-up" class="ms-btn">
+              S’inscrire
+            </a>
+          </div>
+        </SignedOut>
+      </div>
+      
   <!-- Mobile nav -->
   <div id="mobileMenu" class="md:hidden hidden border-t border-border bg-background">
     <ul class="ms-container py-4 grid gap-[24px] font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
-      {items.map((i) => (
-        <li>
-          <a
-            href={i.href}
-            aria-current={isActive(i.href) ? 'page' : undefined}
-            class={`font-heading relative inline-block pb-2 transition-opacity
-                     hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                     ${isActive(i.href) ? 'after:bg-primary' : 'after:bg-transparent'}`}
-          >
-            {i.label}
-          </a>
-        </li>
-      ))}
+      {isApp ? (
+        <>
+          <li>
+            <a
+              href="/app/insightevent/prompt"
+              aria-current={isInsightEvent ? "page" : undefined}
+              class={`font-heading relative inline-block pb-2 transition-opacity
+                hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
+                ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+            >
+              Event
+            </a>
+          </li>
+
+          <li>
+            <span
+              class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none"
+              aria-disabled="true"
+              title="Bientôt disponible"
+            >
+              Marketing
+            </span>
+          </li>
+
+          <li>
+            <a
+              href="/profile"
+              aria-current={isProfile ? "page" : undefined}
+              class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity
+                hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
+                ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
+            >
+              Profil
+            </a>
+          </li>
+
+          <SignedIn>
+            <li>
+              <button
+                type="button"
+                class="logoutBtn font-heading relative inline-block pb-2 italic normal-case transition-opacity
+                      hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                Log out
+              </button>
+            </li>
+          </SignedIn>
+        </>
+      ) : (
+        items.map((i) => (
+          <li>
+            <a
+              href={i.href}
+              aria-current={isActive(i.href) ? "page" : undefined}
+              class={`font-heading relative inline-block pb-2 transition-opacity
+                hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
+                ${isActive(i.href) ? "after:bg-primary" : "after:bg-transparent"}`}
+            >
+              {i.label}
+            </a>
+          </li>
+        ))
+      )}
     </ul>
   </div>
 
   <script is:inline>
     const btn = document.getElementById('menuBtn');
     const menu = document.getElementById('mobileMenu');
+
+    if (!(btn instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
+      // Nothing to wire up on pages without the mobile nav.
+    } else {
 
     const toggle = () => {
       if (!menu || !btn) return;
@@ -91,24 +212,26 @@ const isActive = (href: string) => {
       btn.setAttribute('aria-expanded', String(!expanded));
     };
 
-    btn?.addEventListener('click', toggle);
+    btn.addEventListener('click', toggle);
 
-    // Close menu on link click (mobile) — JS-only, no TS casts
-    menu?.addEventListener('click', (e) => {
+    // Close menu on link click (mobile)
+    menu.addEventListener('click', (e) => {
       const target = e.target;
       const link = target instanceof Element ? target.closest('a') : null;
-      if (link) {
-        menu.classList.add('hidden');
-        btn?.setAttribute('aria-expanded', 'false');
-      }
+      if (!link) return;
+
+      menu.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
     });
 
     // Close on Escape
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && menu && !menu.classList.contains('hidden')) {
+      if (e.key === 'Escape' && !menu.classList.contains('hidden')) {
         menu.classList.add('hidden');
-        btn?.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-expanded', 'false');
       }
     });
+    }
   </script>
+
 </header>

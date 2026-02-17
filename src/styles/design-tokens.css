@@ -1,0 +1,45 @@
+:root{
+  --color-bg-page: #f5f6f8;
+  --color-bg-card: #ffffff;
+  --color-border: rgba(0,0,0,0.08);
+  --color-border-hover: #1D3BB3;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: rgba(17,24,39,0.45);
+  --color-brand-blue: #1D3BB3;
+
+  --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-size-hero: 56px;
+  --font-size-h2: 20px;
+  --font-size-body: 16px;
+  --font-size-label: 12px;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.55;
+  --letter-spacing-wider: 0.08em;
+
+  --font-size-display: 40px;
+  --font-size-subtitle: 13px;
+  --font-size-small: 11px;
+
+  --space-md: 16px;
+  --space-label-mb: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 40px;
+  --space-4xl: 60px;
+
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-full: 999px;
+
+  --shadow-md: 0 4px 12px rgba(29,59,179,0.08);
+
+  --card-padding-sm: 24px;
+  --icon-size-md: 24px;
+  --btn-size-md: 44px;
+}

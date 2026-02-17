@@ -24,7 +24,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <!-- Overlay content: title only, aligned to the rail -->
         <div class="absolute inset-0">
       <div class="ms-container h-full flex items-center">
-        <h1 class="ms-h1 text-primary">Discutons ensemble</h1>
+        <h1 class="ms-h1 text-primary">Discutons de vos besoins</h1>
       </div>
     </div>
   </section>
@@ -33,7 +33,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <section class="ms-section">
     <div class="max-w-[800px]">
       <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
-        Vous souhaitez structurer, analyser ou valoriser vos données culturelles ou touristiques ?
+        Vous souhaitez bénéficier d'une intelligence contextuelle spécialisée dans votre territoire, ou être accompagné dans vos projets data et IA?
       </p>
 
       <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
@@ -84,14 +84,26 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             Envoyer
           </button>
 
-          <a href="#rdv" class="msq-link font-heading" data-kpi="contact_rdv">
+          <a
+            href="https://calendly.com/julen-deajuriaguerra/30min"
+            class="msq-link font-heading"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-kpi="contact_rdv"
+          >
             Planifier un RDV
+            <span class="sr-only">(s’ouvre dans un nouvel onglet)</span>
           </a>
         </div>
       </form>
 
-      <!-- Calendly / RDV anchor -->
-      <div id="rdv" class="mt-10"></div>
     </div>
   </section>
 </BaseLayout>
+
+
+<button type="submit"
+        class="msq-btn-ghost"
+        data-kpi="contact_submit">
+  Envoyer
+</button>

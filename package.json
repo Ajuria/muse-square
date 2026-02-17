@@ -3,18 +3,31 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "dotenv -e .env -- astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
-    "astro": "^5.13.3"
+    "@astrojs/check": "^0.9.6",
+    "@clerk/astro": "^2.16.12",
+    "@clerk/clerk-sdk-node": "^4.13.23",
+    "@clerk/localizations": "^3.35.3",
+    "@google-cloud/bigquery": "^8.1.1",
+    "astro": "^5.13.3",
+    "dotenv": "^17.2.3",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@astrojs/mdx": "^4.3.4",
+    "@astrojs/node": "^9.5.2",
     "@astrojs/tailwind": "^6.0.2",
     "@tailwindcss/typography": "^0.5.16",
-    "tailwindcss": "^3.4.17"
+    "@vitest/coverage-v8": "^4.0.18",
+    "dotenv-cli": "^11.0.0",
+    "tailwindcss": "^3.4.17",
+    "vitest": "^4.0.18"
   }
 }

@@ -1,0 +1,122 @@
+{
+  "v": 3,
+  "kind": "window_list",
+  "trace": {
+    "horizon": "month",
+    "intent": "WINDOW_TOP_DAYS",
+    "used_dates": [
+      "2026-02-02",
+      "2026-02-01",
+      "2026-02-16",
+      "2026-02-23",
+      "2026-02-26"
+    ],
+    "source": "decision_payload"
+  },
+  "header": {
+    "title": "Jours les plus favorables",
+    "summary": "Fenêtre 30 jours analysée. 3 dates mises en avant.",
+    "timeframe": {
+      "display_label": "Fenêtre 30 jours: 01/02/2026 → 02/03/2026",
+      "highlights": [
+        "Synthèse (30 jours): 0 jours A, 30 jours B, 0 jours C.",
+        "Score 34–60."
+      ]
+    }
+  },
+  "dates": [
+    {
+      "date": "2026-02-02",
+      "date_label": "Lundi 02/02/2026",
+      "sections": [
+        {
+          "id": "calendrier",
+          "title": "Calendrier",
+          "facts": [
+            "Événement commercial actif",
+            "Pas de vacances scolaires",
+            "Pas de jour férié"
+          ]
+        },
+        {
+          "id": "concurrence",
+          "title": "Concurrence événementielle",
+          "facts": [
+            "0 événement à ≤10 km",
+            "76 événements à ≤50 km"
+          ]
+        },
+        {
+          "id": "meteo_faisabilite",
+          "title": "Météo / Faisabilité",
+          "facts": [
+            "Alerte météo niveau 0",
+            "Pluie maximale 85 %",
+            "Vent maximal 33.4 km/h"
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-02-01",
+      "date_label": "Dimanche 01/02/2026",
+      "sections": [
+        {
+          "id": "calendrier",
+          "title": "Calendrier",
+          "facts": [
+            "Week-end",
+            "Événement commercial actif",
+            "Pas de vacances scolaires"
+          ]
+        },
+        {
+          "id": "concurrence",
+          "title": "Concurrence événementielle",
+          "facts": [
+            "0 événement à ≤10 km"
+          ]
+        },
+        {
+          "id": "meteo_faisabilite",
+          "title": "Météo / Faisabilité",
+          "facts": [
+            "Alerte météo niveau 0",
+            "Pluie maximale 40 %",
+            "Vent maximal 10 km/h"
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-02-16",
+      "date_label": "Lundi 16/02/2026",
+      "sections": [
+        {
+          "id": "calendrier",
+          "title": "Calendrier",
+          "facts": [
+            "Vacances scolaires",
+            "Pas de jour férié"
+          ]
+        },
+        {
+          "id": "concurrence",
+          "title": "Concurrence événementielle",
+          "facts": [
+            "0 événement à ≤10 km"
+          ]
+        },
+        {
+          "id": "meteo_faisabilite",
+          "title": "Météo / Faisabilité",
+          "facts": [
+            "Alerte météo niveau 0",
+            "Vent maximal 14 km/h"
+          ]
+        }
+      ]
+    }
+  ],
+  "lookup": []
+}

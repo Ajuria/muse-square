@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SignIn as ClerkSignIn } from '@clerk/astro/components';
+---
+
+<BaseLayout title="Sign In - Muse Square" hideSurveyCta={true}>
+  <div class="flex items-center justify-center min-h-[60vh]">
+    <ClerkSignIn afterSignInUrl="/app/insightevent/prompt" />
+  </div>
+</BaseLayout>

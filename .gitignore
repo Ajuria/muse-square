@@ -23,3 +23,18 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .vscode/
+
+# secrets / credentials (never commit)
+secrets/
+*.env
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*service-account*.json
+**/service-account*.json

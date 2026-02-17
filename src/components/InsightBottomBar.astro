@@ -1,0 +1,225 @@
+---
+/**
+ * src/components/InsightBottomBar.astro
+ *
+ * Props:
+ * - active: "prompt" | "month" | "days"
+ * - showActions: boolean (whether to render the action buttons row above nav)
+ */
+const { active = "prompt", showActions = false } = Astro.props;
+
+// Preserve query params in nav links (server-side, so no client rewrite needed)
+const u = new URL(Astro.request.url);
+
+// Keep Month canonical navigation params, plus selection/share params
+const keep = [
+  "window_start_date",
+  "anchor_date",
+  "selected_date",
+  "selected_dates",
+  "saved_item_id",
+];
+
+function withKeptParams(pathname: string) {
+  const to = new URL(pathname, u.origin);
+  for (const k of keep) {
+    const v = u.searchParams.get(k);
+    if (v && v.trim()) to.searchParams.set(k, v);
+  }
+  return to.pathname + (to.search ? to.search : "");
+}
+
+function withoutKeptParams(pathname: string) {
+  const to = new URL(pathname, u.origin);
+  // Intentionally do NOT copy selected_dates/selected_date
+  return to.pathname;
+}
+
+
+const hrefPrompt = withKeptParams("/app/insightevent/prompt");
+const hrefMonth  = withKeptParams("/app/insightevent/month");
+const hrefDays   = withoutKeptParams("/app/insightevent/days");
+
+---
+
+<div class="ms-bottombar" role="navigation" aria-label="Navigation Insight Event">
+  {showActions && (
+    <div class="ms-bottombar-actions">
+      <div class="ms-bottombar-actions-inner">
+        <button
+            id="cta-save"
+            type="button"
+            class="ms-bottombar-btn ms-bottombar-btn--ghost"
+        >
+            Enregistrer
+        </button>
+
+        <button
+          id="cta-share"
+          type="button"
+          class="ms-bottombar-btn ms-bottombar-btn--primary"
+        >
+          Partager choix
+        </button>
+      </div>
+    </div>
+  )}
+
+  <div class="ms-bottombar-nav">
+    <a class={`ms-bottombar-item ${active === "prompt" ? "is-active" : ""}`} href={hrefPrompt} aria-label="Prompt" aria-current={active === "prompt" ? "page" : undefined}>
+      <div class="ms-bottombar-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="ms-bottombar-label">PROMPT</div>
+    </a>
+
+    <a class={`ms-bottombar-item ${active === "month" ? "is-active" : ""}`} href={hrefMonth} aria-label="Mois" aria-current={active === "month" ? "page" : undefined}>
+      <div class="ms-bottombar-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M7 2v3M17 2v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div class="ms-bottombar-label">MOIS</div>
+    </a>
+
+    <a class={`ms-bottombar-item ${active === "days" ? "is-active" : ""}`} href={hrefDays} aria-label="Jours" aria-current={active === "days" ? "page" : undefined}>
+      <div class="ms-bottombar-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M4 6h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4 12h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="ms-bottombar-label">JOURS</div>
+    </a>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    const saveBtn = document.getElementById("cta-save");
+    const addBtn = document.getElementById("cta-add-calendar");
+    const shareBtn = document.getElementById("cta-share");
+
+    if (!saveBtn && !addBtn && !shareBtn) return;
+
+    function getShareLink() {
+      const u = new URL(window.location.href);
+
+      const savedItemId = (u.searchParams.get("saved_item_id") || "").trim();
+      if (savedItemId) {
+        const out = new URL(u.origin + "/app/insightevent/days");
+        out.searchParams.set("saved_item_id", savedItemId);
+        return out.toString();
+      }
+
+      // Fallback (temporary): raw URL
+      // For MVP we will *prefer* forcing save before share (see shareChoice()).
+      return u.toString();
+    }
+
+    function getSelectedDateForCalendar() {
+      const u = new URL(window.location.href);
+
+      const selectedDate = (u.searchParams.get("selected_date") || "").trim();
+      if (selectedDate) return selectedDate;
+
+      const selectedDatesRaw = (u.searchParams.get("selected_dates") || "").trim();
+      if (selectedDatesRaw) {
+        const first = selectedDatesRaw.split(",").map(s => s.trim()).filter(Boolean)[0];
+        if (first) return first;
+      }
+      return "";
+    }
+
+    function ymdToUtcAllDayStamp(ymd) {
+      // Google Calendar expects YYYYMMDD for all-day dates
+      return String(ymd || "").trim().replace(/-/g, "");
+    }
+
+    function openGoogleCalendarAllDay(ymd, link) {
+      if (!ymd) return;
+
+      const dtStart = ymdToUtcAllDayStamp(ymd);
+
+      // End date is exclusive for all-day events → next day
+      const d = new Date(ymd + "T00:00:00Z");
+      if (Number.isNaN(d.getTime())) return;
+      d.setUTCDate(d.getUTCDate() + 1);
+
+      const y = d.getUTCFullYear();
+      const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const da = String(d.getUTCDate()).padStart(2, "0");
+      const dtEnd = `${y}${mo}${da}`;
+
+      const url = new URL("https://calendar.google.com/calendar/render");
+      url.searchParams.set("action", "TEMPLATE");
+      url.searchParams.set("text", "Choix de date – Muse Square");
+      url.searchParams.set("dates", `${dtStart}/${dtEnd}`);
+      url.searchParams.set("details", `Choix de date Muse Square.\n${link}`);
+
+      window.open(url.toString(), "_blank", "noopener,noreferrer");
+    }
+
+    async function copyToClipboardOrFallback(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          alert("Lien copié.");
+          return true;
+        } catch (_) {}
+      }
+      window.prompt("Copiez ce lien :", text);
+      return false;
+    }
+
+    function openSaveModal() {
+      window.dispatchEvent(new CustomEvent("ms:open-save-modal"));
+    }
+
+    function addToCalendar() {
+      // No downloads: Google Calendar template URL
+      const ymd = getSelectedDateForCalendar();
+      if (!ymd) return;
+
+      const link = getShareLink();
+      openGoogleCalendarAllDay(ymd, link);
+    }
+
+    async function shareChoice() {
+      const u = new URL(window.location.href);
+      const savedItemId = (u.searchParams.get("saved_item_id") || "").trim();
+
+      // MVP: if not saved, force save first (fast + produces a stable link)
+      if (!savedItemId) {
+        openSaveModal();
+        return;
+      }
+
+      const link = getShareLink();
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Muse Square – choix de date",
+            text: "Voici mon choix de date Muse Square :",
+            url: link,
+          });
+          return;
+        } catch (_) {}
+      }
+
+      await copyToClipboardOrFallback(link);
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener("click", openSaveModal);
+    }
+    if (addBtn) addBtn.addEventListener("click", addToCalendar);
+    if (shareBtn) shareBtn.addEventListener("click", shareChoice);
+  })();
+</script>
