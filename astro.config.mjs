@@ -6,10 +6,8 @@ import { frFR } from "@clerk/localizations";
 import vercel from "@astrojs/vercel/serverless";
 
 export default defineConfig({
-  site: import.meta.env.PROD
-    ? "https://musesquare.com"
-    : "http://localhost:4322",
-
+  site: process.env.PUBLIC_SITE_URL || "http://localhost:4322",
+  
   server: { host: true },
   
   devToolbar: { enabled: false },
