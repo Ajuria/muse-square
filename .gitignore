@@ -38,3 +38,6 @@ secrets/
 *.jks
 *service-account*.json
 **/service-account*.json
+
+# local AI notes (space in folder name)
+src/lib/Chat GPT/
