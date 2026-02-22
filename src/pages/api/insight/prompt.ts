@@ -1,3 +1,4 @@
+console.log("API route loaded");
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
