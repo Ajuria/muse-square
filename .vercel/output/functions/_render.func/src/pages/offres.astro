@@ -1,0 +1,274 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Solutions — Muse Square">
+  <!-- Full-bleed hero with overlay title (streamlined with Références) -->
+  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
+    <!-- Background image -->
+    <picture class="absolute inset-0 block" aria-hidden="true">
+      <source srcset="/images/banner-services-300k.png" type="image/png" />
+      <img
+        src="/images/banner-services-300k.png"
+        alt=""
+        class="w-full h-full object-cover"
+        sizes="100vw"
+        loading="eager"
+        decoding="async"
+      />
+    </picture>
+
+    <!-- (optional) subtle legibility overlay; keep or remove -->
+    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
+
+    <!-- Overlay content: title only, aligned to the rail -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <h1 class="ms-h1 text-white">Nos solutions d'intelligence contextuelle</h1>
+      </div>
+    </div>
+  </section>
+
+  <!-- Intro block (below the banner) -->
+  <section class="ms-section">
+    <div class="max-w-[800px] space-y-[12px]">
+      <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
+        Muse Square est le spécialiste de l’intelligence contextuelle, notamment sur les territoires d’Île-de-France, d’Occitanie et de Provence-Alpes-Côte d’Azur.        
+      </p>
+
+      <p class="ms-lead">
+        Nous transformons la complexité des dynamiques territoriales en leviers opérationnels fiables, simples et actionnables :        
+      </p>
+
+      <p class="ms-lead">
+        <strong>Muse Square insight</strong>: analyse et croise les signaux externes — météo, tourisme, mobilité, événements, saisonnalité — afin de vous aider à programmer vos événements et planifier vos campagnes marketing de manière optimale.
+      </p>
+
+      <p class="ms-lead">
+        <strong>L'Agence Muse Square</strong>: conçoit des solutions data + IA sur mesure, pour aller au-delà des signaux externes et construire une intelligence de pilotage unique à votre organisation.
+      </p>
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 1: insight events -->
+  <section id="feuille-de-route-data" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px] items-start">
+    <div class="relative z-10">
+    <h2 class="ms-h2">
+      insight event
+      <span class="block font-normal italic">Votre solution pour identifier les dates optimales pour vos événements
+</span>
+    </h2>
+
+    <!-- Short service description (no bullets) -->
+    <p class="mt-[16px] ms-body text-secondary">
+      <strong>Objectifs&nbsp;:</strong> 
+      identifier les jours à risque et les jours porteurs pour organiser vos événements. L’assistant IA vous propose des dates pertinentes en fonction de votre activité et de votre territoire, tandis que votre tableau de bord vous permet d'évaluer les propositions avant de prendre votre décision.
+
+    </p>
+
+    <!-- Expand/collapse long description -->
+    <details class="mt-4 group">
+      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_blueprint" aria-controls="blueprint-more">
+        <span class="group-open:hidden">Lire plus</span>
+        <span class="hidden group-open:inline">Lire moins</span>
+      </summary>
+
+      <div id="feuille-de-route-data-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Des recommandations générées par l’IA grâce à notre base de données contextuelles</li>
+            <li>Un tableau d’opportunités sur 30 jours</li>
+            <li>Une analyse détaillée des facteurs contextuels porteurs / à risque: pression touristique, concurrence événementielle, météo, mobilité</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Des décisions plus rapides et mieux informées</li>
+            <li>Une programmations mieux positionnées</li>
+            <li>Moins d’erreur de plannification</li>
+            <li>Une meilleure exploitation des jours porteurs</li>
+            <li>De nombreuses journées de travail économisées chaque année</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
+          <p>Directions culturelles et touristiques, chefs de projets, responsables de l'événementiel, chargés de l’accueil des publics.</p>
+        </div>
+      </div>
+    </details>
+
+    <!-- Primary CTA -->
+    <div class="mt-6 flex gap-4">
+      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_blueprint_contact">Contactez-nous</a>
+    </div>
+  </div>
+
+  <!-- Image de l'Offre 1 -->
+    <img
+      src="/images/ms_insight_ui_2.png"
+      alt="Illustration de insight events"
+      class="w-full h-[300px] object-cover bg-muted/20"
+      loading="lazy"
+      decoding="async"
+    />
+  </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 2: insight marketing -->
+  <section id="activation-fidelisation" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+    <!-- Colonne texte (1/2) -->
+    <div class="relative z-10">
+      <h2 class="ms-h2">
+        insight marketing
+        <span class="block font-normal italic">Votre solution pour calibrer vos campagnes marketing</span>
+      </h2>
+
+      <p class="mt-[16px] ms-body text-secondary"></p>
+        <strong>Objectifs&nbsp;:</strong> améliorer l’impact de vos communications en les ajustant aux conditions dans lesquelles elles seront reçues. Marketing Insight analyse les facteurs qui modifient la disponibilité, l’attention et la sensibilité de vos publics pour anticiper la pertinence potentielle de vos messages.
+      </p>
+
+      <!-- Lire plus (reste bien DANS la colonne texte) -->
+      <details class="mt-4 group">
+        <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_activation" aria-controls="activation-fidelisation-more">
+          <span class="group-open:hidden">Lire plus</span>
+          <span class="hidden group-open:inline">Lire moins</span>
+        </summary>
+
+        <div id="activation-fidelisation-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+          <div>
+            <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Conseils éditoriaux actionnables</li>
+              <li>Courbe des opportunités marketing (14 ou 30 jours)</li>
+              <li>Fenêtres favorables, neutres et défavorables</li>
+              <li>Analyse du contexte jour par jour</li>
+              <li>Tableau de validation pour comparer plusieurs options et scénarios de communication</li>
+            </ul>
+          </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Communications plus pertinentes et mieux synchronisées avec le contexte</li>
+            <li>Moins de contenus “perdus” dans le bruit</li>
+            <li>Meilleure exploitation des flux touristiques et des moments porteurs</li>
+            <li>Un plan éditorial plus cohérent, plus lisible et plus efficace</li>
+            <li>Plusieurs heures de recherche et de comparaison économisées chaque semaine</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
+          <p>Directions communication et marketing, chefs de projets, community managers, copywriters.</p>
+        </div>
+      </div>
+    </details>
+
+      <!-- CTA -->
+      <div class="mt-6 flex gap-4">
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_engagement_contact">Contactez-nous</a>
+      </div>
+    </div>
+
+    <!-- Colonne image (2/2) -->
+    <img
+      src="/images/services.png"
+      alt="Illustration des services d’activation et de fidélisation"
+      class="w-full h-[300px] object-cover rounded-[8px] bg-muted/20"
+      loading="lazy"
+      decoding="async"
+    />
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Offer 3: L’Agence Muse Square -->
+  <section id="fractional-analytics" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
+  <!-- Colonne texte (1/2) -->
+  <div class="relative z-10">
+    <h2 class="ms-h2">
+      L'Agence Muse Square
+      <span class="block font-normal italic">Votre partenaire data + IA spécialiste de votre territoire</span>
+    </h2>
+
+      <p class="mt-[16px] ms-body text-secondary"></p>
+        <strong>Objectifs&nbsp;:</strong> développer des outils de pilotage sur mesure en intégrant Muse Squre insights dans votre data stack — billetterie, fréquentation, CRM, contenus, ventes — selon les meilleurs standards de sécurité, de confidentialité et de gouvernance des données.
+      </p>
+
+    <!-- Lire plus -->
+    <details class="mt-4 group">
+      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_fractional" aria-controls="fractional-analytics-more">
+        <span class="group-open:hidden">Lire plus</span>
+        <span class="hidden group-open:inline">Lire moins</span>
+      </summary>
+
+      <div id="fractional-analytics-more" class="mt-3 space-y-[16px] ms-body text-secondary">
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Architecture data claire et adaptée à vos ressources</li>
+            <li>Connecteurs vers vos sources internes: billetterie, CRM, visites, ventes, GA4…</li>
+            <li>Assistants et tableaux de bord sur mesure basés sur MS Insight</li>
+            <li>Modules personnalisés: prévision, analyse d’impact, segmentation, reporting</li>
+            <li>Documentation opérationnelle + transfert de compétences</li>
+            <li>Ateliers décisionnels : interprétation, scénarios, stratégie d’action</li>
+          </p>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Une intelligence décisionnelle sur mesure et adaptée à votre territoire</li>
+            <li>Une exploitation optimale de vos données internes + des signaux externes</li>
+            <li>Un "time to value" court avec des jalons clairs</li>
+            <li>Une méthode de travail fiable, sécurisée et conforme au RGPD</li>
+            <li>Une montée en compétences progressive de vos équipes sur les usages data</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Méthode</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Cadrage des besoins et des priorités opérationnelles à suivre</li>
+            <li>Audit de vos flux, besoins et règles métier</li>
+            <li>Mise en place d’une gouvernance des données et de protocoles de sécurités</li>
+            <li>Intégration sélective de vos données internes</li>
+            <li>Nettoyage, structuration, normalisation des données</li>
+            <li>Construction de modules personnalisés : prévisions, analyse d’impact, segmentation, reporting, suivi public, cohérence éditoriale</li>
+            <li>R&D collaborative</li>
+            <li>Accompagnement continu : interprétation des résultats, ateliers d’aide à la décision, optimisation continue des modèles</li>
+          </ul>
+        </div>
+      
+      
+        <div>
+          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
+          <p>Directions générale, direction marketing, direction du digital, Chief Data Officer.</p>
+        </div>
+      </div>
+    </details>
+
+    <!-- CTA -->
+    <div class="mt-6 flex gap-4">
+      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_fractional_contact">Contactez-nous</a>
+    </div>
+  </div>
+
+  <!-- Colonne image (2/2) -->
+  <img
+    src="/images/part-time.png"
+    alt="Illustration de l’analyste data à temps partiel"
+    class="w-full h-[300px] object-cover bg-muted/20"
+    loading="lazy"
+    decoding="async"
+  />
+</section>
+
+</BaseLayout>

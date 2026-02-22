@@ -1,6 +1,7 @@
 import { pickAllowedPayload } from "./allowlist";
 import { callClaudeMessagesAPI } from "./claude";
 import { parseJsonObjectStrict } from "./json";
+import { PACKAGER_PROMPT_V3_NARRATIVE_FR } from "../contracts/packagePromptV3";
 
 import { PACKAGER_PROMPT_MONTH_MODE } from "../contracts/packagerMonthPrompt";
 import { PACKAGER_PROMPT_MONTH_WINDOW_SUMMARY_MODE } from "../contracts/packagerMonthWindowSummaryPrompt";
@@ -24,7 +25,8 @@ export type ValidatorResult = [boolean, string[], string[]?];
 
 export type Mode =
   | "month"
-  | "ui_packaging_v2";
+  | "ui_packaging_v2"
+  | "v3_narrative";
 
 export type MonthSubMode =
   | "orchestrator"
@@ -116,6 +118,10 @@ export async function runAIPackagerClaude(args: {
   if (mode === "ui_packaging_v2") {
     system_prompt = PACKAGER_PROMPT_UI_V2_FR;
     validatorFn = validate_packager_output_ui_v2;
+  }
+
+  if (mode === "v3_narrative") {
+    system_prompt = PACKAGER_PROMPT_V3_NARRATIVE_FR;
   }
 
   else if (mode === "month") {

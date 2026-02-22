@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { UserButton, SignedIn } from '@clerk/astro/components';
+---
+
+<SignedIn>
+  <BaseLayout title="App - Muse Square" hideSurveyCta={true}>
+    <div class="max-w-4xl mx-auto py-12 px-4">
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="text-3xl font-bold">Welcome to your dashboard</h1>
+        <UserButton />
+      </div>
+
+      <div class="bg-gray-50 p-6 rounded-lg">
+        <h2 class="text-xl font-semibold mb-4">You're signed in!</h2>
+        <p class="text-gray-600">This is your protected dashboard. Only authenticated users can see this.</p>
+      </div>
+    </div>
+  </BaseLayout>
+</SignedIn>

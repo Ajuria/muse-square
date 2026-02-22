@@ -1,12 +1,17 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
-import { compareDatesDeterministic } from "../../../lib/ai/decision/engines/compare_dates";
+import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/compare_dates";
+import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1";
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
 import { buildUiPackagingV3Month } from "../../../lib/ai/ui_packaging_v3/buildUiPackagingV3Month";
 import { buildUiNormalizedV2 } from "../../../lib/ai/ui_normalized/ui_normalized_v2";
+import { buildLookupIRV1FromRow } from "../../../components/ai/ir/lookup_ir_v1";
+import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/assertions_v1"; 
+import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
+import { buildWindowIRV1 } from "../../../lib/ai/decision/window/window_ir_v1";
 
 export const prerender = false;
 
@@ -213,6 +218,13 @@ function normalizeAiOutput(
       Array.isArray(out.bullets) && out.bullets.length
         ? asStringArray(out.bullets).filter(Boolean)
         : [];
+    
+    // Build key_facts early so we can use them as a truth-based answer fallback.
+    const key_facts =
+      Array.isArray(out.key_facts) ? asStringArray(out.key_facts)
+      : Array.isArray(out.facts) ? asStringArray(out.facts)
+      : Array.isArray(out.bullets) ? asStringArray(out.bullets)
+      : [];
 
     const answer =
       typeof out.answer === "string" && out.answer.trim()
@@ -221,18 +233,14 @@ function normalizeAiOutput(
             ? out.summary.trim()
             : (bulletsTxt.length
                 ? `• ${bulletsTxt.slice(0, 5).join("\n• ")}`
-                : "Résumé basé sur les données disponibles."));
+                : (key_facts.length
+                    ? `• ${key_facts.slice(0, 5).join("\n• ")}`
+                    : "Résumé basé sur les données disponibles.")));
 
     const reasons =
       Array.isArray(out.reasons) ? asStringArray(out.reasons)
       : Array.isArray(out.why) ? asStringArray(out.why)
       : Array.isArray(out.reasons_short) ? asStringArray(out.reasons_short)
-      : [];
-
-    const key_facts =
-      Array.isArray(out.key_facts) ? asStringArray(out.key_facts)
-      : Array.isArray(out.facts) ? asStringArray(out.facts)
-      : Array.isArray(out.bullets) ? asStringArray(out.bullets)
       : [];
 
     const caveats =
@@ -246,8 +254,7 @@ function normalizeAiOutput(
 
     return {
       headline,
-      answer,
-
+      answer, // ✅ use the computed answer (summary/bullets/key_facts fallback)
       // Deterministic engines are allowed to ship user-facing key_facts.
       // We control duplication elsewhere (conversation layer / deterministic_reasons).
       reasons: isDeterministicMode ? [] : (
@@ -366,6 +373,8 @@ function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringI
     q.includes("déconseillé") ||
     q.includes("defavorable") ||
     q.includes("défavorable") ||
+    q.includes("moins favorable") ||
+    q.includes("moins favorables") ||
     q.includes("moins adapte") ||
     q.includes("moins adapté") ||
     q.includes("plus complique") ||
@@ -539,6 +548,53 @@ function isEventLookupQuestion(q: string): boolean {
   return !hasScoringKeywords;
 }
 
+function adaptDayFactsByDate(ir: any): Record<string, any[]> {
+  if (!ir?.date || !Array.isArray(ir?.facts)) {
+    throw new Error("DayWhy IR missing date or facts");
+  }
+  return { [ir.date]: ir.facts };
+}
+
+function adaptDayLineItems(
+  irLineItems: any[]
+): import("../../../lib/ai/contracts/facts_v1").LineItemV1[] {
+
+  return (irLineItems ?? []).map((li, idx) => {
+
+    // Accept legacy DayWhy shape: { fact_id, text_fr, kind }
+    if (typeof li?.fact_id === "string" && li.fact_id.trim() !== "") {
+      return {
+        kind:
+          li.kind === "action"
+            ? "implication"
+            : li.kind === "risk"
+            ? "caveat"
+            : "fact",
+
+        template_id: "HEADLINE_DAY_WHY",
+
+        fact_ids: [li.fact_id],
+
+        params: {
+          text_override: li.text_fr ?? "",
+        },
+      };
+    }
+
+    // Accept already-canonical shape (future-proof)
+    if (Array.isArray(li?.fact_ids) && li.fact_ids.length > 0) {
+      return {
+        kind: li.kind ?? "fact",
+        template_id: li.template_id ?? "HEADLINE_DAY_WHY",
+        fact_ids: li.fact_ids,
+        params: li.params ?? {},
+      };
+    }
+
+    throw new Error(`DayWhy LineItem[${idx}] invalid shape`);
+  });
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   // ----------------------------
   // CONVERSATION LAYER (V1) — shapes normalized_ai only (no truth changes)
@@ -556,51 +612,316 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return dt.toISOString().slice(0, 10);
   }
 
-  function extractDatesFromText(qRaw: string): string[] {
+  type DateMentions = {
+    dates: string[];               // YYYY-MM-DD
+    hasDateToken: boolean;         // detected something date-like (numeric OR FR month words)
+    unparsedDateToken: boolean;    // had a token but could not produce any date
+  };
+
+  // Drop-in replacement. Keep your existing helper:
+  // function ymdFromYyyyMmDd(y: number, m: number, d: number): string | null { ... }
+
+  function extractDateMentions(qRaw: string, anchorYmd?: string): DateMentions {
     const q = String(qRaw ?? "");
-
     const out: string[] = [];
+    let hasToken = false;
+    let unparsedToken = false;
 
+    const anchor =
+      typeof anchorYmd === "string" && /^\d{4}-\d{2}-\d{2}$/.test(anchorYmd)
+        ? anchorYmd
+        : null;
+
+    const anchorYear = anchor ? Number(anchor.slice(0, 4)) : null;
+    const anchorMonth = anchor ? Number(anchor.slice(5, 7)) : null;
+
+    // Default year for FR "1 juin" tokens when the query contains a year somewhere ("... 2026")
+    const yearHit = q.match(/\b(20\d{2})\b/);
+    const defaultYearFromQuery: number | null = yearHit ? Number(yearHit[1]) : null;
+
+    function yearForMonthNoYear(mo: number): number | null {
+      // priority: explicit year in query, else anchor year
+      const baseYear = defaultYearFromQuery ?? anchorYear;
+      if (!baseYear) return null;
+
+      // roll to next year only when year is not explicit in question
+      if (anchorMonth && mo < anchorMonth && defaultYearFromQuery == null) {
+        return baseYear + 1;
+      }
+      return baseYear;
+    }
+
+    // Normalize for robust French month matching (strip accents)
+    const qNorm = q
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    // ---------- Numeric / ISO ----------
     // YYYY-MM-DD
     for (const m of q.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) {
-      const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3]);
+      hasToken = true;
+      const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
       const ymd = ymdFromYyyyMmDd(y, mo, d);
       if (ymd) out.push(ymd);
     }
 
     // YYYY/MM/DD
     for (const m of q.matchAll(/\b(\d{4})\/(\d{1,2})\/(\d{1,2})\b/g)) {
-      const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3]);
+      hasToken = true;
+      const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
       const ymd = ymdFromYyyyMmDd(y, mo, d);
       if (ymd) out.push(ymd);
     }
 
     // DD/MM/YYYY
     for (const m of q.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)) {
-      const d = Number(m[1]); const mo = Number(m[2]); const y = Number(m[3]);
+      hasToken = true;
+      const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
       const ymd = ymdFromYyyyMmDd(y, mo, d);
       if (ymd) out.push(ymd);
     }
 
-    // Unique, stable order
+    // DD-MM-YYYY (FR common)
+    for (const m of q.matchAll(/\b(\d{1,2})-(\d{1,2})-(\d{4})\b/g)) {
+      hasToken = true;
+      const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
+      const ymd = ymdFromYyyyMmDd(y, mo, d);
+      if (ymd) out.push(ymd);
+    }
+
+    // ---------- French natural language (robust to accents) ----------
+    // ASCII-only month keys (since qNorm is de-accented)
+    const MONTHS_FR: Record<string, number> = {
+      janvier: 1,
+      fevrier: 2,
+      mars: 3,
+      avril: 4,
+      mai: 5,
+      juin: 6,
+      juillet: 7,
+      aout: 8,
+      septembre: 9,
+      octobre: 10,
+      novembre: 11,
+      decembre: 12,
+    };
+
+    const monthAlternation = Object.keys(MONTHS_FR)
+      .map((s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"))
+      .join("|");
+
+    // Token detection: any French month word anywhere (in normalized string)
+    const monthWordRe = new RegExp(`(?:^|[^a-z])(${monthAlternation})(?=[^a-z]|$)`, "i");
+    if (monthWordRe.test(qNorm)) hasToken = true;
+
+    // Helper: allow "1er" (in either raw or norm; norm keeps "1er")
+    const dayAtom = "(?:\\d{1,2}|1er)";
+    const weekdayOpt = "(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)";
+
+    // Case B first (list), but STRICT: must contain at least a comma OR 'et'/'&'
+    // "1, 2 et 3 juin 2026" / "1 et 3 juin 2026" / "1,2,3 juin 2026"
+    // IMPORTANT: requires (,|et|&) so it won't match a single date.
+    const frListRe = new RegExp(
+      `((?:${dayAtom})(?:\\s*,\\s*(?:${dayAtom}))*\\s*(?:\\s*(?:et|&)\\s*(?:${dayAtom}))?)\\s+(${monthAlternation})\\s+(\\d{4})(?=[^0-9a-z]|$)`,
+      "gi"
+    );
+
+    // We'll only accept list matches where the "listPart" actually contains a separator.
+    for (const m of qNorm.matchAll(frListRe)) {
+      const listPart = m[1];
+      const hasSep = /,|\bet\b|&/i.test(listPart);
+      if (!hasSep) continue; // prevents double-match of single dates
+
+      hasToken = true;
+      const mo = MONTHS_FR[m[2]];
+      const y0 = Number(m[3]);
+      const y = Number.isFinite(y0) ? y0 : defaultYearFromQuery;
+
+      // If we have day+month but still no year, we cannot produce YYYY-MM-DD deterministically.
+      if (!y) {
+        unparsedToken = true;
+        continue;
+      }
+
+      for (const dm of listPart.matchAll(new RegExp(`\\b(\\d{1,2}|1er)\\b`, "g"))) {
+        const dayRaw = dm[1] === "1er" ? "1" : dm[1];
+        const d = Number(dayRaw);
+        const ymd = ymdFromYyyyMmDd(y, mo, d);
+        if (ymd) out.push(ymd);
+      }
+    }
+
+    // Case B2: "1, 2 et 3 juin" (no year) => anchor year
+    const frListNoYearRe = new RegExp(
+      `((?:${dayAtom})(?:\\s*,\\s*(?:${dayAtom}))*\\s*(?:\\s*(?:et|&)\\s*(?:${dayAtom}))?)\\s+(${monthAlternation})(?=[^a-z]|$)`,
+      "gi"
+    );
+
+    for (const m of qNorm.matchAll(frListNoYearRe)) {
+      const listPart = m[1];
+      const hasSep = /,|\bet\b|&/i.test(listPart);
+      if (!hasSep) continue;
+
+      hasToken = true;
+      const mo = MONTHS_FR[m[2]];
+
+      const y = yearForMonthNoYear(mo);
+      if (!y) {
+        unparsedToken = true;
+        continue;
+      }
+
+      for (const dm of listPart.matchAll(new RegExp(`\\b(\\d{1,2}|1er)\\b`, "g"))) {
+        const dayRaw = dm[1] === "1er" ? "1" : dm[1];
+        const d = Number(dayRaw);
+        const ymd = ymdFromYyyyMmDd(y, mo, d);
+        if (ymd) out.push(ymd);
+        else unparsedToken = true;
+      }
+    }
+
+    // Case A: "mardi 2 juin 2026" or "2 juin 2026" or "1er juin 2026"
+    // Use normalized string; boundary via non-letter guards, not \b.
+    const frSingleRe = new RegExp(
+      `(?:^|[^a-z])(?:${weekdayOpt}\\s+)?(${dayAtom})\\s+(${monthAlternation})\\s+(\\d{4})(?=[^0-9a-z]|$)`,
+      "gi"
+    );
+
+    for (const m of qNorm.matchAll(frSingleRe)) {
+      hasToken = true;
+      const dayRaw = m[1] === "1er" ? "1" : m[1];
+      const d = Number(dayRaw);
+      const mo = MONTHS_FR[m[2]];
+      const y = Number(m[3]);
+      const ymd = ymdFromYyyyMmDd(y, mo, d);
+      if (ymd) out.push(ymd);
+    }
+
+    // Case A2: "mardi 2 juin" / "2 juin" / "1er juin" (no year) => anchor year
+    const frSingleNoYearRe = new RegExp(
+      `(?:^|[^a-z])(?:${weekdayOpt}\\s+)?(${dayAtom})\\s+(${monthAlternation})(?=[^a-z]|$)`,
+      "gi"
+    );
+
+    for (const m of qNorm.matchAll(frSingleNoYearRe)) {
+      hasToken = true;
+
+      const dayRaw = m[1] === "1er" ? "1" : m[1];
+      const d = Number(dayRaw);
+      const mo = MONTHS_FR[m[2]];
+
+      const y = yearForMonthNoYear(mo);
+      if (!y) {
+        unparsedToken = true;
+        continue;
+      }
+
+      const ymd = ymdFromYyyyMmDd(y, mo, d);
+      if (ymd) out.push(ymd);
+      else unparsedToken = true;
+    }
+
+    // ---------- Unique, stable order ----------
     const seen = new Set<string>();
     const uniq: string[] = [];
     for (const d of out) {
-      if (!seen.has(d)) { seen.add(d); uniq.push(d); }
+      if (!seen.has(d)) {
+        seen.add(d);
+        uniq.push(d);
+      }
     }
-    return uniq;
+
+    const unparsed = unparsedToken || (hasToken && uniq.length === 0);
+    return { dates: uniq, hasDateToken: hasToken, unparsedDateToken: unparsed };
   }
 
-  function fmtDateFr(ymd: string): string {
-    // expects YYYY-MM-DD
+  function formatDateFr(d: any): string | null {
+    if (!d) return null;
+
+    const raw =
+      typeof d === "string"
+        ? d
+        : typeof d === "object" && typeof d.value === "string"
+        ? d.value
+        : null;
+
+    if (!raw) return null;
+
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return raw; // fallback safe
+
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function fmtDateFrFull(ymd: string): string {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
     const [y, m, d] = ymd.split("-").map((x) => Number(x));
     const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
     return new Intl.DateTimeFormat("fr-FR", {
       weekday: "short",
-      day: "2-digit",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(dt);
+  }
+
+  function fmtDateFr(ymd: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+    const [y, m, d] = ymd.split("-").map((x) => Number(x));
+    const dt = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+    return new Intl.DateTimeFormat("fr-FR", {
+      weekday: "short",
+      day: "numeric",
       month: "long",
     }).format(dt);
+  }
+
+  function toFiniteNumOrNullLocal(v: any): number | null {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function buildCompareKeyFactsFallback(selectedRows: any[]): string[] {
+    const rows = Array.isArray(selectedRows) ? selectedRows : [];
+
+    return rows
+      .slice()
+      .sort((a, b) => ymdFromAnyDateLocal(a?.date).localeCompare(ymdFromAnyDateLocal(b?.date)))
+      .map((r) => {
+        const d = ymdFromAnyDateLocal(r?.date);
+        const dFr = fmtDateFr(d);
+
+        const reg = String(r?.opportunity_regime ?? "ND");
+        const score = toFiniteNumOrNullLocal(r?.opportunity_score_final_local);
+        const alert = toFiniteNumOrNullLocal(
+          r?.alert_level_max ??            // selected_days surface (common)
+          r?.weather_alert_level ??        // month/day surface
+          r?.weather_alert?.level ??       // nested struct (if any)
+          r?.weather_alert_level_max       // alt naming
+        );
+        const pr = toFiniteNumOrNullLocal(
+          r?.precip_probability_max_pct ??
+          r?.precipitation_probability_max_pct
+        );
+
+        const wi = toFiniteNumOrNullLocal(r?.wind_speed_10m_max);
+        const c10 = toFiniteNumOrNullLocal(r?.events_within_10km_count);
+        const c50 = toFiniteNumOrNullLocal(r?.events_within_50km_count);
+
+        const scoreTxt = score === null ? "ND" : String(Math.round(score));
+        const alertTxt = alert === null ? "ND" : String(Math.round(alert));
+        const prTxt = pr === null ? "ND" : String(Math.round(pr));
+        const wiTxt = wi === null ? "ND" : String(Math.round(wi));
+        const c10Txt = c10 === null ? "ND" : String(Math.round(c10));
+        const c50Txt = c50 === null ? "ND" : String(Math.round(c50));
+
+        return `${dFr} — Régime ${reg}, score ${scoreTxt} · Météo: alerte ${alertTxt}, pluie ${prTxt}%, vent ${wiTxt} · Concurrence: ≤10km ${c10Txt}, ≤50km ${c50Txt}`;
+      });
   }
   
   // ----------------------------
@@ -1463,6 +1784,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return { headline, summary, key_facts, caveat };
     }
 
+  
+
   try {
 
     // ---- REQUEST BODY (parse first so dev bypass can read thread_context) ----
@@ -1596,7 +1919,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       throw new Error("dates[] too large (max 7)");
     }
 
-        const extracted_dates = extractDatesFromText(q);
+    const dateMentions = extractDateMentions(qRaw, selected_date.slice(0, 10));
+    const extracted_dates = dateMentions.dates;
 
     // Base effective_dates precedence:
     // 1) dates[] payload
@@ -1618,25 +1942,42 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Initial resolution from text (truth-only)
     let resolved_horizon: ResolvedHorizon =
-      force_compare ? "selected_days" : resolveHorizonFromText(q);
+      force_compare ? "selected_days" : resolveHorizonFromText(qRaw);
 
     let resolved_intent: ScoringIntent | "LOOKUP_EVENT" =
-      force_compare ? "COMPARE_DATES" : resolveIntentFromText(q, resolved_horizon);
-    
-    // ✅ Hard routing: informational event lookup must never fall into scoring
-    if (isEventLookupQuestion(q)) {
-      resolved_horizon = "lookup_event";
-      resolved_intent = "LOOKUP_EVENT";
+      force_compare ? "COMPARE_DATES" : resolveIntentFromText(qRaw, resolved_horizon);
+
+    // ✅ Hard routing: if exactly 1 explicit date is extractable, it’s a DAY question (unless compare)
+    if (!force_compare && extracted_dates.length === 1) {
+      resolved_horizon = "day";
+      resolved_intent = resolveIntentFromText(qRaw, "day");
     }
 
+
+    // Only force DAY when a date token includes both day + month
+    const hasExplicitDayAndMonth =
+      dateMentions.dates.length === 1 &&
+      /\b(\d{1,2}|1er)\b/i.test(qRaw) &&
+      /\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/i.test(qRaw);
+
+    if (hasExplicitDayAndMonth) {
+      resolved_horizon = "day";
+      resolved_intent = "DAY_WHY";
+    }
+    
     // ----------------------------
     // Conversational overrides (V1) — deterministic, no guessing
     // Only when user asks follow-up without explicit dates.
     // ----------------------------
     const qn = norm(q);
 
+    // If query contains a single explicit year (e.g. "... 1er mars 2026"),
+    // use it as default for other day+month tokens missing a year.
+    const yearHit = qn.match(/\b(20\d{2})\b/);
+    const defaultYearFromQuery = yearHit ? Number(yearHit[1]) : null;
+
     const hasExplicitAnyDate =
-      extracted_dates.length > 0 ||
+      dateMentions.hasDateToken ||
       (Array.isArray(dates) && dates.length > 0) ||
       (typeof date === "string" && date.trim().length > 0);
 
@@ -2279,28 +2620,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    if (resolved_intent === "INTENT_UNKNOWN") {
-      const ai_unknown = {
-        ok: true,
-        mode: "deterministic_intent_unknown_v1",
-        output: {
-          headline: "Question non reconnue",
-          summary: "Exemples: meilleurs week-ends de mars, jours a eviter en avril, pourquoi le 13/03/2025, compare 12/03/2025 vs 19/03/2025.",
-          key_facts: ["Meilleurs week-ends de mars ?", "Jours a eviter en avril ?", "Pourquoi le 13/03/2025 ?", "Compare 12/03/2025 vs 19/03/2025 ?"],
-          caveat: "Essayez une question plus precise.",
-        },
-        raw_text: "",
-        errors: [],
-        warnings: [],
-      };
-      const actions_unknown: ApiActions = { month_redirect_url: null, primary: null, secondary: [] };
-      const normalized_ai_unknown = normalizeAiOutput(ai_unknown, { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] }, actions_unknown);
-      return new Response(JSON.stringify({ ok: true, meta: { location_id, resolved_horizon, resolved_intent, month_redirect_url: null, producer: "v3_fallback" }, ai: { ...normalized_ai_unknown, output: { headline: normalized_ai_unknown.headline, answer: (typeof normalized_ai_unknown.answer === "string" ? normalized_ai_unknown.answer : ""), key_facts: Array.isArray(normalized_ai_unknown.key_facts) ? normalized_ai_unknown.key_facts : [], reasons: Array.isArray(normalized_ai_unknown.reasons) ? normalized_ai_unknown.reasons : [], caveats: Array.isArray(normalized_ai_unknown.caveats) ? normalized_ai_unknown.caveats.filter(Boolean) : [] } }, actions: actions_unknown, top_dates: [], decision_payload: { kind: "scoring", horizon: resolved_horizon as "month" | "calendar_month" | "day" | "selected_days", intent: resolved_intent as ScoringIntent, used_dates: [], signals: {} }, window_aggregates_v3: null, ui_packaging_v3: null, debug: { ai_raw: ai_unknown, thread_context_out: { v: 1, location_id, turn: (typeof thread_context?.turn === "number" ? thread_context.turn + 1 : 1), selected_date: selected_date.slice(0, 10), last: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [], top_dates: [], month_redirect_url: null } }, internal_context: { source_view: `${semanticProjectId}.semantic.vw_insight_event_ai_location_context`, row: internal_context } } }));
-    }
-
-    // (moved to switch(resolved_horizon) case "lookup_event")
-
-
     // ---- DECISION POLICY RULES (truth: semantic surface) ----
     // These are UI enum tokens (possible_value), stored in internal context.
     const rule_values: string[] = [
@@ -2354,7 +2673,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic";
     let producer: ProducerMeta = "deterministic";
 
-    let selected_days_query_dates: string[] = [];
+
 
     switch (resolved_horizon) {
       case "month": {
@@ -2555,8 +2874,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
         );
 
-        const preselect_dates_for_url = shortlist_rows
+        const source_rows =
+          resolved_intent === "WINDOW_WORST_DAYS"
+            ? worstlist_rows
+            : shortlist_rows;
+
+        const preselect_dates_for_url = source_rows
           .map((r: any) => ymdFromAnyDate(r?.date))
+          .filter(Boolean)
           .slice(0, 7);
 
         month_redirect_url = buildMonthRedirectUrl({
@@ -2660,7 +2985,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
 
       case "day": {
-        const effective_date = (override_day_date ?? (date ?? selected_date)).slice(0, 10);
+
+        const isDayLike =
+          resolved_horizon === "day" ||
+          resolved_intent === "DAY_WHY" ||
+          resolved_intent === "DAY_DIMENSION_DETAIL";
+
+        // normalize/validate any explicit "date" field (do NOT trust non-empty strings)
+        const dateFieldYmd = safeYmd10(date); // returns YYYY-MM-DD or null/undefined
+        const hasParsedDate = dateMentions.dates.length > 0 || !!dateFieldYmd;
+
+        if (isDayLike) {
+          // User likely wrote a date (e.g. "mardi 2 juin 2026") but parsing produced nothing.
+          // Prevent silent fallback to selected_date => wrong-day 200.
+          if (dateMentions.unparsedDateToken && !hasParsedDate) {
+            // Prefer your existing 400 mechanism. If you don't have one, return Response 400 here.
+            throw new Error(
+              "Impossible d’identifier la date demandée. Écrivez-la au format JJ/MM/AAAA ou YYYY-MM-DD."
+            );
+          }
+        }
+
+        const effective_date = (
+          override_day_date ??
+          dateFieldYmd ??
+          dateMentions.dates[0] ??
+          selected_date
+        ).slice(0, 10);
 
         day_row = await bqOne(
           `
@@ -2673,34 +3024,155 @@ export const POST: APIRoute = async ({ request, locals }) => {
           bqParams({ location_id, date: effective_date })
         );
 
-        const daywhy = renderDayWhyV1({
+        const ir = renderDayWhyV1({
           date: effective_date,
           day_row,
           location_context: internal_context,
         });
 
+        if (!ir) {
+          throw new Error("DAY_WHY: null IR");
+        }
+
+        // ✅ Adapt DayWhy IR -> canonical Facts V1 boundary shape
+        const dayFactsByDate = adaptDayFactsByDate(ir);
+        const dayLineItems = adaptDayLineItems(ir.line_items);
+
+        // ✅ Assert BEFORE rendering
+        assertNoSentenceWithoutFactIdV1(dayFactsByDate, dayLineItems);
+
+        // ✅ Render via canonical renderer (same as selected_days / lookup)
+        const render_lines = renderLineItemsFrV1({
+          facts_by_date: dayFactsByDate,
+          line_items: dayLineItems,
+        });
+
+        const headline =
+          render_lines.find((l) => l.kind === "headline")?.text_fr ??
+          "Pourquoi ce jour";
+
+        const key_facts =
+          render_lines
+            .filter((l) => l.kind !== "headline")
+            .map((l) => String(l.text_fr ?? "").trim())
+            .filter(Boolean);
+
         ai = {
           ok: true,
-          mode: "deterministic_daywhy_v1",
-          output: daywhy,
+          mode: "deterministic_daywhy_ir_v1",
+          output: {
+            headline,
+            answer: "",
+            key_facts,
+            reasons: [],
+            caveats: [],
+          },
           raw_text: "",
-          errors: daywhy ? [] : ["daywhy returned null (invalid date or missing inputs)"],
+          errors: [],
           warnings: [],
         };
 
         break;
       }
-
       case "selected_days": {
-        selected_days_query_dates =
+        selected_query_dates =
           (override_compare_dates.length > 0 ? override_compare_dates : effective_dates)
             .map((d) => String(d).slice(0, 10))
             .slice(0, 7);
 
-        const query_dates = selected_days_query_dates;    
+        const query_dates = selected_query_dates;
+        
+        if (query_dates.length < 2) {
 
-        if (query_dates.length === 0) {
-          throw new Error("Missing required dates for resolved_horizon='selected_days' (provide dates[] or include 2 dates in q)");
+          const month_redirect_url = buildMonthRedirectUrl({
+            window_start_date: selected_date.slice(0,10),
+            from_prompt: true
+          });
+
+          const ai_missing_dates = {
+            ok: true,
+            mode: "deterministic_missing_dates_v1",
+            output: {
+              headline: "J’ai besoin d’au moins 2 dates",
+              summary:
+                "Sélectionnez 2 à 7 jours dans le calendrier, ou écrivez-les en toutes lettres (ex: 1 juin 2026) ou au format 02/06/2026.",
+              key_facts: [],
+              caveat:
+                "Sans 2 dates, je ne peux pas comparer les impacts (logistique, affluence, communication).",
+            },
+            raw_text: "",
+            errors: [],
+            warnings: [],
+          };
+
+          const actions_missing: ApiActions = {
+            month_redirect_url,
+            primary: month_redirect_url
+              ? {
+                  type: "redirect",
+                  url: month_redirect_url,
+                  label: "Ouvrir le mois"
+                }
+              : null,
+            secondary: [],
+          };
+
+          const normalized_ai_missing = normalizeAiOutput(
+            ai_missing_dates,
+            { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+            actions_missing
+          );
+
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              meta: {
+                location_id,
+                resolved_horizon,
+                resolved_intent,
+                month_redirect_url,
+                producer: "deterministic_missing_dates_v1",
+              },
+              ai: {
+                ...normalized_ai_missing,
+                output: {
+                  headline: normalized_ai_missing.headline,
+                  answer:
+                    typeof normalized_ai_missing.answer === "string"
+                      ? normalized_ai_missing.answer
+                      : "",
+                  key_facts: Array.isArray(normalized_ai_missing.key_facts)
+                    ? normalized_ai_missing.key_facts
+                    : [],
+                  reasons: Array.isArray(normalized_ai_missing.reasons)
+                    ? normalized_ai_missing.reasons
+                    : [],
+                  caveats: Array.isArray(normalized_ai_missing.caveats)
+                    ? normalized_ai_missing.caveats.filter(Boolean)
+                    : [],
+                },
+              },
+              actions: actions_missing,
+              top_dates: [],
+              decision_payload: {
+                kind: "scoring",
+                horizon: resolved_horizon as
+                  | "month"
+                  | "calendar_month"
+                  | "day"
+                  | "selected_days",
+                intent: resolved_intent as ScoringIntent,
+                used_dates: [],
+                signals: {},
+              },
+              window_aggregates_v3: null,
+              ui_packaging_v3: null,
+            }),
+            {
+              status: 200,
+              headers: { "content-type": "application/json; charset=utf-8" },
+            }
+          );
         }
 
         selected_days_rows = await bqAll(
@@ -2716,183 +3188,198 @@ export const POST: APIRoute = async ({ request, locals }) => {
           bqParams({ location_id, dates: query_dates })
         );
 
-        const out = compareDatesDeterministic({
+        const v1 = compareDatesDeterministicV1({
           rows: Array.isArray(selected_days_rows) ? selected_days_rows : [],
         });
+
+        assertNoSentenceWithoutFactIdV1(v1.facts_by_date, v1.line_items);
+
+        // Render IR → French (deterministic renderer only)
+        const render_lines = renderLineItemsFrV1({
+          line_items: v1.line_items,
+          facts_by_date: v1.facts_by_date,
+        });
+
+        // --- API boundary enforcement (single authoritative contract check) ---
+        const allFactIds = new Set<string>();
+        for (const d of Object.keys(v1.facts_by_date)) {
+          for (const f of v1.facts_by_date[d] ?? []) {
+            allFactIds.add(f.fact_id);
+          }
+        }
+
+        for (let i = 0; i < render_lines.length; i++) {
+          const rl = render_lines[i];
+
+          if (!Array.isArray(rl.fact_ids) || rl.fact_ids.length === 0) {
+            throw new Error(`RenderLine[${i}] has no fact_ids`);
+          }
+
+          for (const fid of rl.fact_ids) {
+            if (!allFactIds.has(fid)) {
+              throw new Error(`RenderLine[${i}] references unknown fact_id: ${fid}`);
+            }
+          }
+
+          if (typeof rl.text_fr !== "string" || !rl.text_fr.trim()) {
+            throw new Error(`RenderLine[${i}] has empty text_fr`);
+          }
+        }
+
+        // --- Map render_lines → legacy UI shape (compare-only) ---
+        const ALLOWED_COMPARE_KINDS = new Set(["headline", "fact", "implication", "caveat"]);
+
+        const compare_lines = render_lines.filter((l) => ALLOWED_COMPARE_KINDS.has(l.kind));
+
+        const headline =
+          compare_lines.find((l) => l.kind === "headline")?.text_fr ??
+          "Comparaison";
+
+        const caveat =
+          compare_lines.find((l) => l.kind === "caveat")?.text_fr ?? null;
+
+        const key_facts_raw =
+          compare_lines
+            .filter((l) => l.kind === "fact" || l.kind === "implication")
+            .map((l) => String(l.text_fr ?? "").trim())
+            .filter(Boolean);
+
+        // Strip month-style “best choice / alternative” lines that should never appear in compare
+        const DROP_PREFIX_RE = /^(meilleur choix:|risque meteo:|risque météo:|concurrence:|driver principal:|alternative:)/i;
+
+        const key_facts_filtered = key_facts_raw.filter((t) => !DROP_PREFIX_RE.test(t));
+
+        // Fallback: if renderer collapses to month-style blocks, build 1 fact row per selected date (truth-only)
+        const key_facts =
+          key_facts_filtered.length > 0
+            ? key_facts_filtered
+            : buildCompareKeyFactsFallback(selected_days_rows);
 
         ai = {
           ok: true,
           mode: "deterministic_compare_dates_v1",
-          output: { headline: out.headline, summary: out.summary, key_facts: out.key_facts, caveat: out.caveat },
+          output: {
+            headline,
+            answer: "Comparaison des points clés ci-dessous.",
+            key_facts,
+            caveat,
+            reasons: [],
+            caveats: caveat ? [caveat] : [],
+          },
           raw_text: "",
           errors: [],
           warnings: [],
         };
-
         break;
       }
 
       case "lookup_event": {
         // ---- truth scope only: vw_insight_eventcalendar_event_lookup ----
-        const region_id =
-          (internal_context as any)?.region_id ??
-          (internal_context as any)?.row?.region_id ??
-          "";
+        const region_insee =
+          (internal_context as any)?.region_code_insee ??
+          (internal_context as any)?.row?.region_code_insee ??
+          null;
 
         const city_id =
           (internal_context as any)?.city_id ??
           (internal_context as any)?.row?.city_id ??
-          "";
+          null;
 
         const q_lookup_raw = String(qRaw ?? "").toLowerCase();
-        const q_lookup_norm = norm(String(qRaw ?? ""));
+
         const q_entity = q_lookup_raw
+          // remove common question shells
           .replace(/^a quelle date a lieu\s+/i, "")
           .replace(/^à quelle date a lieu\s+/i, "")
           .replace(/^quand a lieu\s+/i, "")
-          .replace(/^c est quand\s+/i, "")
+          .replace(/^c['’]est quand\s+/i, "")
           .replace(/^dates de\s+/i, "")
           .replace(/^date de\s+/i, "")
+          // remove leading french determiners / contractions that break LIKE
+          .replace(/^(le|la|les|un|une|des)\s+/i, "")
+          .replace(/^l['’]\s*/i, "")
+          .replace(/^d['’]\s*/i, "")
+          .replace(/^du\s+/i, "")
+          .replace(/^de\s+/i, "")
+          .replace(/^de la\s+/i, "")
+          .replace(/^des\s+/i, "")
+          // strip trailing punctuation
+          .replace(/[?!.,;:]+$/g, "")
           .trim();
-        const has_scope = location_id != null || city_id != null || region_id != null;
-        const lookupSql = `
+
+        const lookupSqlScoped = `
           SELECT
             event_name,
             event_start_date,
-            event_end_date,
-            scope_type,
-            region_id,
-            city_id,
-            location_id,
-            source_system,
-            source_url,
-            updated_at,
-            city_name,
-            region_insee,
-            industry_code,
-            event_size_proxy,
-            keyword_priority_rank,
-            description,
-            longDescription,
-            keywords,
-            theme,
-            address
+            event_end_date
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE
-            ${
-              has_scope
-                ? `(
-              (@location_id IS NOT NULL AND location_id = @location_id)
-              OR (@city_id IS NOT NULL AND city_id = @city_id)
-              OR (@region_id IS NOT NULL AND region_id = @region_id)
-            )
-            AND`
-                : ""
-            } (
-              LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
-              OR LOWER(event_name) LIKE CONCAT('%', @q_lookup_raw, '%')
-              OR LOWER(event_name) LIKE CONCAT('%', @q_lookup_norm, '%')
-              OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_entity, '%'))
-              OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_lookup_raw, '%'))
-              OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_lookup_norm, '%'))
-              OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_entity, '%'))
-              OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_lookup_raw, '%'))
-              OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_lookup_norm, '%'))
-              OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_entity, '%'))
-              OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_lookup_raw, '%'))
-              OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_lookup_norm, '%'))
-              OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_entity, '%'))
-              OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_lookup_raw, '%'))
-              OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_lookup_norm, '%'))
-            )
-          QUALIFY ROW_NUMBER() OVER (ORDER BY keyword_priority_rank ASC, updated_at DESC) = 1
+          WHERE location_id = @location_id
+            AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          LIMIT 1
         `;
 
-        const rows_scoped = await bqAll(lookupSql, { q_entity, q_lookup_raw, q_lookup_norm, location_id, city_id, region_id });
-        const rows =
-          Array.isArray(rows_scoped) && rows_scoped.length
-            ? rows_scoped
-            : await bqAll(
-                `
-                SELECT
-                  event_name,
-                  event_start_date,
-                  event_end_date,
-                  scope_type,
-                  region_id,
-                  city_id,
-                  location_id,
-                  source_system,
-                  source_url,
-                  updated_at,
-                  city_name,
-                  region_insee,
-                  industry_code,
-                  event_size_proxy,
-                  keyword_priority_rank,
-                  description,
-                  longDescription,
-                  keywords,
-                  theme,
-                  address
-                FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-                WHERE
-                  (
-                    LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
-                    OR LOWER(event_name) LIKE CONCAT('%', @q_lookup_raw, '%')
-                    OR LOWER(event_name) LIKE CONCAT('%', @q_lookup_norm, '%')
-                    OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_entity, '%'))
-                    OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_lookup_raw, '%'))
-                    OR (keywords IS NOT NULL AND LOWER(keywords) LIKE CONCAT('%', @q_lookup_norm, '%'))
-                    OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_entity, '%'))
-                    OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_lookup_raw, '%'))
-                    OR (theme IS NOT NULL AND LOWER(theme) LIKE CONCAT('%', @q_lookup_norm, '%'))
-                    OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_entity, '%'))
-                    OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_lookup_raw, '%'))
-                    OR (description IS NOT NULL AND LOWER(description) LIKE CONCAT('%', @q_lookup_norm, '%'))
-                    OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_entity, '%'))
-                    OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_lookup_raw, '%'))
-                    OR (longDescription IS NOT NULL AND LOWER(longDescription) LIKE CONCAT('%', @q_lookup_norm, '%'))
-                  )
-                QUALIFY ROW_NUMBER() OVER (ORDER BY keyword_priority_rank ASC, updated_at DESC) = 1
-                `,
-                { q_entity, q_lookup_raw, q_lookup_norm }
-              );
+        const lookupSqlGlobal = `
+          SELECT
+            event_name,
+            event_start_date,
+            event_end_date
+          FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
+          WHERE location_id IS NULL
+            AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          LIMIT 1
+        `;
+
+        const rows_scoped = await bqAll(
+          lookupSqlScoped,
+          bqParams({ q_entity, location_id })
+        );
+
+        let rows = rows_scoped;
+
+        if (!Array.isArray(rows_scoped) || rows_scoped.length === 0) {
+          const rows_global = await bqAll(
+            lookupSqlGlobal,
+            bqParams({ q_entity })
+          );
+          rows = rows_global;
+        }
+
         lookup_mode = Array.isArray(rows_scoped) && rows_scoped.length ? "scoped" : "fallback_global";
         lookup_sql_used = lookup_mode;
+
         const hit = Array.isArray(rows) && rows.length ? rows[0] : null;
         const lookup_result = {
           event_name: hit?.event_name ?? null,
           event_start_date: hit?.event_start_date ?? null,
           event_end_date: hit?.event_end_date ?? null,
-          city_name: hit?.city_name ?? null,
-          source_url: hit?.source_url ?? null,
         };
         lookup_hit = lookup_result;
 
-        // IMPORTANT: keep ai shape stable even if no hit
-        const event_payload = {
-          user_question: q,
-          intent: "EVENT_LOOKUP",
-          location_id,
-          context: internal_context,
-          event: hit,
-        };
+        // --- V3: Shared Lookup IR builder ---
+        const ir = buildLookupIRV1FromRow(hit);
 
-        const lookup_summary = lookup_result.event_name
-          ? `${lookup_result.event_name} — ${lookup_result.event_start_date ?? "ND"} → ${lookup_result.event_end_date ?? "ND"}`
-          : "Aucun résultat (SQL).";
-        const lookup_facts = [
-          lookup_result.city_name ?? null,
-          lookup_result.source_url ?? null,
-        ].filter(Boolean) as string[];
+        // Render via shared deterministic renderer
+        const render_lines = renderLineItemsFrV1({
+          line_items: ir.line_items,
+          facts_by_date: ir.facts_by_date,
+        });
+
+        const headline =
+          render_lines.find((l) => l.kind === "headline")?.text_fr ??
+          "Résultat événement";
+
+        const key_facts =
+          render_lines
+            .filter((l) => l.kind !== "headline")
+            .map((l) => l.text_fr);
+
         ai = {
           ok: true,
-          mode: "deterministic_lookup_event_v1",
+          mode: "deterministic_lookup_event_ir_v1",
           output: {
-            headline: "Résultat événement",
-            answer: lookup_summary,
-            key_facts: lookup_facts,
+            headline,
+            answer: "",
+            key_facts,
             reasons: [],
             caveats: [],
           },
@@ -2901,7 +3388,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
           warnings: [],
         };
 
-        // ✅ Ensure decision_payload kind=lookup later
         break;
       }
 
@@ -2940,7 +3426,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // types: ApiAction / ApiActions are declared at file scope
 
     // NOTE: no route guessing. We only ever send users to the Month page with anchor_date.
-    const effective_day_date = (override_day_date ?? (date ?? selected_date)).slice(0, 10);
+    const effective_day_date =
+      resolved_horizon === "day" && day_row
+        ? ymdFromAnyDate(day_row?.date)
+        : (override_day_date ??
+            (date ?? selected_date)
+          ).slice(0, 10);
+    
     const first_selected_date = (effective_dates[0] ? String(effective_dates[0]).slice(0, 10) : null);
 
     let primary: ApiAction | null = null;
@@ -3101,140 +3593,148 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
 
     // ----------------------------
-    // V3 MONTH SINGLE PRODUCER (Claude once)
-    // Claude input: DecisionPayload + window aggregates + internal_context + user_question
-    // UI payload is generated deterministically and returned separately (never fed to Claude).
-    // ----------------------------
-    const shouldRunV3ClaudeMonth =
-      resolved_horizon === "month" &&
-      (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS") &&
-      ai?.mode === "month_pending_packaging";
+  // V3 MONTH → NarrativeInputV3 → Claude
+  // ----------------------------
 
-    if (shouldRunV3ClaudeMonth) {
-      window_aggregates_v3 = buildWindowAggregatesV3({ month_window, month_days });
+  const shouldRunWindowNarrativeV3 =
+    resolved_horizon === "month" &&
+    (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS") &&
+    ai?.mode === "month_pending_packaging";
 
-      // Deterministic UI payload for rendering (independent from Claude)
-      ui_packaging_v3 = buildUiPackagingV3Month({
-        intent: resolved_intent as "WINDOW_TOP_DAYS" | "WINDOW_WORST_DAYS",
-        used_dates: decision_used_dates,
-        month_window,
-        month_days,
+  if (shouldRunWindowNarrativeV3) {
+
+    const rows =
+      resolved_intent === "WINDOW_WORST_DAYS"
+        ? (Array.isArray(worstlist_rows) ? worstlist_rows : [])
+        : (Array.isArray(shortlist_rows) ? shortlist_rows : []);
+
+    const window_start = ymdFromBqDate(month_window?.window_start_date);
+    if (!window_start) {
+      throw new Error("window_start_date missing or invalid (month_window)");
+    }
+
+    const winner = rows.length ? rows[0] : null;
+    if (!winner) {
+      throw new Error("No ranked rows available for month narrative V3");
+    }
+
+    // ------------------------------------
+    // 1️⃣ Build deterministic signals
+    // ------------------------------------
+
+    const weather = buildWeatherSignal(winner, internal_context);
+    const competition = buildCompetitionSignal(winner);
+    const calendar = buildCalendarSignal(winner);
+
+    const candidates = [
+      { dimension: "weather", signal: weather },
+      { dimension: "competition", signal: competition },
+      { dimension: "calendar", signal: calendar },
+    ].filter(x => x.signal.applicable);
+
+    const impactRank = (i: DecisionSignalImpact) =>
+      i === "blocking" ? 0 :
+      i === "risk" ? 1 :
+      2;
+
+    candidates.sort((a, b) => {
+      const diff = impactRank(a.signal.impact) - impactRank(b.signal.impact);
+      if (diff !== 0) return diff;
+
+      // deterministic tie-break
+      const order = ["weather", "competition", "calendar"];
+      return order.indexOf(a.dimension) - order.indexOf(b.dimension);
+    });
+
+    const dominant = candidates[0];
+
+    const secondary = candidates
+      .slice(1)
+      .map(x => ({
+        dimension: x.dimension,
+        impact: x.signal.impact,
+        signal_summary: x.signal.facts,
+      }));
+
+    const confidence =
+      dominant?.signal.impact === "blocking" ? "high" :
+      dominant?.signal.impact === "risk" &&
+      Object.values(dominant.signal.facts).filter(v => v !== null).length >= 2
+        ? "high"
+        : dominant?.signal.impact === "risk"
+          ? "medium"
+          : "low";
+
+    // ------------------------------------
+    // 2️⃣ NarrativeInputV3 (LEAN)
+    // ------------------------------------
+
+    const narrative_input_v3 = {
+      horizon: resolved_horizon,
+      intent: resolved_intent,
+
+      used_period: {
+        month: window_start.slice(0, 7),
+        total_days: Array.isArray(month_days) ? month_days.length : 30,
+      },
+
+      dominant_driver: {
+        dimension: dominant?.dimension ?? "calendar",
+        impact: dominant?.signal.impact ?? "neutral",
+        confidence,
+        structural_reason: dominant?.signal.primary_drivers?.[0] ?? null,
+        signal_summary: dominant?.signal.facts ?? {},
+      },
+
+      secondary_drivers: secondary,
+
+      business_profile: {
+        location_type: internal_context?.location_type ?? null,
+        event_time_profile: internal_context?.event_time_profile ?? null,
+        primary_audience_1: internal_context?.primary_audience_1 ?? null,
+        primary_audience_2: internal_context?.primary_audience_2 ?? null,
+      },
+    };
+
+    // ------------------------------------
+    // 3️⃣ Claude Call (safe wrapper)
+    // ------------------------------------
+
+    try {
+      ai = await runAIPackagerClaude({
+        mode: "v3_narrative",
+        row: narrative_input_v3,
       });
 
-      try {
+      producer = "v3_claude";
 
-        // ✅ Derive submode type from the real runAIPackagerClaude() signature (truth source)
-        type PackagerArgs = Parameters<typeof runAIPackagerClaude>[0];
-        type InferredMonthSubMode =
-          PackagerArgs extends { submode?: infer S } ? S : never;
+    } catch (e) {
 
-        // ✅ Define mapping, and force TS to reveal the allowed literals if we put wrong ones
-        const SUBMODE_BY_INTENT = {
-          WINDOW_TOP_DAYS: "window_summary",
-          WINDOW_WORST_DAYS: "window_worst_days",
-        } satisfies Record<"WINDOW_TOP_DAYS" | "WINDOW_WORST_DAYS", InferredMonthSubMode>;
+      // Hard fallback: minimal deterministic winner IR (no rewrite)
+      const winner_date = ymdFromAnyDate(winner.date);
 
-        const submode = SUBMODE_BY_INTENT[resolved_intent as "WINDOW_TOP_DAYS" | "WINDOW_WORST_DAYS"];
+      ai = {
+        ok: true,
+        mode: "v3_fallback_deterministic",
+        output: {
+          headline: resolved_intent === "WINDOW_WORST_DAYS"
+            ? "Date la moins favorable"
+            : "Fenêtre favorable détectée",
+          answer: "",
+          key_facts: [
+            `Régime ${winner.opportunity_regime ?? "ND"}`,
+          ],
+          reasons: [],
+          caveats: [],
+        },
+        raw_text: "",
+        errors: [],
+        warnings: [],
+      };
 
-        const llmPayload = {
-          user_question: qRaw,
-          meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: decision_used_dates },
-          internal_context,
-          decision_policy_rules,
-          decision_payload,
-          window_aggregates_v3,
-          ui_packaging_v3,
-          top_dates: shortlist_rows.map((r: any) => ({
-            date: ymdFromAnyDate(r.date),
-            regime: r.opportunity_regime,
-            score: Math.round(Number(r.opportunity_score_final_local) || 0),
-            medal: r.opportunity_medal ?? null,
-            driver_label: r.v3_primary_driver,
-            driver_impact: r.v3_driver_impact,
-            driver_confidence: r.v3_driver_confidence,
-            signals: r.v3_signals,
-          })),
-        };
-        const claude = await runAIPackagerClaude({
-          mode: "month",
-          submode, // ✅ IMPORTANT: top-level, not inside row
-          row: llmPayload,
-          aiLocationContextRow: internal_context,
-        });
-
-        // ✅ Hard gate: if Claude didn't produce a usable output, force fallback deterministic.
-        const hasOutput =
-          claude &&
-          claude.ok === true &&
-          claude.output &&
-          typeof claude.output === "object";
-
-        if (!hasOutput) {
-          const msg =
-            (Array.isArray(claude?.errors) && claude.errors[0]) ||
-            "Claude returned no usable output.";
-          throw new Error(msg);
-        }
-
-        ai = claude;
-        producer = "v3_claude";
-      } catch (e: any) {
-        // Hard fallback: deterministic summary ONLY (no templated implications), keep it short.
-        const rows =
-          resolved_intent === "WINDOW_WORST_DAYS"
-            ? (Array.isArray(worstlist_rows) ? worstlist_rows : [])
-            : (Array.isArray(shortlist_rows) ? shortlist_rows : []);
-
-        const out =
-          resolved_intent === "WINDOW_WORST_DAYS"
-            ? windowWorstDaysDeterministic({ rows })
-            : windowTopDaysDeterministic({ rows });
-
-        const contextBits = [
-          typeof (internal_context as any)?.location_type === "string" ? `lieu ${String((internal_context as any).location_type)}` : null,
-          typeof (internal_context as any)?.company_activity_type === "string" ? `activité ${String((internal_context as any).company_activity_type)}` : null,
-          typeof (internal_context as any)?.event_time_profile === "string" ? `rythme ${String((internal_context as any).event_time_profile)}` : null,
-        ].filter(Boolean) as string[];
-
-        const dateBits = rows
-          .map((r: any) => ymdFromAnyDate(r?.date))
-          .filter((d: string) => d && typeof d === "string");
-
-        const signals = (decision_payload.kind === "scoring" ? decision_payload.signals : {}) as DecisionSignals;
-        const signalFacts = [
-          signals.weather?.explanation ?? null,
-          signals.competition?.explanation ?? null,
-          signals.calendar?.explanation ?? null,
-        ].filter(Boolean) as string[];
-
-        const fallbackSummary = rows.map((r: any) => {
-          const d = ymdFromAnyDate(r?.date);
-          const driver = r?.v3_primary_driver ?? "ND";
-          const impact = r?.v3_driver_impact ?? "neutral";
-          const conf = r?.v3_driver_confidence ?? "low";
-          return `${d} — ${driver} (${impact}, confiance ${conf})`;
-        }).join(" | ");
-
-        ai = {
-          ok: true,
-          mode:
-            resolved_intent === "WINDOW_WORST_DAYS"
-              ? "deterministic_window_worst_days_v1"
-              : "deterministic_window_top_days_v1",
-          output: {
-            headline: out.headline,
-            summary: fallbackSummary || out.summary,
-            key_facts: (signalFacts.length ? signalFacts.slice(0, 3) : out.key_facts),
-            caveat: out.caveat,
-          },
-          raw_text: "",
-          errors: [],
-          warnings: [`Claude unavailable: ${(e?.message ?? String(e)).slice(0, 140)}`],
-        };
-
-        producer = "v3_fallback_deterministic";
-      }
+      producer = "v3_fallback_deterministic";
     }
+  }
 
     // ---- NORMALIZED AI (stable contract for UI) ----
     const normalized_ai_base = normalizeAiOutput(
@@ -3334,8 +3834,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           thread_context_out: {
             v: 1,
             location_id,
-            turn: (typeof thread_context?.turn === "number" ? thread_context.turn + 1 : 1),
-            selected_date: selected_date.slice(0, 10),
+            turn:
+              thread_context && typeof thread_context.turn === "number"
+                ? thread_context.turn + 1
+                : 1,            
+            selected_date:
+              resolved_horizon === "day" && day_row
+                ? ymdFromAnyDate(day_row?.date)
+                : selected_date.slice(0, 10),            
             last: {
               horizon: resolved_horizon,
               intent: resolved_intent,
@@ -3351,7 +3857,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
           daywhy_input:
             resolved_horizon === "day"
-              ? { date: (date ?? selected_date).slice(0, 10), day_row, location_context: internal_context }
+              ? {
+                  date: day_row ? ymdFromAnyDate(day_row?.date) : null,
+                  day_row,
+                  location_context: internal_context
+                }
               : null,
 
           decision_policy_rules: {

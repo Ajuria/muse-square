@@ -1,0 +1,59 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Proofs from '../components/home/Proofs.astro';
+import MiniOffers from '../components/home/MiniOffers.astro';
+import SocialProof from '../components/home/SocialProof.astro';
+const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQSm_qlYD1RTahTw_ligFT2D20AoopA/viewform?usp=header";
+---
+<BaseLayout title="Muse Square — Data & Engagement">
+  <!-- Full-bleed decorative hero banner with text overlay (PNG-only for now) -->
+  <section
+    class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]"
+  >
+    <picture class="absolute inset-0" aria-hidden="true">
+      <!-- Desktop PNG -->
+      <source
+        srcset="/images/home-hero-1440x500.png"
+        media="(min-width: 768px)"
+        type="image/png" />
+      <!-- Mobile PNG -->
+      <source
+        srcset="/images/home-hero-768x300.png"
+        media="(max-width: 767px)"
+        type="image/png" />
+      <!-- Fallback -->
+      <img
+        src="/images/home-hero-768x300.png"
+        alt=""
+        width="1440" height="500"
+        class="w-full h-full object-cover"
+        loading="eager" decoding="async" />
+    </picture>
+
+    <!-- Overlay content (inside banner) -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <div>
+          <h1 class="ms-h1">Optimisez vos décisions grâce à l’intelligence contextuelle</h1>
+          <p class="mt-[16px] ms-lead italic text-[30px]">
+            Découvrez Muse Square insight
+          </p>
+          <div class="mt-[16px] flex flex-wrap gap-3">
+            <a href="/offres"  class="msq-btn-ghost" data-kpi="cta_view_offres">Consulter offres</a>
+            <a href="/contact" class="msq-btn-ghost" data-kpi="cta_contact">Nous contacter</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <!-- Rest of the home page -->
+    <MiniOffers />
+    <Proofs />
+    <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+    <SocialProof />
+
+    <!-- Divider above questionnaire -->
+    <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+ 
+ </BaseLayout>

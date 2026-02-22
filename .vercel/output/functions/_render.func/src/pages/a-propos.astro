@@ -1,0 +1,260 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="À propos — Muse Square">
+  <!-- Full-bleed hero with overlay title -->
+  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
+    <!-- Background image -->
+    <picture class="absolute inset-0 block" aria-hidden="true">
+      <source srcset="/images/banner-apropos-300k.svg" type="image/svg+xml" />
+      <img
+        src="/images/banner-apropos-300k.svg"
+        alt=""
+        class="w-full h-full object-cover"
+        sizes="100vw"
+        loading="eager"
+        decoding="async"
+      />
+    </picture>
+
+    <!-- Subtle overlay for legibility -->
+    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
+
+    <!-- Overlay title -->
+    <div class="absolute inset-0">
+      <div class="ms-container h-full flex items-center">
+        <h1 class="ms-h1 text-primary">L’expertise derrière Muse Square</h1>
+      </div>
+    </div>
+  </section>
+
+  <!-- POURQUOI MUSE SQUARE -->
+  <section class="ms-section" aria-labelledby="about-who">
+    <div class="ms-container">
+      <h2
+        id="about-who"
+        class="ms-h2 uppercase tracking-[0.5px] text-center text-primary"
+      >
+        Pourquoi Muse Square?
+      </h2>
+
+      <!-- full width inside container; no max-w, no centering -->
+      <div class="mt-[20px] space-y-[12px] font-body text-[18px] leading-[28px] text-secondary">
+        <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
+          Chaque jour, les décideurs agissent dans un environnement saturé d’informations changeantes et contradictoires. 
+          Sans une lecture claire de leur contexte, leurs décisions perdent en précision, en impact et en sérénité
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Muse Square est né d’une idée simple : offrir aux organisations la clarté nécessaire pour décider en toute confiance
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary"></p>
+          Notre mission : vous permettre de vous concentrer sur l’essentiel: avancer.
+        </p>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- LE FONDATEUR -->
+  <section class="ms-section">
+    <div class="grid md:grid-cols-2 gap-[40px]">
+      <!-- Texte -->
+      <div>
+        <h2 class="ms-h2">Julen de Ajuriaguerra, fondateur de Muse Square</h2>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Ancien chercheur à l’Université de Genève et diplômé d’HEC Paris, j’accompagne les organisations dans l’exploitation stratégique 
+          des données contextuelles. J’ai fondé Muse Square avec une mission claire : rendre ces 
+          données fiables, accessibles et directement utilisables par les équipes métier.
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          
+        </p>
+
+        <!-- LIRE PLUS : heading + list + 'Notre objectif…' entirely inside -->
+        <details class="mt-3 group">
+          <summary class="msq-link font-heading cursor-pointer" data-kpi="about_expand_metier" aria-controls="about-metier-more">
+            <span class="group-open:hidden">Lire plus</span>
+            <span class="hidden group-open:inline">Lire moins</span>
+          </summary>
+
+          <div id="about-metier-more" class="mt-3">
+            <p class="mt-[16px] font-heading font-semibold text-[18px] text-primary">
+                Au sein de l'Agence, je pilote personnellement chaque mission de la phase de cadrage stratégique à l’activation opérationnelle.   
+            </p>
+
+            <p class="mt-[16px] font-body text-[18px] leading-[28px] text-secondary">
+              Je constitue une équipe sur mesure — analystes, développeurs, designers ou experts métier — en fonction des besoins de votre organisation. 
+              Cette approche garantit une meilleure agilité, maîtrise des coûts et efficacité avec une même exigence : transformer les données en leviers concrets d'd’actions à l’impact mesurable.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Visuel (constrain width so it never scales up → no pixelation) -->
+      <div class="md:justify-self-end">
+        <figure class="w-[240px] sm:w-[280px] md:w-[320px] lg:w-[360px]">
+          <img
+            src="/images/metier.png"
+            alt="Julen de Ajuriaguerra"
+            width="360"
+            height="450"
+            class="block w-full h-auto object-contain bg-muted"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Notre méthode -->
+  <section class="ms-section">
+    <div class="grid md:grid-cols-2 gap-[40px]">
+      <!-- Texte -->
+      <div>
+        <h2 class="ms-h2">L'Agence Muse Square</h2>
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+          Notre méthodologie repose sur une compréhension fine de votre territoire et de vos enjeux métiers. Chaque mission débute par un audit structuré de vos équipes, de vos processus et de vos flux de données. Nous combinons expertise sectorielle et maîtrise des outils analytiques pour produire des livrables exploitables, orientés résultats. 
+        </p>
+
+        <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary"> 
+          Notre accompagnement s’adapte aux spécificités de chaque organisation et s’inscrit dans une logique de montée en compétence interne, en s'appuyant sur une méthodologie simple et éprouvée&nbsp;.
+        </p>
+
+        <!-- LIRE PLUS : 3-step block + concluding paragraph inside -->
+        <details class="mt-4 group">
+          <summary class="msq-link font-heading cursor-pointer" data-kpi="about_expand_approche" aria-controls="about-approche-more">
+            <span class="group-open:hidden">Lire plus</span>
+            <span class="hidden group-open:inline">Lire moins</span>
+          </summary>
+
+          <div id="about-approche-more" class="mt-3 space-y-[12px] font-body text-[18px] leading-[28px] text-secondary">
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Cadrer</h3>
+              <p>Identifier les bons indicateurs, clarifier les objectifs et structurer vos flux de données.</p>
+            </div>
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Analyser</h3>
+              <p>Transformer les données en insights pertinents grâce à des méthodes quantitatives et qualitatives adaptées au secteur culturel et touristique.</p>
+            </div>
+            <div>
+              <h3 class="font-heading font-semibold text-[18px] text-primary">Activer</h3>
+              <p>Traduire ces insights en actions concrètes, suivies dans le temps à l’aide de tableaux de bord clairs et partagés.</p>
+            </div>
+
+            <p class="mt-[16px]">
+              Chaque projet inclut un transfert de compétences. Ateliers, documentation, outils pédagogiques et accompagnement
+              continu font partie intégrante de ma démarche&nbsp;: l’objectif est de vous rendre autonomes dans la gestion
+              et l’interprétation de vos données.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <!-- Visuel -->
+      <img
+        src="/images/approche.png"
+        alt="Schéma de l’approche Muse Square (cadrer, analyser, activer)"
+        class="w-full max-w-[560px] aspect-[3/2] object-cover shadow-sm md:ml-auto"
+        loading="lazy"
+        decoding="async"
+      />
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- Notre bousole (values-model) -->
+  <section class="ms-section">
+    <h2 class="ms-h2">Notre bousole</h2>
+
+    <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+      Chaque mission s’appuie sur un socle de principes concrets, appliqués à chaque étape : cadrage, analyse, restitution, transmission. 
+      Ces engagements structurent notre manière de travailler et garantissent la qualité de nos livrables et de nos échanges.
+    </p>
+      
+    <p class="mt-[12px] font-body text-[18px] leading-[28px] text-secondary">
+      Écoute des équipes, rigueur analytique, éthique des données et autonomie des organisations : quatre piliers qui traduisent notre exigence professionnelle et notre approche orientée résultats.
+    </p>
+
+    <div class="mt-10 md:mt-15 grid md:grid-cols-2 gap-[24px] md:gap-[32px]">
+
+      <!-- Ecoute des équipes -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-network.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Vision transversale</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Prise en compte des attentes métiers à tous les niveaux de l’organisation</li>
+              <li>Méthodologie adaptée aux rôles, expertises et contraintes de chaque équipe</li>
+              <li>Coordination fluide du cadrage stratégique à l’activation opérationnelle</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Rigueur -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-excellence.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Rigueur</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>KPIs alignés avec vos objectifs stratégiques</li>
+              <li>Analyses robustes et recommandations concrètes</li>
+              <li>Livrables conçus selon les meilleures pratiques du secteur</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Éthique -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-hands.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Éthique</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Confidentialité des données sensibles</li>
+              <li>Méthodes transparentes et vérifiables</li>
+              <li>Intégration de critères RSE dans vos KPIs et analyses</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Autonomie -->
+      <article class="rounded-[16px] bg-muted/60 p-6 md:p-8">
+        <div class="flex items-center gap-6 md:gap-8">
+          <span class="self-center shrink-0 w-[120px] h-[120px] md:w-[140px] md:h-[140px] rounded-full bg-background flex items-center justify-center">
+            <img src="/images/icon-key.png" alt="" class="w-[90%] h-[90%] object-contain" loading="lazy" decoding="async" />
+          </span>
+          <div>
+            <h3 class="font-heading font-bold text-[24px] md:text-[26px] leading-[1.25] text-primary">Autonomie</h3>
+            <ul class="mt-3 list-disc pl-5 space-y-1 font-body text-[18px] leading-[28px] text-secondary">
+              <li>Transfert de compétences intégré à chaque mission</li>
+              <li>Approche inspirée du data mesh pour responsabiliser chaque équipe</li>
+              <li>Montée en indépendance progressive de vos équipes</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+</BaseLayout>

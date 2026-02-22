@@ -1,0 +1,2134 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { SignedIn, SignedOut } from "@clerk/astro/components";
+import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
+
+// --------------------
+// Server-side guards
+// --------------------
+
+const location_id =
+  (Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+
+// --------------------
+// Page mode truth (URL-driven)
+// --------------------
+const selected_dates_raw = Astro.url?.searchParams?.get("selected_dates") ?? "";
+const saved_item_id_raw = Astro.url?.searchParams?.get("saved_item_id") ?? "";
+
+const has_selected_dates =
+  selected_dates_raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean).length > 0;
+
+const has_saved_item_id =
+  typeof saved_item_id_raw === "string" && saved_item_id_raw.trim().length > 0;
+
+const show_actions = has_selected_dates || has_saved_item_id;
+
+---
+
+<SignedOut>
+  <script is:inline>
+    window.location.href = "/sign-in";
+  </script>
+</SignedOut>
+
+<SignedIn>
+  <BaseLayout title="Insight Event — Days" hideSurveyCta={true} hideFooter={true}>
+    <div class="ms-container px-6 pt-6 w-full max-w-none">
+  
+  <style is:inline id="ms-selected-days-style">  
+  /* add near your inline styles */
+  .ms-grid--split { grid-template-columns: minmax(0,1fr) 360px; }
+  .ms-grid--single { grid-template-columns: minmax(0,1fr); }
+
+  /* ---------- List mode layout fix (Saved list must NOT live in 360px aside) ---------- */
+  .ms-days-grid.ms-list-mode { grid-template-columns: 1fr !important; }
+  .ms-days-grid.ms-list-mode > aside { width: 100%; }
+  .ms-days-grid.ms-list-mode #main-col { display: none; }
+
+  /* =========================
+   Days grid (split vs single)
+   ========================= */
+  .ms-days-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items:start;
+  }
+
+  @media (min-width: 1024px){
+    .ms-days-grid.ms-grid--split{
+      grid-template-columns: minmax(0,1fr) 360px;
+    }
+    .ms-days-grid.ms-grid--single{
+      grid-template-columns: minmax(0,1fr);
+    }
+  }
+
+  /* =========================
+   Selected Days (core view)
+   ========================= */
+
+  .ms-days-wrap{ width:100%; max-width:620px; margin:0 auto; padding:16px 16px 32px 16px; }
+  .ms-top-wrap{ text-align:center; }
+  .ms-top-month{ font-size:28px; line-height:1.08; font-weight:500; letter-spacing:-0.01em; margin:10px 0 6px 0; color:#111827; }
+  .ms-top-week{ font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(17,24,39,0.55); margin:0 0 28px 0; font-weight:500; }
+
+  /* --- Carousel (3 cards: left / mid / right) --- */
+  .ms-carousel-viewport{
+    overflow:visible;
+    display:flex;
+    justify-content:center;
+    margin-top:8px;
+    margin-bottom:28px;
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+  }
+
+  .ms-carousel-strip{ position:relative; width:666px; height:330px; transform-style:preserve-3d; }
+  .ms-carousel-strip.is-animating{ pointer-events:none; }
+
+  .ms-slot{
+    position:absolute;
+    top:0;
+    width:210px;
+    height:330px;
+    transition:left 520ms cubic-bezier(0.22,1,0.36,1),
+              transform 520ms cubic-bezier(0.22,1,0.36,1),
+              opacity 520ms cubic-bezier(0.22,1,0.36,1);
+    will-change:left,transform,opacity;
+  }
+
+  .ms-slot.left{
+    left:0px;
+    transform: translateX(14px) scale(0.92);
+    opacity:0.62;
+    z-index:1;
+  }
+  .ms-slot.mid{
+    left:228px;
+    transform: translateX(0px) scale(1.00);
+    opacity:1.00;
+    z-index:3;
+  }
+  .ms-slot.right{
+    left:456px;
+    transform: translateX(-14px) scale(0.92);
+    opacity:0.62;
+    z-index:1;
+  }
+
+  .ms-c-ghost{ width:210px; height:330px; border-radius:34px; visibility:hidden; }
+
+  .ms-c-card{
+    width:210px; height:330px; border-radius:34px; position:relative;
+    display:flex; flex-direction:column; align-items:center;
+    padding:22px 20px;
+    user-select:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  .ms-c-card.active{ background:#fff; border:3px solid #000; box-shadow:0 14px 40px rgba(17,24,39,0.20); }
+  .ms-c-card.preview{ background:#fff; border:1px solid #eef2f7; box-shadow:0 10px 24px rgba(17,24,39,0.08); cursor:pointer; }
+
+  .ms-c-dow{ font-size:12px; letter-spacing:0.16em; text-transform:uppercase; margin-top:4px; font-weight:400; }
+  .ms-c-daynum{ font-size:26px; font-weight:500; margin-top:8px; line-height:1; }
+
+  .ms-c-marker{
+    margin-top:18px;
+    line-height:1;
+    font-weight:400;
+    letter-spacing:-0.02em;
+    flex:1 1 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .ms-c-card.active .ms-c-marker{ font-size:92px; }
+  .ms-c-card.preview .ms-c-marker{ font-size:44px; }
+
+  .ms-c-pill{ margin-top:auto; margin-bottom:10px; }
+  .ms-chip{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:7px 14px; border-radius:12px;
+    font-size:12px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500;
+    background:#f3f4f6; border:1px solid #e5e7eb; color:#111827;
+  }
+
+  .ms-chip-date{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 10px;
+    border-radius:12px;
+    font-size:12px;
+    border:1px solid #e5e7eb;
+    background:#f9fafb;
+    color:#111827;
+  }
+
+  .ms-chip-date.removable {
+    position: relative;
+    padding-right: 22px;
+    cursor: pointer;
+  }
+
+  .ms-chip-date.removable::after {
+    content: "×";
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    opacity: 0.6;
+  }
+
+  .ms-c-score{ font-size:20px; font-weight:500; letter-spacing:0.01em; margin-bottom:4px; line-height:1; color:#111827; }
+  .ms-c-score .muted{ opacity:0.55; font-weight:400; font-size:18px; }
+
+  .ms-c-card.preview .ms-c-dow,
+  .ms-c-card.preview .ms-c-daynum,
+  .ms-c-card.preview .ms-c-marker,
+  .ms-c-card.preview .ms-c-score{ color:#9ca3af; }
+
+  /* --- Analysis block --- */
+  .ms-analyse-wrap{ margin-top:0px; margin-bottom:10px; text-align:center; }
+  .ms-analyse-line{ display:flex; align-items:center; gap:14px; justify-content:center; margin-top:6px; }
+  .ms-analyse-line:before,
+  .ms-analyse-line:after{ content:""; height:1px; background:rgba(17,24,39,0.18); flex:1 1 auto; max-width:220px; }
+  .ms-analyse-label{ font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:rgba(17,24,39,0.55); font-weight:500; }
+  .ms-analyse-meaning{ margin-top:10px; font-size:16px; font-style:italic; color:#111827; font-weight:500; min-height:1.2em; }
+
+  /* --- Context tags --- */
+  .ms-context-tags{ margin-top:14px; display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
+  .ms-ctx-tag{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    border-radius:14px;
+    border:1px solid #e5e7eb;
+    background:#f3f4f6;
+    color:rgba(17,24,39,0.55);
+    font-size:14px;
+    font-weight:500;
+    line-height:1;
+    white-space:nowrap;
+  }
+  .ms-ctx-ico{ width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  
+  /* --- Panels (Points clés / Alertes / Concurrence / Météo) --- */
+  .ms-panels{
+    padding-top:12px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .ms-section{ width:100%; margin-top:0; }
+
+  .ms-kicker{
+    display:block;
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.45);
+    line-height:1.1;
+    margin:0 0 16px 0;
+  }
+  .ms-card{
+    background:#ffffff;
+    border:1px solid #eef2f7;
+    border-radius:22px;
+    padding:26px 26px;
+    font-size:14px;
+    line-height:1.55;
+    color:#111827;
+  }
+  .ms-head{ display:flex; gap:14px; align-items:center; }
+
+  /* Points clés: icon aligns to top of multi-line content */
+  .ms-section--sparkle .ms-head { align-items: flex-start; }
+  .ms-section--sparkle .ms-ico { margin-top: 2px; }
+
+  .ms-ico{
+    width:42px; height:42px;
+    border-radius:14px;
+    border:1px solid #f1f5f9;
+    background:#ffffff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+  }
+  .ms-head-content{ flex:1; min-width:0; }
+  /* Deterministic renderer output (new): preserve \n line breaks */
+  .ms-takeaway.preline{ white-space: pre-line; }
+  .ms-below{ margin-left:56px; margin-top:14px; }
+
+  .ms-ul{ list-style:disc !important; padding-left:18px !important; margin:0 !important; }
+  .ms-ul li{ margin:8px 0 !important; }
+  .ms-muted{ color:#6b7280; font-size:14px; }
+  .ms-caveat{ margin-top:12px; color:#6b7280; font-size:12.5px; line-height:1.4; font-style:italic; }
+
+  /* --- Selected dates pills bar --- */
+  .ms-pills-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .ms-pill{
+    border:1px solid rgba(17,24,39,0.12);
+    background:rgba(17,24,39,0.06);
+    border-radius:12px;
+    padding:8px 10px;
+    font:inherit;
+    color:#111827;
+    cursor:pointer;
+  }
+  .ms-pill.is-active{ outline:2px solid #111827; }
+  .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
+  
+  /* ---------- Saved panel + pills (already used by your markup) ---------- */
+  .ms-pills-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .ms-pill{
+    border:1px solid rgba(17,24,39,0.12);
+    background:rgba(17,24,39,0.06);
+    border-radius:12px;
+    padding:8px 10px;
+    font:inherit;
+    color:#111827;
+    cursor:pointer;
+  }
+  .ms-pill.is-active{ outline:2px solid #111827; }
+  .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
+
+  /* ---------- Saved list (template-like rows) ---------- */
+  .ms-saved-wrap{ width:100%; max-width:1080px; margin:0 auto; padding-top:6px; }
+
+  .ms-saved-hero{
+    font-size:24px;
+    line-height:1.05;
+    font-weight:500;
+    letter-spacing:-0.02em;
+    margin:10px 0 18px 0;
+    color:#111827;
+  }
+
+  .ms-saved-list{
+    border-top:1px solid #eef2f7;
+  }
+
+  .ms-saved-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    padding:18px 0;
+    border-bottom:1px solid #eef2f7;
+  }
+
+  .ms-saved-left{ min-width:0; flex:1 1 auto; display:flex; flex-direction:column; gap:6px; }
+  .ms-saved-title2{
+    font-size:20px;
+    font-weight:400;
+    color:#111827;
+    line-height:1.15;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .ms-saved-subline{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+    color:#6b7280;
+    font-size:14px;
+    line-height:1.3;
+  }
+
+  .ms-saved-datesline{
+    color:#111827;
+    font-weight:400;
+    white-space:nowrap;
+  }
+
+  .ms-saved-sep{ opacity:0.4; }
+
+  .ms-saved-desc{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    color:#9ca3af;
+    font-weight:400;
+    min-width:0;
+  }
+
+  .ms-saved-right{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  .ms-saved-kpis{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  .ms-kpi{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:72px;
+  }
+
+  .ms-kpi-label{
+    font-size:11px;
+    letter-spacing:0.10em;
+    text-transform:uppercase;
+    color:rgba(15, 15, 16, 0.45);
+    font-weight:500;
+    line-height:1;
+  }
+
+  .ms-kpi-value{
+    font-size:14px;
+    color:#6b7280;
+    font-weight:500;
+    line-height:1.1;
+  }
+
+  .ms-saved-actions{ display:flex; gap:10px; align-items:center; justify-content:flex-end; }
+
+  /* ---------- Modal (critical: prevents flash + keeps centered overlay) ---------- */
+  .ms-modal-backdrop{
+    position:fixed; inset:0;
+    background:rgba(17,24,39,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    z-index:9999;
+  }
+  .ms-modal-backdrop[hidden]{ display:none !important; }
+
+  .ms-modal{
+    width:100%;
+    max-width:560px;
+    background:#fff;
+    border-radius:22px;
+    border:1px solid #eef2f7;
+    box-shadow:0 22px 60px rgba(17,24,39,0.22);
+    overflow:hidden;
+  }
+  .ms-modal-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 18px; }
+  .ms-modal-title{ font-size:16px; font-weight:700; color:#111827; }
+  .ms-modal-sub{ margin-top:4px; font-size:13px; color:#6b7280; }
+  .ms-modal-x{ border:1px solid #eef2f7; background:#fff; border-radius:12px; padding:6px 10px; cursor:pointer; }
+
+  .ms-modal-body{ padding:14px 18px 16px 18px; display:flex; flex-direction:column; gap:12px; }
+  .ms-field{ display:block; }
+  .ms-label{ font-size:12px; font-weight:600; color:rgba(17,24,39,0.55); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
+  .ms-input{ width:100%; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; font:inherit; background:#fff; }
+  .ms-textarea{ width:100%; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; font:inherit; background:#fff; }
+  .ms-datechips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .ms-error{ margin-top:2px; color:#b91c1c; font-size:13px; }
+
+  .ms-modal-actions{ padding:0 18px 18px 18px; display:flex; gap:10px; justify-content:flex-end; }
+  .ms-btn{ border-radius:14px; padding:10px 14px; font:inherit; cursor:pointer; }
+  .ms-btn.ghost{ border:1px solid rgba(17,24,39,0.14); background:rgba(17,24,39,0.06); color:#111827; }
+  .ms-btn.solid{ border:1px solid #111827; background:#111827; color:#fff; }
+  .ms-btn:disabled{ opacity:0.55; cursor:not-allowed; }
+</style>
+     
+      <!-- Header / breadcrumb placeholder -->
+      <div class="mb-4"></div>
+      <div id="days-grid" class="ms-days-grid ms-grid--split">
+
+        <!-- Main -->
+        <div id="main-col">
+
+          <!-- Focused day container -->
+          <div id="day-content" data-location-id={location_id} class="min-h-[120px]">
+            <div class="text-gray-400 text-sm">Chargement…</div>
+          </div>
+        </div>
+
+        <!-- Saved panel -->
+        <aside>
+          <div id="saved-panel"></div>
+        </aside>
+
+      </div>
+
+      <!-- Save modal (hidden by default) -->
+      <div id="ms-save-modal" class="ms-modal-backdrop" aria-hidden="true" hidden>
+        <div class="ms-modal" role="dialog" aria-modal="true" aria-labelledby="ms-save-title">
+          <div class="ms-modal-head">
+            <div>
+              <div id="ms-save-title" class="ms-modal-title">Enregistrer ces jours</div>
+              <div class="ms-modal-sub">Vous pourrez les retrouver dans “Enregistrés”.</div>
+            </div>
+            <button type="button" id="ms-save-close" class="ms-modal-x" aria-label="Fermer">✕</button>
+          </div>
+
+          <div class="ms-modal-body">
+            <label class="ms-field">
+              <div class="ms-label">Titre</div>
+              <input id="ms-save-title-input" class="ms-input" type="text" placeholder="Ex: Week-end de Pâques" maxlength="120" />
+            </label>
+
+            <label class="ms-field">
+              <div class="ms-label">Étape</div>
+              <select id="ms-save-stage" class="ms-input">
+                <option value="">—</option>
+                <option value="option">Option</option>
+                <option value="exploration">Exploration</option>
+                <option value="prevalidation">Pré-validation</option>
+                <option value="retenue">Retenue</option>
+              </select>
+            </label>
+
+            <label class="ms-field">
+              <div class="ms-label">Description (optionnel)</div>
+              <textarea id="ms-save-desc" class="ms-textarea" rows="3" placeholder="Contrainte, intuition, note interne…"></textarea>
+            </label>
+
+            <div class="ms-field">
+              <div class="ms-label">Dates</div>
+              <div id="ms-save-dates" class="ms-datechips"></div>
+            </div>
+
+            <div id="ms-save-error" class="ms-error" style="display:none;"></div>
+          </div>
+
+          <div class="ms-modal-actions">
+            <button type="button" id="ms-save-cancel" class="ms-btn ghost">Annuler</button>
+            <button type="button" id="ms-save-submit" class="ms-btn solid">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <div style="height:120px;"></div>
+
+    <InsightBottomBar active="days" showActions={show_actions} />
+
+  </div>
+
+    <!-- Client logic -->
+    <script is:inline define:vars={{ location_id }}>
+      (function () {
+        // ---- SERVER TRUTH (injected by Astro via define:vars) ----
+        const LOCATION_ID = (typeof location_id === "string" ? location_id : "").trim();
+
+        const params = new URLSearchParams(window.location.search);
+
+        const selectedDatesRaw = params.get("selected_dates") || "";
+        let selectedDate = (params.get("selected_date") || "").trim();
+
+        const selectedDates = selectedDatesRaw
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean)
+          .slice(0, 7);
+
+        const savedItemId = (params.get("saved_item_id") || "").trim();
+
+        // Canonicalize selected_date if missing but we do have selected_dates
+        if (!selectedDate && selectedDates.length > 0) {
+          selectedDate = selectedDates[0];
+          params.set("selected_date", selectedDate);
+          window.history.replaceState({}, "", "?" + params.toString());
+        }
+
+        function getPillsContainer() {
+          // created by renderFocusedDay() via innerHTML
+          return document.getElementById("ms-selected-dates-bar");
+        }
+
+        function getSavedPanel() {
+          return document.getElementById("saved-panel");
+        }
+
+        function setLayoutMode(mode) {
+          const grid = document.getElementById("days-grid");
+          const panel = getSavedPanel();
+          const aside = panel ? panel.closest("aside") : null;
+          const mainCol = document.getElementById("main-col");
+          if (!grid || !aside || !mainCol) return;
+
+          if (mode === "list") {
+            // LIST MODE: saved list uses full width; main hidden
+            aside.style.display = "";
+            mainCol.style.display = "none";
+
+            grid.classList.remove("ms-grid--split");
+            grid.classList.add("ms-grid--single");
+            grid.classList.add("ms-list-mode");
+          } else {
+            // DETAIL MODE: selected day view; saved panel hidden
+            mainCol.style.display = "";
+            aside.style.display = "none";
+
+            grid.classList.remove("ms-list-mode");
+            grid.classList.remove("ms-grid--split");
+            grid.classList.add("ms-grid--single");
+          }
+        }
+
+        const container = document.getElementById("day-content");
+
+        function ensureSelectedDaysStyles() {
+          // Styles are now server-rendered via <style is:inline id="ms-selected-days-style">.
+          // Keep this function only because other code calls it.
+          return;
+        }
+
+        const modalBackdrop = document.getElementById("ms-save-modal");
+        const modalClose = document.getElementById("ms-save-close");
+        const modalCancel = document.getElementById("ms-save-cancel");
+        const modalSubmit = document.getElementById("ms-save-submit");
+        const modalTitle = document.getElementById("ms-save-title-input");
+        const modalStage = document.getElementById("ms-save-stage");
+        const modalDesc = document.getElementById("ms-save-desc");
+        const modalDates = document.getElementById("ms-save-dates");
+        const modalError = document.getElementById("ms-save-error");
+
+        // ---- Single global namespace (minimum “production-grade” state) ----
+        const MS = (window.__MS_DAYS__ ||= {});
+        MS.editingId ||= "";
+        MS.editingDates ||= [];
+        MS.pointsCles ||= null;
+        MS.draftDates ||= [];
+
+        // Allow BottomBar to open modal without tight coupling
+        window.addEventListener("ms:open-save-modal", () => {
+          if (Array.isArray(selectedDates) && selectedDates.length > 0) openSaveModal();
+        });
+
+        // EXTRA SAFETY: also bind the BottomBar button directly (no reliance on CustomEvent)
+        const saveActionBtn = document.getElementById("cta-save");
+        if (saveActionBtn) {
+          saveActionBtn.addEventListener("click", () => {
+            if (Array.isArray(selectedDates) && selectedDates.length > 0) openSaveModal();
+          });
+        }
+
+        function openSaveModal() {
+          ensureSelectedDaysStyles();
+          if (!modalBackdrop) return;
+
+          // Ensure create mode wording + clear edit state ---
+          MS.editingId = "";
+          MS.editingDates = [];
+          
+          const modalHeading = document.getElementById("ms-save-title");
+          if (modalHeading) modalHeading.textContent = "Enregistrer ces jours";
+          if (modalSubmit) modalSubmit.textContent = "Enregistrer";
+
+          // HARD RESET (avoid stale edit values leaking into create)
+          if (modalStage) modalStage.value = "";
+          if (modalDesc) modalDesc.value = "";
+          if (modalTitle) modalTitle.value = "";
+
+          // default title suggestion (create mode only)
+          if (modalTitle && !String(modalTitle.value || "").trim()) {
+            modalTitle.value = selectedDates.length ? `Sélection ${selectedDates[0]}…` : "";
+          }
+
+          // render date chips (create mode = read-only)
+          MS.draftDates = (Array.isArray(selectedDates) ? selectedDates : [])
+            .map(normalizeYmd)
+            .filter(Boolean)
+            .slice(0, 7);
+
+          renderModalDateChipsCreate(MS.draftDates);
+
+          if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
+          
+          modalBackdrop.hidden = false;
+          modalBackdrop.setAttribute("aria-hidden", "false");
+
+          // focus
+          setTimeout(() => { try { modalTitle && modalTitle.focus(); } catch(_) {} }, 0);
+        }
+
+        function closeSaveModal() {
+          if (!modalBackdrop) return;
+          modalBackdrop.hidden = true;
+          modalBackdrop.setAttribute("aria-hidden", "true");
+
+          // avoid stale removable chips/state
+          MS.editingId = "";
+          MS.editingDates = [];
+        }
+
+        function showSaveError(msg) {
+          if (!modalError) return;
+          modalError.textContent = msg || "Erreur.";
+          modalError.style.display = "block";
+        }
+
+        async function saveCurrentSelection() {
+          if (MS.isSaving) return;
+          MS.isSaving = true;
+          
+          const editingId = String(MS.editingId || "").trim();
+          const isEdit = Boolean(editingId);
+
+          const loc = String(LOCATION_ID || "").trim();
+          if (!loc) return showSaveError("location_id manquant.");
+
+          const title = String(modalTitle?.value || "").trim();
+          if (!title) return showSaveError("Le titre est requis.");
+
+          if (!isEdit && !selectedDates.length) {
+            return showSaveError("Aucune date sélectionnée.");
+          }
+
+          const url = isEdit ? "/api/saved-items/update" : "/api/saved-items/create";
+
+          const payload = isEdit
+            ? {
+                saved_item_id: editingId,
+                title,
+                description: String(modalDesc?.value || "").trim() || null,
+                stage: String(modalStage?.value || "").trim() || null,
+                dates: (Array.isArray(MS.editingDates) ? MS.editingDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
+              }
+            : {
+                location_id: loc,
+                title,
+                description: String(modalDesc?.value || "").trim() || null,
+                stage: String(modalStage?.value || "").trim() || null,
+                dates: (Array.isArray(MS.draftDates) ? MS.draftDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
+              };
+
+          if (modalSubmit) modalSubmit.disabled = true;
+
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "content-type": "application/json", accept: "application/json" },
+              body: JSON.stringify(payload),
+              cache: "no-store",
+            });
+
+            const ct = (res.headers.get("content-type") || "").toLowerCase();
+            const json = ct.includes("application/json") ? await res.json().catch(() => null) : null;
+
+            if (!res.ok || !json?.ok) {
+              throw new Error(json?.error || `Erreur API (${res.status})`);
+            }
+
+            // reset edit state
+            MS.editingId = "";
+            MS.editingDates = [];
+
+            closeSaveModal();
+
+            const newId = (!isEdit && json?.saved_item_id) ? String(json.saved_item_id).trim() : "";
+            if (newId) {
+              // Canonical permalink: shareable, stable, no selected_dates required
+              const next = new URL(window.location.origin + "/app/insightevent/days");
+              next.searchParams.set("saved_item_id", newId);
+              window.location.assign(next.toString());
+              return;
+            }
+
+            // Fallback: refresh list
+            await loadSavedItems();
+
+          } catch (e) {
+            showSaveError(e?.message || "Erreur.");
+          } finally {
+            MS.isSaving = false;
+            if (modalSubmit) modalSubmit.disabled = false;
+          }
+        }
+
+        function stageLabel(s) {
+          const v = String(s || "").toLowerCase();
+          if (v === "option") return "Option";
+          if (v === "exploration") return "Exploration";
+          if (v === "prevalidation") return "Pré-validation";
+          if (v === "retenue") return "Retenue";
+          return null;
+        }
+
+        function normalizeYmd(v) {
+          const s = String(v ?? "").trim();
+          const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+          return m ? m[1] : "";
+        }
+
+        function extractDatesFromSavedItem(it) {
+          // 1) array
+          if (Array.isArray(it?.dates)) {
+            return it.dates.map(normalizeYmd).filter(Boolean);
+          }
+
+          // 2) JSON string (common: '["2026-01-01","2026-01-02"]')
+          const s1 = typeof it?.dates === "string" ? it.dates.trim() : "";
+          if (s1.startsWith("[") && s1.endsWith("]")) {
+            try {
+              const arr = JSON.parse(s1);
+              if (Array.isArray(arr)) return arr.map(normalizeYmd).filter(Boolean);
+            } catch (_) {}
+          }
+
+          // 3) csv string (common: '2026-01-01,2026-01-02')
+          if (s1.includes("-")) {
+            const csv = s1.split(",").map(normalizeYmd).filter(Boolean);
+            if (csv.length) return csv;
+          }
+
+          // 4) alternate fields
+          const s2 = typeof it?.dates_csv === "string" ? it.dates_csv.trim() : "";
+          if (s2) {
+            const csv = s2.split(",").map(normalizeYmd).filter(Boolean);
+            if (csv.length) return csv;
+          }
+
+          const s3 = typeof it?.dates_json === "string" ? it.dates_json.trim() : "";
+          if (s3.startsWith("[") && s3.endsWith("]")) {
+            try {
+              const arr = JSON.parse(s3);
+              if (Array.isArray(arr)) return arr.map(normalizeYmd).filter(Boolean);
+            } catch (_) {}
+          }
+
+          return [];
+        }
+
+        function parseYmdToDate(ymd) {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "").trim());
+          if (!m) return null;
+          const y = Number(m[1]);
+          const mo = Number(m[2]);
+          const da = Number(m[3]);
+          const dt = new Date(Date.UTC(y, mo - 1, da));
+          if (Number.isNaN(dt.getTime())) return null;
+          return dt;
+        }
+
+        function renderSavedPanel(items) {
+          const savedPanel = getSavedPanel();
+          if (!savedPanel) return;
+
+          const rows = Array.isArray(items) ? items : [];
+
+          // Title block (template-like)
+          const head = `
+            <div class="ms-saved-wrap">
+              <div class="ms-saved-hero">Dates d’intérêt</div>
+            </div>
+          `;
+
+          if (rows.length === 0) {
+            savedPanel.innerHTML =
+              head +
+              `<div class="ms-saved-wrap"><div class="ms-saved-empty">Aucun enregistrement pour le moment.</div></div>`;
+            return;
+          }
+
+          // Helpers (local to saved list)
+          function fmtShortFr(ymd) {
+            // ymd is "YYYY-MM-DD"
+            const d = parseYmdToDate(ymd);
+            if (!d) return ymd;
+            const day = String(d.getUTCDate()).padStart(2, "0");
+            const month = new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d);
+            const m = month ? (month.charAt(0).toUpperCase() + month.slice(1)) : "";
+            return `${m} ${day}`; // ex: "Jan 21"
+          }
+
+          function datesSummary(datesArr) {
+            const dates = Array.isArray(datesArr) ? datesArr : [];
+            const shown = dates.slice(0, 3).map(fmtShortFr);
+            const rest = Math.max(0, dates.length - shown.length);
+            return {
+              text: shown.join(" · ") + (rest > 0 ? ` · +${rest}` : ""),
+              first: dates[0] ? fmtShortFr(dates[0]) : "",
+            };
+          }
+
+          savedPanel.innerHTML =
+            head +
+            `
+            <div class="ms-saved-wrap">
+              <div class="ms-saved-list">
+                ${rows
+                  .map((it) => {
+                    const id = it?.saved_item_id ? String(it.saved_item_id) : "";
+                    const title = it?.title ? String(it.title) : "Sans titre";
+                    const stage = stageLabel(it?.stage) || "—";
+                    const desc = it?.description ? String(it.description) : "";
+
+                    function short10Words(s) {
+                      const words = String(s || "").trim().split(/\s+/).filter(Boolean);
+                      if (words.length <= 10) return words.join(" ");
+                      return words.slice(0, 10).join(" ") + "…";
+                    }
+
+                    function extractDates(it) {
+                      return extractDatesFromSavedItem(it);
+                    }
+
+                    const dates = extractDates(it);
+                    const datesCsv = dates.join(",");
+                    const count = Number(it?.number_of_dates || dates.length || 0) || 0;
+
+                    const ds = datesSummary(dates);
+
+                    // Left subline:
+                    // - show date(s) summary
+                    // - then a muted description (or stage hint if no description)
+                    const hint = desc ? short10Words(desc) : "";
+                    const hintSafe = hint ? escapeHtml(hint) : "";
+                    
+                    return `
+                      <div class="ms-saved-row ms-saved-tr"
+                        data-id="${escapeHtml(id)}"
+                        data-dates="${escapeHtml(datesCsv)}"
+                        data-title="${escapeHtml(title)}"
+                        data-stage="${escapeHtml(String(it?.stage || ""))}"
+                        data-desc="${escapeHtml(desc)}">
+                        <div class="ms-saved-left">
+                          <div class="ms-saved-title2">${escapeHtml(title)}</div>
+                          <div class="ms-saved-subline">
+                            <span class="ms-saved-datesline">${escapeHtml(ds.text || "")}</span>
+                            ${hintSafe ? `<span class="ms-saved-sep">|</span><span class="ms-saved-desc">${hintSafe}</span>` : ""}
+                          </div>
+                        </div>
+
+                        <div class="ms-saved-right">
+                          <div class="ms-saved-kpis">
+                            <div class="ms-kpi">
+                              <div class="ms-kpi-label">Étape</div>
+                              <div class="ms-kpi-value">${escapeHtml(stage)}</div>
+                            </div>
+                            <div class="ms-kpi">
+                              <div class="ms-kpi-label">Days</div>
+                              <div class="ms-kpi-value">${escapeHtml(String(count))}</div>
+                            </div>
+                          </div>
+
+                          <div class="ms-saved-actions c-actions">
+                            <button type="button" class="ms-btn-row ms-consult">Consulter</button>
+                            <button type="button" class="ms-btn-row ms-edit">Modifier</button>
+                            <button type="button" class="ms-btn-row ms-delete">Effacer</button>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </div>
+          `;
+
+          // Wire buttons (unchanged)
+          savedPanel.querySelectorAll(".ms-saved-tr").forEach((rowEl) => {
+            const editBtn = rowEl.querySelector(".ms-edit");
+            const id = (rowEl.getAttribute("data-id") || "").trim();
+            const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
+            const consultBtn = rowEl.querySelector(".ms-consult");
+
+            if (editBtn) {
+              editBtn.addEventListener("click", () => {
+                const id = (rowEl.getAttribute("data-id") || "").trim();
+                const title = rowEl.getAttribute("data-title") || "";
+                const stageRaw = (rowEl.getAttribute("data-stage") || "").trim(); // expects option/exploration/prevalidation/retenue
+                const desc = rowEl.getAttribute("data-desc") || "";
+                const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
+
+                // Pre-fill modal fields
+                if (modalTitle) modalTitle.value = title;
+                if (modalStage) modalStage.value = stageRaw || "";
+                if (modalDesc) modalDesc.value = desc;
+
+                // Store which saved_item_id we are editing (must happen before rendering)
+                MS.editingId = id;
+                MS.editingDates = (rawDates || "")
+                  .split(",")
+                  .map(normalizeYmd)
+                  .filter(Boolean);
+
+                // Render date chips (edit mode = removable)
+                renderModalDateChipsEdit();
+
+                // Switch modal wording to edit mode ---
+                const modalHeading = document.getElementById("ms-save-title");
+                if (modalHeading) modalHeading.textContent = "Modifier cette liste";
+                if (modalSubmit) modalSubmit.textContent = "Mettre à jour";
+
+                // Open modal
+                if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
+                modalBackdrop.hidden = false;
+                modalBackdrop.setAttribute("aria-hidden", "false");
+              });
+            }
+
+            const deleteBtn = rowEl.querySelector(".ms-delete");
+
+            if (consultBtn) {
+              consultBtn.addEventListener("click", () => {
+                const nextDates = rawDates
+                  .split(",")
+                  .map((s) => normalizeYmd(s))
+                  .filter(Boolean)
+                  .slice(0, 7);
+
+                if (!nextDates.length) {
+                  alert("Impossible de consulter : cet enregistrement ne contient pas ses dates (API /saved-items/list).");
+                  return;
+                }
+
+                const next = new URLSearchParams();
+                next.set("selected_dates", nextDates.join(","));
+                next.set("selected_date", nextDates[0]);
+                window.location.href = "/app/insightevent/days?" + next.toString();
+              });
+            }
+
+            if (deleteBtn) {
+              deleteBtn.addEventListener("click", async () => {
+                if (!id) return;
+                deleteBtn.disabled = true;
+
+                try {
+                  const res = await fetch("/api/saved-items/delete", {
+                    method: "POST",
+                    headers: { "content-type": "application/json", "accept": "application/json" },
+                    body: JSON.stringify({ saved_item_id: id }),
+                  });
+
+                  const ct = (res.headers.get("content-type") || "").toLowerCase();
+                  const json = ct.includes("application/json") ? await res.json().catch(() => null) : null;
+
+                  if (!res.ok || !json?.ok) {
+                    throw new Error(json?.error || `Erreur API (${res.status})`);
+                  }
+
+                  await loadSavedItems();
+                } catch (e) {
+                  alert(e?.message || "Erreur.");
+                } finally {
+                  deleteBtn.disabled = false;
+                }
+              });
+            }
+          });
+        }
+
+        // Modal wiring
+        if (modalClose) modalClose.addEventListener("click", closeSaveModal);
+        if (modalCancel) modalCancel.addEventListener("click", closeSaveModal);
+        if (modalBackdrop) {
+          modalBackdrop.addEventListener("click", (e) => {
+            if (e.target === modalBackdrop) closeSaveModal();
+          });
+          document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && !modalBackdrop.hidden) closeSaveModal();
+          });
+        }
+        if (modalSubmit) modalSubmit.addEventListener("click", saveCurrentSelection);
+
+        // ✅ INSERT THIS BLOCK RIGHT HERE (immediately after the line above)
+        if (modalDates) {
+          modalDates.addEventListener("click", (e) => {
+            const chip = e?.target?.closest?.(".ms-chip-date.removable[data-date]");
+            if (!chip) return;
+            const d = chip.getAttribute("data-date") || "";
+            removeDraftDate(d);
+          });
+        }
+
+        function escapeHtml(v) {
+          return String(v ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function renderModalDateChipsCreate(arr) {
+          if (!modalDates) return;
+          const dates = Array.isArray(arr) ? arr.map(normalizeYmd).filter(Boolean) : [];
+          modalDates.innerHTML = dates
+            .map(
+              (d) =>
+                `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(d)}</button>`
+            )
+            .join("");
+        }
+
+        function renderModalDateChipsEdit() {
+          if (!modalDates) return;
+
+          const dates = Array.isArray(MS.editingDates) ? MS.editingDates.map(normalizeYmd).filter(Boolean) : [];
+
+          modalDates.innerHTML = dates
+            .map(d => `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(d)}</button>`)
+            .join("");
+
+          // delegate inside modalDates (safe re-render)
+          modalDates.querySelectorAll("button[data-date]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const d = (btn.getAttribute("data-date") || "").trim();
+              if (!d) return;
+
+              // remove locally (no backend write yet)
+              MS.editingDates = (Array.isArray(MS.editingDates) ? MS.editingDates : [])
+                .map(normalizeYmd)
+                .filter(Boolean)
+                .filter(x => x !== d);
+
+              // prevent empty list
+              if (MS.editingDates.length === 0) {
+                MS.editingDates = [d]; // keep at least one
+                showSaveError("Au moins une date est requise.");
+                return;
+              }
+
+              // clear errors if any
+              if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
+
+              renderModalDateChipsEdit();
+            });
+          });
+        }
+
+        function escapeHtml(v) {
+          return String(v ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function renderModalDateChips(datesArr) {
+          if (!modalDates) return;
+          const arr = Array.isArray(datesArr) ? datesArr : [];
+          modalDates.innerHTML = arr
+            .map((d) => {
+              return `<span class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(d)}</span>`;
+            })
+            .join("");
+        }
+
+        function removeDraftDate(d) {
+          const ymd = String(d || "").trim();
+          if (!ymd) return;
+
+          // Never allow empty list (otherwise Saved item becomes invalid)
+          if (MS.draftDates.length <= 1) {
+            alert("Vous devez garder au moins 1 date.");
+            return;
+          }
+
+          const ok = window.confirm(`Retirer ${ymd} de cette liste ?`);
+          if (!ok) return;
+
+          MS.draftDates = MS.draftDates.filter((x) => x !== ymd);
+
+          // Keep selectedDates in sync if we’re in selection mode
+          // (selectedDates is a const array, but mutable)
+          const idx = selectedDates.indexOf(ymd);
+          if (idx >= 0) selectedDates.splice(idx, 1);
+
+          // If selectedDate was removed, pick first remaining
+          if (selectedDate === ymd) {
+            selectedDate = MS.draftDates[0] || "";
+            if (selectedDate) params.set("selected_date", selectedDate);
+            else params.delete("selected_date");
+          }
+
+          // Sync URL selected_dates (if present)
+          if (selectedDates.length > 0) params.set("selected_dates", selectedDates.join(","));
+          else params.delete("selected_dates");
+
+          window.history.replaceState({}, "", "?" + params.toString());
+
+          renderModalDateChipsCreate(MS.draftDates);
+        }
+
+        function renderEmptyState() {
+          const pills = getPillsContainer();
+          if (pills) pills.innerHTML = "";
+
+          if (container) {
+            container.innerHTML = `
+              <div class="text-sm text-gray-600">
+                Aucun jour sélectionné. Retournez au mois pour choisir jusqu’à 7 dates.
+              </div>
+            `;
+          }
+        }
+
+        function medalBadge(medal) {
+          const m = (medal || "").toString();
+          if (!m) return "";
+          return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs border border-gray-200 bg-gray-50">${escapeHtml(m)}</span>`;
+        }
+
+        function renderPills(dayRowsByDate) {
+          const pillsContainer = getPillsContainer();
+          if (!pillsContainer) return;
+
+          ensureSelectedDaysStyles();
+
+          if (!selectedDates.length) {
+            pillsContainer.innerHTML = "";
+            return;
+          }
+
+          pillsContainer.innerHTML = `
+            <div class="ms-pills-row" role="list">
+              ${selectedDates
+                .map((d) => {
+                  const isActive = d === selectedDate;
+                  const hasData = dayRowsByDate && dayRowsByDate.has(d);
+                  return `
+                    <button type="button"
+                      class="ms-pill ${isActive ? "is-active" : ""}"
+                      data-date="${escapeHtml(d)}"
+                      ${hasData ? "" : "disabled"}
+                      aria-pressed="${isActive ? "true" : "false"}">
+                      ${escapeHtml(d)}
+                    </button>
+                  `;
+                })
+                .join("")}
+            </div>
+          `;
+
+          pillsContainer.querySelectorAll("button[data-date]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const d = btn.getAttribute("data-date");
+              if (!d || d === selectedDate) return;
+
+              selectedDate = d;
+              params.set("selected_date", d);
+              window.history.replaceState({}, "", "?" + params.toString());
+
+              renderPills(dayRowsByDate);
+              renderFocusedDay(dayRowsByDate, MS.pointsCles);
+            });
+          });
+        }
+
+        function renderKeyFacts(keyFacts) {
+          const arr = Array.isArray(keyFacts) ? keyFacts : [];
+          if (arr.length === 0) return "";
+          const items = arr
+            .map(x => `<li class="text-sm text-gray-700">${escapeHtml(x)}</li>`)
+            .join("");
+          return `<ul class="list-disc pl-5 space-y-1">${items}</ul>`;
+        }
+
+        function renderPointsCles(pointsCles) {
+          const txt = (typeof pointsCles?.text === "string" ? pointsCles.text.trim() : "");
+
+          if (!txt) {
+            return `
+              <div class="border rounded-lg p-4">
+                <div class="text-sm text-gray-500">Points clés indisponibles.</div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="border rounded-lg p-4">
+              <div class="text-sm text-gray-400 mb-2">Points clés</div>
+              <p class="ms-takeaway preline">${escapeHtml(txt)}</p>
+            </div>
+          `;
+        }
+
+        function renderPanel(title, bodyHtml) {
+          return `
+            <div class="border rounded-lg p-4">
+              <div class="text-sm font-medium mb-2">${escapeHtml(title)}</div>
+              ${bodyHtml}
+            </div>
+          `;
+        }
+
+        function renderFocusedDay(dayRowsByDate, pointsCles) {
+          if (!container) return;
+
+          ensureSelectedDaysStyles();
+
+          const row = dayRowsByDate.get(selectedDate);
+          if (!row) {
+            container.innerHTML = `
+              <div class="text-sm text-gray-600">
+                Aucune donnée trouvée pour ${escapeHtml(selectedDate)}.
+              </div>
+            `;
+            return;
+          }
+
+          // ------------------------------
+          // Carousel DOM refs (AFTER innerHTML; scoped to container)
+          // ------------------------------
+          const stripEl = container.querySelector("#ms-carousel-strip");
+          const slotLeftEl = container.querySelector("#ms-slot-left");
+          const slotMidEl = container.querySelector("#ms-slot-mid");
+          const slotRightEl = container.querySelector("#ms-slot-right");
+
+          const getSlotDate = (slotEl) => {
+            const card = slotEl ? slotEl.querySelector(".ms-c-card.preview[data-date]") : null;
+            return card ? String(card.getAttribute("data-date") || "").trim() : "";
+          };
+
+          // ------------------------------
+          // Meta (Month / Week / DOW / Day number)
+          // ------------------------------
+          const meta = buildMetaForDate(selectedDate);
+
+          // ------------------------------
+          // Meaning line: compare score among selected days
+          // ------------------------------
+          const meaningText = (() => {
+            const scores = (Array.isArray(selectedDates) ? selectedDates : [])
+              .map((d) => {
+                const r = dayRowsByDate.get(d);
+                const s = r && typeof r.opportunity_score_final_local === "number" ? r.opportunity_score_final_local : null;
+                return s;
+              })
+              .filter((v) => v !== null);
+
+            const currentScore = typeof row.opportunity_score_final_local === "number" ? row.opportunity_score_final_local : null;
+            if (currentScore === null || scores.length <= 1) return "";
+
+            const max = Math.max(...scores);
+            const min = Math.min(...scores);
+
+            if (currentScore === max && currentScore !== min) return "Score le plus élevé parmi les jours sélectionnés";
+            if (currentScore === min && currentScore !== max) return "Score inférieur aux autres jours sélectionnés";
+            return "Score intermédiaire parmi les jours sélectionnés";
+          })();
+
+          // ------------------------------
+          // Context tags (MAX 3): daytype, vacation/holiday, commercial (first)
+          // ------------------------------
+          const ctxTags = (() => {
+            const tags = [];
+
+            // Convert unknown payloads (string | number | object | array) into safe human text
+            const tagText = (v) => {
+              if (v == null) return "";
+              if (typeof v === "string") return v.trim();
+              if (typeof v === "number" || typeof v === "boolean") return String(v);
+
+              if (Array.isArray(v)) {
+                // take first meaningful string from array
+                for (const it of v) {
+                  const t = tagText(it);
+                  if (t) return t;
+                }
+                return "";
+              }
+
+              if (typeof v === "object") {
+                // common “label/name/title” fields; extend if your structs differ
+                const o = v;
+                return (
+                  tagText(o.label) ||
+                  tagText(o.name) ||
+                  tagText(o.title) ||
+                  tagText(o.event_label) ||
+                  tagText(o.event_name) ||
+                  tagText(o.holiday_name) ||
+                  tagText(o.vacation_name) ||
+                  ""
+                );
+              }
+
+              return "";
+            };
+
+            // 1) daytype
+            if (meta.isWeekend === true) tags.push({ kind: "daytype", label: "Week-end" });
+            if (meta.isWeekend === false) tags.push({ kind: "daytype", label: "Semaine" });
+
+            // 2) vacation OR holiday (never both)
+            const vac = tagText(row.vacation_name);
+            const hol = tagText(row.holiday_name);
+            if (vac) tags.push({ kind: "break", label: vac });
+            else if (hol) tags.push({ kind: "break", label: hol });
+
+            // 3) commercial event (first non-empty only)
+            const ceRaw = row.commercial_events;
+            const ceArr = Array.isArray(ceRaw) ? ceRaw : (ceRaw ? [ceRaw] : []);
+            const firstCe = ceArr.map(tagText).find(Boolean);
+            if (firstCe) tags.push({ kind: "commercial", label: firstCe });
+
+            return tags.slice(0, 3);
+          })();
+
+          // ------------------------------
+          // Carousel model: 3 slots (prev / active / next) in ONE row
+          // ------------------------------
+          const dates = Array.isArray(selectedDates) ? selectedDates.slice() : [];
+          const n = dates.length;
+
+          const clampIdx = (i) => Math.max(0, Math.min(n - 1, i));
+          const modIdx = (i) => ((i % n) + n) % n;
+
+          let activeIdx = Math.max(0, dates.indexOf(selectedDate));
+          if (activeIdx === -1) activeIdx = 0;
+
+          const leftIdx = n >= 3 ? modIdx(activeIdx - 1) : (n === 2 ? (activeIdx === 0 ? null : 0) : null);
+          const rightIdx = n >= 3 ? modIdx(activeIdx + 1) : (n === 2 ? (activeIdx === 0 ? 1 : null) : null);
+
+          const cardHTML = (dateStr, kind) => {
+            if (!dateStr) return `<div class="ms-c-ghost" aria-hidden="true"></div>`;
+            const r = dayRowsByDate.get(dateStr);
+            const m = buildMetaForDate(dateStr);
+
+            const marker = r?.opportunity_medal ?? "";
+            const scoreInt =
+              typeof r?.opportunity_score_final_local === "number"
+                ? Math.round(r.opportunity_score_final_local)
+                : null;
+
+            const cls = kind === "active" ? "ms-c-card active" : "ms-c-card preview";
+            const onclick = kind === "active" ? "" : ` data-date="${escapeHtml(dateStr)}"`;
+
+            return `
+              <div class="${cls}"${onclick} role="button" tabindex="0" aria-label="${escapeHtml(dateStr)}">
+                <div class="ms-c-dow">${escapeHtml(m.dow3)}</div>
+                <div class="ms-c-daynum">${escapeHtml(m.dayNum2)}</div>
+                <div class="ms-c-marker">${escapeHtml(marker)}</div>
+                <div class="ms-c-pill"><span class="ms-chip">OPPORTUNITÉ</span></div>
+                <div class="ms-c-score">
+                  <span>${scoreInt != null ? escapeHtml(scoreInt) : ""}</span><span class="muted">${scoreInt != null ? "/100" : ""}</span>
+                </div>
+              </div>
+            `;
+          };
+
+          // ------------------------------
+          // Sections (single column; fixed order)
+          // ------------------------------
+          const pointsClesHtml = renderPointsClesHexLike(pointsCles);
+          const alertesHtml = renderAlertesHexLike(row);
+          const concurrenceHtml = renderConcurrenceHexLike(row);
+          const meteoHtml = renderMeteoHexLike(row);
+
+          container.innerHTML = `
+            <div class="ms-days-wrap">
+              <div id="ms-selected-dates-bar" style="margin-bottom:12px;"></div>
+              <div class="ms-top-wrap">
+                <div class="ms-top-month">${escapeHtml(meta.monthYear)}</div>
+                <div class="ms-top-week">${escapeHtml(meta.weekLabel)}</div>
+              </div>
+
+              <div class="ms-carousel-viewport">
+                <div class="ms-carousel-strip" id="ms-carousel-strip">
+                  <div class="ms-slot left"  id="ms-slot-left">${cardHTML(leftIdx != null ? dates[leftIdx] : null, "preview")}</div>
+                  <div class="ms-slot mid"   id="ms-slot-mid">${cardHTML(dates[activeIdx], "active")}</div>
+                  <div class="ms-slot right" id="ms-slot-right">${cardHTML(rightIdx != null ? dates[rightIdx] : null, "preview")}</div>
+                </div>
+              </div>
+
+              <div class="ms-analyse-wrap">
+                <div class="ms-analyse-line"><div class="ms-analyse-label">ANALYSE DU JOUR</div></div>
+                <div class="ms-analyse-meaning">${escapeHtml(meaningText)}</div>
+                <div class="ms-context-tags ${ctxTags.length === 3 ? "ms-ctx--3" : ""}">
+                  ${ctxTags.map((t) => `
+                    <div class="ms-ctx-tag">
+                      <span class="ms-ctx-ico">${ctxIconSVG(t.kind)}</span>
+                      <span>${escapeHtml(t.label)}</span>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+
+              <div class="ms-panels">
+                ${pointsClesHtml}
+                ${alertesHtml}
+                ${concurrenceHtml}
+                ${meteoHtml}
+              </div>
+            </div>
+          `;
+
+          // Wire carousel preview clicks → animate axis rotation first, then rerender
+          function rotateCarousel(dir) {
+            const stripEl = container.querySelector("#ms-carousel-strip");
+            const slotLeftEl = container.querySelector("#ms-slot-left");
+            const slotMidEl = container.querySelector("#ms-slot-mid");
+            const slotRightEl = container.querySelector("#ms-slot-right");
+
+            if (!stripEl || !slotLeftEl || !slotMidEl || !slotRightEl) return;
+            if (MS.carouselAnimating) return;
+
+            const nextDate = dir === "left" ? getSlotDate(slotLeftEl) : getSlotDate(slotRightEl);
+            if (!nextDate || nextDate === selectedDate) return;
+
+            MS.carouselAnimating = true;
+            stripEl.classList.add("is-animating");
+
+            // Swap slot classes to trigger CSS transition (parallel “flow”)
+            if (dir === "left") {
+              slotLeftEl.classList.remove("left"); slotLeftEl.classList.add("mid");
+              slotMidEl.classList.remove("mid"); slotMidEl.classList.add("right");
+              slotRightEl.classList.remove("right"); slotRightEl.classList.add("left");
+            } else {
+              slotRightEl.classList.remove("right"); slotRightEl.classList.add("mid");
+              slotMidEl.classList.remove("mid"); slotMidEl.classList.add("left");
+              slotLeftEl.classList.remove("left"); slotLeftEl.classList.add("right");
+            }
+
+            const done = () => {
+              stripEl.classList.remove("is-animating");
+              MS.carouselAnimating = false;
+
+              selectedDate = nextDate;
+              params.set("selected_date", nextDate);
+              window.history.replaceState({}, "", "?" + params.toString());
+
+              renderPills(dayRowsByDate);
+              renderFocusedDay(dayRowsByDate, MS.pointsCles);
+            };
+
+            // More reliable: listen on the MID slot (it always transitions)
+            slotMidEl.addEventListener("transitionend", done, { once: true });
+          }
+
+          // Stable binding: delegate from container (container persists; innerHTML changes)
+          container.onclick = (e) => {
+            const card = e?.target?.closest?.(".ms-carousel-strip .ms-c-card.preview[data-date]");
+            if (!card) return;
+
+            const slot = card.closest(".ms-slot");
+            if (!slot) return;
+
+            if (slot.classList.contains("left")) rotateCarousel("left");
+            else if (slot.classList.contains("right")) rotateCarousel("right");
+          };
+
+          container.onkeydown = (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+
+            const card = e?.target?.closest?.(".ms-carousel-strip .ms-c-card.preview[data-date]");
+            if (!card) return;
+
+            const slot = card.closest(".ms-slot");
+            if (!slot) return;
+
+            e.preventDefault();
+
+            if (slot.classList.contains("left")) rotateCarousel("left");
+            else if (slot.classList.contains("right")) rotateCarousel("right");
+          };
+
+          // ------------------------------
+          // Local helpers (pure UI; no semantic changes)
+          // ------------------------------
+          function renderPointsClesHexLike(pc) {
+            const txt = pc?.text ? String(pc.text) : "";
+            if (!txt.trim()) {
+              return sectionHex("Points clés", "sparkle", `<div class="ms-muted">Points clés indisponibles.</div>`, "");
+            }
+
+            // IMPORTANT: preserve line breaks from deterministic renderer
+            const body = `
+              <div class="ms-takeaway" style="white-space:pre-line;">${escapeHtml(txt)}</div>
+            `;
+
+            return sectionHex("Points clés", "sparkle", body, "");
+          }
+
+          function renderAlertesHexLike(r) {
+            const major = r.is_major_realization_risk_flag === true;
+            const driver = r.major_realization_risk_driver ? String(r.major_realization_risk_driver) : "";
+            const lvl = typeof r.alert_level_max === "number" ? Math.round(r.alert_level_max) : null;
+
+            const wxLabel = (l) => {
+              if (l == null || l <= 0) return null;
+              return { 1: "niveau 1 (surveillance)", 2: "niveau 2 (attention)", 3: "niveau 3 (alerte)", 4: "niveau 4 (alerte forte)" }[l] || `niveau ${l}`;
+            };
+
+            const wx = wxLabel(lvl);
+            const takeaway = major
+              ? (driver ? `Point de vigilance : ${driver}.` : "Point de vigilance : un risque majeur est signalé.")
+              : `Aucune alerte majeure. Mobilité : non disponible. ${wx ? `Météo : ${wx}.` : "Météo : aucune alerte."}`;
+
+            const bullets = [
+              major
+                ? (driver ? `Point de vigilance : ${driver}.` : "Point de vigilance : un risque majeur est signalé.")
+                : null,
+              "Alertes mobilité (train/métro) : non disponibles pour l’instant.",
+              wx ? `Alerte météo : ${wx}.` : "Pas d’alerte météo à signaler.",
+            ].filter(Boolean);
+
+            return sectionHex(
+              "Alertes",
+              "alert",
+              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
+              `<ul class="ms-ul">${bullets.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
+            );
+          }
+
+          function renderConcurrenceHexLike(r) {
+            const all =
+              (Array.isArray(r?.top_events_500m) && r.top_events_500m.length ? r.top_events_500m :
+              Array.isArray(r?.top_events_5km)  && r.top_events_5km.length  ? r.top_events_5km  :
+              Array.isArray(r?.top_events_10km) && r.top_events_10km.length ? r.top_events_10km :
+              Array.isArray(r?.top_events_50km) ? r.top_events_50km : []);
+
+            const total50 = Number(r?.events_within_50km_count ?? 0);
+
+            if (all.length === 0 && total50 === 0) {
+              return sectionHex(
+                "Concurrence événementielle",
+                "calendar",
+                `<div class="ms-takeaway">Aucune concurrence significative détectée.</div>`,
+                ""
+              );
+            }
+
+            // ---- context: client industry (trusted semantic field) ----
+            const clientIndustry =
+              MS?.pointsCles?.location_context?.client_industry_code || null;
+
+            // ---- helpers ----
+            const fmtDistance = (m) => {
+              const v = Number(m);
+              if (!Number.isFinite(v)) return "";
+              if (v < 1000) return `${Math.round(v)} m`;
+              return `${(v / 1000).toFixed(1)} km`;
+            };
+
+            const shortText = (s, max = 120) => {
+              const t = String(s || "").replace(/\s+/g, " ").trim();
+              if (!t) return "";
+              return t.length > max ? t.slice(0, max).trim() + "…" : t;
+            };
+
+            // City / place label:
+            // - prefer explicit name fields if present
+            // - never display pure numeric codes (ex: "9")
+            // - if cities_with_events is numeric, ignore it
+            const cityLabel = (e) => {
+              const pickFirstText = (arr) =>
+                (Array.isArray(arr) ? arr : [])
+                  .map((x) => String(x ?? "").trim())
+                  .find((x) => x && !/^\d+$/.test(x)) || "";
+
+              // 1) explicit human-readable fields (most reliable)
+              const direct =
+                String(e?.city_name ?? "").trim() ||
+                String(e?.city ?? "").trim() ||
+                String(e?.commune_name ?? "").trim() ||
+                String(e?.location_city ?? "").trim() ||
+                String(e?.venue_city ?? "").trim();
+
+              if (direct && !/^\d+$/.test(direct)) return direct;
+
+              // 2) cities_with_events (but it might be ids/codes)
+              const raw = e?.cities_with_events;
+
+              // array -> take first non-numeric token
+              if (Array.isArray(raw)) {
+                return pickFirstText(raw);
+              }
+
+              // string -> split, take first non-numeric token
+              const s = String(raw ?? "").trim();
+              if (!s) return "";
+
+              const token =
+                s
+                  .split(/[,;|]/)
+                  .map((x) => x.trim())
+                  .find((x) => x && !/^\d+$/.test(x)) || "";
+
+              return token;
+            };
+
+            // ---- 1) same-industry first ----
+            let picked = all.filter(
+              (e) => clientIndustry && e?.industry_code === clientIndustry
+            );
+
+            // ---- 2) fallback: priority_rank (national > regional > local) ----
+            if (picked.length === 0) {
+              picked = [...all].sort((a, b) => {
+                const pa = Number(a?.keyword_priority_rank ?? 0);
+                const pb = Number(b?.keyword_priority_rank ?? 0);
+                if (pb !== pa) return pb - pa;
+
+                const ra = Number(a?.radius_precedence ?? 9);
+                const rb = Number(b?.radius_precedence ?? 9);
+                if (ra !== rb) return ra - rb;
+
+                return Number(a?.distance_m ?? 0) - Number(b?.distance_m ?? 0);
+              });
+            }
+
+            // ---- 3) enforce limits (max 3, min 1) ----
+            const shown = picked.slice(0, 3);
+            if (shown.length === 0 && all.length > 0) {
+              shown.push(all[0]);
+            }
+
+            // ---- rendering ----
+            const takeaway =
+              shown.length > 1
+                ? "Concurrence événementielle active à proximité."
+                : "Concurrence événementielle détectée.";
+
+            const list = `
+              <ul class="ms-ul">
+                ${shown
+                  .map((e) => {
+                    const title = e?.event_label || "Événement";
+                    const dist = fmtDistance(e?.distance_m);
+                    const city = cityLabel(e);
+                    const desc = shortText(
+                      e?.description ||
+                      e?.longDescription ||
+                      e?.summary ||
+                      e?.subtitle ||
+                      e?.program ||
+                      e?.keywords,
+                      120
+                    );
+
+                    const industryBadge =
+                      clientIndustry && e?.industry_code === clientIndustry
+                        ? `<span class="ms-muted">· même secteur</span>`
+                        : "";
+
+                    const where =
+                      (city && dist) ? `${city} — ${dist}` :
+                      (city) ? city :
+                      (dist) ? dist :
+                      "";
+
+                    return `
+                      <li>
+                        <span>${escapeHtml(title)}</span>
+                        ${where ? ` <span class="ms-muted">— ${escapeHtml(where)}</span>` : ""}
+                        ${industryBadge}
+                        ${desc ? `<div class="ms-muted">${escapeHtml(desc)}</div>` : ""}
+                      </li>
+                    `;
+                  })
+                  .join("")}
+              </ul>
+            `;
+
+            return sectionHex(
+              "Concurrence événementielle",
+              "calendar",
+              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
+              list
+            );
+          }
+
+          function renderMeteoHexLike(r) {
+            const wx = r.weather_label_fr ? String(r.weather_label_fr) : "";
+            const tmin = r.temperature_2m_min != null ? Math.round(Number(r.temperature_2m_min)) : null;
+            const tmax = r.temperature_2m_max != null ? Math.round(Number(r.temperature_2m_max)) : null;
+
+            const pp = r.precipitation_probability_max_pct != null ? Math.round(Number(r.precipitation_probability_max_pct)) : null;
+            const wind = r.wind_speed_10m_max != null ? Math.round(Number(r.wind_speed_10m_max)) : null;
+
+            const parts = [];
+            if (wx) parts.push(wx);
+            if (tmin != null || tmax != null) {
+              if (tmin != null && tmax != null) parts.push(`${Math.min(tmin,tmax)}–${Math.max(tmin,tmax)}°C`);
+              else if (tmin != null) parts.push(`min ${tmin}°C`);
+              else parts.push(`max ${tmax}°C`);
+            }
+            if (pp != null) parts.push(`pluie ${pp}%`);
+            if (wind != null) parts.push(`vent ${wind} km/h`);
+
+            const takeaway = parts.length ? `Météo : ${parts.join(", ")}.` : "Météo : non disponible.";
+
+            const bullets = [];
+            if (wx) bullets.push(`Temps : ${wx}.`);
+            if (pp != null) bullets.push(`Pluie : ${pp}% (probabilité max).`);
+            if (wind != null) bullets.push(`Vent : ${wind} km/h (max).`);
+            if (tmin != null && tmax != null) bullets.push(`Température : ${Math.min(tmin,tmax)}°C à ${Math.max(tmin,tmax)}°C.`);
+
+            return sectionHex(
+              "Météo / Faisabilité",
+              "sun",
+              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
+              bullets.length ? `<ul class="ms-ul">${bullets.slice(0, 4).map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""
+            );
+          }
+
+          function sectionHex(title, iconKind, headHtml, belowHtml) {
+            const below = belowHtml && String(belowHtml).trim()
+              ? `<div class="ms-below">${belowHtml}</div>`
+              : "";
+
+            const kind = String(iconKind || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+            const kindClass = kind ? ` ms-section--${kind}` : "";
+
+            return `
+              <div class="ms-section${kindClass}">
+                <div class="ms-kicker">${escapeHtml(title)}</div>
+                <div class="ms-card">
+                  <div class="ms-head">
+                    <div class="ms-ico">${sectionIconSVG(iconKind)}</div>
+                    <div class="ms-head-content">${headHtml}</div>
+                  </div>
+                  ${below}
+                </div>
+              </div>
+            `;
+          }
+
+          function buildMetaForDate(ymd) {
+            const d = parseYmdToDate(ymd);
+            if (!d) {
+              return { monthYear: "", weekLabel: "", dow3: "", dayNum2: "", isWeekend: null };
+            }
+
+            const dow3 = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"][((d.getDay() + 6) % 7)];
+            const dayNum2 = String(d.getDate()).padStart(2, "0");
+
+            const monthYearRaw = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+            const monthYear = monthYearRaw ? monthYearRaw.charAt(0).toUpperCase() + monthYearRaw.slice(1) : "";
+
+            const week = isoWeekNumber(d);
+            const weekLabel = `SEMAINE ${week}`;
+
+            const isWeekend = ((d.getDay() === 0) || (d.getDay() === 6));
+
+            return { monthYear, weekLabel, dow3, dayNum2, isWeekend };
+          }
+
+          function parseYmdToDate(ymd) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "").trim());
+            if (!m) return null;
+            const y = Number(m[1]);
+            const mo = Number(m[2]);
+            const da = Number(m[3]);
+            const dt = new Date(Date.UTC(y, mo - 1, da));
+            if (Number.isNaN(dt.getTime())) return null;
+            return dt;
+          }
+
+          function isoWeekNumber(dateUtc) {
+            // dateUtc is a Date built in UTC; compute ISO week in UTC to avoid TZ drift.
+            const d = new Date(Date.UTC(dateUtc.getUTCFullYear(), dateUtc.getUTCMonth(), dateUtc.getUTCDate()));
+            // Thursday in current week decides the year.
+            const day = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - day);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return weekNo;
+          }
+
+          function sectionIconSVG(kind) {
+            // Matches the Hex set (alert/info/calendar/sun/sparkle); no external deps.
+            const icons = {
+              alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 17h.01" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
+                <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#111827" stroke-width="1.6"/>
+              </svg>`,
+              info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 10v7" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 7h.01" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
+              </svg>`,
+              calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M7 2v3M17 2v3" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M3.5 9h17" stroke="#111827" stroke-width="1.6"/>
+                <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#111827" stroke-width="1.6"/>
+              </svg>`,
+              sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
+                      stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>`,
+              sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#111827" stroke-width="1.6"/>
+              </svg>`,
+            };
+            return icons[kind] || icons.info;
+          }
+
+          function ctxIconSVG(kind) {
+            if (kind === "daytype") {
+              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="#6b7280" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M7 4v16M12 4v16M17 4v16" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.55"/>
+              </svg>`;
+            }
+            if (kind === "break") {
+              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3c-4.8 0-8.7 3.5-9.5 8.1h19C20.7 6.5 16.8 3 12 3z" stroke="#6b7280" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M12 11v7a2 2 0 0 1-4 0" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M6.2 11c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
+              </svg>`;
+            }
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 12v6a2 2 0 0 1-2 2H8l-4-4V6a2 2 0 0 1 2-2h6" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 3h5v5" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 3l-8 8" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>`;
+          }
+        }
+
+        async function fetchDays() {
+          if (!container) return null;
+
+          const loc = String(LOCATION_ID || "").trim();
+          if (!loc) {
+            container.innerHTML = '<div class="text-sm text-red-600">Erreur: location_id manquant.</div>';
+            return null;
+          }
+
+          if (!Array.isArray(selectedDates) || selectedDates.length === 0) {
+            return { days: [], points_cles: null };
+          }
+
+          const qs = new URLSearchParams();
+          qs.set("location_id", loc);
+          qs.set("selected_dates", selectedDates.join(","));
+
+          const apiUrl = "/api/insight/days?" + qs.toString();
+
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
+
+          try {
+            const res = await fetch(apiUrl, {
+              method: "GET",
+              headers: { Accept: "application/json" },
+              signal: controller.signal,
+              cache: "no-store",
+            });
+
+            if (!res.ok) {
+              const text = await res.text().catch(() => "");
+              throw new Error("API error " + res.status + (text ? " :: " + text.slice(0, 200) : ""));
+            }
+
+            const ct = (res.headers.get("content-type") || "").toLowerCase();
+            if (!ct.includes("application/json")) {
+              const text = await res.text().catch(() => "");
+              throw new Error("API returned non-JSON" + (text ? " :: " + text.slice(0, 200) : ""));
+            }
+
+            return await res.json();
+          } finally {
+            clearTimeout(timeout);
+          }
+        }
+
+        async function fetchSavedItems() {
+          // IMPORTANT: use your existing real endpoint.
+          // Your screenshot shows you already have: src/pages/api/saved-items/list (POST).
+          const res = await fetch("/api/saved-items/list", {
+            method: "POST",
+            headers: { "content-type": "application/json", "accept": "application/json" },
+            body: JSON.stringify({ limit: 50, offset: 0, stage: null }),
+            cache: "no-store",
+          });
+
+          const ct = (res.headers.get("content-type") || "").toLowerCase();
+          const json = ct.includes("application/json") ? await res.json().catch(() => null) : null;
+
+          if (!res.ok || !json?.ok) return [];
+          return Array.isArray(json.items) ? json.items : [];
+        }
+
+        async function loadSavedItems() {
+          const savedPanel = getSavedPanel();
+          if (!savedPanel) return;
+          savedPanel.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+          const items = await fetchSavedItems().catch(() => []);
+          renderSavedPanel(items);
+        }
+
+        async function fetchSavedItemById(saved_item_id) {
+          const res = await fetch("/api/saved-items/get", {
+            method: "POST",
+            headers: { "content-type": "application/json", accept: "application/json" },
+            body: JSON.stringify({ saved_item_id }),
+            cache: "no-store",
+          });
+
+          const ct = (res.headers.get("content-type") || "").toLowerCase();
+          const json = ct.includes("application/json") ? await res.json().catch(() => null) : null;
+
+          if (!res.ok || !json?.ok || !json?.item) {
+            const msg = json?.error || `Erreur get (${res.status})`;
+            throw new Error(msg);
+          }
+
+          return json.item;
+        }
+
+        function maybeResolveSavedItemId() {
+          // Only run if we have a saved_item_id in the URL
+          if (!savedItemId) return false;
+
+          // If you already have selected_dates, no need to resolve/redirect.
+          if (Array.isArray(selectedDates) && selectedDates.length > 0) return false;
+
+          // Kick off async resolver; return true to stop the rest of the page from running.
+          (async () => {
+            try {
+              // Render a minimal loading state (no new UI, just reuse existing)
+              setLayoutMode("detail");
+              if (container) {
+                container.style.display = "";
+                container.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+              }
+
+              const item = await fetchSavedItemById(savedItemId);
+
+              const dates = extractDatesFromSavedItem(item)
+                .map(normalizeYmd)
+                .filter(Boolean)
+                .slice(0, 7);
+
+              if (!dates.length) {
+                throw new Error("Cet enregistrement ne contient aucune date.");
+              }
+
+              // Canonical redirect to selection mode (keeps UX stable + uses your existing flow)
+              const next = new URLSearchParams(params);
+              next.delete("saved_item_id"); // IMPORTANT: avoids resolver loops
+              next.set("selected_dates", dates.join(","));
+              next.set("selected_date", dates[0]);
+
+              window.location.replace("/app/insightevent/days?" + next.toString());
+            } catch (e) {
+              // If get fails, fall back to list mode + show list (and optionally error)
+              console.error(e);
+
+              setLayoutMode("list");
+              await loadSavedItems().catch(() => {});
+
+              if (container) {
+                container.style.display = "";
+                container.innerHTML =
+                  `<div class="text-sm text-red-600">Impossible d’ouvrir cet enregistrement.</div>` +
+                  `<div class="mt-2 text-xs text-gray-500 break-words">${escapeHtml(e?.message || "Erreur.")}</div>`;
+              }
+            }
+          })();
+
+          return true;
+        }
+
+        // --------------------
+        // saved_item_id resolver → canonical redirect
+        // --------------------
+        if (maybeResolveSavedItemId()) return;
+
+        // --------------------
+        // LIST MODE (no selection)
+        // --------------------
+        if (!Array.isArray(selectedDates) || selectedDates.length === 0) {
+          setLayoutMode("list");
+
+          // Do NOT render empty state yet. Decide after we know if saved items exist.
+          (async () => {
+            const savedPanel = getSavedPanel();
+            if (savedPanel) savedPanel.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+
+            const items = await fetchSavedItems().catch(() => []);
+            renderSavedPanel(items);
+
+            // Main column behavior depends on whether items exist
+            if (Array.isArray(items) && items.length > 0) {
+              if (pillsContainer) pillsContainer.innerHTML = "";
+
+              if (container) {
+                container.innerHTML = "";
+                container.style.display = "none";
+              }
+            } else {
+              if (container) container.style.display = ""; // restore if previously hidden
+              renderEmptyState();
+            }
+          })();
+
+          return;
+        }
+
+        // If we do have selected days: hide saved panel (no overlap with selected-days UX).
+        setLayoutMode("detail");
+
+        if (container) container.style.display = "";
+
+        (async function init() {
+          try {
+            const data = await fetchDays();
+            if (!data) {
+              // fetchDays already rendered the error state.
+              return;
+            }
+
+            const daysArr = Array.isArray(data.days) ? data.days : [];
+            const byDate = new Map();
+
+            for (const r of daysArr) {
+              const d = (r && r.date != null ? String(r.date) : "").trim();
+              if (d) byDate.set(d, r);
+            }
+
+            MS.pointsCles = data.points_cles ?? null;
+
+            if ((!selectedDate || !byDate.has(selectedDate)) && selectedDates.length > 0) {
+              const firstFound = selectedDates.find((d) => byDate.has(d));
+              if (firstFound) {
+                selectedDate = firstFound;
+                params.set("selected_date", selectedDate);
+                window.history.replaceState({}, "", "?" + params.toString());
+              }
+            }
+
+            renderPills(byDate);
+            renderFocusedDay(byDate, MS.pointsCles);
+          } catch (e) {
+            if (container) {
+              const msg =
+                e && typeof e.message === "string" && e.message.trim()
+                  ? e.message
+                  : "Erreur de chargement.";
+              container.innerHTML =
+                '<div class="text-sm text-red-600">Erreur de chargement.</div>' +
+                '<div class="mt-2 text-xs text-gray-500 break-words">' +
+                escapeHtml(msg) +
+                "</div>";
+            }
+            console.error(e);
+          }
+        })();
+      })();
+    </script>
+
+  </BaseLayout>
+</SignedIn>

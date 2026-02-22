@@ -24,26 +24,28 @@
 @layer base {
   html, body { @apply bg-background text-text; }
   /* Avenir everywhere (body + headings) */
-  body { @apply font-body; }
+  body { @apply font-body font-normal; }
   h1, h2, h3 { @apply font-body text-primary; }
 }
 
 @layer base {
-  strong, b { font-weight: 600; }   /* semibold, not 700 */
+  strong, b { font-weight: 500; }   /* semibold */
 }
 
 /* Brand stack (Avenir only now) */
-.font-body { font-family: "Avenir Next LT Pro", "Avenir", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.font-body {
+  font-family: "Avenir LT Pro", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
 /* ---------- Site tokens ---------- */
 @layer components {
   /* Headings (Avenir) — keep same sizes/leading */
   /* H1: 28 (mobile), 32 (tablet), 40 (desktop) */
-  .ms-h1 { @apply font-body font-semibold text-[28px] sm:text-[32px] lg:text-[40px] leading-[1.15] text-primary; }
+  .ms-h1 { @apply font-body font-medium text-[28px] sm:text-[32px] lg:text-[40px] leading-[1.15] text-primary; }
   /* H2: 22 (mobile), 24 (tablet), 28 (desktop) */
-  .ms-h2 { @apply font-body font-semibold text-[22px] sm:text-[24px] lg:text-[28px] leading-[1.2] text-primary; }
+  .ms-h2 { @apply font-body font-medium text-[22px] sm:text-[24px] lg:text-[28px] leading-[1.2] text-primary; }
   /* H3: 18 (mobile), 20 (tablet), 22 (desktop) */
-  .ms-h3 { @apply font-body font-semibold text-[18px] sm:text-[20px] lg:text-[22px] leading-[1.2] text-primary; }
+  .ms-h3 { @apply font-body font-medium text-[18px] sm:text-[20px] lg:text-[22px] leading-[1.2] text-primary; }
 
   /* Body / lead (Avenir) */
   .ms-lead { @apply font-body text-[16px] lg:text-[18px] leading-[1.55] text-secondary; }
@@ -162,7 +164,7 @@
   /* Buttons & pills (Avenir 700, 15px, caps) */
   .ms-btn {
     @apply inline-flex items-center justify-center
-          text-[15px] font-semibold leading-[1.2] uppercase tracking-[0.2px]
+          text-[15px] font-medium leading-[1.2] uppercase tracking-[0.2px]
           px-4 py-2 border border-black rounded-none text-black bg-transparent
           hover:bg-black hover:text-white
           focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
@@ -201,15 +203,15 @@
 }
 
 /* ================================
-   Clerk — headings should be semibold (600), not bold
+   Clerk — headings should be semibold (500), not bold
    ================================ */
 .cl-headerTitle,
 .cl-headerSubtitle {
-  font-family: "Avenir Next LT Pro", "Avenir", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  font-family: "Avenir LT Pro", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
 }
 
 .cl-headerTitle {
-  font-weight: 600 !important;
+  font-weight: 500 !important;
 }
 
 .cl-headerSubtitle {
@@ -414,7 +416,7 @@
 #ms-month-intro .ms-month-intro__title {
   text-align: center;
   margin: 0 0 18px 0;
-  font-weight: 800;
+  font-weight: 500;
   font-size: 26px;
   line-height: 1.15;
 }
@@ -507,7 +509,7 @@
 
 /* Footer section titles: slightly heavier, but NOT bold */
 .ms-footer .ms-footer__title {
-  font-weight: 600 !important; /* semibold */
+  font-weight: 500 !important; /* semibold */
 }
 
 /* ===== Footer readability hard override (scoped) ===== */

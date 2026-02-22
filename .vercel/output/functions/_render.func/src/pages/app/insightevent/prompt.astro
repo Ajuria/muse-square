@@ -1,0 +1,377 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { SignedIn, SignedOut } from "@clerk/astro/components";
+import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
+
+/**
+ * Truth-based: currently resolve location_id from Astro.locals and redirect if missing.
+ */
+const location_id =
+  (Astro.locals &&
+    typeof (Astro.locals as any).location_id === "string" &&
+    (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+const IS_DEV = import.meta.env.DEV;
+
+// Option A (hard stop): no location_id => redirect (404 template later)
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+---
+
+<SignedOut>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</SignedOut>
+
+<SignedIn>
+  <BaseLayout
+    title="Insight Event — Prompt"
+    hideSurveyCta={true}
+    hideFooter={true}
+  >
+    <div id="ie-prompt-root" data-location-id={location_id}>
+      <div id="ie-prompt-main">
+        <header id="ie-prompt-header">
+          <nav id="ie-breadcrumb" aria-label="Breadcrumb">
+            <span class="ie-breadcrumb-root">Insight Event</span>
+            <span class="ie-breadcrumb-sep">/</span>
+            <span class="ie-breadcrumb-current" id="ie-breadcrumb-current">Prompt</span>
+          </nav>
+        </header>
+
+        <!-- EMPTY STATE (shown before first submit) -->
+        <section id="ie-prompt-empty">
+          <div id="ie-prompt-hero">
+            <h1 id="ie-prompt-title">Bonjour.</h1>
+            <p id="ie-prompt-subtitle">Je suis votre outil d’aide à la décision opérationnelle. Que souhaitez-vous planifier aujourd’hui ?</p>
+          </div>
+
+          <div id="ie-prompt-suggestions-label">SUGGESTIONS</div>
+
+          <a href="#" class="ie-prompt-card" data-suggestion-idx="0">
+            <div class="ie-prompt-card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path>
+              </svg>
+            </div>
+            <div class="ie-prompt-card-content">
+              <p class="ie-prompt-card-text">Quels sont les 3 meilleurs jours pour organiser un événement au mois de juin ?</p>
+            </div>
+            <div class="ie-prompt-card-arrow">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+          </a>
+
+          <a href="#" class="ie-prompt-card" data-suggestion-idx="1">
+            <div class="ie-prompt-card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 22h18"></path><path d="M6 18V9"></path><path d="M10 18V9"></path><path d="M14 18V9"></path><path d="M18 18V9"></path><path d="M4 9l8-4 8 4"></path>
+              </svg>
+            </div>
+            <div class="ie-prompt-card-content">
+              <p class="ie-prompt-card-text">Quels week-ends sont les plus favorables pour un happening en extérieur au mois de mars ?</p>
+            </div>
+            <div class="ie-prompt-card-arrow">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+          </a>
+
+          <a href="#" class="ie-prompt-card" data-suggestion-idx="2">
+            <div class="ie-prompt-card-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 3v18h18"></path><path d="M7 16v-6"></path><path d="M12 16V8"></path><path d="M17 16v-10"></path>
+              </svg>
+            </div>
+            <div class="ie-prompt-card-content">
+              <p class="ie-prompt-card-text">Quelle est la probabilité d'une forte affluence pour une inauguration ce vendredi ?</p>
+            </div>
+            <div class="ie-prompt-card-arrow">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+          </a>
+        </section>
+
+        <section id="ie-thread" aria-live="polite" hidden>
+          <!-- AI output render target -->
+          <div id="ai_output_mount"></div>
+        </section>
+
+      </div> <!-- END ie-prompt-main -->
+
+      <!-- INPUT BAR (fixed above bottom nav) -->
+      <div id="ie-prompt-input-wrap" aria-label="Prompt input">
+        <div id="ie-prompt-input-bar">
+          <textarea
+            id="ie-prompt-input"
+            placeholder="Posez votre question…"
+            rows="1"
+            aria-label="Votre question"
+          ></textarea>
+
+          <button id="ie-prompt-submit-btn" type="button" aria-label="Envoyer">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Shared bottom navigation -->
+      <InsightBottomBar active="prompt" showActions={false} disableDays={true} />
+    </div> <!-- END ie-prompt-root -->
+
+    <style is:global>
+
+      /* This is your Hex CSS, minus CSS_VARS injection.
+         If you want tokens, put them in :root here (or in a shared CSS file). */
+
+      #ie-prompt-root { background: #ffffff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      #ie-prompt-main{
+        max-width: 620px;
+        margin: 0 auto;
+        padding-bottom: calc(var(--ie-bottom-nav-h, 74px) + var(--ie-input-wrap-h, 96px) + 24px);
+      }
+
+      #ie-prompt-header{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-bottom: var(--space-3xl);
+      }
+
+      #ie-breadcrumb{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        font-size:14px;
+        letter-spacing:0.02em;
+        color: var(--color-text-muted);
+      }
+
+      .ie-breadcrumb-root{ font-weight:600; color: var(--color-text-secondary); }
+      .ie-breadcrumb-sep{ opacity:0.6; }
+      .ie-breadcrumb-current{ font-weight:700; color: var(--color-text-primary); }
+      #ie-prompt-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 40px; }
+      #ie-prompt-logo-icon div{ background:#111827; border-radius:2px; }
+      #ie-prompt-user-btn{ width:40px; height:40px; border-radius:50%; border:1px solid rgba(0,0,0,0.12); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
+      #ie-prompt-hero{ margin-bottom: 48px; }
+      #ie-prompt-title{ font-size: 40px; font-weight: 300; line-height: 1.1; color: #111827; margin: 0 0 20px 0; }
+      #ie-prompt-subtitle{ font-size:18px; line-height: 1.5; color: #6b7280; margin:0; }
+
+      #ie-prompt-suggestions-label{ font-size: 12px; letter-spacing: 0.08em; color: #9ca3af; font-weight: 600; text-transform: uppercase; margin: 0 0 16px 0; }
+
+      .ie-prompt-card{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 16px; padding: 16px; margin-bottom:16px; display:flex; align-items:flex-start; gap:18px; cursor:pointer; transition: all 200ms ease; text-decoration:none; color:inherit; }
+      .ie-prompt-card:hover{ border-color: rgba(0,0,0,0.2); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+      .ie-prompt-card-icon svg{ width:24px; height:24px; stroke: #6b7280; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .ie-prompt-card-content{ flex:1; min-width:0; }
+      .ie-prompt-card-text{ font-size:16px; line-height:1.5; color: #111827; margin:0; }
+      .ie-prompt-card-arrow{ width:24px; height:24px; flex-shrink:0; opacity:0.3; }
+      .ie-prompt-card-arrow svg{ width:100%; height:100%; stroke: #111827; }
+
+      #ie-prompt-input-wrap{
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: var(--ie-bottom-nav-h, 74px);
+        z-index: 60;
+        background: #ffffff;
+        border-top: none;
+        padding: 14px 0;
+      }
+
+      /* center the input bar when fixed */
+      #ie-prompt-input-bar{
+        max-width: 620px;
+        margin: 0 auto;
+      }
+
+      #ie-prompt-input-bar{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 16px; padding: 10px 10px 10px 16px; display:flex; gap:10px; align-items:flex-end; }
+      #ie-prompt-input-bar:focus-within{ border-color: rgba(0,0,0,0.2); box-shadow: 0 0 0 3px rgba(29,59,179,0.08); }
+      #ie-prompt-input{
+        flex:1;
+        min-width:0;
+        border:none;
+        outline:none;
+        background:transparent;
+        font-size:16px;
+        font-family:inherit;
+        color:#111827;
+        line-height:1.5;
+        resize:none;
+        overflow:hidden;
+
+        min-height:44px;
+        max-height:none;
+
+        padding:10px 6px 10px 0;
+        box-sizing:border-box;
+      }
+      #ie-prompt-input::placeholder{ color:#9ca3af; }
+      #ie-prompt-submit-btn{ width:44px; height:44px; border-radius:50%; background: #111827; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: all 200ms ease; flex-shrink:0; }
+      #ie-prompt-submit-btn[disabled]{ opacity:0.55; cursor:not-allowed; transform:none; }
+      #ie-prompt-submit-btn[disabled]:hover{ background:#111827; transform:none; }
+      #ie-prompt-result-body.is-error{ color:#b91c1c; }
+      #ie-prompt-submit-btn:hover{ background: rgba(0,0,0,0.7); transform: scale(1.05); }
+      #ie-prompt-submit-btn svg{ width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+
+      /* Thread */
+      #ie-thread{ margin-top: 8px; }
+      .ie-msg{ display:flex; margin: 10px 0; }
+      .ie-msg .ie-bubble{
+        max-width: 92%;
+        padding: 12px 14px;
+        border-radius: 16px;
+        font-size: 15px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid rgba(0,0,0,0.10);
+      }
+
+      /* ChatGPT-like separation: user darker bubble on right, assistant lighter on left */
+      .ie-msg-user{ justify-content: flex-end; }
+      .ie-msg-user .ie-bubble{
+        background: #f3f4f6;
+        color: #111827;
+        border-color: rgba(0,0,0,0.08);
+      }
+
+      .ie-msg-ai{ justify-content: flex-start; }
+
+      /* ChatGPT-like assistant output: no bubble, full width */
+      .ie-msg-ai .ie-bubble{
+        /* remove bubble visuals */
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+
+        /* remove bubble padding so text aligns like ChatGPT */
+        padding: 0;
+
+        /* allow full width within the 620px column */
+        max-width: 100%;
+
+        /* readable typography */
+        font-size: 17px;
+        line-height: 1.7;
+
+        /* keep text wrapping sane */
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      .ie-bubble.is-loading{ color:#6b7280; }
+      .ie-bubble.is-error{ color:#b91c1c; }
+
+      /* Assistant typography blocks (used by ie-prompt.js HTML) */
+      .ie-msg-ai .ie-ai-h{
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 650;
+        margin: 0 0 10px 0;
+      }
+      .ie-msg-ai .ie-ai-p{
+        font-size: 17px;
+        line-height: 1.7;
+        margin: 0 0 14px 0;
+      }
+      .ie-msg-ai .ie-ai-list ul{
+        margin: 0 0 14px 18px;
+        padding: 0;
+      }
+      .ie-msg-ai .ie-ai-list li{
+        margin: 6px 0;
+      }
+      .ie-msg-ai .ie-ai-reasons{
+        margin-top: 8px;
+        font-size: 16px;
+        line-height: 1.65;
+        opacity: 0.92;
+      }
+      .ie-msg-ai .ie-ai-caveats{
+        margin-top: 10px;
+        font-size: 15px;
+        line-height: 1.6;
+        opacity: 0.8;
+      }
+      .ie-msg-ai .ie-ai-cv{ margin: 6px 0; }
+
+      .ie-v3-row { display:flex; gap:12px; padding:8px 0; border-top: 1px solid rgba(255,255,255,0.06); }
+      .ie-v3-rank { width: 34px; opacity: 0.8; }
+      .ie-v3-label { font-weight: 600; }
+      .ie-v3-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+      /* -------------------------------------------
+        Assistant content spacing (ChatGPT-like)
+        Applies to HTML you inject into the AI bubble
+      -------------------------------------------- */
+      .ie-msg-ai .ie-bubble p{
+        margin: 0 0 0.75em 0;
+      }
+      .ie-msg-ai .ie-bubble p:last-child{
+        margin-bottom: 0;
+      }
+
+      .ie-msg-ai .ie-bubble ul,
+      .ie-msg-ai .ie-bubble ol{
+        margin: 0.5em 0 0.75em 1.25em;
+        padding: 0;
+      }
+      .ie-msg-ai .ie-bubble li{
+        margin: 0.25em 0;
+      }
+
+      /* If your HTML contains headings (now or later) */
+      .ie-msg-ai .ie-bubble h1,
+      .ie-msg-ai .ie-bubble h2,
+      .ie-msg-ai .ie-bubble h3{
+        margin: 0.9em 0 0.4em 0;
+        line-height: 1.25;
+        font-weight: 650;
+      }
+      .ie-msg-ai .ie-bubble h1{ font-size: 1.25em; }
+      .ie-msg-ai .ie-bubble h2{ font-size: 1.15em; }
+      .ie-msg-ai .ie-bubble h3{ font-size: 1.05em; }
+
+      :root{ --ie-bottom-nav-h: 74px; }
+      #ie-bottom-nav{ position:fixed; left:0; right:0; bottom:0; z-index:50; background: #ffffff; border-top:1px solid rgba(0,0,0,0.10); height: var(--ie-bottom-nav-h); padding-bottom: env(safe-area-inset-bottom, 0px); }
+      #ie-bottom-nav-inner{ max-width:620px; margin:0 auto; height: var(--ie-bottom-nav-h); display:flex; align-items:center; justify-content:space-around; }
+
+      .ie-nav-item{ border:none; background:transparent; padding:10px 10px 8px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color: rgba(17,24,39,0.35); font-family:inherit; }
+      .ie-nav-item svg{ width:24px; height:24px; stroke: currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .ie-nav-label{ font-size:12px; letter-spacing:0.06em; font-weight:600; }
+      .ie-nav-item.is-active{ color:#111827; }
+      .ie-nav-item.is-disabled{ color: rgba(17,24,39,0.28); cursor: default; pointer-events:auto; }
+      
+      #ie-prompt-result{
+        margin-top:14px;
+        font-size:14px;
+        line-height:1.5;
+        color:#111827;
+        white-space:pre-wrap;
+      }
+
+      #ie-thread[hidden] {
+        display: none !important;
+        pointer-events: none !important;
+      }
+
+    </style>
+
+    <script type="module" src="/scripts/ie-prompt.js" defer></script>
+
+  </BaseLayout>
+</SignedIn>

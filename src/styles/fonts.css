@@ -1,50 +1,89 @@
 /* ================= Avenir Next LT Pro (Sans) ================= */
 /* Files live in: public/fonts/Avenir-Next-lt-Pro/ */
 
-@font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-DemiIt.otf") format("opentype");
-  font-weight: 600;
-  font-style: italic;
-  font-display: swap;
-}
+/* ================= Avenir LT Pro ================= */
 
+/* 300 — Light */
 @font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-UltLt.otf") format("opentype");
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProLight.otf") format("opentype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-UltLtIt.otf") format("opentype");
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProLightOblique.otf") format("opentype");
   font-weight: 300;
   font-style: italic;
   font-display: swap;
 }
 
+/* 400 — Book (default body) */
 @font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-Regular.otf") format("opentype");
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProBook.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-Heavy.otf") format("opentype");
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProBookOblique.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 500 — Medium (headings / UI emphasis) */
+@font-face {
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProMedium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProMediumOblique.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 700 — Heavy (declared but not used) */
+@font-face {
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProHeavy.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-HeavyIt.otf") format("opentype");
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProHeavyOblique.otf") format("opentype");
   font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 900 — Black (declared but not used) */
+@font-face {
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProBlack.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Avenir LT Pro";
+  src: url("/fonts/AvenirLTProBlackOblique.otf") format("opentype");
+  font-weight: 900;
   font-style: italic;
   font-display: swap;
 }
@@ -106,10 +145,3 @@
   font-synthesis-style: none;
 }
 
-@font-face {
-  font-family: "Avenir Next LT Pro";
-  src: url("/fonts/Avenir-Next-lt-Pro/AvenirNextLTPro-DemiIt.otf") format("opentype");
-  font-weight: 600;
-  font-style: italic;
-  font-display: swap;
-}
