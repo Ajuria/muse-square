@@ -1,7 +1,3 @@
-console.log("[MW] BQ_PROJECT_ID:", process.env.BQ_PROJECT_ID);
-console.log("[MW] BQ_DATASET:", process.env.BQ_DATASET);
-console.log("[MW] BQ_TABLE:", process.env.BQ_TABLE);
-
 import "dotenv/config";
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
@@ -178,6 +174,9 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
 
     console.log("[MW] profileRowExists:", context.locals.profileRowExists);
     console.log("[MW] location_id:", context.locals.location_id);
+    console.log("[MW] profileRowExists:", profile.ok);
+    console.log("[MW] location_id:", profile.location_id);
+    console.log("[MW] request.url:", context.request.url);
 
     // --------------------------------------------------
     // FORCE ONBOARDING if logged in & profile incomplete
@@ -188,16 +187,14 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       !isOnboardingRoute(context.request) &&
       !path.startsWith("/profile")
     ) {
-      const target = new URL("/onboarding", context.request.url).toString();
-      console.log("[MW] -> force onboarding:", target);
-      return context.redirect(target, 302);
+      console.log("[MW] -> force onboarding: /onboarding");
+      return context.redirect("/onboarding", 302);
     }
 
     // Enforce profile only for /app/*
     if (appHit && (!context.locals.profileRowExists || !context.locals.location_id)) {
-      const target = new URL("/profile", context.request.url).toString();
-      console.log("[MW] -> redirect:", target);
-      return context.redirect(target, 302);
+      console.log("[MW] -> redirect: /profile");
+      return context.redirect("/profile", 302);
     }
   }
 
