@@ -1,3 +1,7 @@
+console.log("[MW] BQ_PROJECT_ID:", process.env.BQ_PROJECT_ID);
+console.log("[MW] BQ_DATASET:", process.env.BQ_DATASET);
+console.log("[MW] BQ_TABLE:", process.env.BQ_TABLE);
+
 import "dotenv/config";
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
