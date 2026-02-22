@@ -41,3 +41,5 @@ secrets/
 
 # local AI notes (space in folder name)
 src/lib/Chat GPT/
+.vercel/
+
