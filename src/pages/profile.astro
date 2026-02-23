@@ -39,9 +39,9 @@ const location_id =
     : null;
 
 // ---- BIGQUERY CLIENT (EU) ----
-const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
-const dataset = requireString(process.env.BQ_DATASET, "BQ_DATASET");
-const table = requireString(process.env.BQ_TABLE, "BQ_TABLE");
+const projectId = (process.env.BQ_PROJECT_ID || "").trim();
+const dataset = (process.env.BQ_DATASET || "").trim();
+const table = (process.env.BQ_TABLE || "").trim();
 
 const hasKeyfile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
