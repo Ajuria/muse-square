@@ -49,10 +49,8 @@ const hasKeyfile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 // Either provide a key file OR run on a platform with guaranteed ADC and set BQ_USE_ADC=true.
 const useAdc = (process.env.BQ_USE_ADC || "").trim().toLowerCase() === "true";
 
-if (!import.meta.env.DEV && !hasKeyfile && !useAdc) {
-  throw new Error(
-    "BigQuery auth misconfigured: set GOOGLE_APPLICATION_CREDENTIALS or set BQ_USE_ADC=true when running with ADC."
-  );
+if (!hasKeyfile && !useAdc) {
+  console.error("[PROFILE] BigQuery auth not configured.");
 }
 
 const bigquery = new BigQuery(
