@@ -28,12 +28,15 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   return Astro.redirect("/sign-in");
 }
 
-if (typeof location_id_raw !== "string" || location_id_raw.trim() === "") {
-  return Astro.redirect("/profile");
-}
-
 const clerk_user_id = clerk_user_id_raw.trim();
-const location_id = location_id_raw.trim();
+
+// IMPORTANT:
+// Profile page must NOT redirect if location_id is missing.
+// It is the page where location_id gets created.
+const location_id =
+  typeof location_id_raw === "string" && location_id_raw.trim() !== ""
+    ? location_id_raw.trim()
+    : null;
 
 // ---- BIGQUERY CLIENT (EU) ----
 const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
@@ -109,7 +112,7 @@ try {
   const [rows] = await bigquery.query({
     query: sql,
     location: BQ_LOCATION,
-    params: { clerk_user_id, location_id },
+    params: { clerk_user_id, location_id: location_id ?? "" },
     types: { clerk_user_id: "STRING", location_id: "STRING" },
   });
 
@@ -254,7 +257,7 @@ const selected_origin_city_ids = [
             </div>
 
             <div class="space-y-[20px]">
-              <input type="hidden" name="location_id" value={location_id} />
+              <input type="hidden" name="location_id" value={location_id ?? ""} />
               <input type="hidden" name="origin_city_label_1" id="origin_city_label_1" value={saved_safe?.origin_city_label_1 ?? ""} />
               <input type="hidden" name="origin_city_label_2" id="origin_city_label_2" value={saved_safe?.origin_city_label_2 ?? ""} />
               <input type="hidden" name="origin_city_label_3" id="origin_city_label_3" value={saved_safe?.origin_city_label_3 ?? ""} />
