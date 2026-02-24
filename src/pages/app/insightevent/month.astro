@@ -59,11 +59,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     <div id="ie-30d-root" data-role="ie-30d-root">
       <main id="ie-30d-main" data-role="ie-30d-main">
         <header id="ie-30d-header" data-role="ie-30d-header">
-            <nav id="ie-breadcrumb" aria-label="Breadcrumb">
-                <span class="ie-breadcrumb-root">Insight Event</span>
-                <span class="ie-breadcrumb-sep">/</span>
-                <span class="ie-breadcrumb-current" id="ie-breadcrumb-current">Mois</span>
-            </nav>
+          <nav id="ie-breadcrumb" aria-label="Breadcrumb" style="visibility:hidden;">
+            <span class="ie-breadcrumb-root">Insight Event</span>
+            <span class="ie-breadcrumb-sep">/</span>
+            <span class="ie-breadcrumb-current" id="ie-breadcrumb-current">Mois</span>
+          </nav>
         </header>
 
         <section id="ie-30d-takeaway" data-role="ie-30d-takeaway">
@@ -794,8 +794,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       /* Keep shadows only where they still make sense */
-      .ie-top3-card,
-      #ie-30d-takeaway-card {
+      .ie-top3-card {
         box-shadow: var(--shadow-md);
       }
 
