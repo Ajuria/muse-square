@@ -1170,7 +1170,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     });
 
     console.log("[IE] Script reached: after global error hooks");
-
+    
     // --- Pills -> hidden checkbox bridge (must run after DOM is present) ---
     function bindConstraintChips(){
       document.querySelectorAll(".ms-chip").forEach((chip) => {
@@ -2188,7 +2188,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       await updateGridConstraints(); // sets constrained styling
       try { await applyGridMode(); } catch (_) {} // sets icon/label + top3 medal
     })();
-    
+
     </script>
   </BaseLayout>
 </SignedIn>
