@@ -107,12 +107,21 @@ function escAttr(v: unknown): string {
 let saved_safe: Record<string, string> | null = null;
 
 try {
-  const [rows] = await bigquery.query({
-    query: sql,
-    location: BQ_LOCATION,
-    params: { clerk_user_id, location_id: location_id ?? "" },
-    types: { clerk_user_id: "STRING", location_id: "STRING" },
-  });
+  const [rows] = await bigquery.query(
+    location_id
+      ? {
+          query: sql,
+          location: BQ_LOCATION,
+          params: { clerk_user_id, location_id },
+          types: { clerk_user_id: "STRING", location_id: "STRING" },
+        }
+      : {
+          query: sql.replace("AND location_id = @location_id", ""),
+          location: BQ_LOCATION,
+          params: { clerk_user_id },
+          types: { clerk_user_id: "STRING" },
+        }
+  );
 
   saved_row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 
@@ -165,10 +174,7 @@ const selected_origin_city_ids = [
       <!-- Page Header -->
       <div class="mb-8">
         <div class="flex items-start justify-between mb-2">
-          <h1 class="text-3xl ont-semibold">Profil</h1>
-          <a href="/api/auth/signout" class="text-sm text-gray-500 uppercase tracking-wide hover:text-black">
-            Déconnexion
-          </a>
+          <h1 class="text-3xl font-semibold">Profil</h1>
         </div>
         <p class="text-sm text-gray-500">Gérez vos informations et préférences d'analyse.</p>
       </div>
@@ -256,9 +262,9 @@ const selected_origin_city_ids = [
 
             <div class="space-y-[20px]">
               <input type="hidden" name="location_id" value={location_id ?? ""} />
-              <input type="hidden" name="origin_city_label_1" id="origin_city_label_1" value={saved_safe?.origin_city_label_1 ?? ""} />
-              <input type="hidden" name="origin_city_label_2" id="origin_city_label_2" value={saved_safe?.origin_city_label_2 ?? ""} />
-              <input type="hidden" name="origin_city_label_3" id="origin_city_label_3" value={saved_safe?.origin_city_label_3 ?? ""} />
+              <input type="hidden" name="origin_city_label_1" id="origin_city_label_1" value={saved_safe?.["origin_city_label_1"] ?? ""} />
+              <input type="hidden" name="origin_city_label_2" id="origin_city_label_2" value={saved_safe?.["origin_city_label_2"] ?? ""} />
+              <input type="hidden" name="origin_city_label_3" id="origin_city_label_3" value={saved_safe?.["origin_city_label_3"] ?? ""} />
               <div>
                 <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                   Entreprise <span class="text-red-500">*</span>
@@ -578,10 +584,20 @@ const selected_origin_city_ids = [
         }
 
         try {
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Fix multi-select arrays (critical)
+        data.primary_audience_1 = formData.getAll("primary_audience_1");
+        data.origin_city_ids = formData.getAll("origin_city_ids");
+
         const res = await fetch('/api/profile/save', {
-            method: 'POST',
-            body: new FormData(form),
-            headers: { 'Accept': 'application/json' },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(data),
         });
 
         let out = null;

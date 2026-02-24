@@ -12,6 +12,9 @@ export default defineConfig({
   
   devToolbar: { enabled: false },
   output: "server",
+  security: {
+    checkOrigin: false,
+  },
   adapter: vercel(),
 
   integrations: [

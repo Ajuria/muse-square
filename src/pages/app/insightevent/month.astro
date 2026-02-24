@@ -66,16 +66,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             </nav>
         </header>
 
-        <section id="ie-30d-top3" data-role="ie-30d-top3">
-          <div id="ie-30d-top3-header">
-            <div id="ie-30d-top3-title">TOP 3 JOURS</div>
-            <div id="ie-30d-top3-subtitle">Basé sur score d'opportunité</div>
-          </div>
-          <div id="ie-30d-top3-cards" data-role="ie-30d-top3-cards">
-            <!-- TOP3_ANCHOR -->
-          </div>
-        </section>
-
         <section id="ie-30d-takeaway" data-role="ie-30d-takeaway">
           <div id="ie-30d-takeaway-header" data-role="ie-30d-takeaway-header">
             <div id="ie-30d-takeaway-title" data-role="ie-30d-takeaway-title">
@@ -146,6 +136,27 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
           </details>
         </section>
 
+        <!-- =========================
+        FILTER BAR (v1) — 4 buttons
+        Placement: under Points clés, above constraints + calendar
+        ========================= -->
+        <section id="ie-30d-filterbar" data-role="ie-30d-filterbar" aria-label="Filtres rapides">
+          <div class="ms-seg" role="tablist" aria-label="Filtres rapides">
+            <button type="button" class="ms-seg__btn is-active" data-ms-filter="top3" role="tab" aria-selected="true">
+              Top 3
+            </button>
+            <button type="button" class="ms-seg__btn" data-ms-filter="vacances" role="tab" aria-selected="false">
+              Vacances
+            </button>
+            <button type="button" class="ms-seg__btn" data-ms-filter="ferie" role="tab" aria-selected="false">
+              Férié
+            </button>
+            <button type="button" class="ms-seg__btn" data-ms-filter="temps_forts" role="tab" aria-selected="false">
+              Temps forts
+            </button>
+          </div>
+        </section>
+
         <section id="ie-30d-calendar-section" data-role="ie-30d-calendar-section">
           <div id="ie-30d-calendar-header">
             <div>CALENDRIER</div>
@@ -158,11 +169,20 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
               data-role="ie-30d-month-header"
               data-window-start=""
             >
-              <button id="ie-30d-month-prev" class="ie-30d-month-nav" type="button" aria-label="Mois précédent">‹</button>
-              <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
-              <button id="ie-30d-month-next" class="ie-30d-month-nav" type="button" aria-label="Mois suivant">›</button>
-            </div>
+              <div class="ie-30d-month-center">
+                <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
 
+                  <select
+                    id="ie-30d-month-select"
+                    class="ie-30d-month-select is-chevron-only"
+                    aria-label="Choisir un mois"
+                    title="Choisir un mois"
+                  >
+                  </select>
+                </div>
+              </div>
+            </div>
+                      
             <div id="ie-30d-calendar" data-role="ie-30d-calendar">
               <div id="ie-30d-weekdays" data-role="ie-30d-weekdays">
                 <div class="ie-30d-weekday">Lun</div>
@@ -320,7 +340,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       #ie-30d-main{
-        padding-bottom: calc(var(--ie-bottom-actions-h) + var(--ie-bottom-nav-h) + 28px) !important;
+        padding-bottom: calc(var(--ie-30d-selectedbar-h) + var(--ie-bottom-nav-h) + 28px) !important;
       }
 
       @media (max-width: 620px){
@@ -364,6 +384,65 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         white-space: pre-line; /* ← THIS IS THE FIX */
       }
 
+      /* =============================
+      Filter bar (4 buttons)
+      ============================= */
+      #ie-30d-filterbar{
+        margin: 0 0 var(--ie-section-gap);
+      }
+
+      .ms-seg{
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      @media (max-width: 520px){
+        .ms-seg{
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .ms-seg__btn{
+        height: 36px;
+        width: 100%;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        background: var(--color-bg-card);
+        color: var(--color-text-secondary);
+
+        font-family: var(--font-family);
+        font-size: var(--font-size-label);           /* slightly smaller = cleaner in caps */
+        font-weight: var(--font-weight-semibold);
+        letter-spacing: var(--letter-spacing-wider); /* consistent with your section headers */
+        text-transform: uppercase;
+
+        cursor: pointer;
+        user-select: none;
+
+        transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+      }
+
+      .ms-seg__btn:hover{
+        border-color: var(--color-border-hover);
+        color: var(--color-text-primary);
+        background: rgba(17,24,39,0.03); /* subtle hover, not brand */
+      }
+
+      .ms-seg__btn:focus-visible{
+        outline: none;
+        border-color: var(--color-brand-blue);
+        box-shadow: 0 0 0 3px rgba(29,59,179,0.12); /* keep as-is unless you have a token */
+      }
+
+      /* Active = brand blue outline + text ONLY */
+      .ms-seg__btn.is-active{
+        border-color: var(--color-brand-blue);
+        background: var(--color-bg-card); /* no fill */
+        color: var(--color-brand-blue);
+      }
+
       #ie-30d-top3{
         margin: var(--ie-section-gap) 0 0;
         padding-bottom: var(--space-xl);
@@ -384,91 +463,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         margin: 0 0 var(--ie-title-mb);
         padding-bottom:10px;
         border-bottom:1px solid var(--color-border);
-      }
-
-      #ie-30d-top3-cards{
-        display:grid;
-        grid-template-columns:repeat(3, minmax(0,1fr));
-        gap:14px;
-        margin-top: 0;
-      }
-
-      #ie-30d-top3-title{
-        font-weight: inherit;
-        font-size: inherit;
-        letter-spacing: inherit;
-        text-transform: inherit;
-      }
-
-      #ie-30d-top3-subtitle{
-        font-weight: inherit;
-        font-size: inherit;
-        letter-spacing: inherit;
-        text-transform: inherit;
-        opacity: 0.75;
-      }
-
-      @media (max-width: 520px){
-        #ie-30d-top3-cards{ grid-template-columns: 1fr; }
-      }
-
-      .ie-top3-card{
-        background: var(--color-bg-card);
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-sm);
-        padding: 18px 18px;
-
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-
-        transition: border-color 200ms ease;
-      }
-
-      .ie-top3-card:hover{
-        border-color: var(--color-border-hover);
-        box-shadow: none;
-      }
-
-      .ie-top3-toprow{
-        width: 100%;
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-
-      .ie-top3-rank{
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--color-brand-blue);
-        line-height: 1;
-      }
-
-      .ie-top3-month{
-        font-size: 14px;
-        font-weight: 600;
-        letter-spacing: 0.10em;
-        text-transform: uppercase;
-        color: var(--color-text-secondary);
-        opacity: 0.85;
-        line-height: 1;
-      }
-
-      .ie-top3-day{
-        font-size: 48px;
-        font-weight: 600;
-        line-height: 1;
-        color: var(--color-text-primary);
-        margin: 2px 0 10px;
-      }
-
-      .ie-top3-score{
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--color-text-secondary);
-        opacity: 0.85;
       }
 
       .ie-group-label{
@@ -704,10 +698,65 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       .ie-30d-day{ position:relative; }
 
       #ie-30d-month-header{
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: center;
+        display: flex;
+        justify-content: center;   /* key: center the whole unit */
         margin: 6px 0 var(--space-xl);
+      }
+
+      .ie-30d-month-center{
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .ie-30d-month-select.is-chevron-only{
+        width: 28px;
+        min-width: 28px;
+        padding: 0;
+        text-indent: -9999px;     /* hides text */
+        color: transparent;       /* double safety */
+        background-position: center;
+      }
+
+      .ie-30d-month-select-wrap{
+        flex: 0 0 auto;
+      }
+
+      .ie-30d-month-select{
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+        padding: 0;
+
+        border: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+
+        color: transparent;
+        text-indent: -9999px;
+
+        background-color: transparent;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 20 20' fill='none' stroke='%23111827' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='6 8 10 12 14 8'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 16px;
+
+        cursor: pointer;
+      }
+
+      .ie-30d-month-select:focus-visible{
+        outline: none;
+        border-color: var(--color-brand-blue);
+        box-shadow: 0 0 0 3px rgba(29,59,179,0.12);
+      }
+
+      .ie-30d-month-select:focus-visible{
+        outline: none;
+        border-color: var(--color-brand-blue);
+        box-shadow: 0 0 0 3px rgba(29,59,179,0.12);
       }
 
       #ie-30d-calendar-section{
@@ -737,13 +786,14 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       #ie-30d-calendar-card{
-        background: #ffffff;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-sm);
-        padding: 20px 14px 16px;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
       }
 
-      #ie-30d-calendar-card,
+      /* Keep shadows only where they still make sense */
       .ie-top3-card,
       #ie-30d-takeaway-card {
         box-shadow: var(--shadow-md);
@@ -851,10 +901,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         height: 72px;
         overflow: hidden;
 
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-rows: auto 18px 1fr;
         align-items: center;
-        justify-content: flex-start;
 
         color: inherit;
         text-decoration: none;
@@ -872,19 +921,34 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       .ie-30d-medal{
         font-size: 12px;
         font-weight: 600;
-        margin: 8px 0;
-        line-height: 1;
+        height: 18px;
+        line-height: 18px;
+        margin: 0;
         opacity: 0.88;
       }
-
+      
       .ie-30d-weather{
         margin-top: auto;
-        height: 18px;
         display: flex;
-        align-items: flex-end;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+
         opacity: 0.95;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+
+        gap: 0;
+      }
+
+      .ie-30d-weather-label{
+        font-family: var(--font-family);
+        font-size: 9px;
+        line-height: 1;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-secondary);
+        opacity: 0.92;
       }
 
       #ie-30d-root .ie-30d-weather img{
@@ -901,14 +965,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       .ie-out-window .ie-30d-weather img{ filter: contrast(1.1) brightness(0.70); }
 
       .ie-spillover { opacity: 0.30;}
-
-      .ie-top3-badge{
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--color-brand-blue);
-        line-height: 1;
-        margin: 2px 0 0;
-      }
 
       .ie-30d-day::after{
         content:"";
@@ -1140,6 +1196,55 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     }
 
     // -----------------------------
+    // Filter bar (4 buttons) — single active
+    // -----------------------------
+    function bindQuickFilters(){
+      const root = document.getElementById("ie-30d-filterbar");
+      if (!root) return;
+
+      const btns = Array.from(root.querySelectorAll(".ms-seg__btn"));
+
+      function setActive(key){
+        btns.forEach((b) => {
+          const k = b.getAttribute("data-ms-filter");
+          const on = (k === key);
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+
+        // v1: store on window only (wiring to grid comes in next step)
+        window.__ie_month_quick_filter = key;
+        console.log("[IE][month] quick filter:", key);
+
+        // apply mode to existing rendered grid (no re-render)
+        try { applyGridMode(); } catch (_) {}    
+      }
+
+      // default
+      const initial = "top3";
+      setActive(initial);
+
+      root.addEventListener("click", (e) => {
+        const tgt = e.target;
+        if (!(tgt instanceof Element)) return;
+
+        const btn = tgt.closest(".ms-seg__btn");
+        if (!btn) return;
+
+        const key = btn.getAttribute("data-ms-filter");
+        if (!key) return;
+
+        setActive(key);
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bindQuickFilters, { once: true });
+    } else {
+      bindQuickFilters();
+    }
+
+    // -----------------------------
     // Constraints UI -> predicates
     // -----------------------------
     function readConstraintFilters(){
@@ -1191,6 +1296,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         btn.classList.toggle("ie-30d-constrained", constrained);
         btn.setAttribute("aria-disabled", constrained ? "true" : "false");
       });
+      
+      try { applyGridMode(); } catch (_) {}
     }
 
     // --- Hidden inputs -> refresh grid constraints on any change (keyboard/programmatic) ---
@@ -1210,6 +1317,132 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     });
 
     // ---- END PROBE ----
+
+    // -----------------------------
+    // Apply current quick-filter mode to grid:
+    // - top3 => medal becomes 1er/2e/3e for best 3 only, weather stays
+    // - vacances/ferie/temps_forts => icon+label replaces weather icon when condition matches, medal stays
+    // -----------------------------
+    function computeTop3RankMap(out, filters){
+      const m = new Map();
+
+      // 1) Prefer API-provided top_days (if present)
+      const topDays =
+        out?.window?.top_days ??
+        out?.top_days ??
+        [];
+      let ranked = Array.isArray(topDays) ? topDays.slice() : [];
+
+      // 2) Fallback: compute top3 from out.days by opportunity_score_final_local
+      if (ranked.length === 0 && Array.isArray(out?.days)) {
+        ranked = out.days
+          .map((r) => ({ ...r, date: asYmd(r?.date) }))
+          .filter((r) => typeof r.date === "string" && r.date.length === 10)
+          .filter((d) => !isConstrainedDay(d, filters))
+          .filter((d) => Number.isFinite(Number(d?.opportunity_score_final_local)))
+          .sort((a, b) => Number(b.opportunity_score_final_local) - Number(a.opportunity_score_final_local));
+      } else {
+        // apply same constraint rule as Top3 cards
+        ranked = ranked.filter((d) => !isConstrainedDay(d, filters));
+      }
+
+      const labels = ["1er", "2e", "3e"];
+      for (let i = 0; i < Math.min(3, ranked.length); i++){
+        const ymd = asYmd(ranked[i]?.date);
+        if (ymd) m.set(ymd, labels[i]);
+      }
+
+      return m;
+    }
+
+    async function applyGridMode(){
+      const out = await loadMonthData();
+      if (!out || !Array.isArray(out.days)) return;
+
+      const key = String(window.__ie_month_quick_filter || "top3");
+      const filters = readConstraintFilters();
+
+      // Build semantic map
+      const semanticByDate = new Map(
+        out.days
+          .map((r) => ({ ...r, date: asYmd(r?.date) }))
+          .filter((r) => typeof r.date === "string" && r.date.length === 10)
+          .map((r) => [r.date, r])
+      );
+
+      const top3Rank = (key === "top3") ? computeTop3RankMap(out, filters) : new Map();
+
+      document.querySelectorAll("#ie-30d-grid .ie-30d-day").forEach((btn) => {
+        const ymd = btn.getAttribute("data-date");
+        if (!ymd) return;
+
+        const semantic = semanticByDate.get(ymd);
+        const medalEl = btn.querySelector('[data-role="ie-medal"]');
+        const iconImg = btn.querySelector('[data-role="ie-icon-img"]');
+        const iconLbl = btn.querySelector('[data-role="ie-icon-label"]');
+
+        // spillover: leave as-is
+        if (!semantic) return;
+
+        // ---- Medal behavior ----
+        if (medalEl instanceof HTMLElement) {
+          const baseMedal = resolveMedalText(semantic);
+
+          if (key === "top3") {
+            const rank = top3Rank.get(ymd);
+
+            if (rank) {
+              medalEl.textContent = rank;
+              medalEl.style.color = "var(--color-brand-blue)";
+            } else {
+              medalEl.textContent = baseMedal;
+              medalEl.style.color = "";
+            }
+
+            medalEl.style.display = "block";
+          } else {
+            // For mode filters:
+            // Only hide medal IF overlay exists for that day
+            const overlay = computeModeOverlay(semantic, key);
+
+            if (overlay) {
+              medalEl.textContent = "";
+              medalEl.style.display = "none";
+            } else {
+              medalEl.textContent = baseMedal;
+              medalEl.style.display = "block";
+              medalEl.style.color = "";
+            }
+          }
+        }
+                        
+        // ---- Icon behavior ----
+        // default = weather
+        const weatherSrc = weatherIconSrc(semantic.weather_code);
+
+        const overlay = computeModeOverlay(semantic, key);
+
+        if (iconImg instanceof HTMLImageElement) {
+          const src = overlay?.iconSrc || weatherSrc || "";
+          iconImg.src = src;
+          iconImg.style.display = src ? "block" : "none";
+        }
+
+        if (iconLbl instanceof HTMLElement) {
+          const text = overlay?.labelText || "";
+
+          if (text) {
+            iconLbl.textContent = text;
+            iconLbl.style.display = "block";
+            iconLbl.style.color = "var(--color-brand-blue)";
+          } else {
+            iconLbl.textContent = "";
+            iconLbl.style.display = "none";
+            iconLbl.style.color = "";
+          }
+        }
+      });
+    }
   
     function asYmd(v){
       if (!v) return null;
@@ -1225,6 +1458,30 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       return null;
+    }
+
+    // -----------------------------
+    // Medal label resolution (A/B/C/A+/...)
+    // Single source of truth for both grid render + mode apply.
+    // -----------------------------
+    function resolveMedalText(day){
+      if (!day || typeof day !== "object") return "";
+
+      // Accept several possible schema names (defensive, no semantic invention).
+      const raw =
+        day.opportunity_medal ??
+        day.opportunity_medal_local ??
+        day.opportunity_grade ??
+        day.opportunity_grade_local ??
+        day.opportunity_label ??
+        day.opportunity_label_local ??
+        day.score_medal ??
+        day.medal ??
+        "";
+
+      if (typeof raw !== "string") return "";
+      const v = raw.trim();
+      return v;
     }
 
     // =========================================================
@@ -1312,6 +1569,92 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       return "/icons/weather/weather_cloudy.svg";
     }
 
+        // -----------------------------
+    // Mode icons (inline SVG data URIs)
+    // - no external deps
+    // - monochrome, inherits via currentColor not possible in <img>, so we bake a neutral dark
+    // -----------------------------
+    function svgDataUri(svg){
+      return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+    }
+
+    const MODE_ICON = {
+      vacances: "/icons/month/vacances.png",
+      ferie: "/icons/month/ferie.png",
+      temps_forts: "/icons/month/temps-fort.png",
+    };
+
+    // -----------------------------
+    // Mode label resolution (best-effort from semantic row)
+    // -----------------------------
+    function firstLabel(v){
+      if (typeof v === "string" && v.trim()) return v.trim();
+      if (Array.isArray(v) && typeof v[0] === "string" && v[0].trim()) return v[0].trim();
+      return null;
+    }
+
+    function resolveVacancesLabel(day){
+      // try common variants; fallback stays "VACANCES"
+      return firstLabel(
+        day?.school_holiday_label ??
+        day?.school_holiday_zone_label ??
+        day?.school_holiday_zone ??
+        day?.school_holiday_name ??
+        day?.vacances_scolaires_label ??
+        null
+      );
+    }
+
+    function resolveFerieLabel(day){
+      return firstLabel(
+        day?.public_holiday_name_fr ??
+        day?.public_holiday_name ??
+        day?.public_holiday_label ??
+        day?.holiday_name ??
+        null
+      );
+    }
+
+    function resolveTempsFortsLabel(day){
+      return firstLabel(
+        day?.commercial_event_names_region ??
+        day?.commercial_event_name_region ??
+        day?.commercial_event_label_region ??
+        day?.commercial_event_name ??
+        null
+      );
+    }
+
+    // if too long -> first letter (per your rule)
+    function clampModeLabel(s, maxLen){
+      const v = (typeof s === "string" ? s.trim() : "");
+      if (!v) return null;
+      if (v.length <= maxLen) return v;
+      return v.slice(0, 1).toUpperCase();
+    }
+
+    // Returns { iconSrc, labelText } or null (meaning: keep weather)
+    function computeModeOverlay(day, key){
+      if (!day || typeof day !== "object") return null;
+
+      if (key === "vacances") {
+        if (day.is_school_holiday_flag !== true) return null;
+        return { iconSrc: MODE_ICON.vacances, labelText: "VAC" };
+      }
+
+      if (key === "ferie") {
+        if (day.is_public_holiday_fr_flag !== true) return null;
+        return { iconSrc: MODE_ICON.ferie, labelText: "FÉR" };
+      }
+
+      if (key === "temps_forts") {
+        if (day.is_commercial_event_flag_region !== true) return null;
+        return { iconSrc: MODE_ICON.temps_forts, labelText: "TF" };
+      }
+
+      return null;
+    }
+        
     async function loadMonthTop3() {
       const out = await loadMonthData();
       if (!out) return;
@@ -1415,21 +1758,24 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         .filter((r) => typeof r.date === "string" && r.date.length === 10);
       
       // DEV-ONLY schema probe (truth for implementing business constraints)
+      let isDev = false;
+      let sample = null;
+
       try {
         const host = String(window.location.hostname || "");
         const isLocalhost = host === "localhost" || host === "127.0.0.1";
         const isDebug = new URL(window.location.href).searchParams.get("debug") === "1";
-        const isDev = isLocalhost || isDebug;
+        isDev = isLocalhost || isDebug;
 
         if (isDev && !window.__ie_month_day_schema_logged) {
           window.__ie_month_day_schema_logged = true;
-          const sample = days && days.length ? days[0] : null;
+          sample = days && days.length ? days[0] : null;
           console.log("[IE][month] days.length:", Array.isArray(days) ? days.length : null);
           console.log("[IE][month] sample day:", sample);
           console.log("[IE][month] sample day keys:", sample && typeof sample === "object" ? Object.keys(sample) : null);
         }
       } catch (_) {}
-
+      
       const grid = document.getElementById("ie-30d-grid");
       if (!grid) return;
 
@@ -1472,14 +1818,17 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
         const iconSrc = semantic ? weatherIconSrc(semantic.weather_code) : "";
 
+        const medalText = semantic ? resolveMedalText(semantic) : "";
+
         btn.innerHTML = `
           <div class="ie-30d-daynum">${dt.getUTCDate()}</div>
-          ${semantic?.opportunity_medal ? `<div class="ie-30d-medal">${semantic.opportunity_medal}</div>` : ""}
-          ${iconSrc ? `
-            <div class="ie-30d-weather">
-              <img src="${iconSrc}" alt="" />
-            </div>
-          ` : ""}
+
+          <div class="ie-30d-medal" data-role="ie-medal">${medalText}</div>
+
+          <div class="ie-30d-weather" data-role="ie-icon">
+            <div class="ie-30d-weather-label" data-role="ie-icon-label" style="display:none;"></div>
+            ${iconSrc ? `<img data-role="ie-icon-img" src="${iconSrc}" alt="" />` : `<img data-role="ie-icon-img" src="" alt="" style="display:none;" />`}
+          </div>
         `;
 
         grid.appendChild(btn);
@@ -1524,6 +1873,49 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       return __monthCachePromise;
     }
 
+    function ymdParts(ymd){
+      if (!ymd || typeof ymd !== "string") return null;
+      const p = ymd.slice(0, 10).split("-");
+      if (p.length !== 3) return null;
+      const y = parseInt(p[0], 10);
+      const m = parseInt(p[1], 10);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+      return { y, m };
+    }
+
+    function monthKey(y, m){
+      return `${String(y)}-${String(m).padStart(2, "0")}`;
+    }
+
+    function buildMonthSelect(out){
+      const sel = document.getElementById("ie-30d-month-select");
+      if (!(sel instanceof HTMLSelectElement)) return;
+
+      const ws = asYmd(out?.window?.window_start_date);
+      const parts = ymdParts(ws);
+      if (!parts) return;
+
+      const { y } = parts;
+
+      // 12 months for the current year (simple + deterministic)
+      const MONTHS_FR_LONG = [
+        "Janvier","Février","Mars","Avril","Mai","Juin",
+        "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
+      ];
+
+      // Build options once per render
+      sel.innerHTML = "";
+      for (let m = 1; m <= 12; m++){
+        const opt = document.createElement("option");
+        opt.value = monthKey(y, m);
+        opt.textContent = `${MONTHS_FR_LONG[m - 1]} ${y}`;
+        sel.appendChild(opt);
+      }
+
+      // Set current selection to window_start month
+      sel.value = monthKey(parts.y, parts.m);
+    }
+
     function bindMonthMeta(out) {
       const labelEl = document.getElementById("ie-30d-display-label");
       const takeawayEl = document.getElementById("ie-30d-takeaway-text");
@@ -1563,12 +1955,14 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       if (takeawayEl && typeof keyTakeaway === "string") {
         takeawayEl.textContent = keyTakeaway;
       }
+      try { buildMonthSelect(out); } catch (_) {}
     }
 
     (async function bootstrapMonth() {
       await loadMonthTop3();
       await loadMonthGrid();
-      await updateGridConstraints(); // <-- apply initial state
+      await updateGridConstraints(); // sets constrained styling
+      try { await applyGridMode(); } catch (_) {} // sets icon/label + top3 medal
     })();
 
     function goPrompt(){ window.location.href = "/app/insightevent/prompt"; }
@@ -1684,6 +2078,12 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     let selected = parseSelectedDates(url);
     renderSelected(selected);
 
+    function setSelectedBarHeightPx(px){
+      const root = document.getElementById("ie-30d-root");
+      if (!root) return;
+      root.style.setProperty("--ie-30d-selectedbar-h", `${px}px`);
+    }
+
     function applyNavState(){
       const voirBtn = document.getElementById("ie-30d-view-details");
 
@@ -1694,6 +2094,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         barEl.style.display = hasSelection ? "flex" : "none";
       }
 
+      // Remove dead space when hidden (CSS reads --ie-30d-selectedbar-h)
+      setSelectedBarHeightPx(hasSelection ? 65 : 0); // 65 = --ie-bottom-actions-h
+               
       if(voirBtn && voirBtn.tagName === "BUTTON"){
         voirBtn.disabled = !hasSelection;
         voirBtn.style.opacity = hasSelection ? "1" : "0.45";
@@ -1762,61 +2165,37 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         });
     }
 
-    const header = document.getElementById("ie-30d-month-header");
-    const prevBtn = document.getElementById("ie-30d-month-prev");
-    const nextBtn = document.getElementById("ie-30d-month-next");
+    (function bindMonthDropdownNav(){
+      const sel = document.getElementById("ie-30d-month-select");
+      if (!(sel instanceof HTMLSelectElement)) return;
 
-    if(header && prevBtn && nextBtn){
-        function ymd(dt){
-        const yy = dt.getUTCFullYear();
-        const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-        const dd = String(dt.getUTCDate()).padStart(2, "0");
-        return `${yy}-${mm}-${dd}`;
-        }
+      function parseMonthKey(v){
+        if (!v || typeof v !== "string") return null;
+        const p = v.split("-");
+        if (p.length !== 2) return null;
+        const y = parseInt(p[0], 10);
+        const m = parseInt(p[1], 10);
+        if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+        return { y, m };
+      }
 
-        function parseYmdToUtcDate(s){
-        if(!s) return null;
-        const parts = String(s).split("-");
-        if(parts.length !== 3) return null;
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        if(!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-        return new Date(Date.UTC(y, m, d));
-        }
+      sel.addEventListener("change", () => {
+        const mk = parseMonthKey(sel.value);
+        if (!mk) return;
 
-        function go(deltaDays){
-        const u = new URL(window.location.href);        
-        const wsParam = u.searchParams.get("window_start_date"); // NEW (from prompt)
-        const wsAttr  = header.getAttribute("data-window-start");
+        const u = new URL(window.location.href);
 
-        const sd = u.searchParams.get("selected_date");
-        const ad = u.searchParams.get("anchor_date");
+        // Jump to the 1st of the selected month (API + grid will align week internally)
+        const nextStr = `${mk.y}-${String(mk.m).padStart(2, "0")}-01`;
 
-        const base =
-          parseYmdToUtcDate(wsParam) ||
-          parseYmdToUtcDate(sd) ||
-          parseYmdToUtcDate(ad) ||
-          parseYmdToUtcDate(wsAttr);        
-        if(!base){
-            return;
-        }
-
-        const next = new Date(base.getTime());
-        next.setUTCDate(next.getUTCDate() + deltaDays);
-
-        const nextStr = ymd(next);
-
-        u.searchParams.set("window_start_date", nextStr); // NEW canonical for month
-        u.searchParams.set("selected_date", nextStr);      // keep for backward compat
-        u.searchParams.set("anchor_date", nextStr);        // keep for backward compat
+        u.searchParams.set("window_start_date", nextStr); // canonical for month
+        u.searchParams.set("selected_date", nextStr);     // keep for backward compat
+        u.searchParams.set("anchor_date", nextStr);       // keep for backward compat
 
         window.location.href = "/app/insightevent/month" + u.search;
-        }
+      });
+    })();
 
-        prevBtn.addEventListener("click", () => go(-42));
-        nextBtn.addEventListener("click", () => go(+42));
-    }
     </script>
   </BaseLayout>
 </SignedIn>

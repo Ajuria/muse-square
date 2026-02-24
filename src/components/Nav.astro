@@ -83,11 +83,17 @@ const isAppShell = isApp;
           {isApp && (
             <>
               <li>
-                <a href="/app/insightevent/prompt" class="ms-nav-link">
+                <a
+                  href="/app/insightevent/prompt"
+                  aria-current={isInsightEvent ? "page" : undefined}
+                  class={`ms-nav-link relative inline-block pb-1
+                    after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
+                    ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+                >
                   Event
                 </a>
               </li>
-
+              
               <li>
                 <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">
                   Marketing
@@ -95,7 +101,13 @@ const isAppShell = isApp;
               </li>
 
               <li>
-                <a href="/profile" class="ms-nav-link italic normal-case">
+                <a
+                  href="/profile"
+                  aria-current={isProfile ? "page" : undefined}
+                  class={`ms-nav-link italic normal-case relative inline-block pb-1
+                    after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
+                    ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
+                >
                   Profil
                 </a>
               </li>

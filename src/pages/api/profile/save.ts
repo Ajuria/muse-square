@@ -21,14 +21,14 @@ function requireString(v: unknown, name: string): string {
   return v.trim();
 }
 
-function getOptionalString(fd: FormData, name: string): string | null {
+function getOptionalString(fd: { get: (k: string) => any }, name: string): string | null {
   const v = fd.get(name);
   if (typeof v !== "string") return null;
   const s = v.trim();
   return s.length ? s : null;
 }
 
-function getAllStrings(fd: FormData, name: string): string[] {
+function getAllStrings(fd: { getAll: (k: string) => any[] }, name: string): string[] {
   return fd
     .getAll(name)
     .map((v) => (typeof v === "string" ? v.trim() : ""))
@@ -125,19 +125,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // ✅ INSERT THIS GUARD HERE (before request.formData())
     const contentType = request.headers.get("content-type") || "";
-    if (
-      !contentType.includes("multipart/form-data") &&
-      !contentType.includes("application/x-www-form-urlencoded")
-    ) {
+    if (!contentType.includes("application/json")) {
       return new Response(JSON.stringify({ ok: false, error: "Unsupported content-type" }), {
         status: 415,
         headers: { "content-type": "application/json" },
       });
     }
 
-    const fd = await request.formData();
-    const submitted_location_id = requireString(fd.get("location_id"), "location_id");
+    const body = await request.json();
 
+    // Adapter: mirrors FormData API used below
+    const fd = {
+      get: (k: string) => {
+        const v = body[k];
+        if (Array.isArray(v)) return v[0] ?? null;
+        return v ?? null;
+      },
+      getAll: (k: string) => {
+        const v = body[k];
+        if (Array.isArray(v)) return v;
+        if (typeof v === "string" && v.trim()) return [v.trim()];
+        return [];
+      },
+    };
+
+    const raw_location_id = fd.get("location_id");
+    const submitted_location_id =
+      typeof raw_location_id === "string" && raw_location_id.trim() !== ""
+        ? raw_location_id.trim()
+        : crypto.randomUUID();
+    
     // --- Auth (server-side truth) ---
     const clerk_user_id = getUserIdFromLocals(locals);
 
