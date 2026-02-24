@@ -111,6 +111,21 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
   }
 }
 
+function makeBQClient(projectId: string) {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (raw) {
+    try {
+      const credentials = JSON.parse(raw);
+      return new BigQuery({ projectId, credentials });
+    } catch {
+      throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON");
+    }
+  }
+  const keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (keyFilename) return new BigQuery({ projectId, keyFilename });
+  return new BigQuery({ projectId }); // ADC fallback
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
     try {
     if (import.meta.env.DEV) {
@@ -208,20 +223,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
     const dataset = requireString(process.env.BQ_DATASET, "BQ_DATASET");
     const table = requireString(process.env.BQ_TABLE, "BQ_TABLE");
-    const hasKeyfile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    const useAdc = (process.env.BQ_USE_ADC || "").trim().toLowerCase() === "true";
+    const bigquery = makeBQClient(projectId);
 
-    if (!import.meta.env.DEV && !hasKeyfile && !useAdc) {
-      throw new HttpError(
-        500,
-        "BigQuery auth misconfigured: set GOOGLE_APPLICATION_CREDENTIALS or set BQ_USE_ADC=true when running with ADC."
-      );
-    }
-    const bigquery = new BigQuery(
-      hasKeyfile
-        ? { projectId, keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS }
-        : { projectId }
-    );
     const fullTable = `\`${projectId}.${dataset}.${table}\``;
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 

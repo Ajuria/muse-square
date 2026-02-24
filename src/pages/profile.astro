@@ -43,21 +43,22 @@ const projectId = (process.env.BQ_PROJECT_ID || "").trim();
 const dataset = (process.env.BQ_DATASET || "").trim();
 const table = (process.env.BQ_TABLE || "").trim();
 
-const hasKeyfile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-// In prod, do not silently rely on "maybe ADC exists".
-// Either provide a key file OR run on a platform with guaranteed ADC and set BQ_USE_ADC=true.
-const useAdc = (process.env.BQ_USE_ADC || "").trim().toLowerCase() === "true";
-
-if (!hasKeyfile && !useAdc) {
-  console.error("[PROFILE] BigQuery auth not configured.");
+function makeBQClient(projectId: string) {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (raw) {
+    try {
+      const credentials = JSON.parse(raw);
+      return new BigQuery({ projectId, credentials });
+    } catch {
+      console.error("[PROFILE] GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON");
+    }
+  }
+  const keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (keyFilename) return new BigQuery({ projectId, keyFilename });
+  return new BigQuery({ projectId });
 }
 
-const bigquery = new BigQuery(
-  hasKeyfile
-    ? { projectId, keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS }
-    : { projectId }
-);
+const bigquery = makeBQClient(projectId);
 
 const fullTable = `\`${projectId}.${dataset}.${table}\``;
 
