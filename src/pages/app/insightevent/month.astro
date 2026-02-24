@@ -1981,13 +1981,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       try { buildMonthSelect(out); } catch (_) {}
     }
 
-    (async function bootstrapMonth() {
-      await loadMonthTop3();
-      await loadMonthGrid();
-      await updateGridConstraints(); // sets constrained styling
-      try { await applyGridMode(); } catch (_) {} // sets icon/label + top3 medal
-    })();
-
     function goPrompt(){ window.location.href = "/app/insightevent/prompt"; }
     function goMonth(){ window.location.href = "/app/insightevent/month" + window.location.search; }
     function goDay(){ window.location.href = "/app/insightevent/days" + window.location.search; }
@@ -2188,7 +2181,14 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         window.location.href = "/app/insightevent/month" + u.search;
       });
     })();
-
+    
+    (async function bootstrapMonth() {
+      await loadMonthTop3();
+      await loadMonthGrid();
+      await updateGridConstraints(); // sets constrained styling
+      try { await applyGridMode(); } catch (_) {} // sets icon/label + top3 medal
+    })();
+    
     </script>
   </BaseLayout>
 </SignedIn>
