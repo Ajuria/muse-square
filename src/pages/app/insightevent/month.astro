@@ -315,7 +315,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       IE Capsule (30d) — typography + section rhythm ONLY
       ============================= */
       #ie-30d-root{
-        --ie-bottom-actions-h: 65px;
+        --ie-bottom-actions-h: 80px;
         --ie-bottom-nav-h: 74px;
         --ie-30d-selectedbar-h: var(--ie-bottom-actions-h);
 
@@ -1030,9 +1030,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         max-width: 620px;
         width: 100%;
         height: var(--ie-bottom-actions-h);
-        padding: 0 20px;
+        padding: 6px 20px;
         display: flex;
-        gap: 14px;
+        gap: 10px;
         align-items: center;
         justify-content: space-between;
         pointer-events: auto;
@@ -1046,8 +1046,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         flex: 0 0 auto;
         border: 0;
         border-radius: 999px;
-        padding: 10px 14px;
-        font-size: 13px;
+        padding: 8px 14px;
+        font-size: 12px;
         font-weight: 700;
         background: #111;
         color: #fff;
@@ -1096,9 +1096,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         display: flex;
         flex-wrap: wrap;
         align-content: flex-start;
-        gap: 8px;
+        gap: 6px;
 
-        max-height: 44px;
+        max-height: 68px;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 2px 0;
@@ -2074,7 +2074,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         barEl.style.display = hasSelection ? "flex" : "none";
       }
 
-      setSelectedBarHeightPx(hasSelection ? 65 : 0);
+      setSelectedBarHeightPx(hasSelection ? 88 : 0);
                
       if(voirBtn && voirBtn.tagName === "BUTTON"){
         voirBtn.disabled = !hasSelection;
