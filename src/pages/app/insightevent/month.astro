@@ -2178,6 +2178,10 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         u.searchParams.set("selected_date", nextStr);     // keep for backward compat
         u.searchParams.set("anchor_date", nextStr);       // keep for backward compat
 
+        // Preserve existing selections across month navigation
+        const existingSelected = new URL(window.location.href).searchParams.get("selected_dates");
+        if (existingSelected) u.searchParams.set("selected_dates", existingSelected);
+
         window.location.href = "/app/insightevent/month" + u.search;
       });
     })();
