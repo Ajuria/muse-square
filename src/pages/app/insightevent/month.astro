@@ -1776,7 +1776,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         }
       } catch (_) {}
       
-      const grid = document.getElementById("ie-30d-grid");
+    const grid = document.getElementById("ie-30d-grid");
       if (!grid) return;
 
       const monthHeader = document.getElementById("ie-30d-month-header");
@@ -1833,9 +1833,32 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
         grid.appendChild(btn);
       }
-
       try { updateGridConstraints(); } catch (_) {}
-    }
+
+      grid.addEventListener("click", (e) => {
+        const tgt = e.target;
+        if(!(tgt instanceof Element)) return;
+        const btn = tgt.closest(".ie-30d-day");
+        if(!btn) return;
+        const d = btn.getAttribute("data-date");
+        if(!d) return;
+        const idx = selected.indexOf(d);
+        if(idx >= 0){
+          selected.splice(idx, 1);
+        } else {
+          if(selected.length >= MAX_DAYS){
+            flashMaxHint();
+            return;
+          }
+          selected.push(d);
+        }
+        const nextUrl = new URL(window.location.href);
+        setSelectedDates(nextUrl, selected);
+        window.history.replaceState({}, "", nextUrl.toString());
+        renderSelected(selected);
+        applyNavState();
+      });
+    } // end loadMonthGrid
 
     let __monthCache = null;
     let __monthCachePromise = null;
@@ -2134,36 +2157,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       e.preventDefault(); e.stopPropagation();
       goDaysFromSelection();
     }, true);
-
-    const grid = document.getElementById("ie-30d-grid");
-    if(grid){
-        grid.addEventListener("click", (e) => {
-        const tgt = e.target;
-        if(!(tgt instanceof Element)) return;
-        const btn = tgt.closest(".ie-30d-day");
-        if(!btn) return;
-
-        const d = btn.getAttribute("data-date");
-        if(!d) return;
-
-        const idx = selected.indexOf(d);
-        if(idx >= 0){
-            selected.splice(idx, 1);
-        } else {
-            if(selected.length >= MAX_DAYS){
-            flashMaxHint();
-            return;
-            }
-            selected.push(d);
-        }
-
-        const nextUrl = new URL(window.location.href);
-        setSelectedDates(nextUrl, selected);
-        window.history.replaceState({}, "", nextUrl.toString());
-        renderSelected(selected);
-        applyNavState();
-        });
-    }
 
     (function bindMonthDropdownNav(){
       const sel = document.getElementById("ie-30d-month-select");
