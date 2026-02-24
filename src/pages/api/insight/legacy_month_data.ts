@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
+import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
 
@@ -113,10 +114,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     requireString(process.env.BQ_DATASET, "BQ_DATASET");
     requireString(process.env.BQ_TABLE, "BQ_TABLE");
 
-    const bigquery = new BigQuery({
-      projectId,
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    });
+    const bigquery = makeBQClient(projectId);
 
     // --------------------
     // Canonical semantic surfaces (BigQuery dataset = "semantic")

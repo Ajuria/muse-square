@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { createClerkClient } from "@clerk/clerk-sdk-node";
 import crypto from "node:crypto";
+import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
 
@@ -109,21 +110,6 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
   } finally {
     clearTimeout(t);
   }
-}
-
-function makeBQClient(projectId: string) {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (raw) {
-    try {
-      const credentials = JSON.parse(raw);
-      return new BigQuery({ projectId, credentials });
-    } catch {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON");
-    }
-  }
-  const keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (keyFilename) return new BigQuery({ projectId, keyFilename });
-  return new BigQuery({ projectId }); // ADC fallback
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {

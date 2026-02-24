@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import crypto from "node:crypto";
+import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
 
@@ -126,19 +127,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // ---- BigQuery wiring (reuse your pattern) ----
     const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
-    const hasKeyfile = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    const useAdc = (process.env.BQ_USE_ADC || "").trim().toLowerCase() === "true";
-
-    if (!import.meta.env.DEV && !hasKeyfile && !useAdc) {
-      throw new HttpError(
-        500,
-        "BigQuery auth misconfigured: set GOOGLE_APPLICATION_CREDENTIALS or set BQ_USE_ADC=true when running with ADC."
-      );
-    }
-
-    const bigquery = new BigQuery(
-      hasKeyfile ? { projectId, keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS } : { projectId }
-    );
+    const bigquery = makeBQClient(projectId);
 
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 

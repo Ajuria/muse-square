@@ -3,15 +3,11 @@ import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 
-let BQ_CLIENT: BigQuery | null = null;
+import { makeBQClient } from "../../../lib/bq";
 
+let BQ_CLIENT: BigQuery | null = null;
 function getBigQueryClient(projectId: string): BigQuery {
-  if (!BQ_CLIENT) {
-    BQ_CLIENT = new BigQuery({
-      projectId,
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-    });
-  }
+  if (!BQ_CLIENT) BQ_CLIENT = makeBQClient(projectId);
   return BQ_CLIENT;
 }
 

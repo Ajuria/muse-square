@@ -2,10 +2,8 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 
-const bq = new BigQuery({
-  projectId: process.env.BQ_PROJECT_ID,
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-});
+import { makeBQClient } from "../../../lib/bq";
+const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);

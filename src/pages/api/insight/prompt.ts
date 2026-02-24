@@ -13,6 +13,7 @@ import { buildLookupIRV1FromRow } from "../../../components/ai/ir/lookup_ir_v1";
 import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/assertions_v1"; 
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { buildWindowIRV1 } from "../../../lib/ai/decision/window/window_ir_v1";
+import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
 
@@ -2060,12 +2061,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ? process.env.BQ_SEMANTIC_PROJECT_ID.trim()
         : projectId;
 
-    const bigquery = new BigQuery({
-      projectId,
-      // Production-safe:
-      // - In local/dev: GOOGLE_APPLICATION_CREDENTIALS can be set (ADC will pick it up)
-      // - In prod: Workload Identity / default ADC works without a key file
-    });
+    const bigquery = makeBQClient(projectId);
+
 
     async function bqOne(query: string, params: Record<string, any>) {
       const [rows] = await bigquery.query({
