@@ -18,7 +18,17 @@ function getBigQueryClient(projectId) {
   const key = projectId || "__default__";
   let client = _bqClients.get(key);
   if (!client) {
-    client = new BigQuery({ projectId });
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    if (raw) {
+      try {
+        const credentials = JSON.parse(raw);
+        client = new BigQuery({ projectId, credentials });
+      } catch {
+        client = new BigQuery({ projectId });
+      }
+    } else {
+      client = new BigQuery({ projectId });
+    }
     _bqClients.set(key, client);
   }
   return client;
