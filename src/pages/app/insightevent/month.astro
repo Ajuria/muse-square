@@ -2019,44 +2019,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         return `${months[m-1]} ${String(d)}`;
     }
 
-    const titleEl = document.getElementById("ie-30d-selected-title");
-    const hintEl  = document.getElementById("ie-30d-selected-hint");
-    const pillsEl = document.getElementById("ie-30d-selected-pills");
-    const barEl   = document.getElementById("ie-30d-bottom-bar");
-
-    // -----------------------------
-    // Action bar pills: click to remove
-    // (event delegation so it survives re-render)
-    // -----------------------------
-    if (pillsEl) {
-      pillsEl.addEventListener("click", (e) => {
-        const tgt = e.target;
-        if (!(tgt instanceof Element)) return;
-
-        const pill = tgt.closest(".ie-pill");
-        if (!pill) return;
-
-        const d = pill.getAttribute("data-date");
-        if (!d) return;
-
-        const idx = selected.indexOf(d);
-        if (idx < 0) return;
-
-        // Remove from selection
-        selected.splice(idx, 1);
-
-        // Persist to URL (same pipeline as grid)
-        const nextUrl = new URL(window.location.href);
-        setSelectedDates(nextUrl, selected);
-        window.history.replaceState({}, "", nextUrl.toString());
-
-        // Re-render UI
-        renderSelected(selected);
-        applyNavState();
-      });
-    }
-
     function flashMaxHint(){
+        const hintEl = document.getElementById("ie-30d-selected-hint");
         if(!hintEl) return;
         hintEl.style.display = "block";
         window.clearTimeout(flashMaxHint._t);
@@ -2067,6 +2031,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     flashMaxHint._t = null;
 
     function renderSelected(dates){
+        const titleEl = document.getElementById("ie-30d-selected-title");
+        const pillsEl = document.getElementById("ie-30d-selected-pills");
+
         if(titleEl){
         titleEl.textContent = `CHOIX (${dates.length}/${MAX_DAYS})`;
         }
@@ -2092,7 +2059,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
     const url = new URL(window.location.href);
     let selected = parseSelectedDates(url);
-    renderSelected(selected);
 
     function setSelectedBarHeightPx(px){
       const root = document.getElementById("ie-30d-root");
@@ -2101,17 +2067,16 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     }
 
     function applyNavState(){
+      const barEl   = document.getElementById("ie-30d-bottom-bar");
       const voirBtn = document.getElementById("ie-30d-view-details");
 
       const hasSelection = (Array.isArray(selected) && selected.length > 0);
 
-      // Show action bar only when there is at least one selected day
       if (barEl) {
         barEl.style.display = hasSelection ? "flex" : "none";
       }
 
-      // Remove dead space when hidden (CSS reads --ie-30d-selectedbar-h)
-      setSelectedBarHeightPx(hasSelection ? 65 : 0); // 65 = --ie-bottom-actions-h
+      setSelectedBarHeightPx(hasSelection ? 65 : 0);
                
       if(voirBtn && voirBtn.tagName === "BUTTON"){
         voirBtn.disabled = !hasSelection;
@@ -2121,7 +2086,38 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
     }
 
-    applyNavState();
+    function bindPillsRemove(){
+      const pillsEl = document.getElementById("ie-30d-selected-pills");
+      if (!pillsEl) return;
+      pillsEl.addEventListener("click", (e) => {
+        const tgt = e.target;
+        if (!(tgt instanceof Element)) return;
+        const pill = tgt.closest(".ie-pill");
+        if (!pill) return;
+        const d = pill.getAttribute("data-date");
+        if (!d) return;
+        const idx = selected.indexOf(d);
+        if (idx < 0) return;
+        selected.splice(idx, 1);
+        const nextUrl = new URL(window.location.href);
+        setSelectedDates(nextUrl, selected);
+        window.history.replaceState({}, "", nextUrl.toString());
+        renderSelected(selected);
+        applyNavState();
+      });
+    }
+
+    function initSelectionUI(){
+      renderSelected(selected);
+      applyNavState();
+      bindPillsRemove();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initSelectionUI, { once: true });
+    } else {
+      initSelectionUI();
+    }
 
     function keepQuery(path){
       const cur = new URL(window.location.href);
@@ -2145,11 +2141,19 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       window.location.href = "/app/insightevent/days" + u.search;
     }
 
-    const voirBtn = document.getElementById("ie-30d-view-details");
-    if (voirBtn) voirBtn.addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      goDaysFromSelection();
-    }, true);
+    function bindVoirBtn(){
+      const voirBtn = document.getElementById("ie-30d-view-details");
+      if (voirBtn) voirBtn.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        goDaysFromSelection();
+      }, true);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bindVoirBtn, { once: true });
+    } else {
+      bindVoirBtn();
+    }
 
     (function bindMonthDropdownNav(){
       const sel = document.getElementById("ie-30d-month-select");
