@@ -151,10 +151,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
     };
 
     const raw_location_id = fd.get("location_id");
-    const submitted_location_id =
-      typeof raw_location_id === "string" && raw_location_id.trim() !== ""
-        ? raw_location_id.trim()
-        : crypto.randomUUID();
+    let submitted_location_id: string;
+
+    if (typeof raw_location_id === "string" && raw_location_id.trim() !== "") {
+      submitted_location_id = raw_location_id.trim();
+    } else {
+      // Look up existing location_id for this user in BQ
+      const projectId_early = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
+      const dataset_early = requireString(process.env.BQ_DATASET, "BQ_DATASET");
+      const table_early = requireString(process.env.BQ_TABLE, "BQ_TABLE");
+      const bq_early = makeBQClient(projectId_early);
+      const [existing] = await bq_early.query({
+        query: `SELECT location_id FROM \`${projectId_early}.${dataset_early}.${table_early}\` WHERE clerk_user_id = @clerk_user_id ORDER BY created_at ASC LIMIT 1`,
+        location: (process.env.BQ_LOCATION || "EU").trim(),
+        params: { clerk_user_id: getUserIdFromLocals(locals) },
+        types: { clerk_user_id: "STRING" },
+      });
+      submitted_location_id = (existing?.[0]?.location_id) ?? crypto.randomUUID();
+    }
     
     // --- Auth (server-side truth) ---
     const clerk_user_id = getUserIdFromLocals(locals);
