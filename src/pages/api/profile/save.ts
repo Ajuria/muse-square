@@ -253,6 +253,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let prior_company_address_key: string | null = null;
     let prior_company_geocoded_at_ms: number | null = null;
 
+    let prior_city_id: string | null = null;
+
     try {
       const [rows] = await bigquery.query({
         query: priorKeyQuery,
@@ -265,6 +267,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       prior_company_address_key =
         r0 && typeof r0.company_address_key === "string" && r0.company_address_key.trim()
           ? r0.company_address_key.trim()
+          : null;
+
+      prior_city_id =
+        r0 && typeof r0.city_id === "string" && r0.city_id.trim()
+          ? r0.city_id.trim()
           : null;
 
       const rawGeoAt = r0 ? (r0.company_geocoded_at ?? null) : null;
@@ -298,39 +305,49 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let company_geocode_label: string | null = null;
     let company_geocode_score: number | null = null;
     let company_geocode_provider: string | null = null;
-    let company_geocoded_at: string | null = null; // ISO string acceptable for TIMESTAMP
+    let company_geocoded_at: string | null = null;
     let company_geocode_status: string | null = null;
-    let city_id: string | null = null;
+
+    // start with prior city_id
+    let city_id: string | null = prior_city_id ?? null;
 
     if (!company_address_key) {
       company_geocode_status = "address_missing";
-    } else if (!addressChanged) {
+
+    } else if (!addressChanged && prior_city_id !== null) {
+      // already geocoded and city_id exists
       company_geocode_status = "unchanged";
+
     } else if (throttled) {
       company_geocode_status = "throttled";
+
     } else {
       const MIN_BAN_SCORE = 0.6;
-      const r = await geocodeWithBAN(company_address!);
+      const r = company_address
+        ? await geocodeWithBAN(company_address)
+        : null;
 
       company_geocode_provider = "ban";
       company_geocoded_at = new Date().toISOString();
 
       if (!r) {
         company_geocode_status = "geocode_failed";
+
       } else if (r.score < MIN_BAN_SCORE) {
         company_geocode_status = "geocode_low_score";
         company_geocode_score = r.score;
         company_geocode_label = r.label;
+
       } else {
         company_geocode_status = "geocoded_ok";
-        city_id = r.citycode; // peut rester null si BAN ne renvoie pas citycode
         company_lat = r.lat;
         company_lon = r.lon;
         company_geocode_label = r.label;
         company_geocode_score = r.score;
+        city_id = r.citycode;
       }
     }
-
+    
     // Default location = earliest created_at for this user, else generate one.
     const mergeQuery = `
       MERGE ${fullTable} T
