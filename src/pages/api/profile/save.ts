@@ -74,7 +74,13 @@ function sha256Hex(s: string): string {
   return crypto.createHash("sha256").update(s, "utf8").digest("hex");
 }
 
-type BanGeocodeResult = { lat: number; lon: number; label: string; score: number };
+type BanGeocodeResult = {
+  lat: number;
+  lon: number;
+  label: string;
+  score: number;
+  citycode: string | null; // INSEE commune code (e.g. "75056")
+};
 
 async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
   const url = new URL("https://api-adresse.data.gouv.fr/search");
@@ -94,6 +100,9 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
 
     const data: any = await res.json().catch(() => null);
     const f0 = data?.features?.[0];
+    const citycodeRaw = f0?.properties?.citycode;
+    const citycode =
+    typeof citycodeRaw === "string" && citycodeRaw.trim() ? citycodeRaw.trim() : null;
     const coords = f0?.geometry?.coordinates;
 
     const lon = Array.isArray(coords) ? Number(coords[0]) : NaN;
@@ -103,7 +112,8 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
 
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(score)) return null;
 
-    return { lat, lon, label, score };
+    return { lat, lon, label, score, citycode };
+    
   } catch (_) {
     // Non-fatal: degrade gracefully so profile saves still succeed
     return null;
@@ -290,6 +300,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let company_geocode_provider: string | null = null;
     let company_geocoded_at: string | null = null; // ISO string acceptable for TIMESTAMP
     let company_geocode_status: string | null = null;
+    let city_id: string | null = null;
 
     if (!company_address_key) {
       company_geocode_status = "address_missing";
@@ -312,6 +323,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_geocode_label = r.label;
       } else {
         company_geocode_status = "geocoded_ok";
+        city_id = r.citycode; // peut rester null si BAN ne renvoie pas citycode
         company_lat = r.lat;
         company_lon = r.lon;
         company_geocode_label = r.label;
@@ -335,6 +347,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_name = @company_name,
         company_address = @company_address,
         company_address_key = @company_address_key,
+        city_id =
+          IF(@company_geocode_status IN ('unchanged','throttled'), city_id, @city_id),
         company_lat =
           IF(@company_geocode_status IN ('unchanged','throttled'), company_lat, @company_lat),
         company_lon =
@@ -378,6 +392,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_name,
         company_address,
         company_address_key,
+        city_id,
         company_lat,
         company_lon,
         company_geocode_label,
@@ -411,6 +426,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @company_name,
         @company_address,
         @company_address_key,
+        @city_id,
         @company_lat,
         @company_lon,
         @company_geocode_label,
@@ -447,6 +463,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_name,
         company_address,
         company_address_key,
+        city_id,
         company_lat,
         company_lon,
         company_geocode_label,
@@ -493,6 +510,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_city_label_2: "STRING",
       origin_city_label_3: "STRING",
       company_address_key: "STRING",
+      city_id: "STRING",
       company_lat: "FLOAT64",
       company_lon: "FLOAT64",
       company_geocode_label: "STRING",
@@ -517,6 +535,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_name,
         company_address,
         company_address_key,
+        city_id,
         company_lat,
         company_lon,
         company_geocode_label,
