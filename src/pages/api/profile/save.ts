@@ -160,26 +160,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
       },
     };
 
-    const raw_location_id = fd.get("location_id");
-    let submitted_location_id: string;
+    // --- Explicit mode contract ---
+    const raw_mode = fd.get("mode");
 
-    if (typeof raw_location_id === "string" && raw_location_id.trim() !== "") {
-      submitted_location_id = raw_location_id.trim();
-    } else {
-      // Look up existing location_id for this user in BQ
-      const projectId_early = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
-      const dataset_early = requireString(process.env.BQ_DATASET, "BQ_DATASET");
-      const table_early = requireString(process.env.BQ_TABLE, "BQ_TABLE");
-      const bq_early = makeBQClient(projectId_early);
-      const [existing] = await bq_early.query({
-        query: `SELECT location_id FROM \`${projectId_early}.${dataset_early}.${table_early}\` WHERE clerk_user_id = @clerk_user_id ORDER BY created_at ASC LIMIT 1`,
-        location: (process.env.BQ_LOCATION || "EU").trim(),
-        params: { clerk_user_id: getUserIdFromLocals(locals) },
-        types: { clerk_user_id: "STRING" },
-      });
-      submitted_location_id = (existing?.[0]?.location_id) ?? crypto.randomUUID();
+    if (raw_mode !== "create" && raw_mode !== "update") {
+      throw new HttpError(400, "Missing or invalid field: mode (create | update)");
     }
-    
+
+    const mode = raw_mode as "create" | "update";
+
+    // --- Determine location_id using explicit mode ---
+    const raw_location_id = fd.get("location_id");
+
+    const location_id =
+      mode === "update"
+        ? (() => {
+            if (typeof raw_location_id !== "string" || raw_location_id.trim() === "") {
+              throw new HttpError(400, "location_id required for update mode");
+            }
+            return raw_location_id.trim();
+          })()
+        : (() => {
+            // mode === "create"
+            if (typeof raw_location_id === "string" && raw_location_id.trim() !== "") {
+              throw new HttpError(400, "location_id must not be provided in create mode");
+            }
+            return crypto.randomUUID();
+          })();
+
     // --- Auth (server-side truth) ---
     const clerk_user_id = getUserIdFromLocals(locals);
 
@@ -238,7 +246,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const fullTable = `\`${projectId}.${dataset}.${table}\``;
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
-    const location_id = submitted_location_id;
+    // --- Hard guard: update must target an existing row ---
+    if (mode === "update") {
+      const existsQuery = `
+        SELECT 1
+        FROM ${fullTable}
+        WHERE clerk_user_id = @clerk_user_id
+          AND location_id = @location_id
+        LIMIT 1
+      `;
+
+      const [existsRows] = await bigquery.query({
+        query: existsQuery,
+        location: BQ_LOCATION,
+        params: { clerk_user_id, location_id },
+        types: { clerk_user_id: "STRING", location_id: "STRING" },
+      });
+
+      if (!Array.isArray(existsRows) || existsRows.length === 0) {
+        throw new HttpError(404, "Unknown location_id for update");
+      }
+    }
 
     // --- Load prior stored address_key to avoid re-geocoding if unchanged ---
     const priorKeyQuery = `
@@ -305,7 +333,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let company_geocode_label: string | null = null;
     let company_geocode_score: number | null = null;
     let company_geocode_provider: string | null = null;
-    let company_geocoded_at: string | null = null;
+    let company_geocoded_at: Date | null = null;
     let company_geocode_status: string | null = null;
 
     // start with prior city_id
@@ -328,7 +356,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         : null;
 
       company_geocode_provider = "ban";
-      company_geocoded_at = new Date().toISOString();
+      company_geocoded_at = new Date();
 
       if (!r) {
         company_geocode_status = "geocode_failed";
