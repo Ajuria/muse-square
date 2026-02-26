@@ -369,7 +369,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
         -- Client location (admin + geo)
         location_label,
-        cl_location_type,
+        location_type AS cl_location_type,
         active_flag,
         city_id,
         city_name,
