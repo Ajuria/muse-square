@@ -592,6 +592,16 @@ const selected_origin_city_ids = [
         data.primary_audience_1 = formData.getAll("primary_audience_1");
         data.origin_city_ids = formData.getAll("origin_city_ids");
 
+        // ---- ADD MODE CONTRACT (REQUIRED BY BACKEND) ----
+        const rawLocationId = typeof data.location_id === "string" ? data.location_id.trim() : "";
+
+        data.mode = rawLocationId !== "" ? "update" : "create";
+
+        // In create mode, location_id must NOT be sent
+        if (rawLocationId === "") {
+          delete data.location_id;
+        }
+
         const res = await fetch('/api/profile/save', {
           method: 'POST',
           headers: {
@@ -621,6 +631,14 @@ const selected_origin_city_ids = [
         }
 
         setStatus('Profil enregistré.', 'success');
+
+        // Persist generated UUID after first create (so next saves are updates)
+        if (out && typeof out.location_id === "string" && out.location_id.trim() !== "") {
+          const locInput = form.querySelector('input[name="location_id"]');
+          if (locInput instanceof HTMLInputElement) {
+            locInput.value = out.location_id.trim();
+          }
+        }
 
         if (button) {
             button.textContent = "✓ Modifications enregistrées";

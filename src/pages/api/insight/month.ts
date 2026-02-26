@@ -1098,7 +1098,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
               function deterministicText(): string | null {
                 // Enforce the single-source-of-truth counts (computed_window)
-                if (!computed_window || computed_window.days_count !== 30) {
+                if (!computed_window || computed_window.days_count < 1) {
                   console.warn("[MONTH][TEXT] computed_window invalid; refusing to render");
                   return null;
                 }
