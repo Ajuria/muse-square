@@ -2050,6 +2050,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       (!hasExplicitAnyDate && asksCompare && refersToTop2 && thread_top_dates.length >= 2)
         ? thread_top_dates.slice(0, 2)
         : [];
+    
+    console.log({
+      q: qRaw,
+      isEventLookupQuestion: isEventLookupQuestion(qRaw),
+      resolved_horizon,
+      resolved_intent,
+      extracted_dates,
+      force_compare
+    });
 
     // ---- BIGQUERY CLIENT ----
     const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
