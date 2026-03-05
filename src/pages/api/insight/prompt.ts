@@ -306,6 +306,48 @@ function norm(s: string): string {
     .trim();
 }
 
+// ------------------------------------
+// SHARED LEXICAL MARKERS (avoid drift)
+// ------------------------------------
+
+const EVALUATION_MARKERS = [
+  "meilleur",
+  "meilleurs",
+  "top",
+  "pire",
+  "pires",
+  "eviter",
+  "éviter",
+  "defavorable",
+  "défavorable",
+  "moins favorable",
+  "plus favorable",
+  "plus complique",
+  "plus compliqué",
+  "plus risque",
+  "plus risqué",
+];
+
+const COMPARISON_MARKERS = [
+  "compar",
+  "difference",
+  "différence",
+  "entre",
+  " vs ",
+  "vs ",
+];
+
+const PLANNING_VERBS = [
+  "organiser",
+  "planifier",
+  "programmer",
+  "choisir",
+  "decider",
+  "décider",
+  "prevoir",
+  "prévoir",
+];
+
 function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringIntent {
   const q = norm(qRaw);
 
@@ -519,35 +561,61 @@ function toBoolOrNullLocal(v: any): boolean | null {
   return toBoolOrNullStrict(v);
 }
 
-function isEventLookupQuestion(q: string): boolean {
-  const s = norm(q ?? "");
+function isEventLookupQuestion(qRaw: string): boolean {
+  const s = norm(qRaw ?? "");
 
-  const lookupPhrase =
+  // ----------------------------
+  // HARD NEGATIVE SHIELD
+  // ----------------------------
+
+  if (EVALUATION_MARKERS.some(k => s.includes(k))) return false;
+  if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
+  if (PLANNING_VERBS.some(k => s.includes(k))) return false;
+
+  // ----------------------------
+  // POSITIVE LOOKUP SIGNALS
+  // ----------------------------
+
+  const explicitLookup =
     s.includes("a quelle date") ||
-    s.includes("c est quand") ||
+    s.includes("à quelle date") ||
     s.includes("quand a lieu") ||
-    s.includes("dates de ") ||
-    s.includes("date de debut") ||
-    s.includes("date de fin");
+    s.includes("c est quand") ||
+    s.includes("agenda") ||
+    s.includes("calendrier") ||
+    s.includes("quels evenements") ||
+    s.includes("quels événements") ||
+    s.includes("y a t il") ||
+    s.includes("y a-t-il");
 
-  if (!lookupPhrase) return false;
+  if (explicitLookup) return true;
 
-  const hasScoringKeywords =
-    s.includes("meilleur") ||
-    s.includes("meilleurs") ||
-    s.includes("top") ||
-    s.includes("pire") ||
-    s.includes("eviter") ||
-    s.includes("defavorable") ||
-    s.includes("periode stable") ||
-    s.includes("tendance") ||
-    s.includes("sequence") ||
-    s.includes("compar") ||
-    s.includes("entre") ||
-    s.includes(" vs ") ||
-    s.includes("vs ");
+  // ----------------------------
+  // MINIMAL TEMPORAL QUERY
+  // (e.g. "14 juin", "samedi nimes")
+  // ----------------------------
 
-  return !hasScoringKeywords;
+  const hasMonth =
+    /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/i.test(qRaw);
+
+  const hasNumericDate =
+    /\b\d{1,2}\b/.test(qRaw);
+
+  const hasWeekday =
+    /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(qRaw);
+
+  // MINIMAL TEMPORAL QUERY — only when NO evaluation/planning intent
+
+  const hasEvaluationIntent =
+    EVALUATION_MARKERS.some(k => s.includes(k)) ||
+    PLANNING_VERBS.some(k => s.includes(k)) ||
+    s.includes("jours");
+
+  if (!hasEvaluationIntent && (hasMonth || hasNumericDate || hasWeekday)) {
+    return true;
+  }
+  
+  return false;
 }
 
 function adaptDayFactsByDate(ir: any): Record<string, any[]> {
@@ -2050,7 +2118,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       (!hasExplicitAnyDate && asksCompare && refersToTop2 && thread_top_dates.length >= 2)
         ? thread_top_dates.slice(0, 2)
         : [];
-    
+
+    // ------------------------------------
+    // LOOKUP OVERRIDE (after compare logic)
+    // ------------------------------------
+
+    if (!force_compare && isEventLookupQuestion(qRaw)) {
+      resolved_horizon = "lookup_event";
+      resolved_intent = "LOOKUP_EVENT";
+    }
+        
     console.log({
       q: qRaw,
       isEventLookupQuestion: isEventLookupQuestion(qRaw),
@@ -3318,34 +3395,74 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             event_name,
             event_start_date,
-            event_end_date
+            event_end_date,
+            scope_type,
+            city_id,
+            location_id,
+            city_name,
+            region_insee,
+            source_system,
+            industry_code
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE location_id = @location_id
+          WHERE
+            (
+              location_id = @location_id
+              OR city_id = @city_id
+              OR region_insee = @region_insee
+            )
             AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          ORDER BY
+            -- Prefer most specific scope first
+            CASE scope_type
+              WHEN 'location' THEN 1
+              WHEN 'city' THEN 2
+              WHEN 'region' THEN 3
+              WHEN 'national' THEN 4
+              ELSE 5
+            END
           LIMIT 1
         `;
 
-        const lookupSqlGlobal = `
+        const lookupSqlFallback = `
           SELECT
             event_name,
             event_start_date,
-            event_end_date
+            event_end_date,
+            scope_type,
+            city_id,
+            location_id,
+            city_name,
+            region_insee,
+            source_system,
+            industry_code
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE location_id IS NULL
-            AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          WHERE LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          ORDER BY
+            CASE scope_type
+              WHEN 'location' THEN 1
+              WHEN 'city' THEN 2
+              WHEN 'region' THEN 3
+              WHEN 'national' THEN 4
+              ELSE 5
+            END
           LIMIT 1
         `;
 
         const rows_scoped = await bqAll(
           lookupSqlScoped,
-          bqParams({ q_entity, location_id })
+          bqParams({
+            q_entity,
+            location_id,
+            city_id,
+            region_insee
+          })
         );
 
         let rows = rows_scoped;
 
         if (!Array.isArray(rows_scoped) || rows_scoped.length === 0) {
           const rows_global = await bqAll(
-            lookupSqlGlobal,
+            lookupSqlFallback,
             bqParams({ q_entity })
           );
           rows = rows_global;

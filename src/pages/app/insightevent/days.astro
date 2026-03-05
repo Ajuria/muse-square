@@ -46,9 +46,192 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
 <SignedIn>
   <BaseLayout title="Insight Event — Days" hideSurveyCta={true} hideFooter={true}>
-    <div class="ms-container px-6 pt-6 w-full max-w-none">
+    <div class="ms-container pt-6 w-full max-w-none"></div>
   
   <style is:inline id="ms-selected-days-style">  
+  /* =========================
+   HERO SCORE BLOCK
+   ========================= */
+
+  .ms-hero-score{
+    display:flex;
+    align-items:flex-end;
+    gap:6px;
+  }
+
+  .ms-hero {
+    padding: var(--space-3xl) 0;
+  }
+
+  .ms-hero-date {
+    font-size: 18px;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xl);
+    text-transform: capitalize;
+  }
+
+  .ms-hero-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ms-hero-score-block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ms-hero-label {
+    font-size: var(--font-size-label);
+    letter-spacing: var(--letter-spacing-wider);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .ms-hero-score {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .ms-score-main {
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+  }
+
+  .ms-score-max {
+    font-size: 20px;
+    color: var(--color-text-secondary);
+  }
+
+  .ms-delta-pill {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .ms-delta-pill.is-positive {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  .ms-delta-pill.is-neutral {
+    background: rgba(107, 114, 128, 0.12);
+    color: #6b7280;
+  }
+
+  .ms-delta-pill.is-negative {
+    background: rgba(220, 38, 38, 0.1);
+    color: #b91c1c;
+  }
+
+  .ms-delta-sub {
+    font-size: var(--font-size-small);
+    color: var(--color-text-muted);
+    margin-top: 6px;
+  }
+
+  .ms-hero-divider {
+    border: none;
+    height: 1px;
+    background: var(--color-border);
+    margin: var(--space-2xl) 0;
+  }
+
+  /* =========================
+   Score breakdown bars (concept)
+   ========================= */
+
+  .ms-breakdown {
+    padding: 32px 20px 20px 20px;
+  }
+
+  .ms-breakdown-item {
+    margin-bottom: 34px;
+  }
+
+  .ms-breakdown-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .ms-breakdown-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ms-breakdown-ico img {
+    width: 20px;
+    height: 20px;
+    transform: translateY(-1px);
+  }
+
+  .ms-breakdown-label {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+  }
+
+  .ms-breakdown-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .ms-breakdown-value .muted {
+    opacity: 0.55;
+    font-weight: 500;
+  }
+
+  .ms-breakdown-bar {
+    height: 8px;
+    background: #E2E8F0;
+    border-radius: 6px;
+    margin-left: 32px; /* 20 icon + 12 gap */
+    width: calc(100% - 32px);
+  }
+
+  .ms-breakdown-fill {
+    height: 8px;
+    border-radius: 6px;
+    background: var(--color-brand-blue);
+  }
+
+  .ms-breakdown-value{
+    font-size:14px;
+    font-weight:600;
+    width:60px;
+    text-align:right;
+    color:var(--color-text-secondary);
+  }
+  
+  .ms-breakdown-value .muted{
+    opacity:0.55;
+    font-weight:500;
+  }
+
+  .ms-breakdown-item.is-active .ms-breakdown-value {
+    color: var(--color-brand-blue);
+  }
+
+  .ms-breakdown-item.is-active .ms-breakdown-fill {
+    background: var(--color-brand-blue);
+  }
+
+  .ms-breakdown-item:not(.is-active) .ms-breakdown-fill {
+    opacity: 0.75;
+  }
+   
   /* add near your inline styles */
   .ms-grid--split { grid-template-columns: minmax(0,1fr) 360px; }
   .ms-grid--single { grid-template-columns: minmax(0,1fr); }
@@ -58,6 +241,25 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-days-grid.ms-list-mode > aside { width: 100%; }
   .ms-days-grid.ms-list-mode #main-col { display: none; }
 
+  .ms-days-nav{
+    background:#FFFFFF;
+    border-top:1px solid #E5E7EB;
+    border-bottom:1px solid #E5E7EB;
+    padding:16px 24px 0 24px;
+  }
+  
+  .ms-tabs{
+    display:flex;
+    justify-content:flex-start;
+    align-items:flex-end;
+    gap:22px;
+
+    padding:0 0 16px 0;
+    margin:0;
+
+    border-bottom:1px solid #E5E7EB;  /* baseline */
+  }
+  
   /* =========================
    Days grid (split vs single)
    ========================= */
@@ -69,6 +271,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
   }
 
   @media (min-width: 1024px){
+    .ms-score-main {
+      font-size: 56px;
+    }
     .ms-days-grid.ms-grid--split{
       grid-template-columns: minmax(0,1fr) 360px;
     }
@@ -80,92 +285,31 @@ const show_actions = has_selected_dates || has_saved_item_id;
   /* =========================
    Selected Days (core view)
    ========================= */
+  .ms-grey-zone{
+    width:100%;
+    background:#f8f6f7;
+    padding-bottom:10px;
+  }
 
-  .ms-days-wrap{ width:100%; max-width:620px; margin:0 auto; padding:16px 16px 32px 16px; }
+  .ms-days-wrap{
+    width:100%;
+    max-width:720px;
+    margin:0 auto;
+    padding:0 24px;
+  }
+
+  .ms-days-top{
+    background:#FFFFFF;
+    padding:40px 0 18px 0; /* keep your rhythm */
+  }
+
+  .ms-days-bottom{
+    padding:22px 0 0 0;
+  }
+  
   .ms-top-wrap{ text-align:center; }
   .ms-top-month{ font-size:28px; line-height:1.08; font-weight:500; letter-spacing:-0.01em; margin:10px 0 6px 0; color:#111827; }
   .ms-top-week{ font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:rgba(17,24,39,0.55); margin:0 0 28px 0; font-weight:500; }
-
-  /* --- Carousel (3 cards: left / mid / right) --- */
-  .ms-carousel-viewport{
-    overflow:visible;
-    display:flex;
-    justify-content:center;
-    margin-top:8px;
-    margin-bottom:28px;
-    width:100vw;
-    margin-left:calc(50% - 50vw);
-    margin-right:calc(50% - 50vw);
-  }
-
-  .ms-carousel-strip{ position:relative; width:666px; height:330px; transform-style:preserve-3d; }
-  .ms-carousel-strip.is-animating{ pointer-events:none; }
-
-  .ms-slot{
-    position:absolute;
-    top:0;
-    width:210px;
-    height:330px;
-    transition:left 520ms cubic-bezier(0.22,1,0.36,1),
-              transform 520ms cubic-bezier(0.22,1,0.36,1),
-              opacity 520ms cubic-bezier(0.22,1,0.36,1);
-    will-change:left,transform,opacity;
-  }
-
-  .ms-slot.left{
-    left:0px;
-    transform: translateX(14px) scale(0.92);
-    opacity:0.62;
-    z-index:1;
-  }
-  .ms-slot.mid{
-    left:228px;
-    transform: translateX(0px) scale(1.00);
-    opacity:1.00;
-    z-index:3;
-  }
-  .ms-slot.right{
-    left:456px;
-    transform: translateX(-14px) scale(0.92);
-    opacity:0.62;
-    z-index:1;
-  }
-
-  .ms-c-ghost{ width:210px; height:330px; border-radius:34px; visibility:hidden; }
-
-  .ms-c-card{
-    width:210px; height:330px; border-radius:34px; position:relative;
-    display:flex; flex-direction:column; align-items:center;
-    padding:22px 20px;
-    user-select:none;
-    -webkit-font-smoothing:antialiased;
-  }
-  .ms-c-card.active{ background:#fff; border:3px solid #000; box-shadow:0 14px 40px rgba(17,24,39,0.20); }
-  .ms-c-card.preview{ background:#fff; border:1px solid #eef2f7; box-shadow:0 10px 24px rgba(17,24,39,0.08); cursor:pointer; }
-
-  .ms-c-dow{ font-size:12px; letter-spacing:0.16em; text-transform:uppercase; margin-top:4px; font-weight:400; }
-  .ms-c-daynum{ font-size:26px; font-weight:500; margin-top:8px; line-height:1; }
-
-  .ms-c-marker{
-    margin-top:18px;
-    line-height:1;
-    font-weight:400;
-    letter-spacing:-0.02em;
-    flex:1 1 auto;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .ms-c-card.active .ms-c-marker{ font-size:92px; }
-  .ms-c-card.preview .ms-c-marker{ font-size:44px; }
-
-  .ms-c-pill{ margin-top:auto; margin-bottom:10px; }
-  .ms-chip{
-    display:inline-flex; align-items:center; justify-content:center;
-    padding:7px 14px; border-radius:12px;
-    font-size:12px; letter-spacing:0.14em; text-transform:uppercase; font-weight:500;
-    background:#f3f4f6; border:1px solid #e5e7eb; color:#111827;
-  }
 
   .ms-chip-date{
     display:inline-flex;
@@ -195,22 +339,138 @@ const show_actions = has_selected_dates || has_saved_item_id;
     opacity: 0.6;
   }
 
-  .ms-c-score{ font-size:20px; font-weight:500; letter-spacing:0.01em; margin-bottom:4px; line-height:1; color:#111827; }
-  .ms-c-score .muted{ opacity:0.55; font-weight:400; font-size:18px; }
+  /* =========================
+   Top viz + tabs (replaces carousel)
+   ========================= */
 
-  .ms-c-card.preview .ms-c-dow,
-  .ms-c-card.preview .ms-c-daynum,
-  .ms-c-card.preview .ms-c-marker,
-  .ms-c-card.preview .ms-c-score{ color:#9ca3af; }
+  .ms-viz-wrap{
+    width:100%;
+    max-width:760px;
+    margin: 6px auto 10px auto;
+    padding: 0 6px;
+  }
 
-  /* --- Analysis block --- */
-  .ms-analyse-wrap{ margin-top:0px; margin-bottom:10px; text-align:center; }
-  .ms-analyse-line{ display:flex; align-items:center; gap:14px; justify-content:center; margin-top:6px; }
+  .ms-viz-card{
+    background:var(--color-bg-card);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-lg);
+    padding:var(--space-lg);
+    box-shadow:var(--shadow-md);
+  }
+
+  .ms-viz-title{
+    font-size:12px;
+    letter-spacing:0.10em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.55);
+    font-weight:600;
+    margin-bottom:12px;
+  }
+
+  .ms-viz-rows{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .ms-viz-row{
+    display:grid;
+    grid-template-columns: 84px 1fr 56px;
+    align-items:center;
+    gap:12px;
+  }
+
+  .ms-viz-label{
+    font-size:12px;
+    color:rgba(17,24,39,0.65);
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+  }
+
+  .ms-viz-bar{
+    position:relative;
+    height:10px;
+    border-radius:var(--radius-full);
+    background:rgba(29,59,179,0.08);
+    border:1px solid var(--color-border);
+    overflow:hidden;
+  }  
+
+  .ms-viz-fill{
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:0%;
+    border-radius:var(--radius-full);
+    background:var(--color-brand-blue);
+    opacity:0.85;
+  }
+  
+  .ms-viz-row.is-active .ms-viz-fill{
+    opacity:1.0;
+  }
+
+  .ms-viz-score{
+    text-align:right;
+    font-size:13px;
+    color:#111827;
+    font-weight:600;
+  }
+
+  .ms-viz-score .muted{
+    opacity:0.55;
+    font-weight:500;
+  }
+
+  .ms-tab{
+    appearance:none;
+    -webkit-appearance:none;
+    border:none;
+    background:transparent;
+    box-shadow:none;
+
+    font-size:14px;
+    font-weight:500;
+    color:#94A3B8;
+
+    padding:0 0 16px 0;
+    position:relative;
+    cursor:pointer;
+  }
+  
+  .ms-tab.is-active{
+    color:var(--color-brand-blue);
+  }
+
+  .ms-tab.is-active::after{
+    content:"";
+    position:absolute;
+    left:0;
+    bottom:-17px;
+    height:3px;
+    width:100%;
+    background:#1D3BB3;
+    border-radius:3px;
+  }
+
+  .ms-tab:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+
+  .ms-tab:focus{ outline:none; }
+  .ms-tab:focus-visible{
+    outline:2px solid rgba(29,59,179,0.18);
+    outline-offset:4px;
+    border-radius:8px;
+  }
+    
+  /* REMOVE decorative lines */
   .ms-analyse-line:before,
-  .ms-analyse-line:after{ content:""; height:1px; background:rgba(17,24,39,0.18); flex:1 1 auto; max-width:220px; }
-  .ms-analyse-label{ font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:rgba(17,24,39,0.55); font-weight:500; }
-  .ms-analyse-meaning{ margin-top:10px; font-size:16px; font-style:italic; color:#111827; font-weight:500; min-height:1.2em; }
-
+  .ms-analyse-line:after{
+    content:none;
+    display:none;
+  }
+  
   /* --- Context tags --- */
   .ms-context-tags{ margin-top:14px; display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
   .ms-ctx-tag{
@@ -228,58 +488,181 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-ctx-ico{ width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
   
   /* --- Panels (Points clés / Alertes / Concurrence / Météo) --- */
+  
   .ms-panels{
     padding-top:12px;
+    padding-bottom:160px;
     display:flex;
     flex-direction:column;
     gap:16px;
   }
+  
   .ms-section{ width:100%; margin-top:0; }
 
   .ms-kicker{
     display:block;
-    font-size:12px;
-    font-weight:500;
-    letter-spacing:0.08em;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:0.10em;
     text-transform:uppercase;
-    color:rgba(17,24,39,0.45);
+    color:#1D3BB3;
     line-height:1.1;
-    margin:0 0 16px 0;
+    margin:0 0 20px 0;
   }
-  .ms-card{
-    background:#ffffff;
-    border:1px solid #eef2f7;
-    border-radius:22px;
-    padding:26px 26px;
-    font-size:14px;
-    line-height:1.55;
-    color:#111827;
-  }
-  .ms-head{ display:flex; gap:14px; align-items:center; }
 
+  .ms-card{
+    background:#FFFFFF;
+    border:1px solid #E8EDF5;
+    border-radius:14px;
+    padding:32px 24px;
+    font-size:15px;
+    line-height:1.8;
+    color:#1a1a2e;
+    margin:0 12px;
+    box-shadow:0 2px 12px rgba(17,24,39,0.06);
+  }
+
+  .ms-card-decision{
+    background:rgba(29,59,179,0.06);
+    border-left:6px solid #0b37e5;
+    border-radius:0;
+  }
+
+  .ms-card + .ms-card{
+    margin-top:32px;
+  }
+
+  .ms-section + .ms-section{
+    margin-top:40px;
+  }
+
+  .ms-head{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+  }
+  
   /* Points clés: icon aligns to top of multi-line content */
   .ms-section--sparkle .ms-head { align-items: flex-start; }
   .ms-section--sparkle .ms-ico { margin-top: 2px; }
 
   .ms-ico{
-    width:42px; height:42px;
-    border-radius:14px;
-    border:1px solid #f1f5f9;
-    background:#ffffff;
+    width:28px;
+    height:28px;
     display:flex;
     align-items:center;
     justify-content:center;
-    flex:0 0 auto;
+    background:transparent;
+    margin-right:14px;
   }
+  
   .ms-head-content{ flex:1; min-width:0; }
   /* Deterministic renderer output (new): preserve \n line breaks */
   .ms-takeaway.preline{ white-space: pre-line; }
-  .ms-below{ margin-left:56px; margin-top:14px; }
+  .ms-below{ margin-left:0; margin-top:14px; }
 
-  .ms-ul{ list-style:disc !important; padding-left:18px !important; margin:0 !important; }
-  .ms-ul li{ margin:8px 0 !important; }
+  .ms-ul{
+    padding-left:0;
+    margin:16px 0 0 0;
+    list-style:none;
+  }
+
+  .ms-ul li{
+    padding-left:0;
+    margin:0 0 12px 0;
+    font-size:15px;
+    line-height:1.7;
+    color:#374151;
+  }
+
+  .ms-ul li::before{
+    content:none;
+  }
+
+  .ms-ul li strong, .ms-ul li b{
+    color:#111827;
+    font-weight:600;
+  }
+
   .ms-muted{ color:#6b7280; font-size:14px; }
   .ms-caveat{ margin-top:12px; color:#6b7280; font-size:12.5px; line-height:1.4; font-style:italic; }
+
+  /* -------------------------
+   SECTION HEADER ALIGNMENT
+   ------------------------- */
+
+  /* Keep header row top-aligned */
+  .ms-head{
+    align-items: flex-start;
+  }
+
+  /* Remove double spacing: gap already exists on .ms-head */
+  .ms-ico{
+    margin-right: 0;              /* IMPORTANT: you currently add +14px on top of gap */
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin-top: 2px;              /* small optical alignment */
+  }
+
+  /* Make SVG not participate in baseline quirks */
+  .ms-ico svg{
+    display: block;
+  }
+
+  /* Title + subtitle stack cleanly */
+  .ms-head-content{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  /* Make title tighter so subtitle reads as subtitle */
+  .ms-kicker{
+    margin: 0 0 6px 0;            /* was 0 0 20px 0 */
+  }
+
+  /* Subtitle styling: same left edge as title, quick scan */
+  .ms-takeaway{
+    margin: 0;
+    color: #111827;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  /* Details block spacing */
+  .ms-below{
+    margin-top: 16px;
+  }
+
+
+  /* -------------------------
+    LIST READABILITY + CLAMP
+    ------------------------- */
+
+  .ms-ul{
+    margin-top: 12px;
+  }
+
+  .ms-ul li{
+    margin: 0 0 14px 0;
+    line-height: 1.6;
+  }
+
+  /* Make event titles scanable (prevents “dump” feel) */
+  .ms-ul li strong,
+  .ms-ul li b{
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* Clamp long muted descriptions (your event desc uses <div class="ms-muted">...) */
+  .ms-ul li .ms-muted{
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;        /* tweak: 2..4 */
+    overflow: hidden;
+  }
 
   /* --- Selected dates pills bar --- */
   .ms-pills-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
@@ -292,7 +675,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
     color:#111827;
     cursor:pointer;
   }
-  .ms-pill.is-active{ outline:2px solid #111827; }
+  .ms-pill.is-active{ outline:2px solid var(--color-brand-blue); }
+
   .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
   
   /* ---------- Saved panel + pills (already used by your markup) ---------- */
@@ -306,7 +690,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
     color:#111827;
     cursor:pointer;
   }
-  .ms-pill.is-active{ outline:2px solid #111827; }
+  .ms-pill.is-active{ outline:2px solid var(--color-brand-blue); }
   .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
 
   /* ---------- Saved list (template-like rows) ---------- */
@@ -460,6 +844,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           <!-- Focused day container -->
           <div id="day-content" data-location-id={location_id} class="min-h-[120px]">
+            <!-- Selected days tabs live OUTSIDE dynamic innerHTML (so renderPills can always find it) -->
+            <div id="ms-selected-dates-bar" style="margin-bottom:12px;"></div>
+
             <div class="text-gray-400 text-sm">Chargement…</div>
           </div>
         </div>
@@ -520,7 +907,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
       </div>
     </div>
 
-  <div style="height:120px;"></div>
+  <div style="height:4px;"></div>
 
     <InsightBottomBar active="days" showActions={show_actions} />
 
@@ -536,13 +923,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
         const selectedDatesRaw = params.get("selected_dates") || "";
         let selectedDate = (params.get("selected_date") || "").trim();
+        selectedDate = normalizeYmd(selectedDate);
 
         const selectedDates = selectedDatesRaw
           .split(",")
-          .map(s => s.trim())
+          .map(s => normalizeYmd(s))
           .filter(Boolean)
           .slice(0, 7);
-
+        
         const savedItemId = (params.get("saved_item_id") || "").trim();
 
         // Canonicalize selected_date if missing but we do have selected_dates
@@ -553,7 +941,11 @@ const show_actions = has_selected_dates || has_saved_item_id;
         }
 
         function getPillsContainer() {
-          // created by renderFocusedDay() via innerHTML
+          // Prefer the in-render location (below breakdown)
+          const inside = container ? container.querySelector("#ms-day-tabs") : null;
+          if (inside) return inside;
+
+          // Fallback (older layout)
           return document.getElementById("ms-selected-dates-bar");
         }
 
@@ -823,6 +1215,37 @@ const show_actions = has_selected_dates || has_saved_item_id;
           return dt;
         }
 
+        function isoWeekNumber(dateUtc) {
+          // dateUtc is a Date built in UTC; compute ISO week in UTC to avoid TZ drift.
+          const d = new Date(Date.UTC(dateUtc.getUTCFullYear(), dateUtc.getUTCMonth(), dateUtc.getUTCDate()));
+          // Thursday in current week decides the year.
+          const day = d.getUTCDay() || 7;
+          d.setUTCDate(d.getUTCDate() + 4 - day);
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+          return weekNo;
+        }
+
+        function buildMetaForDate(ymd) {
+          const d = parseYmdToDate(ymd);
+          if (!d) {
+            return { monthYear: "", weekLabel: "", dow3: "", dayNum2: "", isWeekend: null };
+          }
+
+          const dow3 = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"][((d.getUTCDay() + 6) % 7)];
+          const dayNum2 = String(d.getUTCDate()).padStart(2, "0");
+
+          const monthYearRaw = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+          const monthYear = monthYearRaw ? monthYearRaw.charAt(0).toUpperCase() + monthYearRaw.slice(1) : "";
+
+          const week = isoWeekNumber(d);
+          const weekLabel = `SEMAINE ${week}`;
+
+          const isWeekend = (d.getUTCDay() === 0) || (d.getUTCDay() === 6);
+
+          return { monthYear, weekLabel, dow3, dayNum2, isWeekend };
+        }
+
         function renderSavedPanel(items) {
           const savedPanel = getSavedPanel();
           if (!savedPanel) return;
@@ -1065,6 +1488,52 @@ const show_actions = has_selected_dates || has_saved_item_id;
             .replace(/'/g, "&#039;");
         }
 
+        function sectionHex(title, icon, takeawayHtml, bodyHtml) {
+          return `
+            <div class="ms-section">
+              <div class="ms-card">
+                <div class="ms-head">
+                  <div class="ms-ico">
+                    ${sectionIconSVG(icon)}
+                  </div>
+                  <div class="ms-head-content">
+                    <div class="ms-kicker">${escapeHtml(title)}</div>
+                    ${takeawayHtml || ""}
+                  </div>
+                </div>
+
+                ${bodyHtml ? `<div class="ms-below">${bodyHtml}</div>` : ""}
+              </div>
+            </div>
+          `;
+        }
+
+        function sectionIconSVG(kind) {
+          const icons = {
+            alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
+              <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/>
+            </svg>`,
+            calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/>
+              <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/>
+            </svg>`,
+            sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/>
+              <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2"
+                    stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>`,
+            sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z"
+                    stroke="#1D3BB3" stroke-width="1.6"/>
+            </svg>`
+          };
+
+          return icons[kind] || "";
+        }
+
         function renderModalDateChipsCreate(arr) {
           if (!modalDates) return;
           const dates = Array.isArray(arr) ? arr.map(normalizeYmd).filter(Boolean) : [];
@@ -1110,15 +1579,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
               renderModalDateChipsEdit();
             });
           });
-        }
-
-        function escapeHtml(v) {
-          return String(v ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
         }
 
         function renderModalDateChips(datesArr) {
@@ -1198,18 +1658,22 @@ const show_actions = has_selected_dates || has_saved_item_id;
           }
 
           pillsContainer.innerHTML = `
-            <div class="ms-pills-row" role="list">
-              ${selectedDates
-                .map((d) => {
+            <div class="ms-tabs" role="tablist" aria-label="Jours sélectionnés">
+              ${selectedDates.map((d0) => {
+                  const d = normalizeYmd(d0);
                   const isActive = d === selectedDate;
                   const hasData = dayRowsByDate && dayRowsByDate.has(d);
+                  const meta = buildMetaForDate(d);
+                  const label = meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d;
+
                   return `
                     <button type="button"
-                      class="ms-pill ${isActive ? "is-active" : ""}"
+                      class="ms-tab ${isActive ? "is-active" : ""}"
                       data-date="${escapeHtml(d)}"
                       ${hasData ? "" : "disabled"}
-                      aria-pressed="${isActive ? "true" : "false"}">
-                      ${escapeHtml(d)}
+                      role="tab"
+                      aria-selected="${isActive ? "true" : "false"}">
+                      ${escapeHtml(label)}
                     </button>
                   `;
                 })
@@ -1226,8 +1690,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
               params.set("selected_date", d);
               window.history.replaceState({}, "", "?" + params.toString());
 
-              renderPills(dayRowsByDate);
               renderFocusedDay(dayRowsByDate, MS.pointsCles);
+              // renderPills called AFTER so tabs re-inject into the fresh DOM
+              setTimeout(() => renderPills(dayRowsByDate), 0);
             });
           });
         }
@@ -1383,493 +1848,470 @@ const show_actions = has_selected_dates || has_saved_item_id;
             return tags.slice(0, 3);
           })();
 
-          // ------------------------------
-          // Carousel model: 3 slots (prev / active / next) in ONE row
-          // ------------------------------
-          const dates = Array.isArray(selectedDates) ? selectedDates.slice() : [];
-          const n = dates.length;
-
-          const clampIdx = (i) => Math.max(0, Math.min(n - 1, i));
-          const modIdx = (i) => ((i % n) + n) % n;
-
-          let activeIdx = Math.max(0, dates.indexOf(selectedDate));
-          if (activeIdx === -1) activeIdx = 0;
-
-          const leftIdx = n >= 3 ? modIdx(activeIdx - 1) : (n === 2 ? (activeIdx === 0 ? null : 0) : null);
-          const rightIdx = n >= 3 ? modIdx(activeIdx + 1) : (n === 2 ? (activeIdx === 0 ? 1 : null) : null);
-
-          const cardHTML = (dateStr, kind) => {
-            if (!dateStr) return `<div class="ms-c-ghost" aria-hidden="true"></div>`;
-            const r = dayRowsByDate.get(dateStr);
-            const m = buildMetaForDate(dateStr);
-
-            const marker = r?.opportunity_medal ?? "";
-            const scoreInt =
-              typeof r?.opportunity_score_final_local === "number"
-                ? Math.round(r.opportunity_score_final_local)
-                : null;
-
-            const cls = kind === "active" ? "ms-c-card active" : "ms-c-card preview";
-            const onclick = kind === "active" ? "" : ` data-date="${escapeHtml(dateStr)}"`;
-
-            return `
-              <div class="${cls}"${onclick} role="button" tabindex="0" aria-label="${escapeHtml(dateStr)}">
-                <div class="ms-c-dow">${escapeHtml(m.dow3)}</div>
-                <div class="ms-c-daynum">${escapeHtml(m.dayNum2)}</div>
-                <div class="ms-c-marker">${escapeHtml(marker)}</div>
-                <div class="ms-c-pill"><span class="ms-chip">OPPORTUNITÉ</span></div>
-                <div class="ms-c-score">
-                  <span>${scoreInt != null ? escapeHtml(scoreInt) : ""}</span><span class="muted">${scoreInt != null ? "/100" : ""}</span>
-                </div>
-              </div>
-            `;
-          };
 
           // ------------------------------
           // Sections (single column; fixed order)
           // ------------------------------
-          const pointsClesHtml = renderPointsClesHexLike(pointsCles);
+          const pointsClesHtml = renderPointsClesHexLike(row.points_cles ?? null);
           const alertesHtml = renderAlertesHexLike(row);
           const concurrenceHtml = renderConcurrenceHexLike(row);
           const meteoHtml = renderMeteoHexLike(row);
 
           container.innerHTML = `
+
+            <!-- ZONE A (WHITE - constrained width) -->
             <div class="ms-days-wrap">
-              <div id="ms-selected-dates-bar" style="margin-bottom:12px;"></div>
-              <div class="ms-top-wrap">
-                <div class="ms-top-month">${escapeHtml(meta.monthYear)}</div>
-                <div class="ms-top-week">${escapeHtml(meta.weekLabel)}</div>
+
+              <div class="ms-days-top">
+                ${renderHeroScore(row, meta, ctxTags)}
+                <div style="height:1px;background:#E5E7EB;margin:20px 0;"></div>
+                ${renderScoreBreakdownBars(row)}
               </div>
 
-              <div class="ms-carousel-viewport">
-                <div class="ms-carousel-strip" id="ms-carousel-strip">
-                  <div class="ms-slot left"  id="ms-slot-left">${cardHTML(leftIdx != null ? dates[leftIdx] : null, "preview")}</div>
-                  <div class="ms-slot mid"   id="ms-slot-mid">${cardHTML(dates[activeIdx], "active")}</div>
-                  <div class="ms-slot right" id="ms-slot-right">${cardHTML(rightIdx != null ? dates[rightIdx] : null, "preview")}</div>
+            </div>
+
+            <div class="ms-days-nav">
+              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
+                <div id="ms-day-tabs"></div>
+              </div>
+            </div>
+
+            <!-- ZONE B (GREY - constrained to match breakdown width) -->
+            
+            <div class="ms-days-wrap" style="padding-top:0;border-top:none;overflow:visible;">
+              <div class="ms-grey-zone">
+                <div class="ms-days-bottom">
+                  <div class="ms-panels">
+                    ${pointsClesHtml}
+                    ${alertesHtml}
+                    ${concurrenceHtml}
+                    ${meteoHtml}
+                  </div>
                 </div>
-              </div>
-
-              <div class="ms-analyse-wrap">
-                <div class="ms-analyse-line"><div class="ms-analyse-label">ANALYSE DU JOUR</div></div>
-                <div class="ms-analyse-meaning">${escapeHtml(meaningText)}</div>
-                <div class="ms-context-tags ${ctxTags.length === 3 ? "ms-ctx--3" : ""}">
-                  ${ctxTags.map((t) => `
-                    <div class="ms-ctx-tag">
-                      <span class="ms-ctx-ico">${ctxIconSVG(t.kind)}</span>
-                      <span>${escapeHtml(t.label)}</span>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <div class="ms-panels">
-                ${pointsClesHtml}
-                ${alertesHtml}
-                ${concurrenceHtml}
-                ${meteoHtml}
               </div>
             </div>
           `;
 
-          // Wire carousel preview clicks → animate axis rotation first, then rerender
-          function rotateCarousel(dir) {
-            const stripEl = container.querySelector("#ms-carousel-strip");
-            const slotLeftEl = container.querySelector("#ms-slot-left");
-            const slotMidEl = container.querySelector("#ms-slot-mid");
-            const slotRightEl = container.querySelector("#ms-slot-right");
-
-            if (!stripEl || !slotLeftEl || !slotMidEl || !slotRightEl) return;
-            if (MS.carouselAnimating) return;
-
-            const nextDate = dir === "left" ? getSlotDate(slotLeftEl) : getSlotDate(slotRightEl);
-            if (!nextDate || nextDate === selectedDate) return;
-
-            MS.carouselAnimating = true;
-            stripEl.classList.add("is-animating");
-
-            // Swap slot classes to trigger CSS transition (parallel “flow”)
-            if (dir === "left") {
-              slotLeftEl.classList.remove("left"); slotLeftEl.classList.add("mid");
-              slotMidEl.classList.remove("mid"); slotMidEl.classList.add("right");
-              slotRightEl.classList.remove("right"); slotRightEl.classList.add("left");
-            } else {
-              slotRightEl.classList.remove("right"); slotRightEl.classList.add("mid");
-              slotMidEl.classList.remove("mid"); slotMidEl.classList.add("left");
-              slotLeftEl.classList.remove("left"); slotLeftEl.classList.add("right");
-            }
-
-            const done = () => {
-              stripEl.classList.remove("is-animating");
-              MS.carouselAnimating = false;
-
-              selectedDate = nextDate;
-              params.set("selected_date", nextDate);
-              window.history.replaceState({}, "", "?" + params.toString());
-
-              renderPills(dayRowsByDate);
-              renderFocusedDay(dayRowsByDate, MS.pointsCles);
-            };
-
-            // More reliable: listen on the MID slot (it always transitions)
-            slotMidEl.addEventListener("transitionend", done, { once: true });
-          }
-
-          // Stable binding: delegate from container (container persists; innerHTML changes)
-          container.onclick = (e) => {
-            const card = e?.target?.closest?.(".ms-carousel-strip .ms-c-card.preview[data-date]");
-            if (!card) return;
-
-            const slot = card.closest(".ms-slot");
-            if (!slot) return;
-
-            if (slot.classList.contains("left")) rotateCarousel("left");
-            else if (slot.classList.contains("right")) rotateCarousel("right");
-          };
-
-          container.onkeydown = (e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-
-            const card = e?.target?.closest?.(".ms-carousel-strip .ms-c-card.preview[data-date]");
-            if (!card) return;
-
-            const slot = card.closest(".ms-slot");
-            if (!slot) return;
-
-            e.preventDefault();
-
-            if (slot.classList.contains("left")) rotateCarousel("left");
-            else if (slot.classList.contains("right")) rotateCarousel("right");
-          };
-
           // ------------------------------
           // Local helpers (pure UI; no semantic changes)
           // ------------------------------
-          function renderPointsClesHexLike(pc) {
-            const txt = pc?.text ? String(pc.text) : "";
-            if (!txt.trim()) {
-              return sectionHex("Points clés", "sparkle", `<div class="ms-muted">Points clés indisponibles.</div>`, "");
-            }
-
-            // IMPORTANT: preserve line breaks from deterministic renderer
-            const body = `
-              <div class="ms-takeaway" style="white-space:pre-line;">${escapeHtml(txt)}</div>
-            `;
-
-            return sectionHex("Points clés", "sparkle", body, "");
+          // ✅ Remove all carousel/ms-c-* markup when we switched to viz+tabs
+          function stripCarouselMarkup(rootEl) {
+            if (!rootEl) return;
+            const nuke = rootEl.querySelectorAll(
+              ".ms-carousel-viewport, .ms-carousel-strip, .ms-slot, .ms-c-card, [id^='ms-slot-'], #ms-carousel-strip"
+            );
+            nuke.forEach((el) => el.remove());
           }
 
-          function renderAlertesHexLike(r) {
-            const major = r.is_major_realization_risk_flag === true;
-            const driver = r.major_realization_risk_driver ? String(r.major_realization_risk_driver) : "";
-            const lvl = typeof r.alert_level_max === "number" ? Math.round(r.alert_level_max) : null;
+          function renderScoreBreakdownBars(r) {
+            const clamp01 = (x) => Math.max(0, Math.min(100, x));
 
-            const wxLabel = (l) => {
-              if (l == null || l <= 0) return null;
-              return { 1: "niveau 1 (surveillance)", 2: "niveau 2 (attention)", 3: "niveau 3 (alerte)", 4: "niveau 4 (alerte forte)" }[l] || `niveau ${l}`;
+            const norm100 = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? clamp01(Math.round(n)) : null;
             };
 
-            const wx = wxLabel(lvl);
-            const takeaway = major
-              ? (driver ? `Point de vigilance : ${driver}.` : "Point de vigilance : un risque majeur est signalé.")
-              : `Aucune alerte majeure. Mobilité : non disponible. ${wx ? `Météo : ${wx}.` : "Météo : aucune alerte."}`;
+            // Use your component scores (0..100) — NOT deltas.
+            const rows = [
+              { kind: "competition", label: "CONCURRENCE", val: norm100(r?.events_score) },
+              { kind: "weather",     label: "MÉTÉO",       val: norm100(r?.weather_score) },
+              { kind: "mobility",    label: "MOBILITÉ",    val: norm100(r?.mobility_score) },
+              { kind: "calendar",    label: "CALENDRIER",  val: norm100(r?.calendar_score) },
+            ];
 
-            const bullets = [
-              major
-                ? (driver ? `Point de vigilance : ${driver}.` : "Point de vigilance : un risque majeur est signalé.")
-                : null,
-              "Alertes mobilité (train/métro) : non disponibles pour l’instant.",
-              wx ? `Alerte météo : ${wx}.` : "Pas d’alerte météo à signaler.",
-            ].filter(Boolean);
-
-            return sectionHex(
-              "Alertes",
-              "alert",
-              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
-              `<ul class="ms-ul">${bullets.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
+            const maxVal = Math.max(
+              ...rows
+                .filter(r => r.val !== null)
+                .map(r => r.val)
             );
+            
+            return `
+              <div class="ms-breakdown">
+                ${rows.map(x => {
+                  const v = (x.val === null ? null : x.val);
+                  const w = (v === null ? 0 : v);
+                  return `
+                    <div class="ms-breakdown-item ${v === maxVal ? 'is-active' : ''}">
+
+                      <div class="ms-breakdown-top">
+                        <div class="ms-breakdown-left">
+                          <div class="ms-breakdown-ico">
+                            <img src="/icons/days/icon_days_${x.kind}.png" alt="" />
+                          </div>
+                          <div class="ms-breakdown-label">
+                            ${escapeHtml(x.label)}
+                          </div>
+                        </div>
+
+                        <div class="ms-breakdown-value">
+                          ${v === null ? "—" : `${v}<span class="muted">/100</span>`}
+                        </div>
+                      </div>
+
+                      <div class="ms-breakdown-bar">
+                        <div class="ms-breakdown-fill" style="width:${w}%;"></div>
+                      </div>
+
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            `;
           }
 
-          function renderConcurrenceHexLike(r) {
-            const all =
-              (Array.isArray(r?.top_events_500m) && r.top_events_500m.length ? r.top_events_500m :
-              Array.isArray(r?.top_events_5km)  && r.top_events_5km.length  ? r.top_events_5km  :
-              Array.isArray(r?.top_events_10km) && r.top_events_10km.length ? r.top_events_10km :
-              Array.isArray(r?.top_events_50km) ? r.top_events_50km : []);
+          function breakdownIconSVG(kind) {
+            // minimal inline SVGs, no deps
+            if (kind === "competition") {
+              return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M8 21v-7M12 21V3M16 21v-11" stroke="#111827" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>`;
+            }
+            if (kind === "weather") {
+              return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>`;
+            }
+            if (kind === "mobility") {
+              return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 16h10l1-6H6l1 6z" stroke="#111827" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M7 16l-1 4M17 16l1 4" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M9 10V7a3 3 0 0 1 6 0v3" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>`;
+            }
+            // calendar
+            return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M7 2v3M17 2v3" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z" stroke="#111827" stroke-width="1.6"/>
+              <path d="M4 11h16" stroke="#111827" stroke-width="1.6"/>
+            </svg>`;
+          }
 
-            const total50 = Number(r?.events_within_50km_count ?? 0);
+          function renderHeroScore(r, meta, ctxTags) {
+            const score = Number(r?.opportunity_score_final_local);
+            const safeScore = Number.isFinite(score) ? Math.round(score) : null;
 
-            if (all.length === 0 && total50 === 0) {
+            const delta = Number(r?.opportunity_score_vs_last_week);
+            const safeDelta = Number.isFinite(delta) ? Math.round(delta) : null;
+
+            let deltaClass = '';
+            let formattedDelta = delta;
+
+            if (safeDelta === null) {
+              deltaClass = 'is-neutral';
+              formattedDelta = '—';
+            } else if (safeDelta > 0) {
+              deltaClass = 'is-positive';
+              formattedDelta = `+${safeDelta} pts`;
+            } else if (safeDelta < 0) {
+              deltaClass = 'is-negative';
+              formattedDelta = `${safeDelta} pts`;
+            } else {
+              deltaClass = 'is-neutral';
+              formattedDelta = `${safeDelta} pts`;
+            }
+
+            const comp = Number.isFinite(Number(r?.delta_att_events_pct))
+              ? Math.round(Number(r.delta_att_events_pct))
+              : null;
+
+            const weather = Number.isFinite(Number(r?.delta_att_weather_total_pct))
+              ? Math.round(Number(r.delta_att_weather_total_pct))
+              : null;
+
+            const calendar = Number.isFinite(Number(r?.delta_att_calendar_pct))
+              ? Math.round(Number(r.delta_att_calendar_pct))
+              : null;
+
+            const mobility = Number.isFinite(Number(r?.delta_att_mobility_pct))
+              ? Math.round(Number(r.delta_att_mobility_pct))
+              : null;
+
+            const fullDate = new Intl.DateTimeFormat("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric"
+            }).format(parseYmdToDate(selectedDate));
+
+            const capitalizedDate = fullDate.charAt(0).toUpperCase() + fullDate.slice(1);
+
+            return `
+              <div class="ms-hero">
+                <div class="ms-hero-date">${escapeHtml(capitalizedDate)}</div>
+
+                ${Array.isArray(ctxTags) && ctxTags.length ? `
+                  <div class="ms-keywords">
+                    ${ctxTags.map((t) => `
+                      <span class="ms-keyword">
+                        <span class="ms-ctx-ico">${ctxIconSVG(t.kind)}</span>
+                        <span>${escapeHtml(t.label)}</span>
+                      </span>
+                    `).join("")}
+                  </div>
+                ` : ``}
+                </div>
+
+                <div class="ms-hero-grid">
+                  <div class="ms-hero-score-block">
+                    <div class="ms-hero-label">
+                      SCORE D’OPPORTUNITÉ
+                    </div>
+
+                    <div class="ms-hero-score">
+                      <span class="ms-score-main">${safeScore === null ? "—" : String(safeScore)}</span>
+                      <span class="ms-score-max">/100</span>
+                    </div>
+                  </div>
+
+                  <div class="ms-hero-delta">
+                    <div class="ms-delta-pill ${deltaClass}">
+                      ${formattedDelta}
+                    </div>
+                    <div class="ms-delta-sub">
+                      VS SEMAINE DERNIÈRE
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          function renderTopViz(r) {
+            const score = Number(r?.opportunity_score_final_local);
+            const safeScore = Number.isFinite(score) ? Math.round(score) : null;
+
+            const norm = (v) => {
+              const n = Number(v);
+              return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
+            };
+
+            const rows = [
+              { label: "Concurrence", val: norm(r?.events_score) },
+              { label: "Météo",       val: norm(r?.weather_score) },
+              { label: "Calendrier",  val: norm(r?.calendar_score) },
+              { label: "Mobilité",    val: norm(r?.mobility_score) },
+            ];
+            
+            return `
+              <div class="ms-viz-wrap">
+                <div class="ms-viz-card">
+                  <div class="ms-viz-title">
+                    ${safeScore !== null ? `Score global : ${safeScore}/100` : "Score global indisponible"}
+                  </div>
+                  <div class="ms-viz-rows">
+                    ${rows.map(x => `
+                      <div class="ms-viz-row">
+                        <div class="ms-viz-label">${escapeHtml(x.label)}</div>
+                        <div class="ms-viz-bar">
+                          <div class="ms-viz-fill" style="width:${x.val}%"></div>
+                        </div>
+                        <div class="ms-viz-score">
+                          ${x.val}<span class="muted">/100</span>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          function renderPointsClesHexLike(pc) {
+            const txt = pc?.text ? String(pc.text) : "";
+
+            if (!txt.trim()) {
               return sectionHex(
-                "Concurrence événementielle",
-                "calendar",
-                `<div class="ms-takeaway">Aucune concurrence significative détectée.</div>`,
+                "SYNTHÈSE DÉCISIONNELLE",
+                "sparkle",
+                `<div class="ms-muted">Synthèse décisionnelle indisponible.</div>`,
                 ""
               );
             }
 
-            // ---- context: client industry (trusted semantic field) ----
-            const clientIndustry =
-              MS?.pointsCles?.location_context?.client_industry_code || null;
+            const body = `
+              <div class="ms-takeaway" style="white-space:pre-line;">
+                ${escapeHtml(txt)}
+              </div>
+            `;
 
-            // ---- helpers ----
-            const fmtDistance = (m) => {
-              const v = Number(m);
-              if (!Number.isFinite(v)) return "";
-              if (v < 1000) return `${Math.round(v)} m`;
-              return `${(v / 1000).toFixed(1)} km`;
-            };
+            return `
+              <div class="ms-card ms-card-decision">
+                <div class="ms-kicker" style="display:flex;align-items:center;gap:8px;">
+                  ${sectionIconSVG("sparkle")}
+                  SYNTHÈSE DÉCISIONNELLE
+                </div>
+                ${body}
+              </div>
+            `;
+          }
 
-            const shortText = (s, max = 120) => {
-              const t = String(s || "").replace(/\s+/g, " ").trim();
-              if (!t) return "";
-              return t.length > max ? t.slice(0, max).trim() + "…" : t;
-            };
+          function renderAlertesHexLike(r) {
 
-            // City / place label:
-            // - prefer explicit name fields if present
-            // - never display pure numeric codes (ex: "9")
-            // - if cities_with_events is numeric, ignore it
-            const cityLabel = (e) => {
-              const pickFirstText = (arr) =>
-                (Array.isArray(arr) ? arr : [])
-                  .map((x) => String(x ?? "").trim())
-                  .find((x) => x && !/^\d+$/.test(x)) || "";
+            const summary = r?.interpretation?.mobility || "Situation stable, rien à signaler.";
 
-              // 1) explicit human-readable fields (most reliable)
-              const direct =
-                String(e?.city_name ?? "").trim() ||
-                String(e?.city ?? "").trim() ||
-                String(e?.commune_name ?? "").trim() ||
-                String(e?.location_city ?? "").trim() ||
-                String(e?.venue_city ?? "").trim();
+            const lvlMax = Number(r?.alert_level_max ?? 0);
+            const wind = Number(r?.lvl_wind ?? 0);
+            const rain = Number(r?.lvl_rain ?? 0);
+            const snow = Number(r?.lvl_snow ?? 0);
+            const heat = Number(r?.lvl_heat ?? 0);
+            const cold = Number(r?.lvl_cold ?? 0);
+            const driver = r?.major_realization_risk_driver || "";
 
-              if (direct && !/^\d+$/.test(direct)) return direct;
+            const alerts = [];
 
-              // 2) cities_with_events (but it might be ids/codes)
-              const raw = e?.cities_with_events;
+            if (wind > 0) alerts.push(`Alerte vent (niveau ${wind})`);
+            if (rain > 0) alerts.push(`Alerte pluie (niveau ${rain})`);
+            if (snow > 0) alerts.push(`Alerte neige (niveau ${snow})`);
+            if (heat > 0) alerts.push(`Alerte chaleur (niveau ${heat})`);
+            if (cold > 0) alerts.push(`Alerte froid (niveau ${cold})`);
 
-              // array -> take first non-numeric token
-              if (Array.isArray(raw)) {
-                return pickFirstText(raw);
-              }
+            if (driver) alerts.push(driver);
 
-              // string -> split, take first non-numeric token
-              const s = String(raw ?? "").trim();
-              if (!s) return "";
+            const body =
+              alerts.length === 0
+                ? `<div class="ms-muted">Situation stable, rien à signaler.</div>`
+                : `<ul class="ms-ul">${alerts.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
 
-              const token =
-                s
-                  .split(/[,;|]/)
-                  .map((x) => x.trim())
-                  .find((x) => x && !/^\d+$/.test(x)) || "";
-
-              return token;
-            };
-
-            // ---- 1) same-industry first ----
-            let picked = all.filter(
-              (e) => clientIndustry && e?.industry_code === clientIndustry
+            return sectionHex(
+              "Alertes",
+              "alert",
+              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
+              body
             );
+          }
 
-            // ---- 2) fallback: priority_rank (national > regional > local) ----
-            if (picked.length === 0) {
-              picked = [...all].sort((a, b) => {
-                const pa = Number(a?.keyword_priority_rank ?? 0);
-                const pb = Number(b?.keyword_priority_rank ?? 0);
-                if (pb !== pa) return pb - pa;
+          function firstSentence(s){
+            const v = String(s || "").trim().replace(/\s+/g," ");
+            if(!v) return "";
+            const i = v.search(/[.!?]/);
+            return i > -1 ? v.slice(0,i+1) : v;
+          }
 
-                const ra = Number(a?.radius_precedence ?? 9);
-                const rb = Number(b?.radius_precedence ?? 9);
-                if (ra !== rb) return ra - rb;
+          function truncateLine(s,max=120){
+            const v = String(s || "").trim().replace(/\s+/g," ");
+            if(!v) return "";
+            if(v.length<=max) return v;
+            return v.slice(0,max-1).trimEnd()+"…";
+          }
 
-                return Number(a?.distance_m ?? 0) - Number(b?.distance_m ?? 0);
-              });
+          function renderConcurrenceHexLike(r) {
+
+            const summary = r?.interpretation?.events || "";
+
+            const shown = Array.isArray(r?.top_competition_events)
+              ? r.top_competition_events
+              : [];
+
+            if (!shown.length) {
+              return sectionHex(
+                "Concurrence événementielle",
+                "calendar",
+                `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
+                `<div class="ms-muted">Aucun événement concurrent détecté.</div>`
+              );
             }
-
-            // ---- 3) enforce limits (max 3, min 1) ----
-            const shown = picked.slice(0, 3);
-            if (shown.length === 0 && all.length > 0) {
-              shown.push(all[0]);
-            }
-
-            // ---- rendering ----
-            const takeaway =
-              shown.length > 1
-                ? "Concurrence événementielle active à proximité."
-                : "Concurrence événementielle détectée.";
 
             const list = `
               <ul class="ms-ul">
-                ${shown
-                  .map((e) => {
-                    const title = e?.event_label || "Événement";
-                    const dist = fmtDistance(e?.distance_m);
-                    const city = cityLabel(e);
-                    const desc = shortText(
-                      e?.description ||
-                      e?.longDescription ||
-                      e?.summary ||
-                      e?.subtitle ||
-                      e?.program ||
-                      e?.keywords,
-                      120
-                    );
+                ${shown.map(e => {
 
-                    const industryBadge =
-                      clientIndustry && e?.industry_code === clientIndustry
-                        ? `<span class="ms-muted">· même secteur</span>`
-                        : "";
+                  const title = e?.event_label || "Événement";
+                  const city = e?.city_name || "";
+                  const km = e?.distance_m ? (e.distance_m/1000).toFixed(1) : "";
+                  const desc = e?.one_liner || "";
+                  
+                  const where =
+                    city && km ? `${city} — ${km} km`
+                    : city ? city
+                    : km ? `${km} km`
+                    : "";
 
-                    const where =
-                      (city && dist) ? `${city} — ${dist}` :
-                      (city) ? city :
-                      (dist) ? dist :
-                      "";
-
-                    return `
-                      <li>
-                        <span>${escapeHtml(title)}</span>
-                        ${where ? ` <span class="ms-muted">— ${escapeHtml(where)}</span>` : ""}
-                        ${industryBadge}
-                        ${desc ? `<div class="ms-muted">${escapeHtml(desc)}</div>` : ""}
-                      </li>
-                    `;
-                  })
-                  .join("")}
+                  return `
+                    <li>
+                      <strong>${escapeHtml(title)}</strong>
+                      ${where ? `<span class="ms-muted"> — ${escapeHtml(where)}</span>` : ""}
+                      ${desc ? `<div class="ms-muted">${escapeHtml(desc)}</div>` : ""}
+                    </li>
+                  `;
+                }).join("")}
               </ul>
             `;
 
             return sectionHex(
               "Concurrence événementielle",
               "calendar",
-              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
+              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
               list
             );
           }
 
           function renderMeteoHexLike(r) {
-            const wx = r.weather_label_fr ? String(r.weather_label_fr) : "";
-            const tmin = r.temperature_2m_min != null ? Math.round(Number(r.temperature_2m_min)) : null;
-            const tmax = r.temperature_2m_max != null ? Math.round(Number(r.temperature_2m_max)) : null;
 
-            const pp = r.precipitation_probability_max_pct != null ? Math.round(Number(r.precipitation_probability_max_pct)) : null;
-            const wind = r.wind_speed_10m_max != null ? Math.round(Number(r.wind_speed_10m_max)) : null;
+            const summary = r?.interpretation?.weather || "";
 
-            const parts = [];
-            if (wx) parts.push(wx);
+            const tmin = r?.temperature_2m_min;
+            const tmax = r?.temperature_2m_max;
+            const rainProb = r?.precipitation_probability_max_pct;
+            const rainSum = r?.precipitation_sum_mm;
+            const wind = r?.wind_speed_10m_max;
+
+            const lines = [];
+
             if (tmin != null || tmax != null) {
-              if (tmin != null && tmax != null) parts.push(`${Math.min(tmin,tmax)}–${Math.max(tmin,tmax)}°C`);
-              else if (tmin != null) parts.push(`min ${tmin}°C`);
-              else parts.push(`max ${tmax}°C`);
+              lines.push(`Température : ${tmin ?? "?"}° – ${tmax ?? "?"}°`);
             }
-            if (pp != null) parts.push(`pluie ${pp}%`);
-            if (wind != null) parts.push(`vent ${wind} km/h`);
 
-            const takeaway = parts.length ? `Météo : ${parts.join(", ")}.` : "Météo : non disponible.";
+            if (rainProb != null) {
+              lines.push(`Précipitations : probabilité ${Math.round(rainProb)}%`);
+            }
 
-            const bullets = [];
-            if (wx) bullets.push(`Temps : ${wx}.`);
-            if (pp != null) bullets.push(`Pluie : ${pp}% (probabilité max).`);
-            if (wind != null) bullets.push(`Vent : ${wind} km/h (max).`);
-            if (tmin != null && tmax != null) bullets.push(`Température : ${Math.min(tmin,tmax)}°C à ${Math.max(tmin,tmax)}°C.`);
+            if (rainSum != null && rainSum > 0) {
+              lines.push(`Cumul pluie : ${rainSum.toFixed(1)} mm`);
+            }
+
+            if (wind != null) {
+              lines.push(`Vent : ${Math.round(wind)} km/h`);
+            }
+
+            const body =
+              lines.length
+                ? `<ul class="ms-ul">${lines.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
+                : "";
 
             return sectionHex(
               "Météo / Faisabilité",
               "sun",
-              `<div class="ms-takeaway">${escapeHtml(takeaway)}</div>`,
-              bullets.length ? `<ul class="ms-ul">${bullets.slice(0, 4).map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""
+              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
+              body
             );
           }
 
-          function sectionHex(title, iconKind, headHtml, belowHtml) {
-            const below = belowHtml && String(belowHtml).trim()
-              ? `<div class="ms-below">${belowHtml}</div>`
-              : "";
-
-            const kind = String(iconKind || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
-            const kindClass = kind ? ` ms-section--${kind}` : "";
-
-            return `
-              <div class="ms-section${kindClass}">
-                <div class="ms-kicker">${escapeHtml(title)}</div>
-                <div class="ms-card">
-                  <div class="ms-head">
-                    <div class="ms-ico">${sectionIconSVG(iconKind)}</div>
-                    <div class="ms-head-content">${headHtml}</div>
-                  </div>
-                  ${below}
-                </div>
-              </div>
-            `;
-          }
-
-          function buildMetaForDate(ymd) {
-            const d = parseYmdToDate(ymd);
-            if (!d) {
-              return { monthYear: "", weekLabel: "", dow3: "", dayNum2: "", isWeekend: null };
-            }
-
-            const dow3 = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"][((d.getDay() + 6) % 7)];
-            const dayNum2 = String(d.getDate()).padStart(2, "0");
-
-            const monthYearRaw = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
-            const monthYear = monthYearRaw ? monthYearRaw.charAt(0).toUpperCase() + monthYearRaw.slice(1) : "";
-
-            const week = isoWeekNumber(d);
-            const weekLabel = `SEMAINE ${week}`;
-
-            const isWeekend = ((d.getDay() === 0) || (d.getDay() === 6));
-
-            return { monthYear, weekLabel, dow3, dayNum2, isWeekend };
-          }
-
-          function parseYmdToDate(ymd) {
-            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "").trim());
-            if (!m) return null;
-            const y = Number(m[1]);
-            const mo = Number(m[2]);
-            const da = Number(m[3]);
-            const dt = new Date(Date.UTC(y, mo - 1, da));
-            if (Number.isNaN(dt.getTime())) return null;
-            return dt;
-          }
-
-          function isoWeekNumber(dateUtc) {
-            // dateUtc is a Date built in UTC; compute ISO week in UTC to avoid TZ drift.
-            const d = new Date(Date.UTC(dateUtc.getUTCFullYear(), dateUtc.getUTCMonth(), dateUtc.getUTCDate()));
-            // Thursday in current week decides the year.
-            const day = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - day);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-            return weekNo;
-          }
-
           function sectionIconSVG(kind) {
-            // Matches the Hex set (alert/info/calendar/sun/sparkle); no external deps.
             const icons = {
               alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 9v4" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M12 17h.01" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
-                <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
+                <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/>
               </svg>`,
               info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#111827" stroke-width="1.6"/>
-                <path d="M12 10v7" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M12 7h.01" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
+                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#1D3BB3" stroke-width="1.6"/>
+                <path d="M12 10v7" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 7h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
               </svg>`,
               calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M7 2v3M17 2v3" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M3.5 9h17" stroke="#111827" stroke-width="1.6"/>
-                <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/>
+                <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/>
               </svg>`,
               sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/>
                 <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
-                      stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+                      stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
               </svg>`,
               sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#111827" stroke-width="1.6"/>
+                <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/>
               </svg>`,
             };
             return icons[kind] || icons.info;
@@ -2095,7 +2537,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
             const byDate = new Map();
 
             for (const r of daysArr) {
-              const d = (r && r.date != null ? String(r.date) : "").trim();
+              const raw = (r && r.date != null ? String(r.date) : "").trim();
+              const d = normalizeYmd(raw);
               if (d) byDate.set(d, r);
             }
 
@@ -2110,8 +2553,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
               }
             }
 
-            renderPills(byDate);
             renderFocusedDay(byDate, MS.pointsCles);
+            renderPills(byDate);
+
           } catch (e) {
             if (container) {
               const msg =

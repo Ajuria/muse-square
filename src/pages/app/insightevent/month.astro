@@ -76,64 +76,12 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
           </div>
 
           <div id="ie-30d-takeaway-card" data-role="ie-30d-takeaway-card">
+            <div class="ie-30d-takeaway-kicker">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>
+              SYNTHÈSE DÉCISIONNELLE
+            </div>
             <p id="ie-30d-takeaway-text" data-role="ie-30d-takeaway-text"><!-- TAKEAWAY_ANCHOR --></p>
           </div>
-        </section>
-
-        <!-- =========================
-        RÉGLAGES AVANCÉS (v1) — Contraintes métier
-        Placement: directly under Top 3 cards (affects recommendations only)
-        ========================= -->
-        <section id="ie-30d-constraints" data-role="ie-30d-constraints" aria-label="Réglages avancés">
-          <details id="ie-constraints-details">
-            
-            <summary id="ie-constraints-summary" class="ie-section-header ie-filters-header">
-              <span class="ie-filters-icon" aria-hidden="true">⚙︎</span>
-              <span class="ie-section-title">Filtres</span>
-            </summary>
-
-
-            <div id="ie-constraints-body">
-              <div id="ie-constraints-row">
-                  <div class="ms-chip-grid" role="group" aria-label="Contraintes métier">
-                    <button type="button" class="ms-chip" data-checkbox="ie-filter-publicHoliday">
-                      <span class="ms-chip__check" aria-hidden="true"></span>
-                      <span class="ms-chip__label">Jours fériés</span>
-                    </button>
-
-                    <button type="button" class="ms-chip" data-checkbox="ie-filter-schoolHoliday">
-                      <span class="ms-chip__check" aria-hidden="true"></span>
-                      <span class="ms-chip__label">Vacances scolaires</span>
-                    </button>
-
-                    <button type="button" class="ms-chip" data-checkbox="ie-filter-promoDays">
-                      <span class="ms-chip__check" aria-hidden="true"></span>
-                      <span class="ms-chip__label">Jours promo</span>
-                    </button>
-
-                    <button type="button" class="ms-chip" data-checkbox="ie-filter-competition">
-                      <span class="ms-chip__check" aria-hidden="true"></span>
-                      <span class="ms-chip__label">Forte concurrence</span>
-                    </button>
-
-                    <button type="button" class="ms-chip" data-checkbox="ie-filter-badWeather">
-                      <span class="ms-chip__check" aria-hidden="true"></span>
-                      <span class="ms-chip__label">Fortes intempéries</span>
-                    </button>
-
-                    <!-- optional spacer so row 2 aligns perfectly under col 3 -->
-                    <span class="ms-chip-spacer" aria-hidden="true"></span>
-                  </div>
-
-                  <!-- hidden inputs: JS reads these by id -->
-                  <input id="ie-filter-publicHoliday" type="checkbox" hidden />
-                  <input id="ie-filter-schoolHoliday" type="checkbox" hidden />
-                  <input id="ie-filter-promoDays" type="checkbox" hidden />
-                  <input id="ie-filter-competition" type="checkbox" hidden />
-                  <input id="ie-filter-badWeather" type="checkbox" hidden />
-              </div>
-            </div>
-          </details>
         </section>
 
         <!-- =========================
@@ -156,6 +104,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             </button>
           </div>
         </section>
+
+        <div id="ie-30d-filter-empty"></div>
 
         <section id="ie-30d-calendar-section" data-role="ie-30d-calendar-section">
           <div id="ie-30d-calendar-header">
@@ -182,7 +132,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
                 </div>
               </div>
             </div>
-                      
+
             <div id="ie-30d-calendar" data-role="ie-30d-calendar">
               <div id="ie-30d-weekdays" data-role="ie-30d-weekdays">
                 <div class="ie-30d-weekday">Lun</div>
@@ -369,20 +319,37 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       #ie-30d-takeaway-title { display:flex; align-items:center; gap:8px; }
+      #ie-30d-takeaway-header { display: none; }
       #ie-30d-takeaway-card{
-        background: #f9fafb;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-sm);
-        padding: var(--card-padding-sm);
+        background: rgba(29,59,179,0.06);
+        border: 1px solid #E8EDF5;
+        border-left: 6px solid #0b37e5;
+        border-radius: 0;
+        padding: 32px 24px;
+      }
+      .ie-30d-takeaway-kicker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: #1D3BB3;
+        margin-bottom: 20px;
       }
 
-      #ie-30d-takeaway-text { 
-        margin: 0;
-        font-size: 14px;
-        line-height: 1.45;
-        opacity: 0.92;
-        white-space: pre-line; /* ← THIS IS THE FIX */
-      }
+      #ie-30d-takeaway-text { margin: 0; font-size: 14px; line-height: 1.45; opacity: 0.92; }
+      .sd-section { margin-bottom: 14px; }
+      .sd-section:last-child { margin-bottom: 0; }
+      .sd-section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(17,24,39,0.38); margin-bottom: 5px; }
+      .sd-top3-line { font-size: 13.5px; font-weight: 500; color: #111827; }
+      .sd-top3-sep { color: rgba(17,24,39,0.25); margin: 0 7px; }
+      .sd-items { display: flex; flex-direction: column; gap: 3px; }
+      .sd-item { display: grid; grid-template-columns: 90px 10px 1fr; gap: 0 6px; font-size: 13.5px; line-height: 1.45; align-items: baseline; }
+      .sd-date { font-weight: 600; color: #111827; white-space: nowrap; }
+      .sd-sep { color: rgba(17,24,39,0.25); text-align: center; }
+      .sd-label { color: rgba(17,24,39,0.72); }
 
       /* =============================
       Filter bar (4 buttons)
@@ -537,7 +504,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         gap: var(--space-md);
       }
 
-      /* Section titles: RÉGLAGES AVANCÉS, POINTS CLÉS, CALENDRIER */
+      /* Section titles: RÉGLAGES AVANCÉS, SYNTHÈSE DÉCISIONNELLE, CALENDRIER */
       .ms-section-title{
         font-family: var(--font-family);
         font-size: var(--font-size-label);           /* 12px */
@@ -784,6 +751,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       #ie-30d-grid > .ie-30d-day:nth-last-child(-n + 7){
         display: none !important;
       }
+      #ie-30d-grid > .ie-injected-label-row {
+        display: grid !important;
+      }
 
       #ie-30d-calendar-card{
         background: transparent;
@@ -817,6 +787,69 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
       .ie-spillover {
         opacity: 0.22;
+      }
+
+      /* ---- Spanning label bars ---- */
+
+      /* ---- Filter empty state ---- */
+      #ie-30d-filter-empty {
+        font-size: var(--ie-kicker-size);
+        font-weight: var(--ie-kicker-weight);
+        letter-spacing: var(--ie-kicker-tracking);
+        text-transform: uppercase;
+        color: var(--ie-kicker-color);
+        opacity: 0.75;
+        margin: -8px 0 12px;
+        display: none;
+      }
+
+      /* ---- Spanning label bars ---- */
+      #ie-30d-label-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-bottom: 6px;
+      }
+
+      .ie-label-row {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px 8px;
+        width: 100%;
+        min-height: 20px;
+      }
+
+      .ie-label-span {
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 16px;
+        height: 20px;
+      }
+
+      .ie-label-span--vacances {
+        background: rgba(29,59,179,0.08);
+        color: #1D3BB3;
+      }
+
+      .ie-label-span--ferie {
+        background: rgba(220,38,38,0.08);
+        color: #b91c1c;
+      }
+
+      .ie-label-span--commercial {
+        background: rgba(16,185,129,0.08);
+        color: #059669;
+      }
+
+      .ie-label-placeholder {
+        /* empty cell to maintain grid alignment */
       }
 
       #ie-30d-display-label{
@@ -891,6 +924,15 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         gap: 10px 8px;
         width: 100%;
         margin: 0;
+        position: relative;
+      }
+
+      .ie-injected-label-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0 8px;
+        margin: -4px 0 2px 0;
       }
 
       .ie-30d-day{
@@ -898,7 +940,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         border-radius: 0;
         padding: 6px 0 12px;
         height: 72px;
-        overflow: hidden;
+        overflow: visible;
 
         display: grid;
         grid-template-rows: auto 18px 1fr;
@@ -1201,7 +1243,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
       const btns = Array.from(root.querySelectorAll(".ms-seg__btn"));
 
-      function setActive(key){
+      async function setActive(key){
         btns.forEach((b) => {
           const k = b.getAttribute("data-ms-filter");
           const on = (k === key);
@@ -1214,7 +1256,15 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         console.log("[IE][month] quick filter:", key);
 
         // apply mode to existing rendered grid (no re-render)
-        try { applyGridMode(); } catch (_) {}    
+        try { applyGridMode(); } catch (_) {}
+        try {
+          const out = await loadMonthData();
+          if (out) {
+            const days = out.days.map(r => ({ ...r, date: asYmd(r?.date) })).filter(r => r.date);
+            const windowStart = asYmd(out.window?.window_start_date);
+            if (days && windowStart) renderLabelRows(days, windowStart);
+          }
+        } catch (_) {}
       }
 
       // default
@@ -1387,7 +1437,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
           if (key === "top3") {
             const rank = top3Rank.get(ymd);
-
             if (rank) {
               medalEl.textContent = rank;
               medalEl.style.color = "var(--color-brand-blue)";
@@ -1395,47 +1444,35 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
               medalEl.textContent = baseMedal;
               medalEl.style.color = "";
             }
-
             medalEl.style.display = "block";
-          } else {
-            // For mode filters:
-            // Only hide medal IF overlay exists for that day
-            const overlay = computeModeOverlay(semantic, key);
-
-            if (overlay) {
-              medalEl.textContent = "";
-              medalEl.style.display = "none";
-            } else {
-              medalEl.textContent = baseMedal;
-              medalEl.style.display = "block";
-              medalEl.style.color = "";
+            medalEl.style.fontSize = "";
+            medalEl.style.whiteSpace = "";
+            // Restore weather icon for all days in top3 mode
+            if (iconImg instanceof HTMLImageElement) {
+              const src = weatherIconSrc(semantic.weather_code) || "";
+              iconImg.src = src;
+              iconImg.style.display = src ? "block" : "none";
             }
-          }
-        }
-                        
-        // ---- Icon behavior ----
-        // default = weather
-        const weatherSrc = weatherIconSrc(semantic.weather_code);
 
-        const overlay = computeModeOverlay(semantic, key);
-
-        if (iconImg instanceof HTMLImageElement) {
-          const src = overlay?.iconSrc || weatherSrc || "";
-          iconImg.src = src;
-          iconImg.style.display = src ? "block" : "none";
-        }
-
-        if (iconLbl instanceof HTMLElement) {
-          const text = overlay?.labelText || "";
-
-          if (text) {
-            iconLbl.textContent = text;
-            iconLbl.style.display = "block";
-            iconLbl.style.color = "var(--color-brand-blue)";
           } else {
-            iconLbl.textContent = "";
-            iconLbl.style.display = "none";
-            iconLbl.style.color = "";
+            const overlay = computeModeOverlay(semantic, key);
+            // Clear medal text on matching days (bar from renderLabelRows fills that space)
+            // Keep normal A/B/C on non-matching days
+            if (medalEl instanceof HTMLElement) {
+              medalEl.textContent = overlay ? "" : baseMedal;
+              medalEl.style.cssText = "";
+              medalEl.style.display = "block";
+            }
+            // Always show weather icon regardless of filter
+            if (iconImg instanceof HTMLImageElement) {
+              const src = weatherIconSrc(semantic.weather_code) || "";
+              iconImg.src = src;
+              iconImg.style.display = src ? "block" : "none";
+            }
+            if (iconLbl instanceof HTMLElement) {
+              iconLbl.textContent = "";
+              iconLbl.style.display = "none";
+            }
           }
         }
       });
@@ -1634,21 +1671,22 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     function computeModeOverlay(day, key){
       if (!day || typeof day !== "object") return null;
 
+      const types = Array.isArray(day.types) ? day.types : [];
+
       if (key === "vacances") {
-        if (day.is_school_holiday_flag !== true) return null;
+        if (day.is_school_holiday_flag !== true && !types.includes("school_holiday")) return null;
         return { iconSrc: MODE_ICON.vacances, labelText: "VAC" };
       }
 
       if (key === "ferie") {
-        if (day.is_public_holiday_fr_flag !== true) return null;
+        if (day.is_public_holiday_fr_flag !== true && !types.includes("public_holiday")) return null;
         return { iconSrc: MODE_ICON.ferie, labelText: "FÉR" };
       }
 
       if (key === "temps_forts") {
-        if (day.is_commercial_event_flag_region !== true) return null;
+        if (day.is_commercial_event_flag_region !== true && !types.includes("commercial_event")) return null;
         return { iconSrc: MODE_ICON.temps_forts, labelText: "TF" };
       }
-
       return null;
     }
         
@@ -1857,6 +1895,153 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       });
     } // end loadMonthGrid
 
+    function renderLabelRows(days, windowStart) {
+      document.querySelectorAll(".ie-span-bar").forEach(el => el.remove());
+      const grid = document.getElementById("ie-30d-grid");
+      if (!grid) return;
+      const key = String(window.__ie_month_quick_filter || "top3");
+      if (key === "top3") return;
+
+      function toYmd(dt) {
+        return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,"0")}-${String(dt.getUTCDate()).padStart(2,"0")}`;
+      }
+      function ymdToUtcDate(s) {
+        const [y, m, d] = s.split("-").map(Number);
+        return new Date(Date.UTC(y, m - 1, d));
+      }
+
+      const semanticByDate = new Map(days.map(d => [d.date, d]));
+      const start = ymdToUtcDate(windowStart);
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const dt = new Date(start);
+        dt.setUTCDate(start.getUTCDate() + i);
+        const ymd = toYmd(dt);
+        const s = semanticByDate.get(ymd);
+        let label = null;
+        if (s) {
+          if (key === "vacances" && s.is_school_holiday_flag === true)
+            label = (Array.isArray(s.labels) && s.labels[0]) ? s.labels[0] : (s.school_holiday_name || "Vacances");
+          else if (key === "ferie" && s.is_public_holiday_fr_flag === true)
+            label = s.public_holiday_name_fr || "Férié";
+          else if (key === "temps_forts" && s.is_commercial_event_flag_region === true)
+            label = (Array.isArray(s.commercial_event_names_region) && s.commercial_event_names_region[0]) ? s.commercial_event_names_region[0] : "Temps fort";
+        }
+        cells.push({ ymd, label });
+      }
+
+      const spans = [];
+      let i = 0;
+      while (i < 42) {
+        if (!cells[i].label) { i++; continue; }
+        const label = cells[i].label;
+        const row = Math.floor(i / 7);
+        let j = i;
+        while (j + 1 < 42 && Math.floor((j+1)/7) === row && cells[j+1].label === label) j++;
+        spans.push({ startIdx: i, endIdx: j, label });
+        i = j + 1;
+      }
+
+      const emptyEl = document.getElementById("ie-30d-filter-empty");
+      const EMPTY_MSG = {
+        vacances:    "Aucune vacance scolaire ce mois-ci",
+        ferie:       "Aucun jour férié ce mois-ci",
+        temps_forts: "Aucun temps fort ce mois-ci",
+      };
+      if (!spans.length) {
+        if (emptyEl) {
+          emptyEl.textContent = EMPTY_MSG[key] || "";
+          emptyEl.style.display = "block";
+        }
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = "none";
+
+      const allCells = Array.from(grid.querySelectorAll(".ie-30d-day"));
+      const gridRect = grid.getBoundingClientRect();
+
+      const COLOR = {
+        vacances:    { bg: "rgba(29,59,179,0.08)",   color: "#1D3BB3" },
+        ferie:       { bg: "rgba(220,38,38,0.08)",   color: "#b91c1c" },
+        temps_forts: { bg: "rgba(16,185,129,0.08)",  color: "#059669" },
+      };
+      const c = COLOR[key] || COLOR.vacances;
+
+      for (const sp of spans) {
+        const firstCell = allCells[sp.startIdx];
+        const lastCell = allCells[sp.endIdx];
+        if (!firstCell || !lastCell) continue;
+
+        const firstRect = firstCell.getBoundingClientRect();
+        const lastRect = lastCell.getBoundingClientRect();
+
+        const left = firstRect.left - gridRect.left;
+        const top = firstRect.top - gridRect.top + 22;
+        const width = lastRect.right - firstRect.left;
+
+        const spanCount = sp.endIdx - sp.startIdx + 1;
+        const displayLabel = sp.label.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+
+        const bar = document.createElement("div");
+        bar.className = "ie-span-bar";
+        bar.textContent = sp.label;
+        bar.title = sp.label;
+
+        bar.style.cssText = `
+          position:absolute;
+          left:${left}px;
+          top:${top}px;
+          width:${width}px;
+          height:18px;
+          line-height:18px;
+          background:${c.bg};
+          color:${c.color};
+          font-size:9px;
+          font-weight:600;
+          letter-spacing:0.06em;
+          text-transform:uppercase;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          padding:0 5px;
+          text-align:center;
+          padding:0 5px;
+          border-radius:4px;
+          pointer-events:auto;
+          cursor:pointer;
+          z-index:3;
+          box-sizing:border-box;
+        `;
+        bar.addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.querySelectorAll(".ie-span-tooltip").forEach(t => t.remove());
+          const tip = document.createElement("div");
+          tip.className = "ie-span-tooltip";
+          tip.textContent = sp.label;
+          tip.style.cssText = `
+            position:absolute;
+            left:${left}px;
+            top:${top - 26}px;
+            background:#111827;
+            color:#fff;
+            font-size:11px;
+            font-weight:500;
+            padding:4px 8px;
+            border-radius:4px;
+            white-space:nowrap;
+            pointer-events:none;
+            z-index:10;
+            box-shadow:0 2px 6px rgba(0,0,0,0.18);
+          `;
+          grid.appendChild(tip);
+          setTimeout(() => tip.remove(), 2000);
+        });
+        grid.appendChild(bar);
+      }
+    }
+    
     let __monthCache = null;
     let __monthCachePromise = null;
 
@@ -1915,17 +2100,20 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const parts = ymdParts(ws);
       if (!parts) return;
 
-      const { y } = parts;
-
-      // 12 months for the current year (simple + deterministic)
       const MONTHS_FR_LONG = [
         "Janvier","Février","Mars","Avril","Mai","Juin",
         "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
       ];
 
-      // Build options once per render
+      const now = new Date();
+      const todayY = now.getUTCFullYear();
+      const todayM = now.getUTCMonth() + 1;
+
       sel.innerHTML = "";
-      for (let m = 1; m <= 12; m++){
+      for (let i = 0; i < 12; i++) {
+        const totalM = todayM + i;
+        const y = todayY + Math.floor((totalM - 1) / 12);
+        const m = ((totalM - 1) % 12) + 1;
         const opt = document.createElement("option");
         opt.value = monthKey(y, m);
         opt.textContent = `${MONTHS_FR_LONG[m - 1]} ${y}`;
@@ -1973,8 +2161,36 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       if (takeawayEl && typeof keyTakeaway === "string") {
-        takeawayEl.textContent = keyTakeaway;
+        const sections = { top3: [], vacances: [], ferie: [], tempsForts: [] };
+        let current = null;
+        for (const line of keyTakeaway.split("\n")) {
+          const t = line.trim();
+          if (t === "Top 3") { current = "top3"; continue; }
+          if (t === "Vacances") { current = "vacances"; continue; }
+          if (t === "Férié") { current = "ferie"; continue; }
+          if (t === "Temps forts") { current = "tempsForts"; continue; }
+          if (t === "") continue;
+          if (current && sections[current] !== undefined) sections[current].push(t);
+        }
+        const renderSection = (label, items) => {
+          if (!items.length) return "";
+          const rows = items.map(item => {
+            const colonIdx = item.indexOf(" : ");
+            if (colonIdx === -1) return `<div class="sd-item"><span class="sd-date"></span><span class="sd-sep"></span><span class="sd-label">${item}</span></div>`;
+            const date = item.slice(0, colonIdx);
+            const lbl = item.slice(colonIdx + 3);
+            return `<div class="sd-item"><span class="sd-date">${date}</span><span class="sd-sep">·</span><span class="sd-label">${lbl}</span></div>`;
+          }).join("");
+          return `<div class="sd-section"><div class="sd-section-label">${label}</div><div class="sd-items">${rows}</div></div>`;
+        };
+        const top3Line = sections.top3.map((l, i) => `${i + 1}. ${l.replace(/^\d+\.\s*/, '').replace(/\s*—.*$/, '')}`).join('<span class="sd-top3-sep">·</span>');
+        takeawayEl.innerHTML =
+          (sections.top3.length ? `<div class="sd-section"><div class="sd-section-label">Top 3</div><div class="sd-top3-line">${top3Line}</div></div>` : "") +
+          renderSection("Jours fériés", sections.ferie) +
+          renderSection("Vacances", sections.vacances) +
+          renderSection("Temps forts", sections.tempsForts);
       }
+
       try { buildMonthSelect(out); } catch (_) {}
     }
 
@@ -2190,6 +2406,12 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     (async function bootstrapMonth() {
       await loadMonthTop3();
       await loadMonthGrid();
+      const __out = await loadMonthData();
+      if (__out) {
+        const __days = __out.days.map(r => ({ ...r, date: asYmd(r?.date) })).filter(r => r.date);
+        const __ws = asYmd(__out.window?.window_start_date);
+        if (__days && __ws) renderLabelRows(__days, __ws);
+      }
       await updateGridConstraints(); // sets constrained styling
       try { await applyGridMode(); } catch (_) {} // sets icon/label + top3 medal
     })();

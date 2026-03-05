@@ -2,11 +2,11 @@
   --color-bg-page: #f5f6f8;
   --color-bg-card: #ffffff;
   --color-border: rgba(0,0,0,0.08);
-  --color-border-hover: #1D3BB3;
+  --color-border-hover: #0b37e5;
   --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
   --color-text-muted: rgba(17,24,39,0.45);
-  --color-brand-blue: #1D3BB3;
+  --color-brand-blue:#0b37e5;
 
   --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-size-hero: 56px;

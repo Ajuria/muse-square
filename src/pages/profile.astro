@@ -313,18 +313,18 @@ const selected_origin_city_ids = [
                     required
                     class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all appearance-none pr-12"
                   >
-                    <option value="cultural" selected={(saved_safe?.company_activity_type ?? "") === "cultural"}>Culture & Patrimoine</option>
-                    <option value="events" selected={(saved_safe?.company_activity_type ?? "") === "events"}>Événementiel</option>
-                    <option value="tourism" selected={(saved_safe?.company_activity_type ?? "") === "tourism"}>Tourisme & Loisirs</option>
-                    <option value="restaurant" selected={(saved_safe?.company_activity_type ?? "") === "restaurant"}>Restauration & Bars</option>
-                    <option value="retail" selected={(saved_safe?.company_activity_type ?? "") === "retail"}>Commerce & Retail</option>
-                    <option value="hospitality" selected={(saved_safe?.company_activity_type ?? "") === "hospitality"}>Hôtellerie & Hébergement</option>
-                    <option value="public" selected={(saved_safe?.company_activity_type ?? "") === "public"}>Collectivités & Secteur public</option>
-                    <option value="sports" selected={(saved_safe?.company_activity_type ?? "") === "sports"}>Sports & Loisirs actifs</option>
-                    <option value="transport" selected={(saved_safe?.company_activity_type ?? "") === "transport"}>Transport & Mobilité locale</option>
-                    <option value="education" selected={(saved_safe?.company_activity_type ?? "") === "education"}>Éducation & Enseignement</option>
-                    <option value="nonprofit" selected={(saved_safe?.company_activity_type ?? "") === "nonprofit"}>Associatif & Non lucratif</option>
-                    <option value="other" selected={(saved_safe?.company_activity_type ?? "") === "other"}>Autre activité accueillant du public</option>
+                    <option value="culture">Culture & Patrimoine</option>
+                    <option value="live_event">Événementiel</option>
+                    <option value="outdoor_leisure">Tourisme & Loisirs</option>
+                    <option value="food_nightlife">Restauration & Bars</option>
+                    <option value="commercial">Commerce & Retail</option>
+                    <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+                    <option value="institutional">Collectivités & Secteur public</option>
+                    <option value="sport">Sports & Loisirs actifs</option>
+                    <option value="transport_mobility">Transport & Mobilité locale</option>
+                    <option value="family">Éducation & Enseignement</option>
+                    <option value="non_profit">Associatif & Non lucratif</option>
+                    <option value="unknown">Autre activité accueillant du public</option>
                   </select>
                   <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
                     <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

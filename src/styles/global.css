@@ -101,7 +101,7 @@
   .ms-bottombar-btn--primary:hover{ background: #111827; border-color: #111827; }
 
   .ms-bottombar-nav{
-    max-width: 64rem;
+    max-width: 620px;
     margin: 0 auto;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
     display: flex;
@@ -139,8 +139,8 @@
   }
 
   .ms-bottombar-item.is-active{
-    color: #111827;
-    background: rgba(17,24,39,0.06);
+    color:#0b37e5;
+    background:none;
   }
   .ms-bottombar-item:focus-visible{
     outline: 2px solid #111827;

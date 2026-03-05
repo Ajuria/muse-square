@@ -270,7 +270,7 @@ export function renderPointsClesV1(
   const { label: dowFr, isWeekend } = weekdayLabelFr(date);
   const out: string[] = [];
 
-  out.push(`Points clés — ${dowFr} ${date}${isWeekend ? " (week-end)" : ""}`);
+  // header line removed
 
   // Synthèse (3–5 bullets)
   const synth: string[] = [];
@@ -279,22 +279,21 @@ export function renderPointsClesV1(
   const n = ranked.length;
 
   if (rank === 1) {
-    synth.push(`- Meilleure option de la sélection`);
+    synth.push(`Meilleure option de la sélection`);
   } else if (rank === n) {
-    synth.push(`- Option la moins favorable de la sélection`);
+    synth.push(`Option la moins favorable de la sélection`);
   } else if (n % 2 === 1 && rank === (n + 1) / 2) {
-    synth.push(`- Option médiane de la sélection`);
+    synth.push(`Option médiane de la sélection`);
   } else {
-    synth.push(`- Option intermédiaire de la sélection`);
+    synth.push(`Option intermédiaire de la sélection`);
   }
 }
-
-  if (calendarSynth) synth.push(`- ${calendarSynth}`);
-  if (weatherSynth) synth.push(`- ${weatherSynth}`);
-  if (competitionSynth) synth.push(`- ${competitionSynth}`);
+  if (calendarSynth) synth.push(`${calendarSynth}`);
+  if (weatherSynth) synth.push(`${weatherSynth}`);
+  if (competitionSynth) synth.push(`${competitionSynth}`);
 
   if (synth.length > 0) {
-    out.push(["Synthèse", ...synth.slice(0, 5)].join("\n"));
+    out.push([...synth.slice(0, 5)].join("\n\n"));
   }
 
   // ---------------------------------------------------
@@ -311,13 +310,13 @@ export function renderPointsClesV1(
     if (lvlSnow > 0) bits.push(`neige ${lvlSnow}`);
     if (lvlHeat > 0) bits.push(`chaleur ${lvlHeat}`);
     if (lvlCold > 0) bits.push(`froid ${lvlCold}`);
-    if (bits.length) details.push(`- Alertes météo : ${bits.join(", ")}`);
+    if (bits.length) details.push(`Alertes météo : ${bits.join(", ")}`);
   } else if (pp !== null && pp >= 60) {
-    details.push(`- Pluie probable (≥60%)`);
+    details.push(`Pluie probable (≥60%)`);
   } else if (wind !== null && wind >= 40) {
-    details.push(`- Vent fort (≥40 km/h)`);
+    details.push(`Vent fort (≥40 km/h)`);
   } else if (pSum !== null && pSum > 0 && isOutdoor === true) {
-    details.push(`- Précipitations faibles possibles`);
+    details.push(`Précipitations faibles possibles`);
   }
 
   // nearest competition events
@@ -335,7 +334,7 @@ export function renderPointsClesV1(
         : "à proximité";
 
     details.push(
-        `- L’événement concurrent le plus proche est ${type} à ${city}`
+        `L'événement concurrent le plus proche est ${type} à ${city}`
     );
     } else if (topEvents.length > 1) {
     const city =
@@ -344,9 +343,10 @@ export function renderPointsClesV1(
         : "à proximité";
 
     details.push(
-        `- Les événements concurrents les plus proches sont principalement des expositions situées à ${city}`
+        `Les événements concurrents les plus proches sont principalement des expositions situées à ${city}`
     );
   }
+  
   if (details.length > 0) {
     out.push(["À noter", ...details].join("\n"));
   }

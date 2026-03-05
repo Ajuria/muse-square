@@ -59,14 +59,6 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
     return (x / 1000).toFixed(1);
   }
 
-  function isSameIndustry(eventIndustry: any, clientIndustry: any): boolean {
-    const e = typeof eventIndustry === "string" ? eventIndustry.toLowerCase() : "";
-    const c = typeof clientIndustry === "string" ? clientIndustry.toLowerCase() : "";
-    if (!e || !c) return false;
-    if (c === "cultural") return e.includes("culture") || e.includes("patrimoine");
-    return false;
-  }
-
   type TopEvent = {
     event_label?: string;
     city_name?: string;
@@ -91,7 +83,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
     }
     if (!pool.length) return [];
 
-    const same = pool.filter((e) => isSameIndustry(e?.industry_code, clientIndustry));
+    const same = pool.filter((e) => e?.industry_code === clientIndustry);
     const chosen = same.length ? same : pool;
 
     const sorted = chosen
@@ -227,7 +219,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
   const { label: dowFr, isWeekend } = weekdayLabelFr(date);
 
   const out: string[] = [];
-  out.push(`Points clés — ${dowFr} ${date}${isWeekend ? " (week-end)" : ""}`);
+  // header line removed
 
   // ---- Synthèse (3–5 bullets max) ----
   const synth: string[] = [];
@@ -698,37 +690,140 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return { daysWithCompetition, max50 };
     })();
 
-    const current_day =
-      days_deduped.find((d) => d?.date === current_date) ?? null;
+    function pickString(obj: any, keys: string[]): string | null {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (typeof v === "string" && v.trim()) return v.trim();
+      }
+      return null;
+    }
 
-    const current_special_labels =
-      special_days.find((x) => x.date === current_date)?.labels ?? [];
+    function firstSentence(s: any): string {
+      const v = typeof s === "string" ? s.trim().replace(/\s+/g, " ") : "";
+      if (!v) return "";
+      const m = v.match(/^(.+?[.!?])(\s|$)/);
+      return (m ? m[1] : v);
+    }
 
-    const comparison = {
-      selection_count: days_deduped.length,
-      rank_by_score: null as number | null,
-      has_any_weather_signal_in_selection: false,
-      is_current_weather_signal: false,
-      has_any_competition_in_selection: false,
-      is_current_competition: false,
-    };
+    function truncate(s: any, max = 120): string {
+      const v = typeof s === "string" ? s.trim().replace(/\s+/g, " ") : "";
+      if (!v) return "";
+      if (v.length <= max) return v;
+      return v.slice(0, max - 1).trimEnd() + "…";
+    }
 
-    const points_cles_text = renderPointsClesV1({
-      mode: "selected_day",
-      current_day,
-      selection_days: days_deduped,
-      current_special_labels,
-      location_context,
+    // Uses ONLY fields that exist in your top_events_* structs.
+    function eventOneLine(e: any): string {
+      const theme = pickString(e, ["theme"]);
+      if (theme) return truncate(theme, 90);
+
+      const keywords = pickString(e, ["keywords"]);
+      if (keywords) return truncate(keywords, 90);
+
+      const d = pickString(e, ["description", "longDescription"]);
+      return d ? truncate(firstSentence(d), 120) : "";
+    }
+
+    // Computes the actual list the UI should display: radius + industry + distance
+    function computeTopCompetitionEvents(day: any, location_context: any): any[] {
+      const clientIndustry = location_context?.client_industry_code;
+
+      const buckets = ["top_events_500m", "top_events_5km", "top_events_10km", "top_events_50km"];
+
+      let pool: any[] = [];
+      for (const k of buckets) {
+        const arr = Array.isArray(day?.[k]) ? day[k] : [];
+        if (arr.length) { pool = arr; break; }
+      }
+      if (!pool.length) return [];
+
+      const sameIndustry = pool.filter((e) => e?.industry_code === clientIndustry);
+      const chosen = sameIndustry.length ? sameIndustry : pool;
+
+      const sorted = chosen.slice().sort(
+        (a, b) =>
+          Number(a?.distance_m ?? 1e18) - Number(b?.distance_m ?? 1e18) ||
+          String(a?.event_uid ?? "").localeCompare(String(b?.event_uid ?? ""))
+      );
+
+      // Return only fields you render + computed one-liner
+      return sorted.slice(0, 3).map((e) => ({
+        event_uid: e?.event_uid ?? null,
+        event_label: e?.event_label ?? null,
+        city_name: e?.city_name ?? null,
+        distance_m: (typeof e?.distance_m === "number" ? e.distance_m : null),
+        industry_code: e?.industry_code ?? null,
+        one_liner: eventOneLine(e), // <-- computed, deterministic
+      }));
+    }
+
+    // Compute points_cles per day and embed inside each day row
+    const days_with_points_cles = days_deduped.map((day) => {
+      const day_special_labels =
+        special_days.find((x) => x.date === day.date)?.labels ?? [];
+
+      const text = renderPointsClesV1({
+        mode: "selected_day",
+        current_day: day,
+        selection_days: days_deduped,
+        current_special_labels: day_special_labels,
+        location_context,
+      });
+
+      // interpretation sentences based on attendance deltas
+      const eventsDelta = Number(day?.delta_att_events_pct ?? 0);
+      const weatherDelta = Number(day?.delta_att_weather_total_pct ?? 0);
+      const mobilityDelta = Number(day?.delta_att_mobility_pct ?? 0);
+      const calendarDelta = Number(day?.delta_att_calendar_pct ?? 0);
+
+      function interpretEvents(v:number){
+        if(v > 3) return "Forte concurrence d'événements à proximité.";
+        if(v > 1) return "Concurrence modérée d'événements.";
+        if(v > -1) return "Peu d'événements concurrents.";
+        return "Très peu de concurrence événementielle.";
+      }
+
+      function interpretWeather(v:number){
+        if(v > 1) return "Météo favorable à la fréquentation.";
+        if(v > -1) return "Conditions météo globalement neutres.";
+        return "Conditions météo défavorables pour la fréquentation.";
+      }
+
+      function interpretMobility(v:number){
+        if(v > 1) return "Accessibilité facilitée.";
+        if(v > -1) return "Conditions de transport normales.";
+        return "Risque de perturbations de transport.";
+      }
+
+      function interpretCalendar(v:number){
+        if(v > 1) return "Contexte calendrier favorable.";
+        if(v > -1) return "Contexte calendrier neutre.";
+        return "Contexte calendrier défavorable.";
+      }
+
+      return {
+        ...day,
+        points_cles: { text, location_context },
+        interpretation: {
+          regime: day?.opportunite_regime_fr ?? null,
+          events: interpretEvents(eventsDelta),
+          weather: interpretWeather(weatherDelta),
+          mobility: interpretMobility(mobilityDelta),
+          calendar: interpretCalendar(calendarDelta),
+        },
+        top_competition_events: computeTopCompetitionEvents(day, location_context),
+      };
     });
 
     return new Response(
       JSON.stringify({
         location_id,
         selected_dates,
-        days: days_deduped,
+        days: days_with_points_cles,
+        // keep global for backward compat (uses first date)
         points_cles: {
           location_context,
-          text: points_cles_text,
+          text: days_with_points_cles[0]?.points_cles?.text ?? null,
         },
       }),
       {
@@ -736,6 +831,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         headers: { "Content-Type": "application/json; charset=utf-8" },
       }
     );
+
   } catch (err) {
     console.error("[api/insight/days] Error", err);
     return new Response(

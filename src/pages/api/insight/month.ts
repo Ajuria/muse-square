@@ -321,7 +321,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
         semantic_contract_version,
         display_horizon,
         display_label,
-        window_summary_label,
         ai_analysis_scope_guard,
         key_takeaway,
 
@@ -617,9 +616,24 @@ export const GET: APIRoute = async ({ request, locals }) => {
       if (!v) return s;
 
       const dict: Record<string, string> = {
-        "French Winter Sales": "Soldes d’hiver",
-        "French Summer Sales": "Soldes d’été",
+        "French Winter Sales": "Soldes d'hiver",
+        "French Summer Sales": "Soldes d'été",
         "Valentine's Day": "Saint-Valentin",
+        "Back to School": "Rentrée scolaire",
+        "Black Friday": "Black Friday",
+        "Boxing Day": "Lendemain de Noël",
+        "Christmas Sales": "Soldes de Noël",
+        "Cyber Monday": "Cyber Monday",
+        "Easter": "Pâques",
+        "New Year Sales": "Soldes du Nouvel An",
+        "Halloween Promotions": "Halloween",
+        "Independence Day Sales": "Fête nationale américaine",
+        "Labor Day Sales": "Fête du Travail américaine",
+        "Martin Luther King Jr. Day Sales": "MLK Day",
+        "Memorial Day Sales": "Memorial Day",
+        "Presidents' Day Sales": "Presidents' Day",
+        "Small Business Saturday": "Small Business Saturday",
+        "Thanksgiving Promotions": "Thanksgiving",
       };
 
       return dict[v] ?? v;
@@ -1097,53 +1111,112 @@ export const GET: APIRoute = async ({ request, locals }) => {
               }
 
               function deterministicText(): string | null {
-                // Enforce the single-source-of-truth counts (computed_window)
-                if (!computed_window || computed_window.days_count < 1) {
-                  console.warn("[MONTH][TEXT] computed_window invalid; refusing to render");
-                  return null;
-                }
-
+                if (!computed_window || computed_window.days_count < 1) return null;
                 const lines: string[] = [];
 
-                // Intro (operational, FR)
-                lines.push(
-                  "La période présente beaucoup d’opportunités et peu de contraintes d’organisation, avec les particularités suivantes :"
-                );
-
-                // Jours spéciaux (only if exists)
-                const sdBullets = renderSpecialDaysRanges();
-                if (sdBullets.length) {
-                  lines.push("");
-                  lines.push("Jours spéciaux");
-                  lines.push(...sdBullets);
-                }
-
-                // Score d’opportunité (always)
-                lines.push("");
-                lines.push("Score d’opportunité");
-                lines.push(`- Répartition sur 30 jours : ${computed_window.days_a} jour(s) A, ${computed_window.days_b} jour(s) B, ${computed_window.days_c} jour(s) C`);
-                lines.push(`- ${computed_window.days_risk} jour(s) à risque`);
-
-                if (typeof computed_window.score_min === "number" && typeof computed_window.score_max === "number") {
-                  lines.push(`- Scores observés entre ${computed_window.score_min} et ${computed_window.score_max}`);
-                }
-
+                // TOP 3
+                lines.push("Top 3");
                 if (Array.isArray(best_score_days) && best_score_days.length > 0) {
-                  const topDates = best_score_days
-                    .map((d: any) => bqDateToYmd(d?.date) ?? d?.date_ymd ?? null)
-                    .filter((x: any) => typeof x === "string" && x.trim())
-                    .slice(0, 3) as string[];
-                  if (topDates.length) lines.push(`- Top 3 dates : ${topDates.map(ymdToFrShort).join(", ")}`);
+                  best_score_days.slice(0, 3).forEach((d: any, idx: number) => {
+                    const dd = bqDateToYmd(d?.date) ?? d?.date_ymd ?? null;
+                    const medal = String(d?.opportunity_medal ?? "").trim();
+                    if (dd) lines.push(`${idx + 1}. ${ymdToFrShort(dd)}${medal ? ` — ${medal}` : ""}`);
+                  });
+                } else {
+                  lines.push("Aucune date disponible");
                 }
 
-                // Météo (ONLY if meaningful)
-                if (hasMeaningfulMeteoSignal(days_deduped)) {
-                  const meteo = renderMeteoBullets();
-                  if (meteo.length) {
-                    lines.push("");
-                    lines.push("Météo");
-                    lines.push(...meteo);
+                // VACANCES
+                const vacances = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("school_holiday"));
+                lines.push("");
+                lines.push("Vacances");
+                if (vacances.length) {
+                  let i = 0;
+                  while (i < vacances.length) {
+                    const start = vacances[i];
+                    const label = Array.isArray(start.labels) ? start.labels.join(", ") : "";
+                    let end = start;
+                    let j = i;
+                    while (j + 1 < vacances.length) {
+                      const next = vacances[j + 1];
+                      const nextLabel = Array.isArray(next.labels) ? next.labels.join(", ") : "";
+                      const expectedNext = ymdPlusOne(end.date);
+                      if (nextLabel === label && next.date === expectedNext) {
+                        end = next; j++;
+                      } else break;
+                    }
+                    if (start.date === end.date) {
+                      lines.push(`${ymdToFrShort(start.date)} : ${label}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(start.date)}–${ymdToFrShort(end.date)} : ${label}`);
+                    }
+                    i = j + 1;
                   }
+                } else {
+                  lines.push("Aucune vacance scolaire");
+                }
+
+                // FÉRIÉ
+                const feries = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("public_holiday"));
+                lines.push("");
+                lines.push("Férié");
+                if (feries.length) {
+                  let i = 0;
+                  while (i < feries.length) {
+                    const start = feries[i];
+                    const label = Array.isArray(start.labels) ? start.labels.join(", ") : "";
+                    let end = start;
+                    let j = i;
+                    while (j + 1 < feries.length) {
+                      const next = feries[j + 1];
+                      const nextLabel = Array.isArray(next.labels) ? next.labels.join(", ") : "";
+                      const expectedNext = ymdPlusOne(end.date);
+                      if (nextLabel === label && next.date === expectedNext) {
+                        end = next; j++;
+                      } else break;
+                    }
+                    if (start.date === end.date) {
+                      lines.push(`${ymdToFrShort(start.date)} : ${label}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(start.date)}–${ymdToFrShort(end.date)} : ${label}`);
+                    }
+                    i = j + 1;
+                  }
+                } else {
+                  lines.push("Aucun jour férié");
+                }
+
+                // TEMPS FORTS
+                const tempsForts = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("commercial_event"));
+                lines.push("");
+                lines.push("Temps forts");
+                if (tempsForts.length) {
+                  // Group by commercial_event_names_region independently
+                  const ceGroups = new Map<string, { dates: string[] }>();
+                  for (const sd0 of tempsForts) {
+                    const ces = Array.isArray(sd0.commercial_event_names_region) && sd0.commercial_event_names_region.length
+                      ? sd0.commercial_event_names_region
+                      : (Array.isArray(sd0.labels) ? sd0.labels : []);
+                    for (const ce of ces) {
+                      if (!ceGroups.has(ce)) ceGroups.set(ce, { dates: [] });
+                      ceGroups.get(ce)!.dates.push(sd0.date);
+                    }
+                  }
+                  for (const [name, { dates }] of ceGroups) {
+                    dates.sort();
+                    const first = dates[0];
+                    const last = dates[dates.length - 1];
+                    if (first === last) {
+                      lines.push(`${ymdToFrShort(first)} : ${name}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(first)}–${ymdToFrShort(last)} : ${name}`);
+                    }
+                  }
+                } else {
+                  lines.push("Aucun temps fort");
                 }
 
                 return lines.join("\n");
