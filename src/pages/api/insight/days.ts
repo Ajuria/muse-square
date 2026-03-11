@@ -431,19 +431,68 @@ export const GET: APIRoute = async ({ url, locals }) => {
     LIMIT 1
   `;
 
+  const alertsFeedQuery = `
+    SELECT
+      feed_date,
+      affected_date,
+      change_category,
+      change_subtype,
+      direction,
+      alert_level,
+      summary,
+      score_delta,
+      old_value,
+      new_value,
+      distance_m,
+      radius_bucket
+    FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
+    WHERE location_id = @location_id
+      AND affected_date IN UNNEST(ARRAY(
+        SELECT PARSE_DATE('%Y-%m-%d', d)
+        FROM UNNEST(@selected_dates) AS d
+      ))
+    ORDER BY alert_level DESC, feed_date DESC
+  `;
+
   try {
     const [daysRows] = await bq.query({
       query: daysQuery,
-      params: {
-        location_id,
-        selected_dates,
-      },
+      params: { location_id, selected_dates },
+      types: { selected_dates: ['STRING'] },
     });
 
     const [locationContextRows] = await bq.query({
       query: locationContextQuery,
       params: { location_id },
     });
+
+    const [alertsFeedRows] = await bq.query({
+      query: alertsFeedQuery,
+      params: { location_id, selected_dates },
+      types: { selected_dates: ['STRING'] },
+    });
+
+    console.log('[alerts debug]', {
+      location_id,
+      selected_dates,
+      row_count: alertsFeedRows?.length ?? 'undefined',
+      first_row: alertsFeedRows?.[0] ?? null,
+    });
+
+    const alerts = (Array.isArray(alertsFeedRows) ? alertsFeedRows : []).map((r: any) => ({
+      feed_date:       (r?.feed_date?.value   ?? r?.feed_date   ?? null) as string | null,
+      affected_date:   (r?.affected_date?.value ?? r?.affected_date ?? null) as string | null,
+      change_category: r?.change_category  ?? null,
+      change_subtype:  r?.change_subtype   ?? null,
+      direction:       r?.direction        ?? null,
+      alert_level:     r?.alert_level      ?? null,
+      summary:         r?.summary          ?? null,
+      score_delta:     r?.score_delta      ?? null,
+      old_value:       r?.old_value        ?? null,
+      new_value:       r?.new_value        ?? null,
+      distance_m:      r?.distance_m       ?? null,
+      radius_bucket:   r?.radius_bucket    ?? null,
+    }));
 
         const location_context = locationContextRows?.[0] ?? null;
 
@@ -820,6 +869,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location_id,
         selected_dates,
         days: days_with_points_cles,
+        alerts,
         // keep global for backward compat (uses first date)
         points_cles: {
           location_context,

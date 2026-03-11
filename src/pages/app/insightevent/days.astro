@@ -71,6 +71,85 @@ const show_actions = has_selected_dates || has_saved_item_id;
     text-transform: capitalize;
   }
 
+  .ms-choose-day-btn{
+    width:100%;
+    margin-top:14px;
+
+    background:transparent;
+    color:var(--color-brand-blue);
+
+    border:1px solid var(--color-brand-blue);
+    border-radius:6px;
+
+    padding:8px 10px;
+
+    font-size:12px;
+    font-weight:600;
+    text-align:center;
+
+    cursor:pointer;
+  }
+
+  .ms-choose-day-btn:hover{
+    background:rgba(11,55,229,0.06);
+  }
+
+  /* =========================
+    COMPARISON CARD LAYOUT
+    ========================= */
+
+  .ms-comp-cards{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:18px;
+    margin-top:16px;
+  }
+
+  /* tablet */
+  @media (min-width:640px){
+    .ms-comp-cards{
+      grid-template-columns:repeat(2,1fr);
+    }
+  }
+
+  /* desktop → EXACTLY 3 CARDS */
+  @media (min-width:1024px){
+    .ms-comp-cards{
+      grid-template-columns:repeat(3,1fr);
+    }
+  }
+
+  .ms-comp-card{
+    background:#fff;
+    border:1px solid #E5E7EB;
+    border-radius:12px;
+    padding:18px 16px;
+    box-shadow:0 1px 4px rgba(17,24,39,0.04);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .ms-comp-card-date{
+    font-size:13px;
+    font-weight:700;
+    text-align:center;
+  }
+
+  .ms-comp-card-score{
+    font-size:32px;
+    font-weight:700;
+    color:#1D3BB3;
+    text-align:center;
+  }
+
+  .ms-comp-metric{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    color:#374151;
+  }  
+
   .ms-hero-grid {
     display: flex;
     justify-content: space-between;
@@ -105,6 +184,20 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-score-max {
     font-size: 20px;
     color: var(--color-text-secondary);
+  }
+
+  .ms-key-signals{
+    padding:28px 0 12px 0;
+    text-align:center;
+  }
+
+  .ms-section-title{
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.55);
+    font-weight:600;
+    margin-bottom:14px;
   }
 
   .ms-delta-pill {
@@ -833,10 +926,396 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-btn.ghost{ border:none; background:none; color:#111827; }
   .ms-btn.solid{ border:1px solid #111827; background:#111827; color:#fff; }
   .ms-btn:disabled{ opacity:0.55; cursor:not-allowed; }
+
+  /* --- Card-level tabs (Analyse / Alertes) --- */
+  .ms-card-tabs{
+    display:flex;
+    gap:0;
+    border-bottom:1px solid #E5E7EB;
+    margin:-32px -24px 24px -24px;
+    padding:0 24px;
+  }
+  .ms-card-tab{
+    font-size:13px;
+    font-weight:600;
+    color:#94A3B8;
+    padding:14px 0;
+    margin-right:22px;
+    border:none;
+    background:transparent;
+    cursor:pointer;
+    position:relative;
+  }
+  .ms-card-tab.is-active{
+    color:#1D3BB3;
+  }
+  .ms-card-tab.is-active::after{
+    content:"";
+    position:absolute;
+    left:0; bottom:-1px;
+    height:2px; width:100%;
+    background:#1D3BB3;
+    border-radius:2px;
+  }
+
+  /* --- Status bar (SUIVI JOUR / countdown) --- */
+  .ms-status-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 0 14px 0;
+    border-bottom:1px solid #E5E7EB;
+    margin-bottom:20px;
+  }
+  .ms-status-active{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.10em;
+    text-transform:uppercase;
+    color:#1D3BB3;
+  }
+  .ms-status-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background:#1D3BB3;
+    flex:0 0 auto;
+  }
+  .ms-status-countdown{
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#9CA3AF;
+  }
+
+  /* --- STATUT badge (SANS RISQUE / À RISQUE) --- */
+  .ms-statut-block{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:6px;
+  }
+  .ms-statut-label{
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:#9CA3AF;
+    font-weight:500;
+  }
+  .ms-statut-badge{
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+  }
+  .ms-statut-badge.is-safe{
+    background:#1D3BB3;
+    color:#fff;
+  }
+  .ms-statut-badge.is-risk{
+    background:rgba(220,38,38,0.1);
+    color:#b91c1c;
+    border:1px solid rgba(220,38,38,0.2);
+  }
+
+  /* --- Points clés inline block --- */
+  .ms-points-cles-block{
+    background:#F8F9FF;
+    border:1px solid #E8EDF5;
+    border-radius:12px;
+    padding:16px 18px;
+    margin:16px 0 4px 0;
+  }
+  .ms-points-cles-label{
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:#9CA3AF;
+    font-weight:600;
+    margin-bottom:10px;
+  }
+  .ms-points-cles-list{
+    list-style:none;
+    padding:0; margin:0;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .ms-points-cles-list li{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    font-size:14px;
+    color:#111827;
+    line-height:1.45;
+  }
+  .ms-points-cles-list li .ms-pc-ico{
+    flex:0 0 auto;
+    margin-top:1px;
+  }
+
+  /* --- 2x2 breakdown grid --- */
+  .ms-breakdown-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px 24px;
+    padding:24px 0 8px 0;
+  }
+  .ms-breakdown-cell{}
+  .ms-breakdown-cell-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:6px;
+  }
+  .ms-breakdown-cell-label{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.10em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.55);
+  }
+  .ms-breakdown-cell-value{
+    font-size:13px;
+    font-weight:700;
+    color:#111827;
+  }
+  .ms-breakdown-cell-value .muted{
+    font-weight:400;
+    opacity:0.45;
+    font-size:11px;
+  }
+  .ms-breakdown-cell-bar{
+    height:5px;
+    background:#E2E8F0;
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .ms-breakdown-cell-fill{
+    height:5px;
+    border-radius:4px;
+    background:#1D3BB3;
+  }
+
+  /* =========================
+   COMPARISON BOARD
+   ========================= */
+
+  .ms-comparison{
+    margin:10px 0 32px 0;
+  }
+
+  .ms-comparison-title{
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.55);
+    font-weight:600;
+    margin:0 0 20px 0;
+  }
+
+  .ms-comparison-board{
+    border-top:none;
+  }
+
+  .ms-comparison-grid{
+    display:grid;
+    grid-template-columns:180px repeat(var(--ms-comp-cols), minmax(0, 1fr));
+    column-gap:24px;
+    align-items:center;
+  }
+
+  .ms-comparison-head{
+    padding:18px 0 14px 0;
+    border-bottom:1px solid #E5E7EB;
+  }
+
+  .ms-comparison-head-label{
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.55);
+    font-weight:600;
+  }
+
+  .ms-comparison-colhead{
+    text-align:center;
+    font-size:14px;
+    font-weight:600;
+    color:#111827;
+  }
+
+  .ms-comparison-row{
+    padding:20px 0;
+    border-bottom:1px solid #F1F5F9;
+  }
+
+  .ms-comparison-row-label{
+    font-size:14px;
+    font-weight:600;
+    color:#374151;
+    text-align:left;
+  }
+
+  .ms-comparison-cell{
+    text-align:center;
+    font-size:14px;
+    font-weight:500;
+    color:#111827;
+  }
+
+  .ms-weather-compare{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    min-height:32px;
+  }
+
+  .ms-weather-compare-icon svg,
+  .ms-weather-compare-icon{
+    stroke-width: 1.8;
+  }
+
+  .ms-weather-compare-icon{
+    width:30px;
+    height:30px;
+    object-fit:contain;
+    display:block;
+  }
+
+  .ms-weather-compare-note{
+    font-size:10px;
+    line-height:1.2;
+    color:#9CA3AF;
+    font-weight:500;
+    white-space:nowrap;
+  }
+
+  .ms-weather-compare-fallback{
+    color:#9CA3AF;
+  }
+
+  /* --- Feed tab (Alertes/Flux) --- */
+  .ms-feed-wrap{
+    padding:16px 0 160px 0;
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+
+  .ms-feed-day-group{
+    margin-bottom:8px;
+  }
+
+  .ms-feed-day-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:rgba(17,24,39,0.38);
+    padding:16px 0 8px 0;
+  }
+
+  .ms-feed-card{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    background:#FFFFFF;
+    border:1px solid #E8EDF5;
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:8px;
+    box-shadow:0 1px 4px rgba(17,24,39,0.04);
+  }
+
+  .ms-feed-card.lvl-1{ border-left:3px solid #93C5FD; }
+  .ms-feed-card.lvl-2{ border-left:3px solid #60A5FA; }
+  .ms-feed-card.lvl-3{ border-left:3px solid #F59E0B; }
+  .ms-feed-card.lvl-4{ border-left:3px solid #EF4444; }
+
+  .ms-feed-ico{
+    flex:0 0 auto;
+    width:32px;
+    height:32px;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+  }
+
+  .ms-feed-ico.cat-competition{ background:rgba(99,102,241,0.10); }
+  .ms-feed-ico.cat-opportunity{ background:rgba(16,185,129,0.10); }
+  .ms-feed-ico.cat-context{     background:rgba(245,158,11,0.10); }
+  .ms-feed-ico.cat-planning{    background:rgba(59,130,246,0.10); }
+
+  .ms-feed-body{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+
+  .ms-feed-line1{
+    font-size:13px;
+    font-weight:700;
+    color:#111827;
+    line-height:1.3;
+  }
+
+  .ms-feed-line2{
+    font-size:13px;
+    font-weight:400;
+    color:#374151;
+    line-height:1.4;
+  }
+
+  .ms-feed-line3{
+    font-size:12px;
+    color:#6B7280;
+    line-height:1.4;
+    margin-top:2px;
+  }
+
+  .ms-feed-dir{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:2px 7px;
+    border-radius:6px;
+    margin-left:6px;
+  }
+
+  .ms-feed-dir.up{   background:rgba(16,185,129,0.10); color:#059669; }
+  .ms-feed-dir.down{ background:rgba(220,38,38,0.10);  color:#B91C1C; }
+  .ms-feed-dir.new{  background:rgba(99,102,241,0.10); color:#4F46E5; }
+  .ms-feed-dir.removed{ background:rgba(107,114,128,0.10); color:#6B7280; }
+  .ms-feed-dir.changed{ background:rgba(245,158,11,0.10);  color:#D97706; }
+  .ms-feed-dir.improved{ background:rgba(16,185,129,0.10); color:#059669; }
+  .ms-feed-dir.worsened{ background:rgba(220,38,38,0.10);  color:#B91C1C; }
+
+  .ms-feed-empty{
+    text-align:center;
+    padding:40px 0;
+    color:#9CA3AF;
+    font-size:14px;
+  }
+
 </style>
      
       <!-- Header / breadcrumb placeholder -->
-      <div class="mb-4"></div>
       <div id="days-grid" class="ms-days-grid ms-grid--split">
 
         <!-- Main -->
@@ -844,9 +1323,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           <!-- Focused day container -->
           <div id="day-content" data-location-id={location_id} class="min-h-[120px]">
-            <!-- Selected days tabs live OUTSIDE dynamic innerHTML (so renderPills can always find it) -->
-            <div id="ms-selected-dates-bar" style="margin-bottom:12px;"></div>
-
             <div class="text-gray-400 text-sm">Chargement…</div>
           </div>
         </div>
@@ -876,14 +1352,13 @@ const show_actions = has_selected_dates || has_saved_item_id;
             </label>
 
             <label class="ms-field">
-              <div class="ms-label">Étape</div>
-              <select id="ms-save-stage" class="ms-input">
-                <option value="">—</option>
-                <option value="option">Option</option>
-                <option value="exploration">Exploration</option>
-                <option value="prevalidation">Pré-validation</option>
-                <option value="retenue">Retenue</option>
-              </select>
+              <div class="ms-label">Date de décision</div>
+              <input id="ms-save-decision-date" class="ms-input" type="date" />
+            </label>
+
+            <label class="ms-field">
+              <div class="ms-label">Date de l'événement</div>
+              <select id="ms-save-event-date" class="ms-input"></select>
             </label>
 
             <label class="ms-field">
@@ -922,31 +1397,27 @@ const show_actions = has_selected_dates || has_saved_item_id;
         const params = new URLSearchParams(window.location.search);
 
         const selectedDatesRaw = params.get("selected_dates") || "";
-        let selectedDate = (params.get("selected_date") || "").trim();
-        selectedDate = normalizeYmd(selectedDate);
+        let selectedDateRaw = (params.get("selected_date") || "").trim();
+        let selectedDate = selectedDateRaw === "__comparison__" ? "__comparison__" : normalizeYmd(selectedDateRaw);
 
-        const selectedDates = selectedDatesRaw
-          .split(",")
-          .map(s => normalizeYmd(s))
-          .filter(Boolean)
-          .slice(0, 7);
+        const selectedDates = [...new Set(
+          selectedDatesRaw
+            .split(",")
+            .map(s => normalizeYmd(s))
+            .filter(Boolean)
+        )].slice(0, 7);
         
         const savedItemId = (params.get("saved_item_id") || "").trim();
 
         // Canonicalize selected_date if missing but we do have selected_dates
         if (!selectedDate && selectedDates.length > 0) {
-          selectedDate = selectedDates[0];
+          selectedDate = "__comparison__";
           params.set("selected_date", selectedDate);
           window.history.replaceState({}, "", "?" + params.toString());
         }
 
         function getPillsContainer() {
-          // Prefer the in-render location (below breakdown)
-          const inside = container ? container.querySelector("#ms-day-tabs") : null;
-          if (inside) return inside;
-
-          // Fallback (older layout)
-          return document.getElementById("ms-selected-dates-bar");
+          return container ? container.querySelector("#ms-day-tabs") : null;
         }
 
         function getSavedPanel() {
@@ -992,7 +1463,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
         const modalCancel = document.getElementById("ms-save-cancel");
         const modalSubmit = document.getElementById("ms-save-submit");
         const modalTitle = document.getElementById("ms-save-title-input");
-        const modalStage = document.getElementById("ms-save-stage");
+        const modalDecisionDate = document.getElementById("ms-save-decision-date");
+        const modalEventDate = document.getElementById("ms-save-event-date");
         const modalDesc = document.getElementById("ms-save-desc");
         const modalDates = document.getElementById("ms-save-dates");
         const modalError = document.getElementById("ms-save-error");
@@ -1030,9 +1502,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
           if (modalSubmit) modalSubmit.textContent = "Enregistrer";
 
           // HARD RESET (avoid stale edit values leaking into create)
-          if (modalStage) modalStage.value = "";
+          if (modalDecisionDate) modalDecisionDate.value = "";
           if (modalDesc) modalDesc.value = "";
           if (modalTitle) modalTitle.value = "";
+          populateEventDateSelect(MS.draftDates, "");
 
           // default title suggestion (create mode only)
           if (modalTitle && !String(modalTitle.value || "").trim()) {
@@ -1096,14 +1569,16 @@ const show_actions = has_selected_dates || has_saved_item_id;
                 saved_item_id: editingId,
                 title,
                 description: String(modalDesc?.value || "").trim() || null,
-                stage: String(modalStage?.value || "").trim() || null,
+                decision_date: String(modalDecisionDate?.value || "").trim() || null,
+                event_date: String(modalEventDate?.value || "").trim() || null,
                 dates: (Array.isArray(MS.editingDates) ? MS.editingDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               }
             : {
                 location_id: loc,
                 title,
                 description: String(modalDesc?.value || "").trim() || null,
-                stage: String(modalStage?.value || "").trim() || null,
+                decision_date: String(modalDecisionDate?.value || "").trim() || null,
+                event_date: String(modalEventDate?.value || "").trim() || null,
                 dates: (Array.isArray(MS.draftDates) ? MS.draftDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               };
 
@@ -1148,6 +1623,53 @@ const show_actions = has_selected_dates || has_saved_item_id;
             MS.isSaving = false;
             if (modalSubmit) modalSubmit.disabled = false;
           }
+        }
+
+        function fmtDDMMYYYY(ymd) {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "").trim());
+          if (!m) return ymd;
+          return `${m[3]}/${m[2]}/${m[1]}`;
+        }
+
+        function populateEventDateSelect(datesArr, currentValue) {
+          const sel = document.getElementById("ms-save-event-date");
+          if (!sel) return;
+
+          const dates = (Array.isArray(datesArr) ? datesArr : [])
+            .map(normalizeYmd)
+            .filter(Boolean)
+            .sort();
+
+          // Default: closest future date, or first date if all past
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const defaultDate = dates.find(d => {
+            const t = parseYmdToDate(d);
+            return t && t >= today;
+          }) || dates[0] || "";
+
+          const valueToSelect = normalizeYmd(currentValue) || defaultDate;
+
+          sel.innerHTML = `<option value="">—</option>` + dates.map(d =>
+            `<option value="${escapeHtml(d)}" ${d === valueToSelect ? "selected" : ""}>${escapeHtml(fmtDDMMYYYY(d))}</option>`
+          ).join("");
+        }
+
+        function daysUntil(ymd) {
+          if (!ymd) return null;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const target = parseYmdToDate(ymd);
+          if (!target) return null;
+          return Math.round((target - today) / 86400000);
+        }
+
+        function countdownLabel(ymd, label) {
+          const d = daysUntil(ymd);
+          if (d === null) return null;
+          if (d < 0)  return `${label} passée il y a ${Math.abs(d)}j`;
+          if (d === 0) return `${label} aujourd'hui`;
+          return `J-${d} · ${label}`;
         }
 
         function stageLabel(s) {
@@ -1326,7 +1848,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
                         data-id="${escapeHtml(id)}"
                         data-dates="${escapeHtml(datesCsv)}"
                         data-title="${escapeHtml(title)}"
-                        data-stage="${escapeHtml(String(it?.stage || ""))}"
+                        data-decision-date="${escapeHtml(String(it?.decision_date || ""))}"
+                        data-event-date="${escapeHtml(String(it?.event_date || ""))}"
                         data-desc="${escapeHtml(desc)}">
                         <div class="ms-saved-left">
                           <div class="ms-saved-title2">${escapeHtml(title)}</div>
@@ -1339,12 +1862,12 @@ const show_actions = has_selected_dates || has_saved_item_id;
                         <div class="ms-saved-right">
                           <div class="ms-saved-kpis">
                             <div class="ms-kpi">
-                              <div class="ms-kpi-label">Étape</div>
-                              <div class="ms-kpi-value">${escapeHtml(stage)}</div>
+                              <div class="ms-kpi-label">Décision</div>
+                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.decision_date, "décision") || "—")}</div>
                             </div>
                             <div class="ms-kpi">
-                              <div class="ms-kpi-label">Days</div>
-                              <div class="ms-kpi-value">${escapeHtml(String(count))}</div>
+                              <div class="ms-kpi-label">Événement</div>
+                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.event_date, "événement") || "—")}</div>
                             </div>
                           </div>
 
@@ -1379,8 +1902,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
                 // Pre-fill modal fields
                 if (modalTitle) modalTitle.value = title;
-                if (modalStage) modalStage.value = stageRaw || "";
+                if (modalDecisionDate) modalDecisionDate.value = rowEl.getAttribute("data-decision-date") || "";
                 if (modalDesc) modalDesc.value = desc;
+                populateEventDateSelect(MS.editingDates, rowEl.getAttribute("data-event-date") || "");
 
                 // Store which saved_item_id we are editing (must happen before rendering)
                 MS.editingId = id;
@@ -1488,6 +2012,35 @@ const show_actions = has_selected_dates || has_saved_item_id;
             .replace(/'/g, "&#039;");
         }
 
+        function sectionIconSVG(kind) {
+            const icons = {
+              alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
+                <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/>
+              </svg>`,
+              info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#1D3BB3" stroke-width="1.6"/>
+                <path d="M12 10v7" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M12 7h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
+              </svg>`,
+              calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/>
+                <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/>
+              </svg>`,
+              sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/>
+                <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
+                      stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>`,
+              sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/>
+              </svg>`,
+            };
+            return icons[kind] || icons.info;
+          }
+
         function sectionHex(title, icon, takeawayHtml, bodyHtml) {
           return `
             <div class="ms-section">
@@ -1508,39 +2061,13 @@ const show_actions = has_selected_dates || has_saved_item_id;
           `;
         }
 
-        function sectionIconSVG(kind) {
-          const icons = {
-            alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-              <path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
-              <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/>
-            </svg>`,
-            calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-              <path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/>
-              <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/>
-            </svg>`,
-            sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/>
-              <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2"
-                    stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-            </svg>`,
-            sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z"
-                    stroke="#1D3BB3" stroke-width="1.6"/>
-            </svg>`
-          };
-
-          return icons[kind] || "";
-        }
-
         function renderModalDateChipsCreate(arr) {
           if (!modalDates) return;
           const dates = Array.isArray(arr) ? arr.map(normalizeYmd).filter(Boolean) : [];
           modalDates.innerHTML = dates
             .map(
               (d) =>
-                `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(d)}</button>`
+                `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(fmtDDMMYYYY(d))}</button>`
             )
             .join("");
         }
@@ -1551,7 +2078,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
           const dates = Array.isArray(MS.editingDates) ? MS.editingDates.map(normalizeYmd).filter(Boolean) : [];
 
           modalDates.innerHTML = dates
-            .map(d => `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(d)}</button>`)
+            .map(d => `<button type="button" class="ms-chip-date removable" data-date="${escapeHtml(d)}">${escapeHtml(fmtDDMMYYYY(d))}</button>`)
             .join("");
 
           // delegate inside modalDates (safe re-render)
@@ -1659,12 +2186,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           pillsContainer.innerHTML = `
             <div class="ms-tabs" role="tablist" aria-label="Jours sélectionnés">
-              ${selectedDates.map((d0) => {
-                  const d = normalizeYmd(d0);
+              ${["__comparison__", ...selectedDates].map((d0) => {
+                  const d = d0 === "__comparison__" ? "__comparison__" : normalizeYmd(d0);
                   const isActive = d === selectedDate;
-                  const hasData = dayRowsByDate && dayRowsByDate.has(d);
+                  const hasData = d === "__comparison__" || (dayRowsByDate && dayRowsByDate.has(d));
                   const meta = buildMetaForDate(d);
-                  const label = meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d;
+                  const label = d === "__comparison__"
+                    ? "CHOIX"
+                    : (meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d);
 
                   return `
                     <button type="button"
@@ -1690,11 +2219,70 @@ const show_actions = has_selected_dates || has_saved_item_id;
               params.set("selected_date", d);
               window.history.replaceState({}, "", "?" + params.toString());
 
-              renderFocusedDay(dayRowsByDate, MS.pointsCles);
+              if (selectedDate === "__comparison__") {
+                if (typeof MS.renderComparisonSection === "function") {
+                  MS.renderComparisonSection(dayRowsByDate);
+                }
+              } else {
+                renderFocusedDay(dayRowsByDate, MS.pointsCles, MS.savedItemMeta);
+              }
+              
               // renderPills called AFTER so tabs re-inject into the fresh DOM
               setTimeout(() => renderPills(dayRowsByDate), 0);
             });
           });
+        }
+
+        function ctxIconSVG(kind) {
+            if (kind === "daytype") {
+              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="#6b7280" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M7 4v16M12 4v16M17 4v16" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.55"/>
+              </svg>`;
+            }
+            if (kind === "break") {
+              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3c-4.8 0-8.7 3.5-9.5 8.1h19C20.7 6.5 16.8 3 12 3z" stroke="#6b7280" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M12 11v7a2 2 0 0 1-4 0" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M6.2 11c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
+              </svg>`;
+            }
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 12v6a2 2 0 0 1-2 2H8l-4-4V6a2 2 0 0 1 2-2h6" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 3h5v5" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 3l-8 8" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>`;
+          }
+        
+        function renderKeySignals(ctxTags) {
+
+          if (!Array.isArray(ctxTags) || ctxTags.length === 0) {
+            return `
+              <div class="ms-key-signals">
+                <div class="ms-section-title">SIGNALS</div>
+                <div class="ms-muted">Aucun signal contextuel.</div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="ms-key-signals">
+
+              <div class="ms-section-title">
+                SIGNALS
+              </div>
+
+              <div class="ms-context-tags">
+                ${ctxTags.map(t => `
+                  <span class="ms-ctx-tag">
+                    <span class="ms-ctx-ico">${ctxIconSVG(t.kind)}</span>
+                    ${escapeHtml(t.label)}
+                  </span>
+                `).join("")}
+              </div>
+
+            </div>
+          `;
         }
 
         function renderKeyFacts(keyFacts) {
@@ -1734,7 +2322,64 @@ const show_actions = has_selected_dates || has_saved_item_id;
           `;
         }
 
-        function renderFocusedDay(dayRowsByDate, pointsCles) {
+
+        // ------------------------------
+        // Local helpers (pure UI; no semantic changes)
+        // ------------------------------
+        // ✅ Remove all carousel/ms-c-* markup when we switched to viz+tabs
+        function stripCarouselMarkup(rootEl) {
+          if (!rootEl) return;
+          const nuke = rootEl.querySelectorAll(
+            ".ms-carousel-viewport, .ms-carousel-strip, .ms-slot, .ms-c-card, [id^='ms-slot-'], #ms-carousel-strip"
+          );
+            nuke.forEach((el) => el.remove());
+        }
+
+        function norm100(v) {
+          const n = Number(v);
+          return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : null;
+        }
+
+        function renderScoreBreakdownBars(r) {
+          if (!r) return "";
+
+          const clamp = (x) => Math.max(0, Math.min(100, x));
+          const norm = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? clamp(Math.round(n)) : null;
+          };
+
+          const cells = [
+            { label: "AFFLUENCE",   val: norm(r?.events_score) },
+            { label: "MÉTÉO",       val: norm(r?.weather_score) },
+            { label: "MOBILITÉ",    val: norm(r?.mobility_score) },
+            { label: "CONCURRENCE", val: norm(r?.calendar_score) },
+          ];
+
+          return `
+            <div class="ms-breakdown-grid">
+              ${cells.map(x => {
+                const v = x.val;
+                const w = v === null ? 0 : v;
+                return `
+                  <div class="ms-breakdown-cell">
+                    <div class="ms-breakdown-cell-top">
+                      <div class="ms-breakdown-cell-label">${escapeHtml(x.label)}</div>
+                      <div class="ms-breakdown-cell-value">
+                        ${v === null ? "—" : `${v}<span class="muted">%</span>`}
+                      </div>
+                    </div>
+                    <div class="ms-breakdown-cell-bar">
+                      <div class="ms-breakdown-cell-fill" style="width:${w}%;"></div>
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          `;
+        }
+
+        function renderFocusedDay(dayRowsByDate, pointsCles, savedItemMeta) {
           if (!container) return;
 
           ensureSelectedDaysStyles();
@@ -1848,7 +2493,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
             return tags.slice(0, 3);
           })();
 
-
           // ------------------------------
           // Sections (single column; fixed order)
           // ------------------------------
@@ -1859,105 +2503,313 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           container.innerHTML = `
 
+            <!-- TOP NAV: Day tabs -->
+            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
+              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
+                <div id="ms-day-tabs"></div>
+              </div>
+            </div>
+            </div>
+
             <!-- ZONE A (WHITE - constrained width) -->
             <div class="ms-days-wrap">
 
               <div class="ms-days-top">
-                ${renderHeroScore(row, meta, ctxTags)}
-                <div style="height:1px;background:#E5E7EB;margin:20px 0;"></div>
+                ${renderHeroScore(row, meta, ctxTags, dayRowsByDate, savedItemMeta)}
                 ${renderScoreBreakdownBars(row)}
               </div>
 
             </div>
 
-            <div class="ms-days-nav">
-              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
-                <div id="ms-day-tabs"></div>
+            <div class="ms-days-wrap">
+              <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;margin:16px 0;">
+                <button type="button" id="ms-tab-analyse" style="padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;background:#fff;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;">
+                  ANALYSE
+                </button>
+                <button type="button" id="ms-tab-alertes" style="padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;background:#fff;border:none;border-bottom:2px solid transparent;cursor:pointer;border-left:1px solid #E5E7EB;">
+                  ALERTES
+                </button>
               </div>
             </div>
-
+                                      
             <!-- ZONE B (GREY - constrained to match breakdown width) -->
             
             <div class="ms-days-wrap" style="padding-top:0;border-top:none;overflow:visible;">
-              <div class="ms-grey-zone">
-                <div class="ms-days-bottom">
-                  <div class="ms-panels">
-                    ${pointsClesHtml}
-                    ${alertesHtml}
-                    ${concurrenceHtml}
-                    ${meteoHtml}
-                  </div>
                 </div>
               </div>
             </div>
+          </div>
+          
+          <!-- ZONE C — PANELS -->
+          <div class="ms-days-wrap">
+            <div id="ms-zone-c">
+              <div class="ms-panels">
+                ${pointsClesHtml}
+                ${alertesHtml}
+                ${concurrenceHtml}
+                ${meteoHtml}
+              </div>
+            </div>
+          </div>
+          </div>
           `;
 
-          // ------------------------------
-          // Local helpers (pure UI; no semantic changes)
-          // ------------------------------
-          // ✅ Remove all carousel/ms-c-* markup when we switched to viz+tabs
-          function stripCarouselMarkup(rootEl) {
-            if (!rootEl) return;
-            const nuke = rootEl.querySelectorAll(
-              ".ms-carousel-viewport, .ms-carousel-strip, .ms-slot, .ms-c-card, [id^='ms-slot-'], #ms-carousel-strip"
-            );
-            nuke.forEach((el) => el.remove());
+          // Wire Analyse / Alertes tabs
+          const tabAnalyse = document.getElementById("ms-tab-analyse");
+          const tabAlertes = document.getElementById("ms-tab-alertes");
+          const zoneC = container.querySelector("#ms-zone-c");
+
+          function showAnalyseTab() {
+            if (tabAnalyse) { tabAnalyse.style.color="#1D3BB3"; tabAnalyse.style.borderBottom="2px solid #1D3BB3"; tabAnalyse.style.background="transparent"; }
+            if (tabAlertes) { tabAlertes.style.color="#9CA3AF"; tabAlertes.style.borderBottom="2px solid transparent"; tabAlertes.style.background="transparent"; }
+            if (zoneC) zoneC.innerHTML = renderAnalysePanels();
           }
 
-          function renderScoreBreakdownBars(r) {
-            const clamp01 = (x) => Math.max(0, Math.min(100, x));
+          function showAlertesTab() {
+            if (tabAlertes) { tabAlertes.style.color="#1D3BB3"; tabAlertes.style.borderBottom="2px solid #1D3BB3"; tabAlertes.style.background="transparent"; }
+            if (tabAnalyse) { tabAnalyse.style.color="#9CA3AF"; tabAnalyse.style.borderBottom="2px solid transparent"; tabAnalyse.style.background="transparent"; }
+            if (zoneC) zoneC.innerHTML = renderFeedForDate(selectedDate, MS.alerts || []);
+          }
 
-            const norm100 = (v) => {
-              const n = Number(v);
-              return Number.isFinite(n) ? clamp01(Math.round(n)) : null;
-            };
+          if (tabAnalyse) tabAnalyse.addEventListener("click", showAnalyseTab);
+          if (tabAlertes) tabAlertes.addEventListener("click", showAlertesTab);
 
-            // Use your component scores (0..100) — NOT deltas.
-            const rows = [
-              { kind: "competition", label: "CONCURRENCE", val: norm100(r?.events_score) },
-              { kind: "weather",     label: "MÉTÉO",       val: norm100(r?.weather_score) },
-              { kind: "mobility",    label: "MOBILITÉ",    val: norm100(r?.mobility_score) },
-              { kind: "calendar",    label: "CALENDRIER",  val: norm100(r?.calendar_score) },
-            ];
-
-            const maxVal = Math.max(
-              ...rows
-                .filter(r => r.val !== null)
-                .map(r => r.val)
-            );
-            
+          function renderAnalysePanels() {
             return `
-              <div class="ms-breakdown">
-                ${rows.map(x => {
-                  const v = (x.val === null ? null : x.val);
-                  const w = (v === null ? 0 : v);
-                  return `
-                    <div class="ms-breakdown-item ${v === maxVal ? 'is-active' : ''}">
-
-                      <div class="ms-breakdown-top">
-                        <div class="ms-breakdown-left">
-                          <div class="ms-breakdown-ico">
-                            <img src="/icons/days/icon_days_${x.kind}.png" alt="" />
-                          </div>
-                          <div class="ms-breakdown-label">
-                            ${escapeHtml(x.label)}
-                          </div>
-                        </div>
-
-                        <div class="ms-breakdown-value">
-                          ${v === null ? "—" : `${v}<span class="muted">/100</span>`}
-                        </div>
-                      </div>
-
-                      <div class="ms-breakdown-bar">
-                        <div class="ms-breakdown-fill" style="width:${w}%;"></div>
-                      </div>
-
-                    </div>
-                  `;
-                }).join("")}
+              <div class="ms-panels">
+                ${renderPointsClesHexLike(row.points_cles ?? null)}
+                ${renderAlertesHexLike(row)}
+                ${renderConcurrenceHexLike(row)}
+                ${renderMeteoHexLike(row)}
               </div>
             `;
+          }
+
+          function renderFeedForDate(date, allAlerts) {
+            const items = (Array.isArray(allAlerts) ? allAlerts : [])
+              .filter(a => normalizeYmd(a?.affected_date) === date);
+
+            if (!items.length) {
+              return `<div class="ms-feed-wrap"><div class="ms-feed-empty">Aucun signal détecté pour cette date.</div></div>`;
+            }
+
+            function formatFeedDateLong(ymd) {
+              const d = parseYmdToDate(normalizeYmd(ymd));
+              if (!d) return String(ymd || "");
+              const raw = new Intl.DateTimeFormat("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" }).format(d);
+              return raw.charAt(0).toUpperCase() + raw.slice(1);
+            }
+
+            function formatFeedDateShort(ymd) {
+              const d = parseYmdToDate(normalizeYmd(ymd));
+              if (!d) return String(ymd || "");
+              return new Intl.DateTimeFormat("fr-FR", { day:"numeric", month:"long" }).format(d);
+            }
+
+            function feedLine1(a) {
+              const sub = String(a?.change_subtype || "").toLowerCase();
+              const dir = String(a?.direction || "").toLowerCase();
+              const cat = String(a?.change_category || "").toLowerCase();
+              const nv  = String(a?.new_value ?? "").toLowerCase();
+              const d = formatFeedDateShort(a?.affected_date);
+              const map = {
+                context_change:           cat === "competition" ? (nv === "true" ? `Concurrent détecté · ${d}` : `Concurrent retiré · ${d}`)
+                                          : cat === "context" ? (dir === "worsened" || dir === "down" ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`)
+                                          : cat === "mobility" ? `Mobilité perturbée · ${d}`
+                                          : `Signal de contexte · ${d}`,
+                score_change:             dir === "up" ? `Score d'opportunité en hausse · ${d}` : `Score d'opportunité en baisse · ${d}`,
+                future_score_change:      `Prévision d'opportunité revue · ${d}`,
+                regime_change:            `Régime d'opportunité changé · ${d}`,
+                medal_change:             `Classement des dates modifié · ${d}`,
+                event_new:                `Concurrent détecté · ${d}`,
+                event_removed:            `Concurrent retiré · ${d}`,
+                weather_change:           (dir === "down" || dir === "worsened") ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`,
+                mobility_change:          `Mobilité perturbée · ${d}`,
+                mega_event_activation:    `Méga-événement annoncé · ${d}`,
+                mega_event_end:           `Méga-événement terminé · ${d}`,
+                ranking_change:           `Classement des dates modifié · ${d}`,
+                baseline_validity_change: `Référence recalculée · ${d}`,
+              };
+              return map[sub] || `Signal détecté · ${d}`;
+            }
+
+            function feedLine2(a) {
+              const cat = String(a?.change_category || "").toLowerCase();
+              const lvl = Math.min(4, Math.max(1, Number(a?.alert_level) || 1));
+              const vocab = {
+                competition: {
+                  1: "Impact de la concurrence locale.",
+                  2: "Impact notable de la concurrence locale.",
+                  3: "Impact important de la concurrence locale.",
+                  4: "Impact majeur de la concurrence locale.",
+                },
+                opportunity: {
+                  1: "Évolution globale du contexte.",
+                  2: "Évolution notable du contexte global.",
+                  3: "Impact sensible sur l'attractivité de la date.",
+                  4: "Impact important sur l'attractivité de la date.",
+                },
+                context: {
+                  1: "Impact météo sur cette date.",
+                  2: "Impact notable de la météo sur cette date.",
+                  3: "Impact possible de la météo sur l'organisation.",
+                  4: "Impact important de la météo sur l'organisation.",
+                },
+                planning: {
+                  1: "Impact de l'activité événementielle locale.",
+                  2: "Impact notable de l'activité événementielle locale.",
+                  3: "Impact important de l'activité événementielle locale.",
+                  4: "Impact majeur de l'activité événementielle locale.",
+                },
+                mobility: {
+                  1: "Impact des conditions de mobilité.",
+                  2: "Impact notable sur les conditions d'accès.",
+                  3: "Impact possible sur l'accès au lieu.",
+                  4: "Impact important sur l'accès au lieu.",
+                },
+              };
+              return (vocab[cat] && vocab[cat][lvl]) || "Évolution globale du contexte.";
+            }
+
+            function feedLine3(a) {
+              const sub = String(a?.change_subtype || "").toLowerCase();
+              const cat = String(a?.change_category || "").toLowerCase();
+              const parts = [];
+
+              if (sub === "score_change" || cat === "opportunity") {
+                const from = a?.old_value != null ? Math.round(Number(a.old_value)) : null;
+                const to   = a?.new_value != null ? Math.round(Number(a.new_value)) : null;
+                const delta = a?.score_delta != null ? Math.round(Number(a.score_delta)) : (from != null && to != null ? to - from : null);
+                if (from != null && to != null) {
+                  const sign = delta >= 0 ? "+" : "";
+                  parts.push(`Score : ${from} → ${to} (${sign}${delta})`);
+                }
+              }
+
+              else if (cat === "competition" || sub === "event_new" || sub === "event_removed" || sub === "context_change") {
+                const name = a?.event_label || a?.event_name || "";
+                const km = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : "";
+                const ov = a?.old_value != null ? String(a.old_value) : null;
+                const nv = a?.new_value != null ? String(a.new_value) : null;
+                if (name && km) parts.push(`${name} · ${km}`);
+                else if (name) parts.push(name);
+                else if (km) parts.push(`À ${km}`);
+                else if (ov != null && nv != null && ov !== nv) {
+                  const ovLabel = ov === "true" ? "présent" : ov === "false" ? "absent" : ov;
+                  const nvLabel = nv === "true" ? "présent" : nv === "false" ? "absent" : nv;
+                  parts.push(`Présence concurrentielle : ${ovLabel} → ${nvLabel}`);
+                }
+              }
+
+              else if (cat === "context" || sub === "weather_change") {
+                const from = a?.old_value != null ? String(a.old_value) : null;
+                const to   = a?.new_value != null ? String(a.new_value) : null;
+                if (from && to && from !== to) parts.push(`${from} → ${to}`);
+                else if (to) parts.push(to);
+              }
+
+              else if (cat === "mobility" || sub === "mobility_change") {
+                const from = a?.old_value != null ? String(a.old_value) : null;
+                const to   = a?.new_value != null ? String(a.new_value) : null;
+                if (from && to && from !== to) parts.push(`Trafic : ${from} → ${to}`);
+              }
+
+              else if (sub === "mega_event_activation" || sub === "mega_event_end") {
+                const name = a?.event_label || a?.event_name || "";
+                if (name) parts.push(name);
+              }
+
+              else if (sub === "baseline_validity_change") {
+                const from = a?.old_value != null ? String(a.old_value) : null;
+                const to   = a?.new_value != null ? String(a.new_value) : null;
+                if (from && to && from !== to) parts.push(`${from} → ${to}`);
+              }
+
+              return parts.join(" · ");
+            }
+
+            // Group items by date
+            const byDate = new Map();
+            for (const a of items) {
+              const d = normalizeYmd(a?.affected_date);
+              if (!byDate.has(d)) byDate.set(d, []);
+              byDate.get(d).push(a);
+            }
+
+            function feedCatConfig(cat) {
+              const c = String(cat || "").toLowerCase();
+              if (c === "competition") return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M8 21v-7M12 21V3M16 21v-11"/></svg>` };
+              if (c === "opportunity") return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>` };
+              if (c === "context")     return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z"/></svg>` };
+              if (c === "planning")    return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>` };
+              if (c === "mobility")    return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M7 16h10l1-6H6l1 6z"/><path d="M7 16l-1 4M17 16l1 4"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>` };
+              return { ico: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/></svg>` };
+            }
+
+            function severityDots(level) {
+              const l = Math.min(4, Math.max(1, Number(level) || 1));
+              return [1,2,3,4].map(i =>
+                `<span style="width:10px;height:10px;border-radius:50%;display:inline-block;background:${i <= l ? "#1D3BB3" : "#E2E8F0"};"></span>`
+              ).join("&nbsp;");
+            }
+
+            const groupsHtml = [...byDate.entries()].map(([d, dayItems]) => {
+              const itemsHtml = dayItems.map((a, idx) => {
+                const line1 = feedLine1(a);
+                const line2 = feedLine2(a);
+                const line3 = feedLine3(a);
+                const cat = String(a?.change_category || "").toLowerCase();
+                const lvl = Number(a?.alert_level) || 1;
+                const cfg = feedCatConfig(cat);
+                const isLast = idx === dayItems.length - 1;
+
+                return `
+                  <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
+                  
+                  <!-- Icon: black SVG, no background -->
+                    <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">
+                      ${cfg.ico}
+                    </div>
+
+                    <!-- Body -->
+                    <div style="flex:1;min-width:0;">
+
+                      <!-- Line 1: signal name, bold, dark -->
+                      <div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3;margin-bottom:4px;">
+                        ${escapeHtml(line1)}
+                      </div>
+
+                      <!-- Line 2: factual, dots inline at end of same line -->
+                      ${line2 ? `
+                      <div style="font-size:14px;color:#374151;line-height:1.4;margin-bottom:2px;display:flex;align-items:center;gap:12px;">
+                        <span>${escapeHtml(line2)}</span>
+                        <span style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;">${severityDots(lvl)}</span>
+                      </div>` : ""}
+
+                      <!-- Line 3: score impact -->
+                      ${line3 ? `<div style="font-size:12px;color:#6B7280;font-variant-numeric:tabular-nums;">${escapeHtml(line3)}</div>` : ""}
+
+                    </div>
+                  </div>
+                `;
+              }).join("");
+
+              return `
+                <div style="margin-bottom:16px;">
+                  <div style="background:#fff;border:1px solid #E8EDF5;border-radius:12px;padding:0 16px;box-shadow:0 1px 4px rgba(17,24,39,0.04);">
+
+                    <!-- Date: first row inside card -->
+                    <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(17,24,39,0.38);padding:14px 0 10px 0;border-bottom:1px solid #F3F4F6;">
+                      ${escapeHtml(formatFeedDateLong(d))}
+                    </div>
+
+                    ${itemsHtml}
+                  </div>
+                </div>
+              `;
+            }).join("");
+
+            return `<div class="ms-feed-wrap">${groupsHtml}</div>`;
           }
 
           function breakdownIconSVG(kind) {
@@ -1988,7 +2840,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
             </svg>`;
           }
 
-          function renderHeroScore(r, meta, ctxTags) {
+          function renderHeroScore(r, meta, ctxTags, dayRowsByDate, savedItemMeta) {
             const score = Number(r?.opportunity_score_final_local);
             const safeScore = Number.isFinite(score) ? Math.round(score) : null;
 
@@ -1997,7 +2849,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
             let deltaClass = '';
             let formattedDelta = delta;
-
             if (safeDelta === null) {
               deltaClass = 'is-neutral';
               formattedDelta = '—';
@@ -2012,21 +2863,43 @@ const show_actions = has_selected_dates || has_saved_item_id;
               formattedDelta = `${safeDelta} pts`;
             }
 
-            const comp = Number.isFinite(Number(r?.delta_att_events_pct))
-              ? Math.round(Number(r.delta_att_events_pct))
-              : null;
+            // STATUT: binary based on events_score
+            const eventsScore = Number(r?.events_score ?? 0);
+            const hasRisk = Number.isFinite(eventsScore) && eventsScore > 0;
+            const statutBadgeClass = hasRisk ? 'is-risk' : 'is-safe';
+            const statutText = hasRisk ? 'À RISQUE' : 'SANS RISQUE';
 
-            const weather = Number.isFinite(Number(r?.delta_att_weather_total_pct))
-              ? Math.round(Number(r.delta_att_weather_total_pct))
-              : null;
+            // Points clés: up to 3 bullets
+            const pointsBullets = (() => {
+              const bullets = [];
 
-            const calendar = Number.isFinite(Number(r?.delta_att_calendar_pct))
-              ? Math.round(Number(r.delta_att_calendar_pct))
-              : null;
+              // Bullet 1: day ranking among selected dates
+              const scores = selectedDates
+                .map(d => {
+                  const row2 = dayRowsByDate ? dayRowsByDate.get(d) : null;
+                  return { d, s: row2 && typeof row2.opportunity_score_final_local === "number" ? row2.opportunity_score_final_local : null };
+                })
+                .filter(x => x.s !== null)
+                .sort((a, b) => b.s - a.s);
 
-            const mobility = Number.isFinite(Number(r?.delta_att_mobility_pct))
-              ? Math.round(Number(r.delta_att_mobility_pct))
-              : null;
+              if (scores.length > 0 && safeScore !== null) {
+                const rank = scores.findIndex(x => x.d === selectedDate) + 1;
+                if (rank === 1 && scores.length > 1) bullets.push({ ico: "★", text: "Meilleur jour de la sélection" });
+                else if (rank > 1) bullets.push({ ico: "★", text: `${rank}e jour de la sélection` });
+                else bullets.push({ ico: "★", text: "Seul jour de la sélection" });
+              }
+
+              // Bullet 2: alert level only
+              const alertLevel = Number(r?.alert_level_max ?? 0);
+              const alertText = (Number.isFinite(alertLevel) && alertLevel > 0) ? `Alerte niveau ${alertLevel}` : "Pas d'alertes";
+              bullets.push({ ico: "●", text: alertText });
+
+              // Bullet 3: context tags (ferié / vacation / commercial / weekend fallback)
+              const tagLabels = (Array.isArray(ctxTags) ? ctxTags : []).map(t => t.label).filter(Boolean);
+              if (tagLabels.length > 0) bullets.push({ ico: "◈", text: tagLabels.join(" · ") });
+              
+              return bullets.slice(0, 3);
+            })();
 
             const fullDate = new Intl.DateTimeFormat("fr-FR", {
               weekday: "long",
@@ -2034,49 +2907,342 @@ const show_actions = has_selected_dates || has_saved_item_id;
               month: "long",
               year: "numeric"
             }).format(parseYmdToDate(selectedDate));
-
             const capitalizedDate = fullDate.charAt(0).toUpperCase() + fullDate.slice(1);
 
             return `
-              <div class="ms-hero">
-                <div class="ms-hero-date">${escapeHtml(capitalizedDate)}</div>
+              <div class="ms-hero" style="padding-top:12px;">
 
-                ${Array.isArray(ctxTags) && ctxTags.length ? `
-                  <div class="ms-keywords">
-                    ${ctxTags.map((t) => `
-                      <span class="ms-keyword">
-                        <span class="ms-ctx-ico">${ctxIconSVG(t.kind)}</span>
-                        <span>${escapeHtml(t.label)}</span>
-                      </span>
-                    `).join("")}
+                <!-- Date + countdown or delta -->
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                  <div class="ms-hero-date" style="margin-bottom:0;">${escapeHtml(capitalizedDate)}</div>
+                  <div class="ms-status-countdown" style="text-align:right;line-height:1.6;">
+                    ${(() => {
+                      const dd = savedItemMeta?.decision_date || null;
+                      const ed = savedItemMeta?.event_date || null;
+                      if (!dd && !ed) {
+                        return safeDelta !== null ? `${formattedDelta} VS SEMAINE DERNIÈRE` : "—";
+                      }
+                      const lines = [];
+                      if (dd) {
+                        const dc = countdownLabel(dd, "avant choix de date");
+                        if (dc) lines.push(dc);
+                      }
+                      return lines.join("<br>");
+                    })()}
                   </div>
-                ` : ``}
                 </div>
 
+                <!-- Score row -->
                 <div class="ms-hero-grid">
                   <div class="ms-hero-score-block">
-                    <div class="ms-hero-label">
-                      SCORE D’OPPORTUNITÉ
-                    </div>
-
+                    <div class="ms-hero-label">SCORE D'OPPORTUNITÉ</div>
                     <div class="ms-hero-score">
                       <span class="ms-score-main">${safeScore === null ? "—" : String(safeScore)}</span>
                       <span class="ms-score-max">/100</span>
+                      <div class="ms-delta-pill ${deltaClass}" style="margin-left:10px;">
+                        ${formattedDelta}
+                      </div>
                     </div>
                   </div>
-
-                  <div class="ms-hero-delta">
-                    <div class="ms-delta-pill ${deltaClass}">
-                      ${formattedDelta}
-                    </div>
-                    <div class="ms-delta-sub">
-                      VS SEMAINE DERNIÈRE
-                    </div>
+                  <div class="ms-statut-block">
+                    <div class="ms-statut-label">STATUT</div>
+                    <div class="ms-statut-badge ${statutBadgeClass}">${statutText}</div>
                   </div>
                 </div>
+
+                <!-- Points clés -->
+                <div class="ms-points-cles-block">
+                  <div class="ms-points-cles-label">Points clés</div>
+                  <ul class="ms-points-cles-list">
+                    ${pointsBullets.map(b => `
+                      <li>
+                        <span class="ms-pc-ico">${escapeHtml(b.ico)}</span>
+                        <span>${escapeHtml(b.text)}</span>
+                      </li>
+                    `).join("")}
+                  </ul>
+                </div>
+
               </div>
             `;
           }
+
+          function isSeasonalAverageDate(ymd) {
+            const target = parseYmdToDate(ymd);
+            if (!target) return false;
+
+            const today = new Date();
+            const todayUtc = new Date(Date.UTC(
+              today.getFullYear(),
+              today.getMonth(),
+              today.getDate()
+            ));
+
+            const diffDays = Math.floor((target.getTime() - todayUtc.getTime()) / 86400000);
+            return diffDays > 10;
+          }
+
+          function getWeatherIconSrcFrom30DayGrid(weatherCode) {
+            const code = Number(weatherCode);
+
+            // IMPORTANT:
+            // Paste here the EXACT weather_code -> /icons/weather/... mapping body
+            // already used in your 30-day grid.
+            // Do not invent a new mapping here.
+            //
+            // Example shape only:
+            //
+            // if (code === 0) return "/icons/weather/clear.svg";
+            // if ([1,2,3].includes(code)) return "/icons/weather/partly-cloudy.svg";
+            // ...
+            //
+            // Replace this fallback once pasted:
+            return "";
+          }
+
+          function renderComparisonWeatherCell(row) {
+            const iconSrc = getWeatherIconSrcFrom30DayGrid(row?.comparison?.weather_code);
+            const label = String(row?.comparison?.weather_label_fr || "").trim();
+            const seasonal = isSeasonalAverageDate(row?.date);
+
+            if (!iconSrc) {
+              return `
+                <div class="ms-weather-compare">
+                  <div class="ms-weather-compare-fallback">—</div>
+                  ${seasonal ? `<div class="ms-weather-compare-note">moyenne saisonnière</div>` : ""}
+                </div>
+              `;
+            }
+
+            return `
+              <div class="ms-weather-compare">
+                <img
+                  src="${escapeHtml(iconSrc)}"
+                  alt="${escapeHtml(label || "Météo")}"
+                  title="${escapeHtml(label || "Météo")}"
+                  class="ms-weather-compare-icon"
+                />
+                ${seasonal ? `<div class="ms-weather-compare-note">moyenne saisonnière</div>` : ""}
+              </div>
+            `;
+          }
+
+          function weatherIconSrc(code){
+            const c = Number(code);
+            if (!Number.isFinite(c)) return "";
+
+            // WMO weather interpretation groups (Open-Meteo style)
+            if (c === 0) return "/icons/weather/weather_sunny.svg";
+            if (c === 1 || c === 2 || c === 3) return "/icons/weather/weather_cloudy.svg";
+            if (c === 45 || c === 48) return "/icons/weather/weather_cloudy.svg";
+
+            // drizzle / rain
+            if ((c >= 51 && c <= 57) || (c >= 61 && c <= 67))
+              return "/icons/weather/weather_rain.svg";
+
+            // snow
+            if (c >= 71 && c <= 77)
+              return "/icons/weather/weather_snow.svg";
+
+            // rain showers
+            if (c >= 80 && c <= 82)
+              return "/icons/weather/weather_rain-showers.svg";
+
+            // thunderstorm
+            if (c >= 95 && c <= 99)
+              return "/icons/weather/weather_rain-showers.svg";
+
+            return "/icons/weather/weather_cloudy.svg";
+          }
+
+          MS.renderComparisonSection = function renderComparisonSection(dayRowsByDate){
+
+            const rows = selectedDates.map((d, i) => {
+
+              const r = dayRowsByDate.get(d);
+
+              // ---------------------------
+              // CENTRALIZED COMPARISON DATA
+              // ---------------------------
+
+              const comparison = {
+
+                // REAL DATA
+                score_global: r?.opportunity_score_final_local ?? null,
+
+                events_count:
+                  Array.isArray(r?.top_competition_events)
+                    ? r.top_competition_events.length
+                    : (r?.competing_events_count ?? null),
+
+                calendrier: (() => {
+
+                  const items = [];
+
+                  if (r?.holiday_name) items.push(r.holiday_name);
+                  if (r?.vacation_name) items.push(r.vacation_name);
+
+                  if (Array.isArray(r?.commercial_events)) {
+                    r.commercial_events.forEach(e => {
+                      if (e?.event_name) items.push(e.event_name);
+                    });
+                  }
+
+                  // limit to 3
+                  const list = items.slice(0,3);
+
+                  // fallback: weekday / weekend
+                  if (list.length === 0) {
+
+                    const dt = parseYmdToDate(r.date);
+                    const isWeekend = dt && (dt.getUTCDay() === 0 || dt.getUTCDay() === 6);
+
+                    return [isWeekend ? "Week-end" : "Semaine"];
+
+                  }
+
+                  // if 2+ items remove weekday/weekend
+                  return list;
+
+                })(),
+
+                weather_code: r?.weather_code ?? null,
+                weather_label_fr: r?.weather_label_fr ?? "",
+                mobility_display_status: r?.mobility_display_status ?? "",
+
+              };
+
+              return {
+                date: d,
+                comparison
+              };
+
+            });
+ 
+            if (!rows.length) {
+              container.innerHTML = "<div class='ms-days-wrap'>Aucune date sélectionnée.</div>";
+              return;
+            }
+
+            function headerDate(ymd){
+              const d = parseYmdToDate(ymd);
+              if (!d) return ymd;
+
+              const dow = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"][((d.getUTCDay() + 6) % 7)];
+              const day = String(d.getUTCDate()).padStart(2, "0");
+
+              const month = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(d);
+              const m = month.charAt(0).toUpperCase() + month.slice(1);
+
+              return `
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+
+                  <div style="font-size:11px;letter-spacing:0.08em;color:#6B7280;">
+                    ${dow}
+                  </div>
+
+                  <div style="font-size:14px;font-weight:600;">
+                    ${day} ${m}
+                  </div>
+
+                </div>
+              `;
+            }
+
+            function scoreCell(v){
+              const n = Number(v);
+              if (!Number.isFinite(n)) return "—";
+              return Math.round(n);
+            }
+
+            container.innerHTML = `
+
+            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
+              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
+                <div id="ms-day-tabs"></div>
+              </div>
+            </div>
+
+            <div class="ms-days-wrap">
+
+              <div class="ms-comp-cards">
+
+                ${rows.map(r => {
+
+                  const score = Number(r.comparison.score_global);
+                  const scoreVal = Number.isFinite(score) ? Math.round(score) : "—";
+
+                  const weatherIcon = weatherIconSrc(r.comparison.weather_code);
+
+                  return `
+                    <div class="ms-comp-card">
+
+                      <div class="ms-comp-card-date">
+                        ${headerDate(r.date)}
+                      </div>
+
+                      <div class="ms-comp-card-score">
+                        ${scoreVal}
+                      </div>
+
+                      <div class="ms-comp-metric">
+                        <span>Calendrier</span>
+                        <span>
+                          ${(Array.isArray(r.comparison.calendrier) ? r.comparison.calendrier : [r.comparison.calendrier])
+                            .map(x => escapeHtml(x))
+                            .join(" · ")}
+                        </span>
+                      </div>
+
+                      <div class="ms-comp-metric">
+                        <span>Événements</span>
+                        <span>${r.comparison.events_count ?? "—"}</span>
+                      </div>
+
+                      <div class="ms-comp-metric">
+                        <span>Météo</span>
+                        <span>
+                          ${weatherIcon
+                            ? `<img src="${escapeHtml(weatherIcon)}" style="width:22px;height:22px;">`
+                            : "—"}
+                        </span>
+                      </div>
+
+                      <div class="ms-comp-metric">
+                        <span>Mobilité</span>
+                        <span>${escapeHtml(r.comparison.mobility_display_status || "—")}</span>
+                      </div>
+
+                      <button
+                        class="ms-choose-day-btn"
+                        data-date="${r.date}"
+                      >
+                        Choisir ce jour
+                      </button>
+
+                    </div>
+                  `;
+
+                }).join("")}
+
+              </div>
+
+            </div>
+            `;            
+          }
+
+          container.querySelectorAll(".ms-choose-day-btn").forEach(btn=>{
+            btn.addEventListener("click",()=>{
+              const d = btn.getAttribute("data-date");
+              if(!d) return;
+
+              const next = new URLSearchParams();
+              next.set("selected_dates", selectedDates.join(","));
+              next.set("selected_date", d);
+
+              window.location.href = "/app/insightevent/days?" + next.toString();
+            });
+          });
 
           function renderTopViz(r) {
             const score = Number(r?.opportunity_score_final_local);
@@ -2287,57 +3453,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               body
             );
           }
-
-          function sectionIconSVG(kind) {
-            const icons = {
-              alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
-                <path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/>
-              </svg>`,
-              info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" stroke="#1D3BB3" stroke-width="1.6"/>
-                <path d="M12 10v7" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M12 7h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/>
-              </svg>`,
-              calendar: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/>
-                <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/>
-              </svg>`,
-              sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/>
-                <path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
-                      stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>`,
-              sparkle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/>
-              </svg>`,
-            };
-            return icons[kind] || icons.info;
-          }
-
-          function ctxIconSVG(kind) {
-            if (kind === "daytype") {
-              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M4 7h16M4 12h16M4 17h16" stroke="#6b7280" stroke-width="1.8" stroke-linecap="round"/>
-                <path d="M7 4v16M12 4v16M17 4v16" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.55"/>
-              </svg>`;
-            }
-            if (kind === "break") {
-              return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3c-4.8 0-8.7 3.5-9.5 8.1h19C20.7 6.5 16.8 3 12 3z" stroke="#6b7280" stroke-width="1.6" stroke-linejoin="round"/>
-                <path d="M12 11v7a2 2 0 0 1-4 0" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M6.2 11c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2c.7 1.2 2 2 3.5 2s2.8-.8 3.5-2" stroke="#6b7280" stroke-width="1.2" stroke-linecap="round" opacity="0.65"/>
-              </svg>`;
-            }
-            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M20 12v6a2 2 0 0 1-2 2H8l-4-4V6a2 2 0 0 1 2-2h6" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M16 3h5v5" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 3l-8 8" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round"/>
-            </svg>`;
-          }
-        }
+          } 
 
         async function fetchDays() {
           if (!container) return null;
@@ -2505,7 +3621,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
             // Main column behavior depends on whether items exist
             if (Array.isArray(items) && items.length > 0) {
-              if (pillsContainer) pillsContainer.innerHTML = "";
+              const pills = getPillsContainer();
+              if (pills) pills.innerHTML = "";
 
               if (container) {
                 container.innerHTML = "";
@@ -2527,7 +3644,22 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
         (async function init() {
           try {
-            const data = await fetchDays();
+
+            const [data, allSavedItems] = await Promise.all([
+              fetchDays(),
+              fetchSavedItems().catch(() => []),
+            ]);
+
+            const rawMeta = allSavedItems
+              .find(i => i.location_id === LOCATION_ID && (i.decision_date || i.event_date))
+              ?? null;
+
+            const savedItemMeta = rawMeta ? {
+                          ...rawMeta,
+                          decision_date: rawMeta.decision_date?.value ?? rawMeta.decision_date ?? null,
+                          event_date: rawMeta.event_date?.value ?? rawMeta.event_date ?? null,
+                        } : null;
+            
             if (!data) {
               // fetchDays already rendered the error state.
               return;
@@ -2543,8 +3675,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
             }
 
             MS.pointsCles = data.points_cles ?? null;
+            MS.alerts = Array.isArray(data.alerts) ? data.alerts : [];
+            MS.savedItemMeta = savedItemMeta ?? null;
 
-            if ((!selectedDate || !byDate.has(selectedDate)) && selectedDates.length > 0) {
+            if ((!selectedDate || (selectedDate !== "__comparison__" && !byDate.has(selectedDate))) && selectedDates.length > 0) {
               const firstFound = selectedDates.find((d) => byDate.has(d));
               if (firstFound) {
                 selectedDate = firstFound;
@@ -2553,7 +3687,20 @@ const show_actions = has_selected_dates || has_saved_item_id;
               }
             }
 
-            renderFocusedDay(byDate, MS.pointsCles);
+            const firstDate = selectedDates.find(d => byDate.has(d));
+            if (firstDate) {
+              const prevSelected = selectedDate;
+              selectedDate = firstDate;
+              renderFocusedDay(byDate, MS.pointsCles, MS.savedItemMeta);
+              selectedDate = prevSelected;
+            }
+
+            if (selectedDate === "__comparison__") {
+              if (typeof MS.renderComparisonSection === "function") {
+                MS.renderComparisonSection(byDate);
+              }
+            }
+
             renderPills(byDate);
 
           } catch (e) {

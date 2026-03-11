@@ -102,16 +102,12 @@ const getTopCompetitionEvents = (
     "top_events_50km",
   ];
 
-  // nearest non-empty bucket wins
-  let pool: any[] = [];
-  for (const k of buckets) {
-    const arr = Array.isArray(day?.[k]) ? day[k] : [];
-    if (arr.length) {
-      pool = arr;
-      break;
-    }
-  }
-  if (!pool.length) return [];
+  // collect events from all radius buckets
+const pool = buckets.flatMap((k) =>
+  Array.isArray(day?.[k]) ? day[k] : []
+);
+
+if (!pool.length) return [];
 
   const sameIndustry = pool.filter((e) =>
     isSameIndustry(e?.industry_code, clientIndustry)
@@ -338,15 +334,30 @@ export function renderPointsClesV1(
     );
     } else if (topEvents.length > 1) {
     const city =
-        typeof topEvents[0]?.city_name === "string" && topEvents[0].city_name.trim()
+      typeof topEvents[0]?.city_name === "string" && topEvents[0].city_name.trim()
         ? topEvents[0].city_name.trim()
         : "à proximité";
 
+    const industries = topEvents
+      .map((e) => (typeof e?.industry_code === "string" ? e.industry_code : null))
+      .filter(Boolean);
+
+    let type = "événements";
+
+    if (industries.includes("Culture & Patrimoine")) {
+      type = "expositions ou événements culturels";
+    } else if (industries.includes("Événementiel")) {
+      type = "événements";
+    } else if (industries.includes("Sports & Loisirs actifs")) {
+      type = "événements sportifs";
+    } else if (industries.includes("Tourisme & Loisirs")) {
+      type = "activités de loisirs";
+    }
+
     details.push(
-        `Les événements concurrents les plus proches sont principalement des expositions situées à ${city}`
+      `Les événements concurrents les plus proches sont principalement des ${type} situés à ${city}`
     );
   }
-  
   if (details.length > 0) {
     out.push(["À noter", ...details].join("\n"));
   }
