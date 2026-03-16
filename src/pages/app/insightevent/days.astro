@@ -75,10 +75,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
     width:100%;
     margin-top:14px;
 
-    background:transparent;
-    color:var(--color-brand-blue);
+    background:#FFFFFF !important;
+    color:#1D3BB3 !important;
 
-    border:1px solid var(--color-brand-blue);
+    border:1px solid #1D3BB3 !important;
     border-radius:6px;
 
     padding:8px 10px;
@@ -91,7 +91,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
   }
 
   .ms-choose-day-btn:hover{
-    background:rgba(11,55,229,0.06);
+    background:color-mix(in srgb, var(--color-brand-blue) 10%, transparent);
   }
 
   /* =========================
@@ -432,6 +432,56 @@ const show_actions = has_selected_dates || has_saved_item_id;
     opacity: 0.6;
   }
 
+  /* ---------- French calendar styling ---------- */
+
+  .flatpickr-calendar {
+    font-family: inherit;
+  }
+
+  .flatpickr-weekday {
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .flatpickr-day.today {
+    background: var(--color-brand-blue);
+    border-color: var(--color-brand-blue);
+    color: #fff;
+  }
+
+  .flatpickr-day.selected {
+    background: var(--color-brand-blue);
+    border-color: var(--color-brand-blue);
+  }
+  .flatpickr-day.selected,
+  .flatpickr-day.selected:hover,
+  .flatpickr-day.startRange,
+  .flatpickr-day.startRange:hover,
+  .flatpickr-day.endRange,
+  .flatpickr-day.endRange:hover {
+    background: #0b37e5 !important;
+    border-color: #0b37e5 !important;
+    color: #ffffff !important;
+  }
+
+  .flatpickr-day.weekend {
+    color: var(--color-brand-blue);
+    background: rgba(29,59,179,0.08);
+  }
+
+  .flatpickr-day.prevMonthDay {
+    color: #cbd5e1;
+  }
+
+  .flatpickr-day.is-past-day {
+    color: #cbd5e1;
+  }
+
+  .flatpickr-calendar {
+    left: 50% !important;
+    transform: translateX(-50%);
+  }
+
   /* =========================
    Top viz + tabs (replaces carousel)
    ========================= */
@@ -640,13 +690,15 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-section--sparkle .ms-ico { margin-top: 2px; }
 
   .ms-ico{
-    width:28px;
-    height:28px;
+    width:20px;
+    height:20px;
     display:flex;
     align-items:center;
     justify-content:center;
     background:transparent;
     margin-right:14px;
+    flex-shrink:0;
+    margin-top:-8px;
   }
   
   .ms-head-content{ flex:1; min-width:0; }
@@ -693,13 +745,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-ico{
     margin-right: 0;              /* IMPORTANT: you currently add +14px on top of gap */
     flex: 0 0 auto;
-    align-self: flex-start;
-    margin-top: 2px;              /* small optical alignment */
+    align-self: auto;
+    margin-top: 0px;              /* small optical alignment */
   }
 
   /* Make SVG not participate in baseline quirks */
   .ms-ico svg{
     display: block;
+    margin-top: -8px;
   }
 
   /* Title + subtitle stack cleanly */
@@ -787,7 +840,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
 
   /* ---------- Saved list (template-like rows) ---------- */
-  .ms-saved-wrap{ width:100%; max-width:1080px; margin:0 auto; padding-top:6px; }
+  .ms-saved-wrap{ width:100%; max-width:720px; margin:0 auto; padding-top:6px; }
 
   .ms-saved-hero{
     font-size:24px;
@@ -820,8 +873,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+    cursor:pointer;
+    transition: color 150ms ease;
   }
 
+  .ms-saved-title2:hover{
+    color: var(--color-brand-blue);
+  }
+  
   .ms-saved-subline{
     display:flex;
     align-items:center;
@@ -886,6 +945,21 @@ const show_actions = has_selected_dates || has_saved_item_id;
   }
 
   .ms-saved-actions{ display:flex; gap:10px; align-items:center; justify-content:flex-end; }
+
+  .ms-btn-row {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    color: #111827;
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .ms-btn-row:hover {
+    color: var(--color-brand-blue);
+  }
 
   /* ---------- Modal (critical: prevents flash + keeps centered overlay) ---------- */
   .ms-modal-backdrop{
@@ -1108,6 +1182,22 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
   .ms-comparison{
     margin:10px 0 32px 0;
+  }
+
+  /* =========================
+   CHOICE RECAP (comparison / CHOIX only)
+   ========================= */
+
+  .ms-choice-recap-wrap{
+    margin-top:24px;
+    margin-bottom:24px;
+  }
+
+  .ms-choice-recap-body{
+    color:#111827;
+    font-size:15px;
+    line-height:1.8;
+    white-space:pre-line;
   }
 
   .ms-comparison-title{
@@ -1346,37 +1436,41 @@ const show_actions = has_selected_dates || has_saved_item_id;
           </div>
 
           <div class="ms-modal-body">
+
             <label class="ms-field">
-              <div class="ms-label">Titre</div>
+              <div class="ms-label">NOM DE L'ÉVÉNEMENT</div>
               <input id="ms-save-title-input" class="ms-input" type="text" placeholder="Ex: Week-end de Pâques" maxlength="120" />
             </label>
 
-            <label class="ms-field">
-              <div class="ms-label">Date de décision</div>
-              <input id="ms-save-decision-date" class="ms-input" type="date" />
-            </label>
-
-            <label class="ms-field">
-              <div class="ms-label">Date de l'événement</div>
-              <select id="ms-save-event-date" class="ms-input"></select>
-            </label>
-
-            <label class="ms-field">
-              <div class="ms-label">Description (optionnel)</div>
-              <textarea id="ms-save-desc" class="ms-textarea" rows="3" placeholder="Contrainte, intuition, note interne…"></textarea>
-            </label>
-
             <div class="ms-field">
-              <div class="ms-label">Dates</div>
+              <div class="ms-label">OPTIONS DATES DE LANCEMENT</div>
               <div id="ms-save-dates" class="ms-datechips"></div>
             </div>
 
-            <div id="ms-save-error" class="ms-error" style="display:none;"></div>
-          </div>
+            <label class="ms-field">
+              <div class="ms-label">DATE LIMITE DE DÉCISION</div>
+              <input id="ms-save-decision-date" class="ms-input" type="text" />
+            </label>
 
-          <div class="ms-modal-actions">
-            <button type="button" id="ms-save-cancel" class="ms-btn ghost">Annuler</button>
-            <button type="button" id="ms-save-submit" class="ms-btn solid">Enregistrer</button>
+            <label class="ms-field">
+              <div class="ms-label">DATE DE FIN</div>
+              <input id="ms-save-event-date" class="ms-input" type="text" />
+            </label>
+
+            <label class="ms-field">
+              <div class="ms-label">DESCRIPTION (optionnel)</div>
+              <textarea id="ms-save-desc" class="ms-textarea" rows="3" placeholder="Contrainte, intuition, note interne…"></textarea>
+            </label>
+
+            <div id="ms-save-error" class="ms-error" style="display:none;"></div>
+
+          </div>
+          <div class="ms-modal-actions" style="justify-content:space-between;">
+            <button type="button" id="ms-save-delete" class="ms-btn ghost" style="color:#b91c1c;">Supprimer</button>
+            <div style="display:flex;gap:10px;">
+              <button type="button" id="ms-save-cancel" class="ms-btn ghost">Annuler</button>
+              <button type="button" id="ms-save-submit" class="ms-btn solid">Enregistrer</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1387,8 +1481,36 @@ const show_actions = has_selected_dates || has_saved_item_id;
     <InsightBottomBar active="days" showActions={show_actions} />
 
   </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
     <!-- Client logic -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.min.js"></script>
+
+    <script is:inline>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      if (!window.flatpickr) {
+        console.error("Flatpickr not loaded");
+        return;
+      }
+
+      window.flatpickr.l10ns.fr = {
+        ...window.flatpickr.l10ns.default,
+        firstDayOfWeek: 1,
+        weekdays: {
+          shorthand: ["dim","lun","mar","mer","jeu","ven","sam"],
+          longhand: ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"]
+        },
+        months: {
+          shorthand: ["janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"],
+          longhand: ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"]
+        }
+      };
+
+    });
+    </script>
+    
     <script is:inline define:vars={{ location_id }}>
       (function () {
         // ---- SERVER TRUTH (injected by Astro via define:vars) ----
@@ -1400,6 +1522,12 @@ const show_actions = has_selected_dates || has_saved_item_id;
         let selectedDateRaw = (params.get("selected_date") || "").trim();
         let selectedDate = selectedDateRaw === "__comparison__" ? "__comparison__" : normalizeYmd(selectedDateRaw);
 
+        function normalizeYmd(v) {
+          const s = String(v ?? "").trim();
+          const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+          return m ? m[1] : "";
+        }
+
         const selectedDates = [...new Set(
           selectedDatesRaw
             .split(",")
@@ -1407,7 +1535,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
             .filter(Boolean)
         )].slice(0, 7);
         
-        const savedItemId = (params.get("saved_item_id") || "").trim();
+        let savedItemId = (params.get("saved_item_id") || "").trim();
 
         // Canonicalize selected_date if missing but we do have selected_dates
         if (!selectedDate && selectedDates.length > 0) {
@@ -1505,7 +1633,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
           if (modalDecisionDate) modalDecisionDate.value = "";
           if (modalDesc) modalDesc.value = "";
           if (modalTitle) modalTitle.value = "";
-          populateEventDateSelect(MS.draftDates, "");
+          if (modalEventDate) modalEventDate.value = "";
 
           // default title suggestion (create mode only)
           if (modalTitle && !String(modalTitle.value || "").trim()) {
@@ -1519,6 +1647,49 @@ const show_actions = has_selected_dates || has_saved_item_id;
             .slice(0, 7);
 
           renderModalDateChipsCreate(MS.draftDates);
+
+          // DATE FIN calendar constraint
+          if (modalEventDate && Array.isArray(MS.draftDates) && MS.draftDates.length > 0) {
+
+            const minLaunchDate = MS.draftDates
+              .map(d => flatpickr.parseDate(d, "Y-m-d"))
+              .filter(Boolean)
+              .sort((a,b) => a - b)[0];
+            
+            if (window.__msFlatpickrEnd) {
+              window.__msFlatpickrEnd.destroy();
+            }
+
+            window.__msFlatpickrEnd = flatpickr(modalEventDate, {
+              locale: flatpickr.l10ns.fr,
+              firstDayOfWeek: 1,
+              dateFormat: "d/m/Y",
+              minDate: minLaunchDate,
+              disableMobile: true,
+              onDayCreate: function(dObj, dStr, fp, dayElem) {
+                const dayDate = dayElem.dateObj;
+                if (!(dayDate instanceof Date)) return;
+                const min = flatpickr.parseDate(minLaunchDate, "Y-m-d");
+                if (!(min instanceof Date)) return;
+                dayDate.setHours(0, 0, 0, 0);
+                min.setHours(0, 0, 0, 0);
+                if (dayDate.getTime() < min.getTime()) {
+                  dayElem.classList.add("is-past-day");
+                }
+              }
+            });
+
+            if (window.__msFlatpickrDecision) {
+              window.__msFlatpickrDecision.destroy();
+            }
+
+            window.__msFlatpickrDecision = flatpickr(modalDecisionDate, {
+              locale: flatpickr.l10ns.fr,
+              firstDayOfWeek: 1,
+              dateFormat: "d/m/Y",
+              disableMobile: true
+            });
+          }
 
           if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
           
@@ -1564,24 +1735,35 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           const url = isEdit ? "/api/saved-items/update" : "/api/saved-items/create";
 
+          function displayDateToYmd(v) {
+            // converts DD/MM/YYYY → YYYY-MM-DD; passes through YYYY-MM-DD unchanged
+            const s = String(v || "").trim();
+            if (!s) return null;
+            const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+            const ymd = s.match(/^\d{4}-\d{2}-\d{2}$/);
+            if (ymd) return s;
+            return null;
+          }
+
           const payload = isEdit
             ? {
                 saved_item_id: editingId,
                 title,
                 description: String(modalDesc?.value || "").trim() || null,
-                decision_date: String(modalDecisionDate?.value || "").trim() || null,
-                event_date: String(modalEventDate?.value || "").trim() || null,
+                decision_date: displayDateToYmd(modalDecisionDate?.value),
+                event_end_date: displayDateToYmd(modalEventDate?.value),
                 dates: (Array.isArray(MS.editingDates) ? MS.editingDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               }
             : {
                 location_id: loc,
                 title,
                 description: String(modalDesc?.value || "").trim() || null,
-                decision_date: String(modalDecisionDate?.value || "").trim() || null,
-                event_date: String(modalEventDate?.value || "").trim() || null,
+                decision_date: displayDateToYmd(modalDecisionDate?.value),
+                event_end_date: displayDateToYmd(modalEventDate?.value),
                 dates: (Array.isArray(MS.draftDates) ? MS.draftDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               };
-
+          
           if (modalSubmit) modalSubmit.disabled = true;
 
           try {
@@ -1607,13 +1789,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
             const newId = (!isEdit && json?.saved_item_id) ? String(json.saved_item_id).trim() : "";
             if (newId) {
-              // Canonical permalink: shareable, stable, no selected_dates required
+              MS._pendingMonitorDate = "";
               const next = new URL(window.location.origin + "/app/insightevent/days");
               next.searchParams.set("saved_item_id", newId);
+              next.searchParams.set("selected_dates", selectedDates.join(","));
+              next.searchParams.set("selected_date", "__comparison__");
               window.location.assign(next.toString());
               return;
             }
-
             // Fallback: refresh list
             await loadSavedItems();
 
@@ -1631,30 +1814,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
           return `${m[3]}/${m[2]}/${m[1]}`;
         }
 
-        function populateEventDateSelect(datesArr, currentValue) {
-          const sel = document.getElementById("ms-save-event-date");
-          if (!sel) return;
-
-          const dates = (Array.isArray(datesArr) ? datesArr : [])
-            .map(normalizeYmd)
-            .filter(Boolean)
-            .sort();
-
-          // Default: closest future date, or first date if all past
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const defaultDate = dates.find(d => {
-            const t = parseYmdToDate(d);
-            return t && t >= today;
-          }) || dates[0] || "";
-
-          const valueToSelect = normalizeYmd(currentValue) || defaultDate;
-
-          sel.innerHTML = `<option value="">—</option>` + dates.map(d =>
-            `<option value="${escapeHtml(d)}" ${d === valueToSelect ? "selected" : ""}>${escapeHtml(fmtDDMMYYYY(d))}</option>`
-          ).join("");
-        }
-
         function daysUntil(ymd) {
           if (!ymd) return null;
           const today = new Date();
@@ -1669,7 +1828,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
           if (d === null) return null;
           if (d < 0)  return `${label} passée il y a ${Math.abs(d)}j`;
           if (d === 0) return `${label} aujourd'hui`;
-          return `J-${d} · ${label}`;
+          return `J-${d}`;
         }
 
         function stageLabel(s) {
@@ -1849,10 +2008,11 @@ const show_actions = has_selected_dates || has_saved_item_id;
                         data-dates="${escapeHtml(datesCsv)}"
                         data-title="${escapeHtml(title)}"
                         data-decision-date="${escapeHtml(String(it?.decision_date || ""))}"
-                        data-event-date="${escapeHtml(String(it?.event_date || ""))}"
-                        data-desc="${escapeHtml(desc)}">
+                        data-event-end-date="${escapeHtml(String(it?.event_end_date || ""))}"
+                        data-desc="${escapeHtml(desc)}"
+                        data-selected-date="${escapeHtml(String(it?.selected_date || ""))}">
                         <div class="ms-saved-left">
-                          <div class="ms-saved-title2">${escapeHtml(title)}</div>
+                          <div class="ms-saved-title2" style="cursor:pointer;" data-action="consult">${escapeHtml(title)}</div>
                           <div class="ms-saved-subline">
                             <span class="ms-saved-datesline">${escapeHtml(ds.text || "")}</span>
                             ${hintSafe ? `<span class="ms-saved-sep">|</span><span class="ms-saved-desc">${hintSafe}</span>` : ""}
@@ -1863,18 +2023,16 @@ const show_actions = has_selected_dates || has_saved_item_id;
                           <div class="ms-saved-kpis">
                             <div class="ms-kpi">
                               <div class="ms-kpi-label">Décision</div>
-                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.decision_date, "décision") || "—")}</div>
+                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.decision_date, "") || "—")}</div>
                             </div>
                             <div class="ms-kpi">
                               <div class="ms-kpi-label">Événement</div>
-                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.event_date, "événement") || "—")}</div>
+                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.event_end_date, "") || "—")}</div>
                             </div>
                           </div>
 
                           <div class="ms-saved-actions c-actions">
-                            <button type="button" class="ms-btn-row ms-consult">Consulter</button>
                             <button type="button" class="ms-btn-row ms-edit">Modifier</button>
-                            <button type="button" class="ms-btn-row ms-delete">Effacer</button>
                           </div>
                         </div>
                       </div>
@@ -1887,6 +2045,20 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           // Wire buttons (unchanged)
           savedPanel.querySelectorAll(".ms-saved-tr").forEach((rowEl) => {
+            const titleEl = rowEl.querySelector(".ms-saved-title2");
+            if (titleEl) {
+              titleEl.addEventListener("click", () => {
+                const id = (rowEl.getAttribute("data-id") || "").trim();
+                const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
+                const nextDates = rawDates.split(",").map(s => normalizeYmd(s)).filter(Boolean).slice(0, 7);
+                if (!nextDates.length) return;
+                const next = new URLSearchParams();
+                next.set("selected_dates", nextDates.join(","));
+                next.set("saved_item_id", id);
+                next.set("selected_date", "__comparison__");
+                window.location.href = "/app/insightevent/days?" + next.toString();
+              });
+            }
             const editBtn = rowEl.querySelector(".ms-edit");
             const id = (rowEl.getAttribute("data-id") || "").trim();
             const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
@@ -1902,9 +2074,29 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
                 // Pre-fill modal fields
                 if (modalTitle) modalTitle.value = title;
-                if (modalDecisionDate) modalDecisionDate.value = rowEl.getAttribute("data-decision-date") || "";
                 if (modalDesc) modalDesc.value = desc;
-                populateEventDateSelect(MS.editingDates, rowEl.getAttribute("data-event-date") || "");
+
+                // Initialize flatpickr first, then set dates via API
+                if (window.__msFlatpickrDecision) window.__msFlatpickrDecision.destroy();
+                if (window.__msFlatpickrEnd) window.__msFlatpickrEnd.destroy();
+
+                window.__msFlatpickrDecision = flatpickr(modalDecisionDate, {
+                  locale: flatpickr.l10ns.fr,
+                  firstDayOfWeek: 1,
+                  dateFormat: "d/m/Y",
+                  disableMobile: true,
+                });
+                window.__msFlatpickrEnd = flatpickr(modalEventDate, {
+                  locale: flatpickr.l10ns.fr,
+                  firstDayOfWeek: 1,
+                  dateFormat: "d/m/Y",
+                  disableMobile: true,
+                });
+
+                const decisionRaw = rowEl.getAttribute("data-decision-date") || "";
+                const eventEndRaw = rowEl.getAttribute("data-event-end-date") || "";
+                if (decisionRaw) window.__msFlatpickrDecision.setDate(decisionRaw, true, "Y-m-d");
+                if (eventEndRaw) window.__msFlatpickrEnd.setDate(eventEndRaw, true, "Y-m-d");
 
                 // Store which saved_item_id we are editing (must happen before rendering)
                 MS.editingId = id;
@@ -1945,7 +2137,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
                 const next = new URLSearchParams();
                 next.set("selected_dates", nextDates.join(","));
-                next.set("selected_date", nextDates[0]);
+                next.set("saved_item_id", id);
+                const rawSelectedDate = (rowEl.getAttribute("data-selected-date") || "").trim();
+                if (rawSelectedDate) {
+                  next.set("selected_date", "__comparison__");
+                  next.set("date", rawSelectedDate);
+                } else {
+                  next.set("selected_date", "__comparison__");
+                }
                 window.location.href = "/app/insightevent/days?" + next.toString();
               });
             }
@@ -2056,6 +2255,13 @@ const show_actions = has_selected_dates || has_saved_item_id;
                 </div>
 
                 ${bodyHtml ? `<div class="ms-below">${bodyHtml}</div>` : ""}
+
+                <div style="margin-top:16px;">
+                  <a href="/app/insightevent/map?date=${escapeHtml(selectedDate)}&selected_dates=${escapeHtml(selectedDates.join(','))}"
+                    style="font-size:13px;font-weight:600;color:#1D3BB3;text-decoration:none;">
+                    Voir plus →
+                  </a>
+                </div>
               </div>
             </div>
           `;
@@ -2285,6 +2491,59 @@ const show_actions = has_selected_dates || has_saved_item_id;
           `;
         }
 
+        function renderChoiceRecapCard(dayRowsByDate) {
+
+          const rows = Array.from(dayRowsByDate.values());
+
+          let hasWeekend = false;
+          let hasWeekday = false;
+          let hasVacation = false;
+          let hasHoliday = false;
+          let hasTourismPeak = false;
+
+          rows.forEach((r) => {
+            const meta = buildMetaForDate(r.date);
+
+            if (meta?.isWeekend) hasWeekend = true;
+            else hasWeekday = true;
+
+            if (r.vacation_name) hasVacation = true;
+            if (r.holiday_name) hasHoliday = true;
+            if (r.tourism_peak_flag_region === true) hasTourismPeak = true;
+          });
+
+          const criteria = [];
+
+          if (hasWeekend && hasWeekday) criteria.push("en semaine et le week-end");
+          else if (hasWeekend) criteria.push("le week-end");
+          else if (hasWeekday) criteria.push("en semaine");
+
+          if (hasVacation && hasHoliday) criteria.push("pendant les vacances scolaires ou jours fériés");
+          else if (hasVacation) criteria.push("pendant les vacances scolaires");
+          else if (hasHoliday) criteria.push("pendant un jour férié");
+          else criteria.push("hors vacances scolaires");
+
+          if (hasTourismPeak) criteria.push("pendant une période touristique");
+          else criteria.push("hors période touristique");
+
+          const bodyLines = [
+            "Vous avez choisi vos dates selon les critères suivants :",
+            "",
+            ...criteria.map((c) => `• ${c}`),
+            "",
+            "Une fois la date choisie, vous recevrez à partir de J-10 un suivi météo et mobilité quotidien avec des prévisions de plus en plus précises"
+          ];
+
+          return `
+            <div class="ms-choice-recap-wrap">
+              <div class="ms-card ms-card-decision">
+                <div class="ms-kicker">POURQUOI CES DATES ?</div>
+                <div class="ms-choice-recap-body">${escapeHtml(bodyLines.join("\n"))}</div>
+              </div>
+            </div>
+          `;
+        }
+
         function renderKeyFacts(keyFacts) {
           const arr = Array.isArray(keyFacts) ? keyFacts : [];
           if (arr.length === 0) return "";
@@ -2350,23 +2609,27 @@ const show_actions = has_selected_dates || has_saved_item_id;
           };
 
           const cells = [
-            { label: "AFFLUENCE",   val: norm(r?.events_score) },
-            { label: "MÉTÉO",       val: norm(r?.weather_score) },
-            { label: "MOBILITÉ",    val: norm(r?.mobility_score) },
-            { label: "CONCURRENCE", val: norm(r?.calendar_score) },
-          ];
-
+            { label: "AUDIENCE",   val: r?.events_score != null ? String(r.events_score).trim() : null },
+            { label: "CONDITIONS",        val: r?.weather_score != null ? String(r.weather_score).trim() : null },
+            { label: "ACCESSIBILITÉ",     val: r?.mobility_score != null ? String(r.mobility_score).trim() : null },
+            { label: "CONCURRENCE",  val: r?.calendar_score != null ? String(r.calendar_score).trim() : null },
+          ];  
+          
           return `
+            <div class="ms-section-title" style="text-align:center;margin-top:26px;">
+              FACTEURS DU SCORE D'OPPORTUNITÉ
+            </div>
+
             <div class="ms-breakdown-grid">
               ${cells.map(x => {
                 const v = x.val;
-                const w = v === null ? 0 : v;
+                const w = v === null ? 0 : parseFloat(v) * 10;
                 return `
                   <div class="ms-breakdown-cell">
                     <div class="ms-breakdown-cell-top">
                       <div class="ms-breakdown-cell-label">${escapeHtml(x.label)}</div>
                       <div class="ms-breakdown-cell-value">
-                        ${v === null ? "—" : `${v}<span class="muted">%</span>`}
+                        ${v === null ? "—" : v}
                       </div>
                     </div>
                     <div class="ms-breakdown-cell-bar">
@@ -2379,12 +2642,54 @@ const show_actions = has_selected_dates || has_saved_item_id;
           `;
         }
 
+        function renderAudienceContext(row) {
+
+          const audience =
+            row?.audience_primary ||
+            row?.customer_mix_primary ||
+            row?.target_audience ||
+            null;
+
+          if (!audience) return "";
+
+          return `
+            <div style="
+              margin-top:18px;
+              padding:12px 14px;
+              border:1px solid #E5E7EB;
+              border-radius:10px;
+              background:#F9FAFB;
+              text-align:center;
+            ">
+              <div style="
+                font-size:11px;
+                letter-spacing:0.12em;
+                text-transform:uppercase;
+                color:#9CA3AF;
+                font-weight:600;
+                margin-bottom:4px;
+              ">
+                PUBLIC LE PLUS PROBABLE
+              </div>
+
+              <div style="
+                font-size:14px;
+                font-weight:600;
+                color:#111827;
+              ">
+                ${escapeHtml(audience)}
+              </div>
+            </div>
+          `;
+        }
+
         function renderFocusedDay(dayRowsByDate, pointsCles, savedItemMeta) {
           if (!container) return;
 
           ensureSelectedDaysStyles();
 
           const row = dayRowsByDate.get(selectedDate);
+
           if (!row) {
             container.innerHTML = `
               <div class="text-sm text-gray-600">
@@ -2497,8 +2802,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
           // Sections (single column; fixed order)
           // ------------------------------
           const pointsClesHtml = renderPointsClesHexLike(row.points_cles ?? null);
+          const calendrierHtml = renderCalendrierHexLike(row);
           const alertesHtml = renderAlertesHexLike(row);
           const concurrenceHtml = renderConcurrenceHexLike(row);
+          const mobiliteHtml = renderMobiliteHexLike(row);
           const meteoHtml = renderMeteoHexLike(row);
 
           container.innerHTML = `
@@ -2516,6 +2823,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
               <div class="ms-days-top">
                 ${renderHeroScore(row, meta, ctxTags, dayRowsByDate, savedItemMeta)}
+
+                ${renderAudienceContext(row)}
+
                 ${renderScoreBreakdownBars(row)}
               </div>
 
@@ -2546,7 +2856,9 @@ const show_actions = has_selected_dates || has_saved_item_id;
               <div class="ms-panels">
                 ${pointsClesHtml}
                 ${alertesHtml}
+                ${calendrierHtml}
                 ${concurrenceHtml}
+                ${mobiliteHtml}
                 ${meteoHtml}
               </div>
             </div>
@@ -2579,12 +2891,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
               <div class="ms-panels">
                 ${renderPointsClesHexLike(row.points_cles ?? null)}
                 ${renderAlertesHexLike(row)}
+                ${renderCalendrierHexLike(row)}
                 ${renderConcurrenceHexLike(row)}
+                ${renderMobiliteHexLike(row)}
                 ${renderMeteoHexLike(row)}
               </div>
             `;
           }
-
+          
           function renderFeedForDate(date, allAlerts) {
             const items = (Array.isArray(allAlerts) ? allAlerts : [])
               .filter(a => normalizeYmd(a?.affected_date) === date);
@@ -2841,31 +3155,30 @@ const show_actions = has_selected_dates || has_saved_item_id;
           }
 
           function renderHeroScore(r, meta, ctxTags, dayRowsByDate, savedItemMeta) {
-            const score = Number(r?.opportunity_score_final_local);
-            const safeScore = Number.isFinite(score) ? Math.round(score) : null;
+            const score = r?.opportunity_score_final_local;
+            const safeScore = score !== null && score !== undefined ? String(score).trim() : null;
 
-            const delta = Number(r?.opportunity_score_vs_last_week);
-            const safeDelta = Number.isFinite(delta) ? Math.round(delta) : null;
-
+            const deltaRaw = r?.opportunity_score_vs_last_week;
+            const safeDelta = deltaRaw != null ? parseFloat(String(deltaRaw).trim()) / 10 : null;
+            
             let deltaClass = '';
-            let formattedDelta = delta;
-            if (safeDelta === null) {
+            let formattedDelta;
+            if (safeDelta === null || !Number.isFinite(safeDelta)) {
               deltaClass = 'is-neutral';
               formattedDelta = '—';
             } else if (safeDelta > 0) {
               deltaClass = 'is-positive';
-              formattedDelta = `+${safeDelta} pts`;
+              formattedDelta = `+${safeDelta.toFixed(1)} pts`;
             } else if (safeDelta < 0) {
               deltaClass = 'is-negative';
-              formattedDelta = `${safeDelta} pts`;
+              formattedDelta = `${safeDelta.toFixed(1)} pts`;
             } else {
               deltaClass = 'is-neutral';
-              formattedDelta = `${safeDelta} pts`;
+              formattedDelta = `0.0 pts`;
             }
-
-            // STATUT: binary based on events_score
-            const eventsScore = Number(r?.events_score ?? 0);
-            const hasRisk = Number.isFinite(eventsScore) && eventsScore > 0;
+            
+            // STATUT: authoritative signals from scoring model
+            const hasRisk = r?.is_major_realization_risk_flag === true;
             const statutBadgeClass = hasRisk ? 'is-risk' : 'is-safe';
             const statutText = hasRisk ? 'À RISQUE' : 'SANS RISQUE';
 
@@ -2877,7 +3190,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               const scores = selectedDates
                 .map(d => {
                   const row2 = dayRowsByDate ? dayRowsByDate.get(d) : null;
-                  return { d, s: row2 && typeof row2.opportunity_score_final_local === "number" ? row2.opportunity_score_final_local : null };
+                  return { d, s: row2 && row2.opportunity_score_final_local != null ? parseFloat(String(row2.opportunity_score_final_local)) : null };
                 })
                 .filter(x => x.s !== null)
                 .sort((a, b) => b.s - a.s);
@@ -2918,7 +3231,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
                   <div class="ms-status-countdown" style="text-align:right;line-height:1.6;">
                     ${(() => {
                       const dd = savedItemMeta?.decision_date || null;
-                      const ed = savedItemMeta?.event_date || null;
+                      const ed = savedItemMeta?.event_end_date || null;
                       if (!dd && !ed) {
                         return safeDelta !== null ? `${formattedDelta} VS SEMAINE DERNIÈRE` : "—";
                       }
@@ -2938,7 +3251,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
                     <div class="ms-hero-label">SCORE D'OPPORTUNITÉ</div>
                     <div class="ms-hero-score">
                       <span class="ms-score-main">${safeScore === null ? "—" : String(safeScore)}</span>
-                      <span class="ms-score-max">/100</span>
+                      <span class="ms-score-max">/10</span>
                       <div class="ms-delta-pill ${deltaClass}" style="margin-left:10px;">
                         ${formattedDelta}
                       </div>
@@ -3026,227 +3339,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
               </div>
             `;
           }
-
-          function weatherIconSrc(code){
-            const c = Number(code);
-            if (!Number.isFinite(c)) return "";
-
-            // WMO weather interpretation groups (Open-Meteo style)
-            if (c === 0) return "/icons/weather/weather_sunny.svg";
-            if (c === 1 || c === 2 || c === 3) return "/icons/weather/weather_cloudy.svg";
-            if (c === 45 || c === 48) return "/icons/weather/weather_cloudy.svg";
-
-            // drizzle / rain
-            if ((c >= 51 && c <= 57) || (c >= 61 && c <= 67))
-              return "/icons/weather/weather_rain.svg";
-
-            // snow
-            if (c >= 71 && c <= 77)
-              return "/icons/weather/weather_snow.svg";
-
-            // rain showers
-            if (c >= 80 && c <= 82)
-              return "/icons/weather/weather_rain-showers.svg";
-
-            // thunderstorm
-            if (c >= 95 && c <= 99)
-              return "/icons/weather/weather_rain-showers.svg";
-
-            return "/icons/weather/weather_cloudy.svg";
-          }
-
-          MS.renderComparisonSection = function renderComparisonSection(dayRowsByDate){
-
-            const rows = selectedDates.map((d, i) => {
-
-              const r = dayRowsByDate.get(d);
-
-              // ---------------------------
-              // CENTRALIZED COMPARISON DATA
-              // ---------------------------
-
-              const comparison = {
-
-                // REAL DATA
-                score_global: r?.opportunity_score_final_local ?? null,
-
-                events_count:
-                  Array.isArray(r?.top_competition_events)
-                    ? r.top_competition_events.length
-                    : (r?.competing_events_count ?? null),
-
-                calendrier: (() => {
-
-                  const items = [];
-
-                  if (r?.holiday_name) items.push(r.holiday_name);
-                  if (r?.vacation_name) items.push(r.vacation_name);
-
-                  if (Array.isArray(r?.commercial_events)) {
-                    r.commercial_events.forEach(e => {
-                      if (e?.event_name) items.push(e.event_name);
-                    });
-                  }
-
-                  // limit to 3
-                  const list = items.slice(0,3);
-
-                  // fallback: weekday / weekend
-                  if (list.length === 0) {
-
-                    const dt = parseYmdToDate(r.date);
-                    const isWeekend = dt && (dt.getUTCDay() === 0 || dt.getUTCDay() === 6);
-
-                    return [isWeekend ? "Week-end" : "Semaine"];
-
-                  }
-
-                  // if 2+ items remove weekday/weekend
-                  return list;
-
-                })(),
-
-                weather_code: r?.weather_code ?? null,
-                weather_label_fr: r?.weather_label_fr ?? "",
-                mobility_display_status: r?.mobility_display_status ?? "",
-
-              };
-
-              return {
-                date: d,
-                comparison
-              };
-
-            });
- 
-            if (!rows.length) {
-              container.innerHTML = "<div class='ms-days-wrap'>Aucune date sélectionnée.</div>";
-              return;
-            }
-
-            function headerDate(ymd){
-              const d = parseYmdToDate(ymd);
-              if (!d) return ymd;
-
-              const dow = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"][((d.getUTCDay() + 6) % 7)];
-              const day = String(d.getUTCDate()).padStart(2, "0");
-
-              const month = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(d);
-              const m = month.charAt(0).toUpperCase() + month.slice(1);
-
-              return `
-                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-
-                  <div style="font-size:11px;letter-spacing:0.08em;color:#6B7280;">
-                    ${dow}
-                  </div>
-
-                  <div style="font-size:14px;font-weight:600;">
-                    ${day} ${m}
-                  </div>
-
-                </div>
-              `;
-            }
-
-            function scoreCell(v){
-              const n = Number(v);
-              if (!Number.isFinite(n)) return "—";
-              return Math.round(n);
-            }
-
-            container.innerHTML = `
-
-            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
-              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
-                <div id="ms-day-tabs"></div>
-              </div>
-            </div>
-
-            <div class="ms-days-wrap">
-
-              <div class="ms-comp-cards">
-
-                ${rows.map(r => {
-
-                  const score = Number(r.comparison.score_global);
-                  const scoreVal = Number.isFinite(score) ? Math.round(score) : "—";
-
-                  const weatherIcon = weatherIconSrc(r.comparison.weather_code);
-
-                  return `
-                    <div class="ms-comp-card">
-
-                      <div class="ms-comp-card-date">
-                        ${headerDate(r.date)}
-                      </div>
-
-                      <div class="ms-comp-card-score">
-                        ${scoreVal}
-                      </div>
-
-                      <div class="ms-comp-metric">
-                        <span>Calendrier</span>
-                        <span>
-                          ${(Array.isArray(r.comparison.calendrier) ? r.comparison.calendrier : [r.comparison.calendrier])
-                            .map(x => escapeHtml(x))
-                            .join(" · ")}
-                        </span>
-                      </div>
-
-                      <div class="ms-comp-metric">
-                        <span>Événements</span>
-                        <span>${r.comparison.events_count ?? "—"}</span>
-                      </div>
-
-                      <div class="ms-comp-metric">
-                        <span>Météo</span>
-                        <span>
-                          ${weatherIcon
-                            ? `<img src="${escapeHtml(weatherIcon)}" style="width:22px;height:22px;">`
-                            : "—"}
-                        </span>
-                      </div>
-
-                      <div class="ms-comp-metric">
-                        <span>Mobilité</span>
-                        <span>${escapeHtml(r.comparison.mobility_display_status || "—")}</span>
-                      </div>
-
-                      <button
-                        class="ms-choose-day-btn"
-                        data-date="${r.date}"
-                      >
-                        Choisir ce jour
-                      </button>
-
-                    </div>
-                  `;
-
-                }).join("")}
-
-              </div>
-
-            </div>
-            `;            
-          }
-
-          container.querySelectorAll(".ms-choose-day-btn").forEach(btn=>{
-            btn.addEventListener("click",()=>{
-              const d = btn.getAttribute("data-date");
-              if(!d) return;
-
-              const next = new URLSearchParams();
-              next.set("selected_dates", selectedDates.join(","));
-              next.set("selected_date", d);
-
-              window.location.href = "/app/insightevent/days?" + next.toString();
-            });
-          });
-
+              
           function renderTopViz(r) {
-            const score = Number(r?.opportunity_score_final_local);
-            const safeScore = Number.isFinite(score) ? Math.round(score) : null;
+            const score = r?.opportunity_score_final_local;
+            const safeScore = score !== null && score !== undefined ? String(score).trim() : null;
 
             const norm = (v) => {
               const n = Number(v);
@@ -3313,39 +3409,177 @@ const show_actions = has_selected_dates || has_saved_item_id;
             `;
           }
 
+          function renderCalendrierHexLike(r) {
+            const dayDate = parseYmdToDate(selectedDate);
+            const isWeekend = dayDate && (dayDate.getUTCDay() === 0 || dayDate.getUTCDay() === 6);
+            const dowLabel = dayDate
+              ? ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"][dayDate.getUTCDay()]
+              : "";
+
+            const vacation = r?.vacation_name ? String(r.vacation_name) : null;
+            const holiday = r?.holiday_name ? String(r.holiday_name) : null;
+            const commercial = Array.isArray(r?.commercial_events) && r.commercial_events.length > 0
+              ? r.commercial_events.map(e => typeof e === "string" ? e : (e?.event_name || e?.label || "")).filter(Boolean)[0]
+              : null;
+
+            const headlineParts = [];
+            if (dowLabel) headlineParts.push(isWeekend ? `${dowLabel} (week-end)` : dowLabel);
+            if (vacation) headlineParts.push(vacation);
+            else if (holiday) headlineParts.push(holiday);
+            if (commercial) headlineParts.push(commercial);
+            const headline = headlineParts.join(" — ") || "Jour ordinaire";
+
+            const audience1 = r?.points_cles?.location_context?.primary_audience_1 || null;
+            const audience2 = r?.points_cles?.location_context?.primary_audience_2 || null;
+            const audienceLabel = [audience1, audience2].filter(Boolean).join(" · ");
+
+            const rationale = r?.audience_availability_label
+              ? String(r.audience_availability_label)
+              : null;
+
+            const dayTypeSignal = vacation
+              ? { label: "Vacances scolaires", pill: "pill-pos" }
+              : holiday
+              ? { label: "Jour férié", pill: "pill-pos" }
+              : isWeekend
+              ? { label: "Week-end", pill: "pill-pos" }
+              : { label: "Semaine", pill: "pill-neu" };
+
+            const commercialSignal = commercial
+              ? { label: commercial, pill: "pill-pos" }
+              : null;
+
+            const audienceMatch = (vacation || isWeekend)
+              ? { label: "Vos cibles sont présentes", pill: "pill-pos" }
+              : holiday
+              ? { label: "Vos cibles sont présentes", pill: "pill-pos" }
+              : { label: "Vos cibles peu disponibles", pill: "pill-neg" };
+
+            const confidence = r?.calendar_data_confidence
+              ? String(r.calendar_data_confidence)
+              : null;
+            const confidenceColor = confidence === "sourced"
+              ? "var(--color-text-success)"
+              : confidence === "inferred"
+              ? "var(--color-text-warning)"
+              : "var(--color-text-tertiary)";
+            const confidenceLabel = confidence === "sourced"
+              ? "Donnée sourcée"
+              : confidence === "inferred"
+              ? "Donnée inférée"
+              : null;
+
+            const proofRows = [
+              { key: "Jour", val: dowLabel || "—", pill: isWeekend ? "pill-pos" : "pill-neu", pillLabel: isWeekend ? "Week-end" : "Semaine" },
+              { key: "Vacances scolaires", val: vacation || "Aucune", pill: vacation ? "pill-pos" : null, pillLabel: vacation ? "Actif" : null },
+              { key: "Temps fort commercial", val: commercial || "Aucun", pill: commercial ? "pill-pos" : null, pillLabel: commercial ? "Actif" : null },
+              { key: "Vos audiences", val: audienceLabel || "—", pill: audienceMatch.pill, pillLabel: audienceMatch.label },
+            ];
+
+            const body = `
+              <div style="margin-top:6px;">
+                <p style="font-size:15px;font-weight:500;color:var(--color-text-primary);margin:0 0 8px;line-height:1.4;">
+                  ${escapeHtml(headline)}
+                </p>
+                ${rationale ? `
+                  <p style="font-size:13px;color:#374151;line-height:1.65;margin:0 0 16px;">
+                    ${escapeHtml(rationale)}
+                  </p>
+                ` : ""}
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:14px 0;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  ${proofRows.map(row => `
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                      <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(row.key)}</span>
+                      <span style="font-size:13px;color:#111827;">
+                        ${escapeHtml(row.val)}
+                        ${row.pill && row.pillLabel ? `
+                          <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;
+                            ${row.pill === 'pill-pos' ? 'background:rgba(16,185,129,0.1);color:#059669;' : row.pill === 'pill-neg' ? 'background:#FCEBEB;color:#791F1F;' : 'background:#F1EFE8;color:#444441;'}">
+                            ${escapeHtml(row.pillLabel)}
+                          </span>
+                        ` : ""}
+                      </span>
+                    </div>
+                  `).join("")}
+                </div>
+                ${confidenceLabel ? `
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:14px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:${confidenceColor};flex-shrink:0;display:inline-block;"></span>
+                    <span style="font-size:11px;color:#9CA3AF;">${escapeHtml(confidenceLabel)}</span>
+                  </div>
+                ` : ""}
+              </div>
+            `;
+
+            return sectionHex("Disponibilité de votre audience", "calendar", "", body);
+          }
+
           function renderAlertesHexLike(r) {
+            const date = normalizeYmd(r?.date || selectedDate);
+            const allAlerts = Array.isArray(MS.alerts) ? MS.alerts : [];
+            const dateAlerts = allAlerts.filter(a => normalizeYmd(a?.affected_date) === date);
 
-            const summary = r?.interpretation?.mobility || "Situation stable, rien à signaler.";
+            const categories = [
+              { key: "competition", label: "Pression concurrentielle" },
+              { key: "context",     label: "Conditions d'exploitation" },
+              { key: "mobility",    label: "Accessibilité du site" },
+            ];
 
-            const lvlMax = Number(r?.alert_level_max ?? 0);
-            const wind = Number(r?.lvl_wind ?? 0);
-            const rain = Number(r?.lvl_rain ?? 0);
-            const snow = Number(r?.lvl_snow ?? 0);
-            const heat = Number(r?.lvl_heat ?? 0);
-            const cold = Number(r?.lvl_cold ?? 0);
-            const driver = r?.major_realization_risk_driver || "";
+            const pillStyle = (dir, lvl) => {
+              if (dir === "up" || dir === "improved")
+                return { text: "En hausse", bg: "rgba(16,185,129,0.1)", color: "#059669" };
+              if (dir === "down" || dir === "worsened" || lvl >= 3)
+                return { text: "En baisse", bg: "#FCEBEB", color: "#791F1F" };
+              if (dir === "changed" || lvl >= 1)
+                return { text: "Changement", bg: "#FEF3C7", color: "#92400E" };
+              return { text: "Stable", bg: "rgba(16,185,129,0.1)", color: "#059669" };
+            };
 
-            const alerts = [];
 
-            if (wind > 0) alerts.push(`Alerte vent (niveau ${wind})`);
-            if (rain > 0) alerts.push(`Alerte pluie (niveau ${rain})`);
-            if (snow > 0) alerts.push(`Alerte neige (niveau ${snow})`);
-            if (heat > 0) alerts.push(`Alerte chaleur (niveau ${heat})`);
-            if (cold > 0) alerts.push(`Alerte froid (niveau ${cold})`);
+            const rows = categories.map(cat => {
+              const catAlerts = dateAlerts.filter(a =>
+                cat.subtypes.includes(String(a?.change_subtype || "").toLowerCase())
+              );
+              if (!catAlerts.length) {
+                return { label: cat.label, text: "Stable", bg: "rgba(16,185,129,0.1)", color: "#059669" };
+              }
+              const top = catAlerts.sort((a, b) =>
+                (Number(b.alert_level) || 0) - (Number(a.alert_level) || 0)
+              )[0];
+              const pill = pillStyle(
+                String(top?.direction || "").toLowerCase(),
+                Number(top?.alert_level || 0)
+              );
+              return { label: cat.label, ...pill };
+            });
 
-            if (driver) alerts.push(driver);
+            const body = `
+              <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px;">
+                ${rows.map(row => `
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:13px;color:#374151;font-weight:500;">${escapeHtml(row.label)}</span>
+                    <span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;background:${row.bg};color:${row.color};">
+                      ${escapeHtml(row.text)}
+                    </span>
+                  </div>
+                `).join("")}
+              </div>
+            `;
 
-            const body =
-              alerts.length === 0
-                ? `<div class="ms-muted">Situation stable, rien à signaler.</div>`
-                : `<ul class="ms-ul">${alerts.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
-
-            return sectionHex(
-              "Alertes",
-              "alert",
-              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
-              body
-            );
+            return `
+              <div class="ms-section">
+                <div class="ms-card">
+                  <div class="ms-head">
+                    <div class="ms-ico">${sectionIconSVG("alert")}</div>
+                    <div class="ms-head-content">
+                      <div class="ms-kicker">Signaux de changement</div>
+                    </div>
+                  </div>
+                  <div class="ms-below">${body}</div>
+                </div>
+              </div>
+            `;
           }
 
           function firstSentence(s){
@@ -3366,94 +3600,715 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
             const summary = r?.interpretation?.events || "";
 
-            const shown = Array.isArray(r?.top_competition_events)
+            const rawEvents = Array.isArray(r?.top_competition_events)
               ? r.top_competition_events
               : [];
 
-            if (!shown.length) {
-              return sectionHex(
-                "Concurrence événementielle",
-                "calendar",
-                `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
-                `<div class="ms-muted">Aucun événement concurrent détecté.</div>`
-              );
-            }
+            const events = Object.values(
+              Object.fromEntries(rawEvents.map(e => [e.event_label, e]))
+            );
 
-            const list = `
-              <ul class="ms-ul">
-                ${shown.map(e => {
+            // Raw counts from model fields (city-normalized)
+            const count500m = Number(r?.events_within_500m_count) || 0;
+            const count5km = Number(r?.events_within_5km_count) || 0;
 
-                  const title = e?.event_label || "Événement";
-                  const city = e?.city_name || "";
-                  const km = e?.distance_m ? (e.distance_m/1000).toFixed(1) : "";
-                  const desc = e?.one_liner || "";
-                  
-                  const where =
-                    city && km ? `${city} — ${km} km`
-                    : city ? city
-                    : km ? `${km} km`
-                    : "";
+            // Pressure pill derived from model's normalized delta (city-aware)
+            const deltaEvents = Number(r?.delta_att_events_pct ?? 0);
+            const pressurePill = (() => {
+              if (deltaEvents > 3)  return { label: "Élevée",  style: "background:#FCEBEB;color:#791F1F;" };
+              if (deltaEvents < -3) return { label: "Faible",  style: "background:rgba(16,185,129,0.1);color:#059669;" };
+              return                       { label: "Normale", style: "background:#F1EFE8;color:#444441;" };
+            })();
 
-                  return `
-                    <li>
-                      <strong>${escapeHtml(title)}</strong>
-                      ${where ? `<span class="ms-muted"> — ${escapeHtml(where)}</span>` : ""}
-                      ${desc ? `<div class="ms-muted">${escapeHtml(desc)}</div>` : ""}
-                    </li>
-                  `;
-                }).join("")}
-              </ul>
+            const top3 = events.slice(0, 3);
+
+            const distBadgeStyle = () => "background:#F1EFE8;color:#444441;";
+
+            const eventListHtml = top3.length === 0 ? "" : `
+              <div style="margin-top:14px;">
+                <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#9CA3AF;text-transform:uppercase;margin-bottom:10px;">
+                  Top 3 événements concurrents
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  ${top3.map(e => {
+                    const title = e?.event_label || "Événement";
+                    const desc = e?.one_liner || "";
+                    const city = e?.city_name || "";
+                    const dm = Number(e?.distance_m) || 0;
+                    const kmLabel = dm ? (dm / 1000).toFixed(1) + " km" : "";
+                    const descFull = [desc, city].filter(Boolean).join(" — ");
+                    return `
+                      <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <span style="font-size:11px;font-weight:500;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-top:2px;white-space:nowrap;${distBadgeStyle()}">
+                          ${escapeHtml(kmLabel)}
+                        </span>
+                        <div style="flex:1;min-width:0;">
+                          <div style="font-size:13px;font-weight:500;color:#111827;line-height:1.3;">
+                            ${escapeHtml(title)}
+                          </div>
+                          ${descFull ? `
+                            <div style="font-size:12px;color:#6B7280;margin-top:2px;line-height:1.4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">
+                              ${escapeHtml(descFull)}
+                            </div>` : ""}
+                        </div>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
             `;
 
-            return sectionHex(
-              "Concurrence événementielle",
-              "calendar",
-              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
-              list
-            );
+            const body = `
+              <div style="margin-top:6px;">
+                ${summary ? `
+                  <p style="font-size:15px;font-weight:500;color:var(--color-text-primary);margin:0 0 8px;line-height:1.4;">
+                    ${escapeHtml(summary)}
+                  </p>
+                ` : ""}
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:14px 0;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Événements &lt; 500 m</span>
+                    <span style="font-size:13px;color:#111827;">${count500m}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Événements &lt; 5 km</span>
+                    <span style="font-size:13px;color:#111827;">
+                      ${count500m + count5km}
+                      <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${pressurePill.style}">
+                        ${escapeHtml(pressurePill.label)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                ${eventListHtml}
+              </div>
+            `;
+
+            return sectionHex("Pression concurrentielle", "calendar", "", body);
+          }
+
+          function renderMobiliteHexLike(r) {
+
+            const ctx = r?.points_cles?.location_context ?? null;
+            const accessPattern = ctx?.location_access_pattern ?? null;
+            const transitNetwork = ctx?.transit_network ?? null;
+            const transitLineName = ctx?.nearest_transit_line_name ?? null;
+            const transitStopName = ctx?.nearest_transit_stop_name ?? null;
+            const transitStopDist = ctx?.nearest_transit_stop_distance_m ?? null;
+            const hasTransit = transitNetwork !== null && transitNetwork !== undefined;
+
+            const deltaAtt = Number(r?.delta_att_mobility_pct ?? 0);
+            const deltaOps = Number(r?.delta_ops_mobility_car_pct ?? 0);
+
+            const attVerdict = (() => {
+              if (deltaAtt >= 0) return { label: "Aucun impact", pill: "background:rgba(16,185,129,0.1);color:#059669;", pillLabel: "Fluide" };
+              if (deltaAtt >= -4) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
+              if (deltaAtt >= -8) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
+              return { label: "Fortement perturbé", pill: "background:#FCEBEB;color:#791F1F;", pillLabel: "Route" };
+            })();
+
+            const opsVerdict = (() => {
+              if (deltaOps >= 0) return { label: "Aucun impact", pill: "background:rgba(16,185,129,0.1);color:#059669;", pillLabel: "Fluide" };
+              if (deltaOps >= -4) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
+              if (deltaOps >= -8) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
+              return { label: "Fortement perturbé", pill: "background:#FCEBEB;color:#791F1F;", pillLabel: "Route" };
+            })();
+
+            const isTransitDisrupted = hasTransit && deltaAtt < -3;
+            const isCarDisruptedAtt = deltaAtt < 0;
+            const isCarDisruptedOps = deltaOps < 0;
+
+            const transitPillStyle = (() => {
+              if (!hasTransit) return null;
+              if (deltaAtt <= -8) return "background:#FCEBEB;color:#791F1F;";
+              if (deltaAtt < 0) return "background:#FEF3C7;color:#92400E;";
+              return "background:rgba(16,185,129,0.1);color:#059669;";
+            })();
+
+            const transitPillLabel = transitLineName || "Transports";
+
+            const headline = (() => {
+              const attBad = deltaAtt < 0;
+              const opsBad = deltaOps < 0;
+              if (!attBad && !opsBad) return "Accès fluide";
+              if (attBad && opsBad) return "Perturbations sur l'accès au site";
+              if (attBad && !opsBad) return "Perturbations sur l'accès visiteurs";
+              return "Perturbations sur l'accès prestataires";
+            })();
+
+            const conclusion = (() => {
+              const attBad = deltaAtt < 0;
+              const opsBad = deltaOps < 0;
+              if (!attBad && !opsBad) return "Aucune perturbation détectée sur les axes d'accès au site. Conditions normales pour les visiteurs et les prestataires.";
+              const parts = [];
+              if (attBad) {
+                if (hasTransit && isTransitDisrupted) {
+                  parts.push(`Des perturbations route et transports en commun impactent l'accès visiteurs`);
+                } else {
+                  parts.push(`Des incidents de trafic dans un rayon de 5 km impactent l'accès visiteurs`);
+                }
+              }
+              if (opsBad) parts.push(`l'accès prestataires (10 km) est également ralenti — prévoir des délais de montage`);
+              else if (attBad) parts.push(`l'accès prestataires (10 km) reste fluide`);
+              return parts.join(". ") + ".";
+            })();
+
+            const hazardRows = [];
+
+            if (isCarDisruptedAtt) {
+              const dot = deltaAtt <= -8 ? "#B91C1C" : "#D97706";
+              const txt = deltaAtt <= -8
+                ? "Incident majeur sur les axes voiture (5 km) — fort risque sur la venue des visiteurs"
+                : "Accès voiture perturbé dans un rayon de 5 km — impact sur la venue des visiteurs";
+              hazardRows.push({ dot, text: txt });
+            }
+
+            if (hasTransit && isTransitDisrupted) {
+              const dot = deltaAtt <= -8 ? "#B91C1C" : "#D97706";
+              const stopInfo = [transitStopName, transitStopDist ? `${Math.round(transitStopDist)} m` : null].filter(Boolean).join(", ");
+              const txt = `${transitLineName || "Ligne de transport"} perturbée — impact sur l'accès visiteurs depuis le réseau de transport${stopInfo ? ` (${stopInfo})` : ""}`;
+              hazardRows.push({ dot, text: txt });
+            }
+
+            if (isCarDisruptedOps) {
+              const dot = deltaOps <= -8 ? "#B91C1C" : "#D97706";
+              hazardRows.push({ dot, text: "Accès prestataires ralenti dans un rayon de 10 km — prévoir des marges sur les horaires de livraison et montage" });
+            }
+
+            const attCellHtml = (() => {
+              if (!hasTransit) {
+                return `
+                  ${escapeHtml(attVerdict.label)}
+                  <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${attVerdict.pill}">
+                    ${escapeHtml(attVerdict.pillLabel)}
+                  </span>
+                `;
+              }
+              const routePill = isCarDisruptedAtt
+                ? "background:#FEF3C7;color:#92400E;"
+                : "background:rgba(16,185,129,0.1);color:#059669;";
+              const routeLabel = isCarDisruptedAtt ? "Route" : "Route fluide";
+              return `
+                ${escapeHtml(attVerdict.label)}
+                <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${routePill}">
+                  ${escapeHtml(routeLabel)}
+                </span>
+                <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:4px;${transitPillStyle}">
+                  ${escapeHtml(transitPillLabel)}
+                </span>
+              `;
+            })();
+
+            const body = `
+              <div style="margin-top:6px;">
+                <p style="font-size:15px;font-weight:500;color:var(--color-text-primary);margin:0 0 8px;line-height:1.4;">
+                  ${escapeHtml(headline)}
+                </p>
+                <p style="font-size:13px;color:#374151;line-height:1.65;margin:0 0 4px;">
+                  ${escapeHtml(conclusion)}
+                </p>
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:14px 0;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Impact visiteurs</span>
+                    <span style="font-size:13px;color:#111827;line-height:1.8;">${attCellHtml}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Impact prestataires</span>
+                    <span style="font-size:13px;color:#111827;line-height:1.8;">
+                      ${escapeHtml(opsVerdict.label)}
+                      <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${opsVerdict.pill}">
+                        ${escapeHtml(opsVerdict.pillLabel)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                ${hazardRows.length > 0 ? `
+                  <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+                    ${hazardRows.map(h => `
+                      <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#374151;line-height:1.5;">
+                        <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${h.dot};display:inline-block;"></span>
+                        <span>${escapeHtml(h.text)}</span>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : ""}
+              </div>
+            `;
+
+            return sectionHex("Accessibilité du site", "alert", "", body);
           }
 
           function renderMeteoHexLike(r) {
+
+            const locationType = r?.points_cles?.location_context?.location_type ?? null;
+            const isOutdoor = locationType === "outdoor";
+            const isMixed = locationType === "mixed";
+            const isIndoor = locationType === "indoor";
+            const hasInstallationRisk = isOutdoor || isMixed;
 
             const summary = r?.interpretation?.weather || "";
 
             const tmin = r?.temperature_2m_min;
             const tmax = r?.temperature_2m_max;
+            const tappMin = r?.apparent_temperature_min;
+            const tappMax = r?.apparent_temperature_max;
             const rainProb = r?.precipitation_probability_max_pct;
             const rainSum = r?.precipitation_sum_mm;
-            const wind = r?.wind_speed_10m_max;
+            const snowfall = r?.snowfall_sum;
+            const windSpeed = r?.wind_speed_10m_max;
+            const windGusts = r?.wind_gusts_10m_max;
+            const weatherLabel = r?.weather_label_fr || "";
+            const alertMax = Number(r?.alert_level_max ?? 0);
 
-            const lines = [];
+            const lvlWind = Number(r?.lvl_wind ?? 0);
+            const lvlRain = Number(r?.lvl_rain ?? 0);
+            const lvlSnow = Number(r?.lvl_snow ?? 0);
+            const lvlHeat = Number(r?.lvl_heat ?? 0);
+            const lvlCold = Number(r?.lvl_cold ?? 0);
 
-            if (tmin != null || tmax != null) {
-              lines.push(`Température : ${tmin ?? "?"}° – ${tmax ?? "?"}°`);
+            const impactRain = Number(r?.impact_rain_pct ?? 0);
+            const impactSnow = Number(r?.impact_snow_pct ?? 0);
+            const impactHeat = Number(r?.impact_heat_pct ?? 0);
+            const impactCold = Number(r?.impact_cold_pct ?? 0);
+            const impactWind = Number(r?.impact_wind_pct ?? 0);
+            const impactTotal = Number(r?.impact_weather_pct ?? 0);
+
+            const headlineParts = [];
+            if (weatherLabel) headlineParts.push(weatherLabel);
+            if (alertMax > 0) headlineParts.push(`Alerte niveau ${alertMax}`);
+            const headline = headlineParts.join(" — ") || "Conditions météo";
+
+            const freqImpact = (() => {
+              const hasAttendanceHazard = lvlRain > 0 || lvlSnow > 0 || lvlHeat > 0 || lvlCold > 0;
+              if (!hasAttendanceHazard && alertMax === 0) {
+                return { label: "Aucun", pill: "background:#F1EFE8;color:#444441;" };
+              }
+              if (alertMax >= 3 || impactTotal < -10) {
+                return { label: "Défavorable", pill: "background:#FCEBEB;color:#791F1F;" };
+              }
+              if (alertMax >= 1 || impactTotal < 0) {
+                if (isIndoor) return { label: "Légère friction", pill: "background:#FEF3C7;color:#92400E;" };
+                return { label: "Modérément défavorable", pill: "background:#FEF3C7;color:#92400E;" };
+              }
+              return { label: "Neutre", pill: "background:#F1EFE8;color:#444441;" };
+            })();
+
+            const installRisk = (() => {
+              if (!hasInstallationRisk) return { label: "Aucun", pill: "background:rgba(16,185,129,0.1);color:#059669;" };
+              if (lvlWind >= 3 || (windGusts != null && windGusts > 60)) {
+                return { label: "Élevé", pill: "background:#FCEBEB;color:#791F1F;" };
+              }
+              if (lvlWind >= 2 || (windGusts != null && windGusts > 40)) {
+                return { label: "Modéré", pill: "background:#FEF3C7;color:#92400E;" };
+              }
+              if (lvlWind >= 1) {
+                return { label: "Faible", pill: "background:#F1EFE8;color:#444441;" };
+              }
+              return { label: "Aucun", pill: "background:rgba(16,185,129,0.1);color:#059669;" };
+            })();
+
+            const hazardRows = [];
+
+            if (lvlRain > 0) {
+              if (isIndoor) {
+                hazardRows.push({ dot: "#D97706", text: `Pluie${rainSum ? ` (${rainSum.toFixed(1)} mm)` : ""} : légère friction à l'entrée, sans impact sur la venue globale` });
+              } else {
+                hazardRows.push({ dot: "#B91C1C", text: `Pluie${rainSum ? ` (${rainSum.toFixed(1)} mm)` : ""} : risque de baisse de fréquentation en extérieur` });
+              }
             }
 
-            if (rainProb != null) {
-              lines.push(`Précipitations : probabilité ${Math.round(rainProb)}%`);
+            if (lvlSnow > 0) {
+              hazardRows.push({ dot: "#B91C1C", text: `Neige${snowfall ? ` (${snowfall.toFixed(1)} cm)` : ""} : impact sur l'accès et la fréquentation` });
             }
 
-            if (rainSum != null && rainSum > 0) {
-              lines.push(`Cumul pluie : ${rainSum.toFixed(1)} mm`);
+            if (lvlHeat > 0) {
+              if (isIndoor) {
+                hazardRows.push({ dot: "#D97706", text: `Chaleur forte : confort en intérieur dépendant de la climatisation` });
+              } else {
+                hazardRows.push({ dot: "#D97706", text: `Chaleur forte : impact sur le confort et le temps de présence` });
+              }
             }
 
-            if (wind != null) {
-              lines.push(`Vent : ${Math.round(wind)} km/h`);
+            if (lvlCold > 0) {
+              if (isIndoor) {
+                hazardRows.push({ dot: "#D97706", text: `Froid intense : légère friction à l'entrée` });
+              } else {
+                hazardRows.push({ dot: "#B91C1C", text: `Froid intense : impact sur la fréquentation et le temps de présence` });
+              }
             }
 
-            const body =
-              lines.length
-                ? `<ul class="ms-ul">${lines.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
-                : "";
+            if (hasInstallationRisk && lvlWind >= 1) {
+              const gustText = windGusts ? ` — rafales à ${Math.round(windGusts)} km/h` : "";
+              if (lvlWind >= 2) {
+                hazardRows.push({ dot: "#D97706", text: `Vent fort${gustText} : risque pour les structures légères, signalétique et installations extérieures` });
+              } else {
+                hazardRows.push({ dot: "#6B7280", text: `Vent modéré${gustText} : surveiller les installations légères` });
+              }
+            }
 
-            return sectionHex(
-              "Météo / Faisabilité",
-              "sun",
-              `<div class="ms-takeaway">${escapeHtml(summary)}</div>`,
-              body
-            );
+            const tempDisplay = (() => {
+              const appMin = tappMin != null ? Math.round(tappMin) : null;
+              const appMax = tappMax != null ? Math.round(tappMax) : null;
+              const rawMin = tmin != null ? Math.round(tmin) : null;
+              const rawMax = tmax != null ? Math.round(tmax) : null;
+              if (appMin !== null && appMax !== null) return `${appMin}° – ${appMax}° ressentis`;
+              if (rawMin !== null && rawMax !== null) return `${rawMin}° – ${rawMax}°`;
+              return null;
+            })();
+
+            const rawLineParts = [];
+            if (tempDisplay) rawLineParts.push(tempDisplay);
+            if (rainProb != null) rawLineParts.push(`Précipitations ${Math.round(rainProb)}%`);
+            if (rainSum != null && rainSum > 0) rawLineParts.push(`Cumul ${rainSum.toFixed(1)} mm`);
+            if (windSpeed != null) rawLineParts.push(`Vent ${Math.round(windSpeed)} km/h`);
+            const rawLine = rawLineParts.join(" · ");
+
+            const body = `
+              <div style="margin-top:6px;">
+                <p style="font-size:15px;font-weight:500;color:var(--color-text-primary);margin:0 0 8px;line-height:1.4;">
+                  ${escapeHtml(headline)}
+                </p>
+                ${summary ? `
+                  <p style="font-size:13px;color:#374151;line-height:1.65;margin:0 0 4px;">
+                    ${escapeHtml(summary)}
+                  </p>
+                ` : ""}
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:14px 0;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Impact fréquentation</span>
+                    <span style="font-size:13px;color:#111827;">
+                      ${escapeHtml(freqImpact.label)}
+                      <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${freqImpact.pill}">
+                        ${alertMax > 0 ? `Alerte niv. ${alertMax}` : (lvlRain > 0 ? "Pluie" : lvlSnow > 0 ? "Neige" : lvlHeat > 0 ? "Chaleur" : lvlCold > 0 ? "Froid" : "Aucune alerte")}
+                      </span>
+                    </span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">Risque installations</span>
+                    <span style="font-size:13px;color:#111827;">
+                      ${escapeHtml(installRisk.label)}
+                      <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${installRisk.pill}">
+                        ${hasInstallationRisk && windGusts ? `Rafales ${Math.round(windGusts)} km/h` : (isIndoor ? "Indoor" : "Vent faible")}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                ${hazardRows.length > 0 ? `
+                  <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+                    ${hazardRows.map(h => `
+                      <div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#374151;line-height:1.5;">
+                        <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${h.dot};display:inline-block;"></span>
+                        <span>${escapeHtml(h.text)}</span>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : ""}
+                ${rawLine ? `
+                  <p style="font-size:12px;color:#9CA3AF;margin-top:12px;line-height:1.6;">
+                    ${escapeHtml(rawLine)}
+                  </p>
+                ` : ""}
+              </div>
+            `;
+
+            return sectionHex("Conditions d'exploitation", "sun", "", body);
           }
-          } 
+          }
+
+
+          function weatherIconSrc(code){
+            const c = Number(code);
+            if (!Number.isFinite(c)) return "";
+
+            // WMO weather interpretation groups (Open-Meteo style)
+            if (c === 0) return "/icons/weather/weather_sunny.svg";
+            if (c === 1 || c === 2 || c === 3) return "/icons/weather/weather_cloudy.svg";
+            if (c === 45 || c === 48) return "/icons/weather/weather_cloudy.svg";
+
+            // drizzle / rain
+            if ((c >= 51 && c <= 57) || (c >= 61 && c <= 67))
+              return "/icons/weather/weather_rain.svg";
+
+            // snow
+            if (c >= 71 && c <= 77)
+              return "/icons/weather/weather_snow.svg";
+
+            // rain showers
+            if (c >= 80 && c <= 82)
+              return "/icons/weather/weather_rain-showers.svg";
+
+            // thunderstorm
+            if (c >= 95 && c <= 99)
+              return "/icons/weather/weather_rain-showers.svg";
+
+            return "/icons/weather/weather_cloudy.svg";
+          }   
+        
+          MS.renderComparisonSection = function renderComparisonSection(dayRowsByDate){
+
+            const rows = selectedDates.map((d, i) => {
+
+              const r = dayRowsByDate.get(d);
+
+              // ---------------------------
+              // CENTRALIZED COMPARISON DATA
+              // ---------------------------
+
+              const comparison = {
+
+                score_global: r?.opportunity_score_final_local ?? null,
+
+                audience: (() => {
+                  const dt = parseYmdToDate(d);
+                  const isWeekend = dt && (dt.getUTCDay() === 0 || dt.getUTCDay() === 6);
+                  const hasVacation = Boolean(r?.vacation_name);
+                  const hasHoliday = Boolean(r?.holiday_name);
+                  return (isWeekend || hasVacation || hasHoliday) ? "Disponible" : "Peu disponible";
+                })(),
+
+                concurrence: (() => {
+                  const delta = Number(r?.delta_att_events_pct ?? 0);
+                  if (delta > 3)  return "Élevée";
+                  if (delta < -3) return "Basse";
+                  return "Normale";
+                })(),
+
+                accessibilite: (() => {
+                  const delta = Number(r?.delta_att_mobility_pct ?? 0);
+                  if (delta >= 0) return "Fluide";
+                  if (delta >= -4) return "Perturbé";
+                  return "Fortement perturbé";
+                })(),
+
+                exploitation: (() => {
+                  const alert = Number(r?.alert_level_max ?? 0);
+                  return alert > 0 ? `Alerte niv. ${alert}` : "Aucune alerte";
+                })(),
+
+                weather_code: r?.weather_code ?? null,
+
+              };
+
+              return {
+                date: d,
+                comparison
+              };
+
+            });
+ 
+            if (!rows.length) {
+              container.innerHTML = "<div class='ms-days-wrap'>Aucune date sélectionnée.</div>";
+              return;
+            }
+
+            function headerDate(ymd){
+              const d = parseYmdToDate(ymd);
+              if (!d) return ymd;
+
+              const dow = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"][((d.getUTCDay() + 6) % 7)];
+              const day = String(d.getUTCDate()).padStart(2, "0");
+
+              const month = new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(d);
+              const m = month.charAt(0).toUpperCase() + month.slice(1);
+
+              return `
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+
+                  <div style="font-size:11px;letter-spacing:0.08em;color:#6B7280;">
+                    ${dow}
+                  </div>
+
+                  <div style="font-size:14px;font-weight:600;">
+                    ${day} ${m}
+                  </div>
+
+                </div>
+              `;
+            }
+
+            function scoreCell(v){
+              const n = Number(v);
+              if (!Number.isFinite(n)) return "—";
+              return n.toFixed(1);
+            }
+
+            container.innerHTML = `
+
+            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
+              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
+                <div id="ms-day-tabs"></div>
+              </div>
+            </div>
+
+            <div class="ms-days-wrap">
+
+              ${renderChoiceRecapCard(dayRowsByDate)}
+
+              <div class="ms-comp-cards">
+
+                ${rows.map(r => {
+
+                  const score = Number(r.comparison.score_global);
+                  const scoreVal = Number.isFinite(score) ? score.toFixed(1) : "—";
+
+                  const weatherIcon = weatherIconSrc(r.comparison.weather_code);
+
+                  return `
+                    <div class="ms-comp-card">
+
+                      <div class="ms-comp-card-date">
+                        ${headerDate(r.date)}
+                      </div>
+
+                      <div class="ms-comp-card-score">
+                        ${scoreVal}
+                      </div>
+
+                      ${(() => {
+                        const pillHtml = (label, style) =>
+                          `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
+
+                        const audienceStyle = r.comparison.audience === "Disponible"
+                          ? "background:rgba(16,185,129,0.1);color:#059669;"
+                          : "background:#FCEBEB;color:#791F1F;";
+
+                        const concurrenceStyle = r.comparison.concurrence === "Élevée"
+                          ? "background:#FCEBEB;color:#791F1F;"
+                          : "background:rgba(16,185,129,0.1);color:#059669;";
+
+                        const accessibiliteStyle = r.comparison.accessibilite === "Fluide"
+                          ? "background:rgba(16,185,129,0.1);color:#059669;"
+                          : r.comparison.accessibilite === "Fortement perturbé"
+                          ? "background:#FCEBEB;color:#791F1F;"
+                          : "background:#FEF3C7;color:#92400E;";
+
+                        const exploitationStyle = r.comparison.exploitation === "Aucune alerte"
+                          ? "background:rgba(16,185,129,0.1);color:#059669;"
+                          : r.comparison.exploitation.includes("3") || r.comparison.exploitation.includes("4")
+                          ? "background:#FCEBEB;color:#791F1F;"
+                          : "background:#FEF3C7;color:#92400E;";
+
+                        return `
+                          <div class="ms-comp-metric">
+                            <span>Audience</span>
+                            ${pillHtml(r.comparison.audience, audienceStyle)}
+                          </div>
+                          <div class="ms-comp-metric">
+                            <span>Concurrence</span>
+                            ${pillHtml(r.comparison.concurrence, concurrenceStyle)}
+                          </div>
+                          <div class="ms-comp-metric">
+                            <span>Accessibilité</span>
+                            ${pillHtml(r.comparison.accessibilite, accessibiliteStyle)}
+                          </div>
+                          <div class="ms-comp-metric">
+                            <span>Exploitation</span>
+                            ${pillHtml(r.comparison.exploitation, exploitationStyle)}
+                          </div>
+                          <div class="ms-comp-metric">
+                            <span>Météo</span>
+                            <span>
+                              ${weatherIcon
+                                ? `<img src="${escapeHtml(weatherIcon)}" style="width:22px;height:22px;">`
+                                : "—"}
+                            </span>
+                          </div>
+                        `;
+                      })()}
+
+                      <button
+                        class="ms-choose-day-btn"
+                        data-date="${r.date}"
+                      >
+                        Choisir cette date
+                      </button>
+
+                    </div>
+                  `;
+
+                }).join("")}
+
+              </div>
+
+            </div>
+            `;
+          const chosenDate = savedItemId
+            ? (MS._chosenDate || (params.get("selected_date") && params.get("selected_date") !== "__comparison__"
+              ? normalizeYmd(params.get("selected_date"))
+              : null))
+            : null;
+
+          container.querySelectorAll(".ms-choose-day-btn, .ms-change-day-btn").forEach(btn => {
+            const d = btn.getAttribute("data-date");
+            if (!d) return;
+
+            const isChosen = chosenDate && normalizeYmd(d) === chosenDate;
+
+            if (isChosen) {
+              btn.textContent = "Changer de date";
+              btn.classList.add("ms-change-day-btn");
+            }
+
+            // Grey out other cards
+            if (chosenDate && !isChosen) {
+              const card = btn.closest(".ms-comp-card");
+              if (card) card.style.opacity = "0.35";
+            }
+
+            btn.addEventListener("click", async () => {
+              if (!d) return;
+
+              if (btn.classList.contains("ms-change-day-btn")) {
+                // Unselect: clear selected_date, update API
+                btn.disabled = true;
+                btn.textContent = "…";
+                try {
+                  await fetch("/api/saved-items/update", {
+                    method: "POST",
+                    headers: { "content-type": "application/json", accept: "application/json" },
+                    body: JSON.stringify({ saved_item_id: savedItemId, selected_date: null }),
+                    cache: "no-store",
+                                  });
+                                  document.cookie = `ms_piloter=; path=/; max-age=0`;
+                                } catch(_) {}
+                params.set("selected_date", "__comparison__");
+                params.delete("date");
+                window.location.replace("/app/insightevent/days?" + params.toString());
+                return;
+              }
+
+              // Choose: normal flow
+              if (savedItemId) {
+                btn.disabled = true;
+                btn.textContent = "…";
+                try {
+                await fetch("/api/saved-items/update", {
+                method: "POST",
+                headers: { "content-type": "application/json", accept: "application/json" },
+                body: JSON.stringify({ saved_item_id: savedItemId, selected_date: d }),
+                cache: "no-store",
+                                  });
+                                  document.cookie = `ms_piloter=${encodeURIComponent(savedItemId)}|${encodeURIComponent(d)}; path=/; max-age=31536000; SameSite=Lax`;
+                                } catch(_) {}
+                params.set("selected_date", d);
+                window.history.replaceState({}, "", "?" + params.toString());
+                params.set("selected_date", d);
+                window.history.replaceState({}, "", "?" + params.toString());
+                MS.renderComparisonSection(dayRowsByDate);
+                window.location.assign(
+                  `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(d)}`
+                );
+                return;
+              }
+
+              MS._pendingMonitorDate = d;
+              openSaveModal();
+            });
+          });
+          }  
 
         async function fetchDays() {
           if (!container) return null;
@@ -3576,11 +4431,11 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
               // Canonical redirect to selection mode (keeps UX stable + uses your existing flow)
               const next = new URLSearchParams(params);
-              next.delete("saved_item_id"); // IMPORTANT: avoids resolver loops
-              next.set("selected_dates", dates.join(","));
-              next.set("selected_date", dates[0]);
-
-              window.location.replace("/app/insightevent/days?" + next.toString());
+            // Keep saved_item_id — needed for Choisir ce jour → monitor redirect
+            next.set("selected_dates", dates.join(","));
+            next.set("selected_date", "__comparison__");
+            window.location.replace("/app/insightevent/days?" + next.toString());
+              
             } catch (e) {
               // If get fails, fall back to list mode + show list (and optionally error)
               console.error(e);
@@ -3649,15 +4504,37 @@ const show_actions = has_selected_dates || has_saved_item_id;
               fetchDays(),
               fetchSavedItems().catch(() => []),
             ]);
+            if (!savedItemId && Array.isArray(allSavedItems) && allSavedItems.length > 0) {
+              const match = allSavedItems.find(item => {
+                const itemDates = extractDatesFromSavedItem(item).map(normalizeYmd).filter(Boolean);
+                return selectedDates.every(d => itemDates.includes(d));
+              });
+              if (match?.saved_item_id) {
+                savedItemId = String(match.saved_item_id).trim();
+                params.set("saved_item_id", savedItemId);
+                window.history.replaceState({}, "", "?" + params.toString());
+              }
+            }
 
+            const matchedItem = allSavedItems.find(i => String(i.saved_item_id) === savedItemId);
+            const storedSelectedDate = matchedItem?.selected_date
+              ? normalizeYmd(String(matchedItem.selected_date?.value ?? matchedItem.selected_date ?? ""))
+              : null;
+            if (storedSelectedDate) {
+              MS._chosenDate = storedSelectedDate;
+              params.set("selected_date", "__comparison__");
+              params.set("date", storedSelectedDate);
+              window.history.replaceState({}, "", "?" + params.toString());
+            }
+      
             const rawMeta = allSavedItems
-              .find(i => i.location_id === LOCATION_ID && (i.decision_date || i.event_date))
+              .find(i => i.location_id === LOCATION_ID && (i.decision_date || i.event_end_date))
               ?? null;
 
             const savedItemMeta = rawMeta ? {
                           ...rawMeta,
                           decision_date: rawMeta.decision_date?.value ?? rawMeta.decision_date ?? null,
-                          event_date: rawMeta.event_date?.value ?? rawMeta.event_date ?? null,
+                          event_end_date: rawMeta.event_end_date?.value ?? rawMeta.event_end_date ?? null,
                         } : null;
             
             if (!data) {
@@ -3687,23 +4564,20 @@ const show_actions = has_selected_dates || has_saved_item_id;
               }
             }
 
-            const firstDate = selectedDates.find(d => byDate.has(d));
-            if (firstDate) {
-              const prevSelected = selectedDate;
-              selectedDate = firstDate;
-              renderFocusedDay(byDate, MS.pointsCles, MS.savedItemMeta);
-              selectedDate = prevSelected;
-            }
-
             if (selectedDate === "__comparison__") {
+              renderFocusedDay(byDate, MS.pointsCles, savedItemMeta);
               if (typeof MS.renderComparisonSection === "function") {
                 MS.renderComparisonSection(byDate);
               }
+            } else {
+              renderFocusedDay(byDate, MS.pointsCles, MS.savedItemMeta);
             }
 
             renderPills(byDate);
 
           } catch (e) {
+            console.error('INIT CRASH:', e?.message, e?.stack);
+            alert('INIT CRASH: ' + e?.message);
             if (container) {
               const msg =
                 e && typeof e.message === "string" && e.message.trim()

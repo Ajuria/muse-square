@@ -1,0 +1,417 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { SignedIn, SignedOut } from "@clerk/astro/components";
+import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+
+// --------------------
+// Server-side guards
+// --------------------
+
+const location_id =
+  (Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+
+const date = Astro.url?.searchParams?.get("date") ?? "";
+const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
+const is_embed = Astro.url?.searchParams?.get("embed") === "1";
+---
+
+<SignedOut>
+<script is:inline>
+window.location.href="/sign-in";
+</script>
+</SignedOut>
+
+<SignedIn>
+
+<BaseLayout title="Map — Context" hideSurveyCta={true} hideFooter={true} hideNav={is_embed}>
+
+<div class="ms-container">
+
+<nav class="map-breadcrumb" style={is_embed ? "display:none;" : ""}>
+  <a href="#" id="breadcrumb-back">Mes dates</a>
+  <span>/</span>
+  <span>Carte</span>
+</nav>
+
+<div class="map-filters ms-seg" role="tablist">
+  <button type="button" class="ms-seg__btn is-active" id="filter-events" role="tab" aria-selected="true">Événements</button>
+  <button type="button" class="ms-seg__btn is-active" id="filter-road" role="tab" aria-selected="true">Perturb. route</button>
+  <button type="button" class="ms-seg__btn is-active" id="filter-subway" role="tab" aria-selected="true">Perturb. métro</button>
+</div>
+
+<div id="map"></div>
+
+<div id="map-list">
+  <div id="map-list-events"></div>
+</div>
+
+</div>
+
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script is:inline src="/map-markers.js"></script>
+
+<style>
+
+:root[data-embed="1"] nav,
+:root[data-embed="1"] header,
+:root[data-embed="1"] .ms-nav {
+  display: none !important;
+}
+
+#map{
+height:420px;
+margin-top:16px;
+max-width:760px;
+margin-left:auto;
+margin-right:auto;
+}
+
+.map-breadcrumb{
+display:flex;
+align-items:center;
+gap:8px;
+margin-top:16px;
+max-width:720px;
+margin-left:auto;
+margin-right:auto;
+font-size:13px;
+color:#888;
+}
+.map-breadcrumb a{
+color:#0F1F3D;
+text-decoration:none;
+font-weight:500;
+}
+.map-breadcrumb a:hover{
+text-decoration:underline;
+}
+
+.map-filters{
+margin-top:12px;
+max-width:720px;
+margin-left:auto;
+margin-right:auto;
+display:grid;
+grid-template-columns:repeat(3, minmax(0,1fr));
+gap:10px;
+}
+.ms-seg__btn{
+height:36px;
+width:100%;
+border:1px solid var(--color-border);
+border-radius:var(--radius-sm);
+background:#f9fafb;
+color:var(--color-text-secondary);
+font-family:var(--font-family);
+font-size:var(--font-size-label);
+font-weight:var(--font-weight-semibold);
+letter-spacing:var(--letter-spacing-wider);
+text-transform:uppercase;
+cursor:pointer;
+user-select:none;
+transition:border-color 120ms ease,color 120ms ease,background-color 120ms ease;
+}
+.ms-seg__btn:hover{
+border-color:var(--color-border-hover);
+color:var(--color-text-primary);
+background:rgba(17,24,39,0.03);
+}
+.ms-seg__btn.is-active{
+border-color:var(--color-brand-blue);
+background:#f9fafb;
+color:var(--color-brand-blue);
+}
+
+#map-list{
+max-width:760px;
+margin-left:auto;
+margin-right:auto;
+margin-top:24px;
+}
+
+.map-event-card{
+display:flex !important;
+flex-direction:column !important;
+gap:8px !important;
+padding:20px 16px 20px 12px !important;
+border-left:3px solid var(--bucket-color, #cbd5e1) !important;
+border-bottom:none !important;
+}
+.map-event-card + .map-event-card{
+border-top:1px solid rgba(17,24,39,0.07) !important;
+margin-top:4px !important;
+}
+.map-event-card__header{
+display:flex !important;
+justify-content:space-between !important;
+align-items:baseline !important;
+gap:12px !important;
+}
+.map-event-card__label{
+font-size:15px !important;
+font-weight:600 !important;
+color:#0F1F3D !important;
+line-height:1.3 !important;
+}
+.map-event-card__distance{
+font-size:11.5px !important;
+color:#888 !important;
+white-space:nowrap !important;
+flex-shrink:0 !important;
+}
+.map-event-card__toggle{
+font-size:12px !important;
+color:#4A7FA5 !important;
+font-weight:700 !important;
+background:none !important;
+border:none !important;
+padding:0 !important;
+cursor:pointer !important;
+margin-top:2px !important;
+}
+.map-event-card__tags{
+display:flex;
+flex-wrap:wrap;
+gap:5px;
+margin-top:2px;
+}
+body { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+html { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+.ms-container { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+#map-list { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+
+.map-event-card__tag{
+font-size:10.5px;
+font-weight:600;
+background:#eef2f7;
+color:#4A7FA5;
+border-radius:4px;
+padding:1px 6px;
+text-transform:uppercase;
+letter-spacing:0.04em;
+}
+
+</style>
+
+<script is:inline define:vars={{ location_id, date }}>
+
+if (new URLSearchParams(window.location.search).get("embed") === "1") {
+  document.documentElement.setAttribute("data-embed", "1");
+}
+
+let map
+let eventsLayer
+let roadLayer
+let subwayLayer
+
+document.getElementById('breadcrumb-back').addEventListener('click', function(e) {
+  e.preventDefault();
+  history.back();
+});
+
+async function init(){
+
+map = L.map('map').setView([48.86, 2.35], 13)
+
+L.tileLayer(
+'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+{
+attribution:'© OpenStreetMap contributors'
+}
+).addTo(map)
+
+eventsLayer = L.layerGroup().addTo(map)
+roadLayer = L.layerGroup().addTo(map)
+subwayLayer = L.layerGroup().addTo(map)
+
+await loadData()
+
+}
+
+async function loadData(){
+
+const url =
+`/api/insight/map?location_id=${location_id}&date=${date}`
+
+const res = await fetch(url)
+
+const data = await res.json()
+
+console.log('API response:', JSON.stringify(data, null, 2))
+
+renderVenue(data.meta || {})
+renderEvents(data.events || [], data.meta || {})
+renderRoad(data.road_disruptions || [])
+renderSubway(data.subway_disruptions || [])
+
+// Notify parent to resize iframe
+setTimeout(function() {
+  try {
+    if (window.parent !== window) {
+      document.body.style.height = 'auto';
+      document.documentElement.style.height = 'auto';
+      const h = document.body.getBoundingClientRect().height;
+      window.parent.document.getElementById('mon-map-frame').style.height = Math.ceil(h) + 'px';
+    }
+  } catch(e) {}
+}, 1200);
+}
+
+function renderVenue(meta) {
+  if (!map || !meta?.venue) return null
+
+  const venueLat = Number(meta.venue.lat)
+  const venueLon = Number(meta.venue.lon)
+
+  if (!Number.isFinite(venueLat) || !Number.isFinite(venueLon)) return null
+
+  createVenueMarker({
+    client_lat: venueLat,
+    client_lon: venueLon,
+    nearest_transit_stop_name:     meta.venue.nearest_transit_stop_name     ?? null,
+    nearest_transit_line_name:     meta.venue.nearest_transit_line_name     ?? null,
+    nearest_transit_stop_distance_m: meta.venue.nearest_transit_stop_distance_m ?? null,
+  }).addTo(map)
+}
+
+function bucketColor(bucket) {
+  return { '500m': '#0F1F3D', '5km': '#4A7FA5', '10km': '#93b4cc', '50km': '#cbd5e1' }[bucket] ?? '#cbd5e1'
+}
+
+function renderEventList(items) {
+  const container = document.getElementById('map-list-events')
+  if (!container) return
+
+  const filtered = items.filter(e => e.event_label || e.title)
+
+  if (filtered.length === 0) {
+    container.innerHTML = ''
+    return
+  }
+
+  container.innerHTML = filtered.map((e, idx) => {
+    const num = idx + 1
+    const id = e.id ?? e.event_uid ?? Math.random().toString(36).slice(2)
+    e = { ...e, id, _num: num }
+    const color = bucketColor(e.radius_bucket)
+    const desc = e.description || ''
+    const keywords = (e.keywords && e.keywords.trim())
+      ? e.keywords.split(',').slice(0, 3).map(k =>
+          `<span class="map-event-card__tag">${k.trim()}</span>`
+        ).join('')
+      : ''
+
+    return `
+      <div class="map-event-card" style="--bucket-color:${color}">
+        <div class="map-event-card__header">
+          <span class="map-event-card__label"><span class="map-event-card__num">${num}</span>${e.title ?? e.event_label}</span>
+          <span class="map-event-card__distance">${Math.round(e.distance_m)}m</span>
+        </div>
+        <div class="map-event-card__desc is-clamped" id="desc-${e.id}">${desc}</div>
+        <button class="map-event-card__toggle" data-target="desc-${e.id}">Lire plus</button>
+        ${keywords ? `<div class="map-event-card__tags">${keywords}</div>` : ''}
+      </div>`
+
+  }).join('')
+
+  container.querySelectorAll('.map-event-card__toggle').forEach(btn => {
+    const targetId = btn.getAttribute('data-target')
+    const desc = document.getElementById(targetId)
+    if (!desc) return
+    btn.addEventListener('click', () => {
+      const clamped = desc.classList.toggle('is-clamped')
+      btn.textContent = clamped ? 'Lire plus' : 'Lire moins'
+    })
+  })
+}
+
+function renderEvents(items, meta) {
+  eventsLayer.clearLayers()
+  renderEventList(items)
+  console.log('first event:', JSON.stringify(items[0]))
+
+  const bounds = []
+
+  const venueLat = Number(meta?.venue?.lat)
+  const venueLon = Number(meta?.venue?.lon)
+
+  if (Number.isFinite(venueLat) && Number.isFinite(venueLon)) {
+    bounds.push([venueLat, venueLon])
+  }
+
+  items.forEach(e => {
+    const lat = Number(e.latitude)
+    const lng = Number(e.longitude)
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+
+    bounds.push([lat, lng])
+
+    const num = items.indexOf(e) + 1
+    createEventMarker(e, num).addTo(eventsLayer)
+  })
+
+  if (bounds.length === 1) {
+    map.setView(bounds[0], 13)
+    return
+  }
+
+  if (bounds.length > 1) {
+    map.fitBounds(bounds, { padding: [40, 40] })
+  }
+}
+
+function renderRoad(items) {
+  roadLayer.clearLayers()
+
+  items.forEach(r => {
+    createRoadMarker(r).addTo(roadLayer)
+  })
+}
+
+function renderSubway(items) {
+  subwayLayer.clearLayers()
+
+  items.forEach(s => {
+    createSubwayMarker(s).addTo(subwayLayer)
+  })
+}
+
+window.addEventListener("load", () => {
+  init()
+
+function toggleLayer(btnId, layer) {
+    const btn = document.getElementById(btnId)
+    btn.addEventListener('click', () => {
+      const active = btn.classList.toggle('is-active')
+      btn.setAttribute('aria-selected', active)
+      active ? layer.addTo(map) : layer.remove()
+    })
+  }
+
+  toggleLayer('filter-events', eventsLayer)
+  toggleLayer('filter-road', roadLayer)
+  toggleLayer('filter-subway', subwayLayer)
+})
+
+</script>
+
+{!is_embed && <InsightBottomBar active="days" showActions={false} />}
+
+</BaseLayout>
+
+</SignedIn>

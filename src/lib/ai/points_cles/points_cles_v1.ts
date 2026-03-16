@@ -148,8 +148,12 @@ export function renderPointsClesV1(
     return null;
   }
 
+  const locationType = location_context?.location_type ?? null;
+  const isOutdoor = locationType === "outdoor";
+  const isIndoor = locationType === "indoor";
+
   // ---------------------------------------------------
-  // Relative ranking (mandatory when selection >= 2)
+  // Selection ranking
   // ---------------------------------------------------
   const ranked = (Array.isArray(selection_days) ? selection_days : [])
     .filter(
@@ -166,201 +170,145 @@ export function renderPointsClesV1(
 
   const score = numOrNull(current_day?.opportunity_score_final_local);
   let rank: number | null = null;
-
   if (score !== null && ranked.length >= 2) {
     const idx = ranked.findIndex((d) => d.date === date);
     rank = idx >= 0 ? idx + 1 : null;
   }
 
   // ---------------------------------------------------
-  // Weather interpretation (contextual)
+  // Others in selection
   // ---------------------------------------------------
-  const pp = numOrNull(current_day?.precipitation_probability_max_pct);
-  const pSum = numOrNull(current_day?.precipitation_sum_mm);
-  const wind = numOrNull(current_day?.wind_speed_10m_max);
+  const others = (Array.isArray(selection_days) ? selection_days : [])
+    .filter((d) => typeof d?.date === "string" && d.date !== date);
 
+  const avgOthers = (fn: (d: any) => number | null): number | null => {
+    const vals = others.map(fn).filter((v): v is number => v !== null);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+
+  // ---------------------------------------------------
+  // AUDIENCE — strictly unique check + weekend/weekday mix
+  // ---------------------------------------------------
+  const isAvailable = (d: any): boolean => {
+    const { isWeekend } = weekdayLabelFr(d.date);
+    return Boolean(d?.vacation_name) || Boolean(d?.holiday_name) || isWeekend;
+  };
+
+  const currentAvailable = isAvailable(current_day);
+  const { isWeekend: currentIsWeekend } = weekdayLabelFr(date);
+  const allDays = Array.isArray(selection_days) ? selection_days : [];
+  const availableCount = allDays.filter(isAvailable).length;
+  const unavailableCount = allDays.length - availableCount;
+
+  const selectionHasWeekend = allDays.some((d) => {
+    const { isWeekend: ow } = weekdayLabelFr(d.date);
+    return ow;
+  });
+  const selectionHasWeekday = allDays.some((d) => {
+    const { isWeekend: ow } = weekdayLabelFr(d.date);
+    return !ow;
+  });
+  const mixedSelection = selectionHasWeekend && selectionHasWeekday;
+
+  let audienceSynth: string | null = null;
+  if (currentAvailable && availableCount === 1) {
+    audienceSynth = "Seule date où votre audience est disponible dans votre sélection";
+  } else if (!currentAvailable && unavailableCount === 1) {
+    audienceSynth = "Audience peu disponible ce type de jour, à prendre en compte";
+  } else if (mixedSelection && currentIsWeekend) {
+    audienceSynth = "Week-end — audience généralement plus disponible que les dates en semaine";
+  } else if (mixedSelection && !currentIsWeekend) {
+    audienceSynth = "Semaine — audience moins disponible que les dates week-end de la sélection";
+  }
+
+  // ---------------------------------------------------
+  // CONCURRENCE — delta_att_events_pct
+  // ---------------------------------------------------
+  const deltaEvents = numOr(current_day?.delta_att_events_pct, 0);
+  const avgOtherDeltaEvents = avgOthers((d) => numOrNull(d?.delta_att_events_pct));
+
+  let concurrenceSynth: string | null = null;
+  if (avgOtherDeltaEvents !== null) {
+    const diff = deltaEvents - avgOtherDeltaEvents;
+    if (diff > 2) {
+      concurrenceSynth = "Pression concurrentielle plus forte que les autres dates";
+    } else if (diff < -2) {
+      concurrenceSynth = "Moins de concurrence que les autres dates de la sélection";
+    }
+  } else if (deltaEvents > 3) {
+    concurrenceSynth = "Concurrence élevée sur cette date";
+  } else if (deltaEvents < -3) {
+    concurrenceSynth = "Faible concurrence sur cette date";
+  }
+
+  // ---------------------------------------------------
+  // ACCESSIBILITÉ — delta_att_mobility_pct
+  // ---------------------------------------------------
+  const deltaMobility = numOr(current_day?.delta_att_mobility_pct, 0);
+  const avgOtherMobility = avgOthers((d) => numOrNull(d?.delta_att_mobility_pct));
+
+  let accessibiliteSynth: string | null = null;
+  if (avgOtherMobility !== null) {
+    const diff = deltaMobility - avgOtherMobility;
+    if (diff < -3) {
+      accessibiliteSynth = "Accès au site plus perturbé que les autres dates de la sélection";
+    } else if (diff > 3) {
+      accessibiliteSynth = "Meilleur accès au site que les autres dates de la sélection";
+    }
+  } else if (deltaMobility < -4) {
+    accessibiliteSynth = "Perturbations d'accès détectées sur cette date";
+  }
+
+  // ---------------------------------------------------
+  // EXPLOITATION — alert_level_max
+  // ---------------------------------------------------
   const alertMax = numOr(current_day?.alert_level_max, 0);
-  const lvlWind = numOr(current_day?.lvl_wind, 0);
-  const lvlRain = numOr(current_day?.lvl_rain, 0);
-  const lvlSnow = numOr(current_day?.lvl_snow, 0);
-  const lvlHeat = numOr(current_day?.lvl_heat, 0);
-  const lvlCold = numOr(current_day?.lvl_cold, 0);
+  const avgOtherAlert = avgOthers((d) => numOrNull(d?.alert_level_max));
 
-  const anyAlert =
-    alertMax > 0 ||
-    lvlWind > 0 ||
-    lvlRain > 0 ||
-    lvlSnow > 0 ||
-    lvlHeat > 0 ||
-    lvlCold > 0;
-
-  const hasWeatherRisk =
-    anyAlert ||
-    (pp !== null && pp >= 60) ||
-    (wind !== null && wind >= 40);
-
-  const isOutdoor = location_context?.is_outdoor_event;
-  let weatherSynth: string | null = null;
-
-  if (hasWeatherRisk) {
-    if (isOutdoor === true) {
-      weatherSynth = "Risque météo à intégrer (impact possible sur la fréquentation)";
-    } else if (isOutdoor === false) {
-      weatherSynth = "Risque météo surtout logistique, impact limité pour un événement indoor";
-    } else {
-      weatherSynth = "Signal météo à surveiller (impact dépend du format)";
+  let exploitationSynth: string | null = null;
+  if (alertMax > 0) {
+    if (avgOtherAlert !== null && alertMax > avgOtherAlert) {
+      if (isIndoor) {
+        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates, impact logistique`;
+      } else if (isOutdoor) {
+        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates`;
+      } else {
+        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates`;
+      }
+    } else if (avgOtherAlert === null) {
+      exploitationSynth = `Alerte météo niveau ${alertMax} sur cette date`;
     }
-  } else {
-    if (isOutdoor === true) {
-      weatherSynth = "Conditions favorables pour un événement en extérieur";
-    } else if (isOutdoor === false) {
-      weatherSynth = "Aucun enjeu météo pour ce type d’événement";
-    } else {
-      weatherSynth = "Pas de signal météo critique";
-    }
-  }
-
-  // ---------------------------------------------------
-  // Calendar interpretation
-  // ---------------------------------------------------
-  const specials = uniqStrings(current_special_labels ?? []);
-  let calendarSynth: string | null = null;
-
-  if (specials.length > 0) {
-    const hasVacations = specials.some((s) =>
-      s.toLowerCase().includes("vacance")
-    );
-    if (hasVacations) {
-      calendarSynth =
-        "Période de vacances : audience locale possiblement réduite, visiteurs extérieurs à capter";
-    } else {
-      calendarSynth =
-        "Contexte calendrier spécifique : adaptation de la cible ou du format recommandée";
-    }
-  }
-
-  // ---------------------------------------------------
-  // Competition interpretation
-  // ---------------------------------------------------
-  const c500 = numOr(current_day?.events_within_500m_count, 0);
-  const c5 = numOr(current_day?.events_within_5km_count, 0);
-  const c10 = numOr(current_day?.events_within_10km_count, 0);
-  const c50 = numOr(current_day?.events_within_50km_count, 0);
-
-  const near = c500 + c5 + c10;
-  const total = near + c50;
-
-  let competitionSynth: string | null = null;
-
-  if (near > 0) {
-    competitionSynth = "Risque de cannibalisation directe ce jour-là";
-  } else if (total > 0) {
-    competitionSynth = "Concurrence présente, mais peu susceptible d’impacter directement votre événement";
-  } else {
-    competitionSynth = "Aucune pression concurrentielle significative ce jour-là";
+  } else if (avgOtherAlert !== null && avgOtherAlert > 0) {
+    exploitationSynth = "Meilleures conditions météo de la sélection";
   }
 
   // ---------------------------------------------------
   // Build output
   // ---------------------------------------------------
-  const { label: dowFr, isWeekend } = weekdayLabelFr(date);
-  const out: string[] = [];
-
-  // header line removed
-
-  // Synthèse (3–5 bullets)
   const synth: string[] = [];
 
+  // 1. Ranking
   if (rank !== null && ranked.length >= 2) {
-  const n = ranked.length;
-
-  if (rank === 1) {
-    synth.push(`Meilleure option de la sélection`);
-  } else if (rank === n) {
-    synth.push(`Option la moins favorable de la sélection`);
-  } else if (n % 2 === 1 && rank === (n + 1) / 2) {
-    synth.push(`Option médiane de la sélection`);
-  } else {
-    synth.push(`Option intermédiaire de la sélection`);
-  }
-}
-  if (calendarSynth) synth.push(`${calendarSynth}`);
-  if (weatherSynth) synth.push(`${weatherSynth}`);
-  if (competitionSynth) synth.push(`${competitionSynth}`);
-
-  if (synth.length > 0) {
-    out.push([...synth.slice(0, 5)].join("\n\n"));
+    const n = ranked.length;
+    if (rank === 1) synth.push("Meilleure option de la sélection");
+    else if (rank === 2) synth.push(`2e meilleure option sur ${n} de la sélection`);
+    else if (rank === n) synth.push(`Option la moins favorable des ${n} dates`);
+    else synth.push(`${rank}e option sur ${n} de la sélection`);
   }
 
-  // ---------------------------------------------------
-  // À noter (supporting facts only)
-  // ---------------------------------------------------
-  const details: string[] = [];
+  // 2. Differentiating signals (max 3, priority order)
+  const signals = [audienceSynth, concurrenceSynth, accessibiliteSynth, exploitationSynth]
+    .filter(Boolean) as string[];
 
-  // single strongest weather fact
-  if (anyAlert) {
-    const bits: string[] = [];
-    if (alertMax > 0) bits.push(`alerte ${alertMax}`);
-    if (lvlWind > 0) bits.push(`vent ${lvlWind}`);
-    if (lvlRain > 0) bits.push(`pluie ${lvlRain}`);
-    if (lvlSnow > 0) bits.push(`neige ${lvlSnow}`);
-    if (lvlHeat > 0) bits.push(`chaleur ${lvlHeat}`);
-    if (lvlCold > 0) bits.push(`froid ${lvlCold}`);
-    if (bits.length) details.push(`Alertes météo : ${bits.join(", ")}`);
-  } else if (pp !== null && pp >= 60) {
-    details.push(`Pluie probable (≥60%)`);
-  } else if (wind !== null && wind >= 40) {
-    details.push(`Vent fort (≥40 km/h)`);
-  } else if (pSum !== null && pSum > 0 && isOutdoor === true) {
-    details.push(`Précipitations faibles possibles`);
+  for (const s of signals.slice(0, 3)) {
+    synth.push(s);
   }
 
-  // nearest competition events
-  const topEvents = getTopCompetitionEvents(current_day, location_context);
-  if (topEvents.length === 1) {
-    const e = topEvents[0];
-    const type =
-        typeof e?.event_label === "string" && e.event_label.toLowerCase().includes("exposition")
-        ? "une exposition"
-        : "un événement";
-
-    const city =
-        typeof e?.city_name === "string" && e.city_name.trim()
-        ? e.city_name.trim()
-        : "à proximité";
-
-    details.push(
-        `L'événement concurrent le plus proche est ${type} à ${city}`
-    );
-    } else if (topEvents.length > 1) {
-    const city =
-      typeof topEvents[0]?.city_name === "string" && topEvents[0].city_name.trim()
-        ? topEvents[0].city_name.trim()
-        : "à proximité";
-
-    const industries = topEvents
-      .map((e) => (typeof e?.industry_code === "string" ? e.industry_code : null))
-      .filter(Boolean);
-
-    let type = "événements";
-
-    if (industries.includes("Culture & Patrimoine")) {
-      type = "expositions ou événements culturels";
-    } else if (industries.includes("Événementiel")) {
-      type = "événements";
-    } else if (industries.includes("Sports & Loisirs actifs")) {
-      type = "événements sportifs";
-    } else if (industries.includes("Tourisme & Loisirs")) {
-      type = "activités de loisirs";
-    }
-
-    details.push(
-      `Les événements concurrents les plus proches sont principalement des ${type} situés à ${city}`
-    );
-  }
-  if (details.length > 0) {
-    out.push(["À noter", ...details].join("\n"));
+  // 3. Fallback
+  if (synth.length <= 1) {
+    synth.push("Pas de différence marquée avec les autres dates");
   }
 
-  return out.join("\n\n");
+  return synth.join("\n\n");
 }
