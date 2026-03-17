@@ -323,16 +323,15 @@
 
 /* Clerk — keep email/identifier field + its label aligned to the same 320px column */
 .cl-formField:has(input[name="identifier"]) {
-  max-width: 320px !important;
+  max-width: 420px !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
 
-/* ensure wrapper doesn’t re-expand */
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInputWrapper,
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInput {
   width: 100% !important;
-  max-width: 320px !important;
+  max-width: 420px !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
@@ -503,4 +502,18 @@ footer.ms-footer a {
 
 footer.ms-footer a:hover {
   text-decoration: none !important;
+}
+
+.cl-formField {
+  max-width: 420px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+
+.cl-formField .cl-formFieldInputWrapper,
+.cl-formField .cl-formFieldInput {
+  width: 100% !important;
+  max-width: 420px !important;
+  box-sizing: border-box !important;
 }
