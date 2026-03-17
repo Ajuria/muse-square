@@ -13,7 +13,7 @@
   "dependencies": {
     "@astrojs/check": "^0.9.6",
     "@astrojs/vercel": "^9.0.4",
-    "@clerk/astro": "^3.0.4",
+    "@clerk/astro": "3.0.4",
     "@clerk/clerk-sdk-node": "^4.13.23",
     "@clerk/localizations": "^3.35.3",
     "@google-cloud/bigquery": "^8.1.1",
