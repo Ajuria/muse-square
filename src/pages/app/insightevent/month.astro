@@ -27,7 +27,7 @@ if (!u.searchParams.get("window_start_date")) {
 }
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { SignedIn, SignedOut } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 
@@ -44,13 +44,13 @@ const location_id =
 const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 ---
 
-<SignedOut>
+<Show when="signed-out">
   <script is:inline>
     window.location.href = "/sign-in";
   </script>
-</SignedOut>
+</Show>
 
-<SignedIn>
+<Show when="signed-in">
   <BaseLayout
     title="Insight Event — Mois"
     hideSurveyCta={true}
@@ -2458,4 +2458,4 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     </script>
     <InsightBottomBar active="month" showActions={false} search={Astro.url.search} />
   </BaseLayout>
-</SignedIn>
+</Show>

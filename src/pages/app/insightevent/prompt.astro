@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { SignedIn, SignedOut } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 
@@ -24,11 +24,11 @@ if (!location_id) {
 }
 ---
 
-<SignedOut>
+<Show when="signed-out">
   <meta http-equiv="refresh" content="0; url=/sign-in" />
-</SignedOut>
+</Show>
 
-<SignedIn>
+<Show when="signed-in">
   <BaseLayout
     title="Insight Event — Prompt"
     hideSurveyCta={true}
@@ -374,4 +374,4 @@ if (!location_id) {
     <script type="module" src="/scripts/ie-prompt.js" defer></script>
 
   </BaseLayout>
-</SignedIn>
+</Show>

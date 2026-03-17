@@ -1,10 +1,11 @@
 ---
 export const prerender = false;
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { UserButton, SignedIn } from '@clerk/astro/components';
+import { UserButton } from '@clerk/astro/components'
+import { Show } from '@clerk/astro/components';
 ---
 
-<SignedIn>
+<Show when="signed-in">
   <BaseLayout title="App - Muse Square" hideSurveyCta={true}>
     <div class="max-w-4xl mx-auto py-12 px-4">
       <div class="flex items-center justify-between mb-8">
@@ -18,4 +19,4 @@ import { UserButton, SignedIn } from '@clerk/astro/components';
       </div>
     </div>
   </BaseLayout>
-</SignedIn>
+</Show>
