@@ -5,7 +5,7 @@ import { UserButton } from '@clerk/astro/components'
 import { Show } from '@clerk/astro/components';
 ---
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
   <BaseLayout title="App - Muse Square" hideSurveyCta={true}>
     <div class="max-w-4xl mx-auto py-12 px-4">
       <div class="flex items-center justify-between mb-8">

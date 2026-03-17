@@ -34,17 +34,17 @@ const has_selected_dates =
 const has_saved_item_id =
   typeof saved_item_id_raw === "string" && saved_item_id_raw.trim().length > 0;
 
-const show_actions = has_selected_dates || has_saved_item_id;
+const show_actions = has_selected_dates;
 
 ---
 
-<Show when="signed-out">
+<Show when="signed-out" client:load>
   <script is:inline>
     window.location.href = "/sign-in";
   </script>
 </Show>
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
   <BaseLayout title="Insight Event — Days" hideSurveyCta={true} hideFooter={true}>
     <div class="ms-container pt-6 w-full max-w-none"></div>
   
@@ -1949,14 +1949,14 @@ const show_actions = has_selected_dates || has_saved_item_id;
           // Title block (template-like)
           const head = `
             <div class="ms-saved-wrap">
-              <div class="ms-saved-hero">Dates d’intérêt</div>
+              <div class="ms-saved-hero">Dates en cours de sélection</div>
             </div>
           `;
 
           if (rows.length === 0) {
             savedPanel.innerHTML =
               head +
-              `<div class="ms-saved-wrap"><div class="ms-saved-empty">Aucun enregistrement pour le moment.</div></div>`;
+              `<div class="ms-saved-wrap"><div class="ms-saved-empty">Rendez-vous dans l'onglet Mois pour sélectionner vos dates et les comparer.</div></div>`;
             return;
           }
 

@@ -24,11 +24,11 @@ if (!location_id) {
 }
 ---
 
-<Show when="signed-out">
+<Show when="signed-out" client:load>
   <meta http-equiv="refresh" content="0; url=/sign-in" />
 </Show>
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
   <BaseLayout
     title="Insight Event — Prompt"
     hideSurveyCta={true}

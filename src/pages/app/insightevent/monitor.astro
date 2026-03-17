@@ -18,11 +18,11 @@ const saved_item_id = Astro.url?.searchParams?.get("saved_item_id") ?? "";
 const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 ---
 
-<Show when="signed-out">
+<Show when="signed-out" client:load>
   <script is:inline>window.location.href = "/sign-in";</script>
 </Show>
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
   <BaseLayout title="Monitor — Insight Event" hideSurveyCta={true} hideFooter={true}>
 
     <style is:inline>

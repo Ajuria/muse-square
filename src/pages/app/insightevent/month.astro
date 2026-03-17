@@ -44,13 +44,13 @@ const location_id =
 const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 ---
 
-<Show when="signed-out">
+<Show when="signed-out" client:load>
   <script is:inline>
     window.location.href = "/sign-in";
   </script>
 </Show>
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
   <BaseLayout
     title="Insight Event — Mois"
     hideSurveyCta={true}
@@ -89,49 +89,28 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         Placement: under Points clés, above constraints + calendar
         ========================= -->
         <section id="ie-30d-filterbar" data-role="ie-30d-filterbar" aria-label="Filtres rapides">
-          <div class="ms-seg" role="tablist" aria-label="Filtres rapides">
-            <button type="button" class="ms-seg__btn is-active" data-ms-filter="top3" role="tab" aria-selected="true">
-              Top 3
-            </button>
-            <button type="button" class="ms-seg__btn" data-ms-filter="vacances" role="tab" aria-selected="false">
-              Vacances
-            </button>
-            <button type="button" class="ms-seg__btn" data-ms-filter="ferie" role="tab" aria-selected="false">
-              Férié
-            </button>
-            <button type="button" class="ms-seg__btn" data-ms-filter="temps_forts" role="tab" aria-selected="false">
-              Temps forts
-            </button>
-          </div>
         </section>
 
-        <div id="ie-30d-filter-empty"></div>
-
         <section id="ie-30d-calendar-section" data-role="ie-30d-calendar-section">
+          <div id="ie-30d-calendar-label">CALENDRIER</div>
           <div id="ie-30d-calendar-header">
-            <div>CALENDRIER</div>
-            <div></div>
+            <div class="ie-30d-month-center">
+              <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
+              <select id="ie-30d-month-select" class="ie-30d-month-select is-chevron-only" aria-label="Choisir un mois" title="Choisir un mois"></select>
+            </div>
+            <div class="ms-seg" role="tablist" aria-label="Filtres rapides">
+              <button type="button" class="ms-seg__btn is-active" data-ms-filter="top3" role="tab" aria-selected="true">Top 3</button>
+              <div class="ms-seg__sep"></div>
+              <button type="button" class="ms-seg__btn" data-ms-filter="vacances" role="tab" aria-selected="false">Vacances</button>
+              <div class="ms-seg__sep"></div>
+              <button type="button" class="ms-seg__btn" data-ms-filter="ferie" role="tab" aria-selected="false">Férié</button>
+              <div class="ms-seg__sep"></div>
+              <button type="button" class="ms-seg__btn" data-ms-filter="temps_forts" role="tab" aria-selected="false">Temps forts</button>
+            </div>
           </div>
 
-          <div id="ie-30d-calendar-card">
-            <div
-                id="ie-30d-month-header"
-                data-role="ie-30d-month-header"
-                data-window-start=""
-              >
-                <div class="ie-30d-month-center">
-                  <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
-
-                  <select
-                    id="ie-30d-month-select"
-                    class="ie-30d-month-select is-chevron-only"
-                    aria-label="Choisir un mois"
-                    title="Choisir un mois"
-                  >
-                  </select>
-                </div>
-              </div>
-              
+          <div id="ie-30d-month-header" data-role="ie-30d-month-header" data-window-start=""></div>
+          <div id="ie-30d-filter-empty"></div>
             <div id="ie-30d-calendar" data-role="ie-30d-calendar">
               <div id="ie-30d-weekdays" data-role="ie-30d-weekdays">
                 <div class="ie-30d-weekday">Lun</div>
@@ -355,55 +334,45 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       .ms-seg{
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0;
       }
-
-      @media (max-width: 520px){
-        .ms-seg{
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
+      .ms-seg__sep{
+        width: 1px;
+        height: 12px;
+        background: #E5E7EB;
+        margin: 0 12px;
+        flex-shrink: 0;
       }
-
       .ms-seg__btn{
-        height: 36px;
-        width: 100%;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-sm);
-        background: #f9fafb;
-        color: var(--color-text-secondary);
-
+        height: auto;
+        width: auto;
+        border: none;
+        border-radius: 0;
+        background: none;
+        color: #9CA3AF;
         font-family: var(--font-family);
-        font-size: var(--font-size-label);           /* slightly smaller = cleaner in caps */
-        font-weight: var(--font-weight-semibold);
-        letter-spacing: var(--letter-spacing-wider); /* consistent with your section headers */
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: var(--letter-spacing-wider);
         text-transform: uppercase;
-
         cursor: pointer;
         user-select: none;
-
-        transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+        padding: 0;
+        transition: color 120ms ease;
       }
-
       .ms-seg__btn:hover{
-        border-color: var(--color-border-hover);
-        color: var(--color-text-primary);
-        background: rgba(17,24,39,0.03); /* subtle hover, not brand */
+        color: #111827;
       }
-
       .ms-seg__btn:focus-visible{
         outline: none;
-        border-color: var(--color-brand-blue);
-        box-shadow: 0 0 0 3px rgba(29,59,179,0.12); /* keep as-is unless you have a token */
+        color: #111827;
       }
-
-      /* Active = brand blue outline + text ONLY */
       .ms-seg__btn.is-active{
-        border-color: var(--color-brand-blue);
-        background: #f9fafb;
-        color: var(--color-brand-blue);
+        color: #111827;
+        font-weight: 500;
       }
 
       #ie-30d-top3{
@@ -661,9 +630,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       .ie-30d-day{ position:relative; }
 
       #ie-30d-month-header{
-        display: flex;
-        justify-content: center;   /* key: center the whole unit */
-        margin: 6px 0 var(--space-xl);
+        display: none;
       }
 
       .ie-30d-month-center{
@@ -726,20 +693,20 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         margin: var(--ie-section-gap) 0 0;
       }
 
+      #ie-30d-calendar-label{
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: #9CA3AF;
+        margin: 40px 0 4px;
+      }
+
       #ie-30d-calendar-header{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-
-        font-size: var(--ie-kicker-size);
-        font-weight: var(--ie-kicker-weight);
-        letter-spacing: var(--ie-kicker-tracking);
-        text-transform: uppercase;
-        color: var(--ie-kicker-color);
-
-        opacity: 0.75;
-        margin: 0 0 var(--ie-title-mb);
-        padding-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0;
+        padding-bottom: 4px;
         border-bottom: 1px solid var(--color-border);
       }
 
@@ -797,20 +764,22 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         opacity: 0.22;
       }
 
-      /* ---- Spanning label bars ---- */
-
       /* ---- Filter empty state ---- */
       #ie-30d-filter-empty {
-        font-size: var(--ie-kicker-size);
-        font-weight: var(--ie-kicker-weight);
-        letter-spacing: var(--ie-kicker-tracking);
-        text-transform: uppercase;
-        color: var(--ie-kicker-color);
-        opacity: 0.75;
-        margin: -8px 0 12px;
-        display: none;
+        height: 32px;
+        min-height: 32px;
+        max-height: 32px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-end;
+        padding-top: 0px;
+        gap: 8px;
+        font-size: 12px;
+        color: #9CA3AF;
+        margin: 0;
+        overflow: hidden;
       }
-
+      
       /* ---- Spanning label bars ---- */
       #ie-30d-label-rows {
         display: flex;
@@ -1265,7 +1234,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     // Filter bar (4 buttons) — single active
     // -----------------------------
     function bindQuickFilters(){
-      const root = document.getElementById("ie-30d-filterbar");
+      const root = document.getElementById("ie-30d-calendar-header");
       if (!root) return;
 
       const btns = Array.from(root.querySelectorAll(".ms-seg__btn"));
@@ -1992,11 +1961,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       if (!spans.length) {
         if (emptyEl) {
           emptyEl.textContent = EMPTY_MSG[key] || "";
-          emptyEl.style.display = "block";
+          emptyEl.style.display = "flex";
         }
         return;
       }
-      if (emptyEl) emptyEl.style.display = "none";
+      if (emptyEl) { emptyEl.textContent = ""; emptyEl.style.display = "flex"; }
 
       const allCells = Array.from(grid.querySelectorAll(".ie-30d-day"));
       const gridRect = grid.getBoundingClientRect();

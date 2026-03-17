@@ -73,7 +73,7 @@ const isAppShell = isApp;
           ))}
           {/* Signed-in on marketing site: show Insight only (no logout) */}
           {!isApp && (
-            <Show when="signed-in">
+            <Show when="signed-in" client:load>
               <li>
                 <a href="/app/insightevent/prompt" class="ms-nav-link">
                   Insight
@@ -123,7 +123,7 @@ const isAppShell = isApp;
                 </a>
               </li>
 
-              <Show when="signed-in">
+              <Show when="signed-in" client:load>
                 <li>
                   <button type="button" class="logoutBtn ms-nav-link italic normal-case">
                     Log out
@@ -135,7 +135,7 @@ const isAppShell = isApp;
         </ul>
 
         {/* Auth actions: only when signed out */}
-        <Show when="signed-out">
+        <Show when="signed-out" client:load>
           <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
             <a href="/sign-in" class="ms-nav-link">
               Se connecter
@@ -195,7 +195,7 @@ const isAppShell = isApp;
             </a>
           </li>
 
-          <Show when="signed-in">
+          <Show when="signed-in" client:load>
             <li>
               <button
                 type="button"

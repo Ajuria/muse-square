@@ -23,13 +23,13 @@ const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
 const is_embed = Astro.url?.searchParams?.get("embed") === "1";
 ---
 
-<Show when="signed-out">
+<Show when="signed-out" client:load>
 <script is:inline>
 window.location.href="/sign-in";
 </script>
 </Show>
 
-<Show when="signed-in">
+<Show when="signed-in" client:load>
 
 <BaseLayout title="Map — Context" hideSurveyCta={true} hideFooter={true} hideNav={is_embed}>
 

@@ -3,6 +3,7 @@ export const prerender = false;
 
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { BigQuery } from "@google-cloud/bigquery";
+import { clerkClient } from "@clerk/astro/server";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -29,6 +30,9 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 }
 
 const clerk_user_id = clerk_user_id_raw.trim();
+const clerkUser = await clerkClient(Astro).users.getUser(clerk_user_id);
+const hasPassword = clerkUser.passwordEnabled === true;
+console.log('[PROFILE] hasPassword:', hasPassword, 'passwordEnabled:', clerkUser.passwordEnabled);
 
 // IMPORTANT:
 // Profile page must NOT redirect if location_id is missing.
@@ -246,11 +250,13 @@ const selected_origin_city_ids = [
                 />
               </div>
 
-              <div class="pt-2">
-                <a href="https://accounts.clerk.com/user/security" target="_blank" rel="noopener" class="text-sm text-gray-600 hover:text-black">
-                  → Modifier mon mot de passe
-                </a>
-              </div>
+              {hasPassword && (
+                <div class="pt-2">
+                  <button type="button" id="pwd-open" style="background:none;border:none;padding:0;font-size:14px;color:#4b5563;cursor:pointer;">
+                    → Modifier mon mot de passe
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 
@@ -904,5 +910,106 @@ const selected_origin_city_ids = [
     })();
 
   </script>
+
+<!-- Password change modal -->
+<div id="pwd-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:420px;margin:0 20px;position:relative;">
+    <button id="pwd-modal-close" type="button" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">✕</button>
+    <h2 style="font-size:18px;font-weight:600;margin:0 0 24px 0;">Modifier mon mot de passe</h2>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Mot de passe actuel</label>
+        <input id="pwd-current" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Nouveau mot de passe</label>
+        <input id="pwd-new" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Confirmer le nouveau mot de passe</label>
+        <input id="pwd-confirm" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+      </div>
+      <div id="pwd-status" style="font-size:13px;min-height:20px;"></div>
+      <button id="pwd-submit" type="button" style="width:100%;height:52px;background:#000;color:#fff;border:none;border-radius:12px;font-size:15px;cursor:pointer;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // @ts-nocheck
+  const modal = document.getElementById('pwd-modal');
+  const openBtn = document.getElementById('pwd-open');
+  const closeBtn = document.getElementById('pwd-modal-close');
+  const submitBtn = document.getElementById('pwd-submit');
+  const status = document.getElementById('pwd-status');
+
+  function openModal() {
+    if (!modal) return;
+    modal.style.display = 'flex';
+    document.getElementById('pwd-current')?.focus();
+  }
+  function closeModal() {
+    if (!modal) return;
+    modal.style.display = 'none';
+    ['pwd-current','pwd-new','pwd-confirm'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    if (status) status.textContent = '';
+  }
+
+  openBtn?.addEventListener('click', openModal);
+  closeBtn?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  submitBtn?.addEventListener('click', async () => {
+    const current = document.getElementById('pwd-current')?.value;
+    const newPwd = document.getElementById('pwd-new')?.value;
+    const confirm = document.getElementById('pwd-confirm')?.value;
+
+    if (!current || !newPwd || !confirm) {
+      status.style.color = '#b91c1c';
+      status.textContent = 'Tous les champs sont requis.';
+      return;
+    }
+    if (newPwd !== confirm) {
+      status.style.color = '#b91c1c';
+      status.textContent = 'Les mots de passe ne correspondent pas.';
+      return;
+    }
+    if (newPwd.length < 8) {
+      status.style.color = '#b91c1c';
+      status.textContent = 'Le mot de passe doit contenir au moins 8 caractères.';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enregistrement...';
+    status.textContent = '';
+
+    try {
+      const res = await fetch('/api/profile/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: current, new_password: newPwd }),
+      });
+      const out = await res.json().catch(() => null);
+      if (!res.ok) {
+        status.style.color = '#b91c1c';
+        status.textContent = out?.error || 'Erreur lors du changement de mot de passe.';
+      } else {
+        status.style.color = '#059669';
+        status.textContent = 'Mot de passe modifié avec succès.';
+        setTimeout(closeModal, 1500);
+      }
+    } catch {
+      status.style.color = '#b91c1c';
+      status.textContent = 'Erreur réseau. Veuillez réessayer.';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enregistrer';
+    }
+  });
+</script>
 
 </BaseLayout>
