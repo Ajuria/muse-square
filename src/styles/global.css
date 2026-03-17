@@ -110,19 +110,6 @@
     min-height: var(--ms-bottombar-nav-h);
   }
 
-  .ms-bottombar-item{
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    text-decoration: none;
-    color: rgba(17,24,39,0.55);
-    padding: 8px 10px;
-    border-radius: 12px;
-    line-height: 1;
-  }
-
   .ms-bottombar-ico{
     width: 22px;
     height: 22px;
@@ -138,18 +125,13 @@
     font-weight: 500;
   }
 
-  .ms-bottombar-item.is-active{
-    color:#0b37e5;
-    background:none;
-  }
-  .ms-bottombar-item:focus-visible{
-    outline: 2px solid #111827;
-    outline-offset: 2px;
-  }
-
   /* Nav links (Avenir 400, 15px, slight tracking) */
-  .ms-nav-link { @apply font-body text-[15px] font-normal tracking-[0.2px] text-primary; }
+  .ms-nav-link { @apply font-body text-[15px] font-normal tracking-[0.2px] text-primary; vertical-align: baseline; transition: opacity 150ms ease; }
 
+  .ms-nav-link:hover { opacity: 0.6; }
+  
+  button.ms-nav-link { padding: 0; background: none; border: none; cursor: pointer; position: relative; top: -2px; }
+  
   /* Footer (Avenir) — readable, still discreet */
   .ms-footer{
     @apply font-body italic text-[13px] leading-[1.55];

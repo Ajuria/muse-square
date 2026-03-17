@@ -43,7 +43,6 @@ const isProtectedRoute = createRouteMatcher([
   "/profile(.*)",
   "/api/profile(.*)",
   "/api/saved-items(.*)",
-  "/api/insight(.*)",
 ]);
 
 const isAppRoute = createRouteMatcher([

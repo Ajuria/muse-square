@@ -101,14 +101,17 @@ const show_actions = has_selected_dates || has_saved_item_id;
   .ms-comp-cards{
     display:grid;
     grid-template-columns:1fr;
-    gap:18px;
+    gap:8px;
     margin-top:16px;
+    margin-left:12px;
+    margin-right:12px;
   }
 
   /* tablet */
   @media (min-width:640px){
     .ms-comp-cards{
       grid-template-columns:repeat(2,1fr);
+      gap:8px;
     }
   }
 
@@ -116,6 +119,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
   @media (min-width:1024px){
     .ms-comp-cards{
       grid-template-columns:repeat(3,1fr);
+      gap:8px;
     }
   }
 
@@ -340,7 +344,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
     border-bottom:1px solid #E5E7EB;
     padding:16px 24px 0 24px;
   }
-  
+
   .ms-tabs{
     display:flex;
     justify-content:flex-start;
@@ -350,7 +354,12 @@ const show_actions = has_selected_dates || has_saved_item_id;
     padding:0 0 16px 0;
     margin:0;
 
-    border-bottom:1px solid #E5E7EB;  /* baseline */
+    border-bottom:1px solid #E5E7EB;
+  }
+
+  #ms-day-tabs .ms-tabs{
+    border-bottom:none;
+    padding:0 0 0 0;
   }
   
   /* =========================
@@ -593,6 +602,10 @@ const show_actions = has_selected_dates || has_saved_item_id;
     width:100%;
     background:#1D3BB3;
     border-radius:3px;
+  }
+
+  #ms-day-tabs .ms-tab.is-active::after{
+    bottom:-1px;
   }
 
   .ms-tab:disabled{
@@ -1189,7 +1202,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
    ========================= */
 
   .ms-choice-recap-wrap{
-    margin-top:24px;
+    margin-top:0px;
     margin-bottom:24px;
   }
 
@@ -2239,8 +2252,15 @@ const show_actions = has_selected_dates || has_saved_item_id;
             };
             return icons[kind] || icons.info;
           }
+        
+        function sectionHex(title, icon, takeawayHtml, bodyHtml, score, hideVoirPlus) {
+          const scoreHtml = (score !== null && score !== undefined)
+            ? `<div style="display:flex;align-items:baseline;gap:3px;flex-shrink:0;">
+                <span style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(String(score))}</span>
+                <span style="font-size:12px;color:#9CA3AF;">/10</span>
+               </div>`
+            : "";
 
-        function sectionHex(title, icon, takeawayHtml, bodyHtml) {
           return `
             <div class="ms-section">
               <div class="ms-card">
@@ -2248,20 +2268,24 @@ const show_actions = has_selected_dates || has_saved_item_id;
                   <div class="ms-ico">
                     ${sectionIconSVG(icon)}
                   </div>
-                  <div class="ms-head-content">
-                    <div class="ms-kicker">${escapeHtml(title)}</div>
+                  <div class="ms-head-content" style="flex:1;min-width:0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                      <span style="font-size:13px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;line-height:1.1;">${escapeHtml(title)}</span>
+                      ${scoreHtml}
+                    </div>
                     ${takeawayHtml || ""}
                   </div>
                 </div>
 
                 ${bodyHtml ? `<div class="ms-below">${bodyHtml}</div>` : ""}
 
+                ${!hideVoirPlus ? `
                 <div style="margin-top:16px;">
                   <a href="/app/insightevent/map?date=${escapeHtml(selectedDate)}&selected_dates=${escapeHtml(selectedDates.join(','))}"
                     style="font-size:13px;font-weight:600;color:#1D3BB3;text-decoration:none;">
                     Voir plus →
                   </a>
-                </div>
+                </div>` : ""}
               </div>
             </div>
           `;
@@ -2536,9 +2560,12 @@ const show_actions = has_selected_dates || has_saved_item_id;
 
           return `
             <div class="ms-choice-recap-wrap">
-              <div class="ms-card ms-card-decision">
-                <div class="ms-kicker">POURQUOI CES DATES ?</div>
-                <div class="ms-choice-recap-body">${escapeHtml(bodyLines.join("\n"))}</div>
+              <div class="ms-card ms-card-decision" style="padding-bottom:0;min-height:var(--ms-hero-card-height,340px);display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div class="ms-kicker">POURQUOI CES DATES ?</div>
+                  <div class="ms-choice-recap-body">${escapeHtml(bodyLines.join("\n"))}</div>
+                </div>
+                <div id="ms-day-tabs" style="margin-top:16px;margin-bottom:0;"></div>
               </div>
             </div>
           `;
@@ -2801,45 +2828,18 @@ const show_actions = has_selected_dates || has_saved_item_id;
           // ------------------------------
           // Sections (single column; fixed order)
           // ------------------------------
-          const pointsClesHtml = renderPointsClesHexLike(row.points_cles ?? null);
           const calendrierHtml = renderCalendrierHexLike(row);
-          const alertesHtml = renderAlertesHexLike(row);
           const concurrenceHtml = renderConcurrenceHexLike(row);
           const mobiliteHtml = renderMobiliteHexLike(row);
           const meteoHtml = renderMeteoHexLike(row);
 
           container.innerHTML = `
 
-            <!-- TOP NAV: Day tabs -->
-            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
-              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
-                <div id="ms-day-tabs"></div>
-              </div>
-            </div>
-            </div>
-
             <!-- ZONE A (WHITE - constrained width) -->
             <div class="ms-days-wrap">
-
-              <div class="ms-days-top">
                 ${renderHeroScore(row, meta, ctxTags, dayRowsByDate, savedItemMeta)}
 
                 ${renderAudienceContext(row)}
-
-                ${renderScoreBreakdownBars(row)}
-              </div>
-
-            </div>
-
-            <div class="ms-days-wrap">
-              <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;margin:16px 0;">
-                <button type="button" id="ms-tab-analyse" style="padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;background:#fff;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;">
-                  ANALYSE
-                </button>
-                <button type="button" id="ms-tab-alertes" style="padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;background:#fff;border:none;border-bottom:2px solid transparent;cursor:pointer;border-left:1px solid #E5E7EB;">
-                  ALERTES
-                </button>
-              </div>
             </div>
                                       
             <!-- ZONE B (GREY - constrained to match breakdown width) -->
@@ -2854,8 +2854,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
           <div class="ms-days-wrap">
             <div id="ms-zone-c">
               <div class="ms-panels">
-                ${pointsClesHtml}
-                ${alertesHtml}
                 ${calendrierHtml}
                 ${concurrenceHtml}
                 ${mobiliteHtml}
@@ -2865,39 +2863,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
           </div>
           </div>
           `;
-
-          // Wire Analyse / Alertes tabs
-          const tabAnalyse = document.getElementById("ms-tab-analyse");
-          const tabAlertes = document.getElementById("ms-tab-alertes");
-          const zoneC = container.querySelector("#ms-zone-c");
-
-          function showAnalyseTab() {
-            if (tabAnalyse) { tabAnalyse.style.color="#1D3BB3"; tabAnalyse.style.borderBottom="2px solid #1D3BB3"; tabAnalyse.style.background="transparent"; }
-            if (tabAlertes) { tabAlertes.style.color="#9CA3AF"; tabAlertes.style.borderBottom="2px solid transparent"; tabAlertes.style.background="transparent"; }
-            if (zoneC) zoneC.innerHTML = renderAnalysePanels();
-          }
-
-          function showAlertesTab() {
-            if (tabAlertes) { tabAlertes.style.color="#1D3BB3"; tabAlertes.style.borderBottom="2px solid #1D3BB3"; tabAlertes.style.background="transparent"; }
-            if (tabAnalyse) { tabAnalyse.style.color="#9CA3AF"; tabAnalyse.style.borderBottom="2px solid transparent"; tabAnalyse.style.background="transparent"; }
-            if (zoneC) zoneC.innerHTML = renderFeedForDate(selectedDate, MS.alerts || []);
-          }
-
-          if (tabAnalyse) tabAnalyse.addEventListener("click", showAnalyseTab);
-          if (tabAlertes) tabAlertes.addEventListener("click", showAlertesTab);
-
-          function renderAnalysePanels() {
-            return `
-              <div class="ms-panels">
-                ${renderPointsClesHexLike(row.points_cles ?? null)}
-                ${renderAlertesHexLike(row)}
-                ${renderCalendrierHexLike(row)}
-                ${renderConcurrenceHexLike(row)}
-                ${renderMobiliteHexLike(row)}
-                ${renderMeteoHexLike(row)}
-              </div>
-            `;
-          }
           
           function renderFeedForDate(date, allAlerts) {
             const items = (Array.isArray(allAlerts) ? allAlerts : [])
@@ -3221,45 +3186,38 @@ const show_actions = has_selected_dates || has_saved_item_id;
               year: "numeric"
             }).format(parseYmdToDate(selectedDate));
             const capitalizedDate = fullDate.charAt(0).toUpperCase() + fullDate.slice(1);
+            
+            const decisionCountdown = (() => {
+              const dd = savedItemMeta?.decision_date || null;
+              if (!dd) return null;
+              return countdownLabel(dd, "");
+            })();
 
             return `
-              <div class="ms-hero" style="padding-top:12px;">
-
-                <!-- Date + countdown or delta -->
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
-                  <div class="ms-hero-date" style="margin-bottom:0;">${escapeHtml(capitalizedDate)}</div>
-                  <div class="ms-status-countdown" style="text-align:right;line-height:1.6;">
-                    ${(() => {
-                      const dd = savedItemMeta?.decision_date || null;
-                      const ed = savedItemMeta?.event_end_date || null;
-                      if (!dd && !ed) {
-                        return safeDelta !== null ? `${formattedDelta} VS SEMAINE DERNIÈRE` : "—";
-                      }
-                      const lines = [];
-                      if (dd) {
-                        const dc = countdownLabel(dd, "avant choix de date");
-                        if (dc) lines.push(dc);
-                      }
-                      return lines.join("<br>");
-                    })()}
+              <div style="background:rgba(29,59,179,0.04);border-left:6px solid #0b37e5;padding:24px;margin:0 12px;">
+              
+                <!-- Date + countdown row -->
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
+                  <span style="font-size:15px;font-weight:500;color:#6b7280;">${escapeHtml(capitalizedDate)}</span>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+                    ${decisionCountdown ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;">Choix limite de date : ${escapeHtml(decisionCountdown)}</span>` : ""}
+                    ${safeDelta !== null && !decisionCountdown ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;">${formattedDelta} VS SEMAINE DERNIÈRE</span>` : ""}
                   </div>
                 </div>
 
-                <!-- Score row -->
-                <div class="ms-hero-grid">
-                  <div class="ms-hero-score-block">
-                    <div class="ms-hero-label">SCORE D'OPPORTUNITÉ</div>
-                    <div class="ms-hero-score">
-                      <span class="ms-score-main">${safeScore === null ? "—" : String(safeScore)}</span>
-                      <span class="ms-score-max">/10</span>
-                      <div class="ms-delta-pill ${deltaClass}" style="margin-left:10px;">
-                        ${formattedDelta}
-                      </div>
+                <!-- Score + statut row -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                  <div>
+                    <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Score d'opportunité</div>
+                    <div style="display:flex;align-items:baseline;gap:8px;">
+                      <span style="font-size:48px;font-weight:500;color:#111827;line-height:1;">${safeScore === null ? "—" : String(safeScore)}</span>
+                      <span style="font-size:18px;color:#9CA3AF;">/10</span>
+                      <span class="ms-delta-pill ${deltaClass}" style="font-size:12px;padding:4px 10px;">${formattedDelta}</span>
                     </div>
                   </div>
-                  <div class="ms-statut-block">
-                    <div class="ms-statut-label">STATUT</div>
-                    <div class="ms-statut-badge ${statutBadgeClass}">${statutText}</div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                    <span style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9CA3AF;">Statut</span>
+                    <span class="${hasRisk ? "mon-statut-risk" : ""}" style="${hasRisk ? "" : "background:#1D3BB3;color:#fff;"}padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${statutText}</span>
                   </div>
                 </div>
 
@@ -3276,6 +3234,8 @@ const show_actions = has_selected_dates || has_saved_item_id;
                   </ul>
                 </div>
 
+                <!-- Tabs inside blue card -->
+                <div id="ms-day-tabs" style="margin-top:16px;margin-bottom:-24px;"></div>
               </div>
             `;
           }
@@ -3473,7 +3433,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               { key: "Jour", val: dowLabel || "—", pill: isWeekend ? "pill-pos" : "pill-neu", pillLabel: isWeekend ? "Week-end" : "Semaine" },
               { key: "Vacances scolaires", val: vacation || "Aucune", pill: vacation ? "pill-pos" : null, pillLabel: vacation ? "Actif" : null },
               { key: "Temps fort commercial", val: commercial || "Aucun", pill: commercial ? "pill-pos" : null, pillLabel: commercial ? "Actif" : null },
-              { key: "Vos audiences", val: audienceLabel || "—", pill: audienceMatch.pill, pillLabel: audienceMatch.label },
+              { key: "Vos audiences", val: "__audiences__", pill: null, pillLabel: null },
             ];
 
             const body = `
@@ -3488,20 +3448,61 @@ const show_actions = has_selected_dates || has_saved_item_id;
                 ` : ""}
                 <hr style="border:none;border-top:1px solid #E5E7EB;margin:14px 0;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  ${proofRows.map(row => `
-                    <div style="display:flex;flex-direction:column;gap:2px;">
-                      <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(row.key)}</span>
-                      <span style="font-size:13px;color:#111827;">
-                        ${escapeHtml(row.val)}
-                        ${row.pill && row.pillLabel ? `
-                          <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;
-                            ${row.pill === 'pill-pos' ? 'background:rgba(16,185,129,0.1);color:#059669;' : row.pill === 'pill-neg' ? 'background:#FCEBEB;color:#791F1F;' : 'background:#F1EFE8;color:#444441;'}">
-                            ${escapeHtml(row.pillLabel)}
-                          </span>
-                        ` : ""}
-                      </span>
-                    </div>
-                  `).join("")}
+                  ${proofRows.map(row => {
+                    if (row.val === "__audiences__") {
+                      const audFrMap = {
+                        local: "Résidents locaux", professionals: "Professionnels",
+                        tourists: "Touristes", students: "Étudiants",
+                        families: "Familles", seniors: "Seniors"
+                      };
+                      function audAvail(type) {
+                        const t = String(type || "").toLowerCase();
+                        const dt = parseYmdToDate(selectedDate);
+                        const isWE = dt ? (dt.getUTCDay() === 0 || dt.getUTCDay() === 6) : false;
+                        const hasVac = Boolean(r.vacation_name);
+                        const hasHol = Boolean(r.holiday_name);
+                        let avail = false;
+                        if (t === "local")          avail = isWE || hasVac || hasHol;
+                        else if (t === "professionals") avail = !isWE;
+                        else if (t === "tourists")  avail = isWE || hasVac || hasHol;
+                        else if (t === "families")  avail = isWE || hasVac;
+                        else if (t === "students")  avail = isWE || hasVac;
+                        else if (t === "seniors")   avail = true;
+                        else                        avail = isWE || hasVac || hasHol;
+                        return avail
+                          ? { label: "Disponible",      style: "background:rgba(16,185,129,0.1);color:#059669;" }
+                          : { label: "Peu disponible",  style: "background:#FCEBEB;color:#791F1F;" };
+                      }
+                      const auds = [audience1, audience2].filter(Boolean);
+                      const audRowsHtml = auds.length
+                        ? auds.map(a => {
+                            const av = audAvail(a);
+                            return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                              <span style="font-size:13px;color:#111827;">${escapeHtml(audFrMap[a] || a)}</span>
+                              <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;${av.style}">${escapeHtml(av.label)}</span>
+                            </div>`;
+                          }).join("")
+                        : `<span style="font-size:13px;color:#111827;">—</span>`;
+                      return `
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                          <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(row.key)}</span>
+                          <div style="margin-top:2px;">${audRowsHtml}</div>
+                        </div>`;
+                    }
+                    return `
+                      <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(row.key)}</span>
+                        <span style="font-size:13px;color:#111827;">
+                          ${escapeHtml(row.val)}
+                          ${row.pill && row.pillLabel ? `
+                            <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;
+                              ${row.pill === 'pill-pos' ? 'background:rgba(16,185,129,0.1);color:#059669;' : row.pill === 'pill-neg' ? 'background:#FCEBEB;color:#791F1F;' : 'background:#F1EFE8;color:#444441;'}">
+                              ${escapeHtml(row.pillLabel)}
+                            </span>
+                          ` : ""}
+                        </span>
+                      </div>`;
+                  }).join("")}
                 </div>
                 ${confidenceLabel ? `
                   <div style="display:flex;align-items:center;gap:6px;margin-top:14px;">
@@ -3512,7 +3513,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               </div>
             `;
 
-            return sectionHex("Disponibilité de votre audience", "calendar", "", body);
+            return sectionHex("Disponibilité de votre audience", "calendar", "", body, r?.calendar_score ?? null, true);
           }
 
           function renderAlertesHexLike(r) {
@@ -3685,7 +3686,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               </div>
             `;
 
-            return sectionHex("Pression concurrentielle", "calendar", "", body);
+            return sectionHex("Pression concurrentielle", "calendar", "", body, r?.events_score ?? null);
           }
 
           function renderMobiliteHexLike(r) {
@@ -3837,7 +3838,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               </div>
             `;
 
-            return sectionHex("Accessibilité du site", "alert", "", body);
+            return sectionHex("Accessibilité du site", "alert", "", body, r?.mobility_score ?? null);
           }
 
           function renderMeteoHexLike(r) {
@@ -4014,7 +4015,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
               </div>
             `;
 
-            return sectionHex("Conditions d'exploitation", "sun", "", body);
+            return sectionHex("Conditions d'exploitation", "sun", "", body, r?.weather_score ?? null);
           }
           }
 
@@ -4136,12 +4137,6 @@ const show_actions = has_selected_dates || has_saved_item_id;
             }
 
             container.innerHTML = `
-
-            <div class="ms-days-nav" style="border-top:none;margin-top:0;padding:2px 24px 0 24px;">
-              <div class="ms-days-wrap" style="padding-top:0;padding-bottom:0;">
-                <div id="ms-day-tabs"></div>
-              </div>
-            </div>
 
             <div class="ms-days-wrap">
 
@@ -4330,7 +4325,7 @@ const show_actions = has_selected_dates || has_saved_item_id;
           const apiUrl = "/api/insight/days?" + qs.toString();
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000);
+          const timeout = setTimeout(() => controller.abort(), 30000);
 
           try {
             const res = await fetch(apiUrl, {
@@ -4574,6 +4569,17 @@ const show_actions = has_selected_dates || has_saved_item_id;
             }
 
             renderPills(byDate);
+          
+          // Capture hero card height so CHOIX card matches
+            requestAnimationFrame(() => {
+              const heroCard = container.querySelector(".ms-card-decision");
+              if (heroCard) {
+                document.documentElement.style.setProperty(
+                  "--ms-hero-card-height",
+                  heroCard.offsetHeight + "px"
+                );
+              }
+            });
 
           } catch (e) {
             console.error('INIT CRASH:', e?.message, e?.stack);

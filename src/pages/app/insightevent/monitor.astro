@@ -30,10 +30,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         width: 100%;
         max-width: 720px;
         margin: 0 auto;
-        padding: 0 20px 160px 20px;
+        padding: 16px 20px 160px 20px;
         box-sizing: border-box;
+        overflow: hidden;
       }
-
+     
       /* ---- Cards (match days page) ---- */
       .mon-card {
         background: #FFFFFF;
@@ -156,9 +157,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         justify-content: flex-start;
         align-items: flex-end;
         gap: 22px;
-        padding: 0 0 0 0;
-        margin: 16px 0 0 0;
-        border-bottom: 1px solid #E5E7EB;
+        padding: 0;
+        margin: 16px -24px -24px -24px;
+        padding: 0 24px;
+        border-bottom: none;
       }
 
       .mon-tab {
@@ -179,7 +181,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         content: "";
         position: absolute;
         left: 0;
-        bottom: -1px;
+        bottom: 0;
         height: 3px;
         width: 100%;
         background: #1D3BB3;
@@ -273,13 +275,32 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       .mon-status-ok   { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #059669; }
       .mon-status-warn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #D97706; }
       .mon-status-crit { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #b91c1c; }
+
+      .mon-map-btn {
+        height: 36px;
+        border: 1px solid #E5E7EB;
+        border-radius: 6px;
+        background: #f9fafb;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      .mon-map-btn.is-active {
+        border-color: #0b37e5;
+        color: #0b37e5;
+      }
     </style>
 
     <div class="mon-wrap">
       <nav class="mon-breadcrumb">
-        <a href="#" id="mon-back">Choix</a>
-        <span>/</span>
-        <span>Piloter</span>
+        <a href="#" id="mon-breadcrumb-recap">Situation</a>
+        <span id="mon-breadcrumb-sub" style="display:none;">
+          <span>/</span>
+          <span id="mon-breadcrumb-tab"></span>
+        </span>
       </nav>
 
       <div id="mon-root">
@@ -287,27 +308,14 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </div>
     </div>
 
-    <InsightBottomBar active="days" showActions={false} />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script is:inline src="/map-markers.js"></script>
   </BaseLayout>
 </SignedIn>
 
 <script is:inline define:vars={{ location_id, saved_item_id, focused_date }}>
 (function () {
-
-  // ----------------------------------------------------------------
-  // Back button
-  // ----------------------------------------------------------------
-  document.getElementById('mon-back').addEventListener('click', function (e) {
-    e.preventDefault();
-    const mp = new URLSearchParams(window.location.search);
-    const sid = mp.get("saved_item_id") || "";
-    const d   = mp.get("date") || "";
-    const params = new URLSearchParams();
-    if (sid) params.set("saved_item_id", sid);
-    if (d)   params.set("date", d);
-    params.set("selected_date", "__comparison__");
-    window.location.assign("/app/insightevent/days?" + params.toString());
-  });
 
   // ----------------------------------------------------------------
   // Helpers
@@ -373,10 +381,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   }
 
   function iconSVG(kind) {
-    if (kind === "sparkle")  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
-    if (kind === "alert")    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
-    if (kind === "feed")     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v12H4z" stroke="#1D3BB3" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 20h8M12 16v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-    if (kind === "context")  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/><path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind === "sparkle") return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.2 5.1L18 9l-4.8 1.9L12 16l-1.2-5.1L6 9l4.8-1.9L12 2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind === "alert")   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind === "feed")    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v12H4z" stroke="#1D3BB3" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 20h8M12 16v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+    if (kind === "context") return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/><path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind === "calendar") return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/><path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind === "sun")     return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" stroke="#1D3BB3" stroke-width="1.6"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/></svg>`;
     return "";
   }
 
@@ -525,9 +535,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   function renderTabBar(activeTab, date, selectedDates) {
     const tabs = [
-      { id: "recap",   label: "Récapitulatif" },
-      { id: "alertes", label: "Alertes" },
-      { id: "carte",   label: "Carte" },
+      { id: "recap",   label: "Situation" },
+      { id: "carte",   label: "Environnement" },
+      { id: "alertes", label: "Signaux" },
     ];
     return `
       <div class="mon-tabs-bar">
@@ -544,7 +554,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // Render recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, item) {
+  function renderRecap(currentDay, allFeed, item, profile) {
     // Statut global
     const alerts = allFeed.filter(a => (Number(a?.alert_level) || 0) >= 2);
     const hasChanges = alerts.length > 0;
@@ -587,10 +597,15 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           </div>
         `).join("")}
       </div>
-    ` : "";
+    ` : `
+      <div class="mon-card">
+        <span class="mon-status-ok">✓ Aucun point de vigilance</span>
+        <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables pour cet événement.</div>
+      </div>
+    `;
 
     // Contexte de référence (open by default)
-    const contextHtml = renderContext(currentDay);
+    const contextHtml = renderContext(currentDay, profile);
 
     return `<div class="mon-panels">${statusHtml}${vigilanceHtml}${contextHtml}</div>`;
   }
@@ -639,34 +654,124 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     `;
   }
 
-  function renderContext(day) {
-    const score = day?.opportunity_score ?? day?.opportunity_score_final_local ?? null;
+  function renderContext(day, profile) {
     const audience = day?.audience_likelihood;
     const audienceLabel = audience?.label ?? "—";
     const audienceReason = audience?.reason ?? "";
-    
-    // Concurrence: use raw counts (no delta available in monitor API)
-    const count500 = Number(day?.events_within_500m_count) || 0;
-    const count5km = Number(day?.events_within_5km_count)  || 0;
-    const compTotal = count500 + count5km;
-    const concurrenceLabel = compTotal === 0 ? "Aucune" : compTotal <= 5 ? "Modérée" : "Élevée";
-    const concurrenceStyle = compTotal === 0 ? GREEN : compTotal <= 5 ? YELLOW : RED;
+    const aud1 = profile?.primary_audience_1 ?? null;
+    const aud2 = profile?.primary_audience_2 ?? null;
+    const locationType = profile?.location_type ?? null;
+    const isOutdoorOrMixed = locationType === "outdoor" || locationType === "mixed";
 
-    // Mobility: use mobility_score from monitor API
-    const mobilityScore = Number(day?.mobility_score ?? 100);
-    const mobilityLabel = mobilityScore >= 70 ? "Fluide" : mobilityScore >= 55 ? "Perturbé" : "Fortement perturbé";
-    const mobilityStyle = mobilityScore >= 70 ? GREEN : mobilityScore >= 55 ? YELLOW : RED;
-
-    // Exploitation: use alert_level_max
-    const alertMax = Number(day?.alert_level_max ?? 0);
-    const exploitationLabel = alertMax === 0 ? "Aucune alerte" : `Alerte niv. ${alertMax}`;
-    const exploitationStyle = alertMax === 0 ? GREEN : alertMax <= 2 ? YELLOW : RED;
+    const audienceFrMap = {
+      local: "Résidents locaux", professionals: "Professionnels",
+      tourists: "Touristes", students: "Étudiants",
+      families: "Familles", seniors: "Seniors"
+    };
 
     const dt = parseYmdToDate(normalizeYmd(day?.date || ""));
     const isWeekend = dt ? (dt.getUTCDay() === 0 || dt.getUTCDay() === 6) : false;
-    const isAvailable = isWeekend || Boolean(day?.vacation_name) || Boolean(day?.holiday_name);
-    const audienceAvailLabel = isAvailable ? "Disponible" : "Peu disponible";
-    const audienceAvailStyle = isAvailable ? GREEN : RED;
+    const hasVacation = Boolean(day?.vacation_name);
+    const hasHoliday  = Boolean(day?.holiday_name);
+
+    function audienceAvailForType(type) {
+      const t = String(type || "").toLowerCase();
+      let available = false;
+      if (t === "local")          available = isWeekend || hasVacation || hasHoliday;
+      else if (t === "professionals") available = !isWeekend;
+      else if (t === "tourists")  available = isWeekend || hasVacation || hasHoliday;
+      else if (t === "families")  available = isWeekend || hasVacation;
+      else if (t === "students")  available = isWeekend || hasVacation;
+      else if (t === "seniors")   available = true;
+      else                        available = isWeekend || hasVacation || hasHoliday;
+      return available
+        ? { label: "Disponible", style: GREEN }
+        : { label: "Peu disponible", style: RED };
+    }
+
+    function mobLabel(delta) {
+      if (delta >= 0)  return { label: "Fluide",              style: GREEN  };
+      if (delta >= -4) return { label: "Perturbé",            style: YELLOW };
+      return               { label: "Fortement perturbé",     style: RED    };
+    }
+
+    // Concurrence
+    const count500    = Number(day?.events_within_500m_count) || 0;
+    const count5km    = Number(day?.events_within_5km_count)  || 0;
+    const deltaEvents = Number(day?.delta_att_events_pct ?? 0);
+    const concurrenceStyle = deltaEvents > 3 ? RED : GREEN;
+    const concurrenceLabel = deltaEvents > 3 ? "Élevée" : deltaEvents < -3 ? "Basse" : "Normale";
+
+    // Accessibilité
+    const deltaAtt  = Number(day?.delta_att_mobility_pct     ?? 0);
+    const deltaOps  = Number(day?.delta_ops_mobility_car_pct ?? 0);
+    const attMob    = mobLabel(deltaAtt);
+    const opsMob    = mobLabel(deltaOps);
+
+    // Exploitation
+    const alertMax  = Number(day?.alert_level_max ?? 0);
+    const lvlWind   = Number(day?.lvl_wind ?? 0);
+    const lvlRain   = Number(day?.lvl_rain ?? 0);
+    const lvlSnow   = Number(day?.lvl_snow ?? 0);
+
+    const freqLabel = alertMax === 0 ? "Aucune alerte" : `Alerte niv. ${alertMax}`;
+    const freqStyle = alertMax === 0 ? GREEN : alertMax <= 2 ? YELLOW : RED;
+
+    const instRiskLevel = Math.max(lvlWind, lvlRain, lvlSnow);
+    const instLabel = instRiskLevel === 0 ? "Aucun risque"
+      : instRiskLevel === 1 ? "Risque faible"
+      : instRiskLevel === 2 ? "Risque modéré"
+      : "Risque élevé";
+    const instStyle = instRiskLevel === 0 ? GREEN : instRiskLevel === 1 ? GREY : instRiskLevel === 2 ? YELLOW : RED;
+
+    function row(label, content, ctaTab) {
+      const cta = ctaTab
+        ? `<button type="button" data-switch-tab="${ctaTab}" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;">Voir détail →</button>`
+        : "";
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:#6b7280;">${escapeHtml(label)}</span>
+            ${content}
+          </span>
+          ${cta}
+        </div>`;
+    }
+
+    const audienceRows = [aud1, aud2].filter(Boolean).length
+      ? [aud1, aud2].filter(Boolean).map(a => {
+          const avail = audienceAvailForType(a);
+          return row(audienceFrMap[a] || a, pill(avail.label, avail.style));
+        }).join("")
+      : row("—", pill(isWeekend || hasVacation || hasHoliday ? "Disponible" : "Peu disponible",
+                      isWeekend || hasVacation || hasHoliday ? GREEN : RED));
+
+    const concurrenceRows =
+      row(`${count500} événements < 500m`, pill(concurrenceLabel, concurrenceStyle), "carte") +
+      row(`${count5km} événements < 5km`,  pill(concurrenceLabel, concurrenceStyle));
+
+    const accessibiliteRows =
+      row("Visiteurs < 5km",     pill(attMob.label, attMob.style), "carte") +
+      row("Prestataires < 10km", pill(opsMob.label, opsMob.style));
+
+    const exploitationRows = isOutdoorOrMixed
+      ? row("Impact fréquentation", pill(freqLabel, freqStyle), "alertes") +
+        row("Risque installation",  pill(instLabel, instStyle))
+      : row("Impact fréquentation", pill(freqLabel, freqStyle), "alertes");
+
+    function section(label, rowsHtml) {
+      return `
+        <div style="margin-bottom:0;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#111827;padding:12px 0 2px 0;">
+            ${escapeHtml(label)}
+          </div>
+          ${rowsHtml}
+        </div>`;
+    }
+
+    function divider() {
+      return `<div style="height:1px;background:#F3F4F6;margin:4px 0 0 0;"></div>`;
+    }
 
     return `
       <div class="mon-card">
@@ -680,36 +785,18 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           </svg>
         </div>
         <div id="mon-context-body" style="margin-top:16px;">
-          <div class="mon-context-grid">
-            <div class="mon-context-cell">
-              <span class="mon-context-label">Audience</span>
-              <span class="mon-context-value">${pill(audienceAvailLabel, audienceAvailStyle)}</span>
-            </div>
-            <div class="mon-context-cell">
-              <span class="mon-context-label">Concurrence</span>
-              <span class="mon-context-value">${compTotal} événements ${pill(concurrenceLabel, concurrenceStyle)}</span>
-            </div>
-            <div class="mon-context-cell">
-              <span class="mon-context-label">Accessibilité</span>
-              <span class="mon-context-value">${pill(mobilityLabel, mobilityStyle)}</span>
-            </div>
-            <div class="mon-context-cell">
-              <span class="mon-context-label">Exploitation</span>
-              <span class="mon-context-value">${pill(exploitationLabel, exploitationStyle)}</span>
-            </div>
-          </div>
-          ${audienceLabel !== "—" ? `
-            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #F1F5F9;">
-              <div class="mon-context-label">Public le plus probable</div>
-              <div style="font-size:14px;font-weight:600;color:#111827;margin-top:2px;">${escapeHtml(audienceLabel)}</div>
-              ${audienceReason ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(audienceReason)}</div>` : ""}
-            </div>
-          ` : ""}
+          ${section("Audience",      audienceRows)}
+          ${divider()}
+          ${section("Concurrence",   concurrenceRows)}
+          ${divider()}
+          ${section("Accessibilité", accessibiliteRows)}
+          ${divider()}
+          ${section("Exploitation",  exploitationRows)}
         </div>
       </div>
     `;
   }
-
+    
   // ----------------------------------------------------------------
   // Main render
   // ----------------------------------------------------------------
@@ -718,6 +805,23 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const root = document.getElementById("mon-root");
     if (!root) return;
 
+    const tabLabels = { alertes: "Signaux", carte: "Environnement" };
+    const breadcrumbRecap = document.getElementById("mon-breadcrumb-recap");
+    const breadcrumbSub   = document.getElementById("mon-breadcrumb-sub");
+    const breadcrumbTab   = document.getElementById("mon-breadcrumb-tab");
+    if (activeTab === "recap") {
+      if (breadcrumbSub) breadcrumbSub.style.display = "none";
+    } else {
+      if (breadcrumbTab) breadcrumbTab.textContent = tabLabels[activeTab] || activeTab;
+      if (breadcrumbSub) breadcrumbSub.style.display = "inline";
+    }
+    if (breadcrumbRecap) {
+      breadcrumbRecap.onclick = (e) => {
+        e.preventDefault();
+        renderMonitor(data, item, selectedDate, "recap");
+      };
+    }
+  
     const days = Array.isArray(data.days) ? data.days : [];
     const currentDay = days.find(d => normalizeYmd(d.date) === selectedDate) ?? days[0] ?? null;
 
@@ -764,10 +868,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </div>
     `;
 
+    const profile = data.profile ?? null;
+
     // ---- Tab content ----
     let tabContent = "";
     if (activeTab === "recap") {
-      tabContent = renderRecap(currentDay, allFeed, item);
+      tabContent = renderRecap(currentDay, allFeed, item, profile);
     } else if (activeTab === "alertes") {
       tabContent = `
         <div class="mon-panels">
@@ -777,21 +883,49 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         </div>
       `;
     } else if (activeTab === "carte") {
-      const mapUrl = `/app/insightevent/map?date=${encodeURIComponent(selectedDate)}&selected_dates=${encodeURIComponent(allDates.join(","))}&embed=1`;
       tabContent = `
         <div class="mon-panels">
-          <iframe
-            src="${mapUrl}"
-            id="mon-map-frame"
-            style="width:100%;height:200px;border:none;border-radius:14px;margin-top:16px;display:block;"
-            onload="(function(f){try{var h=f.contentWindow.document.documentElement.scrollHeight;if(h>400)f.style.height=h+'px';}catch(e){}})(this)"
-            title="Carte des événements">
-          </iframe>
+          <div style="border:0.5px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:0.5px solid #E5E7EB;">
+              <div style="display:flex;align-items:center;">
+                <span id="mon-mode-concurrence" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Concurrence</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="mon-mode-mobilite" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Mobilité</span>
+              </div>
+              <div id="mon-sub-concurrence" style="display:flex;align-items:center;">
+                <span id="mon-filter-500m" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">500m</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="mon-filter-5km" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">5km</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="mon-filter-10km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">10km</span>
+              </div>
+              <div id="mon-sub-mobilite" style="display:none;align-items:center;">
+                <span id="mon-filter-visiteurs" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Visiteurs</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="mon-filter-prestataires" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Prestataires</span>
+              </div>
+            </div>
+            <div id="mon-industry-row" style="display:flex;align-items:center;padding:8px 16px;flex-wrap:wrap;gap:4px 0;"></div>
+          </div>
+          <div id="mon-map" style="height:420px;margin-top:12px;overflow:hidden;width:100%;isolation:isolate;"></div>
+          <div id="mon-map-list" style="margin-top:16px;"></div>
         </div>
       `;
     }
 
     root.innerHTML = headerHtml + tabContent;
+
+    // Resize map iframe via postMessage
+    const mapFrame = root.querySelector("#mon-map-frame");
+    if (mapFrame) {
+      window.__mapHeightListener && window.removeEventListener("message", window.__mapHeightListener);
+      window.__mapHeightListener = function(e) {
+        if (e.data?.type === "map-height" && typeof e.data.height === "number" && e.data.height > 100) {
+          mapFrame.style.height = e.data.height + "px";
+        }
+      };
+      window.addEventListener("message", window.__mapHeightListener);
+    }
 
     // Wire tabs
     root.querySelectorAll(".mon-tab[data-tab]").forEach(btn => {
@@ -801,12 +935,259 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       });
     });
 
+    if (activeTab === "carte") {
+      const mapEl = root.querySelector("#mon-map");
+      if (mapEl && typeof L !== "undefined") {
+        const monMap = L.map("mon-map").setView([48.86, 2.35], 14);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+          attribution: "© OpenStreetMap contributors"
+        }).addTo(monMap);
+
+        const evLyr500 = L.layerGroup().addTo(monMap);
+        const evLyr5km = L.layerGroup().addTo(monMap);
+        const evLyr10km = L.layerGroup().addTo(monMap);
+        const evLyr50km = L.layerGroup().addTo(monMap);
+        const roadLayer   = L.layerGroup().addTo(monMap);
+
+        const INDUSTRY_BUCKETS = {
+          'culture_event':          ['Culture & Patrimoine', 'Cinéma & Théâtre', 'Événementiel', 'Vie nocturne'],
+          'leisure_activity':       ['Tourisme & Loisirs', 'Sports & Loisirs actifs', 'Bien-être & Fitness'],
+          'commercial_activity':    ['Restauration & Bars', 'Commerce & Retail', 'Hôtellerie & Hébergement', 'Salons & Événements professionnels'],
+          'institutional_activity': ['Collectivités & Secteur public', 'Éducation & Enseignement', 'Associatif & Non lucratif', 'Transport & Mobilité locale', 'Sciences & Innovation'],
+        };
+
+        const radiusIncludes = {
+          'mon-filter-500m': ['500m'],
+          'mon-filter-5km':  ['500m', '5km'],
+          'mon-filter-10km': ['500m', '5km', '10km'],
+        };
+        const layerMap = { '500m': evLyr500, '5km': evLyr5km, '10km': evLyr10km, '50km': evLyr50km };
+
+        let activeRadius = 'mon-filter-5km';
+        let allEvents = [];
+        let industryState = {};
+
+        function getEl(id) { return root.querySelector('#' + id); }
+        function setActive(el) { if (el) { el.style.color = '#111827'; el.style.fontWeight = '500'; } }
+        function setInactive(el) { if (el) { el.style.color = '#9CA3AF'; el.style.fontWeight = '400'; } }
+
+        function truncateIndustry(label, max = 22) {
+          return label.length > max ? label.slice(0, max - 1) + '…' : label;
+        }
+
+        function applyFilters() {
+          const included = radiusIncludes[activeRadius] || [];
+          const filtered = allEvents.filter(e =>
+            industryState[e.industry_code] !== false &&
+            included.includes(e.radius_bucket)
+          );
+
+          evLyr500.clearLayers(); evLyr5km.clearLayers();
+          evLyr10km.clearLayers(); evLyr50km.clearLayers();
+
+          let num = 1;
+          ['500m','5km','10km','50km'].forEach(bucket => {
+            filtered.filter(e => e.radius_bucket === bucket).forEach(e => {
+              const lat = Number(e.latitude), lng = Number(e.longitude);
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+              createEventMarker(e, num).addTo(layerMap[bucket]);
+              num++;
+            });
+            if (included.includes(bucket)) monMap.addLayer(layerMap[bucket]);
+            else monMap.removeLayer(layerMap[bucket]);
+          });
+
+          // Zoom to fit only active radius events + venue
+          const _vLat = Number(monMap._lastVenueLat);
+          const _vLon = Number(monMap._lastVenueLon);
+          const _bounds = [];
+          if (Number.isFinite(_vLat) && Number.isFinite(_vLon)) _bounds.push([_vLat, _vLon]);
+          filtered.forEach(e => {
+            const lat = Number(e.latitude), lng = Number(e.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) _bounds.push([lat, lng]);
+          });
+          if (_bounds.length > 1) monMap.fitBounds(_bounds, { padding: [40, 40], maxZoom: 15 });
+          else if (_bounds.length === 1) monMap.setView(_bounds[0], 14);
+
+          const listEl = root.querySelector('#mon-map-list');
+          if (!listEl) return;
+          const visibleEvents = filtered.filter(e => e.title || e.event_label);
+          const visibleSlice = visibleEvents.slice(0, 10);
+          const remaining = visibleEvents.length - 10;
+
+          function renderMonCard(e, idx) {
+            const desc = e.description || '';
+            return `
+              <div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px;border-left:3px solid var(--color-brand-blue);border-bottom:1px solid rgba(17,24,39,0.07);">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+                  <span style="font-size:14px;font-weight:600;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
+                  <span style="font-size:11px;color:#888;white-space:nowrap;">${Math.round(e.distance_m)}m</span>
+                </div>
+                ${desc ? `<div style="font-size:13px;color:#374151;line-height:1.5;">${escapeHtml(desc.slice(0,200))}${desc.length>200?'…':''}</div>` : ''}
+              </div>`;
+          }
+
+          listEl.innerHTML = visibleSlice.map((e, idx) => renderMonCard(e, idx)).join('')
+            + (remaining > 0 ? `
+              <div id="mon-more-btn-wrap" style="border-top:0.5px solid #E5E7EB;padding:12px 16px;display:flex;justify-content:center;">
+                <button style="font-size:12px;color:var(--color-brand-blue);background:none;border:none;padding:0;cursor:pointer;font-weight:500;">+ ${remaining} autres résultats</button>
+              </div>` : '');
+
+          const moreWrap = listEl.querySelector('#mon-more-btn-wrap');
+          if (moreWrap) {
+            moreWrap.querySelector('button').addEventListener('click', () => {
+              const extra = visibleEvents.slice(10).map((e, idx) => renderMonCard(e, idx + 10)).join('');
+              moreWrap.insertAdjacentHTML('beforebegin', extra);
+              moreWrap.remove();
+            });
+          }
+        }
+
+        function buildIndustryRow(events) {
+          const industryRow = root.querySelector('#mon-industry-row');
+          if (!industryRow) return;
+          const industries = [...new Set(events.map(e => e.industry_code).filter(Boolean))];
+          if (industries.length <= 1) { industryRow.innerHTML = ''; return; }
+
+          const freq = {};
+          events.forEach(e => { freq[e.industry_code] = (freq[e.industry_code] || 0) + 1; });
+
+          let clientBucketIndustries = [];
+          for (const [, inds] of Object.entries(INDUSTRY_BUCKETS)) {
+            const topInd = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0];
+            if (topInd && inds.includes(topInd)) { clientBucketIndustries = inds; break; }
+          }
+
+          industries.sort((a, b) => {
+            const ai = clientBucketIndustries.indexOf(a);
+            const bi = clientBucketIndustries.indexOf(b);
+            if (ai !== -1 && bi !== -1) return ai - bi;
+            if (ai !== -1) return -1;
+            if (bi !== -1) return 1;
+            return (freq[b]||0) - (freq[a]||0);
+          });
+
+          const ownIndustry = industries[0];
+          const ownHasEvents = allEvents.some(e => e.industry_code === ownIndustry);
+          industries.forEach(i => {
+            if (industryState[i] === undefined) {
+              industryState[i] = ownHasEvents ? (i === ownIndustry) : true;
+            }
+          });
+
+          industryRow.innerHTML = industries.map((ind, idx) => {
+            const active = industryState[ind] !== false;
+            const sep = idx < industries.length - 1
+              ? `<span style="font-size:12px;color:#E5E7EB;margin:0 10px;">|</span>` : '';
+            return `<span data-industry="${ind}"
+              style="font-size:12px;font-weight:${active?'500':'400'};color:${active?'#111827':'#9CA3AF'};cursor:pointer;white-space:nowrap;"
+            >${truncateIndustry(ind)}</span>${sep}`;
+          }).join('');
+
+          industryRow.querySelectorAll('[data-industry]').forEach(el => {
+            el.addEventListener('click', () => {
+              const ind = el.getAttribute('data-industry');
+              industryState[ind] = !industryState[ind];
+              el.style.fontWeight = industryState[ind] ? '500' : '400';
+              el.style.color = industryState[ind] ? '#111827' : '#9CA3AF';
+              applyFilters();
+            });
+          });
+        }
+
+        function applyRadius(id) {
+          activeRadius = id;
+          ['mon-filter-500m','mon-filter-5km','mon-filter-10km'].forEach(i => setInactive(getEl(i)));
+          setActive(getEl(id));
+          applyFilters();
+        }
+
+        // Wire radius
+        ['mon-filter-500m','mon-filter-5km','mon-filter-10km'].forEach(id => {
+          const el = getEl(id);
+          if (el) el.addEventListener('click', () => applyRadius(id));
+        });
+
+        // Wire mode toggle
+        const modeConcurrence = getEl('mon-mode-concurrence');
+        const modeMobilite    = getEl('mon-mode-mobilite');
+        const subConcurrence  = getEl('mon-sub-concurrence');
+        const subMobilite     = getEl('mon-sub-mobilite');
+        const industryRow     = root.querySelector('#mon-industry-row');
+
+        if (modeConcurrence) modeConcurrence.addEventListener('click', () => {
+          setActive(modeConcurrence); setInactive(modeMobilite);
+          subConcurrence.style.display = 'flex';
+          subMobilite.style.display = 'none';
+          if (industryRow) industryRow.style.display = 'flex';
+          roadLayer.remove();
+          applyFilters();
+        });
+
+        if (modeMobilite) modeMobilite.addEventListener('click', () => {
+          setActive(modeMobilite); setInactive(modeConcurrence);
+          subMobilite.style.display = 'flex';
+          subConcurrence.style.display = 'none';
+          if (industryRow) industryRow.style.display = 'none';
+          monMap.removeLayer(evLyr500); monMap.removeLayer(evLyr5km);
+          monMap.removeLayer(evLyr10km); monMap.removeLayer(evLyr50km);
+          roadLayer.addTo(monMap);
+          setActive(getEl('mon-filter-visiteurs'));
+          setInactive(getEl('mon-filter-prestataires'));
+        });
+
+        const filterVisiteurs    = getEl('mon-filter-visiteurs');
+        const filterPrestataires = getEl('mon-filter-prestataires');
+        if (filterVisiteurs)    filterVisiteurs.addEventListener('click', () => { setActive(filterVisiteurs); setInactive(filterPrestataires); roadLayer.addTo(monMap); });
+        if (filterPrestataires) filterPrestataires.addEventListener('click', () => { setActive(filterPrestataires); setInactive(filterVisiteurs); roadLayer.addTo(monMap); });
+
+        // Fetch map data
+        fetch(`/api/insight/map?location_id=${encodeURIComponent(location_id)}&date=${encodeURIComponent(selectedDate)}`)
+          .then(r => r.json())
+          .then(mapData => {
+            const meta = mapData.meta || {};
+            const vLat = Number(meta?.venue?.lat);
+            const vLon = Number(meta?.venue?.lon);
+
+            if (Number.isFinite(vLat) && Number.isFinite(vLon)) {
+              monMap._lastVenueLat = vLat;
+              monMap._lastVenueLon = vLon;
+              createVenueMarker({
+                client_lat: vLat, client_lon: vLon,
+                nearest_transit_stop_name: meta.venue.nearest_transit_stop_name ?? null,
+                nearest_transit_line_name: meta.venue.nearest_transit_line_name ?? null,
+                nearest_transit_stop_distance_m: meta.venue.nearest_transit_stop_distance_m ?? null,
+              }).addTo(monMap);
+              monMap.setView([vLat, vLon], 14);
+            }
+
+            allEvents = mapData.events || [];
+            (mapData.road_disruptions || []).forEach(r => createRoadMarker(r).addTo(roadLayer));
+
+            buildIndustryRow(allEvents);
+            applyRadius('mon-filter-5km');
+          })
+          .catch(err => console.error('Map load error:', err));
+      }
+    }
+
+    // Wire tab-switch CTAs inside context card
+    root.querySelectorAll("[data-switch-tab]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const t = btn.getAttribute("data-switch-tab");
+        if (t) renderMonitor(data, item, selectedDate, t);
+      });
+    });
+
     // Wire context toggle
     const toggleBtn  = root.querySelector("#mon-context-toggle");
     const ctxBody    = root.querySelector("#mon-context-body");
     const ctxChevron = root.querySelector("#mon-context-chevron");
     if (toggleBtn && ctxBody) {
-      toggleBtn.addEventListener("click", () => {
+      toggleBtn.addEventListener("click", (e) => {
+        if (e.target.closest("[data-switch-tab]")) return;
         const isOpen = ctxBody.style.display !== "none";
         ctxBody.style.display = isOpen ? "none" : "block";
         if (ctxChevron) ctxChevron.style.transform = isOpen ? "" : "rotate(180deg)";

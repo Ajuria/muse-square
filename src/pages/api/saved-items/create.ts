@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         : null;
     
     const decision_date = normalizeDateOptional(body?.decision_date, "decision_date");
-    const event_date = normalizeDateOptional(body?.event_date, "event_date");
+    const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
 
     const rawDates = Array.isArray(body?.dates) ? body.dates : null;
     if (!rawDates || rawDates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
@@ -132,7 +132,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         description,
         stage,
         decision_date,
-        event_date,
+        event_end_date,
         created_at,
         updated_at
     )
@@ -145,7 +145,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @description,
         'option',
         IF(@decision_date = '', NULL, PARSE_DATE('%F', @decision_date)),
-        IF(@event_date = '', NULL, PARSE_DATE('%F', @event_date)),
+        IF(@event_end_date = '', NULL, PARSE_DATE('%F', @event_end_date)),
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -179,7 +179,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             title,
             description,
             decision_date: decision_date ?? "",
-            event_date: event_date ?? "",
+            event_end_date: event_end_date ?? "",
             dates,
         },
         types: {
@@ -190,32 +190,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             title: "STRING",
             description: "STRING",
             decision_date: "STRING",
-            event_date: "STRING",
-            dates: ["STRING"],
-        },
-    });await bigquery.query({
-        query: script,
-        location: BQ_LOCATION,
-        params: {
-            saved_item_id,
-            location_id,
-            clerk_user_id,
-            number_of_dates,
-            title,
-            description,
-            decision_date: decision_date ?? "",
-            event_date: event_date ?? "",
-            dates,
-        },
-        types: {
-            saved_item_id: "STRING",
-            location_id: "STRING",
-            clerk_user_id: "STRING",
-            number_of_dates: "INT64",
-            title: "STRING",
-            description: "STRING",
-            decision_date: "STRING",
-            event_date: "STRING",
+            event_end_date: "STRING",
             dates: ["STRING"],
         },
     });
@@ -227,7 +202,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         location_id,
         number_of_dates,
         decision_date,
-        event_date,
+        event_end_date,
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );

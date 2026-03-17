@@ -137,7 +137,12 @@ export const GET: APIRoute = async ({ url }) => {
 
         -- Primary driver
         primary_score_driver_label,
-        primary_driver_confidence
+        primary_driver_confidence,
+
+        -- Delta fields for context section
+        delta_att_events_pct,
+        delta_att_mobility_pct,
+        delta_ops_mobility_car_pct
 
       FROM \`muse-square-open-data.semantic.vw_insight_event_day_surface\`
       WHERE location_id = @location_id
@@ -289,41 +294,43 @@ export const GET: APIRoute = async ({ url }) => {
       }
 
       // ---- MOBILITY RISKS ----
-      const mobilityScore = Number(r.mobility_score ?? 100);
-      if (mobilityScore < 70) {
+      const deltaMobility = Number(r.delta_att_mobility_pct ?? 0);
+      if (deltaMobility < -4) {
         const mobSeverity: "A" | "B" | "C" | "D" =
-          mobilityScore < 40 ? "D" : mobilityScore < 55 ? "C" : "B";
+          deltaMobility < -10 ? "D" : deltaMobility < -7 ? "C" : "B";
         risks.push({
           block: "operations",
           severity: mobSeverity,
-          sentence: mobilityScore < 40
+          sentence: deltaMobility < -10
             ? "Perturbations majeures de mobilité — accès au site fortement impacté"
-            : mobilityScore < 55
+            : deltaMobility < -7
             ? "Perturbations de mobilité importantes — prévoir des alternatives d'accès"
             : "Perturbations de mobilité possibles — impact potentiel sur l'accès au site",
         });
       }
 
       // ---- COMPETITION RISKS ----
-      const competitionPresent = Boolean(r.competition_presence_flag);
-      const competitionIndex = 0;
-
-      if (competitionPresent) {
+      const deltaEvents = Number(r.delta_att_events_pct ?? 0);
+      if (deltaEvents > 3) {
         const compSeverity: "A" | "B" | "C" | "D" =
-          competitionIndex > 75 ? "C" : competitionIndex > 40 ? "B" : "B";
+          deltaEvents > 8 ? "C" : "B";
 
-        const nearestBucket =
-          Number(r.events_within_500m_count) > 0 ? "500m"
-          : Number(r.events_within_5km_count) > 0 ? "5km"
-          : Number(r.events_within_10km_count) > 0 ? "10km"
-          : "50km";
+        const topComp = Array.isArray(r.top_competitors) ? r.top_competitors[0] : null;
+        const compName = topComp?.event_label || topComp?.event_name || null;
+        const compDist = topComp?.distance_m != null
+          ? `${(Number(topComp.distance_m) / 1000).toFixed(1)} km`
+          : null;
+
+        const sentence = compName && compDist
+          ? `Concurrent principal : ${compName} (${compDist})`
+          : compName
+          ? `Concurrent principal : ${compName}`
+          : "Pression concurrentielle élevée sur cette date";
 
         risks.push({
           block: "attendance",
           severity: compSeverity,
-          sentence: competitionIndex > 75
-            ? `Forte densité événementielle dans un rayon de ${nearestBucket} — risque de dispersion du public`
-            : `Événement concurrent détecté à ${nearestBucket} — impact potentiel sur la fréquentation`,
+          sentence,
         });
       }
 
@@ -443,10 +450,21 @@ export const GET: APIRoute = async ({ url }) => {
         alert_level_max:          r.alert_level_max           ?? 0,
         is_major_realization_risk_flag: r.is_major_realization_risk_flag ?? false,
 
+        // Delta fields
+        delta_att_events_pct:       r.delta_att_events_pct       ?? 0,
+        delta_att_mobility_pct:     r.delta_att_mobility_pct     ?? 0,
+        delta_ops_mobility_car_pct: r.delta_ops_mobility_car_pct ?? 0,
+        lvl_wind:                   r.lvl_wind                   ?? 0,
+        lvl_rain:                   r.lvl_rain                   ?? 0,
+        lvl_snow:                   r.lvl_snow                   ?? 0,
+        primary_audience_1:         r.primary_audience_1         ?? null,
+        primary_audience_2:         r.primary_audience_2         ?? null,
+
         // Change feed filtered to this date
         change_feed: changeFeed.filter(
           (f) => (f.affected_date ?? "").slice(0, 10) === String(r.date?.value ?? r.date ?? "").slice(0, 10)
         ),
+        
       };
     });
        

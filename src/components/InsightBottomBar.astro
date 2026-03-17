@@ -47,19 +47,19 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
     <div class="ms-bottombar-actions">
       <div class="ms-bottombar-actions-inner">
         <button
-            id="cta-save"
-            type="button"
-            class="ms-bottombar-btn ms-bottombar-btn--text"
+          id="cta-share"
+          type="button"
+          class="ms-bottombar-btn ms-bottombar-btn--text"
         >
-            Enregistrer
+          Partager choix
         </button>
 
         <button
-          id="cta-share"
+          id="cta-save"
           type="button"
           class="ms-bottombar-btn ms-bottombar-btn--primary"
         >
-          Partager choix
+          Enregistrer
         </button>
       </div>
     </div>
@@ -235,12 +235,29 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
   cursor: pointer;
   opacity: 1;
 }
-.ms-bottombar-btn--text:hover {
-  opacity: 1;
+
+.ms-bottombar-btn--primary{
+  background: transparent;
+  color: var(--color-brand-blue);
+  border: 1px solid var(--color-brand-blue);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ms-bottombar-btn--primary:hover{
+  background: rgba(11,55,229,0.10);
+}
+
+.ms-bottombar-btn--text:hover{
+  text-decoration: underline;
+  text-decoration-color: #111827;
 }
 </style>
 
-<style>
+<style is:global>
 .ms-bottombar {
   position: fixed;
   bottom: 0;
@@ -252,18 +269,30 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
 }
 
 .ms-bottombar-item {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  flex: 1;
   text-decoration: none;
-  color: rgba(17,24,39,0.35);
+  color: rgba(17,24,39,0.55);
+  padding: 8px 10px;
+  border-radius: 12px;
+  line-height: 1;
   transition: color 120ms ease;
 }
 
 .ms-bottombar-item.is-active {
-  color: #0b37e5;
+  color: var(--color-brand-blue);
+}
+
+.ms-bottombar-item:hover {
+  color: var(--color-brand-blue);
+}
+
+.ms-bottombar-item:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
 }
 
 .ms-bottombar-ico {

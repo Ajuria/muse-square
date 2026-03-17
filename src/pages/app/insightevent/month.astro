@@ -115,12 +115,12 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
           <div id="ie-30d-calendar-card">
             <div
-              id="ie-30d-month-header"
-              data-role="ie-30d-month-header"
-              data-window-start=""
-            >
-              <div class="ie-30d-month-center">
-                <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
+                id="ie-30d-month-header"
+                data-role="ie-30d-month-header"
+                data-window-start=""
+              >
+                <div class="ie-30d-month-center">
+                  <h2 id="ie-30d-display-label" data-role="ie-30d-display-label"></h2>
 
                   <select
                     id="ie-30d-month-select"
@@ -131,8 +131,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
                   </select>
                 </div>
               </div>
-            </div>
-
+              
             <div id="ie-30d-calendar" data-role="ie-30d-calendar">
               <div id="ie-30d-weekdays" data-role="ie-30d-weekdays">
                 <div class="ie-30d-weekday">Lun</div>
@@ -148,6 +147,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
                 <!-- GRID_ANCHOR -->
               </div>
             </div>
+          <div id="ie-30d-weather-disclaimer">
+            Au-delà de 10 jours, météo basée sur moyenne saisonnière.
           </div>
         </section>
 
@@ -244,10 +245,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
           <button id="ie-30d-view-details" data-role="ie-30d-view-details" type="button">Voir →</button>
         </div>
       </div>
-
-      <InsightBottomBar active="month" showActions={false} search={Astro.url.search} />
-
+    </div> <!-- closes #ie-30d-root -->
     <style is:global>
+
       /* ==============================
       IE 30D — UI ROOT ISOLATION
       ============================== */
@@ -255,10 +255,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         background: #ffffff !important;
         color: #111827 !important;
         font-family: var(--font-family) !important;
-      }
-
-      #ie-30d-root *{
-        box-sizing: border-box;
       }
 
       /* =============================
@@ -284,7 +280,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       }
 
       #ie-30d-main{
-        max-width: 620px;
+        max-width: 720px;
         margin: 0 auto;
         padding: 0 20px;
       }
@@ -293,7 +289,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         padding-bottom: calc(var(--ie-30d-selectedbar-h) + var(--ie-bottom-nav-h) + 28px) !important;
       }
 
-      @media (max-width: 620px){
+      @media (max-width: 720px){
         #ie-30d-main{ padding: 0 16px; }
       }
 
@@ -763,6 +759,18 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         box-shadow: none;
       }
 
+      #ie-30d-weather-disclaimer{
+        font-size: 10px;
+        font-style: italic;
+        line-height: 1.3;
+        color: var(--color-text-muted);
+        text-align: center;
+        opacity: 0.65;
+
+        margin-top: 4px;
+        margin-bottom: -18px;
+      }
+
       /* Keep shadows only where they still make sense */
       .ie-top3-card {
         box-shadow: var(--shadow-md);
@@ -957,6 +965,21 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         font-size: 12px;
         opacity: 0.85;
         margin: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .ie-30d-today .ie-30d-daynum::before{
+        content:"";
+        position:absolute;
+        left:50%;
+        top:50%;
+        width:22px;
+        height:22px;
+        transform:translate(-50%,-50%);
+        background: rgba(29,59,179,0.18);
+        border-radius:999px;
+        z-index:-1;
       }
 
       .ie-30d-medal{
@@ -1007,6 +1030,10 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
       .ie-spillover { opacity: 0.30;}
 
+      .ie-spillover.ie-30d-today{
+        border-color: rgba(29,59,179,0.35);
+      }
+
       .ie-30d-day::after{
         content:"";
         position:absolute;
@@ -1015,7 +1042,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         width:22px;
         height:3px;
         transform:translateX(-50%);
-        background: #111;
+        background: var(--color-brand-blue);
         border-radius: 2px;
         opacity: 0;
         pointer-events:none;
@@ -1068,7 +1095,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       #ms-month-intro { z-index: 10000 !important; }
 
       #ie-30d-bottom-inner{
-        max-width: 620px;
+        max-width: 720px;
         width: 100%;
         height: var(--ie-bottom-actions-h);
         padding: 6px 20px;
@@ -1079,7 +1106,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         pointer-events: auto;
       }
 
-      @media (max-width: 620px){
+      @media (max-width: 720px){
         #ie-30d-bottom-inner{ padding: 0 16px; }
       }
 
@@ -1429,7 +1456,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         const iconLbl = btn.querySelector('[data-role="ie-icon-label"]');
 
         // spillover: leave as-is
-        if (!semantic) return;
+        if (!semantic) {
+          return; // spillover day — skip safely
+        }
 
         // ---- Medal behavior ----
         if (medalEl instanceof HTMLElement) {
@@ -1449,7 +1478,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             medalEl.style.whiteSpace = "";
             // Restore weather icon for all days in top3 mode
             if (iconImg instanceof HTMLImageElement) {
-              const src = weatherIconSrc(semantic.weather_code) || "";
+              const code = semantic?.weather_code;
+              const src = weatherIconSrc(code) || "";
               iconImg.src = src;
               iconImg.style.display = src ? "block" : "none";
             }
@@ -1465,7 +1495,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             }
             // Always show weather icon regardless of filter
             if (iconImg instanceof HTMLImageElement) {
-              const src = weatherIconSrc(semantic.weather_code) || "";
+              const code = semantic?.weather_code;
+              const src = weatherIconSrc(code) || "";
               iconImg.src = src;
               iconImg.style.display = src ? "block" : "none";
             }
@@ -1834,10 +1865,17 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const semanticByDate = new Map(days.map((d) => [d.date, d]));
 
       window.__ie_month_semanticByDate = semanticByDate;
-
+      const todayYmd = (function(){
+        const now = new Date();
+        const y = now.getUTCFullYear();
+        const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(now.getUTCDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      })();
+      
       const start = ymdToUtcDate(windowStart);
       start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7)); // Monday
-
+      
       for (let i = 0; i < 42; i++) {
         const dt = new Date(start);
         dt.setUTCDate(start.getUTCDate() + i);
@@ -1849,6 +1887,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         btn.className = "ie-30d-day";
         btn.setAttribute("data-date", ymd);
 
+        if (ymd === todayYmd) btn.classList.add("ie-30d-today");
         if (!semantic) btn.classList.add("ie-spillover");
 
         const iconSrc = semantic ? weatherIconSrc(semantic.weather_code) : "";
@@ -2417,5 +2456,6 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     })();
 
     </script>
+    <InsightBottomBar active="month" showActions={false} search={Astro.url.search} />
   </BaseLayout>
 </SignedIn>

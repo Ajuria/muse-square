@@ -80,19 +80,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const title = optionalString(body?.title, "title");
     const description = optionalString(body?.description, "description");
     const decision_date = normalizeDateOptional(body?.decision_date, "decision_date");
-    const event_date = normalizeDateOptional(body?.event_date, "event_date");
+    const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
 
     // dates: if provided, replaces the full set in saved_item_dates
     const rawDates = body?.dates;
     const dates: string[] | null = rawDates === undefined ? null : normalizeDatesArray(rawDates);
-
+  const selected_date = body?.selected_date === null ? "NULL" : normalizeDateOptional(body?.selected_date, "selected_date");
+  
     // dates must not be emptied to zero (breaks JOIN-based reads)
     if (dates !== null && dates.length === 0) {
       throw new HttpError(400, "dates must contain at least one date");
     }
 
     // At least one field must be provided
-    if (title === null && description === null && decision_date === null && event_date === null && dates === null) {
+    if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === undefined) {
       throw new HttpError(400, "No fields to update");
     }
 
@@ -148,10 +149,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       updateParams.decision_date = decision_date;
       updateTypes.decision_date = "STRING";
     }
-    if (event_date !== null) {
-      setClauses.push("event_date = PARSE_DATE('%F', @event_date)");
-      updateParams.event_date = event_date;
-      updateTypes.event_date = "STRING";
+    if (event_end_date !== null) {
+      setClauses.push("event_end_date = PARSE_DATE('%F', @event_end_date)");
+      updateParams.event_end_date = event_end_date;
+      updateTypes.event_end_date = "STRING";
+    }
+    if (selected_date !== undefined) {
+      if (selected_date === "NULL") {
+        setClauses.push("selected_date = NULL");
+      } else {
+        setClauses.push("selected_date = PARSE_DATE('%F', @selected_date)");
+        updateParams.selected_date = selected_date;
+        updateTypes.selected_date = "STRING";
+      }
     }
     if (dates !== null) {
       setClauses.push("number_of_dates = @number_of_dates");
@@ -174,12 +184,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : "";
 
     const insertDatesClause = dates !== null && dates.length > 0
-      ? dates.map((d) =>
-          `INSERT INTO ${savedItemDatesTable} (saved_item_id, location_id, clerk_user_id, date)
-           VALUES ('${sid}', '${lid}', '${uid}', DATE '${d}');`
-        ).join("\n")
-      : "";
-
+  ? `INSERT INTO ${savedItemDatesTable} (saved_item_id, location_id, clerk_user_id, date, created_at)
+     SELECT saved_item_id, location_id, clerk_user_id, date, created_at FROM UNNEST([
+       ${dates.map((d) =>
+         `STRUCT('${sid}' AS saved_item_id, '${lid}' AS location_id, '${uid}' AS clerk_user_id, DATE '${d}' AS date, CURRENT_TIMESTAMP() AS created_at)`
+       ).join(",\n       ")}
+     ]);`
+  : "";
+    
     // UPDATE still uses params safely (single statement, not a script)
     const updateQuery = `
       UPDATE ${savedItemsTable}
@@ -203,7 +215,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       params: updateParams,
       types: updateTypes,
     });
-    
+
+    const responseHeaders: Record<string, string> = { "content-type": "application/json" };
+    if (selected_date && selected_date !== "NULL") {
+      responseHeaders["Set-Cookie"] = `ms_piloter=${encodeURIComponent(saved_item_id)}|${encodeURIComponent(selected_date)}; Path=/; SameSite=Lax; Max-Age=31536000`;
+    } else if (selected_date === "NULL") {
+      responseHeaders["Set-Cookie"] = `ms_piloter=; Path=/; SameSite=Lax; Max-Age=0`;
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -212,11 +231,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ...(title !== null && { title }),
           ...(description !== null && { description }),
           ...(decision_date !== null && { decision_date }),
-          ...(event_date !== null && { event_date }),
+          ...(event_end_date !== null && { event_end_date }),
           ...(dates !== null && { dates, number_of_dates: dates.length }),
         },
       }),
-      { status: 200, headers: { "content-type": "application/json" } }
+      { status: 200, headers: responseHeaders }
     );
 
   } catch (err: any) {

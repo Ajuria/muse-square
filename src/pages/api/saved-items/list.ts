@@ -100,7 +100,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.description,
         i.stage,
         i.decision_date,
-        i.event_date,
+        i.event_end_date,
+        i.selected_date,
         i.created_at,
         i.updated_at,
         ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date ASC) AS dates
@@ -120,8 +121,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.title,
         i.description,
         i.stage,
+        i.selected_date,
         i.decision_date,
-        i.event_date,
+        i.event_end_date,
         i.created_at,
         i.updated_at
       ORDER BY i.created_at DESC
@@ -164,7 +166,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 .filter(Boolean)
             : [];
 
-        return { ...r, dates };
+        const unwrapDate = (v: any): string | null => {
+          if (!v) return null;
+          if (typeof v === "string") return v;
+          if (typeof v?.value === "string") return v.value;
+          return null;
+        };
+
+        return {
+          ...r,
+          dates,
+          decision_date: unwrapDate(r.decision_date),
+          event_end_date: unwrapDate(r.event_end_date),
+          selected_date: unwrapDate(r.selected_date),
+        };
+
     });
 
     return new Response(

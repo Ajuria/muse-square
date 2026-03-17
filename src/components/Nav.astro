@@ -16,7 +16,10 @@ const isActive = (href: string) => {
 };
 
 const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname === "/profile";
-const isInsightEvent = currentPath.startsWith("/app/insightevent");
+const piloterCookie = Astro.cookies.get("ms_piloter")?.value ?? "";
+const [cookieSavedItemId, cookieDate] = piloterCookie.split("|").map(decodeURIComponent);
+const isMonitor = currentPath.startsWith("/app/insightevent/monitor");
+const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor;
 const isProfile = currentPath === "/profile" || currentPath.startsWith("/profile/");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
@@ -84,20 +87,28 @@ const isAppShell = isApp;
             <>
               <li>
                 <a
-                  href="/app/insightevent/prompt"
+                  href={Astro.url.searchParams.get("saved_item_id") ? `/app/insightevent/days?saved_item_id=${encodeURIComponent(Astro.url.searchParams.get("saved_item_id")!)}&selected_date=__comparison__` : "/app/insightevent/prompt"}
                   aria-current={isInsightEvent ? "page" : undefined}
-                  class={`ms-nav-link relative inline-block pb-1
-                    after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
-                    ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
                 >
-                  Event
+                  Planifier
                 </a>
               </li>
               
               <li>
-                <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">
-                  Marketing
-                </span>
+                {(() => {
+                 const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
+                 const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
+                 const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
+                  ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
+                  : null;
+    
+                  return monitorHref ? (
+                    <a href={monitorHref} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isMonitor ? "after:bg-primary" : "after:bg-transparent"}`}>Piloter</a>
+                  ) : (
+                    <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">Piloter</span>
+                  );
+                })()}
               </li>
 
               <li>
@@ -151,18 +162,24 @@ const isAppShell = isApp;
                 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
                 ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
             >
-              Event
+              Planifier
             </a>
           </li>
 
           <li>
-            <span
-              class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none"
-              aria-disabled="true"
-              title="Bientôt disponible"
-            >
-              Marketing
-            </span>
+            {(() => {
+              const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
+              const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
+              const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
+                ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
+                : null;
+
+              return monitorHref ? (
+                <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
+              ) : (
+                <span class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none" aria-disabled="true">Piloter</span>
+              );
+            })()}
           </li>
 
           <li>
