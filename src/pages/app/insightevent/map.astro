@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { SignedIn, SignedOut } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 
 // --------------------
@@ -23,13 +23,13 @@ const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
 const is_embed = Astro.url?.searchParams?.get("embed") === "1";
 ---
 
-<SignedOut>
+<Show when="signed-out">
 <script is:inline>
 window.location.href="/sign-in";
 </script>
-</SignedOut>
+</Show>
 
-<SignedIn>
+<Show when="signed-in">
 
 <BaseLayout title="Map — Context" hideSurveyCta={true} hideFooter={true} hideNav={is_embed}>
 
@@ -688,4 +688,4 @@ window.addEventListener("load", () => {
 
 </BaseLayout>
 
-</SignedIn>
+</Show>

@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { SignedIn, SignedOut } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 
 const location_id =
@@ -18,11 +18,11 @@ const saved_item_id = Astro.url?.searchParams?.get("saved_item_id") ?? "";
 const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 ---
 
-<SignedOut>
+<Show when="signed-out">
   <script is:inline>window.location.href = "/sign-in";</script>
-</SignedOut>
+</Show>
 
-<SignedIn>
+<Show when="signed-in">
   <BaseLayout title="Monitor — Insight Event" hideSurveyCta={true} hideFooter={true}>
 
     <style is:inline>
@@ -312,7 +312,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
   </BaseLayout>
-</SignedIn>
+</Show>
 
 <script is:inline define:vars={{ location_id, saved_item_id, focused_date }}>
 (function () {
@@ -1263,4 +1263,4 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
 })();
 </script>
-</SignedIn>
+</Show>

@@ -1,5 +1,5 @@
 ---
-import { SignedOut, SignedIn } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 
 const items = [
   { href: "/offres", label: "Solutions" },
@@ -73,13 +73,13 @@ const isAppShell = isApp;
           ))}
           {/* Signed-in on marketing site: show Insight only (no logout) */}
           {!isApp && (
-            <SignedIn>
+            <Show when="signed-in">
               <li>
                 <a href="/app/insightevent/prompt" class="ms-nav-link">
                   Insight
                 </a>
               </li>
-            </SignedIn>
+            </Show>
           )}
 
           {/* App-only menu + logout */}
@@ -123,19 +123,19 @@ const isAppShell = isApp;
                 </a>
               </li>
 
-              <SignedIn>
+              <Show when="signed-in">
                 <li>
                   <button type="button" class="logoutBtn ms-nav-link italic normal-case">
                     Log out
                   </button>
                 </li>
-              </SignedIn>
+              </Show>
             </>
           )}
         </ul>
 
         {/* Auth actions: only when signed out */}
-        <SignedOut>
+        <Show when="signed-out">
           <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
             <a href="/sign-in" class="ms-nav-link">
               Se connecter
@@ -145,7 +145,7 @@ const isAppShell = isApp;
               S’inscrire
             </a>
           </div>
-        </SignedOut>
+        </Show>
       </div>
       
   <!-- Mobile nav -->
@@ -195,7 +195,7 @@ const isAppShell = isApp;
             </a>
           </li>
 
-          <SignedIn>
+          <Show when="signed-in">
             <li>
               <button
                 type="button"
@@ -205,7 +205,7 @@ const isAppShell = isApp;
                 Log out
               </button>
             </li>
-          </SignedIn>
+          </Show>
         </>
       ) : (
         items.map((i) => (
