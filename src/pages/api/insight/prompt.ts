@@ -1172,14 +1172,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (Number.isFinite(alertNum) && alertNum >= 3) {
       impact = "blocking";
     } else {
-      const precipNonZero = Number.isFinite(precipNum) && precipNum > 0;
-      const windNonZero = Number.isFinite(windNum) && windNum > 0;
+      const precipSignificant = Number.isFinite(precipNum) && precipNum > 20;
+      const windSignificant = Number.isFinite(windNum) && windNum >= 25;
+      const alertPresent = Number.isFinite(alertNum) && alertNum >= 1;
 
-      if (exposure !== "indoor" && (precipNonZero || windNonZero)) {
+      if (exposure !== "indoor" && (precipSignificant || windSignificant || alertPresent)) {
         impact = "risk";
       }
-      if (exposure === "indoor" && (Number.isFinite(alertNum) && alertNum >= 1)) {
-        // alert still matters even indoor (truth: alert exists)
+      if (exposure === "indoor" && alertPresent) {
         impact = "risk";
       }
     }
@@ -1191,15 +1191,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ? "Signal météo bloquant: niveau d’alerte météo ≥ 3 (règle hard v1)."
           : impact === "risk"
             ? (exposure === "indoor"
-                ? "Signal météo à risque: présence d’une alerte météo (même en intérieur)."
+                ? "Signal météo à risque: alerte météo active (niveau ≥ 1)."
                 : (() => {
                     const parts: string[] = [];
-                    const precipNonZero = Number.isFinite(precipNum) && precipNum > 0;
-                    const windNonZero = Number.isFinite(windNum) && windNum > 0;
-                    if (precipNonZero) parts.push("pluie");
-                    if (windNonZero) parts.push("vent");
-                    const what = parts.length ? parts.join(" et ") : "météo";
-                    return `Signal météo à risque: ${what} non nul(s) et lieu non confirmé intérieur.`;
+                    if (Number.isFinite(precipNum) && precipNum > 20) parts.push(`pluie ${Math.round(precipNum)}%`);
+                    if (Number.isFinite(windNum) && windNum >= 25) parts.push(`vent ${Math.round(windNum)} m/s`);
+                    if (Number.isFinite(alertNum) && alertNum >= 1) parts.push(`alerte niveau ${Math.round(alertNum)}`);
+                    const what = parts.length ? parts.join(", ") : "signal météo";
+                    return `Signal météo à risque: ${what}.`;
                   })())
             : "Signal météo neutre: aucune alerte bloquante et pas de risque météo détectable via les champs disponibles.";
 
