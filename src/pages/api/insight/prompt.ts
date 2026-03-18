@@ -45,6 +45,7 @@ type ScoringIntent =
   | "DAY_DIMENSION_DETAIL"
   | "COMPARE_DATES"
   | "DRIVER_PRIMARY"
+  | "MOBILITY_UNAVAILABLE"
   | "INTENT_UNKNOWN";
 
 type Intent = ScoringIntent | "EVENT_LOOKUP" | "LOOKUP_EVENT";
@@ -379,14 +380,22 @@ function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringI
     return "DAY_WHY";
   }
 
-  // Primary driver / factor
+  // Mobility questions — dedicated intent
   if (
-    q.includes("principal") ||
-    q.includes("facteur") ||
-    q.includes("point de vigilance") ||
-    q.includes("complique le plus") ||
-    q.includes("surtout a cause")
-  ) return "DRIVER_PRIMARY";
+    q.includes("transport") ||
+    q.includes("deplacement") ||
+    q.includes("déplacement") ||
+    q.includes("circulation") ||
+    q.includes("trafic") ||
+    q.includes("perturbation") ||
+    q.includes("mobilite") ||
+    q.includes("mobilité") ||
+    q.includes("greve") ||
+    q.includes("grève") ||
+    q.includes("retard") ||
+    q.includes("metro") ||
+    q.includes("métro")
+  ) return "MOBILITY_UNAVAILABLE";
 
   // Patterns / streaks / trends
   if (
@@ -1962,7 +1971,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
       let m: number | null = null;
       for (const k of Object.keys(months)) {
-        if (qn.includes(k)) { m = months[k]; break; }
+        // Use word boundary check: month name must be preceded and followed by non-letter
+        const re = new RegExp(`(?:^|[^a-z])${k}(?:[^a-z]|$)`);
+        if (re.test(qn)) { m = months[k]; break; }
       }
       if (!m) return null;
 
@@ -2995,6 +3006,89 @@ export const POST: APIRoute = async ({ request, locals }) => {
             errors: [],
             warnings: [],
           };
+          break;
+        }
+
+        if (resolved_intent === "MOBILITY_UNAVAILABLE") {
+          const mobility_rows = await bqAll(
+            `
+            SELECT
+              disruption_date,
+              disruption_source,
+              title_merged,
+              severity,
+              perturbation_lvl,
+              route_long_name,
+              short_name,
+              mode,
+              nom_commune,
+              disruption_category,
+              is_active_flag,
+              is_planned_flag,
+              delay_minutes,
+              disruption_begin_ts,
+              disruption_end_ts
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_mobility_disruptions\`
+            WHERE location_id = @location_id
+              AND disruption_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 29 DAY)
+            ORDER BY is_active_flag DESC, perturbation_lvl DESC, disruption_date ASC
+            LIMIT 10
+            `,
+            { location_id }
+          );
+
+          const narrative_input_mobility = {
+            horizon: "month",
+            intent: "MOBILITY_DISRUPTIONS",
+            disruptions: mobility_rows.map((r: any) => ({
+              date: ymdFromAnyDate(r?.disruption_date),
+              title: r?.title_merged ?? null,
+              severity: r?.severity ?? null,
+              perturbation_lvl: r?.perturbation_lvl ?? null,
+              route: r?.route_long_name ?? r?.short_name ?? null,
+              mode: r?.mode ?? null,
+              category: r?.disruption_category ?? null,
+              is_active: r?.is_active_flag ?? null,
+              is_planned: r?.is_planned_flag ?? null,
+              delay_minutes: r?.delay_minutes ?? null,
+              begin_ts: r?.disruption_begin_ts ?? null,
+              end_ts: r?.disruption_end_ts ?? null,
+            })),
+            business_profile: {
+              location_type: internal_context?.location_type ?? null,
+              event_time_profile: internal_context?.event_time_profile ?? null,
+              primary_audience_1: internal_context?.primary_audience_1 ?? null,
+              primary_audience_2: internal_context?.primary_audience_2 ?? null,
+            },
+          };
+
+          try {
+            ai = await runAIPackagerClaude({
+              mode: "v3_narrative",
+              row: narrative_input_mobility,
+            });
+            producer = "v3_claude";
+          } catch (e) {
+            const active = mobility_rows.filter((r: any) => r?.is_active_flag === true);
+            ai = {
+              ok: true,
+              mode: "deterministic_mobility_v1",
+              output: {
+                headline: active.length > 0 ? "Perturbations actives détectées" : "Aucune perturbation active",
+                summary: active.length > 0
+                  ? `${active.length} perturbation(s) active(s) sur la période.`
+                  : "Aucune perturbation de transport active sur les 30 prochains jours.",
+                key_facts: mobility_rows.slice(0, 4).map((r: any) =>
+                  `${r?.title_merged ?? "Perturbation"} — ${r?.severity ?? "ND"}`
+                ),
+                caveat: null,
+              },
+              raw_text: "",
+              errors: [],
+              warnings: [],
+            };
+            producer = "v3_fallback_deterministic";
+          }
           break;
         }
 
