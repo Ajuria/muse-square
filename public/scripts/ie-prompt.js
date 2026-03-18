@@ -212,7 +212,7 @@ if (!root) {
           const sub =
             regime || value !== null
               ? `${regime ? `régime ${regime}` : ""}${regime && value !== null ? " · " : ""}${
-                  value !== null ? `score ${Math.round(value)}` : ""
+                  value !== null ? `score ${Number(value).toFixed(1)}` : ""
                 }`
               : "";
 

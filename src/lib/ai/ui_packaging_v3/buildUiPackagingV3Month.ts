@@ -121,7 +121,7 @@ export function buildUiPackagingV3Month(args: {
     return {
       date: d,
       date_label,
-      score: regime ? { regime, ...(score !== null ? { score: Math.round(score) } : {}) } : undefined,
+      score: regime ? { regime, ...(score !== null ? { score: parseFloat(score.toFixed(1)) } : {}) } : undefined,
       sections,
     };
   });

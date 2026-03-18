@@ -108,6 +108,31 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
   "secondary_drivers",
   "business_profile",
   "used_period",
+  // ---- V3 compare narrative structured keys ----
+  "winner_date",
+  "tie_flag",
+  "dates",
+  // ---- V3 day narrative structured keys ----
+  "scoring",
+  "primary_driver",
+  "weather",
+  "competition",
+  "audience",
+  "signals_fr",
+  "is_major_realization_risk",
+  "major_realization_risk_driver",
+  // ---- V3 day surface fields ----
+  "events_score",
+  "mobility_score",
+  "calendar_score",
+  "weather_score",
+  "opportunity_score_final_local",
+  "lvl_wind",
+  "lvl_rain",
+  "impact_weather_pct",
+  "delta_att_events_pct",
+  "delta_att_weather_total_pct",
+  "audience_availability_label",
 ];
 
 function isObject(x: unknown): x is Record<string, unknown> {

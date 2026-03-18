@@ -2138,7 +2138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ------------------------------------
     // LOOKUP OVERRIDE (after compare logic)
     // ------------------------------------
-    if (!force_compare && resolved_horizon !== "day" && isEventLookupQuestion(qRaw)) {
+    if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "month" && isEventLookupQuestion(qRaw)) {
       resolved_horizon = "lookup_event";
       resolved_intent = "LOOKUP_EVENT";
     }
@@ -3140,31 +3140,91 @@ export const POST: APIRoute = async ({ request, locals }) => {
           line_items: dayLineItems,
         });
 
-        const headline =
+        const det_headline =
           render_lines.find((l) => l.kind === "headline")?.text_fr ??
           "Pourquoi ce jour";
-
-        const key_facts =
+        const det_key_facts =
           render_lines
             .filter((l) => l.kind !== "headline")
             .map((l) => String(l.text_fr ?? "").trim())
             .filter(Boolean);
 
-        ai = {
-          ok: true,
-          mode: "deterministic_daywhy_ir_v1",
-          output: {
-            headline,
-            answer: "",
-            key_facts,
-            reasons: [],
-            caveats: [],
+        // ------------------------------------
+        // V3 Day → Claude narration
+        // ------------------------------------
+        const narrative_input_day = {
+          horizon: "day",
+          intent: "DAY_WHY",
+          date: effective_date,
+          display_label: day_row?.display_label ?? effective_date,
+          scoring: {
+            regime: day_row?.opportunity_regime ?? null,
+            score: day_row?.opportunity_score_final_local ?? null,
+            medal: day_row?.opportunity_medal ?? null,
+            events_score: day_row?.events_score ?? null,
+            weather_score: day_row?.weather_score ?? null,
+            calendar_score: day_row?.calendar_score ?? null,
+            mobility_score: day_row?.mobility_score ?? null,
           },
-          raw_text: "",
-          errors: [],
-          warnings: [],
+          primary_driver: {
+            label_fr: day_row?.primary_score_driver_label_fr ?? null,
+            confidence_fr: day_row?.primary_driver_confidence_fr ?? null,
+          },
+          weather: {
+            label_fr: day_row?.weather_label_fr ?? null,
+            alert_level_max: day_row?.alert_level_max ?? null,
+            wind_speed_10m_max: day_row?.wind_speed_10m_max ?? null,
+            precipitation_probability_max_pct: day_row?.precipitation_probability_max_pct ?? null,
+            impact_weather_pct: day_row?.impact_weather_pct ?? null,
+            lvl_wind: day_row?.lvl_wind ?? null,
+            lvl_rain: day_row?.lvl_rain ?? null,
+          },
+          competition: {
+            events_within_5km_count: day_row?.events_within_5km_count ?? null,
+            events_within_10km_count: day_row?.events_within_10km_count ?? null,
+            events_within_50km_count: day_row?.events_within_50km_count ?? null,
+            delta_att_events_pct: day_row?.delta_att_events_pct ?? null,
+          },
+          audience: {
+            availability_label: day_row?.audience_availability_label ?? null,
+          },
+          signals_fr: Array.isArray(day_row?.daily_signal_summary_fr)
+            ? day_row.daily_signal_summary_fr
+            : [],
+          is_major_realization_risk: day_row?.is_major_realization_risk_flag ?? null,
+          major_realization_risk_driver: day_row?.major_realization_risk_driver ?? null,
+          business_profile: {
+            location_type: internal_context?.location_type ?? null,
+            event_time_profile: internal_context?.event_time_profile ?? null,
+            primary_audience_1: internal_context?.primary_audience_1 ?? null,
+            primary_audience_2: internal_context?.primary_audience_2 ?? null,
+          },
         };
-        
+
+        try {
+          ai = await runAIPackagerClaude({
+            mode: "v3_narrative",
+            row: narrative_input_day,
+          });
+          producer = "v3_claude";
+        } catch (e) {
+          ai = {
+            ok: true,
+            mode: "deterministic_daywhy_ir_v1",
+            output: {
+              headline: det_headline,
+              answer: "",
+              key_facts: det_key_facts,
+              reasons: [],
+              caveats: [],
+            },
+            raw_text: "",
+            errors: [],
+            warnings: [],
+          };
+          producer = "v3_fallback_deterministic";
+        }
+
         break;
       }
       case "selected_days": {
@@ -3348,21 +3408,68 @@ export const POST: APIRoute = async ({ request, locals }) => {
             ? key_facts_filtered
             : buildCompareKeyFactsFallback(selected_days_rows);
 
-        ai = {
-          ok: true,
-          mode: "deterministic_compare_dates_v1",
-          output: {
-            headline,
-            answer: "Comparaison des points clés ci-dessous.",
-            key_facts,
-            caveat,
-            reasons: [],
-            caveats: caveat ? [caveat] : [],
-          },
-          raw_text: "",
-          errors: [],
-          warnings: [],
+        const det_compare_output = {
+          headline,
+          answer: "Comparaison des points clés ci-dessous.",
+          key_facts,
+          caveat,
+          reasons: [],
+          caveats: caveat ? [caveat] : [],
         };
+
+        // ------------------------------------
+        // V3 Compare → Claude narration
+        // ------------------------------------
+        const narrative_input_compare = {
+          horizon: "selected_days",
+          intent: "COMPARE_DATES",
+          winner_date: v1.winner_date,
+          tie_flag: v1.tie_flag,
+          dates: selected_days_rows.map((r: any) => ({
+            date: ymdFromAnyDate(r?.date),
+            display_label: r?.display_label ?? ymdFromAnyDate(r?.date),
+            regime: r?.opportunity_regime ?? null,
+            score: r?.opportunity_score_final_local ?? null,
+            medal: r?.opportunity_medal ?? null,
+            primary_driver_label_fr: r?.primary_score_driver_label_fr ?? null,
+            weather: {
+              label_fr: r?.weather_label_fr ?? null,
+              alert_level_max: r?.alert_level_max ?? null,
+              wind_speed_10m_max: r?.wind_speed_10m_max ?? null,
+              precipitation_probability_max_pct: r?.precipitation_probability_max_pct ?? null,
+            },
+            competition: {
+              events_within_5km_count: r?.events_within_5km_count ?? null,
+              events_within_10km_count: r?.events_within_10km_count ?? null,
+              events_within_50km_count: r?.events_within_50km_count ?? null,
+            },
+          })),
+          business_profile: {
+            location_type: internal_context?.location_type ?? null,
+            event_time_profile: internal_context?.event_time_profile ?? null,
+            primary_audience_1: internal_context?.primary_audience_1 ?? null,
+            primary_audience_2: internal_context?.primary_audience_2 ?? null,
+          },
+        };
+
+        try {
+          ai = await runAIPackagerClaude({
+            mode: "v3_narrative",
+            row: narrative_input_compare,
+          });
+          producer = "v3_claude";
+        } catch (e) {
+          ai = {
+            ok: true,
+            mode: "deterministic_compare_dates_v1",
+            output: det_compare_output,
+            raw_text: "",
+            errors: [],
+            warnings: [],
+          };
+          producer = "v3_fallback_deterministic";
+        }
+
         break;
       }
 
@@ -3572,8 +3679,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         throw new Error(`Unsupported resolved_horizon: ${String(resolved_horizon)}`);
       }
     }
-  
-    const top_dates = shortlist_rows.slice(0, top_k).map((r: any) => {
+
+    const top_dates = (
+      resolved_intent === "WINDOW_WORST_DAYS"
+        ? worstlist_rows
+        : shortlist_rows
+    ).slice(0, top_k).map((r: any) => {  
       const toFiniteNumOrNull = (v: any) => {
         const n = typeof v === "number" ? v : Number(v);
         return Number.isFinite(n) ? n : null;
@@ -3584,7 +3695,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         regime: typeof r?.opportunity_regime === "string" ? r.opportunity_regime : null,
         score: (() => {
           const n = toFiniteNumOrNull(r?.opportunity_score_final_local ?? r?.opportunity_score);
-          return n === null ? null : Math.round(n);
+          return n === null ? null : parseFloat(n.toFixed(1));
         })(),
 
         weather_alert_level: toFiniteNumOrNull(r?.weather_alert_level),
