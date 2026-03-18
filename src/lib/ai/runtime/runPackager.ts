@@ -122,9 +122,29 @@ export async function runAIPackagerClaude(args: {
 
   if (mode === "v3_narrative") {
     system_prompt = PACKAGER_PROMPT_V3_NARRATIVE_FR;
-  }
-
-  else if (mode === "month") {
+    validatorFn = (output: any) => {
+      const errors: string[] = [];
+      if (!output || typeof output !== "object") {
+        return [false, ["v3_narrative: output is not an object"]];
+      }
+      if (typeof output.headline !== "string" || !output.headline.trim()) {
+        errors.push("v3_narrative: missing headline");
+      }
+      if (typeof output.answer !== "string" || !output.answer.trim()) {
+        errors.push("v3_narrative: missing answer");
+      }
+      if (!Array.isArray(output.key_facts)) {
+        errors.push("v3_narrative: key_facts must be an array");
+      }
+      if (!Array.isArray(output.reasons)) {
+        errors.push("v3_narrative: reasons must be an array");
+      }
+      if (!Array.isArray(output.caveats)) {
+        errors.push("v3_narrative: caveats must be an array");
+      }
+      return errors.length ? [false, errors] : [true, []];
+    };
+  } else if (mode === "month") {
     switch (submode) {
       case "orchestrator":
         system_prompt = PACKAGER_PROMPT_MONTH_MODE;
@@ -178,7 +198,7 @@ export async function runAIPackagerClaude(args: {
     system: system_prompt,
     userPayload: payload,
     temperature: 0,
-    maxTokens: 600,
+    maxTokens: 1024,
     timeoutMs: 30_000,
   });
 

@@ -103,6 +103,11 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
 
   // Scope lock
   "ai_analysis_scope_guard",
+  // ---- V3 narrative input keys ----
+  "dominant_driver",
+  "secondary_drivers",
+  "business_profile",
+  "used_period",
 ];
 
 function isObject(x: unknown): x is Record<string, unknown> {

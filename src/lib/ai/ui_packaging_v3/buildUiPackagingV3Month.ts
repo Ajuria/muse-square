@@ -65,7 +65,7 @@ export function buildUiPackagingV3Month(args: {
     // score: truth fields
     const regimeRaw = typeof r?.opportunity_regime === "string" ? r.opportunity_regime.trim().toUpperCase() : "";
     const regime = (regimeRaw === "A" || regimeRaw === "B" || regimeRaw === "C") ? regimeRaw : null;
-    const score = numOrNull(r?.opportunity_score_final_local);
+    const score = numOrNull(r?.opportunity_score ?? r?.opportunity_score_final_local);
 
     // WEATHER (truth)
     const weather_alert = numOrNull(r?.weather_alert_level);

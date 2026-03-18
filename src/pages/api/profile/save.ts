@@ -211,6 +211,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const event_time_profile = getOptionalString(fd, "event_time_profile");
     const location_access_pattern = getOptionalString(fd, "location_access_pattern");
     const nearest_transit_stop = getOptionalString(fd, "nearest_transit_stop");
+    const nearest_transit_stop_id = getOptionalString(fd, "nearest_transit_stop_id");
+    const nearest_transit_lines = getOptionalString(fd, "nearest_transit_lines");
 
     // --- Multi-selects (limits enforced; preserve all slots in schema) ---
     const audiences = getAllStrings(fd, "primary_audience_1");
@@ -418,6 +420,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         event_time_profile = @event_time_profile,
         location_access_pattern = @location_access_pattern,
         nearest_transit_stop = @nearest_transit_stop,
+        nearest_transit_stop_id = @nearest_transit_stop_id,
+        nearest_transit_lines = @nearest_transit_lines,
         primary_audience_1 = @primary_audience_1,
         primary_audience_2 = @primary_audience_2,
         origin_city_id_1 = @origin_city_id_1,
@@ -451,6 +455,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         event_time_profile,
         location_access_pattern,
         nearest_transit_stop,
+        nearest_transit_stop_id,
+        nearest_transit_lines,
         primary_audience_1,
         primary_audience_2,
         origin_city_id_1,
@@ -485,6 +491,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @event_time_profile,
         @location_access_pattern,
         @nearest_transit_stop,
+        @nearest_transit_stop_id,
+        @nearest_transit_lines,
         @primary_audience_1,
         @primary_audience_2,
         @origin_city_id_1,
@@ -521,6 +529,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         event_time_profile,
         location_access_pattern,
         nearest_transit_stop,
+        nearest_transit_stop_id,
+        nearest_transit_lines,
         primary_audience_1,
         primary_audience_2,
         origin_city_id_1,
@@ -546,6 +556,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       event_time_profile: "STRING",
       location_access_pattern: "STRING",
       nearest_transit_stop: "STRING",
+      nearest_transit_stop_id: "STRING",
+      nearest_transit_lines: "STRING",
       primary_audience_1: "STRING",
       primary_audience_2: "STRING",
       origin_city_id_1: "STRING",

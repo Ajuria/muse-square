@@ -84,6 +84,8 @@ const sql = `
     event_time_profile,
     location_access_pattern,
     nearest_transit_stop,
+    nearest_transit_stop_id,
+    nearest_transit_lines,
     primary_audience_1,
     primary_audience_2,
     origin_city_id_1,
@@ -143,6 +145,8 @@ try {
         event_time_profile: escAttr(saved_row.event_time_profile),
         location_access_pattern: escAttr(saved_row.location_access_pattern),
         nearest_transit_stop: escAttr(saved_row.nearest_transit_stop),
+        nearest_transit_stop_id: escAttr(saved_row.nearest_transit_stop_id),
+        nearest_transit_lines: escAttr(saved_row.nearest_transit_lines),
         primary_audience_1: escAttr(saved_row.primary_audience_1),
         primary_audience_2: escAttr(saved_row.primary_audience_2),
         origin_city_id_1: escAttr(saved_row.origin_city_id_1),
@@ -272,6 +276,8 @@ const selected_origin_city_ids = [
               <input type="hidden" name="origin_city_label_1" id="origin_city_label_1" value={saved_safe?.["origin_city_label_1"] ?? ""} />
               <input type="hidden" name="origin_city_label_2" id="origin_city_label_2" value={saved_safe?.["origin_city_label_2"] ?? ""} />
               <input type="hidden" name="origin_city_label_3" id="origin_city_label_3" value={saved_safe?.["origin_city_label_3"] ?? ""} />
+              <input type="hidden" name="nearest_transit_stop_id" id="nearest_transit_stop_id" value={saved_safe?.["nearest_transit_stop_id"] ?? ""} />
+              <input type="hidden" name="nearest_transit_lines" id="nearest_transit_lines" value={saved_safe?.["nearest_transit_lines"] ?? ""} />
               <div>
                 <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                   Entreprise <span class="text-red-500">*</span>
@@ -506,17 +512,23 @@ const selected_origin_city_ids = [
                 </div>
               </div>
 
-              <div>
+              <div class="relative">
                 <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                   Station de métro la plus proche (optionnel)
                 </label>
                 <input
+                  id="metroStopInput"
                   type="text"
                   name="nearest_transit_stop"
                   placeholder="Rechercher une station..."
+                  autocomplete="off"
                   value={saved_safe?.nearest_transit_stop ?? ""}
                   class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
                 />
+                <div
+                  id="metroStopSuggestions"
+                  class="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hidden"
+                ></div>
                 <p class="text-xs text-gray-500 mt-2">Tapez pour rechercher</p>
               </div>
             </div>
@@ -540,6 +552,8 @@ const selected_origin_city_ids = [
 
   <script>
     // @ts-nocheck
+    let metroConfirmed = false;
+    let addressConfirmed = false;
 
     const profileForm = document.getElementById('profileForm');
 
@@ -597,6 +611,27 @@ const selected_origin_city_ids = [
 
         try {
         const formData = new FormData(form);
+
+        const metroInput = form.querySelector('#metroStopInput');
+        const metroVal = metroInput instanceof HTMLInputElement ? metroInput.value.trim() : "";
+        if (metroVal !== "" && !metroConfirmed) {
+          if (button) button.textContent = originalText;
+          form.dataset.saving = "0";
+          if (button) button.disabled = false;
+          setStatus("Veuillez sélectionner une station depuis la liste.", 'error');
+          return;
+        }
+
+        const addressInput = form.querySelector('#companyAddressInput');
+        const addressVal = addressInput instanceof HTMLInputElement ? addressInput.value.trim() : "";
+        if (addressVal !== "" && !addressConfirmed) {
+          if (button) button.textContent = originalText;
+          form.dataset.saving = "0";
+          if (button) button.disabled = false;
+          setStatus("Veuillez sélectionner une adresse depuis la liste.", 'error');
+          return;
+        }
+
         const data = Object.fromEntries(formData.entries());
 
         // Fix multi-select arrays (critical)
@@ -740,6 +775,132 @@ const selected_origin_city_ids = [
     );
 
     // ------------------------------
+    // Metro stop autocomplete
+    // ------------------------------
+    (function () {
+      const input = document.getElementById("metroStopInput");
+      const box = document.getElementById("metroStopSuggestions");
+
+      if (!(input instanceof HTMLInputElement)) return;
+      if (!(box instanceof HTMLDivElement)) return;
+
+      let activeIndex = -1;
+      let items = [];
+      let metroConfirmed = false;
+
+      function hide() {
+        box.classList.add("hidden");
+        box.innerHTML = "";
+        activeIndex = -1;
+        items = [];
+      }
+
+      function show() {
+        box.classList.remove("hidden");
+      }
+
+      function esc(s) {
+        return String(s)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function debounce(fn, ms) {
+        let t = null;
+        return function (...args) {
+          if (t) clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, args), ms);
+        };
+      }
+
+      async function fetchMetro(q) {
+        const res = await fetch(`/api/metro/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return [];
+        return await res.json().catch(() => []);
+      }
+
+      function render(stops) {
+        items = stops;
+        activeIndex = -1;
+
+        if (!items.length) { hide(); return; }
+
+        box.innerHTML = items.map((s, i) => `
+          <button
+            type="button"
+            data-idx="${i}"
+            class="w-full text-left px-5 py-3 hover:bg-gray-50 focus:bg-gray-50 outline-none"
+          >
+            <div class="text-sm text-gray-900">${esc(s.stop_name)}</div>
+            ${s.nom_commune ? `<div class="text-xs text-gray-500">${esc(s.nom_commune)}</div>` : ""}
+          </button>
+        `).join("");
+
+        show();
+      }
+
+      function pick(i) {
+        const s = items[i];
+        if (!s) return;
+        input.value = s.stop_name;
+        metroConfirmed = true;
+        const idInput = document.getElementById("nearest_transit_stop_id");
+        const linesInput = document.getElementById("nearest_transit_lines");
+        if (idInput instanceof HTMLInputElement) idInput.value = s.stop_id || "";
+        if (linesInput instanceof HTMLInputElement) linesInput.value = s.lines || "";
+        hide();
+      }
+
+      const onInput = debounce(async () => {
+        metroConfirmed = false;
+        const idInput = document.getElementById("nearest_transit_stop_id");
+        const linesInput = document.getElementById("nearest_transit_lines");
+        if (idInput instanceof HTMLInputElement) idInput.value = "";
+        if (linesInput instanceof HTMLInputElement) linesInput.value = "";
+        const q = input.value.trim();
+        if (q.length < 2) { hide(); return; }
+        try {
+          const stops = await fetchMetro(q);
+          render(stops);
+        } catch { hide(); }
+      }, 220);
+
+      input.addEventListener("input", onInput);
+
+      box.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("button[data-idx]") : null;
+        if (!btn) return;
+        pick(Number(btn.getAttribute("data-idx")));
+      });
+
+      input.addEventListener("keydown", (e) => {
+        if (box.classList.contains("hidden")) return;
+        if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, items.length - 1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); }
+        else if (e.key === "Enter" && activeIndex >= 0) { e.preventDefault(); pick(activeIndex); }
+        else if (e.key === "Escape") { hide(); return; }
+
+        const buttons = box.querySelectorAll("button[data-idx]");
+        buttons.forEach(b => b.classList.remove("bg-gray-50"));
+        if (activeIndex >= 0 && buttons[activeIndex]) {
+          buttons[activeIndex].classList.add("bg-gray-50");
+          buttons[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+      });
+
+      document.addEventListener("mousedown", (e) => {
+        const t = e.target;
+        if (!(t instanceof Node)) return;
+        if (t === input || box.contains(t)) return;
+        hide();
+      });
+
+      input.addEventListener("blur", () => setTimeout(() => hide(), 150));
+    })();
+
+    // ------------------------------
     // BAN address autocomplete (company_address)
     // ------------------------------
     (function () {
@@ -836,12 +997,13 @@ const selected_origin_city_ids = [
         const label = f?.properties?.label;
         if (typeof label === "string" && label.trim()) {
           input.value = label.trim();
-          input.dispatchEvent(new Event("input", { bubbles: true }));
+          addressConfirmed = true;
         }
         hide();
       }
 
       const onInput = debounce(async () => {
+        addressConfirmed = false;
         const q = input.value.trim();
         if (q.length < 6) {
           hide();

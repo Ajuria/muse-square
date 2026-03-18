@@ -205,8 +205,8 @@ if (!root) {
           const value =
             typeof d?.score === "number"
               ? d.score
-              : typeof d?.score?.value === "number"
-              ? d.score.value
+              : typeof d?.score?.score === "number"
+              ? d.score.score
               : null;
 
           const sub =
@@ -290,9 +290,7 @@ if (!root) {
 
     const list = (items) =>
       items.length
-        ? `<ul class="mt-3 space-y-1 text-sm">
-            ${items.map((x) => `<li class="list-disc ml-5">${escapeHtml(x)}</li>`).join("")}
-          </ul>`
+        ? `<ul>${items.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
         : "";
 
     const section = (title, items) =>
@@ -307,10 +305,10 @@ if (!root) {
       ${typeof v3Block === "string" ? v3Block : ""}
 
       ${headline ? `<div class="ie-ai-h mt-4">${escapeHtml(headline)}</div>` : ""}
-      ${answer ? `<div class="ie-ai-p">${escapeHtml(answer)}</div>` : ""}
+      ${(answer && horizon !== "day") ? `<div class="ie-ai-p">${escapeHtml(answer)}</div>` : ""}
 
       ${
-        primaryLink
+        (!isV3 && primaryLink)
           ? `<div class="ie-ai-cta">
               <a href="${escapeHtml(primaryLink.url)}" class="ie-inline-cta">
                 ${escapeHtml(primaryLink.label)} →
@@ -408,21 +406,7 @@ if (!root) {
         return;
       }
 
-      // 0) Always show raw payload snippet (dev only)
-      if (aiBubble) {
-        const raw = escapeHtml(JSON.stringify(out, null, 2));
-        aiBubble.className = "ie-bubble";
-        aiBubble.innerHTML = `
-          <details class="mt-2">
-            <summary>Debug: réponse brute API</summary>
-            <pre style="white-space:pre-wrap;font-size:12px;line-height:1.3">${raw}</pre>
-          </details>
-          <div class="mt-2">—</div>
-        `;
-      }
-
       const html = renderAiOutputHtml(out);
-      if (aiBubble && html) aiBubble.innerHTML += html;
 
       if (aiBubble) {
         aiBubble.className = "ie-bubble";
@@ -433,7 +417,7 @@ if (!root) {
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
             (typeof out?.answer_text === "string" && out.answer_text.trim()) ? out.answer_text :
             (typeof out?.error === "string" && out.error.trim()) ? out.error :
-            "Réponse reçue, mais aucun contenu affichable n’a été détecté.";
+            "Réponse reçue, mais aucun contenu affichable n'a été détecté.";
 
           aiBubble.textContent = fallbackText || "";
         }

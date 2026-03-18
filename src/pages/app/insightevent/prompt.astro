@@ -369,6 +369,78 @@ if (!location_id) {
         pointer-events: none !important;
       }
 
+      /* Key facts / reasons list */
+      .ie-msg-ai .ie-bubble ul {
+        list-style: none;
+        margin: 12px 0 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ie-msg-ai .ie-bubble li {
+        padding-left: 16px;
+        position: relative;
+        font-size: 15px;
+        line-height: 1.55;
+        color: #111827;
+      }
+      .ie-msg-ai .ie-bubble li::before {
+        content: "·";
+        position: absolute;
+        left: 0;
+        color: #6b7280;
+        font-weight: 700;
+      }
+
+      /* Caveat block */
+      .ie-ai-caveats {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-left: 3px solid #e5e7eb;
+        background: #f9fafb;
+        border-radius: 0 8px 8px 0;
+      }
+      .ie-ai-cv {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #6b7280;
+      }
+
+      /* CTA link */
+      .ie-inline-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        text-decoration: none;
+        padding: 8px 14px;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 8px;
+        margin-top: 14px;
+        transition: all 150ms ease;
+      }
+      .ie-inline-cta:hover {
+        background: #f3f4f6;
+        border-color: rgba(0,0,0,0.2);
+      }
+
+      /* Section headers (operational impacts etc) */
+      .ie-ai-sec { margin-top: 16px; }
+      .ie-ai-sec-h {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9ca3af;
+        margin-bottom: 6px;
+      }
+
+      /* Headline spacing when following v3 block */
+      .ie-ai-h.mt-4 { margin-top: 20px; }
+
     </style>
 
     <script type="module" src="/scripts/ie-prompt.js" defer></script>

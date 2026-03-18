@@ -575,7 +575,6 @@ function isEventLookupQuestion(qRaw: string): boolean {
   // ----------------------------
   // POSITIVE LOOKUP SIGNALS
   // ----------------------------
-
   const explicitLookup =
     s.includes("a quelle date") ||
     s.includes("à quelle date") ||
@@ -586,7 +585,22 @@ function isEventLookupQuestion(qRaw: string): boolean {
     s.includes("quels evenements") ||
     s.includes("quels événements") ||
     s.includes("y a t il") ||
-    s.includes("y a-t-il");
+    s.includes("y a-t-il") ||
+    s.includes("black friday") ||
+    s.includes("saint valentin") ||
+    s.includes("fete des meres") ||
+    s.includes("fête des mères") ||
+    s.includes("fete des peres") ||
+    s.includes("fête des pères") ||
+    s.includes("noel") ||
+    s.includes("noël") ||
+    s.includes("paques") ||
+    s.includes("pâques") ||
+    s.includes("toussaint") ||
+    s.includes("pentecote") ||
+    s.includes("pentecôte") ||
+    s.includes("feria") ||
+    s.includes("festival");
 
   if (explicitLookup) return true;
 
@@ -967,7 +981,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const dFr = fmtDateFr(d);
 
         const reg = String(r?.opportunity_regime ?? "ND");
-        const score = toFiniteNumOrNullLocal(r?.opportunity_score_final_local);
+        const score = toFiniteNumOrNullLocal(r?.opportunity_score_final_local ?? r?.opportunity_score);
         const alert = toFiniteNumOrNullLocal(
           r?.alert_level_max ??            // selected_days surface (common)
           r?.weather_alert_level ??        // month/day surface
@@ -975,7 +989,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           r?.weather_alert_level_max       // alt naming
         );
         const pr = toFiniteNumOrNullLocal(
-          r?.precip_probability_max_pct ??
+          r?.precipitation_probability_max_pct ??
           r?.precipitation_probability_max_pct
         );
 
@@ -1109,8 +1123,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   function buildWeatherSignal(row: any, ctx: any): DecisionSignal {
     const { exposure, basis } = inferVenueExposureFromContext(ctx);
 
-    const alert = row?.weather_alert_level ?? null;
-    const precipProb = row?.precip_probability_max_pct ?? null;
+    const alert = row?.alert_level_max ?? row?.weather_alert_level ?? null;
+    const precipProb = row?.precipitation_probability_max_pct ?? row?.precipitation_probability_max_pct ?? null;
     const wind = row?.wind_speed_10m_max ?? null;
     const wxCode = row?.weather_code ?? null;
 
@@ -1120,7 +1134,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const facts: Record<string, number | string | boolean | null> = {
       weather_alert_level: Number.isFinite(alertNum) ? alertNum : null,
-      precip_probability_max_pct: Number.isFinite(precipNum) ? precipNum : null,
+      precipitation_probability_max_pct: Number.isFinite(precipNum) ? precipNum : null,
       wind_speed_10m_max: Number.isFinite(windNum) ? windNum : null,
       weather_code: typeof wxCode === "string" && wxCode.trim() ? wxCode.trim() : (wxCode ?? null),
       venue_exposure: exposure,
@@ -1129,7 +1143,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Applicability = we can at least compute alert OR (precip/wind) + some context info.
     const hasAlert = facts.weather_alert_level !== null;
-    const hasPrecip = facts.precip_probability_max_pct !== null;
+    const hasPrecip = facts.precipitation_probability_max_pct !== null;
     const hasWind = facts.wind_speed_10m_max !== null;
 
     const applicable = hasAlert || hasPrecip || hasWind;
@@ -1346,8 +1360,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const rb = regimeRank(b?.opportunity_regime);
         if (ra !== rb) return ra - rb;
 
-        const sa = num(a?.opportunity_score_final_local);
-        const sb = num(b?.opportunity_score_final_local);
+        const sa = num(a?.opportunity_score_final_local ?? a?.opportunity_score);
+        const sb = num(b?.opportunity_score_final_local ?? b?.opportunity_score);
         const saOk = Number.isFinite(sa);
         const sbOk = Number.isFinite(sb);
         if (saOk !== sbOk) return saOk ? -1 : 1;
@@ -1483,7 +1497,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .map((r) => {
         const n = typeof r?.opportunity_score_final_local === "number"
           ? r.opportunity_score_final_local
-          : Number(r?.opportunity_score_final_local);
+          : typeof r?.opportunity_score === "number"
+          ? r.opportunity_score
+          : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
         return Number.isFinite(n) ? n : null;
       })
       .filter((x): x is number => x !== null)
@@ -1619,7 +1635,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         // Weather filters
         if (activeWeather) {
           const alert = toNum(r?.weather_alert_level);
-          const pr = toNum(r?.precip_probability_max_pct);
+          const pr = toNum(r?.precipitation_probability_max_pct);
           const wi = toNum(r?.wind_speed_10m_max);
 
           if (negAlerte) {
@@ -2122,8 +2138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ------------------------------------
     // LOOKUP OVERRIDE (after compare logic)
     // ------------------------------------
-
-    if (!force_compare && isEventLookupQuestion(qRaw)) {
+    if (!force_compare && resolved_horizon !== "day" && isEventLookupQuestion(qRaw)) {
       resolved_horizon = "lookup_event";
       resolved_intent = "LOOKUP_EVENT";
     }
@@ -2191,16 +2206,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             date,
             location_id,
-            opportunity_score_final_local,
+            CAST(opportunity_score AS FLOAT64) AS opportunity_score,
             opportunity_medal,
             opportunity_regime,
             weather_code,
             weather_alert_level,
-            precipitation_probability_max_pct AS precip_probability_max_pct,
+            precipitation_probability_max_pct,
             wind_speed_10m_max,
-            events_within_5km_count,
             events_within_10km_count,
-            events_within_50km_count,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -2232,7 +2245,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY location_id, date
             ORDER BY
-              opportunity_score_final_local DESC,
+              CAST(opportunity_score AS FLOAT64) DESC,
               CAST(weather_alert_level AS INT64) ASC NULLS LAST,
               events_within_10km_count ASC NULLS LAST
           ) = 1
@@ -2240,13 +2253,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         SELECT *
         FROM dedup
         ORDER BY
-          opportunity_score_final_local DESC,
+          CAST(opportunity_score AS FLOAT64) DESC,
           CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-          CAST(precip_probability_max_pct AS FLOAT64) ASC NULLS LAST,
+          CAST(precipitation_probability_max_pct AS FLOAT64) ASC NULLS LAST,
           CAST(wind_speed_10m_max AS FLOAT64) ASC NULLS LAST,
-          CAST(events_within_5km_count AS INT64) ASC NULLS LAST,
           CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
-          CAST(events_within_50km_count AS INT64) ASC NULLS LAST,
           date ASC
         LIMIT @limit
       `;
@@ -2288,16 +2299,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             date,
             location_id,
-            opportunity_score_final_local,
+            CAST(opportunity_score AS FLOAT64) AS opportunity_score,
             opportunity_medal,
             opportunity_regime,
             weather_code,
             weather_alert_level,
-            precipitation_probability_max_pct AS precip_probability_max_pct,
+            precipitation_probability_max_pct,
             wind_speed_10m_max,
-            events_within_5km_count,
             events_within_10km_count,
-            events_within_50km_count,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -2305,7 +2314,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             is_commercial_event_flag,
             is_selected_day,
             available_next_views,
-            relative_rank_bucket
+            relative_rank_bucket  
           FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
           WHERE location_id = @location_id
             AND date BETWEEN (SELECT window_start_date FROM win)
@@ -2326,15 +2335,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
           FROM filtered
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY location_id, date
-            ORDER BY
-              opportunity_score_final_local ASC,
+            ORDER BY      
+              CAST(opportunity_score AS FLOAT64) ASC,
               CAST(weather_alert_level AS INT64) DESC NULLS LAST,
               events_within_10km_count DESC NULLS LAST
           ) = 1
         )
         SELECT *
         FROM dedup
-        ORDER BY opportunity_score_final_local ASC, date ASC
+        ORDER BY CAST(opportunity_score AS FLOAT64) ASC, date ASC
         LIMIT @limit
       `;
 
@@ -2551,7 +2560,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Deterministic ordering driven by priority_dimensions
       // ----------------------------
       // Available truth fields on vw_insight_event_30d_day_surface:
-      // - weather_alert_level, precip_probability_max_pct, wind_speed_10m_max
+      // - weather_alert_level, precipitation_probability_max_pct, wind_speed_10m_max
       // - events_within_10km_count
       // - is_weekend, is_public_holiday_fr_flag, is_school_holiday_flag
       //
@@ -2569,8 +2578,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             if (aOk !== bOk) return aOk ? -1 : 1;
             if (aOk && bOk && aAlert !== bAlert) return aAlert - bAlert;
 
-            const aP = toNum(a?.precip_probability_max_pct);
-            const bP = toNum(b?.precip_probability_max_pct);
+            const aP = toNum(a?.precipitation_probability_max_pct);
+            const bP = toNum(b?.precipitation_probability_max_pct);
             const aPOk = Number.isFinite(aP);
             const bPOk = Number.isFinite(bP);
             if (aPOk !== bPOk) return aPOk ? -1 : 1;
@@ -2653,8 +2662,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const wx = Number.isFinite(toNum(r?.weather_alert_level))
           ? String(toNum(r?.weather_alert_level))
           : "ND";
-        const pr = Number.isFinite(toNum(r?.precip_probability_max_pct))
-          ? String(toNum(r?.precip_probability_max_pct))
+        const pr = Number.isFinite(toNum(r?.precipitation_probability_max_pct))
+          ? String(toNum(r?.precipitation_probability_max_pct))
           : "ND";
         const wi = Number.isFinite(toNum(r?.wind_speed_10m_max))
           ? String(toNum(r?.wind_speed_10m_max))
@@ -2813,18 +2822,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
               COUNTIF(opportunity_regime = 'C') AS days_c,
               COUNTIF(relative_rank_bucket = 'risk') AS days_risk,
               COUNTIF(relative_rank_bucket = 'top')  AS days_top_bucket,
-              MIN(opportunity_score_final_local) AS score_min,
-              MAX(opportunity_score_final_local) AS score_max,
+              MIN(CAST(opportunity_score AS FLOAT64)) AS score_min,
+              MAX(CAST(opportunity_score AS FLOAT64)) AS score_max,
               COUNTIF(weather_code IS NULL) AS days_missing_weather,
               ARRAY_AGG(
                 STRUCT(
                   date,
                   opportunity_regime,
-                  opportunity_score_final_local,
+                  CAST(opportunity_score AS FLOAT64) AS opportunity_score,
                   opportunity_medal,
                   weather_code
                 )
-                ORDER BY best_day_rank_excl_forced_c ASC, date ASC
+                ORDER BY CAST(opportunity_score AS FLOAT64) DESC, date ASC
                 LIMIT 3
               ) AS top_days
             FROM base
@@ -2874,7 +2883,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             AND COALESCE(opportunity_regime, '') != 'C'
             AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
           ORDER BY
-            opportunity_score_final_local DESC,
+            CAST(opportunity_score AS FLOAT64) DESC,
             CAST(weather_alert_level AS INT64) ASC NULLS LAST,
             CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
             date ASC
@@ -3155,7 +3164,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           errors: [],
           warnings: [],
         };
-
+        
         break;
       }
       case "selected_days": {
@@ -3369,7 +3378,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
           (internal_context as any)?.row?.city_id ??
           null;
 
-        const q_lookup_raw = String(qRaw ?? "").toLowerCase();
+        const q_lookup_raw = String(qRaw ?? "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
 
         const q_entity = q_lookup_raw
           // remove common question shells
@@ -3436,7 +3448,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
             source_system,
             industry_code
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+          WHERE
+            LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+            OR LOWER(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(
+                  REGEXP_REPLACE(
+                    REGEXP_REPLACE(event_name, r'[éèêë]', 'e'),
+                  r'[àâä]', 'a'),
+                r'[îï]', 'i'),
+              r'[ôö]', 'o')
+            ) LIKE CONCAT('%', @q_entity, '%')
           ORDER BY
             CASE scope_type
               WHEN 'location' THEN 1
@@ -3466,6 +3488,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
             bqParams({ q_entity })
           );
           rows = rows_global;
+        }
+
+        // Fallback: retry with individual tokens (first and last meaningful words)
+        // Handles "feria de nîmes" where city is last token
+        if (!Array.isArray(rows) || rows.length === 0) {
+          const tokens = q_entity.split(/\s+/).filter(w => w.length >= 4);
+          // Try last token first (usually city name), then first token
+          const tryOrder = [...new Set([tokens[tokens.length - 1], tokens[0]])].filter(Boolean);
+          
+          for (const token of tryOrder) {
+            if (!token || token === q_entity) continue;
+
+            const rows_token_scoped = await bqAll(
+              lookupSqlScoped,
+              bqParams({ q_entity: token, location_id, city_id, region_insee })
+            );
+            if (Array.isArray(rows_token_scoped) && rows_token_scoped.length > 0) {
+              rows = rows_token_scoped;
+              break;
+            }
+
+            const rows_token_global = await bqAll(
+              lookupSqlFallback,
+              bqParams({ q_entity: token })
+            );
+            if (Array.isArray(rows_token_global) && rows_token_global.length > 0) {
+              rows = rows_token_global;
+              break;
+            }
+          }
         }
 
         lookup_mode = Array.isArray(rows_scoped) && rows_scoped.length ? "scoped" : "fallback_global";
@@ -3531,12 +3583,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         date: ymdFromAnyDate(r?.date),
         regime: typeof r?.opportunity_regime === "string" ? r.opportunity_regime : null,
         score: (() => {
-          const n = toFiniteNumOrNull(r?.opportunity_score_final_local);
+          const n = toFiniteNumOrNull(r?.opportunity_score_final_local ?? r?.opportunity_score);
           return n === null ? null : Math.round(n);
         })(),
 
         weather_alert_level: toFiniteNumOrNull(r?.weather_alert_level),
-        precip_probability_max_pct: toFiniteNumOrNull(r?.precip_probability_max_pct),
+        precipitation_probability_max_pct: toFiniteNumOrNull(r?.precipitation_probability_max_pct),
         wind_speed_10m_max: toFiniteNumOrNull(r?.wind_speed_10m_max),
 
         events_within_5km_count: toFiniteNumOrNull(r?.events_within_5km_count),
@@ -3834,22 +3886,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     } catch (e) {
 
-      // Hard fallback: minimal deterministic winner IR (no rewrite)
-      const winner_date = ymdFromAnyDate(winner.date);
+      const fallbackRows =
+        resolved_intent === "WINDOW_WORST_DAYS"
+          ? (Array.isArray(worstlist_rows) ? worstlist_rows : [])
+          : (Array.isArray(shortlist_rows) ? shortlist_rows : []);
+
+      const fallbackOut =
+        resolved_intent === "WINDOW_WORST_DAYS"
+          ? windowWorstDaysDeterministic({ rows: fallbackRows })
+          : windowTopDaysDeterministic({ rows: fallbackRows });
 
       ai = {
         ok: true,
         mode: "v3_fallback_deterministic",
         output: {
-          headline: resolved_intent === "WINDOW_WORST_DAYS"
-            ? "Date la moins favorable"
-            : "Fenêtre favorable détectée",
-          answer: "",
-          key_facts: [
-            `Régime ${winner.opportunity_regime ?? "ND"}`,
-          ],
+          headline: fallbackOut.headline,
+          answer: fallbackOut.summary,
+          key_facts: fallbackOut.key_facts,
           reasons: [],
-          caveats: [],
+          caveats: fallbackOut.caveat ? [fallbackOut.caveat] : [],
         },
         raw_text: "",
         errors: [],
@@ -3857,6 +3912,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       };
 
       producer = "v3_fallback_deterministic";
+    }
+  }
+
+    
+  // ---- UI PACKAGING V3 (month shortlist / worstlist only) ----
+  if (
+    resolved_horizon === "month" &&
+    (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS")
+  ) {
+    const used = decision_used_dates.length > 0 ? decision_used_dates : [];
+    if (used.length > 0) {
+      ui_packaging_v3 = buildUiPackagingV3Month({
+        intent: resolved_intent as "WINDOW_TOP_DAYS" | "WINDOW_WORST_DAYS",
+        used_dates: used,
+        month_window,
+        month_days,
+      });
     }
   }
 
@@ -4000,7 +4072,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 const n =
                   typeof r?.opportunity_score_final_local === "number"
                     ? r.opportunity_score_final_local
-                    : Number(r?.opportunity_score_final_local);
+                    : typeof r?.opportunity_score === "number"
+                    ? r.opportunity_score
+                    : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
                 return Number.isFinite(n) ? n : null;
               })
               .filter((x: any) => x !== null) as number[];
