@@ -1,4 +1,4 @@
-import { pickAllowedPayload } from "./allowlist";
+import { pickAllowedPayload, assertPayloadCoverage } from "./allowlist";
 import { callClaudeMessagesAPI } from "./claude";
 import { parseJsonObjectStrict } from "./json";
 import { PACKAGER_PROMPT_V3_NARRATIVE_FR } from "../contracts/packagePromptV3";
@@ -91,6 +91,7 @@ export async function runAIPackagerClaude(args: {
   /* 1) Enrich row first, then allowlist payload only               */
   /* -------------------------------------------------------------- */
 
+  console.log("[packager][entry] mode:", mode, "submode:", submode, "row keys:", Object.keys(row ?? {}).slice(0, 10));
   const row_enriched: Record<string, any> = { ...(row ?? {}) };
 
   if (args.aiLocationContextRow && typeof args.aiLocationContextRow === "object") {
@@ -100,6 +101,7 @@ export async function runAIPackagerClaude(args: {
   }
 
   // ✅ Claude only sees allowlisted fields (plus jsonable coercion)
+  assertPayloadCoverage(row_enriched);
   const payload: Record<string, any> = pickAllowedPayload(row_enriched);
 
   /* -------------------------------------------------------------- */
@@ -118,9 +120,8 @@ export async function runAIPackagerClaude(args: {
   if (mode === "ui_packaging_v2") {
     system_prompt = PACKAGER_PROMPT_UI_V2_FR;
     validatorFn = validate_packager_output_ui_v2;
-  }
 
-  if (mode === "v3_narrative") {
+  } else if (mode === "v3_narrative") {
     system_prompt = PACKAGER_PROMPT_V3_NARRATIVE_FR;
     validatorFn = (output: any) => {
       const errors: string[] = [];
@@ -130,7 +131,10 @@ export async function runAIPackagerClaude(args: {
       if (typeof output.headline !== "string" || !output.headline.trim()) {
         errors.push("v3_narrative: missing headline");
       }
-      if (typeof output.answer !== "string" || !output.answer.trim()) {
+      if (
+        (typeof output.answer !== "string" || !output.answer.trim()) &&
+        (!Array.isArray(output.answer) || output.answer.length === 0)
+      ) {
         errors.push("v3_narrative: missing answer");
       }
       if (!Array.isArray(output.key_facts)) {
@@ -238,7 +242,43 @@ export async function runAIPackagerClaude(args: {
     return lines.join("\n").trim();
   }
 
-  const normalized = stripCodeFence(call.rawText);
+  const normalized = (() => {
+    const stripped = stripCodeFence(call.rawText);
+    // Fix literal newlines inside JSON string values only
+    // Parse character by character: inside strings, escape control chars; outside strings, leave as-is
+    let result = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < stripped.length; i++) {
+      const c = stripped[i];
+      if (escaped) {
+        result += c;
+        escaped = false;
+        continue;
+      }
+      if (c === '\\' && inString) {
+        result += c;
+        escaped = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = !inString;
+        result += c;
+        continue;
+      }
+      if (inString) {
+        if (c === '\n') { result += '\\n'; continue; }
+        if (c === '\r') { result += '\\r'; continue; }
+        if (c === '\t') { result += '\\t'; continue; }
+      }
+      result += c;
+    }
+    return result;
+  })();
+
+  console.log("[packager][debug] normalized head:", normalized.slice(0, 200));
+  console.log("[packager][debug] normalized tail:", normalized.slice(-100));
+
 
   if (!normalized.startsWith("{") || !normalized.endsWith("}")) {
     return {
@@ -254,6 +294,7 @@ export async function runAIPackagerClaude(args: {
   const parsed = parseJsonObjectStrict(normalized);
 
   if (!parsed.ok) {
+    console.error("[packager] JSON parse failed:", parsed.error);
     return {
       ok: false,
       mode,
@@ -263,6 +304,7 @@ export async function runAIPackagerClaude(args: {
       raw_text: normalized,
     };
   }
+  console.log("[packager] JSON parsed ok, keys:", Object.keys(parsed.value));
 
   /* -------------------------------------------------------------- */
   /* 5) Validation */

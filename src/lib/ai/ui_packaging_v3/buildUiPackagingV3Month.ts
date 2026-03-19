@@ -80,14 +80,25 @@ export function buildUiPackagingV3Month(args: {
     if (weather_code !== null) meteoFacts.push(`Code météo: ${Math.round(weather_code)}`);
 
     // COMPETITION (truth)
-    const c5 = numOrNull(r?.events_within_5km_count);
-    const c10 = numOrNull(r?.events_within_10km_count);
-    const c50 = numOrNull(r?.events_within_50km_count);
+    const c5sb = numOrNull(r?.events_within_5km_same_bucket_count);
+    const pct5sb = numOrNull(r?.pct_same_bucket_5km);
+    const baseline = numOrNull(r?.baseline_comp_avg);
+    const hasValidBaseline = r?.has_valid_baseline_flag === true;
+
+    const relativeLabel = (val: number, base: number): string => {
+      if (val > base * 1.2) return "plus chargé que d'habitude";
+      if (val < base * 0.8) return "moins chargé que d'habitude";
+      return "niveau habituel";
+    };
 
     const compFacts: string[] = [];
-    if (c5 !== null) compFacts.push(`Événements ≤5km: ${Math.round(c5)}`);
-    if (c10 !== null) compFacts.push(`Événements ≤10km: ${Math.round(c10)}`);
-    if (c50 !== null) compFacts.push(`Événements ≤50km: ${Math.round(c50)}`);
+    if (c5sb !== null) {
+      const pctStr = pct5sb !== null ? ` (${Math.round(pct5sb * 100)}% du total local)` : "";
+      const relStr = (hasValidBaseline && baseline !== null)
+        ? ` — ${relativeLabel(c5sb, baseline)}`
+        : "";
+      compFacts.push(`Même secteur ≤5km: ${Math.round(c5sb)}${pctStr}${relStr}`);
+    }
 
     // CALENDAR (truth)
     const isWeekend = truthBool(r?.is_weekend);

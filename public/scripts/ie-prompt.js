@@ -139,6 +139,22 @@ if (!root) {
 
     if (!n || typeof n !== "object") return "";
 
+    const answerRaw =
+      Array.isArray(n.answer) && n.answer.length ? n.answer :
+      Array.isArray(out?.ai?.answer) && out.ai.answer.length ? out.ai.answer :
+      (typeof n.answer === "string" && n.answer.trim()) ? n.answer.trim() :
+      (typeof n.summary === "string" && n.summary.trim()) ? n.summary.trim() :
+      (typeof out?.ai?.answer === "string" && out.ai.answer.trim()) ? out.ai.answer.trim() :
+      (typeof out?.ai?.summary === "string" && out.ai.summary.trim()) ? out.ai.summary.trim() :
+      "";
+    const answer = Array.isArray(answerRaw) ? "" : answerRaw;
+    const answerDates = Array.isArray(answerRaw) ? answerRaw : [];
+
+    const headline =
+      (typeof n.headline === "string" && n.headline.trim()) ? n.headline.trim() :
+      (typeof out?.ai?.headline === "string" && out.ai.headline.trim()) ? out.ai.headline.trim() :
+      "";
+
     // ----------------------------
     // V3 UI packaging renderer (month shortlist / worstlist)
     // ----------------------------
@@ -216,13 +232,19 @@ if (!root) {
                 }`
               : "";
 
+          // Match answerDates by date field
+          const dateYmd = typeof d?.date === "string" ? d.date.slice(0, 10) : null;
+          const aiDate = answerDates.find(x => x?.date === dateYmd) ?? null;
+          console.log("[ie-prompt] dateYmd:", dateYmd, "aiDate:", aiDate, "answerDates:", answerDates.map(x => x?.date));
+
           return `
-            <div class="ie-v3-row">
-              <div class="ie-v3-rank">#${idx + 1}</div>
-              <div class="ie-v3-main">
-                <div class="ie-v3-label">${escapeHtml(label)}</div>
-                ${sub ? `<div class="ie-v3-sub">${escapeHtml(sub)}</div>` : ""}
-              </div>
+            <div class="ie-ai-date-block">
+              <div class="ie-ai-date-label">#${idx + 1} — ${escapeHtml(aiDate?.label ?? label)}</div>
+              ${sub && !aiDate ? `<div class="ie-v3-sub">${escapeHtml(sub)}</div>` : ""}
+              ${aiDate?.c1 ? `<div class="ie-ai-date-row">${escapeHtml(aiDate.c1).replace(/^(Disponibilité audience\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+              ${aiDate?.c2 ? `<div class="ie-ai-date-row">${escapeHtml(aiDate.c2).replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+              ${aiDate?.c3 ? `<div class="ie-ai-date-row">${escapeHtml(aiDate.c3).replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+              ${aiDate?.c4 ? `<div class="ie-ai-date-row">${escapeHtml(aiDate.c4).replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>` : ""}
             </div>
           `;
         })
@@ -230,32 +252,20 @@ if (!root) {
 
       v3Block = `
         ${title ? `<div class="ie-ai-h">${escapeHtml(title)}</div>` : ""}
-        ${timeframe ? `<div class="ie-ai-p">${escapeHtml(timeframe)}</div>` : ""}
+        ${headline ? `<div class="ie-ai-p">${escapeHtml(headline)}</div>` : ""}
         ${bullets.length ? `<div class="ie-ai-list">${renderBullets(bullets)}</div>` : ""}
         <div class="ie-v3-list mt-3">${rowsHtml}</div>
         ${
           primaryLink
-            ? `<div class="ie-ai-cta mt-3">
+            ? `<div class="ie-ai-cta mt-3" style="display:flex;justify-content:flex-end;">
                 <a href="${escapeHtml(primaryLink.url)}" class="ie-inline-cta">
-                  ${escapeHtml(primaryLink.label)} →
+                  Consulter →
                 </a>
               </div>`
             : ""
         }
       `;
     }
-
-    const headline =
-      (typeof n.headline === "string" && n.headline.trim()) ? n.headline.trim() :
-      (typeof out?.ai?.headline === "string" && out.ai.headline.trim()) ? out.ai.headline.trim() :
-      "";
-
-    const answer =
-      (typeof n.answer === "string" && n.answer.trim()) ? n.answer.trim() :
-      (typeof n.summary === "string" && n.summary.trim()) ? n.summary.trim() :
-      (typeof out?.ai?.answer === "string" && out.ai.answer.trim()) ? out.ai.answer.trim() :
-      (typeof out?.ai?.summary === "string" && out.ai.summary.trim()) ? out.ai.summary.trim() :
-      "";
 
     const keyFacts = Array.isArray(n.key_facts) ? n.key_facts : [];
     const reasons = Array.isArray(n.reasons) ? n.reasons : [];
@@ -304,8 +314,18 @@ if (!root) {
     return `
       ${typeof v3Block === "string" ? v3Block : ""}
 
-      ${headline ? `<div class="ie-ai-h mt-4">${escapeHtml(headline)}</div>` : ""}
-      ${(answer && horizon !== "day") ? `<div class="ie-ai-p">${escapeHtml(answer)}</div>` : ""}
+      ${(!isV3 && headline) ? `<div class="ie-ai-h mt-4">${escapeHtml(headline)}</div>` : ""}
+      ${(!isV3 && answer) ? `<div class="ie-ai-p">${escapeHtml(answer).replace(/\n/g, "<br/>")}</div>` : ""}
+
+      ${(!isV3 && answerDates.length) ? answerDates.map(d => `
+        <div class="ie-ai-date-block">
+          <div class="ie-ai-date-label">${escapeHtml(d.label ?? d.date ?? "")}</div>
+          ${d.c1 ? `<div class="ie-ai-date-row">${escapeHtml(d.c1).replace(/^(Disponibilité audience\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+          ${d.c2 ? `<div class="ie-ai-date-row">${escapeHtml(d.c2).replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+          ${d.c3 ? `<div class="ie-ai-date-row">${escapeHtml(d.c3).replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+          ${d.c4 ? `<div class="ie-ai-date-row">${escapeHtml(d.c4).replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>` : ""}
+        </div>
+      `).join("") : ""}
 
       ${
         (!isV3 && primaryLink)
@@ -358,7 +378,8 @@ if (!root) {
     autoResizeTextarea(ta);
     syncInputWrapHeight();
 
-    const aiBubble = appendMsg("ai", "Analyse en cours…", "is-loading");
+    const aiBubble = appendMsg("ai", "", "is-loading");
+    setBubbleHtml(aiBubble, `<img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" />`);
 
     try {
       const res = await fetch("/api/insight/prompt", {

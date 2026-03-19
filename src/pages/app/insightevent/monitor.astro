@@ -304,7 +304,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </nav>
 
       <div id="mon-root">
-        <div class="mon-loading">Chargement…</div>
+        <div class="mon-loading" style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" /></div>
       </div>
     </div>
 
@@ -474,14 +474,30 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     return parts.join(" · ");
   }
 
-  function renderFeedItems(items) {
-    if (!items.length) {
-      return `<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun signal détecté.</div>`;
-    }
+  function renderFeedItems(items, showAll = false) {
+    const filtered = showAll ? items : items.filter(a => {
+      const lvl = Number(a?.alert_level) || 0;
+      const sub = String(a?.change_subtype || "");
+      // hide event_removed at level 1 (ingestion noise)
+      if (sub === "event_removed" && lvl < 2) return false;
+      // hide all level 1 by default
+      if (lvl < 2) return false;
+      return true;
+    });
 
+    const toggleHtml = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button type="button" id="mon-feed-toggle" style="font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">
+          ${showAll ? "Réduire" : `Voir tout (${items.length})`}
+        </button>
+      </div>`;
+
+    if (!filtered.length) {
+      return toggleHtml + `<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun signal détecté.</div>`;
+    }
     // Group by affected_date
     const byDate = new Map();
-    for (const a of items) {
+    for (const a of filtered) {
       const d = normalizeYmd(a?.affected_date);
       if (!byDate.has(d)) byDate.set(d, []);
       byDate.get(d).push(a);
@@ -559,15 +575,25 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const alerts = allFeed.filter(a => (Number(a?.alert_level) || 0) >= 2);
     const hasChanges = alerts.length > 0;
     const hasCrit = alerts.some(a => Number(a?.alert_level) >= 3);
+    const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level) >= 2);
+
+    const statusBg    = hasCrit ? "#FCEBEB" : hasWatch ? "#FEF3C7" : hasChanges ? "#F1EFE8" : "rgba(16,185,129,0.1)";
+    const statusColor = hasCrit ? "#791F1F" : hasWatch ? "#92400E" : hasChanges ? "#444441" : "#059669";
+    const statusLabel = hasCrit
+      ? `⚠ ${alerts.length} signal${alerts.length > 1 ? "aux" : ""} critique${alerts.length > 1 ? "s" : ""}`
+      : hasWatch
+      ? `⚠ ${alerts.length} signal${alerts.length > 1 ? "aux" : ""} à surveiller`
+      : hasChanges
+      ? `${alerts.length} changement${alerts.length > 1 ? "s" : ""} détecté${alerts.length > 1 ? "s" : ""}`
+      : "✓ Rien de nouveau";
 
     const statusHtml = `
       <div class="mon-card">
-        <span class="${hasCrit ? "mon-status-crit" : hasChanges ? "mon-status-warn" : "mon-status-ok"}">
-          ${hasCrit ? "⚠ Signaux critiques à surveiller"
-            : hasChanges ? `⚠ ${alerts.length} signal${alerts.length > 1 ? "s" : ""} à surveiller`
-            : "✓ Rien de nouveau depuis votre dernière consultation"}
+        <span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:500;background:${statusBg};color:${statusColor};">
+          ${statusLabel}
         </span>
-        ${renderLast3Feed(allFeed)}
+        ${renderLast3Feed(alerts)}
+        ${alerts.length > 3 ? `<div style="padding:8px 0 0 0;display:flex;justify-content:flex-end;"><button type="button" data-switch-tab="alertes" style="font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">Voir les ${alerts.length} signaux →</button></div>` : ""}
       </div>
     `;
 
@@ -597,23 +623,24 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           </div>
         `).join("")}
       </div>
-    ` : `
+    ` : !hasChanges ? `
       <div class="mon-card">
         <span class="mon-status-ok">✓ Aucun point de vigilance</span>
         <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables pour cet événement.</div>
       </div>
-    `;
+    ` : '';
 
     // Contexte de référence (open by default)
     const contextHtml = renderContext(currentDay, profile);
 
-    return `<div class="mon-panels">${statusHtml}${vigilanceHtml}${contextHtml}</div>`;
+    return `<div class="mon-panels">${vigilanceHtml}${statusHtml}${contextHtml}</div>`;
   }
 
   function renderLast3Feed(allFeed) {
     const last3 = [...allFeed]
+      .filter(a => (Number(a?.alert_level) || 0) >= 2)
       .sort((a, b) => String(b?.feed_date || "").localeCompare(String(a?.feed_date || "")))
-      .slice(0, 3);
+      .slice(0, 5);
 
     if (!last3.length) return "";
 
@@ -730,8 +757,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         : "";
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
-          <span style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;color:#6b7280;">${escapeHtml(label)}</span>
+          <span style="display:flex;align-items:center;gap:0;">
+            <span style="font-size:13px;color:#6b7280;width:200px;flex-shrink:0;">${escapeHtml(label)}</span>
             ${content}
           </span>
           ${cta}
@@ -875,13 +902,25 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     if (activeTab === "recap") {
       tabContent = renderRecap(currentDay, allFeed, item, profile);
     } else if (activeTab === "alertes") {
+      const showAll = (window.__monFeedShowAll === true);
       tabContent = `
         <div class="mon-panels">
           <div style="padding-top:8px;">
-            ${renderFeedItems(allFeed)}
+            ${renderFeedItems(allFeed, showAll)}
           </div>
         </div>
       `;
+      // wire toggle after render
+      setTimeout(() => {
+        const toggleBtn = root.querySelector('#mon-feed-toggle');
+        if (toggleBtn) {
+          toggleBtn.addEventListener('click', () => {
+            window.__monFeedShowAll = !showAll;
+            renderMonitor(data, item, selectedDate, 'alertes');
+          });
+        }
+      }, 0);
+
     } else if (activeTab === "carte") {
       tabContent = `
         <div class="mon-panels">

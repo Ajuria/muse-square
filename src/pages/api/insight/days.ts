@@ -719,9 +719,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // 6) (Optional but recommended) Competition summary inputs
     const competition_summary = (() => {
-      // Simple deterministic: max events in 50km within the selection + how many days have any competition
       let max50 = 0;
       let daysWithCompetition = 0;
+      let daysWithSameBucketCompetition = 0;
+      let maxPressureRatio = 0;
+      let totalSameBucket5km = 0;
+      let baselineAvg: number | null = null;
 
       for (const d of days_deduped) {
         const c =
@@ -734,9 +737,30 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
         const v50 = Number(d?.events_within_50km_count ?? 0);
         if (Number.isFinite(v50)) max50 = Math.max(max50, v50);
+
+        const sameBucket5km = Number(d?.events_within_5km_same_bucket_count ?? 0);
+        if (Number.isFinite(sameBucket5km) && sameBucket5km > 0) {
+          daysWithSameBucketCompetition += 1;
+          totalSameBucket5km += sameBucket5km;
+        }
+
+        const ratio = Number(d?.competition_pressure_ratio ?? 0);
+        if (Number.isFinite(ratio)) maxPressureRatio = Math.max(maxPressureRatio, ratio);
+
+        const baseline = Number(d?.baseline_comp_avg ?? null);
+        if (Number.isFinite(baseline) && baselineAvg === null) baselineAvg = baseline;
       }
 
-      return { daysWithCompetition, max50 };
+      return {
+        daysWithCompetition,
+        max50,
+        daysWithSameBucketCompetition,
+        maxPressureRatio,
+        avgSameBucket5km: daysWithSameBucketCompetition > 0
+          ? Math.round(totalSameBucket5km / daysWithSameBucketCompetition)
+          : 0,
+        baselineAvg,
+      };
     })();
 
     function pickString(obj: any, keys: string[]): string | null {
@@ -802,7 +826,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         city_name: e?.city_name ?? null,
         distance_m: (typeof e?.distance_m === "number" ? e.distance_m : null),
         industry_code: e?.industry_code ?? null,
-        one_liner: eventOneLine(e), // <-- computed, deterministic
+        radius_bucket: e?.radius_bucket ?? null,
+        one_liner: eventOneLine(e),
       }));
     }
 
@@ -861,6 +886,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
           calendar: interpretCalendar(calendarDelta),
         },
         top_competition_events: computeTopCompetitionEvents(day, location_context),
+        competition_context: {
+          events_within_5km_same_bucket_count: day?.events_within_5km_same_bucket_count ?? null,
+          events_within_10km_same_bucket_count: day?.events_within_10km_same_bucket_count ?? null,
+          events_within_50km_same_bucket_count: day?.events_within_50km_same_bucket_count ?? null,
+          pct_same_bucket_5km: day?.pct_same_bucket_5km ?? null,
+          competition_pressure_ratio: day?.competition_pressure_ratio ?? null,
+          baseline_comp_avg: day?.baseline_comp_avg ?? null,
+          has_valid_baseline_flag: day?.has_valid_baseline_flag ?? null,
+          competition_index_local: day?.competition_index_local ?? null,
+        },
       };
     });
 
@@ -870,6 +905,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         selected_dates,
         days: days_with_points_cles,
         alerts,
+        competition_summary,
         // keep global for backward compat (uses first date)
         points_cles: {
           location_context,

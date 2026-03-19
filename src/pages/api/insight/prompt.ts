@@ -230,15 +230,17 @@ function normalizeAiOutput(
       : [];
 
     const answer =
-      typeof out.answer === "string" && out.answer.trim()
-        ? out.answer.trim()
-        : (typeof out.summary === "string" && out.summary.trim()
-            ? out.summary.trim()
-            : (bulletsTxt.length
-                ? `• ${bulletsTxt.slice(0, 5).join("\n• ")}`
-                : (key_facts.length
-                    ? `• ${key_facts.slice(0, 5).join("\n• ")}`
-                    : "Résumé basé sur les données disponibles.")));
+      Array.isArray(out.answer) && out.answer.length
+        ? out.answer
+        : typeof out.answer === "string" && out.answer.trim()
+          ? out.answer.trim()
+          : (typeof out.summary === "string" && out.summary.trim()
+              ? out.summary.trim()
+              : (bulletsTxt.length
+                  ? `• ${bulletsTxt.slice(0, 5).join("\n• ")}`
+                  : (key_facts.length
+                      ? `• ${key_facts.slice(0, 5).join("\n• ")}`
+                      : "Résumé basé sur les données disponibles.")));
 
     const reasons =
       Array.isArray(out.reasons) ? asStringArray(out.reasons)
@@ -287,9 +289,10 @@ function normalizeAiOutput(
 
   // Fallback: use raw_text if present
   const raw = typeof ai?.raw_text === "string" ? ai.raw_text.trim() : "";
+  console.log("[normalizeAiOutput] FALLBACK hit, ai.ok:", ai?.ok, "ai.output:", JSON.stringify(ai?.output)?.slice(0, 100));
   return {
     headline: "Résumé",
-    answer: raw || "Je n’ai pas pu produire une réponse utile avec les données disponibles.",
+    answer: raw || "Je n'ai pas pu produire une réponse utile avec les données disponibles.",
     reasons: [],
     key_facts: [],
     actions,
@@ -1220,12 +1223,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const n10 = typeof c10 === "number" ? c10 : Number(c10);
     const n50 = typeof c50 === "number" ? c50 : Number(c50);
 
+    const ratio = row?.competition_pressure_ratio ?? null;
+    const ratioNum = typeof ratio === "number" ? ratio : Number(ratio);
+
     const facts: Record<string, number | string | boolean | null> = {
+      events_within_500m_count: toNumLocal(row?.events_within_500m_count) || null,
       events_within_5km_count: Number.isFinite(n5) ? n5 : null,
       events_within_10km_count: Number.isFinite(n10) ? n10 : null,
       events_within_50km_count: Number.isFinite(n50) ? n50 : null,
+      events_within_5km_same_bucket_count: toNumLocal(row?.events_within_5km_same_bucket_count) || null,
+      events_within_10km_same_bucket_count: toNumLocal(row?.events_within_10km_same_bucket_count) || null,
+      pct_same_bucket_5km: toNumLocal(row?.pct_same_bucket_5km) || null,
+      competition_pressure_ratio: Number.isFinite(ratioNum) ? ratioNum : null,
+      baseline_comp_avg: toNumLocal(row?.baseline_comp_avg) || null,
       competition_scope: deriveCompetitionScopeLocal(row),
-
     };
 
     const applicable =
@@ -2223,7 +2234,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
             weather_alert_level,
             precipitation_probability_max_pct,
             wind_speed_10m_max,
+            events_within_500m_count,
+            events_within_5km_count,
             events_within_10km_count,
+            events_within_50km_count,
+            events_within_500m_same_bucket_count,
+            events_within_5km_same_bucket_count,
+            events_within_10km_same_bucket_count,
+            events_within_50km_same_bucket_count,
+            pct_same_bucket_5km,
+            competition_index_local,
+            baseline_comp_avg,
+            has_valid_baseline_flag,
+            competition_pressure_ratio,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -2316,7 +2339,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
             weather_alert_level,
             precipitation_probability_max_pct,
             wind_speed_10m_max,
+            events_within_500m_count,
+            events_within_5km_count,
             events_within_10km_count,
+            events_within_50km_count,
+            events_within_500m_same_bucket_count,
+            events_within_5km_same_bucket_count,
+            events_within_10km_same_bucket_count,
+            events_within_50km_same_bucket_count,
+            pct_same_bucket_5km,
+            competition_index_local,
+            baseline_comp_avg,
+            has_valid_baseline_flag,
+            competition_pressure_ratio,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -3245,6 +3280,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
         // ------------------------------------
         // V3 Day → Claude narration
         // ------------------------------------
+        const avg_same_bucket_5km_window_day = (() => {
+          const vals = (Array.isArray(month_days) ? month_days : [])
+            .map((r: any) => {
+              const n = typeof r?.events_within_5km_same_bucket_count === "number"
+                ? r.events_within_5km_same_bucket_count
+                : Number(r?.events_within_5km_same_bucket_count);
+              return Number.isFinite(n) ? n : null;
+            })
+            .filter((n): n is number => n !== null);
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        })();
         const narrative_input_day = {
           horizon: "day",
           intent: "DAY_WHY",
@@ -3277,9 +3323,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
             events_within_10km_count: day_row?.events_within_10km_count ?? null,
             events_within_50km_count: day_row?.events_within_50km_count ?? null,
             delta_att_events_pct: day_row?.delta_att_events_pct ?? null,
+            events_within_5km_same_bucket_count: day_row?.events_within_5km_same_bucket_count ?? null,
+            events_within_10km_same_bucket_count: day_row?.events_within_10km_same_bucket_count ?? null,
+            pct_same_bucket_5km: day_row?.pct_same_bucket_5km ?? null,
+            avg_same_bucket_5km_window: avg_same_bucket_5km_window_day,
+            has_valid_baseline: avg_same_bucket_5km_window_day !== null,
           },
           audience: {
             availability_label: day_row?.audience_availability_label ?? null,
+            is_weekend: day_row?.is_weekend ?? null,
+            is_public_holiday_fr_flag: day_row?.is_public_holiday_fr_flag ?? null,
+            is_school_holiday_flag: day_row?.is_school_holiday_flag ?? null,
+            is_commercial_event_flag: day_row?.is_commercial_event_flag ?? null,
           },
           signals_fr: Array.isArray(day_row?.daily_signal_summary_fr)
             ? day_row.daily_signal_summary_fr
@@ -3535,6 +3590,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
               events_within_5km_count: r?.events_within_5km_count ?? null,
               events_within_10km_count: r?.events_within_10km_count ?? null,
               events_within_50km_count: r?.events_within_50km_count ?? null,
+              events_within_5km_same_bucket_count: r?.events_within_5km_same_bucket_count ?? null,
+              events_within_10km_same_bucket_count: r?.events_within_10km_same_bucket_count ?? null,
+              pct_same_bucket_5km: r?.pct_same_bucket_5km ?? null,
+              competition_pressure_ratio: r?.competition_pressure_ratio ?? null,
+              baseline_comp_avg: r?.baseline_comp_avg ?? null,
             },
           })),
           business_profile: {
@@ -3552,6 +3612,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           });
           producer = "v3_claude";
         } catch (e) {
+          console.error("[COMPARE_DATES] Claude failed, using fallback:", String(e));
           ai = {
             ok: true,
             mode: "deterministic_compare_dates_v1",
@@ -3795,8 +3856,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         precipitation_probability_max_pct: toFiniteNumOrNull(r?.precipitation_probability_max_pct),
         wind_speed_10m_max: toFiniteNumOrNull(r?.wind_speed_10m_max),
 
+        events_within_500m_count: toFiniteNumOrNull(r?.events_within_500m_count),
         events_within_5km_count: toFiniteNumOrNull(r?.events_within_5km_count),
         events_within_10km_count: toFiniteNumOrNull(r?.events_within_10km_count),
+        events_within_50km_count: toFiniteNumOrNull(r?.events_within_50km_count),
+        events_within_500m_same_bucket_count: toFiniteNumOrNull(r?.events_within_500m_same_bucket_count),
+        events_within_5km_same_bucket_count: toFiniteNumOrNull(r?.events_within_5km_same_bucket_count),
+        events_within_10km_same_bucket_count: toFiniteNumOrNull(r?.events_within_10km_same_bucket_count),
+        events_within_50km_same_bucket_count: toFiniteNumOrNull(r?.events_within_50km_same_bucket_count),
+        pct_same_bucket_5km: toFiniteNumOrNull(r?.pct_same_bucket_5km),
+        competition_index_local: toFiniteNumOrNull(r?.competition_index_local),
+        baseline_comp_avg: toFiniteNumOrNull(r?.baseline_comp_avg),
+        competition_pressure_ratio: toFiniteNumOrNull(r?.competition_pressure_ratio),
 
         // useful for UI decisions without inventing routes
         available_next_views: r?.available_next_views ?? null,
@@ -3994,6 +4065,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const winner = rows.length ? rows[0] : null;
+    const avg_same_bucket_5km_window = (() => {
+      const vals = (Array.isArray(month_days) ? month_days : [])
+        .map((r: any) => {
+          const n = typeof r?.events_within_5km_same_bucket_count === "number"
+            ? r.events_within_5km_same_bucket_count
+            : Number(r?.events_within_5km_same_bucket_count);
+          return Number.isFinite(n) ? n : null;
+        })
+        .filter((n): n is number => n !== null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    })();
     if (!winner) {
       throw new Error("No ranked rows available for month narrative V3");
     }
@@ -4053,6 +4135,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       horizon: resolved_horizon,
       intent: resolved_intent,
 
+      top_days: rows.slice(0, top_k).map((r: any) => ({
+        date: ymdFromAnyDate(r?.date),
+        regime: r?.opportunity_regime ?? null,
+        score: (() => {
+          const n = typeof r?.opportunity_score_final_local === "number"
+            ? r.opportunity_score_final_local
+            : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
+          return Number.isFinite(n) ? parseFloat(n.toFixed(1)) : null;
+        })(),
+        is_weekend: r?.is_weekend ?? null,
+        weather_alert_level: r?.weather_alert_level ?? null,
+        precipitation_probability_max_pct: r?.precipitation_probability_max_pct ?? null,
+        events_within_5km_same_bucket_count: r?.events_within_5km_same_bucket_count ?? null,
+        pct_same_bucket_5km: r?.pct_same_bucket_5km ?? null,
+        avg_same_bucket_5km_window,
+        has_valid_baseline: avg_same_bucket_5km_window !== null,
+      })),
+
       used_period: {
         month: window_start.slice(0, 7),
         total_days: Array.isArray(month_days) ? month_days.length : 30,
@@ -4063,10 +4163,33 @@ export const POST: APIRoute = async ({ request, locals }) => {
         impact: dominant?.signal.impact ?? "neutral",
         confidence,
         structural_reason: dominant?.signal.primary_drivers?.[0] ?? null,
-        signal_summary: dominant?.signal.facts ?? {},
+        signal_summary: Object.fromEntries(
+          Object.entries(dominant?.signal.facts ?? {}).filter(
+            ([k]) => k !== "venue_exposure" && k !== "venue_exposure_basis"
+          )
+        ),
       },
 
       secondary_drivers: secondary,
+
+      competition_context: {
+        // Total event density (all industries)
+        events_within_500m_count: winner?.events_within_500m_count ?? null,
+        events_within_5km_count: winner?.events_within_5km_count ?? null,
+        events_within_10km_count: winner?.events_within_10km_count ?? null,
+        events_within_50km_count: winner?.events_within_50km_count ?? null,
+        // Same-industry-bucket density (direct competitors)
+        events_within_500m_same_bucket_count: winner?.events_within_500m_same_bucket_count ?? null,
+        events_within_5km_same_bucket_count: winner?.events_within_5km_same_bucket_count ?? null,
+        events_within_10km_same_bucket_count: winner?.events_within_10km_same_bucket_count ?? null,
+        events_within_50km_same_bucket_count: winner?.events_within_50km_same_bucket_count ?? null,
+        // Directness ratio and relative pressure
+        pct_same_bucket_5km: winner?.pct_same_bucket_5km ?? null,
+        competition_index_local: winner?.competition_index_local ?? null,
+        baseline_comp_avg: winner?.baseline_comp_avg ?? null,
+        has_valid_baseline_flag: winner?.has_valid_baseline_flag ?? null,
+        competition_pressure_ratio: winner?.competition_pressure_ratio ?? null,
+      },
 
       business_profile: {
         location_type: internal_context?.location_type ?? null,
@@ -4075,6 +4198,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         primary_audience_2: internal_context?.primary_audience_2 ?? null,
       },
     };
+
+    console.log("TOP_DAYS_PAYLOAD:", JSON.stringify(narrative_input_v3.top_days, null, 2));
 
     // ------------------------------------
     // 3️⃣ Claude Call (safe wrapper)

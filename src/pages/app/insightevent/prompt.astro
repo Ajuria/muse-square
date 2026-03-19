@@ -229,7 +229,7 @@ if (!location_id) {
 
       /* Thread */
       #ie-thread{ margin-top: 8px; }
-      .ie-msg{ display:flex; margin: 10px 0; }
+      .ie-msg{ display:flex; margin: 32px 0; }
       .ie-msg .ie-bubble{
         max-width: 92%;
         padding: 12px 14px;
@@ -440,6 +440,35 @@ if (!location_id) {
 
       /* Headline spacing when following v3 block */
       .ie-ai-h.mt-4 { margin-top: 20px; }
+
+      .ie-ai-date-block {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-left: 3px solid var(--color-accent, #6366f1);
+        background: var(--color-surface-2, #f8f9fa);
+        border-radius: 0 0.5rem 0.5rem 0;
+      }
+      .ie-ai-date-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+      .ie-ai-date-row {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ie-ai-date-c {
+        font-weight: 600;
+        min-width: 2rem;
+        color: var(--color-accent, #6366f1);
+        flex-shrink: 0;
+      }
 
     </style>
 

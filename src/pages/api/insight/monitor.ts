@@ -118,13 +118,24 @@ export const GET: APIRoute = async ({ url }) => {
         wind_speed_10m_max,
         wind_gusts_10m_max,
 
-        -- Competition
+        -- Competition (total)
         competition_presence_flag,
         events_within_500m_count,
         events_within_5km_count,
         events_within_10km_count,
         events_within_50km_count,
         top_competitors,
+        -- Competition (same industry bucket)
+        events_within_500m_same_bucket_count,
+        events_within_5km_same_bucket_count,
+        events_within_10km_same_bucket_count,
+        events_within_50km_same_bucket_count,
+        pct_same_bucket_5km,
+        -- Competition context (relative pressure)
+        competition_index_local,
+        baseline_comp_avg,
+        has_valid_baseline_flag,
+        competition_pressure_ratio,
 
         -- Context
         holiday_name,
@@ -447,8 +458,23 @@ export const GET: APIRoute = async ({ url }) => {
         // Raw scores for context section
         events_within_500m_count: r.events_within_500m_count ?? 0,
         events_within_5km_count:  r.events_within_5km_count  ?? 0,
+        events_within_10km_count: r.events_within_10km_count ?? 0,
+        events_within_50km_count: r.events_within_50km_count ?? 0,
         alert_level_max:          r.alert_level_max           ?? 0,
         is_major_realization_risk_flag: r.is_major_realization_risk_flag ?? false,
+
+        // Competition (same industry bucket)
+        events_within_500m_same_bucket_count: r.events_within_500m_same_bucket_count ?? null,
+        events_within_5km_same_bucket_count:  r.events_within_5km_same_bucket_count  ?? null,
+        events_within_10km_same_bucket_count: r.events_within_10km_same_bucket_count ?? null,
+        events_within_50km_same_bucket_count: r.events_within_50km_same_bucket_count ?? null,
+        pct_same_bucket_5km:                  r.pct_same_bucket_5km                  ?? null,
+
+        // Competition context (relative pressure)
+        competition_index_local:    r.competition_index_local    ?? null,
+        baseline_comp_avg:          r.baseline_comp_avg          ?? null,
+        has_valid_baseline_flag:    r.has_valid_baseline_flag    ?? null,
+        competition_pressure_ratio: r.competition_pressure_ratio ?? null,
 
         // Delta fields
         delta_att_events_pct:       r.delta_att_events_pct       ?? 0,

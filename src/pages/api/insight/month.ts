@@ -261,7 +261,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
         .map((d) => ({ ...d, date_ymd: asYmd(d?.date) }))
         .filter((d) => d.date_ymd && Number.isFinite(Number(d?.events_within_10km_count)));
 
-      xs.sort((a, b) => Number(b.events_within_10km_count) - Number(a.events_within_10km_count));
+      xs.sort((a, b) => {
+        // Primary: same-bucket competition (direct competitors)
+        const sbA = Number(a?.events_within_5km_same_bucket_count ?? 0);
+        const sbB = Number(b?.events_within_5km_same_bucket_count ?? 0);
+        if (Number.isFinite(sbB) && Number.isFinite(sbA) && sbB !== sbA) return sbB - sbA;
+
+        // Secondary: pressure ratio vs baseline
+        const ratioA = Number(a?.competition_pressure_ratio ?? 0);
+        const ratioB = Number(b?.competition_pressure_ratio ?? 0);
+        if (Number.isFinite(ratioB) && Number.isFinite(ratioA) && ratioB !== ratioA) return ratioB - ratioA;
+
+        // Tiebreaker: total events at 10km
+        return Number(b.events_within_10km_count) - Number(a.events_within_10km_count);
+      });
       return xs.slice(0, n);
     }
 
@@ -336,7 +349,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
         precip_probability_max_pct,
         wind_speed_10m_max,
 
+        events_within_500m_count,
+        events_within_5km_count,
         events_within_10km_count,
+        events_within_50km_count,
+        events_within_500m_same_bucket_count,
+        events_within_5km_same_bucket_count,
+        events_within_10km_same_bucket_count,
+        events_within_50km_same_bucket_count,
+        pct_same_bucket_5km,
+        competition_index_local,
+        baseline_comp_avg,
+        has_valid_baseline_flag,
+        competition_pressure_ratio,
 
         is_public_holiday_fr_flag,
         is_school_holiday_flag,
@@ -739,7 +764,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
       (
         computed_window.days_risk > 0 ||
         hasMeaningfulMeteoSignal(days_deduped) ||
-        worst_competition_days.some(d => Number(d?.events_within_10km_count ?? 0) > 0)
+        worst_competition_days.some(d =>
+          Number(d?.events_within_5km_same_bucket_count ?? 0) > 0 ||
+          Number(d?.events_within_10km_count ?? 0) > 0
+        )
       );
 
     // HARD GUARD — if BQ is already slow, skip AI to protect UX

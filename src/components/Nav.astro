@@ -98,7 +98,8 @@ const isAppShell = isApp;
               <li>
                 {(() => {
                  const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
-                 const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
+                 const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
+                 const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || cookieDate;
                  const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
                   ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
                   : null;

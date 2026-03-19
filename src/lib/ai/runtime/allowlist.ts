@@ -133,6 +133,22 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
   "delta_att_events_pct",
   "delta_att_weather_total_pct",
   "audience_availability_label",
+  // ---- V3 mobility narrative keys ----
+  "disruptions",
+  // ---- V3 competition context (relative pressure + same-bucket) ----
+  "competition_context",
+  "competition_pressure_ratio",
+  "competition_index_local",
+  "baseline_comp_avg",
+  "has_valid_baseline_flag",
+  "avg_same_bucket_5km_window",
+  "has_valid_baseline",
+  "pct_same_bucket_5km",
+  "events_within_500m_count",
+  "events_within_500m_same_bucket_count",
+  "events_within_5km_same_bucket_count",
+  "events_within_10km_same_bucket_count",
+  "events_within_50km_same_bucket_count",
 ];
 
 function isObject(x: unknown): x is Record<string, unknown> {
@@ -166,4 +182,13 @@ export function pickAllowedPayload(row: Record<string, any>): Record<string, any
     }
   }
   return out;
+}
+
+export function assertPayloadCoverage(payload: Record<string, any>): void {
+  const missing = Object.keys(payload).filter(
+    k => !ALLOWED_INPUT_FIELDS.includes(k)
+  );
+  if (missing.length > 0) {
+    console.warn("[allowlist] Fields not in allowlist (Claude won't see them):", missing);
+  }
 }

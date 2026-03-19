@@ -1426,7 +1426,7 @@ const show_actions = has_selected_dates;
 
           <!-- Focused day container -->
           <div id="day-content" data-location-id={location_id} class="min-h-[120px]">
-            <div class="text-gray-400 text-sm">Chargement…</div>
+            <div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" /></div>
           </div>
         </div>
 
@@ -4372,7 +4372,7 @@ const show_actions = has_selected_dates;
         async function loadSavedItems() {
           const savedPanel = getSavedPanel();
           if (!savedPanel) return;
-          savedPanel.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+          savedPanel.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" /></div>`;
           const items = await fetchSavedItems().catch(() => []);
           renderSavedPanel(items);
         }
@@ -4410,7 +4410,7 @@ const show_actions = has_selected_dates;
               setLayoutMode("detail");
               if (container) {
                 container.style.display = "";
-                container.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+                container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" /></div>`
               }
 
               const item = await fetchSavedItemById(savedItemId);
@@ -4464,7 +4464,7 @@ const show_actions = has_selected_dates;
           // Do NOT render empty state yet. Decide after we know if saved items exist.
           (async () => {
             const savedPanel = getSavedPanel();
-            if (savedPanel) savedPanel.innerHTML = `<div class="text-gray-400 text-sm">Chargement…</div>`;
+            if (savedPanel) savedPanel.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" /></div>`;
 
             const items = await fetchSavedItems().catch(() => []);
             renderSavedPanel(items);

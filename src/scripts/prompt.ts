@@ -82,9 +82,11 @@ function renderAI(mount: HTMLElement, data: any) {
     const bodyText =
       (typeof ai?.answer === "string" && ai.answer.trim())
         ? ai.answer
-        : (typeof ai?.output?.text === "string" && ai.output.text.trim())
-          ? ai.output.text
-          : (ai?.output?.summary ?? "");
+        : (typeof ai?.output?.answer === "string" && ai.output.answer.trim())
+          ? ai.output.answer
+          : (typeof ai?.output?.text === "string" && ai.output.text.trim())
+            ? ai.output.text
+            : (ai?.output?.summary ?? "");
 
     const bodyHtml = escapeHtml(bodyText).replace(/\n/g, "<br/>");
 
