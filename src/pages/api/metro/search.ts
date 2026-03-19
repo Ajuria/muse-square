@@ -37,10 +37,23 @@ export const GET: APIRoute = async ({ url }) => {
       ANY_VALUE(nom_commune) AS nom_commune,
       ANY_VALUE(mode) AS mode,
       STRING_AGG(DISTINCT route_long_name, ', ' ORDER BY route_long_name) AS lines
-    FROM \`${projectId}.${dataset}.dim_idf_stops_lines\`
-    WHERE LOWER(stop_name) LIKE LOWER(@prefix)
+    FROM \`${projectId}.dims.dim_idf_stops_lines\`
+    WHERE LOWER(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(stop_name, r'[éèêë]', 'e'),
+        r'[àâä]', 'a'),
+      r'[îï]', 'i')
+    ) LIKE CONCAT('%', LOWER(@prefix), '%')
     GROUP BY stop_name
-    ORDER BY stop_name ASC
+    ORDER BY
+      CASE mode
+        WHEN 'Metro' THEN 0
+        WHEN 'RapidTransit' THEN 1
+        WHEN 'Tram' THEN 2
+        ELSE 3
+      END ASC,
+      stop_name ASC
     LIMIT 10
   `;
 
@@ -48,7 +61,7 @@ export const GET: APIRoute = async ({ url }) => {
     const [rows] = await bigquery.query({
       query: sql,
       location: BQ_LOCATION,
-      params: { prefix: `${q}%` },
+      params: { prefix: q },
       types: { prefix: "STRING" },
     });
 

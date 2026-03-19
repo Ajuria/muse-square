@@ -552,8 +552,14 @@ const selected_origin_city_ids = [
 
   <script>
     // @ts-nocheck
-    let metroConfirmed = false;
-    let addressConfirmed = false;
+    window.metroConfirmed = false;
+    window.addressConfirmed = false;
+
+    // If fields are pre-filled from saved profile, mark as confirmed
+    const _metroInput = document.getElementById('metroStopInput');
+    const _addressInput = document.getElementById('companyAddressInput');
+    if (_metroInput instanceof HTMLInputElement && _metroInput.value.trim() !== '') window.metroConfirmed = true;
+    if (_addressInput instanceof HTMLInputElement && _addressInput.value.trim() !== '') window.addressConfirmed = true;
 
     const profileForm = document.getElementById('profileForm');
 
@@ -614,7 +620,7 @@ const selected_origin_city_ids = [
 
         const metroInput = form.querySelector('#metroStopInput');
         const metroVal = metroInput instanceof HTMLInputElement ? metroInput.value.trim() : "";
-        if (metroVal !== "" && !metroConfirmed) {
+        if (metroVal !== "" && !window.metroConfirmed) {
           if (button) button.textContent = originalText;
           form.dataset.saving = "0";
           if (button) button.disabled = false;
@@ -624,7 +630,7 @@ const selected_origin_city_ids = [
 
         const addressInput = form.querySelector('#companyAddressInput');
         const addressVal = addressInput instanceof HTMLInputElement ? addressInput.value.trim() : "";
-        if (addressVal !== "" && !addressConfirmed) {
+        if (addressVal !== "" && !window.addressConfirmed) {
           if (button) button.textContent = originalText;
           form.dataset.saving = "0";
           if (button) button.disabled = false;
@@ -786,7 +792,7 @@ const selected_origin_city_ids = [
 
       let activeIndex = -1;
       let items = [];
-      let metroConfirmed = false;
+      window.metroConfirmed = false;
 
       function hide() {
         box.classList.add("hidden");
@@ -845,7 +851,7 @@ const selected_origin_city_ids = [
         const s = items[i];
         if (!s) return;
         input.value = s.stop_name;
-        metroConfirmed = true;
+        window.metroConfirmed = true;
         const idInput = document.getElementById("nearest_transit_stop_id");
         const linesInput = document.getElementById("nearest_transit_lines");
         if (idInput instanceof HTMLInputElement) idInput.value = s.stop_id || "";
@@ -854,7 +860,7 @@ const selected_origin_city_ids = [
       }
 
       const onInput = debounce(async () => {
-        metroConfirmed = false;
+        window.metroConfirmed = false;
         const idInput = document.getElementById("nearest_transit_stop_id");
         const linesInput = document.getElementById("nearest_transit_lines");
         if (idInput instanceof HTMLInputElement) idInput.value = "";
@@ -997,13 +1003,13 @@ const selected_origin_city_ids = [
         const label = f?.properties?.label;
         if (typeof label === "string" && label.trim()) {
           input.value = label.trim();
-          addressConfirmed = true;
+          window.addressConfirmed = true;
         }
         hide();
       }
 
       const onInput = debounce(async () => {
-        addressConfirmed = false;
+        window.addressConfirmed = false;
         const q = input.value.trim();
         if (q.length < 6) {
           hide();
