@@ -379,7 +379,7 @@ if (!root) {
     syncInputWrapHeight();
 
     const aiBubble = appendMsg("ai", "", "is-loading");
-    setBubbleHtml(aiBubble, `<img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" />`);
+    setBubbleHtml(aiBubble, `<div style="display:flex;justify-content:center;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`);
 
     try {
       const res = await fetch("/api/insight/prompt", {

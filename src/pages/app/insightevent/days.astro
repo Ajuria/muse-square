@@ -418,11 +418,11 @@ const show_actions = has_selected_dates;
     align-items:center;
     justify-content:center;
     padding:6px 10px;
-    border-radius:12px;
+    border-radius:0;
     font-size:12px;
-    border:1px solid #e5e7eb;
-    background:#f9fafb;
-    color:#111827;
+    border:1px solid #1D3BB3;
+    background:#E6EBF8;
+    color:#1D3BB3;
   }
 
   .ms-chip-date.removable {
@@ -853,14 +853,14 @@ const show_actions = has_selected_dates;
   .ms-pill:disabled{ opacity:0.45; cursor:not-allowed; }
 
   /* ---------- Saved list (template-like rows) ---------- */
-  .ms-saved-wrap{ width:100%; max-width:720px; margin:0 auto; padding-top:6px; }
+  .ms-saved-wrap{ width:100%; max-width:720px; margin:0 auto; padding-top:40px; }
 
   .ms-saved-hero{
-    font-size:24px;
-    line-height:1.05;
-    font-weight:500;
+    font-size:28px;
+    line-height:1.1;
+    font-weight:300;
     letter-spacing:-0.02em;
-    margin:10px 0 18px 0;
+    margin:10px 0 20px 0;
     color:#111827;
   }
 
@@ -990,28 +990,28 @@ const show_actions = has_selected_dates;
     width:100%;
     max-width:560px;
     background:#fff;
-    border-radius:22px;
-    border:1px solid #eef2f7;
+    border-radius:0;
+    border:1px solid #e5e7eb;
     box-shadow:0 22px 60px rgba(17,24,39,0.22);
     overflow:hidden;
   }
   .ms-modal-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 18px; }
   .ms-modal-title{ font-size:16px; font-weight:700; color:#111827; }
   .ms-modal-sub{ margin-top:4px; font-size:13px; color:#6b7280; }
-  .ms-modal-x{ border:1px solid #eef2f7; background:#fff; border-radius:12px; padding:6px 10px; cursor:pointer; }
+  .ms-modal-x{ border:1px solid #e5e7eb; background:#fff; border-radius:0; padding:6px 10px; cursor:pointer; }
 
   .ms-modal-body{ padding:14px 18px 16px 18px; display:flex; flex-direction:column; gap:12px; }
   .ms-field{ display:block; }
   .ms-label{ font-size:12px; font-weight:600; color:rgba(17,24,39,0.55); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
-  .ms-input{ width:100%; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; font:inherit; background:#fff; }
-  .ms-textarea{ width:100%; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; font:inherit; background:#fff; }
+  .ms-input{ width:100%; border:0; border-bottom:1.5px solid #d1d5db; border-radius:0; padding:10px 0; font:inherit; background:transparent; }
+  .ms-textarea{ width:100%; border:1px solid #e5e7eb; border-radius:0; padding:10px 12px; font:inherit; background:#fff; }
   .ms-datechips{ display:flex; flex-wrap:wrap; gap:6px; }
   .ms-error{ margin-top:2px; color:#b91c1c; font-size:13px; }
 
   .ms-modal-actions{ padding:0 18px 18px 18px; display:flex; gap:10px; justify-content:flex-end; }
-  .ms-btn{ border-radius:999px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; text-transform:none; }
+  .ms-btn{ border-radius:0; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; text-transform:none; }
   .ms-btn.ghost{ border:none; background:none; color:#111827; }
-  .ms-btn.solid{ border:1px solid #111827; background:#111827; color:#fff; }
+  .ms-btn.solid{ border:1px solid #111827; background:transparent; color:#111827; }
   .ms-btn:disabled{ opacity:0.55; cursor:not-allowed; }
 
   /* --- Card-level tabs (Analyse / Alertes) --- */
@@ -2280,7 +2280,7 @@ const show_actions = has_selected_dates;
                 ${bodyHtml ? `<div class="ms-below">${bodyHtml}</div>` : ""}
 
                 ${!hideVoirPlus ? `
-                <div style="margin-top:16px;">
+                               <div style="margin-top:16px;display:flex;justify-content:flex-end;">
                   <a href="/app/insightevent/map?date=${escapeHtml(selectedDate)}&selected_dates=${escapeHtml(selectedDates.join(','))}"
                     style="font-size:13px;font-weight:600;color:#1D3BB3;text-decoration:none;">
                     Voir plus →

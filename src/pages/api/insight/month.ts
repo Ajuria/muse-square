@@ -162,13 +162,15 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // ---- QUERY PARAMS ----
     const url = new URL(request.url);
-    const anchor_date = url.searchParams.get("anchor_date") || "";
-    const selected_date = url.searchParams.get("selected_date") || "";
+    const _raw_anchor = url.searchParams.get("anchor_date") || "";
+    const _raw_selected = url.searchParams.get("selected_date") || "";
+    const anchor_date = _raw_anchor === "__comparison__" ? "" : _raw_anchor;
+    const selected_date = _raw_selected === "__comparison__" ? "" : _raw_selected;
     const today_str = ymdUtcToday();
 
+    const _raw_window_start = url.searchParams.get("window_start_date") ?? "";
     const window_start_date = requireString(
-      url.searchParams.get("window_start_date") ??
-        url.searchParams.get("window_start_date"),
+      _raw_window_start === "__comparison__" ? ymdUtcToday() : _raw_window_start,
       "window_start_date"
     );
 

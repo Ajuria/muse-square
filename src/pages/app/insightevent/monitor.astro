@@ -30,7 +30,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         width: 100%;
         max-width: 720px;
         margin: 0 auto;
-        padding: 16px 20px 160px 20px;
+        padding: 20px 20px 160px 20px;
         box-sizing: border-box;
         overflow: hidden;
       }
@@ -295,7 +295,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     </style>
 
     <div class="mon-wrap">
-      <nav class="mon-breadcrumb">
+      <nav class="mon-breadcrumb" style="display:none;">
         <a href="#" id="mon-breadcrumb-recap">Situation</a>
         <span id="mon-breadcrumb-sub" style="display:none;">
           <span>/</span>

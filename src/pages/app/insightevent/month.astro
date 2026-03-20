@@ -14,15 +14,16 @@ const u = new URL(Astro.request.url);
 // If user lands on /month with no canonical params, redirect before any HTML renders.
 // This eliminates the second page-load, hence eliminates the second API call.
 if (!u.searchParams.get("window_start_date")) {
+  const rawSelected = u.searchParams.get("selected_date") || "";
+  const rawAnchor = u.searchParams.get("anchor_date") || "";
+  const isPlaceholder = (v: string) => !v || v === "__comparison__";
   const base =
-    u.searchParams.get("selected_date") ||
-    u.searchParams.get("anchor_date") ||
+    (!isPlaceholder(rawSelected) ? rawSelected : null) ||
+    (!isPlaceholder(rawAnchor) ? rawAnchor : null) ||
     ymdUtcToday();
-
   u.searchParams.set("window_start_date", base);
   u.searchParams.set("selected_date", base);
   u.searchParams.set("anchor_date", base);
-
   return Astro.redirect(u.pathname + u.search, 302);
 }
 
@@ -1082,11 +1083,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       #ie-30d-view-details {
         flex: 0 0 auto;
         border: 0;
-        border-radius: 999px;
+        border-radius: 0;
         padding: 8px 14px;
         font-size: 12px;
         font-weight: 700;
-        background: #111;
+        background: #1D3BB3;
         color: #fff;
         cursor: pointer;
         white-space: nowrap;
@@ -1145,23 +1146,20 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         display: inline-flex;
         align-items: center;
         justify-content: center;
-
         padding: 6px 10px;
-        border-radius: 12px;
-        background: rgba(17,24,39,0.06);
-        border: 1px solid rgba(17,24,39,0.10);
-
+        border-radius: 0;
+        background: #E6EBF8;
+        border: 1px solid #1D3BB3;
         font-size: 12px;
         font-weight: 500;
         line-height: 1;
-
-        color: var(--color-text-primary);
+        color: #1D3BB3;
         white-space: nowrap;
         user-select: none;
       }
-
       .ie-pill:hover{
-        border-color: rgba(17,24,39,0.18);
+        background: #d0d8f5;
+        border-color: #1630a0;
       }
 
       #ie-30d-selected-hint{

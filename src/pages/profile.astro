@@ -210,7 +210,7 @@ const selected_origin_city_ids = [
                     name="first_name"
                     required
                     value={saved_safe?.first_name ?? ""}
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                   />
                 </div>
 
@@ -223,7 +223,7 @@ const selected_origin_city_ids = [
                     name="last_name"
                     required
                     value={saved_safe?.last_name ?? ""}
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                   />
                 </div>
               </div>
@@ -236,7 +236,7 @@ const selected_origin_city_ids = [
                   type="text"
                   name="position"
                   value={saved_safe?.position ?? ""}
-                  class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                 />
               </div>
 
@@ -249,8 +249,8 @@ const selected_origin_city_ids = [
                   name="email"
                   value={saved_safe?.email ?? ""}
                   readonly
-                  style="background:#f9fafb !important; color:#6b7280 !important;"
-                  class="w-full px-6 py-4 border-0 rounded-2xl text-base cursor-not-allowed"
+                  style="color:#6b7280 !important;"
+                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-200 text-base cursor-not-allowed"
                 />
               </div>
 
@@ -287,7 +287,7 @@ const selected_origin_city_ids = [
                   name="company_name"
                   required
                   value={saved_safe?.company_name ?? ""}
-                  class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                 />
               </div>
 
@@ -302,13 +302,14 @@ const selected_origin_city_ids = [
                   name="company_address"
                   autocomplete="off"
                   value={saved_safe?.company_address ?? ""}
-                  class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                 />
 
                 <!-- Suggestions dropdown -->
                 <div
                   id="companyAddressSuggestions"
-                  class="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hidden"
+                  class="absolute z-50 mt-2 w-full bg-white shadow-lg border border-gray-200 overflow-hidden hidden"
+                  style="border-radius:0;"
                 ></div>
 
                 <p class="text-xs text-gray-500 mt-2">Commencez à taper, puis sélectionnez une proposition.</p>
@@ -323,7 +324,7 @@ const selected_origin_city_ids = [
                   <select
                     name="company_activity_type"
                     required
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all appearance-none pr-12"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
                   >
                     <option value="non_profit">Associatif & Non lucratif</option>
                     <option value="wellness">Bien-être & Fitness</option>
@@ -360,7 +361,8 @@ const selected_origin_city_ids = [
                     required
                     multiple
                     size="6"
-                    class="w-full px-6 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all overflow-auto"
+                    class="w-full px-6 py-4 bg-white border-0 border-b border-gray-300 text-base focus:outline-none transition-all overflow-auto"
+                    style="border-radius:0;"
                   >
                     <option value="">Sélectionner...</option>
                     <option value="local" selected={selected_audiences.includes("local")}>Public local / résidents</option>
@@ -386,7 +388,8 @@ const selected_origin_city_ids = [
                     required
                     multiple
                     size="12"
-                    class="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all overflow-auto"
+                    class="w-full px-5 py-4 bg-white border-0 border-b border-gray-300 text-base focus:outline-none transition-all overflow-auto"
+                    style="border-radius:0;"
                   >
                     <optgroup label="Île-de-France">
                       <option value="75056" selected={selected_origin_city_ids.includes("75056")}>Paris</option>
@@ -439,7 +442,7 @@ const selected_origin_city_ids = [
                   <select
                     name="event_time_profile"
                     required
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all appearance-none pr-12"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
                   >
                     <option value="">Sélectionner...</option>
                     <option value="day" selected={(saved_safe?.event_time_profile ?? "") === "day"}>Journée</option>
@@ -473,7 +476,7 @@ const selected_origin_city_ids = [
                   <select
                     name="location_type"
                     required
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all appearance-none pr-12"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
                   >
                     <option value="">Sélectionner...</option>
                     <option value="outdoor" selected={(saved_safe?.location_type ?? "") === "outdoor"}>Espace extérieur</option>
@@ -496,7 +499,7 @@ const selected_origin_city_ids = [
                   <select
                     name="location_access_pattern"
                     required
-                    class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all appearance-none pr-12"
+                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
                   >
                     <option value="">Sélectionner...</option>
                     <option value="public_transit" selected={(saved_safe?.location_access_pattern ?? "") === "public_transit"}>Transports en commun / Métro</option>
@@ -523,11 +526,12 @@ const selected_origin_city_ids = [
                   placeholder="Rechercher une station..."
                   autocomplete="off"
                   value={saved_safe?.nearest_transit_stop ?? ""}
-                  class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
                 />
                 <div
                   id="metroStopSuggestions"
-                  class="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hidden"
+                  class="absolute z-50 mt-2 w-full bg-white shadow-lg border border-gray-200 overflow-hidden hidden"
+                  style="border-radius:0;"
                 ></div>
                 <p class="text-xs text-gray-500 mt-2">Tapez pour rechercher</p>
               </div>
@@ -1081,24 +1085,24 @@ const selected_origin_city_ids = [
 
 <!-- Password change modal -->
 <div id="pwd-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:420px;margin:0 20px;position:relative;">
+  <div style="background:#fff;border-radius:0;padding:32px;width:100%;max-width:420px;margin:0 20px;position:relative;"></div>
     <button id="pwd-modal-close" type="button" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">✕</button>
     <h2 style="font-size:18px;font-weight:600;margin:0 0 24px 0;">Modifier mon mot de passe</h2>
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div>
         <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Mot de passe actuel</label>
-        <input id="pwd-current" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+        <input id="pwd-current" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
       </div>
       <div>
         <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Nouveau mot de passe</label>
-        <input id="pwd-new" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+        <input id="pwd-new" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
       </div>
       <div>
         <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Confirmer le nouveau mot de passe</label>
-        <input id="pwd-confirm" type="password" style="width:100%;padding:14px 16px;background:#f9fafb;border:0;border-radius:12px;font-size:15px;box-sizing:border-box;" />
+        <input id="pwd-confirm" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
       </div>
       <div id="pwd-status" style="font-size:13px;min-height:20px;"></div>
-      <button id="pwd-submit" type="button" style="width:100%;height:52px;background:#000;color:#fff;border:none;border-radius:12px;font-size:15px;cursor:pointer;">Enregistrer</button>
+      <button id="pwd-submit" type="button" style="width:100%;height:52px;background:transparent;color:#111827;border:1.5px solid #111827;border-radius:0;font-size:15px;cursor:pointer;font-weight:600;">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1178,6 +1182,12 @@ const selected_origin_city_ids = [
       submitBtn.textContent = 'Enregistrer';
     }
   });
+
 </script>
 
+<style>
+  select, select[multiple] {
+    border-radius: 0 !important;
+  }
+</style>
 </BaseLayout>
