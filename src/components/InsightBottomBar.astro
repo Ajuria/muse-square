@@ -165,11 +165,28 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
       window.open(url.toString(), "_blank", "noopener,noreferrer");
     }
 
+    function showToast(msg) {
+      const existing = document.getElementById("ms-toast");
+      if (existing) existing.remove();
+      const el = document.createElement("div");
+      el.id = "ms-toast";
+      el.textContent = msg;
+      el.style.cssText = `
+        position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+        background:#111827;color:#fff;font-size:13px;font-weight:500;
+        padding:10px 20px;border-radius:8px;z-index:9999;
+        white-space:nowrap;pointer-events:none;
+        animation:ms-toast-in 200ms ease;
+      `;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
     async function copyToClipboardOrFallback(text) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
           await navigator.clipboard.writeText(text);
-          alert("Lien copié.");
+          showToast("Lien copié ✓");
           return true;
         } catch (_) {}
       }
@@ -253,6 +270,11 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
 .ms-bottombar-btn--text:hover{
   text-decoration: underline;
   text-decoration-color: #111827;
+}
+
+@keyframes ms-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 </style>
 
