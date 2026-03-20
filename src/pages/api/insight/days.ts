@@ -857,10 +857,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
         return "Très peu de concurrence événementielle.";
       }
 
-      function interpretWeather(v:number){
-        if(v > 1) return "Météo favorable à la fréquentation.";
-        if(v > -1) return "Conditions météo globalement neutres.";
-        return "Conditions météo défavorables pour la fréquentation.";
+      function interpretWeather(_v:number){
+        const alertMax = Number(day?.alert_level_max ?? 0);
+        const lvlRain  = Number(day?.lvl_rain  ?? 0);
+        const lvlSnow  = Number(day?.lvl_snow  ?? 0);
+        const lvlWind  = Number(day?.lvl_wind  ?? 0);
+        const lvlHeat  = Number(day?.lvl_heat  ?? 0);
+        const lvlCold  = Number(day?.lvl_cold  ?? 0);
+        const locationType = location_context?.location_type ?? null;
+        const isIndoor = locationType === "indoor";
+        if (alertMax >= 3 || lvlSnow >= 2) return isIndoor ? "Accès au site potentiellement perturbé." : "Risque élevé sur la fréquentation et les installations.";
+        if (alertMax >= 1 || lvlRain >= 2 || lvlWind >= 2) return isIndoor ? "Légère friction à l'entrée, sans impact sur la venue globale." : "Surveiller l'impact sur la fréquentation et les installations extérieures.";
+        if (lvlRain === 1 || lvlWind === 1) return isIndoor ? "Aucun impact attendu sur la venue." : "Impact limité, surveiller les installations légères.";
+        if (lvlHeat >= 1) return isIndoor ? "Chaleur forte : prévoir climatisation." : "Chaleur forte : impact possible sur le confort et le temps de présence.";
+        if (lvlCold >= 1) return isIndoor ? "Froid intense : prévoir chauffage à l'entrée." : "Froid intense : impact possible sur la fréquentation.";
+        return "Aucun impact météo attendu sur la venue ou les installations.";
       }
 
       function interpretMobility(v:number){

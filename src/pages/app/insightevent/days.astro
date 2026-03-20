@@ -3598,23 +3598,20 @@ const show_actions = has_selected_dates;
           }
 
           function renderConcurrenceHexLike(r) {
-
-            const summary = r?.interpretation?.events || "";
-
             const rawEvents = Array.isArray(r?.top_competition_events)
               ? r.top_competition_events
               : [];
-
             const events = Object.values(
               Object.fromEntries(rawEvents.map(e => [e.event_label, e]))
             );
-
-            // Raw counts from model fields (city-normalized)
-            const count500m = Number(r?.events_within_500m_count) || 0;
-            const count5km = Number(r?.events_within_5km_count) || 0;
-
-            // Pressure pill derived from model's normalized delta (city-aware)
+            const count500m = Number(r?.events_within_500m_same_bucket_count || r?.events_within_500m_count) || 0;
+            const count5km = Number(r?.events_within_5km_same_bucket_count) || 0;
             const deltaEvents = Number(r?.delta_att_events_pct ?? 0);
+            const summary = (() => {
+              if (deltaEvents > 3)  return `${count5km} événements concurrents dans un rayon de 5 km — au-dessus de la moyenne (+${Math.round(deltaEvents)}%)`;
+              if (deltaEvents < -3) return `${count5km} événements concurrents dans un rayon de 5 km — en-dessous de la moyenne (${Math.round(deltaEvents)}%)`;
+              return `${count5km} événements concurrents dans un rayon de 5 km — dans la moyenne`;
+            })();
             const pressurePill = (() => {
               if (deltaEvents > 3)  return { label: "Élevée",  style: "background:#FCEBEB;color:#791F1F;" };
               if (deltaEvents < -3) return { label: "Faible",  style: "background:rgba(16,185,129,0.1);color:#059669;" };
@@ -3879,7 +3876,20 @@ const show_actions = has_selected_dates;
             const headlineParts = [];
             if (weatherLabel) headlineParts.push(weatherLabel);
             if (alertMax > 0) headlineParts.push(`Alerte niveau ${alertMax}`);
-            const headline = headlineParts.join(" — ") || "Conditions météo";
+            const headlineBase = headlineParts.join(" — ") || "Conditions météo";
+            const headline = (() => {
+              const hasHazard = lvlRain > 0 || lvlSnow > 0 || lvlHeat > 0 || lvlCold > 0 || lvlWind > 0;
+              if (!hasHazard && alertMax === 0) {
+                return isIndoor
+                  ? `${headlineBase} — Conditions favorables en intérieur`
+                  : isMixed
+                  ? `${headlineBase} — Conditions favorables`
+                  : `${headlineBase} — Conditions favorables en extérieur`;
+              }
+              if (isIndoor) return `${headlineBase} — Impact limité en intérieur`;
+              if (isMixed) return `${headlineBase} — Surveiller les espaces extérieurs`;
+              return `${headlineBase} — Conditions défavorables en extérieur`;
+            })();
 
             const freqImpact = (() => {
               const hasAttendanceHazard = lvlRain > 0 || lvlSnow > 0 || lvlHeat > 0 || lvlCold > 0;
