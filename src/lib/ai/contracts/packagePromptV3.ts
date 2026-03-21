@@ -83,11 +83,11 @@ Tu dois :
 - Pour la concurrence, utilise UNIQUEMENT events_within_5km_same_bucket_count et pct_same_bucket_5km.
   N'utilise PAS events_within_10km_count, events_within_50km_count, competition_index_local, baseline_comp_avg, competition_pressure_ratio dans le texte narratif — ce sont des signaux internes non interprétables directement.
   Formulation attendue quand has_valid_baseline = true :
-    Si events_within_5km_same_bucket_count > avg_same_bucket_5km_window * 1.2 → "X événements du même secteur à 5 km — plus chargé que la moyenne du mois (moy. : Y)"
-    Si events_within_5km_same_bucket_count < avg_same_bucket_5km_window * 0.8 → "X événements du même secteur à 5 km — moins chargé que la moyenne du mois (moy. : Y)"
-    Sinon → "X événements du même secteur à 5 km — dans la moyenne du mois (moy. : Y)"
+    Si events_within_5km_same_bucket_count > avg_same_bucket_5km_window * 1.2 → "X événements concurrents dans un rayon de 5 km — plus chargé que la moyenne du mois (moy. : Y)"
+    Si events_within_5km_same_bucket_count < avg_same_bucket_5km_window * 0.8 → "X événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : Y)"
+    Sinon → "X événements concurrents dans un rayon de 5 km — dans la moyenne du mois (moy. : Y)"
   Formulation attendue sans baseline (has_valid_baseline = false ou null) :
-    "X événements du même secteur à 5 km"
+    "X événements concurrents dans un rayon de 5 km"
   Où Y = Math.round(avg_same_bucket_5km_window).
 - Pour la météo, utilise weather_alert_level, precipitation_probability_max_pct, wind_speed_10m_max.
   Ne mentionne la météo que si weather_alert_level > 0 OU precipitation_probability_max_pct > 50.
@@ -112,10 +112,11 @@ intent = "WINDOW_TOP_DAYS" ou "WINDOW_WORST_DAYS" :
     "date": "YYYY-MM-DD",
     "label": "[Jour DD mois YYYY, classé [regime], soit [score]/10]",
     "c1": "Disponibilité audience : [1 phrase max. Utilise is_weekend, business_profile.event_time_profile, primary_audience_1, primary_audience_2. N'invente aucun chiffre.]",
-    "c2": "Pression concurrentielle : [Applique règle relative standard. Si has_valid_baseline = true : X événements du même secteur à 5 km — [plus chargé / moins chargé / dans la moyenne] du mois (moy. : Y). Si false : X événements du même secteur à 5 km.]",
+    "c2": "Pression concurrentielle : [Applique règle relative standard. Si has_valid_baseline = true : X événements concurrents dans un rayon de 5 km — [plus chargé / moins chargé / dans la moyenne] du mois (moy. : Y). Si false : X événements concurrents dans un rayon de 5 km.]",
     "c3": "Accessibilité du site : [Si mobility_score >= 7 ou null : Aucune perturbation détectée. Si < 7 : Mobilité potentiellement impactée.]",
     "c4": "Conditions d'exploitation : [Si alert_level_max = 0 ET precip <= 30 : Conditions météo favorables. Sinon : quantifie le risque en 1 phrase.]"
   }
+  verdict : 1 phrase de conclusion. Format obligatoire pour WINDOW_TOP_DAYS : "Si votre critère principal est la pression événementielle, choisissez le [date] : [N] événements concurrents de moins dans un rayon de 5 km." Format obligatoire pour WINDOW_WORST_DAYS : "Si votre critère principal est la pression événementielle, évitez le [date] : [N] événements concurrents de plus dans un rayon de 5 km."
   headline : 1 fait synthétique sur l'ensemble des dates. Maximum 15 mots.
 
 intent = "DAY_WHY" :
@@ -132,7 +133,7 @@ intent = "DAY_WHY" :
   Paragraphe 2 — Pression concurrentielle :
     Utilise competition.events_within_5km_same_bucket_count et avg_same_bucket_5km_window.
     Si has_valid_baseline = true, applique la règle relative standard (même règle que WINDOW_TOP_DAYS).
-    Si has_valid_baseline = false, dis uniquement : "X événements du même secteur à 5 km ce jour." Sans pourcentage, sans relative language.
+    Si has_valid_baseline = false, dis uniquement : "X événements concurrents dans un rayon de 5 km ce jour." Sans pourcentage, sans relative language.
 
   Paragraphe 3 — Accessibilité du site :
     Utilise scoring.mobility_score.
@@ -151,10 +152,18 @@ intent = "DAY_WHY" :
   INTRO OBLIGATOIRE : Avant les 4 paragraphes, écris 1 phrase d'introduction qui répond directement à la question "pourquoi ce jour est-il bien/mal noté ?". Utilise scoring.regime et primary_driver.label_fr. Exemple : "Ce dimanche est bien noté principalement grâce à la disponibilité de votre audience et à une faible pression concurrentielle."
 
 intent = "COMPARE_DATES" :
-  1 phrase : quelle date a moins d'événements du même secteur à 5 km, et de combien.
-  1 phrase : météo si différente entre les deux dates.
-  1 phrase de conclusion max 15 mots : laquelle choisir et pourquoi en 3 mots.
-  Maximum 3 phrases au total dans answer.
+  answer est un tableau JSON. Un objet par date dans dates[].
+  Chaque objet a exactement ces champs :
+  {
+    "date": "YYYY-MM-DD",
+    "label": "[Jour DD mois YYYY]",
+    "c1": "Disponibilité audience : [1 phrase max.]",
+    "c2": "Pression concurrentielle : [Applique règle relative standard.]",
+    "c3": "Accessibilité du site : [1 phrase max.]",
+    "c4": "Conditions d'exploitation : [1 phrase max.]"
+  }
+  verdict : 1 phrase de conclusion. Format obligatoire : "Choisissez le [date] : [N] événements concurrents de moins dans un rayon de 5 km."
+  headline : 1 fait synthétique sur la différence principale entre les dates. Maximum 15 mots.
 
 intent = "MOBILITY_DISRUPTIONS" :
   Si disruptions[] est vide ou toutes is_active = false :
@@ -176,12 +185,13 @@ Retourne STRICTEMENT un objet JSON valide, sans markdown, sans commentaires :
 
 {
   "headline": string,
-  "answer": string,
+  "verdict": string,
+  "answer": string | array,
   "key_facts": string[],
   "reasons": [],
   "caveats": string[]
 }
-
+- verdict : 1 phrase de conclusion positionnée EN HAUT, avant answer. Toujours présent pour WINDOW_TOP_DAYS, WINDOW_WORST_DAYS et COMPARE_DATES. Format : "Choisissez le [date] : [N] événements concurrents de moins dans un rayon de 5 km." ou "Si votre critère principal est la pression événementielle, choisissez le [date] : [N] événements concurrents de moins dans un rayon de 5 km."
 - headline : 1 fait principal en langage direct. Maximum 15 mots. Chiffre clé obligatoire si disponible. Pas d'analyse, pas de jargon.
 - answer : contient les faits ET les implications pratiques, en un seul bloc de texte continu.
   1 phrase par date listée. 1 phrase de conclusion. 1 à 2 phrases pratiques pour l'organisateur ("Prévoyez...", "Communiquez...", "Attendez-vous à...").
@@ -204,7 +214,7 @@ EXEMPLE — intent = "WINDOW_TOP_DAYS" (3 dates) :
       "date": "2026-06-21",
       "label": "Dimanche 21 juin 2026, classé B, soit 7,7/10",
       "c1": "Disponibilité audience : dimanche non férié, audience professionnelle locale disponible toute la journée.",
-      "c2": "Pression concurrentielle : 58 événements du même secteur à 5 km — dans la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 58 événements concurrents dans un rayon de 5 km — dans la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."
     },
@@ -212,7 +222,7 @@ EXEMPLE — intent = "WINDOW_TOP_DAYS" (3 dates) :
       "date": "2026-06-30",
       "label": "Mardi 30 juin 2026, classé B, soit 7,4/10",
       "c1": "Disponibilité audience : jour de semaine, audience professionnelle locale disponible après 18h.",
-      "c2": "Pression concurrentielle : 45 événements du même secteur à 5 km — moins chargé que la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 45 événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."
     },
@@ -220,7 +230,7 @@ EXEMPLE — intent = "WINDOW_TOP_DAYS" (3 dates) :
       "date": "2026-06-26",
       "label": "Vendredi 26 juin 2026, classé B, soit 7,4/10",
       "c1": "Disponibilité audience : vendredi, audience professionnelle locale disponible dès 17h.",
-      "c2": "Pression concurrentielle : 50 événements du même secteur à 5 km — moins chargé que la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 50 événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."
     }
@@ -238,7 +248,7 @@ EXEMPLE — intent = "WINDOW_WORST_DAYS" (3 dates) :
       "date": "2026-06-05",
       "label": "Vendredi 5 juin 2026, classé B, soit 7,1/10",
       "c1": "Disponibilité audience : jour de semaine, audience professionnelle locale disponible après 18h uniquement.",
-      "c2": "Pression concurrentielle : 65 événements du même secteur à 5 km — plus chargé que la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 65 événements concurrents dans un rayon de 5 km — plus chargé que la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu."
     },
@@ -246,7 +256,7 @@ EXEMPLE — intent = "WINDOW_WORST_DAYS" (3 dates) :
       "date": "2026-06-06",
       "label": "Samedi 6 juin 2026, classé B, soit 7,1/10",
       "c1": "Disponibilité audience : week-end, audience professionnelle locale disponible toute la journée.",
-      "c2": "Pression concurrentielle : 67 événements du même secteur à 5 km — plus chargé que la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 67 événements concurrents dans un rayon de 5 km — plus chargé que la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu."
     },
@@ -254,7 +264,7 @@ EXEMPLE — intent = "WINDOW_WORST_DAYS" (3 dates) :
       "date": "2026-06-07",
       "label": "Dimanche 7 juin 2026, classé B, soit 7,1/10",
       "c1": "Disponibilité audience : week-end, audience professionnelle locale disponible toute la journée.",
-      "c2": "Pression concurrentielle : 64 événements du même secteur à 5 km — plus chargé que la moyenne du mois (moy. : 54).",
+      "c2": "Pression concurrentielle : 64 événements concurrents dans un rayon de 5 km — plus chargé que la moyenne du mois (moy. : 54).",
       "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.",
       "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu."
     }
@@ -268,8 +278,8 @@ RÈGLE ABSOLUE POUR DAY_WHY : Le paragraphe "Disponibilité de votre audience" n
 
 EXEMPLE — intent = "DAY_WHY" :
 {
-  "headline": "Dimanche bien noté : audience disponible, 58 événements du même secteur — dans la moyenne du mois (moy. : 58)",
-  "answer": "Ce dimanche est bien noté principalement grâce à la disponibilité maximale de votre audience et à une pression concurrentielle dans la moyenne du mois.\n\nDisponibilité de votre audience : dimanche non férié, votre audience professionnelle locale est disponible toute la journée.\n\nPression concurrentielle : 58 événements du même secteur à 5 km — dans la moyenne du mois (moy. : 58).\n\nAccessibilité du site : aucune perturbation de mobilité détectée. Accès fluide pour visiteurs et prestataires.\n\nConditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation.",
+  "headline": "Dimanche bien noté : audience disponible, 58 événements concurrents — dans la moyenne du mois (moy. : 58)",
+  "answer": "Ce dimanche est bien noté principalement grâce à la disponibilité maximale de votre audience et à une pression concurrentielle dans la moyenne du mois.\n\nDisponibilité de votre audience : dimanche non férié, votre audience professionnelle locale est disponible toute la journée.\n\nPression concurrentielle : 58 événements concurrents dans un rayon de 5 km — dans la moyenne du mois (moy. : 58).\n\nAccessibilité du site : aucune perturbation de mobilité détectée. Accès fluide pour visiteurs et prestataires.\n\nConditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation.",
   "key_facts": [],
   "reasons": [],
   "caveats": []
@@ -277,8 +287,8 @@ EXEMPLE — intent = "DAY_WHY" :
 
 EXEMPLE — intent = "COMPARE_DATES" :
 {
-  "headline": "Le 15 juin a 4 événements de moins du même secteur à 5 km",
-  "answer": "Le 2 juin présente 63 événements du même secteur à 5 km — dans la moyenne du mois (moy. : 61), contre 59 le 15 juin — légèrement en dessous.\n\nMétéo similaire sur les deux dates, aucune alerte.\n\nChoisissez le 15 juin : moins de concurrence directe. Le 15 juin est un lundi : public disponible après 18h uniquement.",
+  "headline": "Le 15 juin a 4 événements de moins concurrents dans un rayon de 5 km",
+  "answer": "Le 2 juin présente 63 événements concurrents dans un rayon de 5 km — dans la moyenne du mois (moy. : 61), contre 59 le 15 juin — légèrement en dessous.\n\nMétéo similaire sur les deux dates, aucune alerte.\n\nChoisissez le 15 juin : moins de concurrence directe. Le 15 juin est un lundi : public disponible après 18h uniquement.",
   "key_facts": [],
   "reasons": [],
   "caveats": []

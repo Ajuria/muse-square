@@ -67,6 +67,7 @@ type ApiActions = {
 
 type AiResponseV1 = {
   headline: string;
+  verdict: string;
   answer: string;
   reasons: string[];
   key_facts: string[];
@@ -201,6 +202,7 @@ function normalizeAiOutput(
   ) {
     return {
       headline: out.headline,
+      verdict: typeof out.verdict === "string" ? out.verdict.trim() : "",
       answer: out.answer,
       reasons: asStringArray(out.reasons),
       key_facts: asStringArray(out.key_facts),
@@ -259,9 +261,8 @@ function normalizeAiOutput(
 
     return {
       headline,
-      answer, // ✅ use the computed answer (summary/bullets/key_facts fallback)
-      // Deterministic engines are allowed to ship user-facing key_facts.
-      // We control duplication elsewhere (conversation layer / deterministic_reasons).
+      verdict: typeof out.verdict === "string" ? out.verdict.trim() : "",
+      answer,
       reasons: isDeterministicMode ? [] : (
         (Array.isArray(out.reasons) && out.reasons.length)
           ? asStringArray(out.reasons)
@@ -278,6 +279,7 @@ function normalizeAiOutput(
   if (typeof out === "string" && out.trim()) {
     return {
       headline: "Résumé",
+      verdict: "",
       answer: out.trim(),
       reasons: [],
       key_facts: [],
@@ -292,6 +294,7 @@ function normalizeAiOutput(
   console.log("[normalizeAiOutput] FALLBACK hit, ai.ok:", ai?.ok, "ai.output:", JSON.stringify(ai?.output)?.slice(0, 100));
   return {
     headline: "Résumé",
+    verdict: "",
     answer: raw || "Je n'ai pas pu produire une réponse utile avec les données disponibles.",
     reasons: [],
     key_facts: [],
@@ -612,7 +615,11 @@ function isEventLookupQuestion(qRaw: string): boolean {
     s.includes("pentecote") ||
     s.includes("pentecôte") ||
     s.includes("feria") ||
-    s.includes("festival");
+    s.includes("festival")||
+    s.includes("concert de") ||
+    s.includes("concert d") ||
+    s.includes("tournee de") ||
+    s.includes("tournée de");
 
   if (explicitLookup) return true;
 
@@ -2159,7 +2166,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ------------------------------------
     // LOOKUP OVERRIDE (after compare logic)
     // ------------------------------------
-    if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "month" && isEventLookupQuestion(qRaw)) {
+    if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
       resolved_horizon = "lookup_event";
       resolved_intent = "LOOKUP_EVENT";
     }
@@ -3280,8 +3287,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
         // ------------------------------------
         // V3 Day → Claude narration
         // ------------------------------------
-        const avg_same_bucket_5km_window_day = (() => {
-          const vals = (Array.isArray(month_days) ? month_days : [])
+        const avg_same_bucket_5km_window_day = await (async () => {
+          const ws = effective_date.slice(0, 7) + "-01";
+          const rows = await bqAll(
+            `
+            WITH win AS (
+              SELECT
+                DATE(@window_start_date) AS window_start_date,
+                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+            )
+            SELECT events_within_5km_same_bucket_count
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+            WHERE location_id = @location_id
+              AND date BETWEEN (SELECT window_start_date FROM win)
+                          AND (SELECT window_end_date FROM win)
+            `,
+            bqParams({ location_id, window_start_date: ws })
+          );
+          const vals = rows
             .map((r: any) => {
               const n = typeof r?.events_within_5km_same_bucket_count === "number"
                 ? r.events_within_5km_same_bucket_count
@@ -3348,6 +3371,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             primary_audience_2: internal_context?.primary_audience_2 ?? null,
           },
         };
+
+        console.log("[DAY_WHY payload] competition:", JSON.stringify(narrative_input_day.competition));
 
         try {
           ai = await runAIPackagerClaude({
@@ -3644,23 +3669,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
+        const q_lookup_accented = String(qRaw ?? "")
+          .toLowerCase()
+          .replace(/^(quand a lieu|à quelle date|c'est quand|dates de|date de)\s+/i, "")
+          .replace(/^(le|la|les|un|une|des|l'|d'|du|de la|des|de)\s*/i, "")
+          .replace(/[?!.,;:]+$/g, "")
+          .trim();
+
         const q_entity = q_lookup_raw
-          // remove common question shells
+          .replace(/^y['']a(-t-il)?\s+(quoi comme|des|un|une)?\s*/i, "")
+          .replace(/^qu['']est-ce qu['']il y a\s+(comme)?\s*/i, "")
+          .replace(/^c['']est quoi\s+(comme)?\s*/i, "")
+          .replace(/^quels?\s+(sont les|evenements|événements|concerts?)?\s*/i, "")
           .replace(/^a quelle date a lieu\s+/i, "")
           .replace(/^à quelle date a lieu\s+/i, "")
           .replace(/^quand a lieu\s+/i, "")
-          .replace(/^c['’]est quand\s+/i, "")
+          .replace(/^c['']est quand\s+/i, "")
           .replace(/^dates de\s+/i, "")
           .replace(/^date de\s+/i, "")
-          // remove leading french determiners / contractions that break LIKE
           .replace(/^(le|la|les|un|une|des)\s+/i, "")
-          .replace(/^l['’]\s*/i, "")
-          .replace(/^d['’]\s*/i, "")
+          .replace(/^l['']\s*/i, "")
+          .replace(/^d['']\s*/i, "")
           .replace(/^du\s+/i, "")
           .replace(/^de\s+/i, "")
           .replace(/^de la\s+/i, "")
           .replace(/^des\s+/i, "")
-          // strip trailing punctuation
+          .replace(/\s+(en|au|a|à)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(\s+\d{4})?$/i, "")
           .replace(/[?!.,;:]+$/g, "")
           .trim();
 
@@ -3675,7 +3709,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
             city_name,
             region_insee,
             source_system,
-            industry_code
+            industry_code,
+            description,
+            longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
           WHERE
             (
@@ -3693,7 +3729,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
               WHEN 'national' THEN 4
               ELSE 5
             END
-          LIMIT 1
+          LIMIT 10
         `;
 
         const lookupSqlFallback = `
@@ -3707,7 +3743,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
             city_name,
             region_insee,
             source_system,
-            industry_code
+            industry_code,
+            description,
+            longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
           WHERE
             LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
@@ -3720,6 +3758,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 r'[îï]', 'i'),
               r'[ôö]', 'o')
             ) LIKE CONCAT('%', @q_entity, '%')
+            OR (
+              @q_token1 != '' AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token1, '%')
+              AND (@q_token2 = '' OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token2, '%'))
+            )
           ORDER BY
             CASE scope_type
               WHEN 'location' THEN 1
@@ -3728,8 +3770,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
               WHEN 'national' THEN 4
               ELSE 5
             END
-          LIMIT 1
+          LIMIT 10
         `;
+
+        console.log("[lookup] q_entity:", q_entity);
+        const q_tokens = q_entity.split(/\s+/).filter((w: string) => w.length >= 4);
+        const q_token1 = q_tokens[0] ?? "";
+        const q_token2 = q_tokens[1] ?? "";
 
         const rows_scoped = await bqAll(
           lookupSqlScoped,
@@ -3741,45 +3788,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
           })
         );
 
-        let rows = rows_scoped;
+        const rows_global = await bqAll(
+          lookupSqlFallback,
+          bqParams({ q_entity, q_token1, q_token2 })
+        );
 
-        if (!Array.isArray(rows_scoped) || rows_scoped.length === 0) {
-          const rows_global = await bqAll(
-            lookupSqlFallback,
-            bqParams({ q_entity })
-          );
-          rows = rows_global;
-        }
+        const rows_accented = q_lookup_accented !== q_entity
+          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2 }))
+          : [];
 
-        // Fallback: retry with individual tokens (first and last meaningful words)
-        // Handles "feria de nîmes" where city is last token
-        if (!Array.isArray(rows) || rows.length === 0) {
-          const tokens = q_entity.split(/\s+/).filter(w => w.length >= 4);
-          // Try last token first (usually city name), then first token
-          const tryOrder = [...new Set([tokens[tokens.length - 1], tokens[0]])].filter(Boolean);
-          
-          for (const token of tryOrder) {
-            if (!token || token === q_entity) continue;
-
-            const rows_token_scoped = await bqAll(
-              lookupSqlScoped,
-              bqParams({ q_entity: token, location_id, city_id, region_insee })
-            );
-            if (Array.isArray(rows_token_scoped) && rows_token_scoped.length > 0) {
-              rows = rows_token_scoped;
-              break;
-            }
-
-            const rows_token_global = await bqAll(
-              lookupSqlFallback,
-              bqParams({ q_entity: token })
-            );
-            if (Array.isArray(rows_token_global) && rows_token_global.length > 0) {
-              rows = rows_token_global;
-              break;
-            }
-          }
-        }
+        let rows = [...(rows_scoped ?? []), ...(rows_global ?? []), ...(rows_accented ?? [])];
+        console.log("[lookup] raw rows count:", rows.length, "unique names:", [...new Set(rows.map((r: any) => r?.event_name))]);
 
         lookup_mode = Array.isArray(rows_scoped) && rows_scoped.length ? "scoped" : "fallback_global";
         lookup_sql_used = lookup_mode;
@@ -3793,30 +3812,67 @@ export const POST: APIRoute = async ({ request, locals }) => {
         lookup_hit = lookup_result;
 
         // --- V3: Shared Lookup IR builder ---
-        const ir = buildLookupIRV1FromRow(hit);
-
-        // Render via shared deterministic renderer
-        const render_lines = renderLineItemsFrV1({
-          line_items: ir.line_items,
-          facts_by_date: ir.facts_by_date,
+        const allHitsRaw = Array.isArray(rows) && rows.length ? rows : (hit ? [hit] : []);
+        const seen = new Set<string>();
+        const allHits = allHitsRaw.filter((r: any) => {
+          const key = `${r?.event_name ?? ""}__${r?.event_start_date?.value ?? r?.event_start_date ?? ""}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
         });
 
         const headline =
-          render_lines.find((l) => l.kind === "headline")?.text_fr ??
-          "Résultat événement";
+          allHits.length === 0
+            ? "Aucun événement trouvé"
+            : allHits.length === 1
+              ? `${allHits[0]?.event_name ?? "Événement trouvé"}`
+              : `${allHits.length} événements trouvés`;
 
-        const key_facts =
-          render_lines
-            .filter((l) => l.kind !== "headline")
-            .map((l) => l.text_fr);
+        const key_facts = allHits
+          .sort((a: any, b: any) => {
+            const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+            const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+            return da.localeCompare(db);
+          })
+          .map((r: any) => {
+            try {
+              const name = r?.event_name ?? "Événement";
+              const desc = typeof r?.longDescription === "string" && r.longDescription.trim()
+                ? r.longDescription.trim().slice(0, 500)
+                : null;
+              if (desc) return `${name}\n${desc}`;
+              return name;
+            } catch (e) {
+              return r?.event_name ?? "Événement";
+            }
+          });
+
+        const answer = allHits.length === 0
+          ? "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation."
+          : allHits
+              .sort((a: any, b: any) => {
+                const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+                const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+                return da.localeCompare(db);
+              })
+              .map((r: any) => {
+                const raw = r?.event_name ?? "";
+                const desc = typeof r?.longDescription === "string" && r.longDescription.trim()
+                  ? r.longDescription.trim().slice(0, 300)
+                  : "";
+                return desc ? `${raw}||${desc}` : raw;
+              })
+              .join("\n");
+        
+        console.log("[lookup] answer:", JSON.stringify(answer));
 
         ai = {
           ok: true,
           mode: "deterministic_lookup_event_ir_v1",
           output: {
             headline,
-            answer: "",
-            key_facts,
+            answer,
+            key_facts: [],
             reasons: [],
             caveats: [],
           },
@@ -3895,8 +3951,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           type: "redirect",
           url: month_redirect_url,
           label: resolved_intent === "WINDOW_WORST_DAYS"
-            ? "Ouvrir le mois (jours à éviter)"
-            : "Ouvrir le mois (shortlist)",
+            ? "Ouvrir le mois"
+            : "Ouvrir le mois",
         };
       }
     } else if (resolved_horizon === "day") {
@@ -3906,7 +3962,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         focus: "shortlist",
         from_prompt: true,
       });
-      primary = { type: "redirect", url, label: "Ouvrir le mois (ancré sur ce jour)" };
+      primary = { type: "redirect", url, label: "Ouvrir le mois" };
     } else if (resolved_horizon === "selected_days") {
       // No route guessing. Fallback = month anchored on first selected date.
       if (first_selected_date) {
@@ -3915,7 +3971,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           focus: "shortlist",
           from_prompt: true,
         });
-        primary = { type: "redirect", url, label: "Ouvrir le mois (ancré sur la 1ère date)" };
+        primary = { type: "redirect", url, label: "Ouvrir le mois" };
       }
     }
 
@@ -4299,9 +4355,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // ---- normalized_ai (stable contract for UI) ----
-    const normalized_ai: AiResponseV1 = {
+        const normalized_ai: AiResponseV1 = {
       ...normalized_ai_base,
-
+      verdict: typeof (normalized_ai_base as any).verdict === "string" ? (normalized_ai_base as any).verdict : "",
       caveats: asStringArray(normalized_ai_base.caveats),
 
       // Reasons: only for day / selected_days (fallback to deterministic if AI has none)
@@ -4335,6 +4391,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           // Legacy UI readers often detect "displayable content" via ai.output.summary/headline
           output: {
             headline: normalized_ai.headline,
+            verdict: normalized_ai.verdict,
             answer: (typeof normalized_ai.answer === "string" ? normalized_ai.answer : ""),
             key_facts: Array.isArray(normalized_ai.key_facts) ? normalized_ai.key_facts : [],
             reasons: Array.isArray(normalized_ai.reasons) ? normalized_ai.reasons : [],

@@ -3194,11 +3194,11 @@ const show_actions = has_selected_dates;
             })();
 
             return `
-              <div style="background:rgba(29,59,179,0.04);border-left:6px solid #0b37e5;padding:24px;margin:0 12px;">
+              <div style="background:rgba(29,59,179,0.04);border-left:6px solid #0b37e5;padding:24px;margin:0 12px;min-height:var(--ms-hero-card-height,auto);">
               
                 <!-- Date + countdown row -->
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
-                  <span style="font-size:15px;font-weight:600;color:var(--color-brand-blue);text-transform:uppercase;letter-spacing:0.06em;">${escapeHtml(capitalizedDate)}</span>
+                  <span style="font-size:13px;font-weight:700;color:#1D3BB3;text-transform:uppercase;letter-spacing:0.10em;">${escapeHtml(capitalizedDate)}</span>
                   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
                     ${decisionCountdown ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;">Choix limite de date : ${escapeHtml(decisionCountdown)}</span>` : ""}
                     ${safeDelta !== null && !decisionCountdown ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;">${formattedDelta} VS SEMAINE DERNIÈRE</span>` : ""}

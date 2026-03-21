@@ -112,6 +112,7 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
   "winner_date",
   "tie_flag",
   "dates",
+  "verdict",
   // ---- V3 day narrative structured keys ----
   "scoring",
   "primary_driver",

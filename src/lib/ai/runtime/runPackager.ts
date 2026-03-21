@@ -137,6 +137,9 @@ export async function runAIPackagerClaude(args: {
       ) {
         errors.push("v3_narrative: missing answer");
       }
+      if (typeof output.verdict !== "string") {
+        errors.push("v3_narrative: verdict must be a string");
+      }
       if (!Array.isArray(output.key_facts)) {
         errors.push("v3_narrative: key_facts must be an array");
       }
@@ -202,7 +205,7 @@ export async function runAIPackagerClaude(args: {
     system: system_prompt,
     userPayload: payload,
     temperature: 0,
-    maxTokens: 1024,
+    maxTokens: 2048,
     timeoutMs: 30_000,
   });
 
