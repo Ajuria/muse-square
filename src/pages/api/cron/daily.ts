@@ -33,6 +33,8 @@ export const GET: APIRoute = async ({ request }) => {
           s.clerk_user_id,
           p.email,
           p.first_name,
+          p.primary_audience_1,
+          p.primary_audience_2,
           DATE_DIFF(s.selected_date, CURRENT_DATE('Europe/Paris'), DAY) AS days_until,
           COALESCE(n.daily_j7, FALSE) AS daily_j7
         FROM \`${projectId}.raw.saved_items\` s
@@ -179,8 +181,8 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
       }).join("")}
     </td></tr>` : "";
 
-  const aud1 = day?.primary_audience_1 ?? null;
-  const aud2 = day?.primary_audience_2 ?? null;
+  const aud1 = row?.primary_audience_1 ?? null;
+  const aud2 = row?.primary_audience_2 ?? null;
   const audMap: Record<string,string> = {
     local: "Résidents locaux", professionals: "Professionnels",
     tourists: "Touristes", students: "Étudiants / Scolaires",
