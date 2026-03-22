@@ -135,69 +135,50 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
   const firstName = row.first_name ? String(row.first_name) : "vous";
   const title = esc(row.title);
   const selectedDate = fmtDate(row.selected_date);
-  const urgencyBg = daysUntil === 0 ? "#E24B4A" : daysUntil <= 3 ? "#EF9F27" : "#0b37e5";
   const countdownLabel = daysUntil === 0 ? "Aujourd'hui" : `J-${daysUntil}`;
   const monitorUrl = `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(String(row.saved_item_id))}&date=${encodeURIComponent(String(row.selected_date?.value ?? row.selected_date ?? ""))}`;
 
-  // ---- Score ----
+  const bodyText = daysUntil === 0
+    ? `Bonjour ${esc(firstName)}, c'est le jour J — voici ce que vous devez savoir avant de vous lancer.`
+    : isMandatory
+    ? `Bonjour ${esc(firstName)}, votre événement du ${esc(selectedDate)} approche — voici les derniers risques à surveiller.`
+    : `Bonjour ${esc(firstName)}, voici ce qui pourrait affecter votre événement du ${esc(selectedDate)} — concurrence, météo et accessibilité au site.`;
+
   const score = day?.opportunity_score_final_local ?? null;
-  const scoreHtml = score !== null
-    ? `<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:16px;">
-        <span style="font-size:40px;font-weight:300;color:#111827;line-height:1;">${esc(String(score))}</span>
-        <span style="font-size:16px;color:#9ca3af;">/10</span>
-        <span style="font-size:12px;color:#6b7280;margin-left:4px;">Indice de faisabilité</span>
-       </div>`
-    : "";
 
-  // ---- Alerts ----
   const criticalAlerts = alerts.filter((a: any) => Number(a?.alert_level) >= 3);
-  const alertsHtml = criticalAlerts.length > 0
-    ? `<div style="background:#FCEBEB;border-left:3px solid #E24B4A;padding:12px 16px;margin-bottom:20px;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#A32D2D;margin-bottom:8px;">
-          ⚠ ${criticalAlerts.length} signal${criticalAlerts.length > 1 ? "s" : ""} à surveiller
-        </div>
-        ${criticalAlerts.slice(0, 3).map((a: any) => {
-          const cat = String(a?.change_category || "").toLowerCase();
-          const catLabel = cat === "competition" ? "Concurrent détecté"
-            : cat === "context" ? "Alerte météo"
-            : cat === "mobility" ? "Mobilité perturbée"
-            : "Signal détecté";
-          const date = fmtDate(a?.affected_date);
-          const dirLabel = String(a?.direction || "").toLowerCase();
-          const dirStyle = dirLabel === "up" || dirLabel === "improved"
-            ? "background:#EAF3DE;color:#3B6D11;"
-            : dirLabel === "down" || dirLabel === "worsened"
-            ? "background:#FCEBEB;color:#791F1F;"
-            : "background:#FAEEDA;color:#854F0B;";
-          const dirText = dirLabel === "up" || dirLabel === "improved" ? "Amélioration"
-            : dirLabel === "down" || dirLabel === "worsened" ? "Dégradation"
-            : "Changement";
-          return `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:13px;color:#374151;">
-              <span>${esc(catLabel)} · ${esc(date)}</span>
-              ${pill(dirText, dirStyle)}
+  const alertsHtml = criticalAlerts.length > 0 ? `
+    <tr><td style="background:#ffffff;padding:40px 40px 0 40px;">
+      <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:20px;">Alertes</div>
+      ${criticalAlerts.slice(0, 3).map((a: any) => {
+        const cat = String(a?.change_category || "").toLowerCase();
+        const catLabel = cat === "competition" ? "Concurrent détecté"
+          : cat === "context" ? "Alerte météo"
+          : cat === "mobility" ? "Mobilité perturbée"
+          : "Signal détecté";
+        const date = fmtDate(a?.affected_date);
+        const dirLabel = String(a?.direction || "").toLowerCase();
+        const dirStyle = dirLabel === "up" || dirLabel === "improved"
+          ? "background:#EAF3DE;color:#3B6D11;"
+          : dirLabel === "down" || dirLabel === "worsened"
+          ? "background:#FCEBEB;color:#791F1F;"
+          : "background:#FAEEDA;color:#854F0B;";
+        const dirText = dirLabel === "up" || dirLabel === "improved" ? "Amélioration"
+          : dirLabel === "down" || dirLabel === "worsened" ? "Dégradation"
+          : "Changement";
+        return `
+          <div style="border-left:2px solid #0b37e5;padding:14px 18px;background:#f8f9ff;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+              <div>
+                <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:4px;">${esc(catLabel)} · ${esc(date)}</div>
+                <div style="font-size:12px;color:#6b7280;line-height:1.5;">${esc(String(a?.summary || ""))}</div>
+              </div>
+              <span style="font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;${dirStyle}">${esc(dirText)}</span>
             </div>
-          `;
-        }).join("")}
-      </div>`
-    : "";
+          </div>`;
+      }).join("")}
+    </td></tr>` : "";
 
-  // ---- Key metrics ----
-  const eventsScore = day?.events_score ?? null;
-  const weatherScore = day?.weather_score ?? null;
-  const mobilityScore = day?.mobility_score ?? null;
-  const calendarScore = day?.calendar_score ?? null;
-
-  function scorePill(v: any): string {
-    const n = parseFloat(String(v ?? ""));
-    if (!Number.isFinite(n)) return "<span style='color:#9ca3af;'>—</span>";
-    const style = n >= 7 ? "background:#EAF3DE;color:#3B6D11;"
-      : n >= 5 ? "background:#FAEEDA;color:#854F0B;"
-      : "background:#FCEBEB;color:#791F1F;";
-    return pill(`${n.toFixed(1)}/10`, style);
-  }
-
-  // ---- Audience ----
   const aud1 = day?.primary_audience_1 ?? null;
   const aud2 = day?.primary_audience_2 ?? null;
   const audMap: Record<string,string> = {
@@ -232,12 +213,11 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
   const audienceRows = [aud1, aud2].filter(Boolean).map((a: any) => {
     const av = audAvail(a);
     return `<tr>
-      <td style="padding:8px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${esc(audMap[a] ?? a)}</td>
-      <td style="padding:8px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(av.label, av.style)}</td>
+      <td style="padding:10px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${esc(audMap[a] ?? a)}</td>
+      <td style="padding:10px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(av.label, av.style)}</td>
     </tr>`;
   }).join("");
 
-  // ---- Concurrence ----
   const c500 = Number(day?.events_within_500m_count ?? 0);
   const c5km = Number(day?.events_within_5km_count ?? 0);
   const deltaEvents = Number(day?.delta_att_events_pct ?? 0);
@@ -245,7 +225,6 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
     : deltaEvents < -3 ? { label: "Faible", style: "background:#EAF3DE;color:#3B6D11;" }
     : { label: "Normale", style: "background:#F1EFE8;color:#444441;" };
 
-  // ---- Accessibilité ----
   const deltaAtt = Number(day?.delta_att_mobility_pct ?? 0);
   const deltaOps = Number(day?.delta_ops_mobility_car_pct ?? 0);
   const attVerdict = deltaAtt >= 0 ? { label: "Fluide", style: "background:#EAF3DE;color:#3B6D11;" }
@@ -254,7 +233,6 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
   const opsVerdict = deltaOps >= 0 ? { label: "Fluide", style: "background:#EAF3DE;color:#3B6D11;" }
     : { label: "Perturbé", style: "background:#FAEEDA;color:#854F0B;" };
 
-  // ---- Exploitation météo ----
   const alertMax = Number(day?.alert_level_max ?? 0);
   const freqImpact = alertMax >= 3 ? { label: "Défavorable", style: "background:#FCEBEB;color:#791F1F;" }
     : alertMax >= 1 ? { label: "Modéré", style: "background:#FAEEDA;color:#854F0B;" }
@@ -266,78 +244,51 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
     : { label: "Aucun risque", style: "background:#EAF3DE;color:#3B6D11;" };
 
   const metricsHtml = day ? `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
-
-      <!-- Scores -->
-      <tr>
-        <td colspan="2" style="padding:0 0 8px 0;">
-          <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Scores composants</div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Audience</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${scorePill(calendarScore)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Concurrence</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${scorePill(eventsScore)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Accessibilité</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${scorePill(mobilityScore)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Météo</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${scorePill(weatherScore)}</td>
-      </tr>
-
-      <!-- Audience -->
-      <tr><td colspan="2" style="padding:20px 0 8px 0;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Audience</div>
-      </td></tr>
-      ${audienceRows || `<tr><td colspan="2" style="font-size:13px;color:#9ca3af;padding:4px 0;">—</td></tr>`}
-
-      <!-- Concurrence -->
-      <tr><td colspan="2" style="padding:20px 0 8px 0;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Concurrence</div>
-      </td></tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${c500} événements &lt; 500m</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(concPressure.label, concPressure.style)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${c5km} événements &lt; 5km</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;"></td>
-      </tr>
-
-      <!-- Accessibilité -->
-      <tr><td colspan="2" style="padding:20px 0 8px 0;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Accessibilité</div>
-      </td></tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Visiteurs &lt; 5km</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(attVerdict.label, attVerdict.style)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Prestataires &lt; 10km</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(opsVerdict.label, opsVerdict.style)}</td>
-      </tr>
-
-      <!-- Exploitation -->
-      <tr><td colspan="2" style="padding:20px 0 8px 0;">
-        <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;">Exploitation</div>
-      </td></tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Impact fréquentation</td>
-        <td style="padding:6px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(freqImpact.label, freqImpact.style)}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;font-size:13px;color:#374151;">Risque installation</td>
-        <td style="padding:6px 0;text-align:right;">${pill(installRisk.label, installRisk.style)}</td>
-      </tr>
-
-    </table>
-  ` : `<p style="font-size:13px;color:#9ca3af;">Données indisponibles pour cette date.</p>`;
+    <tr><td style="background:#ffffff;padding:40px 40px 0 40px;">
+      <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:20px;">Audience</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${audienceRows || `<tr><td colspan="2" style="font-size:13px;color:#9ca3af;padding:4px 0;">—</td></tr>`}
+      </table>
+    </td></tr>
+    <tr><td style="background:#ffffff;padding:40px 40px 0 40px;">
+      <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:20px;">Concurrence</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${c500} événements &lt; 500m</td>
+          <td style="padding:10px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(concPressure.label, concPressure.style)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;">${c5km} événements &lt; 5km</td>
+          <td style="padding:10px 0;text-align:right;"></td>
+        </tr>
+      </table>
+    </td></tr>
+    <tr><td style="background:#ffffff;padding:40px 40px 0 40px;">
+      <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:20px;">Accessibilité</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Visiteurs &lt; 5km</td>
+          <td style="padding:10px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(attVerdict.label, attVerdict.style)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;">Prestataires &lt; 10km</td>
+          <td style="padding:10px 0;text-align:right;">${pill(opsVerdict.label, opsVerdict.style)}</td>
+        </tr>
+      </table>
+    </td></tr>
+    <tr><td style="background:#ffffff;padding:40px 40px 0 40px;">
+      <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:20px;">Exploitation</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">Impact fréquentation</td>
+          <td style="padding:10px 0;text-align:right;border-bottom:1px solid #f3f4f6;">${pill(freqImpact.label, freqImpact.style)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;font-size:13px;color:#374151;">Risque installation</td>
+          <td style="padding:10px 0;text-align:right;">${pill(installRisk.label, installRisk.style)}</td>
+        </tr>
+      </table>
+    </td></tr>` : "";
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -348,41 +299,44 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-  <!-- Urgency bar (blue only, no black header) -->
-  <tr><td style="background:${urgencyBg};padding:24px 40px;">
-    <img src="${baseUrl}/images/logo_ms_insight.svg" alt="Muse Square Insight" height="24" style="display:block;margin-bottom:16px;filter:invert(1);opacity:0.7;" />
-    <div style="font-size:36px;font-weight:300;color:#ffffff;letter-spacing:-0.02em;line-height:1;">${countdownLabel}</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-top:6px;">${title} · ${selectedDate}</div>
+  <tr><td style="background:#ffffff;padding:24px 40px;border-bottom:1px solid #e5e7eb;">
+    <div style="font-size:13px;font-weight:500;letter-spacing:0.04em;color:#111827;">MUSE SQUARE <span style="font-style:italic;font-weight:400;">insight</span></div>
   </td></tr>
 
-  <!-- Body -->
-  <tr><td style="background:#ffffff;padding:32px 40px;">
-    <p style="font-size:14px;color:#374151;margin:0 0 20px 0;">Bonjour ${esc(firstName)},</p>
+  <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
+    <div style="font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#0b37e5;margin-bottom:12px;">${countdownLabel} · ${esc(selectedDate)}</div>
+    <div style="font-size:28px;font-weight:300;color:#111827;line-height:1.1;margin-bottom:24px;">${title}</div>
+    <div style="font-size:14px;color:#374151;line-height:1.7;">${bodyText}</div>
+  </td></tr>
 
-    ${scoreHtml}
-    ${alertsHtml}
-    ${metricsHtml}
+  <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
+    <div style="font-size:11px;font-weight:500;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:16px;">Indice de faisabilité</div>
+    <div style="display:flex;align-items:baseline;gap:8px;">
+      <span style="font-size:48px;font-weight:300;color:#111827;line-height:1;">${score !== null ? esc(String(score)) : "—"}</span>
+      <span style="font-size:16px;color:#9ca3af;">/10</span>
+    </div>
+  </td></tr>
 
+  ${alertsHtml}
+  ${metricsHtml}
+
+  <tr><td style="background:#ffffff;padding:40px 40px;border-top:1px solid #e5e7eb;">
     <a href="${monitorUrl}" style="display:inline-block;padding:12px 28px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;">
       Ouvrir le suivi temps réel →
     </a>
   </td></tr>
 
   ${row.decision_date ? `
-  <tr><td style="background:#f9fafb;padding:16px 40px;border-top:1px solid #e5e7eb;">
-    <p style="font-size:12px;color:#9ca3af;margin:0;">Date limite de décision : ${fmtDate(row.decision_date)}</p>
+  <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+    <div style="font-size:12px;color:#9ca3af;">Date limite de décision · ${fmtDate(row.decision_date)}</div>
   </td></tr>` : ""}
 
-  <!-- Footer -->
-  <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
-    <p style="font-size:11px;color:#9ca3af;margin:0;line-height:1.6;">
-      ${isMandatory
-        ? "Ce suivi J-3 est automatiquement activé pour toutes les dates confirmées."
-        : "Vous recevez cet email car vous avez activé le suivi quotidien J-7."
-      }
+  <tr><td style="background:#f9fafb;padding:12px 40px 32px 40px;${row.decision_date ? "" : "border-top:1px solid #e5e7eb;"}">
+    <div style="font-size:11px;color:#9ca3af;line-height:1.6;">
+      ${isMandatory ? "Ce suivi J-3 est automatiquement activé pour toutes les dates confirmées." : "Suivi quotidien activé."}
       &nbsp;·&nbsp;
       <a href="${baseUrl}/notifications" style="color:#9ca3af;text-decoration:underline;">Gérer mes préférences</a>
-    </p>
+    </div>
   </td></tr>
 
 </table>
