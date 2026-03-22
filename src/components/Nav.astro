@@ -15,12 +15,12 @@ const isActive = (href: string) => {
   return currentPath === h || (h !== "/" && currentPath.startsWith(h + "/"));
 };
 
-const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname === "/profile";
+const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
 const piloterCookie = Astro.cookies.get("ms_piloter")?.value ?? "";
 const [cookieSavedItemId, cookieDate] = piloterCookie.split("|").map(decodeURIComponent);
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor");
 const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor;
-const isProfile = currentPath === "/profile" || currentPath.startsWith("/profile/");
+const isProfile = currentPath === "/profile" || currentPath === "/notifications";
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
 const isAppShell = isApp;
@@ -112,16 +112,23 @@ const isAppShell = isApp;
                 })()}
               </li>
 
-              <li>
-                <a
-                  href="/profile"
-                  aria-current={isProfile ? "page" : undefined}
-                  class={`ms-nav-link italic normal-case relative inline-block pb-1
+              <li class="relative" id="compte-nav-item">
+                <button
+                  type="button"
+                  id="compte-nav-btn"
+                  class={`ms-nav-link italic normal-case relative flex items-center gap-1
                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
                     ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
                 >
-                  Profil
-                </a>
+                  Compte
+                  <svg id="compte-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="transition:transform 0.15s;flex-shrink:0;">
+                    <polyline points="2,3 5,7 8,3"/>
+                  </svg>
+                </button>
+                <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
+                  <a href="/profile" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "text-black" : "text-gray-500"}`}>Profil</a>
+                  <a href="/notifications" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${Astro.url.pathname === "/notifications" ? "text-black" : "text-gray-500"}`}>Notifications</a>
+                </div>
               </li>
 
               <Show when="signed-in" client:load>
@@ -184,16 +191,10 @@ const isAppShell = isApp;
           </li>
 
           <li>
-            <a
-              href="/profile"
-              aria-current={isProfile ? "page" : undefined}
-              class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity
-                hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
-            >
-              Profil
-            </a>
+            <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Profil</a>
+          </li>
+          <li>
+            <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Notifications</a>
           </li>
 
           <Show when="signed-in" client:load>
@@ -262,6 +263,42 @@ const isAppShell = isApp;
       }
     });
     }
+  </script>
+
+  <script is:inline>
+    (function () {
+      var btn = document.getElementById('compte-nav-btn');
+      var dropdown = document.getElementById('compte-dropdown');
+      var chevron = document.getElementById('compte-chevron');
+      if (!btn || !dropdown) return;
+
+      var open = false;
+
+      function show() {
+        dropdown.style.display = 'block';
+        chevron && (chevron.style.transform = 'rotate(180deg)');
+        open = true;
+      }
+      function hide() {
+        dropdown.style.display = 'none';
+        chevron && (chevron.style.transform = 'rotate(0deg)');
+        open = false;
+      }
+
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        open ? hide() : show();
+      });
+
+      document.addEventListener('click', function (e) {
+        var item = document.getElementById('compte-nav-item');
+        if (item && !item.contains(e.target)) hide();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hide();
+      });
+    })();
   </script>
 
 </header>

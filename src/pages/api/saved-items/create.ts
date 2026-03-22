@@ -90,6 +90,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     
     const decision_date = normalizeDateOptional(body?.decision_date, "decision_date");
     const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
+    const event_type = typeof body?.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
+    const launch_hour = typeof body?.launch_hour === "number" ? body.launch_hour : (body?.launch_hour != null && body.launch_hour !== "" ? parseInt(body.launch_hour, 10) : null);
 
     const rawDates = Array.isArray(body?.dates) ? body.dates : null;
     if (!rawDates || rawDates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
@@ -133,6 +135,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         stage,
         decision_date,
         event_end_date,
+        event_type,
+        launch_hour,
         created_at,
         updated_at
     )
@@ -146,6 +150,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         'option',
         IF(@decision_date = '', NULL, PARSE_DATE('%F', @decision_date)),
         IF(@event_end_date = '', NULL, PARSE_DATE('%F', @event_end_date)),
+        @event_type,
+        @launch_hour,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -172,27 +178,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
         query: script,
         location: BQ_LOCATION,
         params: {
-            saved_item_id,
-            location_id,
-            clerk_user_id,
-            number_of_dates,
-            title,
-            description,
-            decision_date: decision_date ?? "",
-            event_end_date: event_end_date ?? "",
-            dates,
-        },
-        types: {
-            saved_item_id: "STRING",
-            location_id: "STRING",
-            clerk_user_id: "STRING",
-            number_of_dates: "INT64",
-            title: "STRING",
-            description: "STRING",
-            decision_date: "STRING",
-            event_end_date: "STRING",
-            dates: ["STRING"],
-        },
+    saved_item_id,
+    location_id,
+    clerk_user_id,
+    number_of_dates,
+    title,
+    description,
+    decision_date: decision_date ?? "",
+    event_end_date: event_end_date ?? "",
+    event_type: event_type ?? null,
+    launch_hour: launch_hour ?? null,
+    dates,
+},
+types: {
+    saved_item_id: "STRING",
+    location_id: "STRING",
+    clerk_user_id: "STRING",
+    number_of_dates: "INT64",
+    title: "STRING",
+    description: "STRING",
+    decision_date: "STRING",
+    event_end_date: "STRING",
+    event_type: "STRING",
+    launch_hour: "INT64",
+    dates: ["STRING"],
+},
     });
 
     return new Response(

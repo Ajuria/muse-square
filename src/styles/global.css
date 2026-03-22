@@ -156,6 +156,7 @@
 
   /* Layout tokens */
   .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
+  .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
   .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
   .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
   .ms-divider--compact { @apply my-[20px] sm:my-[28px] lg:my-[36px]; }

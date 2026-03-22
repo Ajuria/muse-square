@@ -976,39 +976,39 @@ const show_actions = has_selected_dates;
 
   /* ---------- Modal (critical: prevents flash + keeps centered overlay) ---------- */
   .ms-modal-backdrop{
-    position:fixed; inset:0;
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
     background:rgba(17,24,39,0.45);
     display:flex;
     align-items:center;
     justify-content:center;
-    padding:18px;
     z-index:9999;
   }
   .ms-modal-backdrop[hidden]{ display:none !important; }
-
   .ms-modal{
-    width:100%;
-    max-width:560px;
+    width:min(640px, calc(100vw - 36px));
     background:#fff;
     border-radius:0;
     border:1px solid #e5e7eb;
     box-shadow:0 22px 60px rgba(17,24,39,0.22);
+    display:flex;
+    flex-direction:column;
+    max-height:calc(100vh - 120px);
     overflow:hidden;
+    position:relative;
   }
-  .ms-modal-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 18px; }
+  .ms-modal-head{ flex-shrink:0; display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:20px 20px 0 20px; }
   .ms-modal-title{ font-size:16px; font-weight:700; color:#111827; }
   .ms-modal-sub{ margin-top:4px; font-size:13px; color:#6b7280; }
-  .ms-modal-x{ border:1px solid #e5e7eb; background:#fff; border-radius:0; padding:6px 10px; cursor:pointer; }
-
-  .ms-modal-body{ padding:14px 18px 16px 18px; display:flex; flex-direction:column; gap:12px; }
-  .ms-field{ display:block; }
-  .ms-label{ font-size:12px; font-weight:600; color:rgba(17,24,39,0.55); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
-  .ms-input{ width:100%; border:0; border-bottom:1.5px solid #d1d5db; border-radius:0; padding:10px 0; font:inherit; background:transparent; }
-  .ms-textarea{ width:100%; border:1px solid #e5e7eb; border-radius:0; padding:10px 12px; font:inherit; background:#fff; }
+  .ms-modal-x{ border:1px solid #e5e7eb; background:#fff; border-radius:0; padding:6px 10px; cursor:pointer; flex-shrink:0; }
+  .ms-modal-body{ flex:1 1 auto; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+  .ms-field{ display:block; width:100%; box-sizing:border-box; }
+  .ms-label{ display:block; font-size:12px; font-weight:600; color:rgba(17,24,39,0.55); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
+  .ms-input{ width:100%; box-sizing:border-box; border:0; border-bottom:1.5px solid #d1d5db; border-radius:0; padding:10px 0; font:inherit; background:transparent; }
+  .ms-textarea{ width:100%; box-sizing:border-box; border:1px solid #e5e7eb; border-radius:0; padding:10px 12px; font:inherit; background:#fff; resize:vertical; }
   .ms-datechips{ display:flex; flex-wrap:wrap; gap:6px; }
   .ms-error{ margin-top:2px; color:#b91c1c; font-size:13px; }
-
-  .ms-modal-actions{ padding:0 18px 18px 18px; display:flex; gap:10px; justify-content:flex-end; }
+  .ms-modal-actions{ flex-shrink:0; padding:12px 20px 20px 20px; display:flex; gap:10px; justify-content:space-between; border-top:1px solid #f3f4f6; background:#fff; }
   .ms-btn{ border-radius:0; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; text-transform:none; }
   .ms-btn.ghost{ border:none; background:none; color:#111827; }
   .ms-btn.solid{ border:1px solid #111827; background:transparent; color:#111827; }
@@ -1455,10 +1455,59 @@ const show_actions = has_selected_dates;
               <input id="ms-save-title-input" class="ms-input" type="text" placeholder="Ex: Week-end de Pâques" maxlength="120" />
             </label>
 
+            <label class="ms-field">
+              <div class="ms-label">TYPE D'ÉVÉNEMENT</div>
+              <select id="ms-save-event-type" class="ms-input" style="cursor:pointer;">
+                <option value="">— Sélectionner —</option>
+                <option value="conference_de_presse">Conférence de presse</option>
+                <option value="evenement_corporate">Événement corporate</option>
+                <option value="happening_exterieur">Happening extérieur</option>
+                <option value="inauguration">Inauguration</option>
+                <option value="journee_portes_ouvertes">Journée portes ouvertes</option>
+                <option value="lancement_de_produit">Lancement de produit</option>
+                <option value="ouverture_point_de_vente">Ouverture d'un point de vente</option>
+                <option value="promotion_magasin">Promotion en magasin / soldes</option>
+                <option value="soiree_de_lancement">Soirée de lancement</option>
+                <option value="vernissage_exposition">Vernissage / Exposition</option>
+                <option value="autre">Autre</option>
+              </select>
+            </label>
+
             <div class="ms-field">
               <div class="ms-label">OPTIONS DATES DE LANCEMENT</div>
               <div id="ms-save-dates" class="ms-datechips"></div>
             </div>
+
+            <label class="ms-field">
+              <div class="ms-label">HORAIRE LANCEMENT</div>
+              <select id="ms-save-launch-hour" class="ms-input" style="cursor:pointer;">
+                <option value="">— Sélectionner —</option>
+                <option value="0">00h00</option>
+                <option value="1">01h00</option>
+                <option value="2">02h00</option>
+                <option value="3">03h00</option>
+                <option value="4">04h00</option>
+                <option value="5">05h00</option>
+                <option value="6">06h00</option>
+                <option value="7">07h00</option>
+                <option value="8">08h00</option>
+                <option value="9">09h00</option>
+                <option value="10">10h00</option>
+                <option value="11">11h00</option>
+                <option value="12">12h00</option>
+                <option value="13">13h00</option>
+                <option value="14">14h00</option>
+                <option value="15">15h00</option>
+                <option value="16">16h00</option>
+                <option value="17">17h00</option>
+                <option value="18">18h00</option>
+                <option value="19">19h00</option>
+                <option value="20">20h00</option>
+                <option value="21">21h00</option>
+                <option value="22">22h00</option>
+                <option value="23">23h00</option>
+              </select>
+            </label>
 
             <label class="ms-field">
               <div class="ms-label">DATE LIMITE DE DÉCISION</div>
@@ -1609,6 +1658,8 @@ const show_actions = has_selected_dates;
         const modalDesc = document.getElementById("ms-save-desc");
         const modalDates = document.getElementById("ms-save-dates");
         const modalError = document.getElementById("ms-save-error");
+        const modalEventType = document.getElementById("ms-save-event-type");
+        const modalLaunchHour = document.getElementById("ms-save-launch-hour");
 
         // ---- Single global namespace (minimum “production-grade” state) ----
         const MS = (window.__MS_DAYS__ ||= {});
@@ -1647,6 +1698,8 @@ const show_actions = has_selected_dates;
           if (modalDesc) modalDesc.value = "";
           if (modalTitle) modalTitle.value = "";
           if (modalEventDate) modalEventDate.value = "";
+          if (modalEventType) modalEventType.value = "";
+          if (modalLaunchHour) modalLaunchHour.value = "";
 
           // default title suggestion (create mode only)
           if (modalTitle && !String(modalTitle.value || "").trim()) {
@@ -1759,6 +1812,11 @@ const show_actions = has_selected_dates;
             return null;
           }
 
+          const eventTypeVal = String(modalEventType?.value || "").trim() || null;
+          const launchHourVal = modalLaunchHour?.value !== "" && modalLaunchHour?.value != null
+            ? parseInt(modalLaunchHour.value, 10)
+            : null;
+
           const payload = isEdit
             ? {
                 saved_item_id: editingId,
@@ -1766,6 +1824,8 @@ const show_actions = has_selected_dates;
                 description: String(modalDesc?.value || "").trim() || null,
                 decision_date: displayDateToYmd(modalDecisionDate?.value),
                 event_end_date: displayDateToYmd(modalEventDate?.value),
+                event_type: eventTypeVal,
+                launch_hour: launchHourVal,
                 dates: (Array.isArray(MS.editingDates) ? MS.editingDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               }
             : {
@@ -1774,6 +1834,8 @@ const show_actions = has_selected_dates;
                 description: String(modalDesc?.value || "").trim() || null,
                 decision_date: displayDateToYmd(modalDecisionDate?.value),
                 event_end_date: displayDateToYmd(modalEventDate?.value),
+                event_type: eventTypeVal,
+                launch_hour: launchHourVal,
                 dates: (Array.isArray(MS.draftDates) ? MS.draftDates : []).map(normalizeYmd).filter(Boolean).slice(0, 7),
               };
           
@@ -1949,7 +2011,7 @@ const show_actions = has_selected_dates;
           // Title block (template-like)
           const head = `
             <div class="ms-saved-wrap">
-              <div class="ms-saved-hero">Dates en cours de sélection</div>
+              <div class="ms-saved-hero">Benchmark de dates</div>
             </div>
           `;
 
@@ -2023,7 +2085,9 @@ const show_actions = has_selected_dates;
                         data-decision-date="${escapeHtml(String(it?.decision_date || ""))}"
                         data-event-end-date="${escapeHtml(String(it?.event_end_date || ""))}"
                         data-desc="${escapeHtml(desc)}"
-                        data-selected-date="${escapeHtml(String(it?.selected_date || ""))}">
+                        data-selected-date="${escapeHtml(String(it?.selected_date || ""))}"
+                        data-event-type="${escapeHtml(String(it?.event_type || ""))}"
+                        data-launch-hour="${escapeHtml(String(it?.launch_hour ?? ""))}">
                         <div class="ms-saved-left">
                           <div class="ms-saved-title2" style="cursor:pointer;" data-action="consult">${escapeHtml(title)}</div>
                           <div class="ms-saved-subline">
@@ -2110,6 +2174,8 @@ const show_actions = has_selected_dates;
                 const eventEndRaw = rowEl.getAttribute("data-event-end-date") || "";
                 if (decisionRaw) window.__msFlatpickrDecision.setDate(decisionRaw, true, "Y-m-d");
                 if (eventEndRaw) window.__msFlatpickrEnd.setDate(eventEndRaw, true, "Y-m-d");
+                if (modalEventType) modalEventType.value = rowEl.getAttribute("data-event-type") || "";
+                if (modalLaunchHour) modalLaunchHour.value = rowEl.getAttribute("data-launch-hour") || "";
 
                 // Store which saved_item_id we are editing (must happen before rendering)
                 MS.editingId = id;
@@ -2586,14 +2652,14 @@ const show_actions = has_selected_dates;
           if (!txt) {
             return `
               <div class="border rounded-lg p-4">
-                <div class="text-sm text-gray-500">Points clés indisponibles.</div>
+                <div class="text-sm text-gray-500">Signaux clés indisponibles.</div>
               </div>
             `;
           }
 
           return `
             <div class="border rounded-lg p-4">
-              <div class="text-sm text-gray-400 mb-2">Points clés</div>
+              <div class="text-sm text-gray-400 mb-2">Signaux clés</div>
               <p class="ms-takeaway preline">${escapeHtml(txt)}</p>
             </div>
           `;
@@ -2644,7 +2710,7 @@ const show_actions = has_selected_dates;
           
           return `
             <div class="ms-section-title" style="text-align:center;margin-top:26px;">
-              FACTEURS DU SCORE D'OPPORTUNITÉ
+              COMPOSANTS DE L'INDICE
             </div>
 
             <div class="ms-breakdown-grid">
@@ -2896,7 +2962,7 @@ const show_actions = has_selected_dates;
                                           : cat === "context" ? (dir === "worsened" || dir === "down" ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`)
                                           : cat === "mobility" ? `Mobilité perturbée · ${d}`
                                           : `Signal de contexte · ${d}`,
-                score_change:             dir === "up" ? `Score d'opportunité en hausse · ${d}` : `Score d'opportunité en baisse · ${d}`,
+                score_change:             dir === "up" ? `Indice de faisabilité en hausse · ${d}` : `Score d'opportunité en baisse · ${d}`,
                 future_score_change:      `Prévision d'opportunité revue · ${d}`,
                 regime_change:            `Régime d'opportunité changé · ${d}`,
                 medal_change:             `Classement des dates modifié · ${d}`,
@@ -3208,7 +3274,7 @@ const show_actions = has_selected_dates;
                 <!-- Score + statut row -->
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                   <div>
-                    <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Score d'opportunité</div>
+                    <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Indice de faisabilité</div>
                     <div style="display:flex;align-items:baseline;gap:8px;">
                       <span style="font-size:48px;font-weight:500;color:#111827;line-height:1;">${safeScore === null ? "—" : String(safeScore)}</span>
                       <span style="font-size:18px;color:#9CA3AF;">/10</span>
@@ -3223,7 +3289,7 @@ const show_actions = has_selected_dates;
 
                 <!-- Points clés -->
                 <div class="ms-points-cles-block">
-                  <div class="ms-points-cles-label">Points clés</div>
+                  <div class="ms-points-cles-label">Signaux clés</div>
                   <ul class="ms-points-cles-list">
                     ${pointsBullets.map(b => `
                       <li>

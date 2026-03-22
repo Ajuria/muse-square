@@ -81,6 +81,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const description = optionalString(body?.description, "description");
     const decision_date = normalizeDateOptional(body?.decision_date, "decision_date");
     const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
+    const event_type = typeof body?.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
+    const launch_hour = typeof body?.launch_hour === "number" ? body.launch_hour : (body?.launch_hour != null && body.launch_hour !== "" ? parseInt(body.launch_hour, 10) : null);
 
     // dates: if provided, replaces the full set in saved_item_dates
     const rawDates = body?.dates;
@@ -153,6 +155,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       setClauses.push("event_end_date = PARSE_DATE('%F', @event_end_date)");
       updateParams.event_end_date = event_end_date;
       updateTypes.event_end_date = "STRING";
+    }
+    if (event_type !== null) {
+      setClauses.push("event_type = @event_type");
+      updateParams.event_type = event_type;
+      updateTypes.event_type = "STRING";
+    }
+    if (launch_hour !== null) {
+      setClauses.push("launch_hour = @launch_hour");
+      updateParams.launch_hour = launch_hour;
+      updateTypes.launch_hour = "INT64";
     }
     if (selected_date !== undefined) {
       if (selected_date === "NULL") {
