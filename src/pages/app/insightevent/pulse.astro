@@ -1,0 +1,819 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+
+const location_id =
+  Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+---
+
+<Show when="signed-out" client:load>
+  <script is:inline>window.location.href = "/sign-in";</script>
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Pulse — Insight Event" hideSurveyCta={true} hideFooter={true}>
+
+    <style is:inline>
+      .mon-wrap {
+        width: 100%;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px 20px 160px 20px;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      .mon-card {
+        background: #FFFFFF;
+        border: 1px solid #E8EDF5;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(17,24,39,0.06);
+      }
+
+      .mon-card-decision {
+        background: rgba(29,59,179,0.04);
+        border-left: 6px solid #0b37e5;
+        padding: 24px;
+        border-radius: 0;
+      }
+
+      .mon-panels {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding-top: 16px;
+      }
+
+      .mon-kicker {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: #1D3BB3;
+        line-height: 1.1;
+        margin: 0 0 6px 0;
+      }
+
+      .mon-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .mon-ico { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .mon-ico svg { display: block; }
+
+      .mon-tabs-bar {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-end;
+        gap: 22px;
+        padding: 0 24px;
+        border-bottom: none;
+        margin: 16px -24px -24px -24px;
+      }
+
+      .mon-tab {
+        appearance: none;
+        border: none;
+        background: transparent;
+        font-size: 14px;
+        font-weight: 500;
+        color: #94A3B8;
+        padding: 0 0 16px 0;
+        position: relative;
+        cursor: pointer;
+      }
+
+      .mon-tab.is-active { color: #1D3BB3; }
+      .mon-tab.is-active::after {
+        content: "";
+        position: absolute;
+        left: 0; bottom: 0;
+        height: 3px; width: 100%;
+        background: #1D3BB3;
+        border-radius: 3px;
+      }
+
+      .mon-feed-item {
+        display: flex; align-items: flex-start; gap: 12px;
+        padding: 14px 0; border-bottom: 1px solid #F3F4F6;
+      }
+      .mon-feed-item:last-child { border-bottom: none; }
+      .mon-feed-line1 { font-size: 14px; font-weight: 700; color: #111827; line-height: 1.3; margin-bottom: 3px; }
+      .mon-feed-line2 { font-size: 13px; color: #374151; line-height: 1.4; margin-bottom: 2px; }
+      .mon-feed-line3 { font-size: 12px; color: #6B7280; }
+
+      .mon-vigilance-item {
+        display: flex; align-items: flex-start; gap: 10px;
+        font-size: 14px; color: #374151; line-height: 1.45;
+        padding: 8px 0; border-bottom: 1px solid #F3F4F6;
+      }
+      .mon-vigilance-item:last-child { border-bottom: none; }
+
+      .mon-status-ok   { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #059669; }
+      .mon-loading { padding: 40px 0; text-align: center; color: #9CA3AF; font-size: 14px; }
+      .mon-error { padding: 20px; background: rgba(220,38,38,0.06); border-radius: 10px; color: #B91C1C; font-size: 13px; margin-top: 16px; }
+
+      .mon-statut-safe { background: #1D3BB3; color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-risk { background: rgba(220,38,38,0.1); color: #b91c1c; border: 1px solid rgba(220,38,38,0.2); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+      /* ---- Date pills ---- */
+      .pls-pills {
+        display: flex; gap: 6px; flex-wrap: wrap;
+        padding: 12px 0 0 0;
+      }
+
+      .pls-pill {
+        padding: 5px 12px; border-radius: 999px;
+        font-size: 12px; font-weight: 600;
+        border: 1px solid #e5e7eb;
+        background: #fff; color: #6b7280;
+        cursor: pointer; white-space: nowrap;
+        transition: all 100ms;
+      }
+      .pls-pill.is-today { border-color: #1D3BB3; color: #1D3BB3; }
+      .pls-pill.is-active { background: #1D3BB3; border-color: #1D3BB3; color: #fff; }
+      .pls-pill.has-crit  { border-color: #ef4444; }
+      .pls-pill.has-warn  { border-color: #f59e0b; }
+
+      /* ---- Location switcher ---- */
+      .pls-loc-row {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .pls-loc-name { font-size: 13px; font-weight: 600; color: #111827; }
+      .pls-loc-addr { font-size: 12px; color: #9ca3af; }
+      .pls-loc-btn {
+        font-size: 12px; font-weight: 600; color: #1D3BB3;
+        background: none; border: none; cursor: pointer; padding: 0;
+      }
+
+      .mon-context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+      .mon-context-cell { display: flex; flex-direction: column; gap: 2px; }
+      .mon-context-label { font-size: 11px; color: #9CA3AF; text-transform: uppercase; letter-spacing: .06em; }
+      .mon-context-value { font-size: 13px; color: #111827; }
+
+      .mon-map-btn {
+        height: 36px; border: 1px solid #E5E7EB; border-radius: 6px;
+        background: #f9fafb; color: #6b7280;
+        font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+        text-transform: uppercase; cursor: pointer;
+      }
+      .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
+    </style>
+
+    <div class="mon-wrap">
+      <!-- Location row -->
+      <div class="pls-loc-row" style="margin-bottom:16px;">
+        <div>
+          <div class="pls-loc-name" id="pls-loc-name"></div>
+          <div class="pls-loc-addr" id="pls-loc-addr"></div>
+        </div>
+        <button type="button" class="pls-loc-btn" id="pls-loc-switch" style="display:none;">
+          Changer de site
+        </button>
+      </div>
+
+      <div id="pls-root">
+        <div style="display:flex;align-items:center;justify-content:center;padding:24px 0;">
+          <img src="/icons/load/ms_load_icon.gif" alt="" style="height:120px;width:auto;" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script is:inline src="/map-markers.js"></script>
+
+    <InsightBottomBar active="pulse" />
+
+  </BaseLayout>
+</Show>
+
+<script is:inline define:vars={{ location_id }}>
+(function () {
+
+  // ----------------------------------------------------------------
+  // Helpers (same as monitor.astro)
+  // ----------------------------------------------------------------
+  function escapeHtml(v) {
+    return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
+  function normalizeYmd(v) {
+    const s = String(v ?? "").trim();
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : "";
+  }
+
+  function parseYmdToDate(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd||"").trim());
+    if (!m) return null;
+    return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  }
+
+  function fmtDateLong(ymd) {
+    const d = parseYmdToDate(ymd);
+    if (!d) return ymd;
+    const s = new Intl.DateTimeFormat("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" }).format(d);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function fmtDateShort(ymd) {
+    const d = parseYmdToDate(ymd);
+    if (!d) return ymd;
+    const dow = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"][((d.getUTCDay()+6)%7)];
+    return `${dow} ${String(d.getUTCDate()).padStart(2,"0")}`;
+  }
+
+  function todayYmd() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+
+  function next8Days() {
+    const dates = [];
+    const base = new Date();
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      dates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+    }
+    return dates;
+  }
+
+  function pill(label, style) {
+    return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
+  }
+
+  const GREEN  = "background:rgba(16,185,129,0.1);color:#059669;";
+  const YELLOW = "background:#FEF3C7;color:#92400E;";
+  const RED    = "background:#FCEBEB;color:#791F1F;";
+  const GREY   = "background:#F1EFE8;color:#444441;";
+
+  function severityDots(level) {
+    const l = Math.min(4, Math.max(1, Number(level)||1));
+    return [1,2,3,4].map(i =>
+      `<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${i<=l?"#1D3BB3":"#E2E8F0"};"></span>`
+    ).join("&nbsp;");
+  }
+
+  function iconSVG(kind) {
+    if (kind==="alert")   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    if (kind==="context") return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/><path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
+    return "";
+  }
+
+  function feedCatIcon(cat) {
+    const c = String(cat||"").toLowerCase();
+    if (c==="competition") return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M8 21v-7M12 21V3M16 21v-11"/></svg>`;
+    if (c==="opportunity") return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>`;
+    if (c==="context")     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z"/></svg>`;
+    if (c==="mobility")    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><path d="M7 16h10l1-6H6l1 6z"/><path d="M7 16l-1 4M17 16l1 4"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>`;
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/></svg>`;
+  }
+
+  // ----------------------------------------------------------------
+  // Feed rendering (identical to monitor.astro)
+  // ----------------------------------------------------------------
+  function feedLine1(a) {
+    const sub = String(a?.change_subtype||"").toLowerCase();
+    const dir = String(a?.direction||"").toLowerCase();
+    const cat = String(a?.change_category||"").toLowerCase();
+    const nv  = String(a?.new_value??"").toLowerCase();
+    const d   = fmtDateShort(normalizeYmd(a?.affected_date));
+    const map = {
+      context_change: cat==="competition" ? (nv==="true" ? `Concurrent détecté · ${d}` : `Concurrent retiré · ${d}`) : cat==="context" ? (dir==="worsened"||dir==="down" ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`) : cat==="mobility" ? `Mobilité perturbée · ${d}` : `Signal de contexte · ${d}`,
+      score_change: dir==="up" ? `Score en hausse · ${d}` : `Score en baisse · ${d}`,
+      event_new: `Concurrent détecté · ${d}`,
+      event_removed: `Concurrent retiré · ${d}`,
+      weather_change: (dir==="down"||dir==="worsened") ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`,
+      mobility_change: `Mobilité perturbée · ${d}`,
+      mega_event_activation: `Méga-événement annoncé · ${d}`,
+    };
+    return map[sub] || `Signal détecté · ${d}`;
+  }
+
+  function feedLine2(a) {
+    const cat = String(a?.change_category||"").toLowerCase();
+    const lvl = Math.min(4, Math.max(1, Number(a?.alert_level)||1));
+    const vocab = {
+      competition: {1:"Impact de la concurrence locale.",2:"Impact notable de la concurrence locale.",3:"Impact important de la concurrence locale.",4:"Impact majeur de la concurrence locale."},
+      context:     {1:"Impact météo sur cette date.",2:"Impact notable de la météo.",3:"Impact possible sur l'organisation.",4:"Impact important sur l'organisation."},
+      mobility:    {1:"Impact des conditions de mobilité.",2:"Impact notable sur les conditions d'accès.",3:"Impact possible sur l'accès au lieu.",4:"Impact important sur l'accès au lieu."},
+    };
+    return (vocab[cat]&&vocab[cat][lvl]) || "Évolution globale du contexte.";
+  }
+
+  function feedLine3(a) {
+    const sub = String(a?.change_subtype||"").toLowerCase();
+    const cat = String(a?.change_category||"").toLowerCase();
+    const parts = [];
+    if (sub==="score_change"||cat==="opportunity") {
+      const from = a?.old_value!=null ? Math.round(Number(a.old_value)) : null;
+      const to   = a?.new_value!=null ? Math.round(Number(a.new_value)) : null;
+      const delta = a?.score_delta!=null ? Math.round(Number(a.score_delta)) : (from!=null&&to!=null ? to-from : null);
+      if (from!=null&&to!=null) { const sign=delta>=0?"+":""; parts.push(`Score : ${from} → ${to} (${sign}${delta})`); }
+    } else if (cat==="competition"||sub==="event_new"||sub==="event_removed") {
+      const name = a?.event_label||a?.event_name||"";
+      const km   = a?.distance_m!=null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : "";
+      if (name&&km) parts.push(`${name} · ${km}`);
+      else if (name) parts.push(name);
+    }
+    return parts.join(" · ");
+  }
+
+  function renderFeedItems(items, showAll) {
+    const filtered = showAll ? items : items.filter(f => Number(f?.alert_level||0) >= 2);
+    const toggleHtml = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <button type="button" id="pls-feed-toggle" style="font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">
+        ${showAll ? "Réduire" : `Voir tout (${items.length})`}
+      </button></div>`;
+
+    if (!filtered.length) return toggleHtml + `<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun signal détecté.</div>`;
+
+    const byDate = new Map();
+    for (const a of filtered) {
+      const d = normalizeYmd(a?.affected_date);
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d).push(a);
+    }
+
+    return toggleHtml + [...byDate.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([d, dayItems]) => {
+      const itemsHtml = dayItems.map((a, idx) => {
+        const line1 = feedLine1(a);
+        const line2 = feedLine2(a);
+        const line3 = feedLine3(a);
+        const cat = String(a?.change_category||"").toLowerCase();
+        const lvl = Number(a?.alert_level)||1;
+        const isLast = idx===dayItems.length-1;
+        return `
+          <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;${isLast?"":"border-bottom:1px solid #F3F4F6;}"}">
+            <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">${feedCatIcon(cat)}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="mon-feed-line1">${escapeHtml(line1)}</div>
+              ${line2?`<div class="mon-feed-line2" style="display:flex;align-items:center;gap:12px;"><span>${escapeHtml(line2)}</span><span style="display:inline-flex;align-items:center;gap:4px;">${severityDots(lvl)}</span></div>`:""}
+              ${line3?`<div class="mon-feed-line3">${escapeHtml(line3)}</div>`:""}
+            </div>
+          </div>`;
+      }).join("");
+
+      const dateLabel = (() => {
+        const today = todayYmd();
+        if (d === today) return "Aujourd'hui";
+        const dt = parseYmdToDate(d);
+        if (!dt) return d;
+        const raw = new Intl.DateTimeFormat("fr-FR", { weekday:"long", day:"numeric", month:"long" }).format(dt);
+        return raw.charAt(0).toUpperCase() + raw.slice(1);
+      })();
+
+      return `
+        <div style="margin-bottom:16px;">
+          <div style="background:#fff;border:1px solid #E8EDF5;border-radius:12px;padding:0 16px;box-shadow:0 1px 4px rgba(17,24,39,0.04);">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(17,24,39,0.38);padding:14px 0 10px 0;border-bottom:1px solid #F3F4F6;">
+              ${escapeHtml(dateLabel)}
+            </div>
+            ${itemsHtml}
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // ----------------------------------------------------------------
+  // Context card (identical to monitor.astro renderContext)
+  // ----------------------------------------------------------------
+  function renderContext(day, profile) {
+    const aud1 = profile?.primary_audience_1 ?? null;
+    const aud2 = profile?.primary_audience_2 ?? null;
+    const locationType = profile?.location_type ?? null;
+    const isOutdoorOrMixed = locationType==="outdoor"||locationType==="mixed";
+
+    const audienceFrMap = { local:"Résidents locaux", professionals:"Professionnels", tourists:"Touristes", students:"Étudiants", families:"Familles", seniors:"Seniors" };
+
+    const dt = parseYmdToDate(normalizeYmd(day?.date||""));
+    const isWeekend = dt ? (dt.getUTCDay()===0||dt.getUTCDay()===6) : false;
+    const hasVacation = Boolean(day?.vacation_name);
+    const hasHoliday  = Boolean(day?.holiday_name);
+
+    function audAvail(type) {
+      const t = String(type||"").toLowerCase();
+      let avail = false;
+      if (t==="local") avail=isWeekend||hasVacation||hasHoliday;
+      else if (t==="professionals") avail=!isWeekend;
+      else if (t==="tourists") avail=isWeekend||hasVacation||hasHoliday;
+      else if (t==="families") avail=isWeekend||hasVacation;
+      else if (t==="students") avail=isWeekend||hasVacation;
+      else if (t==="seniors") avail=true;
+      else avail=isWeekend||hasVacation||hasHoliday;
+      return avail ? {label:"Disponible",style:GREEN} : {label:"Peu disponible",style:RED};
+    }
+
+    function mobLabel(delta) {
+      if (delta>=0) return {label:"Fluide",style:GREEN};
+      if (delta>=-4) return {label:"Perturbé",style:YELLOW};
+      return {label:"Fortement perturbé",style:RED};
+    }
+
+    const count500    = Number(day?.events_within_500m_count)||0;
+    const count5km    = Number(day?.events_within_5km_count)||0;
+    const deltaEvents = Number(day?.delta_att_events_pct??0);
+    const concStyle   = deltaEvents>3 ? RED : GREEN;
+    const concLabel   = deltaEvents>3 ? "Élevée" : deltaEvents<-3 ? "Basse" : "Normale";
+
+    const deltaAtt = Number(day?.delta_att_mobility_pct??0);
+    const deltaOps = Number(day?.delta_ops_mobility_car_pct??0);
+    const attMob   = mobLabel(deltaAtt);
+    const opsMob   = mobLabel(deltaOps);
+
+    const alertMax   = Number(day?.alert_level_max??0);
+    const freqLabel  = alertMax===0 ? "Aucune alerte" : `Alerte niv. ${alertMax}`;
+    const freqStyle  = alertMax===0 ? GREEN : alertMax<=2 ? YELLOW : RED;
+
+    const lvlWind=Number(day?.lvl_wind??0), lvlRain=Number(day?.lvl_rain??0), lvlSnow=Number(day?.lvl_snow??0);
+    const instLevel = Math.max(lvlWind,lvlRain,lvlSnow);
+    const instLabel = instLevel===0?"Aucun risque":instLevel===1?"Risque faible":instLevel===2?"Risque modéré":"Risque élevé";
+    const instStyle = instLevel===0?GREEN:instLevel===1?GREY:instLevel===2?YELLOW:RED;
+
+    function row(label, content, ctaTab) {
+      const cta = ctaTab ? `<button type="button" data-switch-tab="${ctaTab}" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;">Voir →</button>` : "";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+        <span style="display:flex;align-items:center;gap:0;">
+          <span style="font-size:13px;color:#6b7280;width:200px;flex-shrink:0;">${escapeHtml(label)}</span>
+          ${content}
+        </span>${cta}</div>`;
+    }
+
+    function section(label, rowsHtml) {
+      return `<div style="margin-bottom:0;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#111827;padding:12px 0 2px 0;">${escapeHtml(label)}</div>
+        ${rowsHtml}</div>`;
+    }
+
+    function divider() { return `<div style="height:1px;background:#F3F4F6;margin:4px 0 0 0;"></div>`; }
+
+    const audienceRows = [aud1,aud2].filter(Boolean).length
+      ? [aud1,aud2].filter(Boolean).map(a => { const av=audAvail(a); return row(audienceFrMap[a]||a, pill(av.label,av.style)); }).join("")
+      : row("—", pill(isWeekend||hasVacation||hasHoliday?"Disponible":"Peu disponible", isWeekend||hasVacation||hasHoliday?GREEN:RED));
+
+    const concurrenceRows =
+      row(`${count500} événements < 500m`, pill(concLabel,concStyle), "carte") +
+      row(`${count5km} événements < 5km`,  pill(concLabel,concStyle));
+
+    const accessibiliteRows =
+      row("Visiteurs < 5km",     pill(attMob.label,attMob.style), "carte") +
+      row("Prestataires < 10km", pill(opsMob.label,opsMob.style));
+
+    const exploitationRows = isOutdoorOrMixed
+      ? row("Impact fréquentation", pill(freqLabel,freqStyle), "alertes") + row("Risque installation", pill(instLabel,instStyle))
+      : row("Impact fréquentation", pill(freqLabel,freqStyle), "alertes");
+
+    return `
+      <div class="mon-card">
+        <div class="mon-head" style="margin-bottom:0;cursor:pointer;" id="pls-context-toggle">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;">
+            <div class="mon-ico">${iconSVG("context")}</div>
+            <div class="mon-kicker" style="margin:0;">Contexte de référence</div>
+          </div>
+          <svg id="pls-context-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" style="transition:transform 200ms;flex-shrink:0;transform:rotate(180deg);">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+        <div id="pls-context-body" style="margin-top:16px;">
+          ${section("Audience", audienceRows)}
+          ${divider()}
+          ${section("Concurrence", concurrenceRows)}
+          ${divider()}
+          ${section("Accessibilité", accessibiliteRows)}
+          ${divider()}
+          ${section("Exploitation", exploitationRows)}
+        </div>
+      </div>`;
+  }
+
+  // ----------------------------------------------------------------
+  // Recap tab
+  // ----------------------------------------------------------------
+  function renderRecap(currentDay, allFeed, profile) {
+    const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2);
+    const hasCrit = alerts.some(a => Number(a?.alert_level)>=3);
+    const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level)>=2);
+
+    const statusBg    = hasCrit?"#FCEBEB":hasWatch?"#FEF3C7":"rgba(16,185,129,0.1)";
+    const statusColor = hasCrit?"#791F1F":hasWatch?"#92400E":"#059669";
+    const statusLabel = hasCrit
+      ? `⚠ ${alerts.length} signal${alerts.length>1?"aux":""} critique${alerts.length>1?"s":""}`
+      : hasWatch ? `⚠ ${alerts.length} signal${alerts.length>1?"aux":""} à surveiller`
+      : "✓ Rien de nouveau";
+
+    const last3 = [...alerts]
+      .sort((a,b) => String(b?.feed_date||"").localeCompare(String(a?.feed_date||"")))
+      .slice(0,3);
+
+    const last3Html = last3.length ? `
+      <div style="margin-top:16px;border-top:1px solid #F3F4F6;padding-top:4px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(17,24,39,0.4);padding:10px 0 6px 0;">Derniers signaux</div>
+        ${last3.map((a,idx) => {
+          const line1=feedLine1(a), line2=feedLine2(a);
+          const lvl=Number(a?.alert_level)||1;
+          const dir=String(a?.direction||"").toLowerCase();
+          const pStyle=(dir==="up"||dir==="improved")?GREEN:(dir==="down"||dir==="worsened"||lvl>=3)?RED:YELLOW;
+          const pLabel=(dir==="up"||dir==="improved")?"En hausse":(dir==="down"||dir==="worsened")?"En baisse":"Changement";
+          const isLast=idx===last3.length-1;
+          return `<div style="padding:12px 0;display:flex;align-items:flex-start;gap:12px;${isLast?"":"border-bottom:1px solid #F3F4F6;}"}">
+            <div style="flex:0 0 auto;width:20px;display:flex;align-items:center;justify-content:center;margin-top:2px;">${feedCatIcon(String(a?.change_category||""))}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;color:#111827;line-height:1.3;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${escapeHtml(line1)}${pill(pLabel,pStyle)}</div>
+              ${line2?`<div style="font-size:12px;color:#374151;margin-top:2px;">${escapeHtml(line2)}</div>`:""}
+            </div></div>`;
+        }).join("")}
+      </div>` : "";
+
+    const statusHtml = `
+      <div class="mon-card">
+        <span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:500;background:${statusBg};color:${statusColor};">${statusLabel}</span>
+        ${last3Html}
+        ${alerts.length>3?`<div style="padding:8px 0 0 0;display:flex;justify-content:flex-end;"><button type="button" data-switch-tab="alertes" style="font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">Voir les ${alerts.length} signaux →</button></div>`:""}
+      </div>`;
+
+    const vigilance = [...(currentDay.attendance||[]),...(currentDay.operations||[]),...(currentDay.installation||[]),...(currentDay.context||[])]
+      .filter(r => r.severity!=="A")
+      .sort((a,b) => ({D:0,C:1,B:2}[a.severity]??3)-({D:0,C:1,B:2}[b.severity]??3))
+      .slice(0,5);
+
+    const dotColor = s => s==="D"?"#b91c1c":s==="C"?"#D97706":"#9CA3AF";
+
+    const vigilanceHtml = vigilance.length ? `
+      <div class="mon-card">
+        <div class="mon-head">${iconSVG("alert")}<div class="mon-kicker" style="margin:0;">Points de vigilance</div></div>
+        ${vigilance.map(r => `
+          <div class="mon-vigilance-item">
+            <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${dotColor(r.severity)};display:inline-block;"></span>
+            <span>${escapeHtml(r.sentence)}</span>
+          </div>`).join("")}
+      </div>` : `
+      <div class="mon-card">
+        <span class="mon-status-ok">✓ Aucun point de vigilance</span>
+        <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables pour la journée.</div>
+      </div>`;
+
+    return `<div class="mon-panels">${vigilanceHtml}${statusHtml}${renderContext(currentDay, profile)}</div>`;
+  }
+
+  // ----------------------------------------------------------------
+  // Tab bar
+  // ----------------------------------------------------------------
+  function renderTabBar(activeTab) {
+    const tabs = [{id:"recap",label:"Situation"},{id:"carte",label:"Environnement"},{id:"alertes",label:"Signaux"}];
+    return `<div class="mon-tabs-bar">
+      ${tabs.map(t => `<button type="button" class="mon-tab ${activeTab===t.id?"is-active":""}" data-tab="${escapeHtml(t.id)}">${escapeHtml(t.label)}</button>`).join("")}
+    </div>`;
+  }
+
+  // ----------------------------------------------------------------
+  // Main render
+  // ----------------------------------------------------------------
+  function renderPulse(data, selectedDate, activeTab) {
+    activeTab = activeTab || "recap";
+    const root = document.getElementById("pls-root");
+    if (!root) return;
+
+    const days = Array.isArray(data.days) ? data.days : [];
+    const dayMap = new Map(days.map(d => [normalizeYmd(d.date), d]));
+    const currentDay = dayMap.get(selectedDate) || days[0] || null;
+    const allFeed = Array.isArray(data.all_feed) ? data.all_feed : [];
+    const profile = data.profile || null;
+
+    if (!currentDay) {
+      root.innerHTML = `<div class="mon-error">Aucune donnée disponible.</div>`;
+      return;
+    }
+
+    const score   = currentDay.opportunity_score ?? null;
+    const hasRisk = currentDay.is_major_realization_risk_flag === true;
+
+    // Pills
+    const today = todayYmd();
+    const pillsHtml = `<div class="pls-pills">
+      ${dates.map(ymd => {
+        const d = dayMap.get(ymd);
+        const allRisks = [...(d?.attendance||[]),...(d?.operations||[]),...(d?.installation||[])];
+        const hasCrit = allRisks.some(r => r.severity==="D"||r.severity==="C");
+        const hasWarn = !hasCrit && allRisks.some(r => r.severity==="B");
+        let cls = "pls-pill";
+        if (ymd===selectedDate) cls+=" is-active";
+        else if (ymd===today) cls+=" is-today";
+        else if (hasCrit) cls+=" has-crit";
+        else if (hasWarn) cls+=" has-warn";
+        const label = ymd===today ? "Aujourd'hui" : fmtDateShort(ymd);
+        return `<button type="button" class="${cls}" data-pill-date="${ymd}">${escapeHtml(label)}</button>`;
+      }).join("")}
+    </div>`;
+
+    // Header
+    const headerHtml = `
+      <div class="mon-card-decision" style="margin-bottom:0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:6px;">
+              ${escapeHtml(fmtDateLong(selectedDate))}
+            </div>
+            ${score!==null ? `
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:42px;font-weight:500;color:#111827;line-height:1;">${escapeHtml(String(score))}</span>
+                <span style="font-size:16px;color:#9CA3AF;">/10</span>
+              </div>` : ""}
+          </div>
+          <span class="${hasRisk?"mon-statut-risk":"mon-statut-safe"}">${hasRisk?"À RISQUE":"SANS RISQUE"}</span>
+        </div>
+        ${renderTabBar(activeTab)}
+      </div>`;
+
+    // Tab content
+    let tabContent = "";
+    if (activeTab==="recap") {
+      tabContent = renderRecap(currentDay, allFeed, profile);
+    } else if (activeTab==="alertes") {
+      const showAll = (window.__plsFeedShowAll===true);
+      tabContent = `<div class="mon-panels"><div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
+      setTimeout(() => {
+        const btn = root.querySelector("#pls-feed-toggle");
+        if (btn) btn.addEventListener("click", () => { window.__plsFeedShowAll=!showAll; renderPulse(data, selectedDate, "alertes"); });
+      }, 0);
+    } else if (activeTab==="carte") {
+      tabContent = `
+        <div class="mon-panels">
+          <div style="border:0.5px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:0.5px solid #E5E7EB;">
+              <div style="display:flex;align-items:center;">
+                <span id="pls-mode-concurrence" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Concurrence</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="pls-mode-mobilite" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Mobilité</span>
+              </div>
+              <div id="pls-sub-concurrence" style="display:flex;align-items:center;">
+                <span id="pls-filter-500m" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">500m</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="pls-filter-5km" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">5km</span>
+                <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+                <span id="pls-filter-10km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">10km</span>
+              </div>
+            </div>
+            <div id="pls-industry-row" style="display:flex;align-items:center;padding:8px 16px;flex-wrap:wrap;gap:4px 0;"></div>
+          </div>
+          <div id="pls-map" style="height:420px;margin-top:12px;overflow:hidden;width:100%;isolation:isolate;"></div>
+          <div id="pls-map-list" style="margin-top:16px;"></div>
+        </div>`;
+    }
+
+    root.innerHTML = pillsHtml + headerHtml + tabContent;
+
+    // Wire pills
+    root.querySelectorAll("[data-pill-date]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const d = btn.getAttribute("data-pill-date");
+        if (d) renderPulse(data, d, "recap");
+      });
+    });
+
+    // Wire tabs
+    root.querySelectorAll(".mon-tab[data-tab]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const t = btn.getAttribute("data-tab");
+        if (t) renderPulse(data, selectedDate, t);
+      });
+    });
+
+    // Wire context toggle
+    const toggleBtn  = root.querySelector("#pls-context-toggle");
+    const ctxBody    = root.querySelector("#pls-context-body");
+    const ctxChevron = root.querySelector("#pls-context-chevron");
+    if (toggleBtn && ctxBody) {
+      toggleBtn.addEventListener("click", (e) => {
+        if (e.target.closest("[data-switch-tab]")) return;
+        const isOpen = ctxBody.style.display!=="none";
+        ctxBody.style.display = isOpen?"none":"block";
+        if (ctxChevron) ctxChevron.style.transform = isOpen?"":"rotate(180deg)";
+      });
+    }
+
+    // Wire tab-switch CTAs
+    root.querySelectorAll("[data-switch-tab]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation(); e.preventDefault();
+        const t = btn.getAttribute("data-switch-tab");
+        if (t) renderPulse(data, selectedDate, t);
+      });
+    });
+
+    // Map
+    if (activeTab==="carte") {
+      const mapEl = root.querySelector("#pls-map");
+      if (mapEl && typeof L!=="undefined") {
+        const plsMap = L.map("pls-map").setView([48.86, 2.35], 14);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution:"© OpenStreetMap contributors" }).addTo(plsMap);
+
+        fetch(`/api/insight/map?location_id=${encodeURIComponent(location_id)}&date=${encodeURIComponent(selectedDate)}`)
+          .then(r => r.json())
+          .then(mapData => {
+            const meta = mapData.meta||{};
+            const vLat = Number(meta?.venue?.lat), vLon = Number(meta?.venue?.lon);
+            if (Number.isFinite(vLat)&&Number.isFinite(vLon)) {
+              createVenueMarker({ client_lat:vLat, client_lon:vLon }).addTo(plsMap);
+              plsMap.setView([vLat, vLon], 14);
+            }
+            (mapData.events||[]).slice(0,30).forEach((e,i) => {
+              const lat=Number(e.latitude), lng=Number(e.longitude);
+              if (Number.isFinite(lat)&&Number.isFinite(lng)) createEventMarker(e, i+1).addTo(plsMap);
+            });
+          }).catch(err => console.error("Map error:", err));
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // Locations
+  // ----------------------------------------------------------------
+  async function fetchLocations() {
+    const res = await fetch("/api/profile/locations", { cache:"no-store" });
+    const json = await res.json().catch(()=>null);
+    return Array.isArray(json?.locations) ? json.locations : [];
+  }
+
+  // ----------------------------------------------------------------
+  // Fetch
+  // ----------------------------------------------------------------
+  const dates = next8Days();
+
+  async function fetchPulse(loc) {
+    const qs = new URLSearchParams();
+    qs.set("location_id", loc);
+    qs.set("selected_dates", dates.join(","));
+    const res = await fetch("/api/insight/monitor?"+qs.toString(), {cache:"no-store"});
+    const json = await res.json().catch(()=>null);
+    if (!res.ok||!json?.ok) throw new Error(json?.error||"Erreur API");
+    return json;
+  }
+
+  // ----------------------------------------------------------------
+  // Boot
+  // ----------------------------------------------------------------
+  let currentLocationId = location_id;
+  let allLocations = [];
+
+  (async function boot() {
+    const root = document.getElementById("pls-root");
+    try {
+      const [data, locs] = await Promise.all([
+        fetchPulse(currentLocationId),
+        fetchLocations().catch(()=>[]),
+      ]);
+
+      allLocations = locs;
+
+      // Set location name
+      const currentLoc = locs.find(l => l.location_id===currentLocationId);
+      const nameEl = document.getElementById("pls-loc-name");
+      const addrEl = document.getElementById("pls-loc-addr");
+      const switchBtn = document.getElementById("pls-loc-switch");
+
+      if (nameEl) nameEl.textContent = currentLoc?.company_name || data.profile?.city_name || "Mon site";
+      if (addrEl) addrEl.textContent = currentLoc?.company_address || "";
+      if (switchBtn && locs.length > 1) {
+        switchBtn.style.display = "block";
+        switchBtn.addEventListener("click", async () => {
+          const other = locs.find(l => l.location_id!==currentLocationId);
+          if (!other) return;
+          currentLocationId = other.location_id;
+          if (nameEl) nameEl.textContent = other.company_name || "";
+          if (addrEl) addrEl.textContent = other.company_address || "";
+          if (root) root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" style="height:100px;width:auto;" /></div>`;
+          try {
+            const newData = await fetchPulse(currentLocationId);
+            renderPulse(newData, todayYmd(), "recap");
+          } catch(e) {
+            if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message||"Erreur.")}</div>`;
+          }
+        });
+      }
+
+      renderPulse(data, todayYmd(), "recap");
+
+    } catch(e) {
+      if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message||"Erreur de chargement.")}</div>`;
+      console.error(e);
+    }
+  })();
+
+})();
+</script>

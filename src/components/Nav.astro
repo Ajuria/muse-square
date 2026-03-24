@@ -19,7 +19,8 @@ const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.starts
 const piloterCookie = Astro.cookies.get("ms_piloter")?.value ?? "";
 const [cookieSavedItemId, cookieDate] = piloterCookie.split("|").map(decodeURIComponent);
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor");
-const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor;
+const isPulse = currentPath === "/app/insightevent/pulse";
+const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse;
 const isProfile = currentPath === "/profile" || currentPath === "/notifications";
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
@@ -95,19 +96,33 @@ const isAppShell = isApp;
                 </a>
               </li>
               
-              <li>
+              <li class="relative" id="piloter-nav-item">
                 {(() => {
-                 const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
-                 const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
-                 const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || cookieDate;
-                 const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
-                  ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
-                  : null;
-    
-                  return monitorHref ? (
-                    <a href={monitorHref} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isMonitor ? "after:bg-primary" : "after:bg-transparent"}`}>Piloter</a>
-                  ) : (
-                    <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">Piloter</span>
+                  const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
+                  const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
+                  const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || cookieDate;
+                  const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
+                    ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
+                    : null;
+                  const isPiloter = isMonitor || Astro.url.pathname === "/app/insightevent/pulse";
+
+                  return (
+                    <>
+                      <button type="button" id="piloter-nav-btn"
+                        class={`ms-nav-link relative flex items-center gap-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[6px] after:h-[2px] ${isPiloter ? "after:bg-primary" : "after:bg-transparent"}`}>
+                        PILOTER
+                        <svg id="piloter-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="transition:transform 0.15s;flex-shrink:0;">
+                          <polyline points="2,3 5,7 8,3"/>
+                        </svg>
+                      </button>
+                      <div id="piloter-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
+                        <a href="/app/insightevent/pulse" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Veille</a>
+                        {monitorHref
+                          ? <a href={monitorHref} class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Événements</a>
+                          : <span class="block px-4 py-2 text-sm font-medium uppercase tracking-wide text-gray-300 cursor-not-allowed">Événements</span>
+                        }
+                      </div>
+                    </>
                   );
                 })()}
               </li>
@@ -170,6 +185,9 @@ const isAppShell = isApp;
           </li>
 
           <li>
+            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Veille</a>
+          </li>
+          <li>
             {(() => {
               const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
               const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
@@ -178,9 +196,9 @@ const isAppShell = isApp;
                 : null;
 
               return monitorHref ? (
-                <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
+                <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Événements</a>
               ) : (
-                <span class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none" aria-disabled="true">Piloter</span>
+                <span class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none" aria-disabled="true">Piloter — Événements</span>
               );
             })()}
           </li>
@@ -258,6 +276,20 @@ const isAppShell = isApp;
       }
     });
     }
+
+    (function () {
+      var btn = document.getElementById('piloter-nav-btn');
+      var dropdown = document.getElementById('piloter-dropdown');
+      var chevron = document.getElementById('piloter-chevron');
+      if (!btn || !dropdown) return;
+      var open = false;
+      function show() { dropdown.style.display = 'block'; chevron && (chevron.style.transform = 'rotate(180deg)'); open = true; }
+      function hide() { dropdown.style.display = 'none'; chevron && (chevron.style.transform = 'rotate(0deg)'); open = false; }
+      btn.addEventListener('click', function(e) { e.stopPropagation(); open ? hide() : show(); });
+      document.addEventListener('click', function(e) { var item = document.getElementById('piloter-nav-item'); if (item && !item.contains(e.target)) hide(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
+    })();
+
   </script>
 
   <script is:inline>
