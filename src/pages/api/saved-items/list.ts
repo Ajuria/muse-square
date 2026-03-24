@@ -90,6 +90,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // ---- Query ----
     // Join dates and aggregate them into a DATE[] array.
+    const profileTable = `\`${projectId}.raw.insight_event_user_location_profile\``;
+
     const query = `
       SELECT
         i.saved_item_id,
@@ -104,14 +106,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.selected_date,
         i.created_at,
         i.updated_at,
+        COALESCE(p.company_name, p.company_address, i.location_id) AS location_label,
+        p.is_primary,
         ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date ASC) AS dates
       FROM ${savedItemsTable} i
       JOIN ${savedItemDatesTable} d
         ON d.saved_item_id = i.saved_item_id
        AND d.location_id = i.location_id
        AND d.clerk_user_id = i.clerk_user_id
+      LEFT JOIN ${profileTable} p
+        ON p.location_id = i.location_id
+       AND p.clerk_user_id = i.clerk_user_id
       WHERE i.clerk_user_id = @clerk_user_id
-        AND i.location_id = @location_id
         AND (@stage IS NULL OR i.stage = @stage)
       GROUP BY
         i.saved_item_id,
@@ -125,8 +131,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.decision_date,
         i.event_end_date,
         i.created_at,
-        i.updated_at
-      ORDER BY i.created_at DESC
+        i.updated_at,
+        p.company_name,
+        p.company_address,
+        p.is_primary
+      ORDER BY p.is_primary DESC, i.created_at DESC
       LIMIT @limit OFFSET @offset
     `;
 
@@ -135,16 +144,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location: BQ_LOCATION,
       params: {
         clerk_user_id,
-        location_id,
-        stage,  // can be null
+        stage,
         limit,
         offset,
       },
-      // Explicit typing prevents BigQuery parameter edge cases (esp. @stage null).
       types: {
         clerk_user_id: "STRING",
-        location_id: "STRING",
-        stage: "STRING", // BigQuery accepts null param; type still STRING
+        stage: "STRING",
         limit: "INT64",
         offset: "INT64",
       },
@@ -179,6 +185,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           decision_date: unwrapDate(r.decision_date),
           event_end_date: unwrapDate(r.event_end_date),
           selected_date: unwrapDate(r.selected_date),
+          location_label: typeof r.location_label === "string" ? r.location_label : null,
+          is_primary: r.is_primary === true,
         };
 
     });

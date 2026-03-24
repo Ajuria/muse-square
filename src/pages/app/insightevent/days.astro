@@ -1450,6 +1450,11 @@ const show_actions = has_selected_dates;
 
           <div class="ms-modal-body">
 
+            <div class="ms-field">
+              <div class="ms-label">SITE</div>
+              <div id="ms-save-location-label" style="padding:10px 0;font-size:14px;color:#6b7280;border-bottom:1.5px solid #e5e7eb;"></div>
+            </div>
+
             <label class="ms-field">
               <div class="ms-label">NOM DE L'ÉVÉNEMENT</div>
               <input id="ms-save-title-input" class="ms-input" type="text" placeholder="Ex: Week-end de Pâques" maxlength="120" />
@@ -2043,13 +2048,29 @@ const show_actions = has_selected_dates;
             };
           }
 
-          savedPanel.innerHTML =
-            head +
-            `
-            <div class="ms-saved-wrap">
-              <div class="ms-saved-list">
-                ${rows
-                  .map((it) => {
+          // Group by location
+          const locationGroups = [];
+          const locationOrder = [];
+          const locationMap = new Map();
+          rows.forEach(it => {
+            const key = it.location_id || "unknown";
+            if (!locationMap.has(key)) {
+              locationMap.set(key, []);
+              locationOrder.push({ key, label: it.location_label || it.location_id, is_primary: it.is_primary });
+            }
+            locationMap.get(key).push(it);
+          });
+
+          const groupsHtml = locationOrder.map(({ key, label, is_primary }) => {
+            const groupItems = locationMap.get(key);
+            return `
+              <div style="margin-bottom:8px;" data-location-label="${escapeHtml(label)}">
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:8px;">
+                  ${escapeHtml(label)}
+                  ${is_primary ? `<span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#f1efe8;color:#444441;">Principal</span>` : ""}
+                </div>
+                <div class="ms-saved-list">
+                  ${groupItems.map((it) => {
                     const id = it?.saved_item_id ? String(it.saved_item_id) : "";
                     const title = it?.title ? String(it.title) : "Sans titre";
                     const stage = stageLabel(it?.stage) || "—";
@@ -2114,11 +2135,13 @@ const show_actions = has_selected_dates;
                         </div>
                       </div>
                     `;
-                  })
-                  .join("")}
+                  }).join("")}
+                </div>
               </div>
-            </div>
-          `;
+            `;
+          }).join("");
+
+          savedPanel.innerHTML = head + `<div class="ms-saved-wrap">${groupsHtml}</div>`;
 
           // Wire buttons (unchanged)
           savedPanel.querySelectorAll(".ms-saved-tr").forEach((rowEl) => {
@@ -2152,6 +2175,12 @@ const show_actions = has_selected_dates;
                 // Pre-fill modal fields
                 if (modalTitle) modalTitle.value = title;
                 if (modalDesc) modalDesc.value = desc;
+
+                const locationLabelEl = document.getElementById("ms-save-location-label");
+                if (locationLabelEl) {
+                  const groupEl = rowEl.closest("[data-location-label]");
+                  locationLabelEl.textContent = groupEl ? groupEl.getAttribute("data-location-label") : "";
+                }
 
                 // Initialize flatpickr first, then set dates via API
                 if (window.__msFlatpickrDecision) window.__msFlatpickrDecision.destroy();

@@ -59,6 +59,13 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
   >
     <div id="ie-30d-root" data-role="ie-30d-root">
       <main id="ie-30d-main" data-role="ie-30d-main">
+        <div id="ms-new-loc-banner" style="display:none;background:#f0f4ff;border-left:3px solid #0b37e5;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <span style="font-size:13px;color:#111827;">
+            Nouveau site ajouté — vous pouvez compléter ses informations dans votre
+            <a href="/profile" style="color:#0b37e5;text-decoration:underline;">profil</a>.
+          </span>
+          <button id="ms-new-loc-dismiss" type="button" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0;line-height:1;flex-shrink:0;">×</button>
+        </div>
         <header id="ie-30d-header" data-role="ie-30d-header">
           <nav id="ie-breadcrumb" aria-label="Breadcrumb" style="visibility:hidden;">
             <span class="ie-breadcrumb-root">Insight Event</span>
@@ -66,6 +73,60 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             <span class="ie-breadcrumb-current" id="ie-breadcrumb-current">Mois</span>
           </nav>
         </header>
+
+        <div id="ms-loc-bar" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e5e7eb;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <path d="M8 1.5C5.51 1.5 3.5 3.51 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.49-2.01-4.5-4.5-4.5z" stroke="#9ca3af" stroke-width="1.2"/>
+              <circle cx="8" cy="6" r="1.5" stroke="#9ca3af" stroke-width="1.2"/>
+            </svg>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span id="ms-loc-name" style="font-size:14px;font-weight:500;color:#111827;"></span>
+                <span id="ms-loc-badge" style="display:none;padding:2px 8px;background:#f1efe8;border-radius:20px;font-size:11px;font-weight:500;color:#444441;">Principal</span>
+              </div>
+              <div id="ms-loc-addr" style="font-size:12px;color:#9ca3af;margin-top:1px;"></div>
+            </div>
+          </div>
+          <button id="ms-loc-change" type="button" style="font-size:13px;color:#0b37e5;background:none;border:none;cursor:pointer;padding:0;font-weight:500;">Changer de site</button>
+        </div>
+
+        <div id="ms-loc-panel" style="display:none;border:1px solid #e5e7eb;margin-bottom:16px;background:#fff;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e5e7eb;">
+            <span style="font-size:14px;font-weight:500;color:#111827;">Choisir un site</span>
+            <button id="ms-loc-close" type="button" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9ca3af;padding:0;line-height:1;">×</button>
+          </div>
+          <div id="ms-loc-saved" style="padding:16px 20px;">
+            <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:10px;">Mes sites</div>
+          </div>
+          <div id="ms-loc-name-wrap" style="display:none;padding:0 20px 16px 20px;">
+            <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Nom du site</div>
+            <input id="ms-loc-name-input" type="text" placeholder="Nom de ce site"
+              style="width:100%;height:38px;border:1px solid #e5e7eb;padding:0 12px;font-size:13px;color:#111827;outline:none;box-sizing:border-box;" />
+          </div>
+          <div style="height:1px;background:#e5e7eb;"></div>
+          <div style="padding:16px 20px;">
+            <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:10px;">Ajouter un site</div>
+            <div style="position:relative;">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);">
+                <circle cx="7" cy="7" r="4.5" stroke="#9ca3af" stroke-width="1.2"/>
+                <path d="M10.5 10.5L13 13" stroke="#9ca3af" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+              <input id="ms-loc-search" type="text" placeholder="Rechercher une adresse (IDF, PACA, Occitanie)"
+                style="width:100%;height:38px;border:1px solid #e5e7eb;padding:0 12px 0 32px;font-size:13px;color:#111827;outline:none;box-sizing:border-box;" />
+            </div>
+            <div id="ms-loc-suggestions"></div>
+          </div>
+          <div id="ms-loc-map-wrap" style="display:none;height:220px;position:relative;">
+            <div id="ms-loc-map" style="width:100%;height:100%;"></div>
+            <div id="ms-loc-map-label" style="position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.92);border:1px solid #e5e7eb;padding:4px 10px;font-size:11px;color:#374151;z-index:500;"></div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:flex-end;">
+            <button id="ms-loc-cancel" type="button" style="height:34px;padding:0 14px;border:1px solid #e5e7eb;background:#fff;font-size:13px;color:#374151;cursor:pointer;">Annuler</button>
+            <button id="ms-loc-confirm-saved" type="button" style="height:34px;padding:0 18px;border:none;background:#0b37e5;font-size:13px;font-weight:500;color:#fff;cursor:pointer;">Choisir ce site</button>
+            <button id="ms-loc-confirm-new" type="button" style="display:none;height:34px;padding:0 18px;border:none;background:#0b37e5;font-size:13px;font-weight:500;color:#fff;cursor:pointer;">Ajouter ce site</button>
+          </div>
+        </div>
 
         <section id="ie-30d-takeaway" data-role="ie-30d-takeaway">
           <div id="ie-30d-takeaway-header" data-role="ie-30d-takeaway-header">
@@ -208,6 +269,329 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             document.addEventListener("keydown", (e) => {
               if (e.key === "Escape" && !root.classList.contains("hidden")) hide();
             });
+          })();
+
+          // =====================
+          // LOCATION PICKER
+          // =====================
+          (function initLocationPicker() {
+            const LOC_ID = String(window.__ie_location_id || "");
+            let __locMap = null;
+            let __locMarker = null;
+            let __locCompLayer = null;
+            let __selectedSavedId = null;
+            let __pendingAddress = null;
+            let __pendingLat = null;
+            let __pendingLon = null;
+            let __locSearchTimeout = null;
+            let __locationsCache = null;
+
+            const panel       = document.getElementById("ms-loc-panel");
+            const barName     = document.getElementById("ms-loc-name");
+            const barAddr     = document.getElementById("ms-loc-addr");
+            const barBadge    = document.getElementById("ms-loc-badge");
+            const btnChange   = document.getElementById("ms-loc-change");
+            const btnClose    = document.getElementById("ms-loc-close");
+            const btnCancel   = document.getElementById("ms-loc-cancel");
+            const btnSaved    = document.getElementById("ms-loc-confirm-saved");
+            const btnNew      = document.getElementById("ms-loc-confirm-new");
+            const savedWrap   = document.getElementById("ms-loc-saved");
+            const searchEl    = document.getElementById("ms-loc-search");
+            const suggestEl   = document.getElementById("ms-loc-suggestions");
+            const mapWrap     = document.getElementById("ms-loc-map-wrap");
+            const mapLabel    = document.getElementById("ms-loc-map-label");
+            const nameWrap    = document.getElementById("ms-loc-name-wrap");
+            const nameInput   = document.getElementById("ms-loc-name-input");
+
+            function escLoc(v) {
+              return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            }
+
+            function showSavedMode() {
+              if (btnSaved) btnSaved.style.display = "inline-block";
+              if (btnNew)   btnNew.style.display   = "none";
+              if (mapWrap)  mapWrap.style.display  = "none";
+            }
+
+            function showNewMode() {
+              if (btnSaved) btnSaved.style.display = "none";
+              if (btnNew)   btnNew.style.display   = "inline-block";
+            }
+
+            async function loadLocations() {
+              if (__locationsCache) return __locationsCache;
+              try {
+                const res = await fetch("/api/profile/locations");
+                if (!res.ok) return [];
+                const data = await res.json();
+                __locationsCache = Array.isArray(data.locations) ? data.locations : [];
+              } catch (_) {
+                __locationsCache = [];
+              }
+              return __locationsCache;
+            }
+
+            async function populateBar() {
+              const locs = await loadLocations();
+              const urlLocId = new URL(window.location.href).searchParams.get("location_id") || LOC_ID;
+              const current = locs.find(l => l.location_id === urlLocId) || locs[0];
+              if (!current) return;
+              if (barName) barName.textContent = current.company_name || current.company_address || "Mon site";
+              if (barAddr) barAddr.textContent = current.company_address || "";
+              if (barBadge) barBadge.style.display = current.is_primary ? "inline-flex" : "none";
+            }
+
+            async function renderSavedList() {
+              if (!savedWrap) return;
+              const locs = await loadLocations();
+              if (!locs.length) { savedWrap.style.display = "none"; return; }
+              const label = savedWrap.querySelector("div");
+              savedWrap.innerHTML = "";
+              if (label) savedWrap.appendChild(label);
+              locs.forEach(loc => {
+                const item = document.createElement("div");
+                item.className = "ms-loc-saved-item";
+                const isActive = loc.location_id === __selectedSavedId;
+                item.innerHTML = `
+                  <div class="ms-loc-check ${isActive ? "active" : ""}" data-id="${loc.location_id}"></div>
+                  <div>
+                    <div class="ms-loc-item-name">${escLoc(loc.is_primary ? (loc.company_name || loc.company_address) : (loc.company_name || loc.company_address || "Site"))}</div>
+                    <div class="ms-loc-item-addr">${escLoc(loc.company_address || "")}${loc.is_primary ? ' · <span style="color:#0b37e5">Principal</span>' : ""}</div>
+                  </div>
+                `;
+                item.addEventListener("click", () => {
+                  __selectedSavedId = loc.location_id;
+                  __pendingAddress = null;
+                  __pendingLat = null;
+                  __pendingLon = null;
+                  if (searchEl) searchEl.value = "";
+                  if (suggestEl) suggestEl.innerHTML = "";
+                  renderSavedList();
+                  showSavedMode();
+                  if (nameWrap && nameInput) {
+                    if (!loc.is_primary) {
+                      nameWrap.style.display = "block";
+                      nameInput.value = loc.company_name || loc.company_address || "";
+                    } else {
+                      nameWrap.style.display = "none";
+                    }
+                  }
+                });
+                savedWrap.appendChild(item);
+              });
+            }
+
+            const DEPT_FILTER = ["75","77","78","91","92","93","94","95","13","06","83","84","04","05","31","34","30","66","65","11","81","09","12","46","48","32","82"];
+
+            async function searchBAN(q) {
+              const url = new URL("https://api-adresse.data.gouv.fr/search/");
+              url.searchParams.set("q", q);
+              url.searchParams.set("limit", "6");
+              url.searchParams.set("type", "housenumber");
+              const res = await fetch(url.toString());
+              if (!res.ok) return [];
+              const data = await res.json();
+              return (data.features || []).filter(f => {
+                const dept = String(f.properties?.postcode || "").slice(0, 2);
+                return DEPT_FILTER.includes(dept);
+              });
+            }
+
+            if (searchEl) {
+              searchEl.addEventListener("input", () => {
+                clearTimeout(__locSearchTimeout);
+                const q = searchEl.value.trim();
+                if (q.length < 4) { if (suggestEl) suggestEl.innerHTML = ""; return; }
+                __locSearchTimeout = setTimeout(async () => {
+                  const feats = await searchBAN(q).catch(() => []);
+                  if (!feats.length) { if (suggestEl) suggestEl.innerHTML = ""; return; }
+                  suggestEl.innerHTML = '<div style="border:1px solid #e5e7eb;border-top:none;">' +
+                    feats.map(f => `
+                      <div class="ms-loc-suggestion"
+                        data-lat="${f.geometry.coordinates[1]}"
+                        data-lon="${f.geometry.coordinates[0]}"
+                        data-label="${escLoc(f.properties.label)}">
+                        <div>${escLoc(f.properties.label)}</div>
+                        <div class="ms-loc-suggestion-sub">${escLoc(f.properties.city || "")} · ${escLoc(f.properties.context || "")}</div>
+                      </div>`).join("") + "</div>";
+                  suggestEl.querySelectorAll(".ms-loc-suggestion").forEach(el => {
+                    el.addEventListener("click", () => {
+                      const lat = parseFloat(el.getAttribute("data-lat"));
+                      const lon = parseFloat(el.getAttribute("data-lon"));
+                      const label = el.getAttribute("data-label");
+                      searchEl.value = label;
+                      suggestEl.innerHTML = "";
+                      __selectedSavedId = null;
+                      __pendingAddress = label;
+                      __pendingLat = lat;
+                      __pendingLon = lon;
+                      if (nameWrap) nameWrap.style.display = "none";
+                      renderSavedList();
+                      showNewMode();
+                      showMapPreview(lat, lon, label);
+                    });
+                  });
+                }, 250);
+              });
+            }
+
+            function showMapPreview(lat, lon, label) {
+              if (!mapWrap) return;
+              mapWrap.style.display = "block";
+              const today = new Date();
+              const ymd = `${today.getUTCFullYear()}-${String(today.getUTCMonth()+1).padStart(2,"0")}-${String(today.getUTCDate()).padStart(2,"0")}`;
+              if (!__locMap) {
+                if (typeof L === "undefined") {
+                  const css = document.createElement("link");
+                  css.rel = "stylesheet";
+                  css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+                  document.head.appendChild(css);
+                  const js = document.createElement("script");
+                  js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+                  js.onload = () => initMap(lat, lon, label, ymd);
+                  document.head.appendChild(js);
+                  return;
+                }
+                initMap(lat, lon, label, ymd);
+              } else {
+                updateMap(lat, lon, label, ymd);
+              }
+            }
+
+            function initMap(lat, lon, label, date) {
+              __locMap = L.map("ms-loc-map", { zoomControl: false }).setView([lat, lon], 14);
+              L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+                attribution: "© OpenStreetMap contributors"
+              }).addTo(__locMap);
+              __locMarker = L.circleMarker([lat, lon], {
+                radius: 8, fillColor: "#0b37e5", color: "#fff", weight: 2, fillOpacity: 1
+              }).addTo(__locMap);
+              __locCompLayer = L.layerGroup().addTo(__locMap);
+              if (mapLabel) mapLabel.textContent = label || "";
+              loadCompetitionDots(date);
+            }
+
+            function updateMap(lat, lon, label, date) {
+              __locMap.setView([lat, lon], 14);
+              if (__locMarker) __locMarker.setLatLng([lat, lon]);
+              if (__locCompLayer) __locCompLayer.clearLayers();
+              if (mapLabel) mapLabel.textContent = label || "";
+              loadCompetitionDots(date);
+            }
+
+            async function loadCompetitionDots(date) {
+              if (!__locCompLayer) return;
+              const locs = await loadLocations();
+              const match = locs.find(l => l.company_address === __pendingAddress);
+              const lid = match?.location_id || null;
+              if (!lid) { if (mapLabel) mapLabel.textContent = __pendingAddress || ""; return; }
+              try {
+                const res = await fetch(`/api/insight/map?location_id=${encodeURIComponent(lid)}&date=${encodeURIComponent(date)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const events = Array.isArray(data.events) ? data.events : [];
+                __locCompLayer.clearLayers();
+                let count = 0;
+                events.slice(0, 30).forEach(e => {
+                  const elat = Number(e.latitude), elon = Number(e.longitude);
+                  if (!Number.isFinite(elat) || !Number.isFinite(elon)) return;
+                  L.circleMarker([elat, elon], {
+                    radius: 5, fillColor: "#e24b4a", color: "#fff", weight: 1.5, fillOpacity: 0.85
+                  }).bindTooltip(e.title || "Événement", { direction: "top" }).addTo(__locCompLayer);
+                  count++;
+                });
+                if (mapLabel) mapLabel.textContent = `${count} événements concurrents · 5km`;
+              } catch (_) {}
+            }
+
+            function openPanel() {
+              if (panel) panel.style.display = "block";
+              const urlLocId = new URL(window.location.href).searchParams.get("location_id") || LOC_ID;
+              __selectedSavedId = urlLocId;
+              __pendingAddress = null;
+              __pendingLat = null;
+              __pendingLon = null;
+              if (nameWrap) nameWrap.style.display = "none";
+              if (mapWrap) mapWrap.style.display = "none";
+              if (searchEl) searchEl.value = "";
+              if (suggestEl) suggestEl.innerHTML = "";
+              showSavedMode();
+              renderSavedList();
+            }
+
+            function closePanel() {
+              if (panel) panel.style.display = "none";
+              if (mapWrap) mapWrap.style.display = "none";
+              if (nameWrap) nameWrap.style.display = "none";
+              if (searchEl) searchEl.value = "";
+              if (suggestEl) suggestEl.innerHTML = "";
+              __pendingAddress = null;
+              __pendingLat = null;
+              __pendingLon = null;
+            }
+
+            if (btnChange) btnChange.addEventListener("click", openPanel);
+            if (btnClose)  btnClose.addEventListener("click", closePanel);
+            if (btnCancel) btnCancel.addEventListener("click", closePanel);
+
+            // ---- Choisir ce site (saved location) ----
+            if (btnSaved) {
+              btnSaved.addEventListener("click", async () => {
+                if (!__selectedSavedId) return;
+                btnSaved.disabled = true;
+                btnSaved.textContent = "…";
+
+                // Save renamed name if applicable
+                if (nameWrap && nameWrap.style.display !== "none" && nameInput instanceof HTMLInputElement) {
+                  const newName = nameInput.value.trim();
+                  if (newName) {
+                    await fetch("/api/profile/location-rename", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ location_id: __selectedSavedId, company_name: newName }),
+                    }).catch(() => {});
+                    __locationsCache = null; // bust cache so bar refreshes
+                  }
+                }
+
+                const u = new URL(window.location.href);
+                u.searchParams.set("location_id", __selectedSavedId);
+                u.searchParams.delete("new_location");
+                window.location.href = u.toString();
+              });
+            }
+
+            // ---- Ajouter ce site (new address) ----
+            if (btnNew) {
+              btnNew.addEventListener("click", async () => {
+                if (!__pendingAddress) return;
+                btnNew.disabled = true;
+                btnNew.textContent = "…";
+
+                try {
+                  const res = await fetch("/api/profile/location-add", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      company_address: __pendingAddress,
+                      company_name: __pendingAddress,
+                    }),
+                  });
+                  const out = await res.json().catch(() => null);
+                  if (out?.ok && out?.location_id) {
+                    const u = new URL(window.location.href);
+                    u.searchParams.set("location_id", out.location_id);
+                    u.searchParams.set("new_location", "1");
+                    window.location.href = u.toString();
+                  }
+                } catch (_) {}
+
+                btnNew.disabled = false;
+                btnNew.textContent = "Ajouter ce site";
+              });
+            }
+
+            populateBar();
           })();
         </script>
       </main>
@@ -1184,10 +1568,40 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         text-decoration: none;
       }
 
+      #ms-loc-search:focus { border-color: #0b37e5; box-shadow: 0 0 0 2px rgba(11,55,229,0.1); }
+      .ms-loc-saved-item { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6;cursor:pointer; }
+      .ms-loc-saved-item:last-child { border-bottom:none; }
+      .ms-loc-saved-item:hover .ms-loc-item-name { color:#0b37e5; }
+      .ms-loc-check { width:16px;height:16px;border-radius:50%;border:1.5px solid #e5e7eb;flex-shrink:0;display:flex;align-items:center;justify-content:center; }
+      .ms-loc-check.active { background:#0b37e5;border-color:#0b37e5; }
+      .ms-loc-check.active::after { content:'';width:6px;height:4px;border-left:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(-45deg);margin-top:-1px;display:block; }
+      .ms-loc-item-name { font-size:14px;color:#111827;transition:color 0.1s; }
+      .ms-loc-item-addr { font-size:12px;color:#9ca3af;margin-top:1px; }
+      .ms-loc-suggestion { padding:10px 12px;cursor:pointer;font-size:13px;color:#111827;border-bottom:1px solid #f3f4f6; }
+      .ms-loc-suggestion:last-child { border-bottom:none; }
+      .ms-loc-suggestion:hover { background:#f8f9ff;color:#0b37e5; }
+      .ms-loc-suggestion-sub { font-size:11px;color:#9ca3af;margin-top:2px; }
+
     </style>
     <script is:inline define:vars={{ location_id }}>
     console.log("[IE] Month UI (Astro) loaded");
     console.log("[IE][DBG] month.astro inline script: BUILD_ID=2026-01-30-AAA", Date.now());
+
+    window.__ie_location_id = String(location_id || "");
+
+    (function initNewLocBanner() {
+      const params = new URL(window.location.href).searchParams;
+      if (params.get("new_location") !== "1") return;
+      const banner = document.getElementById("ms-new-loc-banner");
+      const dismiss = document.getElementById("ms-new-loc-dismiss");
+      if (banner) banner.style.display = "flex";
+      if (dismiss) dismiss.addEventListener("click", () => {
+        if (banner) banner.style.display = "none";
+        const u = new URL(window.location.href);
+        u.searchParams.delete("new_location");
+        window.history.replaceState({}, "", u.toString());
+      });
+    })();
 
     // ---- HARD RUNTIME PROBE (must prove script is executing + handlers bind + clicks fire) ----
     window.addEventListener("error", (ev) => {

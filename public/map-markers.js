@@ -227,8 +227,8 @@ function createEventMarker(signal, number) {
  * createRoadMarker(signal)   — signal must have alert_level, lat, lon
  */
 function createRoadMarker(signal) {
-  const icon = makeIcon(roadPin(signal.alert_level ?? 1), 34, 34, 17, 30);
-  return L.marker([signal.lat, signal.lon], { icon, zIndexOffset: 200 })
+  const icon = makeIcon(roadPin(signal.perturbation_lvl ?? signal.alert_level ?? 1), 34, 34, 17, 30);
+  return L.marker([signal.latitude, signal.longitude], { icon, zIndexOffset: 200 })
     .bindTooltip(disruptionPopup(signal, 'road'), { permanent: false, sticky: true, maxWidth: 200, className: 'mp-tooltip' });
 }
 
@@ -236,8 +236,8 @@ function createRoadMarker(signal) {
  * createSubwayMarker(signal) — signal must have alert_level, lat, lon
  */
 function createSubwayMarker(signal) {
-  const icon = makeIcon(subwayPin(signal.alert_level ?? 1), 30, 30, 15, 15);
-  return L.marker([signal.lat, signal.lon], { icon, zIndexOffset: 200 })
+  const icon = makeIcon(subwayPin(signal.perturbation_lvl ?? signal.alert_level ?? 1), 30, 30, 15, 15);
+  return L.marker([signal.latitude, signal.longitude], { icon, zIndexOffset: 200 })
     .bindTooltip(disruptionPopup(signal, 'subway'), { permanent: false, sticky: true, maxWidth: 200, className: 'mp-tooltip' });
 }
 

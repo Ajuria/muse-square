@@ -181,7 +181,10 @@ export const GET: APIRoute = async ({ url }) => {
         summary
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
-        AND affected_date IN UNNEST(ARRAY(SELECT CAST(d AS DATE) FROM UNNEST(@selected_dates) AS d))
+        AND (
+          affected_date IN UNNEST(ARRAY(SELECT CAST(d AS DATE) FROM UNNEST(@selected_dates) AS d))
+          OR feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+        )
       ORDER BY alert_level DESC, feed_date DESC
     `;
 
@@ -202,6 +205,7 @@ export const GET: APIRoute = async ({ url }) => {
         params: { location_id, selected_dates },
         types: { selected_dates: ["STRING"] },
         location: "EU",
+        maxResults: 5000,
       }),
     ]);
 
@@ -222,6 +226,10 @@ export const GET: APIRoute = async ({ url }) => {
       city_name:       r?.city_name        ?? null,
       summary:         r?.summary          ?? null,
     }));
+
+    console.log('[FEED SAMPLE]', JSON.stringify(changeFeed[0]));
+    console.log('[FEED DEBUG]', changeFeed.length, changeFeed.filter(f => f.affected_date?.slice(0,10) === '2026-07-06').length);
+    console.log('[FEED DEBUG 23]', changeFeed.filter(f => f.affected_date?.slice(0,10) === '2026-03-23').length);
 
     // ----------------------------------------------------------------
     // 3. Build risk matrix per day
@@ -537,6 +545,7 @@ export const GET: APIRoute = async ({ url }) => {
       worst_day_count: worstDayCount,
       total_day_count: days.length,
       days,
+      all_feed: changeFeed,
     });
   } catch (err: any) {
     return json(400, {

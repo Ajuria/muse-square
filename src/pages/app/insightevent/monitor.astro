@@ -474,14 +474,14 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     return parts.join(" · ");
   }
 
-  function renderFeedItems(items, showAll = false) {
-    const filtered = showAll ? items : items.filter(a => {
-      const lvl = Number(a?.alert_level) || 0;
-      const sub = String(a?.change_subtype || "");
-      // hide event_removed at level 1 (ingestion noise)
+  function renderFeedItems(items, showAll) {
+    const filtered = showAll ? items : items.filter(function(feedItem) {
+      const lvl = Number(feedItem?.alert_level) || 0;
+      const sub = String(feedItem?.change_subtype || "");
       if (sub === "event_removed" && lvl < 2) return false;
-      // hide all level 1 by default
-      if (lvl < 2) return false;
+      if (sub === "event_new" && lvl < 1) return false;
+      if (sub === "mobility_disruption") return true;
+      if (lvl < 2 && sub !== "event_new") return false;
       return true;
     });
 
@@ -503,7 +503,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       byDate.get(d).push(a);
     }
 
-    return [...byDate.entries()].map(([d, dayItems]) => {
+    return [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([d, dayItems]) => {
       const itemsHtml = dayItems.map((a, idx) => {
         const line1 = feedLine1(a);
         const line2 = feedLine2(a);
@@ -864,7 +864,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const cev      = countdown(selectedDate);
 
     // All feed items across all days
-    const allFeed = days.flatMap(d => Array.isArray(d.change_feed) ? d.change_feed : []);
+    const allFeed = Array.isArray(data.all_feed) ? data.all_feed : days.flatMap(function(d) { return Array.isArray(d.change_feed) ? d.change_feed : []; });
 
     // Selected dates for map URL
     const allDates = days.map(d => normalizeYmd(d.date)).filter(Boolean);
@@ -939,9 +939,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
                 <span id="mon-filter-10km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">10km</span>
               </div>
               <div id="mon-sub-mobilite" style="display:none;align-items:center;">
-                <span id="mon-filter-visiteurs" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Visiteurs</span>
+                <span id="mon-filter-route" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Route</span>
                 <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
-                <span id="mon-filter-prestataires" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Prestataires</span>
+                <span id="mon-filter-metro" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Métro</span>
               </div>
             </div>
             <div id="mon-industry-row" style="display:flex;align-items:center;padding:8px 16px;flex-wrap:wrap;gap:4px 0;"></div>
@@ -987,6 +987,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         const evLyr10km = L.layerGroup().addTo(monMap);
         const evLyr50km = L.layerGroup().addTo(monMap);
         const roadLayer   = L.layerGroup().addTo(monMap);
+        const subwayLayer = L.layerGroup().addTo(monMap);
 
         const INDUSTRY_BUCKETS = {
           'culture_event':          ['Culture & Patrimoine', 'Cinéma & Théâtre', 'Événementiel', 'Vie nocturne'],
@@ -1171,14 +1172,21 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           monMap.removeLayer(evLyr500); monMap.removeLayer(evLyr5km);
           monMap.removeLayer(evLyr10km); monMap.removeLayer(evLyr50km);
           roadLayer.addTo(monMap);
-          setActive(getEl('mon-filter-visiteurs'));
-          setInactive(getEl('mon-filter-prestataires'));
+          setActive(getEl('mon-filter-route'));
+          setInactive(getEl('mon-filter-metro'));
+          const _bounds = [];
+          const _vLat = Number(monMap._lastVenueLat);
+          const _vLon = Number(monMap._lastVenueLon);
+          if (Number.isFinite(_vLat) && Number.isFinite(_vLon)) _bounds.push([_vLat, _vLon]);
+          roadLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]); });
+          if (_bounds.length > 1) monMap.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 });
+          else if (_bounds.length === 1) monMap.setView(_bounds[0], 14);
         });
 
-        const filterVisiteurs    = getEl('mon-filter-visiteurs');
-        const filterPrestataires = getEl('mon-filter-prestataires');
-        if (filterVisiteurs)    filterVisiteurs.addEventListener('click', () => { setActive(filterVisiteurs); setInactive(filterPrestataires); roadLayer.addTo(monMap); });
-        if (filterPrestataires) filterPrestataires.addEventListener('click', () => { setActive(filterPrestataires); setInactive(filterVisiteurs); roadLayer.addTo(monMap); });
+        const filterRoute = getEl('mon-filter-route');
+        const filterMetro = getEl('mon-filter-metro');
+        if (filterRoute) filterRoute.addEventListener('click', () => { setActive(filterRoute); setInactive(filterMetro); subwayLayer && monMap.removeLayer(subwayLayer); roadLayer.addTo(monMap); });
+        if (filterMetro) filterMetro.addEventListener('click', () => { setActive(filterMetro); setInactive(filterRoute); roadLayer.remove(); subwayLayer && subwayLayer.addTo(monMap); });
 
         // Fetch map data
         fetch(`/api/insight/map?location_id=${encodeURIComponent(location_id)}&date=${encodeURIComponent(selectedDate)}`)
@@ -1202,6 +1210,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
             allEvents = mapData.events || [];
             (mapData.road_disruptions || []).forEach(r => createRoadMarker(r).addTo(roadLayer));
+            (mapData.subway_disruptions || []).forEach(s => createSubwayMarker(s).addTo(subwayLayer));
+            if (mapData.road_disruptions?.length) {
+              const _bounds = [];
+              if (Number.isFinite(vLat) && Number.isFinite(vLon)) _bounds.push([vLat, vLon]);
+              roadLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]); });
+              if (_bounds.length > 1) monMap.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 });
+            }
 
             buildIndustryRow(allEvents);
             applyRadius('mon-filter-5km');

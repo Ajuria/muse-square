@@ -60,9 +60,9 @@ window.location.href="/sign-in";
       <span id="filter-10km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">10km</span>
     </div>
     <div id="sub-mobilite" style="display:none;align-items:center;">
-      <span id="filter-visiteurs" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Visiteurs</span>
+      <span id="filter-route" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">Route</span>
       <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
-      <span id="filter-prestataires" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Prestataires</span>
+      <span id="filter-metro" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">Métro</span>
     </div>
   </div>
 
@@ -252,6 +252,16 @@ renderVenue(data.meta || {})
 renderEvents(data.events || [], data.meta || {})
 renderRoad(data.road_disruptions || [])
 renderSubway(data.subway_disruptions || [])
+
+if ((data.road_disruptions || []).length || (data.subway_disruptions || []).length) {
+  const _bounds = []
+  const _vLat = Number(map._lastVenueLat)
+  const _vLon = Number(map._lastVenueLon)
+  if (Number.isFinite(_vLat) && Number.isFinite(_vLon)) _bounds.push([_vLat, _vLon])
+  roadLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]) })
+  subwayLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]) })
+  if (_bounds.length > 1) map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 })
+}
 
 // Notify parent to resize iframe via postMessage
 function sendHeight() {
@@ -639,18 +649,16 @@ window.addEventListener("load", () => {
   }
 
   // ---- Mobilité ----
-  function wireMobilite(id) {
-    const el = getEl(id)
-    if (!el) return
-    el.addEventListener('click', () => {
-      ;['filter-visiteurs','filter-prestataires'].forEach(i => setInactive(getEl(i)))
-      setActive(el)
-      roadLayer.remove()
-      if (id === 'filter-visiteurs' || id === 'filter-prestataires') roadLayer.addTo(map)
-    })
-  }
-  wireMobilite('filter-visiteurs')
-  wireMobilite('filter-prestataires')
+  const filterRoute = getEl('filter-route')
+  const filterMetro = getEl('filter-metro')
+  if (filterRoute) filterRoute.addEventListener('click', () => {
+    setActive(filterRoute); setInactive(filterMetro)
+    subwayLayer.remove(); roadLayer.addTo(map)
+  })
+  if (filterMetro) filterMetro.addEventListener('click', () => {
+    setActive(filterMetro); setInactive(filterRoute)
+    roadLayer.remove(); subwayLayer.addTo(map)
+  })
 
   // ---- Mode toggle ----
   modeConcurrence.addEventListener('click', () => {
@@ -670,8 +678,17 @@ window.addEventListener("load", () => {
     map.removeLayer(eventsLayer500m); map.removeLayer(eventsLayer5km)
     map.removeLayer(eventsLayer10km); map.removeLayer(eventsLayer50km)
     roadLayer.addTo(map)
-    setActive(getEl('filter-visiteurs'))
-    setInactive(getEl('filter-prestataires'))
+    subwayLayer.addTo(map)
+    setActive(getEl('filter-route'))
+    setInactive(getEl('filter-metro'))
+    const _bounds = []
+    const _vLat = Number(map._lastVenueLat)
+    const _vLon = Number(map._lastVenueLon)
+    if (Number.isFinite(_vLat) && Number.isFinite(_vLon)) _bounds.push([_vLat, _vLon])
+    roadLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]) })
+    subwayLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]) })
+    if (_bounds.length > 1) map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 })
+    else if (_bounds.length === 1) map.setView(_bounds[0], 14)
   })
 
   // ---- Initial state: concurrence, 5km active ----

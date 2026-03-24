@@ -57,6 +57,7 @@ const isLocalsRoute = createRouteMatcher([
   "/profile(.*)",
   "/api/saved-items(.*)",
   "/api/insight(.*)",
+  "/api/profile(.*)",
 ]);
 
 const DEV_BYPASS_PROMPT =
@@ -86,7 +87,7 @@ async function getProfileContext(clerk_user_id) {
       first_name
     FROM \`${projectId}.${dataset}.${table}\`
     WHERE clerk_user_id = @clerk_user_id
-    ORDER BY updated_at DESC
+      AND is_primary = TRUE
     LIMIT 1
   `;
 

@@ -156,7 +156,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
     requireString((locals as any).clerk_user_id, "locals.clerk_user_id");
 
     const location_id = requireString(
-      (locals as any).location_id,
+      new URL(request.url).searchParams.get("location_id") || (locals as any).location_id,
       "locals.location_id"
     );
 
