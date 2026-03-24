@@ -59,7 +59,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
   >
     <div id="ie-30d-root" data-role="ie-30d-root">
       <main id="ie-30d-main" data-role="ie-30d-main">
-        <div id="ms-new-loc-banner" style="display:none;background:#f0f4ff;border-left:3px solid #0b37e5;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div id="ms-new-loc-banner" style="display:none;background:#f0f4ff;border-left:3px solid #0b37e5;padding:12px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;gap:12px;">
           <span style="font-size:13px;color:#111827;">
             Nouveau site ajouté — vous pouvez compléter ses informations dans votre
             <a href="/profile" style="color:#0b37e5;text-decoration:underline;">profil</a>.
@@ -1589,7 +1589,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
     window.__ie_location_id = String(location_id || "");
 
-    (function initNewLocBanner() {
+    function initNewLocBanner() {
       const params = new URL(window.location.href).searchParams;
       if (params.get("new_location") !== "1") return;
       const banner = document.getElementById("ms-new-loc-banner");
@@ -1601,7 +1601,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         u.searchParams.delete("new_location");
         window.history.replaceState({}, "", u.toString());
       });
-    })();
+    }
+    setTimeout(initNewLocBanner, 500);
 
     // ---- HARD RUNTIME PROBE (must prove script is executing + handlers bind + clicks fire) ----
     window.addEventListener("error", (ev) => {
