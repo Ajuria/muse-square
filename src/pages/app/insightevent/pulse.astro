@@ -248,7 +248,7 @@ if (!location_id) {
   function next8Days() {
     const dates = [];
     const base = new Date();
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       dates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
@@ -681,7 +681,7 @@ if (!location_id) {
         </div>`;
     }
 
-    root.innerHTML = pillsHtml + headerHtml + tabContent;
+    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + headerHtml + tabContent;
 
     // Wire pills
     root.querySelectorAll("[data-pill-date]").forEach(btn => {
