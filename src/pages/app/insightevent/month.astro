@@ -173,7 +173,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
           <div id="ie-30d-month-header" data-role="ie-30d-month-header" data-window-start=""></div>
           <div id="ie-30d-filter-empty"></div>
-            <div id="ie-30d-calendar" data-role="ie-30d-calendar">
+            <div id="ie-30d-calendar" data-role="ie-30d-calendar" style="position:relative;">
               <div id="ie-30d-weekdays" data-role="ie-30d-weekdays">
                 <div class="ie-30d-weekday">Lun</div>
                 <div class="ie-30d-weekday">Mar</div>
@@ -184,9 +184,10 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
                 <div class="ie-30d-weekday">Dim</div>
               </div>
 
-              <div id="ie-30d-grid" data-role="ie-30d-grid">
+              <div id="ie-30d-grid" data-role="ie-30d-grid" style="position:relative;">
                 <!-- GRID_ANCHOR -->
               </div>
+              <div id="ie-30d-grid-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;"></div>
             </div>
           <div id="ie-30d-weather-disclaimer">
             Au-delà de 10 jours, météo basée sur moyenne saisonnière.
@@ -681,22 +682,25 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       #ie-30d-takeaway-title { display:flex; align-items:center; gap:8px; }
       #ie-30d-takeaway-header { display: none; }
       #ie-30d-takeaway-card{
-        background: rgba(29,59,179,0.06);
+        background: rgba(29,59,179,0.05);
         border: 1px solid #E8EDF5;
-        border-left: 6px solid #0b37e5;
+        border-left: 4px solid #0b37e5;
         border-radius: 0;
-        padding: 32px 24px;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
       .ie-30d-takeaway-kicker {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 11px;
+        font-weight: 500;
         letter-spacing: 0.10em;
         text-transform: uppercase;
         color: #1D3BB3;
-        margin-bottom: 20px;
+        margin-bottom: 0;
       }
 
       #ie-30d-takeaway-text { margin: 0; font-size: 14px; line-height: 1.45; opacity: 0.92; }
@@ -1119,7 +1123,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         text-align: center;
         opacity: 0.65;
 
-        margin-top: 4px;
+        margin-top: 28px;
         margin-bottom: -18px;
       }
 
@@ -1301,7 +1305,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         border: 0;
         border-radius: 0;
         padding: 6px 0 12px;
-        height: 72px;
+        height: 82px;
         overflow: visible;
 
         display: grid;
@@ -1647,24 +1651,36 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     // Filter bar (4 buttons) — single active
     // -----------------------------
     function bindQuickFilters(){
+      if (window.__ie_month_filters_bound) return;
+      window.__ie_month_filters_bound = true;
       const root = document.getElementById("ie-30d-calendar-header");
       if (!root) return;
 
       const btns = Array.from(root.querySelectorAll(".ms-seg__btn"));
 
-      async function setActive(key){
+      // Multi-select: Set of active filter keys
+      window.__ie_month_active_filters = new Set(["top3"]);
+
+      function syncBtnStyles(){
         btns.forEach((b) => {
           const k = b.getAttribute("data-ms-filter");
-          const on = (k === key);
+          const on = window.__ie_month_active_filters.has(k);
           b.classList.toggle("is-active", on);
           b.setAttribute("aria-selected", on ? "true" : "false");
         });
+      }
 
-        // v1: store on window only (wiring to grid comes in next step)
-        window.__ie_month_quick_filter = key;
-        console.log("[IE][month] quick filter:", key);
+      async function toggleFilter(key){
+        if (window.__ie_month_active_filters.has(key)) {
+          window.__ie_month_active_filters.delete(key);
+        } else {
+          window.__ie_month_active_filters.add(key);
+        }
+        // Keep backward compat: __ie_month_quick_filter = first active key or "top3"
+        window.__ie_month_quick_filter = [...window.__ie_month_active_filters][0] || "top3";
+        syncBtnStyles();
+        console.log("[IE][month] active filters:", [...window.__ie_month_active_filters]);
 
-        // apply mode to existing rendered grid (no re-render)
         try { applyGridMode(); } catch (_) {}
         try {
           const out = await loadMonthData();
@@ -1676,21 +1692,17 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
         } catch (_) {}
       }
 
-      // default
-      const initial = "top3";
-      setActive(initial);
+      // Default: top3 on
+      syncBtnStyles();
 
       root.addEventListener("click", (e) => {
         const tgt = e.target;
         if (!(tgt instanceof Element)) return;
-
         const btn = tgt.closest(".ms-seg__btn");
         if (!btn) return;
-
         const key = btn.getAttribute("data-ms-filter");
         if (!key) return;
-
-        setActive(key);
+        toggleFilter(key);
       });
     }
 
@@ -1815,10 +1827,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const out = await loadMonthData();
       if (!out || !Array.isArray(out.days)) return;
 
-      const key = String(window.__ie_month_quick_filter || "top3");
+      const activeFilters = window.__ie_month_active_filters instanceof Set
+        ? window.__ie_month_active_filters
+        : new Set(["top3"]);
       const filters = readConstraintFilters();
 
-      // Build semantic map
       const semanticByDate = new Map(
         out.days
           .map((r) => ({ ...r, date: asYmd(r?.date) }))
@@ -1826,27 +1839,25 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
           .map((r) => [r.date, r])
       );
 
-      const top3Rank = (key === "top3") ? computeTop3RankMap(out, filters) : new Map();
+      const top3Rank = activeFilters.has("top3") ? computeTop3RankMap(out, filters) : new Map();
 
       document.querySelectorAll("#ie-30d-grid .ie-30d-day").forEach((btn) => {
         const ymd = btn.getAttribute("data-date");
         if (!ymd) return;
 
         const semantic = semanticByDate.get(ymd);
+        if (!semantic) return; // spillover
+
         const medalEl = btn.querySelector('[data-role="ie-medal"]');
         const iconImg = btn.querySelector('[data-role="ie-icon-img"]');
         const iconLbl = btn.querySelector('[data-role="ie-icon-label"]');
+        const tagsEl  = btn.querySelector('[data-role="ie-tags"]');
 
-        // spillover: leave as-is
-        if (!semantic) {
-          return; // spillover day — skip safely
-        }
+        const baseMedal = resolveMedalText(semantic);
 
-        // ---- Medal behavior ----
+        // ---- Medal: top3 rank if top3 active, else base ----
         if (medalEl instanceof HTMLElement) {
-          const baseMedal = resolveMedalText(semantic);
-
-          if (key === "top3") {
+          if (activeFilters.has("top3")) {
             const rank = top3Rank.get(ymd);
             if (rank) {
               medalEl.textContent = rank;
@@ -1855,38 +1866,26 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
               medalEl.textContent = baseMedal;
               medalEl.style.color = "";
             }
-            medalEl.style.display = "block";
-            medalEl.style.fontSize = "";
-            medalEl.style.whiteSpace = "";
-            // Restore weather icon for all days in top3 mode
-            if (iconImg instanceof HTMLImageElement) {
-              const code = semantic?.weather_code;
-              const src = weatherIconSrc(code) || "";
-              iconImg.src = src;
-              iconImg.style.display = src ? "block" : "none";
-            }
-
           } else {
-            const overlay = computeModeOverlay(semantic, key);
-            // Clear medal text on matching days (bar from renderLabelRows fills that space)
-            // Keep normal A/B/C on non-matching days
-            if (medalEl instanceof HTMLElement) {
-              medalEl.textContent = overlay ? "" : baseMedal;
-              medalEl.style.cssText = "";
-              medalEl.style.display = "block";
-            }
-            // Always show weather icon regardless of filter
-            if (iconImg instanceof HTMLImageElement) {
-              const code = semantic?.weather_code;
-              const src = weatherIconSrc(code) || "";
-              iconImg.src = src;
-              iconImg.style.display = src ? "block" : "none";
-            }
-            if (iconLbl instanceof HTMLElement) {
-              iconLbl.textContent = "";
-              iconLbl.style.display = "none";
-            }
+            medalEl.textContent = baseMedal;
+            medalEl.style.color = "";
           }
+          medalEl.style.display = "block";
+        }
+
+        // ---- Weather icon: always visible ----
+        if (iconImg instanceof HTMLImageElement) {
+          const src = weatherIconSrc(semantic?.weather_code) || "";
+          iconImg.src = src;
+          iconImg.style.display = src ? "block" : "none";
+        }
+        if (iconLbl instanceof HTMLElement) {
+          iconLbl.textContent = "";
+          iconLbl.style.display = "none";
+        }
+
+        if (tagsEl instanceof HTMLElement) {
+          tagsEl.innerHTML = "";
         }
       });
     }
@@ -2230,7 +2229,9 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const monthHeader = document.getElementById("ie-30d-month-header");
       if (monthHeader) monthHeader.setAttribute("data-window-start", windowStart);
 
-      grid.innerHTML = "";
+      Array.from(grid.children).forEach(child => {
+        if (child.id !== 'ie-30d-grid-overlay') child.remove();
+      });
 
       function ymdToUtcDate(s) {
         const [y, m, d] = s.split("-").map(Number);
@@ -2285,6 +2286,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             <div class="ie-30d-weather-label" data-role="ie-icon-label" style="display:none;"></div>
             ${iconSrc ? `<img data-role="ie-icon-img" src="${iconSrc}" alt="" />` : `<img data-role="ie-icon-img" src="" alt="" style="display:none;" />`}
           </div>
+
+          <div data-role="ie-tags" style="display:flex;flex-direction:column;gap:2px;width:100%;"></div>
         `;
 
         grid.appendChild(btn);
@@ -2317,11 +2320,18 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     } // end loadMonthGrid
 
     function renderLabelRows(days, windowStart) {
-      document.querySelectorAll(".ie-span-bar").forEach(el => el.remove());
+      const overlayCleanup = document.getElementById("ie-30d-grid-overlay");
+      if (overlayCleanup) overlayCleanup.innerHTML = "";
       const grid = document.getElementById("ie-30d-grid");
       if (!grid) return;
-      const key = String(window.__ie_month_quick_filter || "top3");
-      if (key === "top3") return;
+      const overlay = document.getElementById("ie-30d-grid-overlay");
+
+      const activeFilters = window.__ie_month_active_filters instanceof Set
+        ? window.__ie_month_active_filters
+        : new Set(["top3"]);
+
+      const nonTop3Active = ["vacances", "ferie", "temps_forts"].filter(k => activeFilters.has(k));
+      if (nonTop3Active.length === 0) return;
 
       function toYmd(dt) {
         return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,"0")}-${String(dt.getUTCDate()).padStart(2,"0")}`;
@@ -2335,71 +2345,78 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const start = ymdToUtcDate(windowStart);
       start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
 
-      const cells = [];
-      for (let i = 0; i < 42; i++) {
-        const dt = new Date(start);
-        dt.setUTCDate(start.getUTCDate() + i);
-        const ymd = toYmd(dt);
-        const s = semanticByDate.get(ymd);
-        let label = null;
-        if (s) {
-          if (key === "vacances" && s.is_school_holiday_flag === true)
-            label = (Array.isArray(s.labels) && s.labels[0]) ? s.labels[0] : (s.school_holiday_name || "Vacances");
-          else if (key === "ferie" && s.is_public_holiday_fr_flag === true)
-            label = s.public_holiday_name_fr || "Férié";
-          else if (key === "temps_forts" && s.is_commercial_event_flag_region === true)
-            label = (Array.isArray(s.commercial_event_names_region) && s.commercial_event_names_region[0]) ? s.commercial_event_names_region[0] : "Temps fort";
-        }
-        cells.push({ ymd, label });
-      }
-
-      const spans = [];
-      let i = 0;
-      while (i < 42) {
-        if (!cells[i].label) { i++; continue; }
-        const label = cells[i].label;
-        const row = Math.floor(i / 7);
-        let j = i;
-        while (j + 1 < 42 && Math.floor((j+1)/7) === row && cells[j+1].label === label) j++;
-        spans.push({ startIdx: i, endIdx: j, label });
-        i = j + 1;
-      }
-
-      const emptyEl = document.getElementById("ie-30d-filter-empty");
-      const EMPTY_MSG = {
-        vacances:    "Aucune vacance scolaire ce mois-ci",
-        ferie:       "Aucun jour férié ce mois-ci",
-        temps_forts: "Aucun temps fort ce mois-ci",
+      const LABEL_FOR = {
+        vacances:    (s) => s.is_school_holiday_flag === true ? ((Array.isArray(s.labels) && s.labels[0]) || s.school_holiday_name || "Vacances") : null,
+        ferie:       (s) => s.is_public_holiday_fr_flag === true ? (s.public_holiday_name_fr || "Férié") : null,
+        temps_forts: (s) => s.is_commercial_event_flag_region === true ? ((Array.isArray(s.commercial_event_names_region) && s.commercial_event_names_region[0]) || "Temps fort") : null,
       };
-      if (!spans.length) {
-        if (emptyEl) {
-          emptyEl.textContent = EMPTY_MSG[key] || "";
-          emptyEl.style.display = "flex";
-        }
-        return;
-      }
-      if (emptyEl) { emptyEl.textContent = ""; emptyEl.style.display = "flex"; }
-
-      const allCells = Array.from(grid.querySelectorAll(".ie-30d-day"));
-      const gridRect = grid.getBoundingClientRect();
-
       const COLOR = {
         vacances:    { bg: "rgba(29,59,179,0.08)",   color: "#1D3BB3" },
         ferie:       { bg: "rgba(220,38,38,0.08)",   color: "#b91c1c" },
         temps_forts: { bg: "rgba(16,185,129,0.08)",  color: "#059669" },
       };
-      const c = COLOR[key] || COLOR.vacances;
+      const EMPTY_MSG = {
+        vacances:    "Aucune vacance scolaire ce mois-ci",
+        ferie:       "Aucun jour férié ce mois-ci",
+        temps_forts: "Aucun temps fort ce mois-ci",
+      };
+
+      const allCells = Array.from(grid.querySelectorAll(".ie-30d-day"));
+
+      // Track vertical offset per row to stack bars from multiple filters
+      const rowOffsets = {}; // rowIndex -> current top offset used
+
+      const emptyEl = document.getElementById("ie-30d-filter-empty");
+      let anySpanRendered = false;
+
+      for (const key of nonTop3Active) {
+        const cells = [];
+        for (let i = 0; i < 42; i++) {
+          const dt = new Date(start);
+          dt.setUTCDate(start.getUTCDate() + i);
+          const ymd = toYmd(dt);
+          const s = semanticByDate.get(ymd);
+          const label = s ? LABEL_FOR[key](s) : null;
+          cells.push({ ymd, label });
+        }
+
+        const spans = [];
+        let i = 0;
+        while (i < 42) {
+          if (!cells[i].label) { i++; continue; }
+          const label = cells[i].label;
+          const row = Math.floor(i / 7);
+          let j = i;
+          while (j + 1 < 42 && Math.floor((j+1)/7) === row && cells[j+1].label === label) j++;
+          spans.push({ startIdx: i, endIdx: j, label, key });
+          i = j + 1;
+        }
+
+        if (!spans.length) {
+          if (emptyEl && nonTop3Active.length === 1) {
+            emptyEl.textContent = EMPTY_MSG[key] || "";
+            emptyEl.style.display = "flex";
+          }
+          continue;
+        }
+
+        anySpanRendered = true;
+        const c = COLOR[key];
 
       for (const sp of spans) {
         const firstCell = allCells[sp.startIdx];
         const lastCell = allCells[sp.endIdx];
         if (!firstCell || !lastCell) continue;
 
+        const calendar = document.getElementById("ie-30d-calendar");
+        const gridRect = (calendar || grid).getBoundingClientRect();
         const firstRect = firstCell.getBoundingClientRect();
         const lastRect = lastCell.getBoundingClientRect();
-
         const left = firstRect.left - gridRect.left;
-        const top = firstRect.top - gridRect.top + 22;
+        const row = Math.floor(sp.startIdx / 7);
+        if (rowOffsets[row] === undefined) rowOffsets[row] = 60;
+        const top = firstRect.top - gridRect.top + rowOffsets[row];
+        rowOffsets[row] += 20;
         const width = lastRect.right - firstRect.left;
 
         const spanCount = sp.endIdx - sp.startIdx + 1;
@@ -2456,10 +2473,23 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             z-index:10;
             box-shadow:0 2px 6px rgba(0,0,0,0.18);
           `;
-          grid.appendChild(tip);
+          if (overlay) overlay.appendChild(tip);
+          else grid.appendChild(tip);
           setTimeout(() => tip.remove(), 2000);
         });
-        grid.appendChild(bar);
+        if (overlay) overlay.appendChild(bar);
+        else grid.appendChild(bar);
+        } // end for sp of spans
+      } // end for key of nonTop3Active
+
+      if (emptyEl) {
+        if (!anySpanRendered && nonTop3Active.length > 0) {
+          emptyEl.textContent = nonTop3Active.map(k => EMPTY_MSG[k]).join(" · ");
+          emptyEl.style.display = "flex";
+        } else {
+          emptyEl.textContent = "";
+          emptyEl.style.display = "flex";
+        }
       }
     }
     
@@ -2593,23 +2623,22 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
           if (t === "") continue;
           if (current && sections[current] !== undefined) sections[current].push(t);
         }
-        const renderSection = (label, items) => {
-          if (!items.length) return "";
-          const rows = items.map(item => {
-            const colonIdx = item.indexOf(" : ");
-            if (colonIdx === -1) return `<div class="sd-item"><span class="sd-date"></span><span class="sd-sep"></span><span class="sd-label">${item}</span></div>`;
-            const date = item.slice(0, colonIdx);
-            const lbl = item.slice(colonIdx + 3);
-            return `<div class="sd-item"><span class="sd-date">${date}</span><span class="sd-sep">·</span><span class="sd-label">${lbl}</span></div>`;
-          }).join("");
-          return `<div class="sd-section"><div class="sd-section-label">${label}</div><div class="sd-items">${rows}</div></div>`;
-        };
-        const top3Line = sections.top3.map((l, i) => `${i + 1}. ${l.replace(/^\d+\.\s*/, '').replace(/\s*—.*$/, '')}`).join('<span class="sd-top3-sep">·</span>');
-        takeawayEl.innerHTML =
-          (sections.top3.length ? `<div class="sd-section"><div class="sd-section-label">Top 3</div><div class="sd-top3-line">${top3Line}</div></div>` : "") +
-          renderSection("Jours fériés", sections.ferie) +
-          renderSection("Vacances", sections.vacances) +
-          renderSection("Temps forts", sections.tempsForts);
+
+        const top3Text = sections.top3.map((l, i) => `${i + 1}. ${l.replace(/^\d+\.\s*/, '').replace(/\s*—.*$/, '')}`).join(' · ');
+
+        const rows = [
+          { label: "Top 3", value: top3Text },
+          ...sections.ferie.map(item => ({ label: "Férié", value: item })),
+          ...sections.vacances.map(item => ({ label: "Vacances", value: item })),
+          ...sections.tempsForts.map(item => ({ label: "Temps forts", value: item })),
+        ].filter(r => r.value);
+
+        const labelStyle = `font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(17,24,39,0.38);padding-top:2px;white-space:nowrap;`;
+        const valueStyle = `font-size:13px;color:#111827;line-height:1.5;`;
+
+        takeawayEl.innerHTML = `<div style="display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;">
+          ${rows.map(r => `<span style="${labelStyle}">${r.label}</span><span style="${valueStyle}">${r.value}</span>`).join("")}
+        </div>`;
       }
 
       try { buildMonthSelect(out); } catch (_) {}
