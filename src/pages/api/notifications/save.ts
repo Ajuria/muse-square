@@ -49,11 +49,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
       typeof body.digest_weekly_day === "number" && [1, 3, 5].includes(body.digest_weekly_day)
         ? body.digest_weekly_day
         : 1;
+    const digest_weekly_hour =
+    typeof body.digest_weekly_hour === "number" && [7, 8, 9].includes(body.digest_weekly_hour)
+    ? body.digest_weekly_hour
+    : 7;
     const daily_j7         = body.daily_j7         === true;
     const daily_j7_hour    =
       typeof body.daily_j7_hour === "number" && [7, 8, 9].includes(body.daily_j7_hour)
         ? body.daily_j7_hour
         : 7;
+
+    const additional_emails: string[] =
+      Array.isArray(body.additional_emails)
+        ? body.additional_emails.filter((e: any) => typeof e === "string" && e.trim()).map((e: string) => e.trim())
+        : [];
 
     // ---- BigQuery ----
     const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
@@ -70,16 +79,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
         alerts_critical   = @alerts_critical,
         digest_weekly     = @digest_weekly,
         digest_weekly_day = @digest_weekly_day,
+        digest_weekly_hour = @digest_weekly_hour,
         daily_j7          = @daily_j7,
         daily_j7_hour     = @daily_j7_hour,
+        additional_emails = @additional_emails,
         updated_at        = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
         clerk_user_id,
         alerts_critical,
         digest_weekly,
         digest_weekly_day,
+        digest_weekly_hour,
         daily_j7,
         daily_j7_hour,
+        additional_emails,
         created_at,
         updated_at
       ) VALUES (
@@ -87,8 +100,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @alerts_critical,
         @digest_weekly,
         @digest_weekly_day,
+        @digest_weekly_hour,
         @daily_j7,
         @daily_j7_hour,
+        @additional_emails,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
       )
@@ -102,16 +117,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
         alerts_critical,
         digest_weekly,
         digest_weekly_day,
+        digest_weekly_hour,
         daily_j7,
         daily_j7_hour,
+        additional_emails,
       },
       types: {
         clerk_user_id:    "STRING",
         alerts_critical:  "BOOL",
         digest_weekly:    "BOOL",
         digest_weekly_day:"INT64",
+        digest_weekly_hour:"INT64",
         daily_j7:         "BOOL",
         daily_j7_hour:    "INT64",
+        additional_emails: ["STRING"],
       },
     });
 

@@ -15,21 +15,60 @@ const location_id =
     : null;
 ---
 
-<BaseLayout title="Notifications - Muse Square" hideSurveyCta={true}>
+<BaseLayout title="Alertes - Muse Square" hideSurveyCta={true}>
   <div class="min-h-screen bg-white pt-26 pb-20 px-4">
     <div class="max-w-2xl mx-auto mt-10">
 
       <div class="mb-8">
-        <h1 class="text-3xl font-semibold">Notifications</h1>
+        <h1 class="text-3xl font-semibold">Alertes</h1>
         <p class="text-sm text-gray-500 mt-2">Choisissez quand et comment vous souhaitez être alerté sur vos dates.</p>
       </div>
 
       <form id="notifForm">
         <div class="space-y-[15px]">
 
-          <!-- ALERTES CRITIQUES -->
+          <div class="space-y-[15px]">
+
+          <!-- 1. ALERTES QUOTIDIENNES -->
           <section class="space-y-6">
-            <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes critiques</h2>
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes quotidiennes</h2>
+
+            <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Résumé de la semaine</p>
+                <p class="text-sm text-gray-500">Un email chaque semaine avec l'état de vos dates : scores, alertes, météo à 7 jours.</p>
+                <div id="weekly-options" class="mt-4 hidden space-y-4">
+                  <div>
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Jour d'envoi</p>
+                    <div class="flex gap-2">
+                      <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly" data-value="1">Lundi</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="3">Mercredi</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="5">Vendredi</button>
+                    </div>
+                    <input type="hidden" name="digest_weekly_day" id="digest_weekly_day" value="1" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Heure d'envoi</p>
+                    <div class="flex gap-2">
+                      <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly-hour" data-value="7">7h00</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="8">8h00</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="9">9h00</button>
+                    </div>
+                    <input type="hidden" name="digest_weekly_hour" id="digest_weekly_hour" value="7" />
+                  </div>
+                </div>
+              </div>
+              <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+                <input type="checkbox" name="digest_weekly" id="tog-weekly" class="sr-only" />
+                <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+                <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+              </label>
+            </div>
+          </section>
+
+          <!-- 2. ALERTES ÉVÉNEMENTS -->
+          <section class="space-y-6">
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes événements</h2>
 
             <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
               <div class="flex-1">
@@ -57,37 +96,6 @@ const location_id =
                 <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
               </label>
             </div>
-          </section>
-
-          <!-- DIGEST HEBDOMADAIRE -->
-          <section class="space-y-6">
-            <h2 class="text-base font-medium text-black uppercase tracking-wider">Digest hebdomadaire</h2>
-
-            <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
-              <div class="flex-1">
-                <p class="text-sm text-gray-800 font-medium mb-1">Résumé de la semaine</p>
-                <p class="text-sm text-gray-500">Un email chaque semaine avec l'état de vos dates : scores, alertes, météo à 7 jours.</p>
-                <div id="weekly-options" class="mt-4 hidden">
-                  <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Jour d'envoi</p>
-                  <div class="flex gap-2">
-                    <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly" data-value="1">Lundi</button>
-                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="3">Mercredi</button>
-                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="5">Vendredi</button>
-                  </div>
-                  <input type="hidden" name="digest_weekly_day" id="digest_weekly_day" value="1" />
-                </div>
-              </div>
-              <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
-                <input type="checkbox" name="digest_weekly" id="tog-weekly" class="sr-only" />
-                <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
-                <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
-              </label>
-            </div>
-          </section>
-
-          <!-- SUIVI QUOTIDIEN J-7 -->
-          <section class="space-y-6">
-            <h2 class="text-base font-medium text-black uppercase tracking-wider">Suivi quotidien J-7</h2>
 
             <div class="flex items-start justify-between gap-6 pb-6">
               <div class="flex-1">
@@ -117,6 +125,22 @@ const location_id =
                 <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
                 <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
               </label>
+            </div>
+          </section>
+
+          <!-- 3. EMAIL SETTINGS -->
+          <section class="space-y-6">
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Destinataires supplémentaires</h2>
+            <div class="flex items-start justify-between gap-6 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Inclure d'autres personnes</p>
+                <p class="text-sm text-gray-500">Ces adresses recevront les mêmes alertes que vous.</p>
+                <div class="mt-4 space-y-3">
+                  <input type="email" name="additional_email_1" id="additional_email_1" placeholder="colleague@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                  <input type="email" name="additional_email_2" id="additional_email_2" placeholder="manager@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                  <input type="email" name="additional_email_3" id="additional_email_3" placeholder="director@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                </div>
+              </div>
             </div>
           </section>
 
@@ -165,6 +189,13 @@ const location_id =
         if (togDaily)  { togDaily.checked  = p.daily_j7;      if (p.daily_j7)      { document.getElementById('daily-options')?.classList.remove('hidden'); document.getElementById('daily-note')?.classList.add('hidden'); } }
         if (weeklyDay) weeklyDay.value = String(p.digest_weekly_day);
         if (dailyHour) dailyHour.value = String(p.daily_j7_hour);
+
+        if (Array.isArray(p.additional_emails)) {
+          ['additional_email_1','additional_email_2','additional_email_3'].forEach(function(id, i) {
+            var el = document.getElementById(id);
+            if (el) el.value = p.additional_emails[i] || '';
+          });
+        }
 
         // Sync chip active states to loaded values
         document.querySelectorAll('.day-chip[data-group="weekly"]').forEach(function(b) {
@@ -227,12 +258,20 @@ const location_id =
       if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
       if (status) { status.textContent = ''; status.className = 'mt-4 text-sm'; }
 
+      var additionalEmails = [
+        document.getElementById('additional_email_1')?.value.trim() || '',
+        document.getElementById('additional_email_2')?.value.trim() || '',
+        document.getElementById('additional_email_3')?.value.trim() || '',
+      ].filter(function(e) { return e.length > 0; });
+
       var payload = {
         alerts_critical: document.getElementById('tog-alerts').checked,
         digest_weekly:   document.getElementById('tog-weekly').checked,
         digest_weekly_day: parseInt(document.getElementById('digest_weekly_day').value, 10),
+        digest_weekly_hour: parseInt(document.getElementById('digest_weekly_hour').value, 10),
         daily_j7:        document.getElementById('tog-daily').checked,
         daily_j7_hour:   parseInt(document.getElementById('daily_j7_hour').value, 10),
+        additional_emails: additionalEmails,
       };
 
       try {

@@ -142,11 +142,15 @@ if (!location_id) {
         background: #fff; color: #6b7280;
         cursor: pointer; white-space: nowrap;
         transition: all 100ms;
+        display: inline-flex; align-items: center; gap: 6px;
       }
       .pls-pill.is-today { border-color: #1D3BB3; color: #1D3BB3; }
       .pls-pill.is-active { background: #1D3BB3; border-color: #1D3BB3; color: #fff; }
-      .pls-pill.has-crit  { border-color: #ef4444; }
-      .pls-pill.has-warn  { border-color: #f59e0b; }
+      .pls-pill.has-crit  { border-color: #e24b4a; }
+      .pls-pill.has-warn  { border-color: #ef9f27; }
+      .pls-pill-dot {
+        width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      }
 
       /* ---- Location switcher ---- */
       .pls-loc-row {
@@ -349,7 +353,7 @@ if (!location_id) {
       byDate.get(d).push(a);
     }
 
-    return toggleHtml + [...byDate.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([d, dayItems]) => {
+    return toggleHtml + [...byDate.entries()].sort((a,b) => b[0].localeCompare(a[0])).map(([d, dayItems]) => {
       const itemsHtml = dayItems.map((a, idx) => {
         const line1 = feedLine1(a);
         const line2 = feedLine2(a);
@@ -504,7 +508,7 @@ if (!location_id) {
   // Recap tab
   // ----------------------------------------------------------------
   function renderRecap(currentDay, allFeed, profile) {
-    const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2);
+    const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2 && normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
     const hasCrit = alerts.some(a => Number(a?.alert_level)>=3);
     const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level)>=2);
 
@@ -609,13 +613,16 @@ if (!location_id) {
         const allRisks = [...(d?.attendance||[]),...(d?.operations||[]),...(d?.installation||[])];
         const hasCrit = allRisks.some(r => r.severity==="D"||r.severity==="C");
         const hasWarn = !hasCrit && allRisks.some(r => r.severity==="B");
+        const isActive = ymd===selectedDate;
         let cls = "pls-pill";
-        if (ymd===selectedDate) cls+=" is-active";
+        if (isActive) cls+=" is-active";
         else if (ymd===today) cls+=" is-today";
         else if (hasCrit) cls+=" has-crit";
         else if (hasWarn) cls+=" has-warn";
         const label = ymd===today ? "Aujourd'hui" : fmtDateShort(ymd);
-        return `<button type="button" class="${cls}" data-pill-date="${ymd}">${escapeHtml(label)}</button>`;
+        const dotColor = isActive ? "#fff" : hasCrit ? "#e24b4a" : hasWarn ? "#ef9f27" : null;
+        const dot = dotColor ? `<span class="pls-pill-dot" style="background:${dotColor};"></span>` : "";
+        return `<button type="button" class="${cls}" data-pill-date="${ymd}">${escapeHtml(label)}${dot}</button>`;
       }).join("")}
     </div>`;
 

@@ -3819,7 +3819,18 @@ const show_actions = has_selected_dates;
               return "background:rgba(16,185,129,0.1);color:#059669;";
             })();
 
-            const transitPillLabel = transitLineName || "Transports";
+            const transitPillLabel = (() => {
+              const base = (() => {
+                if (!transitLineName) return "Transports";
+                const s = String(transitLineName).trim();
+                if (/^[\d.,\s]+$/.test(s)) return "Transports";
+                if (s.length > 30) return s.slice(0, 30) + "…";
+                return s;
+              })();
+              if (deltaAtt <= -8) return `${base} perturbés`;
+              if (deltaAtt < 0) return `${base} à surveiller`;
+              return `${base} fluides`;
+            })();
 
             const headline = (() => {
               const attBad = deltaAtt < 0;

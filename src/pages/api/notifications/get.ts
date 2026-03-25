@@ -41,8 +41,10 @@ export const GET: APIRoute = async ({ locals }) => {
           alerts_critical,
           digest_weekly,
           digest_weekly_day,
+          digest_weekly_hour,
           daily_j7,
-          daily_j7_hour
+          daily_j7_hour,
+          additional_emails
         FROM ${table}
         WHERE clerk_user_id = @clerk_user_id
         LIMIT 1
@@ -58,8 +60,10 @@ export const GET: APIRoute = async ({ locals }) => {
       alerts_critical:   row?.alerts_critical   ?? true,
       digest_weekly:     row?.digest_weekly      ?? false,
       digest_weekly_day: row?.digest_weekly_day  ?? 1,
+      digest_weekly_hour: row?.digest_weekly_hour ?? 7,
       daily_j7:          row?.daily_j7           ?? false,
       daily_j7_hour:     row?.daily_j7_hour      ?? 7,
+      additional_emails: Array.isArray(row?.additional_emails) ? row.additional_emails : [],
     };
 
     return new Response(JSON.stringify({ ok: true, prefs }), {

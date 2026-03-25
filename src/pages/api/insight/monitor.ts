@@ -65,7 +65,7 @@ export const GET: APIRoute = async ({ url }) => {
         city_name,
         region_name,
         nearest_transit_stop_name,
-        nearest_transit_line_name,
+        nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name,
         nearest_transit_stop_distance_m
       FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\`
       WHERE location_id = @location_id

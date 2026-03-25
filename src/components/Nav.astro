@@ -142,7 +142,7 @@ const isAppShell = isApp;
                 </button>
                 <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
                   <a href="/profile" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "text-black" : "text-gray-500"}`}>Profil</a>
-                  <a href="/notifications" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${Astro.url.pathname === "/notifications" ? "text-black" : "text-gray-500"}`}>Notifications</a>
+                  <a href="/notifications" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${Astro.url.pathname === "/notifications" ? "text-black" : "text-gray-500"}`}>Alertes</a>
                   <Show when="signed-in" client:load>
                     <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Se déconnecter</button>
                   </Show>
@@ -207,7 +207,7 @@ const isAppShell = isApp;
             <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Profil</a>
           </li>
           <li>
-            <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Notifications</a>
+            <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Alertes</a>
           </li>
 
           <Show when="signed-in" client:load>

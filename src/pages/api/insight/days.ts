@@ -494,7 +494,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
       radius_bucket:   r?.radius_bucket    ?? null,
     }));
 
-        const location_context = locationContextRows?.[0] ?? null;
+        const location_context_raw = locationContextRows?.[0] ?? null;
+        const location_context = location_context_raw ? {
+          ...location_context_raw,
+          nearest_transit_line_name: Array.isArray(location_context_raw.nearest_transit_line_name)
+            ? location_context_raw.nearest_transit_line_name.join(', ')
+            : (location_context_raw.nearest_transit_line_name ?? null),
+          transit_network: Array.isArray(location_context_raw.transit_network)
+            ? location_context_raw.transit_network[0] ?? null
+            : (location_context_raw.transit_network ?? null),
+        } : null;
 
     // -----------------------------
     // Normalize days (required)

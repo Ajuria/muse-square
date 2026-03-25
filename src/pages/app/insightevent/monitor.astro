@@ -572,7 +572,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   function renderRecap(currentDay, allFeed, item, profile) {
     // Statut global
-    const alerts = allFeed.filter(a => (Number(a?.alert_level) || 0) >= 2);
+    const eventDate = normalizeYmd(currentDay?.date || "");
+    const alerts = allFeed.filter(a => (Number(a?.alert_level) || 0) >= 2 && normalizeYmd(a?.affected_date) === eventDate);
     const hasChanges = alerts.length > 0;
     const hasCrit = alerts.some(a => Number(a?.alert_level) >= 3);
     const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level) >= 2);
@@ -903,10 +904,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       tabContent = renderRecap(currentDay, allFeed, item, profile);
     } else if (activeTab === "alertes") {
       const showAll = (window.__monFeedShowAll === true);
+      const eventDate = normalizeYmd(currentDay?.date || "");
+      const dateScopedFeed = allFeed.filter(a => normalizeYmd(a?.affected_date) === eventDate);
       tabContent = `
         <div class="mon-panels">
           <div style="padding-top:8px;">
-            ${renderFeedItems(allFeed, showAll)}
+            ${renderFeedItems(dateScopedFeed, showAll)}
           </div>
         </div>
       `;
