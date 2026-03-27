@@ -91,8 +91,8 @@ const isAppShell = isApp;
                   const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
                   const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
                   const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || cookieDate;
-                  const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
-                    ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
+                  const monitorHref = savedItemId
+                    ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
                     : null;
                   const isPiloter = isMonitor || Astro.url.pathname === "/app/insightevent/pulse";
 
@@ -191,8 +191,8 @@ const isAppShell = isApp;
             {(() => {
               const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
               const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
-              const monitorHref = savedItemId && focusedDate && focusedDate !== "__comparison__"
-                ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}&date=${encodeURIComponent(focusedDate)}`
+              const monitorHref = savedItemId
+                ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
                 : null;
 
               return monitorHref ? (

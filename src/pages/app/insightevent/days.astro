@@ -4725,7 +4725,6 @@ const show_actions = has_selected_dates;
 
           } catch (e) {
             console.error('INIT CRASH:', e?.message, e?.stack);
-            alert('INIT CRASH: ' + e?.message);
             if (container) {
               const msg =
                 e && typeof e.message === "string" && e.message.trim()
