@@ -92,18 +92,20 @@ function roadPin(level) {
 /**
  * Subway disruption: square, severity-colored, metro M icon.
  */
-function subwayPin(level) {
+function subwayPin(level, isPlanned) {
   const color = severityColor(level);
+  const opacity = isPlanned ? '0.55' : '1';
+  const strokeDash = isPlanned ? 'stroke-dasharray="4 2"' : '';
+  const strokeColor = isPlanned ? color : 'rgba(0,0,0,0.15)';
+  const strokeWidth = isPlanned ? '2' : '1';
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30" opacity="${opacity}">
       <filter id="s-shadow" x="-20%" y="-20%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
       </filter>
-      <!-- square with rounded corners -->
       <rect x="2" y="2" width="26" height="26" rx="5" ry="5"
             fill="${color}" filter="url(#s-shadow)"
-            stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
-      <!-- M metro symbol -->
+            stroke="${strokeColor}" stroke-width="${strokeWidth}" ${strokeDash}/>
       <text x="15" y="21" text-anchor="middle" font-size="14" font-weight="700"
             fill="#1a1a1a" font-family="sans-serif">M</text>
     </svg>`;
@@ -168,11 +170,15 @@ function venuePopup(location) {
 function eventPopup(signal) {
   return `
     <div class="mp-popup mp-popup--event">
+      ${signal.event_venue_name ? `<div class="mp-popup-venue-name">${signal.event_venue_name}</div>` : ''}
       <div class="mp-popup-label">${signal.title ?? signal.event_label ?? '—'}</div>
+      ${(signal.keywords && signal.keywords.trim())
+        ? `<div class="mp-popup-keywords">${signal.keywords.split(',').slice(0, 3).map(k => `<span class="mp-badge mp-badge--bucket">${k.trim()}</span>`).join('')}</div>`
+        : ''}
+      ${signal.event_venue_address ? `<div class="mp-popup-venue-address">${signal.event_venue_address}</div>` : ''}
       <div class="mp-popup-meta">
         ${signal.city_name ? `<span>${signal.city_name}</span>` : ''}
-        <span>${Math.round(signal.distance_m)}m</span>
-        <span class="mp-badge mp-badge--bucket">${signal.radius_bucket}</span>
+        <span class="mp-badge mp-badge--bucket">${Math.round(signal.distance_m)}m</span>
       </div>
       ${signal.description
         ? `<div class="mp-popup-desc">${signal.description.slice(0, 120)}${signal.description.length > 120 ? '…' : ''}</div>`
@@ -181,22 +187,45 @@ function eventPopup(signal) {
 }
 
 function disruptionPopup(signal, type) {
-  const color = severityColor(signal.alert_level);
+  const color = severityColor(signal.perturbation_lvl ?? signal.alert_level ?? 1);
   const label = type === 'road' ? 'Perturbation routière' : 'Perturbation métro';
+  const isPlanned = signal.is_planned === true;
+
+  function fmtTs(ts) {
+    if (!ts) return null;
+    try {
+      const d = new Date(typeof ts === 'object' && ts.value ? ts.value : ts);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch(e) { return null; }
+  }
+
+  const beginFmt = fmtTs(signal.begin_ts);
+  const endFmt = fmtTs(signal.end_ts);
+  const dateRange = beginFmt && endFmt
+    ? `${beginFmt} → ${endFmt}`
+    : beginFmt
+    ? `À partir du ${beginFmt}`
+    : endFmt
+    ? `Jusqu'au ${endFmt}`
+    : null;
+
   return `
     <div class="mp-popup mp-popup--disruption">
       <div class="mp-popup-label" style="border-left:3px solid ${color}; padding-left:8px">
         ${signal.title ?? label}
       </div>
       <div class="mp-popup-meta">
+        ${isPlanned
+          ? `<span class="mp-badge mp-badge--planned">Prévu</span>`
+          : `<span class="mp-badge" style="background:${color}20; color:${color}; border:1px solid ${color}40">Actif</span>`
+        }
         <span class="mp-badge" style="background:${color}20; color:${color}; border:1px solid ${color}40">
-          Niveau ${signal.alert_level ?? '?'}
+          Niveau ${signal.perturbation_lvl ?? signal.alert_level ?? '?'}
         </span>
-        ${signal.line_name ? `<span>${signal.line_name}</span>` : ''}
+        ${signal.route_long_name ? `<span>${signal.route_long_name}</span>` : signal.short_name ? `<span>${signal.short_name}</span>` : ''}
       </div>
-      ${signal.description
-        ? `<div class="mp-popup-desc">${signal.description.slice(0, 140)}…</div>`
-        : ''}
+      ${dateRange ? `<div class="mp-popup-dates">${dateRange}</div>` : ''}
     </div>`;
 }
 
@@ -236,7 +265,7 @@ function createRoadMarker(signal) {
  * createSubwayMarker(signal) — signal must have alert_level, lat, lon
  */
 function createSubwayMarker(signal) {
-  const icon = makeIcon(subwayPin(signal.perturbation_lvl ?? signal.alert_level ?? 1), 30, 30, 15, 15);
+  const icon = makeIcon(subwayPin(signal.perturbation_lvl ?? signal.alert_level ?? 1, signal.is_planned === true), 30, 30, 15, 15);
   return L.marker([signal.latitude, signal.longitude], { icon, zIndexOffset: 200 })
     .bindTooltip(disruptionPopup(signal, 'subway'), { permanent: false, sticky: true, maxWidth: 200, className: 'mp-tooltip' });
 }
@@ -434,6 +463,38 @@ function createSubwayMarker(signal) {
       padding: 0 !important;
       cursor: pointer !important;
       margin-top: 2px !important;
+    }
+    /* Event popup venue fields */
+    .mp-popup-venue-name {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #4A7FA5;
+      margin-bottom: 4px;
+    }
+    .mp-popup-venue-address {
+      font-size: 11.5px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .mp-popup-keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    /* Disruption popup dates */
+    .mp-popup-dates {
+      font-size: 11.5px;
+      color: #555;
+      margin-top: 4px;
+    }
+    /* Planned badge */
+    .mp-badge--planned {
+      background: #EFF6FF;
+      color: #1D4ED8;
+      border: 1px solid #BFDBFE;
     }
   `;
 

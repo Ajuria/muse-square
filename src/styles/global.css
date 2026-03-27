@@ -324,7 +324,7 @@
 
 /* Clerk — keep email/identifier field + its label aligned to the same 320px column */
 .cl-formField:has(input[name="identifier"]) {
-  max-width: 420px !important;
+  max-width: 320px !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
@@ -332,7 +332,7 @@
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInputWrapper,
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInput {
   width: 100% !important;
-  max-width: 420px !important;
+  max-width: 320px !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
@@ -506,7 +506,7 @@ footer.ms-footer a:hover {
 }
 
 .cl-formField {
-  max-width: 420px !important;
+  max-width: 320px !important;
   margin-left: auto !important;
   margin-right: auto !important;
   width: 100% !important;
@@ -515,6 +515,11 @@ footer.ms-footer a:hover {
 .cl-formField .cl-formFieldInputWrapper,
 .cl-formField .cl-formFieldInput {
   width: 100% !important;
-  max-width: 420px !important;
+  max-width: 320px !important;
   box-sizing: border-box !important;
+}
+
+/* Fix Insight nav link vertical alignment */
+nav .ms-nav-link {
+  vertical-align: middle !important;
 }

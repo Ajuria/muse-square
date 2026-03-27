@@ -5,6 +5,6 @@ import { SignUp as ClerkSignUp } from '@clerk/astro/components';
 
 <BaseLayout title="Sign Up - Muse Square" hideSurveyCta={true}>
   <div class="flex items-center justify-center min-h-[60vh]">
-    <ClerkSignUp />
+    <ClerkSignUp forceRedirectUrl="/app/insightevent/prompt" appearance={{ elements: { headerSubtitle: { display: "none" }, logoBox: { height: "48px", width: "auto", justifyContent: "center" }, logoImage: { height: "48px", width: "auto", maxWidth: "180px", objectFit: "contain" } } }} />
   </div>
 </BaseLayout>
