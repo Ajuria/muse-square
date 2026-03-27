@@ -1,9 +1,7 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
-
 import { makeBQClient } from "../../../lib/bq";
-const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -455,6 +453,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   `;
 
   try {
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const [daysRows] = await bq.query({
       query: daysQuery,
       params: { location_id, selected_dates },
@@ -949,4 +948,3 @@ export const GET: APIRoute = async ({ url, locals }) => {
     );
   }
 };
-

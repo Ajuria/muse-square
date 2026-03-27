@@ -2797,11 +2797,14 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     function goDaysFromSelection(){
       if(!Array.isArray(selected) || selected.length === 0) return;
 
-      const u = new URL(window.location.href);
+      const u = new URL(window.location.origin + "/app/insightevent/days");
       u.searchParams.set("selected_dates", selected.join(","));
-      if(!u.searchParams.get("selected_date")) u.searchParams.set("selected_date", selected[0]);
+      u.searchParams.set("selected_date", "__comparison__");
 
-      window.location.href = "/app/insightevent/days" + u.search;
+      const locId = new URL(window.location.href).searchParams.get("location_id");
+      if (locId) u.searchParams.set("location_id", locId);
+
+      window.location.href = u.toString();
     }
 
     function bindVoirBtn(){
