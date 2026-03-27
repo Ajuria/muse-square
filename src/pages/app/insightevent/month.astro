@@ -2199,6 +2199,13 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
       const rawDays = out.days;
       const windowStart = asYmd(out.window?.window_start_date);
       if (!Array.isArray(rawDays) || !windowStart) return;
+      if (rawDays.length === 0) {
+        const grid = document.getElementById("ie-30d-grid");
+        const takeaway = document.getElementById("ie-30d-takeaway-text");
+        if (takeaway) takeaway.innerHTML = `<span style="color:#6b7280;font-size:13px;">Les données pour ce site sont en cours de préparation. Revenez dans quelques heures.</span>`;
+        if (grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 0;font-size:13px;color:#9ca3af;">Données en cours de chargement pour ce site.</div>`;
+        return;
+      }
 
       const days = rawDays
         .map((r) => ({ ...r, date: asYmd(r?.date) }))
