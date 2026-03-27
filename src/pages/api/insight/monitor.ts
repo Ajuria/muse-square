@@ -2,8 +2,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 
-const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
-
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
@@ -29,6 +27,7 @@ function normalizeYmd(v: string): string {
 
 export const GET: APIRoute = async ({ url }) => {
   try {
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
     const selected_dates_raw = requireString(url.searchParams.get("selected_dates"), "selected_dates");
 
