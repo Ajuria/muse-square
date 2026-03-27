@@ -18,6 +18,29 @@ const isActive = (href: string) => {
 const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
 const piloterCookie = Astro.cookies.get("ms_piloter")?.value ?? "";
 const [cookieSavedItemId, cookieDate] = piloterCookie.split("|").map(decodeURIComponent);
+
+let dbSavedItemId = cookieSavedItemId || "";
+let dbDate = cookieDate || "";
+
+if (isApp && !dbSavedItemId) {
+  try {
+    const origin = Astro.url.origin;
+    const res = await fetch(`${origin}/api/saved-items/list`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: Astro.request.headers.get("cookie") ?? "",
+      },
+      body: JSON.stringify({ limit: 1, offset: 0 }),
+    });
+    const json = await res.json().catch(() => null);
+    const first = json?.items?.[0];
+    if (first?.saved_item_id) {
+      dbSavedItemId = String(first.saved_item_id);
+      if (first.selected_date) dbDate = String(first.selected_date);
+    }
+  } catch (_) {}
+}
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor");
 const isPulse = currentPath === "/app/insightevent/pulse";
 const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse;
@@ -88,9 +111,9 @@ const isAppShell = isApp;
               
               <li class="relative" id="piloter-nav-item">
                 {(() => {
-                  const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
+                  const savedItemId = Astro.url.searchParams.get("saved_item_id") || dbSavedItemId;
                   const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
-                  const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || cookieDate;
+                  const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || dbDate;
                   const monitorHref = savedItemId
                     ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
                     : null;
@@ -189,8 +212,9 @@ const isAppShell = isApp;
           </li>
           <li>
             {(() => {
-              const savedItemId = Astro.url.searchParams.get("saved_item_id") || cookieSavedItemId;
-              const focusedDate = (Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "") || cookieDate;
+              const savedItemId = Astro.url.searchParams.get("saved_item_id") || dbSavedItemId;
+              const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
+              const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || dbDate;
               const monitorHref = savedItemId
                 ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
                 : null;
