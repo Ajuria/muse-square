@@ -546,6 +546,17 @@ function resolveTopKFromText(qRaw: string): number {
   return 3;
 }
 
+function detectVenueExposureOverride(qRaw: string): "outdoor" | "indoor" | "ambiguous" | null {
+  const q = norm(qRaw);
+  const hasOutdoor = q.includes("exterieur") || q.includes("outdoor") || q.includes("plein air") || q.includes("dehors");
+  const hasIndoor = q.includes("interieur") || q.includes("indoor") || q.includes("salle") || q.includes("couvert");
+  const hasAmbiguity = q.includes("ne sais pas") || q.includes("pas encore") || q.includes("peut-etre") || q.includes("peut être") || q.includes("soit") && (hasOutdoor || hasIndoor);
+  if (hasAmbiguity && (hasOutdoor || hasIndoor)) return "ambiguous";
+  if (hasOutdoor && !hasIndoor) return "outdoor";
+  if (hasIndoor && !hasOutdoor) return "indoor";
+  return null;
+}
+
 function wantsWeekendOnly(qRaw: string): boolean {
   const q = norm(qRaw);
   return q.includes("weekend") || q.includes("week-end") || q.includes("week end");
@@ -4262,6 +4273,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
         primary_audience_1: internal_context?.primary_audience_1 ?? null,
         primary_audience_2: internal_context?.primary_audience_2 ?? null,
       },
+
+      venue_exposure_override: detectVenueExposureOverride(qRaw),
+
+      forecast_reliability: rows.slice(0, top_k).map((r: any) => {
+        const dateYmd = ymdFromAnyDate(r?.date);
+        const today = new Date().toISOString().slice(0, 10);
+        const daysUntil = Math.round((new Date(dateYmd).getTime() - new Date(today).getTime()) / 86400000);
+        return {
+          date: dateYmd,
+          days_until: daysUntil,
+          reliability: daysUntil <= 10 ? "confirmed" : "indicative",
+        };
+      }),
     };
 
     console.log("TOP_DAYS_PAYLOAD:", JSON.stringify(narrative_input_v3.top_days, null, 2));
