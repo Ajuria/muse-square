@@ -2567,6 +2567,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Apply auto-constraints (truth-only)
       // ----------------------------
       const constraints = policy.auto_constraints;
+      if (qRaw && (qRaw.toLowerCase().includes("weekend") || qRaw.toLowerCase().includes("week-end"))) {
+        constraints.add("filter_weekend_only");
+      }
 
       const filtered = rows.filter((r) => {
         const ph = toBoolOrNullLocal(r?.is_public_holiday_fr_flag);
@@ -2934,6 +2937,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
             )
             AND COALESCE(opportunity_regime, '') != 'C'
             AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
+            AND (
+              @filter_weekend_only = FALSE
+              OR is_weekend = TRUE
+            )
           ORDER BY
             CAST(opportunity_score AS FLOAT64) DESC,
             CAST(weather_alert_level AS INT64) ASC NULLS LAST,
@@ -2945,6 +2952,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             location_id,
             window_start_date: ws,
             month_constraint_ym: monthConstraintYm ?? "",
+            filter_weekend_only: wantsWeekendOnly(qRaw),
           })
         );
 
@@ -4132,6 +4140,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         .filter((n): n is number => n !== null);
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
     })();
+    console.log("[V3] rows count:", rows.length, "winner:", winner ? ymdFromAnyDate(winner?.date) : "null");
     if (!winner) {
       throw new Error("No ranked rows available for month narrative V3");
     }

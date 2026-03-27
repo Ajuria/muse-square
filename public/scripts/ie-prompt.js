@@ -157,6 +157,8 @@ if (!root) {
     const answer = Array.isArray(answerRaw) ? "" : answerRaw;
     const answerDates = Array.isArray(answerRaw) ? answerRaw : [];
 
+    console.log("[render] intent:", intent, "horizon:", horizon, "answerDates:", answerDates.length, "answer:", typeof answer === "string" ? answer.slice(0, 50) : answer);
+
     const keyFacts = Array.isArray(n.key_facts) ? n.key_facts : [];
     const caveats =
       Array.isArray(n.caveats) ? n.caveats :
