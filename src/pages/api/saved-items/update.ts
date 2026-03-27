@@ -95,7 +95,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // At least one field must be provided
-    if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === undefined) {
+    if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === undefined && event_type === null && launch_hour === null) {
       throw new HttpError(400, "No fields to update");
     }
 

@@ -2300,6 +2300,32 @@ const show_actions = has_selected_dates;
         }
         if (modalSubmit) modalSubmit.addEventListener("click", saveCurrentSelection);
 
+        const modalDelete = document.getElementById("ms-save-delete");
+        if (modalDelete) {
+          modalDelete.addEventListener("click", async () => {
+            const id = String(MS.editingId || "").trim();
+            if (!id) return;
+            const ok = window.confirm("Supprimer cette liste définitivement ?");
+            if (!ok) return;
+            modalDelete.disabled = true;
+            try {
+              const res = await fetch("/api/saved-items/delete", {
+                method: "POST",
+                headers: { "content-type": "application/json", accept: "application/json" },
+                body: JSON.stringify({ saved_item_id: id }),
+              });
+              const json = await res.json().catch(() => null);
+              if (!res.ok || !json?.ok) throw new Error(json?.error || `Erreur API (${res.status})`);
+              closeSaveModal();
+              await loadSavedItems();
+            } catch(e) {
+              showSaveError(e?.message || "Erreur.");
+            } finally {
+              modalDelete.disabled = false;
+            }
+          });
+        }
+
         // ✅ INSERT THIS BLOCK RIGHT HERE (immediately after the line above)
         if (modalDates) {
           modalDates.addEventListener("click", (e) => {

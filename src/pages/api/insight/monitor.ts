@@ -181,10 +181,7 @@ export const GET: APIRoute = async ({ url }) => {
         summary
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
-        AND (
-          affected_date IN UNNEST(ARRAY(SELECT CAST(d AS DATE) FROM UNNEST(@selected_dates) AS d))
-          OR feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
-        )
+        AND feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
       ORDER BY alert_level DESC, feed_date DESC
     `;
 
