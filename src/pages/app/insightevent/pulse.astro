@@ -726,7 +726,12 @@ if (!location_id) {
       const mapEl = root.querySelector("#pls-map");
       if (mapEl && typeof L!=="undefined") {
         const plsMap = L.map("pls-map").setView([48.86, 2.35], 14);
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution:"© OpenStreetMap contributors" }).addTo(plsMap);
+        const cartoLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution:"© OpenStreetMap contributors" });
+        const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution:"© OpenStreetMap contributors" });
+        cartoLayer.addTo(plsMap);
+        cartoLayer.on("tileerror", function() {
+            if (plsMap.hasLayer(cartoLayer)) { plsMap.removeLayer(cartoLayer); osmLayer.addTo(plsMap); }
+        });
 
         fetch(`/api/insight/map?location_id=${encodeURIComponent(location_id)}&date=${encodeURIComponent(selectedDate)}`)
           .then(r => r.json())

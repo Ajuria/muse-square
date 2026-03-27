@@ -981,9 +981,22 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const mapEl = root.querySelector("#mon-map");
       if (mapEl && typeof L !== "undefined") {
         const monMap = L.map("mon-map").setView([48.86, 2.35], 14);
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        const cartoLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
           attribution: "© OpenStreetMap contributors"
-        }).addTo(monMap);
+        });
+
+        const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors"
+        });
+
+        cartoLayer.addTo(monMap);
+
+        cartoLayer.on("tileerror", function() {
+          if (monMap.hasLayer(cartoLayer)) {
+            monMap.removeLayer(cartoLayer);
+            osmLayer.addTo(monMap);
+          }
+        });
 
         const evLyr500 = L.layerGroup().addTo(monMap);
         const evLyr5km = L.layerGroup().addTo(monMap);
