@@ -286,14 +286,14 @@ if ((data.road_disruptions || []).length || (data.subway_disruptions || []).leng
 function sendHeight() {
   try {
     if (window.parent !== window) {
-      const container = document.querySelector('.ms-container');
-      const h = container ? container.getBoundingClientRect().bottom : document.documentElement.scrollHeight;
+      const h = document.documentElement.scrollHeight;
       window.parent.postMessage({ type: 'map-height', height: Math.ceil(h) }, '*');
     }
   } catch(e) {}
 }
 setTimeout(sendHeight, 800);
 setTimeout(sendHeight, 1800);
+setTimeout(sendHeight, 3000);
 }
 
 function renderVenue(meta) {
