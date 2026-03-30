@@ -749,6 +749,10 @@ try {
         }
 
         setStatus('Profil enregistré.', 'success');
+        if (data.mode === "create" && !localStorage.getItem('ms_map_notice_shown')) {
+          localStorage.setItem('ms_map_notice_shown', '1');
+          document.getElementById('ms-map-notice-modal').style.display = 'flex';
+        }
 
         // Persist generated UUID after first create (so next saves are updates)
         if (out && typeof out.location_id === "string" && out.location_id.trim() !== "") {
@@ -1271,4 +1275,19 @@ try {
     border-radius: 0 !important;
   }
 </style>
+
+<div id="ms-map-notice-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;width:100%;max-width:420px;padding:40px 32px;text-align:center;">
+    <div style="display:flex;justify-content:center;margin-bottom:28px;">
+      <div style="width:80px;height:80px;border-radius:50%;background:#1D3BB3;display:flex;align-items:center;justify-content:center;">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      </div>
+    </div>
+    <h1 style="font-size:26px;font-weight:600;color:#000;margin:0 0 14px 0;letter-spacing:-0.01em;line-height:1.1;">Cartes interactives</h1>
+    <p style="font-size:16px;color:rgba(107,114,128,0.92);line-height:1.8;margin:0 auto 10px auto;max-width:340px;font-style:italic;">Si vous utilisez Kaspersky ou un bloqueur de publicités, les fonds de carte peuvent apparaître gris.</p>
+    <p style="font-size:13px;color:rgba(107,114,128,0.75);line-height:1.7;margin:0 auto 28px auto;max-width:340px;">Autorisez <strong style="color:#111;font-style:normal;">basemaps.cartocdn.com</strong> et <strong style="color:#111;font-style:normal;">tile.openstreetmap.org</strong> dans votre antivirus.</p>
+    <button type="button" onclick="document.getElementById('ms-map-notice-modal').style.display='none';" class="ms-btn h-[56px] font-normal" style="width:100%;">J'AI COMPRIS</button>
+  </div>
+</div>
+
 </BaseLayout>
