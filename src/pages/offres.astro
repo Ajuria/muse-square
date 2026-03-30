@@ -7,14 +7,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
     <picture class="absolute inset-0 block" aria-hidden="true">
       <source srcset="/images/banner-services-300k.png" type="image/png" />
-      <img src="/images/banner-services-300k.png" alt="" class="w-full h-full object-cover" loading="eager" decoding="async" />
+      <img src="/images/banner-services-300k.png" alt="" class="w-full h-full object-cover object-top" loading="eager" decoding="async" />
     </picture>
-    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
+    <div class="absolute inset-0 bg-white/20" aria-hidden="true"></div>
     <div class="absolute inset-0">
       <div class="ms-container h-full flex items-center">
         <div>
-          <h1 class="ms-h1 text-white">Votre environnement change. Gardez un temps d'avance</h1>
-          <p class="mt-[16px] ms-lead text-white/70 text-[20px]">Concurrence, calendrier, mobilité, météo: quatre signaux agrégés pour piloter vos opérations</p>
+          <img src="/images/logo_ms_insight.svg" alt="Muse Square Insight" class="h-[80px] w-auto mb-[24px] block" loading="eager" decoding="async" />
+          <h1 class="ms-h1 text-[#111827]">Votre environnement change. Gardez un temps d'avance</h1>
+          <p class="mt-[16px] ms-lead text-[#111827]/70 text-[20px]">Concurrence, calendrier, mobilité, météo: quatre signaux agrégés pour piloter vos opérations</p>
         </div>
       </div>
     </div>
