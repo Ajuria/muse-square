@@ -82,7 +82,7 @@ export async function runAIPackagerClaude(args: {
     };
   }
 
-  if (mode !== "month" && submode) {
+  if (mode !== "month" && mode !== "v3_narrative" && submode) {
     // ignore; do not fail
     // (caller may accidentally pass it; we treat it as noop)
   }
@@ -122,7 +122,9 @@ export async function runAIPackagerClaude(args: {
     validatorFn = validate_packager_output_ui_v2;
 
   } else if (mode === "v3_narrative") {
-    system_prompt = PACKAGER_PROMPT_V3_NARRATIVE_FR;
+    system_prompt = submode
+      ? `INTENT OVERRIDE — PRIORITÉ ABSOLUE : Le intent de cette requête est "${submode}". Applique UNIQUEMENT le bloc de logique correspondant à cet intent dans le prompt. Ignore tout autre bloc.\n\n${PACKAGER_PROMPT_V3_NARRATIVE_FR}`
+      : PACKAGER_PROMPT_V3_NARRATIVE_FR;
     validatorFn = (output: any) => {
       const errors: string[] = [];
       if (!output || typeof output !== "object") {
@@ -133,7 +135,8 @@ export async function runAIPackagerClaude(args: {
       }
       if (
         (typeof output.answer !== "string" || !output.answer.trim()) &&
-        (!Array.isArray(output.answer) || output.answer.length === 0)
+        (!Array.isArray(output.answer) || output.answer.length === 0) &&
+        (typeof output.answer !== "object" || output.answer === null)
       ) {
         errors.push("v3_narrative: missing answer");
       }

@@ -152,6 +152,10 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
   "events_within_50km_same_bucket_count",
   "venue_exposure_override",
   "forecast_reliability",
+  "top_competitors",
+  "baseline_comp_avg",
+  "has_valid_baseline_flag",
+  "user_event",
 ];
 
 function isObject(x: unknown): x is Record<string, unknown> {

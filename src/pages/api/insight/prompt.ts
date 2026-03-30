@@ -234,8 +234,10 @@ function normalizeAiOutput(
     const answer =
       Array.isArray(out.answer) && out.answer.length
         ? out.answer
-        : typeof out.answer === "string" && out.answer.trim()
-          ? out.answer.trim()
+        : (out.answer && typeof out.answer === "object" && !Array.isArray(out.answer))
+          ? out.answer
+          : typeof out.answer === "string" && out.answer.trim()
+            ? out.answer.trim()
           : (typeof out.summary === "string" && out.summary.trim()
               ? out.summary.trim()
               : (bulletsTxt.length
@@ -376,7 +378,7 @@ function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringI
 
     if (
       q.includes("meteo") || q.includes("pluie") || q.includes("vent") || q.includes("alerte") ||
-      q.includes("evenement") || q.includes("concurrence") ||
+      q.includes("evenement") || q.includes("concurrence") || q.includes("concurrent") ||
       q.includes("tourisme") || q.includes("affluence") ||
       q.includes("mobilite") || q.includes("trafic") || q.includes("deplacement") || q.includes("transport")
     ) {
@@ -2078,14 +2080,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       resolved_intent = resolveIntentFromText(qRaw, "day");
     }
 
-
     // Only force DAY when a date token includes both day + month
     const hasExplicitDayAndMonth =
       dateMentions.dates.length === 1 &&
       /\b(\d{1,2}|1er)\b/i.test(qRaw) &&
       /\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/i.test(qRaw);
 
-    if (hasExplicitDayAndMonth) {
+    if (hasExplicitDayAndMonth && resolved_intent === "DAY_WHY") {
       resolved_horizon = "day";
       resolved_intent = "DAY_WHY";
     }
@@ -3333,9 +3334,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
             .filter((n): n is number => n !== null);
           return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
         })();
+        
+        const saved_item_context = await (async () => {
+          if (!effective_date || !location_id) return null;
+          try {
+            const rows = await bqAll(
+              `
+              SELECT i.title, i.description, i.event_type
+              FROM \`${projectId}.raw.saved_item_dates\` d
+              JOIN \`${projectId}.raw.saved_items\` i
+                ON i.saved_item_id = d.saved_item_id
+              WHERE DATE(d.date) = DATE(@effective_date)
+                AND d.location_id = @location_id
+                ${clerk_user_id ? "AND d.clerk_user_id = @clerk_user_id" : ""}
+              LIMIT 1
+              `,
+              bqParams({
+                effective_date,
+                location_id,
+                ...(clerk_user_id ? { clerk_user_id } : {}),
+              })
+            );
+            return rows.length ? rows[0] : null;
+          } catch (e) {
+            return null;
+          }
+        })();
+        
         const narrative_input_day = {
           horizon: "day",
-          intent: "DAY_WHY",
+          intent: resolved_intent,
           date: effective_date,
           display_label: day_row?.display_label ?? effective_date,
           scoring: {
@@ -3370,6 +3398,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
             pct_same_bucket_5km: day_row?.pct_same_bucket_5km ?? null,
             avg_same_bucket_5km_window: avg_same_bucket_5km_window_day,
             has_valid_baseline: avg_same_bucket_5km_window_day !== null,
+            baseline_comp_avg: day_row?.baseline_comp_avg ?? null,
+            has_valid_baseline_flag: day_row?.has_valid_baseline_flag ?? null,
+            top_competitors: Array.isArray(day_row?.top_competitors)
+              ? day_row.top_competitors.slice(0, 10).map((tc: any) => ({
+                  name: tc?.e?.event_label ?? null,
+                  distance_m: tc?.e?.distance_m ?? null,
+                  radius_bucket: tc?.e?.radius_bucket ?? null,
+                  industry_code: tc?.e?.industry_code ?? null,
+                  theme: tc?.e?.theme ?? null,
+                  description: typeof tc?.e?.description === "string"
+                    ? tc.e.description.trim().slice(0, 150)
+                    : null,
+                }))
+              : [],
           },
           audience: {
             availability_label: day_row?.audience_availability_label ?? null,
@@ -3389,13 +3431,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
             primary_audience_1: internal_context?.primary_audience_1 ?? null,
             primary_audience_2: internal_context?.primary_audience_2 ?? null,
           },
+
+          user_event: saved_item_context ? {
+            title: saved_item_context.title ?? null,
+            description: saved_item_context.description ?? null,
+            event_type: saved_item_context.event_type ?? null,
+          } : null,
         };
 
         console.log("[DAY_WHY payload] competition:", JSON.stringify(narrative_input_day.competition));
+        console.log("[DAY_WHY payload] user_event:", JSON.stringify(narrative_input_day.user_event));
 
         try {
           ai = await runAIPackagerClaude({
             mode: "v3_narrative",
+            submode: resolved_intent as any,
             row: narrative_input_day,
           });
           producer = "v3_claude";
@@ -4425,7 +4475,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           output: {
             headline: normalized_ai.headline,
             verdict: normalized_ai.verdict,
-            answer: (typeof normalized_ai.answer === "string" ? normalized_ai.answer : ""),
+            answer: (typeof normalized_ai.answer === "string" ? normalized_ai.answer : (normalized_ai.answer && typeof normalized_ai.answer === "object" ? normalized_ai.answer : "")),
             key_facts: Array.isArray(normalized_ai.key_facts) ? normalized_ai.key_facts : [],
             reasons: Array.isArray(normalized_ai.reasons) ? normalized_ai.reasons : [],
             caveats: Array.isArray(normalized_ai.caveats) ? normalized_ai.caveats.filter(Boolean) : [],

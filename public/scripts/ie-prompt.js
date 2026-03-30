@@ -138,6 +138,7 @@ if (!root) {
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
     const isCompare = intent === "COMPARE_DATES";
     const isDayWhy = intent === "DAY_WHY";
+    const isDayDimension = intent === "DAY_DIMENSION_DETAIL";
 
     const headline =
       (typeof n.headline === "string" && n.headline.trim()) ? n.headline.trim() :
@@ -198,13 +199,44 @@ if (!root) {
       return `${hdl}${items.join("")}`;
     }
 
-    // ── DAY_WHY ─────────────────────────────────────────────────
+    // ── DAY_DIMENSION_DETAIL ─────────────────────────────────────
+    if (isDayDimension) {
+      const raw = typeof answer === "string" ? answer : "";
+      const parts = raw.split("\n\n").filter(Boolean);
+
+      const listPart = parts[0] ?? "";
+      const analysisPart = parts[1] ?? "";
+      const recommendationPart = parts[2] ?? "";
+
+      const listLines = listPart.split("\n").filter(Boolean);
+      const densityLine = listLines[0] ?? "";
+      let competitorLines = listLines.slice(1);
+      if (competitorLines.length === 0 && listLines.length === 1) {
+        // Claude didn't use \n — split on pattern "[Name] — [distance] m"
+        competitorLines = listPart
+          .split(/(?=\S[^—]+—\s*\d+\s*m)/)
+          .map(s => s.trim())
+          .filter(s => s.includes(" — ") && s.match(/\d+\s*m/))
+          .filter(Boolean);
+      }
+
+      const competitorRows = competitorLines
+        .map(line => `<div class="ie-competitor-row">${escapeHtml(line.trim())}</div>`)
+        .join("");
+
+      return `
+        <div class="ie-why-headline">${escapeHtml(headline)}</div>
+        ${competitorRows ? `<div class="ie-competitor-list">${competitorRows}</div>` : ""}
+        ${analysisPart ? `<div class="ie-competitor-analysis">${escapeHtml(analysisPart)}</div>` : ""}
+        ${recommendationPart ? `<div class="ie-competitor-recommendation">${escapeHtml(recommendationPart)}</div>` : ""}
+        ${cta}
+      `;
+    }
+    
     if (isDayWhy) {
       const isGood = answer.toLowerCase().includes("bien noté") || !answer.toLowerCase().includes("mal noté");
       const pillClass = isGood ? "ie-pill-blue" : "ie-pill-amber";
-      const chiffreCle = answerDates.length === 0
-        ? answer.split("\n\n")[1] ?? ""
-        : "";
+      const chiffreCle = "";
       const prose = answer.split("\n\n").filter(Boolean);
       const intro = prose[0] ?? "";
       const rows = prose.slice(1);

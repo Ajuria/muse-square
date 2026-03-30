@@ -1515,12 +1515,12 @@ const show_actions = has_selected_dates;
             </label>
 
             <label class="ms-field">
-              <div class="ms-label">DATE LIMITE DE DÉCISION</div>
+              <div class="ms-label">DATE LIMITE DE CHOIX</div>
               <input id="ms-save-decision-date" class="ms-input" type="text" />
             </label>
 
             <label class="ms-field">
-              <div class="ms-label">DATE DE FIN</div>
+              <div class="ms-label">DATE DE FIN DE L'ÉVÉNEMENT</div>
               <input id="ms-save-event-date" class="ms-input" type="text" />
             </label>
 
@@ -1689,6 +1689,42 @@ const show_actions = has_selected_dates;
         function openSaveModal() {
           ensureSelectedDaysStyles();
           if (!modalBackdrop) return;
+
+          // If a savedItemId is already in scope, open in edit mode
+          if (savedItemId) {
+            const allSavedItems = window.__MS_DAYS__?._allSavedItems || [];
+            const matchedItem = allSavedItems.find(i => String(i.saved_item_id) === savedItemId);
+            if (matchedItem) {
+              MS.editingId = savedItemId;
+              MS.editingDates = extractDatesFromSavedItem(matchedItem).map(normalizeYmd).filter(Boolean);
+
+              if (modalTitle) modalTitle.value = matchedItem.title || "";
+              if (modalDesc) modalDesc.value = matchedItem.description || "";
+              if (modalEventType) modalEventType.value = matchedItem.event_type || "";
+              if (modalLaunchHour) modalLaunchHour.value = matchedItem.launch_hour ?? "";
+
+              const locationLabelEl = document.getElementById("ms-save-location-label");
+              if (locationLabelEl) locationLabelEl.textContent = matchedItem.location_label || "";
+
+              if (window.__msFlatpickrDecision) window.__msFlatpickrDecision.destroy();
+              if (window.__msFlatpickrEnd) window.__msFlatpickrEnd.destroy();
+              window.__msFlatpickrDecision = flatpickr(modalDecisionDate, { locale: flatpickr.l10ns.fr, firstDayOfWeek: 1, dateFormat: "d/m/Y", disableMobile: true });
+              window.__msFlatpickrEnd = flatpickr(modalEventDate, { locale: flatpickr.l10ns.fr, firstDayOfWeek: 1, dateFormat: "d/m/Y", disableMobile: true });
+              if (matchedItem.decision_date) window.__msFlatpickrDecision.setDate(matchedItem.decision_date, true, "Y-m-d");
+              if (matchedItem.event_end_date) window.__msFlatpickrEnd.setDate(matchedItem.event_end_date, true, "Y-m-d");
+
+              renderModalDateChipsEdit();
+
+              const modalHeading = document.getElementById("ms-save-title");
+              if (modalHeading) modalHeading.textContent = "Modifier cette liste";
+              if (modalSubmit) modalSubmit.textContent = "Mettre à jour";
+
+              if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
+              modalBackdrop.hidden = false;
+              modalBackdrop.setAttribute("aria-hidden", "false");
+              return;
+            }
+          }
 
           // Ensure create mode wording + clear edit state ---
           MS.editingId = "";
@@ -4636,11 +4672,11 @@ const show_actions = has_selected_dates;
 
         (async function init() {
           try {
-
             const [data, allSavedItems] = await Promise.all([
               fetchDays(),
               fetchSavedItems().catch(() => []),
             ]);
+            window.__MS_DAYS__._allSavedItems = allSavedItems;
             if (!savedItemId && Array.isArray(allSavedItems) && allSavedItems.length > 0) {
               const match = allSavedItems.find(item => {
                 const itemDates = extractDatesFromSavedItem(item).map(normalizeYmd).filter(Boolean);
