@@ -4464,7 +4464,7 @@ const show_actions = has_selected_dates;
                 body: JSON.stringify({ saved_item_id: savedItemId, selected_date: d }),
                 cache: "no-store",
                                   });
-                                  document.cookie = `ms_piloter=${encodeURIComponent(savedItemId)}|${encodeURIComponent(d)}; path=/; max-age=31536000; SameSite=Lax`;
+                                  // cookie removed — nav uses API
                                 } catch(_) {}
                 params.set("selected_date", d);
                 window.history.replaceState({}, "", "?" + params.toString());

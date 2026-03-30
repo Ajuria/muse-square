@@ -664,7 +664,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             : "Changement";
 
           return `
-            <div style="padding:12px 0;display:flex;align-items:flex-start;gap:12px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;}"}">
+            <div style="padding:12px 0;display:flex;align-items:flex-start;gap:12px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
               <div style="flex:0 0 auto;width:20px;display:flex;align-items:center;justify-content:center;margin-top:2px;">
                 ${feedCatIcon(String(a?.change_category || ""))}
               </div>

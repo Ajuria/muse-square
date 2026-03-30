@@ -16,13 +16,10 @@ const isActive = (href: string) => {
 };
 
 const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
-const piloterCookie = Astro.cookies.get("ms_piloter")?.value ?? "";
-const [cookieSavedItemId, cookieDate] = piloterCookie.split("|").map(decodeURIComponent);
+let dbSavedItemId = "";
+let dbDate = "";
 
-let dbSavedItemId = cookieSavedItemId || "";
-let dbDate = cookieDate || "";
-
-if (isApp && !dbSavedItemId) {
+if (isApp) {
   try {
     const origin = Astro.url.origin;
     const res = await fetch(`${origin}/api/saved-items/list`, {
