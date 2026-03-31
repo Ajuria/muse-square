@@ -353,23 +353,23 @@ try {
                     required
                     class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
                   >
-                    <option value="non_profit">Associatif & Non lucratif</option>
-                    <option value="wellness">Bien-être & Fitness</option>
-                    <option value="cinema_theatre">Cinéma & Théâtre</option>
-                    <option value="commercial">Commerce & Retail</option>
-                    <option value="institutional">Collectivités & Secteur public</option>
-                    <option value="culture">Culture & Patrimoine</option>
-                    <option value="family">Éducation & Enseignement</option>
-                    <option value="live_event">Événementiel</option>
-                    <option value="hotel_lodging">Hôtellerie & Hébergement</option>
-                    <option value="food_nightlife">Restauration & Bars</option>
-                    <option value="science_innovation">Sciences & Innovation</option>
-                    <option value="pro_event">Salons & Événements professionnels</option>
-                    <option value="sport">Sports & Loisirs actifs</option>
-                    <option value="transport_mobility">Transport & Mobilité locale</option>
-                    <option value="outdoor_leisure">Tourisme & Loisirs</option>
-                    <option value="nightlife">Vie nocturne</option>
-                    <option value="unknown">Autre activité accueillant du public</option>
+                    <option value="non_profit" selected={(saved_safe?.company_activity_type ?? "") === "non_profit"}>Associatif & Non lucratif</option>
+                    <option value="wellness" selected={(saved_safe?.company_activity_type ?? "") === "wellness"}>Bien-être & Fitness</option>
+                    <option value="cinema_theatre" selected={(saved_safe?.company_activity_type ?? "") === "cinema_theatre"}>Cinéma & Théâtre</option>
+                    <option value="commercial" selected={(saved_safe?.company_activity_type ?? "") === "commercial"}>Commerce & Retail</option>
+                    <option value="institutional" selected={(saved_safe?.company_activity_type ?? "") === "institutional"}>Collectivités & Secteur public</option>
+                    <option value="culture" selected={(saved_safe?.company_activity_type ?? "") === "culture"}>Culture & Patrimoine</option>
+                    <option value="family" selected={(saved_safe?.company_activity_type ?? "") === "family"}>Éducation & Enseignement</option>
+                    <option value="live_event" selected={(saved_safe?.company_activity_type ?? "") === "live_event"}>Événementiel</option>
+                    <option value="hotel_lodging" selected={(saved_safe?.company_activity_type ?? "") === "hotel_lodging"}>Hôtellerie & Hébergement</option>
+                    <option value="food_nightlife" selected={(saved_safe?.company_activity_type ?? "") === "food_nightlife"}>Restauration & Bars</option>
+                    <option value="science_innovation" selected={(saved_safe?.company_activity_type ?? "") === "science_innovation"}>Sciences & Innovation</option>
+                    <option value="pro_event" selected={(saved_safe?.company_activity_type ?? "") === "pro_event"}>Salons & Événements professionnels</option>
+                    <option value="sport" selected={(saved_safe?.company_activity_type ?? "") === "sport"}>Sports & Loisirs actifs</option>
+                    <option value="transport_mobility" selected={(saved_safe?.company_activity_type ?? "") === "transport_mobility"}>Transport & Mobilité locale</option>
+                    <option value="outdoor_leisure" selected={(saved_safe?.company_activity_type ?? "") === "outdoor_leisure"}>Tourisme & Loisirs</option>
+                    <option value="nightlife" selected={(saved_safe?.company_activity_type ?? "") === "nightlife"}>Vie nocturne</option>
+                    <option value="unknown" selected={(saved_safe?.company_activity_type ?? "") === "unknown"}>Autre activité accueillant du public</option>
                   </select>
                   <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
                     <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -638,20 +638,25 @@ try {
         if (form.dataset.saving === "1") return;
         form.dataset.saving = "1";
 
-        const btn = form.querySelector('button[type="submit"]');
+        const btn = document.querySelector('button[type="submit"][form="profileForm"]');
         const button = btn instanceof HTMLButtonElement ? btn : null;
 
         const originalText =
         button && button.textContent ? button.textContent : "Enregistrer les modifications";
 
-        let status = form.querySelector('#profileSaveStatus');
+        let status = document.querySelector('#profileSaveStatus');
         if (!(status instanceof HTMLElement)) {
         status = document.createElement('div');
         status.id = 'profileSaveStatus';
         status.className = 'mt-4 text-sm';
         status.setAttribute('role', 'status');
         status.setAttribute('aria-live', 'polite');
-        form.appendChild(status);
+        const submitBtn = document.querySelector('button[type="submit"][form="profileForm"]');
+        if (submitBtn && submitBtn.parentNode) {
+          submitBtn.parentNode.insertBefore(status, submitBtn.nextSibling);
+        } else {
+          document.body.appendChild(status);
+        }
         }
 
         function setStatus(message, kind) {
@@ -862,7 +867,6 @@ try {
 
       let activeIndex = -1;
       let items = [];
-      window.metroConfirmed = false;
 
       function hide() {
         box.classList.add("hidden");
