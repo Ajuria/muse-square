@@ -1,0 +1,536 @@
+---
+export const prerender = false;
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+
+const location_id =
+  Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+---
+
+<Show when="signed-out" client:load>
+  <script is:inline>window.location.href = "/sign-in";</script>
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Événements — Insight Event" hideSurveyCta={true} hideFooter={true}>
+
+    <style is:inline>
+      .ev-wrap {
+        width: 100%;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 32px 20px 160px 20px;
+        box-sizing: border-box;
+      }
+
+      .ev-hero {
+        font-size: 22px;
+        font-weight: 500;
+        color: #111827;
+        margin-bottom: 28px;
+      }
+
+      /* Alert block */
+      .ev-alert-block {
+        border: 0.5px solid #E5E7EB;
+        border-radius: 12px;
+        background: #FFFFFF;
+        margin-bottom: 32px;
+        overflow: hidden;
+      }
+
+      .ev-alert-head {
+        padding: 12px 16px;
+        border-bottom: 0.5px solid #E5E7EB;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .ev-alert-head-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: #6B7280;
+      }
+
+      .ev-alert-count {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: #FCEBEB;
+        color: #791F1F;
+      }
+
+      .ev-alert-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 13px 16px;
+        border-bottom: 0.5px solid #E5E7EB;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 120ms;
+      }
+
+      .ev-alert-row:last-child { border-bottom: none; }
+      .ev-alert-row:hover { background: #F9FAFB; }
+
+      .ev-alert-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .ev-alert-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .ev-dot-risk { background: #E24B4A; }
+      .ev-dot-warn { background: #EF9F27; }
+
+      .ev-alert-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #111827;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .ev-alert-loc {
+        font-size: 12px;
+        color: #6B7280;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .ev-alert-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .ev-signal-pill {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 3px 9px;
+        border-radius: 6px;
+      }
+
+      .ev-pill-risk { background: #FCEBEB; color: #791F1F; }
+      .ev-pill-warn { background: #FAEEDA; color: #633806; }
+
+      .ev-arrow { font-size: 13px; color: #9CA3AF; }
+
+      /* Section label */
+      .ev-section-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: #9CA3AF;
+        margin-bottom: 12px;
+      }
+
+      /* Location group */
+      .ev-loc-group { margin-bottom: 28px; }
+
+      .ev-loc-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 0 10px;
+        border-bottom: 0.5px solid #E5E7EB;
+      }
+
+      .ev-loc-name {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6B7280;
+      }
+
+      .ev-loc-badge {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: #F3F4F6;
+        color: #6B7280;
+        border: 0.5px solid #E5E7EB;
+      }
+
+      /* Event row */
+      .ev-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 0 14px 12px;
+        border-bottom: 0.5px solid #E5E7EB;
+        border-left: 3px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 120ms;
+      }
+
+      .ev-row:last-child { border-bottom: none; }
+      .ev-row:hover { background: #F9FAFB; }
+      .ev-row.has-risk { border-left-color: #E24B4A; }
+      .ev-row.has-warn { border-left-color: #EF9F27; }
+
+      .ev-row-left { min-width: 0; flex: 1; }
+
+      .ev-row-title {
+        font-size: 15px;
+        font-weight: 500;
+        color: #111827;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .ev-row-date {
+        font-size: 13px;
+        color: #6B7280;
+      }
+
+      .ev-row-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-shrink: 0;
+        padding-right: 8px;
+      }
+
+      .ev-kpi {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 52px;
+        text-align: right;
+      }
+
+      .ev-kpi-label {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9CA3AF;
+      }
+
+      .ev-kpi-val {
+        font-size: 13px;
+        color: #6B7280;
+      }
+
+      /* Empty / loading states */
+      .ev-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 0;
+      }
+
+      .ev-empty {
+        font-size: 14px;
+        color: #9CA3AF;
+        padding: 40px 0;
+        text-align: center;
+      }
+
+      .ev-error {
+        padding: 16px;
+        background: rgba(220,38,38,0.06);
+        border-radius: 10px;
+        color: #B91C1C;
+        font-size: 13px;
+      }
+    </style>
+
+    <div class="ev-wrap">
+      <div class="ev-hero">Mes événements</div>
+      <div id="ev-root">
+        <div class="ev-loading">
+          <img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" />
+        </div>
+      </div>
+    </div>
+
+    <InsightBottomBar active="days" showActions={false} />
+
+  </BaseLayout>
+</Show>
+
+<script is:inline define:vars={{ location_id }}>
+(function () {
+
+  function escapeHtml(v) {
+    return String(v ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  function normalizeYmd(v) {
+    const s = String(v ?? "").trim();
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : "";
+  }
+
+  function parseYmdToDate(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || "").trim());
+    if (!m) return null;
+    return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  }
+
+  function fmtDateMed(ymd) {
+    const d = parseYmdToDate(ymd);
+    if (!d) return ymd;
+    const dow = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][((d.getUTCDay() + 6) % 7)];
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const month = new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d);
+    return `${dow} ${day} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
+  }
+
+  function daysUntil(ymd) {
+    if (!ymd) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = parseYmdToDate(ymd);
+    if (!target) return null;
+    return Math.round((target - today) / 86400000);
+  }
+
+  function countdownLabel(ymd) {
+    const d = daysUntil(ymd);
+    if (d === null) return null;
+    if (d < 0) return null; // past — hide
+    if (d === 0) return "Aujourd'hui";
+    return `J-${d}`;
+  }
+
+  function categoryLabel(cat) {
+    const c = String(cat || "").toLowerCase();
+    if (c === "competition") return "Concurrence élevée";
+    if (c === "mobility")    return "Mobilité perturbée";
+    if (c === "context")     return "Alerte météo";
+    if (c === "opportunity") return "Opportunité modifiée";
+    return "Signal détecté";
+  }
+
+  // ----------------------------------------------------------------
+  // Fetch saved items
+  // ----------------------------------------------------------------
+  async function fetchSavedItems() {
+    const res = await fetch("/api/saved-items/list", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ limit: 100, offset: 0, stage: null }),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) return [];
+    return Array.isArray(json.items) ? json.items : [];
+  }
+
+  // ----------------------------------------------------------------
+  // Fetch alerts for items that have a selected_date
+  // ----------------------------------------------------------------
+  async function fetchAlerts(items) {
+    const alertable = items
+      .filter(it => it.selected_date)
+      .map(it => ({
+        saved_item_id: it.saved_item_id,
+        location_id:   it.location_id,
+        selected_date: normalizeYmd(it.selected_date),
+      }));
+
+    if (!alertable.length) return [];
+
+    const res = await fetch("/api/saved-items/alerts", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ items: alertable }),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) return [];
+    return Array.isArray(json.alerts) ? json.alerts : [];
+  }
+
+  // ----------------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------------
+  function render(items, alertsMap) {
+    const root = document.getElementById("ev-root");
+    if (!root) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Filter: only items with selected_date, and not fully past
+    const visible = items.filter(it => {
+      if (!it.selected_date) return false;
+      const launch = parseYmdToDate(normalizeYmd(it.selected_date));
+      if (!launch) return false;
+      // Hide if launch is past AND event_end_date is also past (or no end date and launch is past)
+      const end = it.event_end_date ? parseYmdToDate(normalizeYmd(it.event_end_date)) : null;
+      if (end) return end >= today;
+      return launch >= today;
+    });
+
+    // Sort by selected_date ascending
+    visible.sort((a, b) => {
+      const da = normalizeYmd(a.selected_date);
+      const db = normalizeYmd(b.selected_date);
+      return da.localeCompare(db);
+    });
+
+    if (!visible.length) {
+      root.innerHTML = `<div class="ev-empty">Aucun événement à suivre.<br>Sélectionnez une date dans PLANIFIER pour commencer.</div>`;
+      return;
+    }
+
+    if (visible.length === 1) {
+      const it = visible[0];
+      window.location.replace(
+        `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(it.saved_item_id)}&date=${encodeURIComponent(normalizeYmd(it.selected_date))}`
+      );
+      return;
+    }
+
+    // Build alert lookup by saved_item_id
+    const alertLookup = {};
+    for (const a of alertsMap) {
+      alertLookup[a.saved_item_id] = a;
+    }
+
+    // Collect flagged items (alert_level >= 2)
+    const flagged = visible.filter(it => {
+      const a = alertLookup[it.saved_item_id];
+      return a && Number(a.max_alert_level) >= 2;
+    });
+
+    // Group by location
+    const locationOrder = [];
+    const locationMap = new Map();
+    for (const it of visible) {
+      const key = it.location_id || "unknown";
+      if (!locationMap.has(key)) {
+        locationMap.set(key, []);
+        locationOrder.push({ key, label: it.location_label || it.location_id, is_primary: it.is_primary });
+      }
+      locationMap.get(key).push(it);
+    }
+
+    // Alert block HTML
+    let alertBlockHtml = "";
+    if (flagged.length > 0) {
+      const alertRowsHtml = flagged.map(it => {
+        const a = alertLookup[it.saved_item_id];
+        const lvl = Number(a?.max_alert_level ?? 0);
+        const dotCls = lvl >= 3 ? "ev-dot-risk" : "ev-dot-warn";
+        const pillCls = lvl >= 3 ? "ev-pill-risk" : "ev-pill-warn";
+        const label = categoryLabel(a?.top_category);
+        const monitorHref = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(it.saved_item_id)}&date=${encodeURIComponent(normalizeYmd(it.selected_date))}`;
+        return `
+          <a href="${escapeHtml(monitorHref)}" class="ev-alert-row">
+            <div class="ev-alert-left">
+              <span class="ev-alert-dot ${dotCls}"></span>
+              <span class="ev-alert-name">${escapeHtml(it.title || "Sans titre")}</span>
+              <span class="ev-alert-loc">${escapeHtml(it.location_label || "")}</span>
+            </div>
+            <div class="ev-alert-right">
+              <span class="ev-signal-pill ${pillCls}">${escapeHtml(label)}</span>
+              <span class="ev-arrow">→</span>
+            </div>
+          </a>
+        `;
+      }).join("");
+
+      alertBlockHtml = `
+        <div class="ev-alert-block">
+          <div class="ev-alert-head">
+            <span class="ev-alert-head-label">Points de vigilance</span>
+            <span class="ev-alert-count">${flagged.length} alerte${flagged.length > 1 ? "s" : ""}</span>
+          </div>
+          ${alertRowsHtml}
+        </div>
+      `;
+    }
+
+    // List HTML
+    const groupsHtml = locationOrder.map(({ key, label, is_primary }) => {
+      const groupItems = locationMap.get(key);
+      const rowsHtml = groupItems.map(it => {
+        const a = alertLookup[it.saved_item_id];
+        const lvl = Number(a?.max_alert_level ?? 0);
+        const borderCls = lvl >= 3 ? "has-risk" : lvl >= 2 ? "has-warn" : "";
+        const launchLabel = countdownLabel(normalizeYmd(it.selected_date));
+        const endLabel = it.event_end_date ? countdownLabel(normalizeYmd(it.event_end_date)) : null;
+        const monitorHref = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(it.saved_item_id)}&date=${encodeURIComponent(normalizeYmd(it.selected_date))}`;
+        return `
+          <a href="${escapeHtml(monitorHref)}" class="ev-row ${borderCls}">
+            <div class="ev-row-left">
+              <div class="ev-row-title">${escapeHtml(it.title || "Sans titre")}</div>
+              <div class="ev-row-date">${escapeHtml(fmtDateMed(normalizeYmd(it.selected_date)))}</div>
+            </div>
+            <div class="ev-row-right">
+              ${launchLabel ? `<div class="ev-kpi"><div class="ev-kpi-label">Lancement</div><div class="ev-kpi-val">${escapeHtml(launchLabel)}</div></div>` : ""}
+              ${endLabel ? `<div class="ev-kpi"><div class="ev-kpi-label">Fin</div><div class="ev-kpi-val">${escapeHtml(endLabel)}</div></div>` : ""}
+            </div>
+          </a>
+        `;
+      }).join("");
+
+      return `
+        <div class="ev-loc-group">
+          <div class="ev-loc-header">
+            <span class="ev-loc-name">${escapeHtml(label)}</span>
+            ${is_primary ? `<span class="ev-loc-badge">Principal</span>` : ""}
+          </div>
+          ${rowsHtml}
+        </div>
+      `;
+    }).join("");
+
+    root.innerHTML = `
+      ${alertBlockHtml}
+      ${groupsHtml}
+    `;
+  }
+
+  // ----------------------------------------------------------------
+  // Boot
+  // ----------------------------------------------------------------
+  (async function boot() {
+    const root = document.getElementById("ev-root");
+    try {
+      const items = await fetchSavedItems();
+      const alerts = await fetchAlerts(items);
+      render(items, alerts);
+    } catch (e) {
+      if (root) root.innerHTML = `<div class="ev-error">${escapeHtml(e?.message || "Erreur de chargement.")}</div>`;
+      console.error(e);
+    }
+  })();
+
+})();
+</script>
+
+</Show>

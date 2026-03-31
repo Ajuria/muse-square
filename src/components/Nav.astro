@@ -38,7 +38,7 @@ if (isApp) {
     }
   } catch (_) {}
 }
-const isMonitor = currentPath.startsWith("/app/insightevent/monitor");
+const isMonitor = currentPath.startsWith("/app/insightevent/monitor") || currentPath.startsWith("/app/insightevent/events");
 const isPulse = currentPath === "/app/insightevent/pulse";
 const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse;
 const isProfile = currentPath === "/profile" || currentPath === "/notifications";
@@ -114,7 +114,7 @@ const isAppShell = isApp;
                   const monitorHref = savedItemId
                     ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
                     : null;
-                  const isPiloter = isMonitor || Astro.url.pathname === "/app/insightevent/pulse";
+                  const isPiloter = isMonitor || Astro.url.pathname === "/app/insightevent/pulse" || currentPath.startsWith("/app/insightevent/events");
 
                   return (
                     <>
@@ -127,10 +127,7 @@ const isAppShell = isApp;
                       </button>
                       <div id="piloter-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
                         <a href="/app/insightevent/pulse" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Veille</a>
-                        {monitorHref
-                          ? <a href={monitorHref} class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Événements</a>
-                          : <span class="block px-4 py-2 text-sm font-medium uppercase tracking-wide text-gray-300 cursor-not-allowed">Événements</span>
-                        }
+                        <a href="/app/insightevent/events" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Événements</a>
                       </div>
                     </>
                   );
