@@ -529,7 +529,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const dateLabel = (() => {
         const dt = parseYmdToDate(d);
         if (!dt) return d;
-        const raw = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(dt);
+        const currentYear = new Date().getFullYear();
+        const opts = dt.getUTCFullYear() !== currentYear
+          ? { weekday:"long", day:"numeric", month:"long", year:"numeric" }
+          : { weekday:"long", day:"numeric", month:"long" };
+        const raw = new Intl.DateTimeFormat("fr-FR", opts).format(dt);
         return raw.charAt(0).toUpperCase() + raw.slice(1);
       })();
 
@@ -1337,6 +1341,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         window.history.replaceState({}, "", "?" + mp.toString());
       }
 
+      const LS_KEY = "ms_monitor_last_visit_" + saved_item_id;
+      const lastVisit = getLastVisitTimestamp(LS_KEY);
+      data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
+      setLastVisitTimestamp(LS_KEY);
       renderMonitor(data, item, firstDate, "recap");
 
     } catch (e) {

@@ -245,6 +245,64 @@ if (!location_id) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   }
 
+  function getToday() {
+    const d = new Date();
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+
+  function addDays(dateUTC, n) {
+    const d = new Date(dateUTC);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d;
+  }
+
+  function ymdFromUTC(d) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+  }
+
+  function getLastVisitTimestamp(key) {
+    try { return parseInt(localStorage.getItem(key) || "0", 10) || 0; } catch { return 0; }
+  }
+
+  function setLastVisitTimestamp(key) {
+    try { localStorage.setItem(key, String(Date.now())); } catch {}
+  }
+
+  function filterFeedByWindow(allFeed, lastVisitTs) {
+    const today = getToday();
+    const windowStart = ymdFromUTC(addDays(today, -7));
+    const windowEnd   = ymdFromUTC(addDays(today, 6));
+    const mobilityEnd = ymdFromUTC(addDays(today, 14));
+
+    return allFeed.filter(a => {
+      const affected = normalizeYmd(a?.affected_date);
+      const feedDate = normalizeYmd(a?.feed_date);
+      if (!affected) return false;
+
+      const isMobility = String(a?.change_category || "").toLowerCase() === "mobility";
+      const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
+                        String(a?.change_subtype  || "").toLowerCase() === "weather_change";
+
+      const maxDate = (isMobility) ? mobilityEnd : windowEnd;
+
+      // Date window check
+      if (affected < windowStart || affected > maxDate) return false;
+
+      // Weather: only show within 6 days forward
+      if (isWeather && affected > windowEnd) return false;
+
+      // Return visit: only new signals since last load
+      if (lastVisitTs > 0) {
+        const fd = feedDate ? new Date(feedDate).getTime() : 0;
+        if (fd > 0 && fd <= lastVisitTs) return false;
+      }
+
+      return true;
+    });
+  }
+
+
+
   function next8Days() {
     const dates = [];
     const base = new Date();
@@ -377,7 +435,11 @@ if (!location_id) {
         if (d === today) return "Aujourd'hui";
         const dt = parseYmdToDate(d);
         if (!dt) return d;
-        const raw = new Intl.DateTimeFormat("fr-FR", { weekday:"long", day:"numeric", month:"long" }).format(dt);
+        const currentYear = new Date().getFullYear();
+        const opts = dt.getUTCFullYear() !== currentYear
+          ? { weekday:"long", day:"numeric", month:"long", year:"numeric" }
+          : { weekday:"long", day:"numeric", month:"long" };
+        const raw = new Intl.DateTimeFormat("fr-FR", opts).format(dt);
         return raw.charAt(0).toUpperCase() + raw.slice(1);
       })();
 
@@ -787,6 +849,10 @@ if (!location_id) {
         });
       }
 
+      const LS_KEY = "ms_pulse_last_visit";
+      const lastVisit = getLastVisitTimestamp(LS_KEY);
+      data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
+      setLastVisitTimestamp(LS_KEY);
       renderPulse(data, todayYmd(), "recap");
 
     } catch(e) {
