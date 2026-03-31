@@ -579,6 +579,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     await bigquery.query({ query: mergeQuery, location: BQ_LOCATION, params, types });
 
+    // Immediately sync client_industry_code to dim_client_location
+    if (company_activity_type) {
+      const syncQuery = `
+        UPDATE \`${projectId}.dims.dim_client_location\`
+        SET client_industry_code = @company_activity_type
+        WHERE location_id = @location_id
+      `;
+      await bigquery.query({
+        query: syncQuery,
+        location: BQ_LOCATION,
+        params: { company_activity_type, location_id },
+        types: { company_activity_type: 'STRING', location_id: 'STRING' },
+      });
+    }
 
     // Read-back proof: return the row as stored in BigQuery after MERGE
     const readBackQuery = `
