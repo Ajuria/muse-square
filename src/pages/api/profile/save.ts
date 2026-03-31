@@ -581,17 +581,42 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Immediately sync client_industry_code to dim_client_location
     if (company_activity_type) {
-      const syncQuery = `
-        UPDATE \`${projectId}.dims.dim_client_location\`
-        SET client_industry_code = @company_activity_type
-        WHERE location_id = @location_id
-      `;
-      await bigquery.query({
-        query: syncQuery,
-        location: BQ_LOCATION,
-        params: { company_activity_type, location_id },
-        types: { company_activity_type: 'STRING', location_id: 'STRING' },
-      });
+      const activityTypeToIndustryCode: Record<string, string> = {
+        non_profit: 'Associatif & Non lucratif',
+        wellness: 'Sports & Loisirs actifs',
+        cinema_theatre: 'Cinéma & Théâtre',
+        commercial: 'Commerce & Retail',
+        institutional: 'Collectivités & Secteur public',
+        culture: 'Culture & Patrimoine',
+        family: 'Éducation & Enseignement',
+        live_event: 'Événementiel',
+        hotel_lodging: 'Hôtellerie & Hébergement',
+        food_nightlife: 'Restauration & Bars',
+        science_innovation: 'Sciences & Innovation',
+        pro_event: 'Événementiel',
+        sport: 'Sports & Loisirs actifs',
+        transport_mobility: 'Transport & Mobilité locale',
+        outdoor_leisure: 'Tourisme & Loisirs',
+        nightlife: 'Restauration & Bars',
+        unknown: 'Autre activité accueillant du public',
+      };
+      const client_industry_code = company_activity_type
+        ? (activityTypeToIndustryCode[company_activity_type] ?? company_activity_type)
+        : null;
+
+      if (client_industry_code) {
+        const syncQuery = `
+          UPDATE \`${projectId}.dims.dim_client_location\`
+          SET client_industry_code = @client_industry_code
+          WHERE location_id = @location_id
+        `;
+        await bigquery.query({
+          query: syncQuery,
+          location: BQ_LOCATION,
+          params: { client_industry_code, location_id },
+          types: { client_industry_code: 'STRING', location_id: 'STRING' },
+        });
+      }
     }
 
     // Read-back proof: return the row as stored in BigQuery after MERGE
