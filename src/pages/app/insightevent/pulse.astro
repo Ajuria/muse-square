@@ -126,8 +126,9 @@ if (!location_id) {
       .mon-loading { padding: 40px 0; text-align: center; color: #9CA3AF; font-size: 14px; }
       .mon-error { padding: 20px; background: rgba(220,38,38,0.06); border-radius: 10px; color: #B91C1C; font-size: 13px; margin-top: 16px; }
 
-      .mon-statut-safe { background: #1D3BB3; color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-      .mon-statut-risk { background: rgba(220,38,38,0.1); color: #b91c1c; border: 1px solid rgba(220,38,38,0.2); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-safe { background: var(--color-pill-safe-bg); color: var(--color-pill-safe-text); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-warn { background: var(--color-pill-warn-bg); color: var(--color-pill-warn-text); border: 1px solid var(--color-pill-warn-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-risk { background: var(--color-pill-risk-bg); color: var(--color-pill-risk-text); border: 1px solid var(--color-pill-risk-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
       /* ---- Date pills ---- */
       .pls-pills {
@@ -301,6 +302,44 @@ if (!location_id) {
     });
   }
 
+  const BLOCK_LABELS = {
+    attendance:   'FRÉQUENTATION',
+    operations:   'EXPLOITATION',
+    installation: 'INSTALLATION',
+    context:      'CONTEXTE',
+  };
+
+  function computeStatusPill(day) {
+    if (day?.is_forced_regime_c_flag === true) {
+      return { cls: 'mon-statut-risk', label: 'À RISQUE' };
+    }
+    const all = [
+      ...(day?.attendance   || []),
+      ...(day?.operations   || []),
+      ...(day?.installation || []),
+      ...(day?.context      || []),
+    ].filter(r => r.severity !== 'A');
+
+    if (!all.length) {
+      return { cls: 'mon-statut-safe', label: 'SANS RISQUE' };
+    }
+
+    const maxSev = all.reduce((max, r) => {
+      return (['D','C','B'].indexOf(r.severity) < ['D','C','B'].indexOf(max) ? r.severity : max);
+    }, 'B');
+
+    const cls = (maxSev === 'D' || maxSev === 'C') ? 'mon-statut-risk' : 'mon-statut-warn';
+
+    if (all.length === 1) {
+      const block = all[0].block;
+      const label = 'ALERTE ' + (BLOCK_LABELS[block] || block.toUpperCase());
+      return { cls, label };
+    }
+
+    const count = all.length;
+    return { cls, label: `${count} RISQUES` };
+  }
+
 
 
   function next8Days() {
@@ -318,10 +357,10 @@ if (!location_id) {
     return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
   }
 
-  const GREEN  = "background:rgba(16,185,129,0.1);color:#059669;";
-  const YELLOW = "background:#FEF3C7;color:#92400E;";
-  const RED    = "background:#FCEBEB;color:#791F1F;";
-  const GREY   = "background:#F1EFE8;color:#444441;";
+  const GREEN  = "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
+  const YELLOW = "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);border:1px solid var(--color-pill-warn-border);";
+  const AMBER  = "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);border:1px solid var(--color-pill-warn-border);";
+  const RED    = "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);border:1px solid var(--color-pill-risk-border);";
 
   function severityDots(level) {
     const l = Math.min(4, Math.max(1, Number(level)||1));
@@ -508,7 +547,7 @@ if (!location_id) {
     const lvlWind=Number(day?.lvl_wind??0), lvlRain=Number(day?.lvl_rain??0), lvlSnow=Number(day?.lvl_snow??0);
     const instLevel = Math.max(lvlWind,lvlRain,lvlSnow);
     const instLabel = instLevel===0?"Aucun risque":instLevel===1?"Risque faible":instLevel===2?"Risque modéré":"Risque élevé";
-    const instStyle = instLevel===0?GREEN:instLevel===1?GREY:instLevel===2?YELLOW:RED;
+    const instStyle = instLevel===0?GREEN:instLevel===1?YELLOW:instLevel===2?YELLOW:RED;
 
     function row(label, content, ctaTab) {
       const cta = ctaTab ? `<button type="button" data-switch-tab="${ctaTab}" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;">Voir →</button>` : "";
@@ -666,6 +705,7 @@ if (!location_id) {
 
     const score   = currentDay.opportunity_score ?? null;
     const hasRisk = currentDay.is_major_realization_risk_flag === true;
+    const statusPill = computeStatusPill(currentDay);
 
     // Pills
     const today = todayYmd();
@@ -702,7 +742,7 @@ if (!location_id) {
                 <span style="font-size:16px;color:#9CA3AF;">/10</span>
               </div>` : ""}
           </div>
-          <span class="${hasRisk?"mon-statut-risk":"mon-statut-safe"}">${hasRisk?"À RISQUE":"SANS RISQUE"}</span>
+          <span class="${statusPill.cls}">${escapeHtml(statusPill.label)}</span>
         </div>
         ${renderTabBar(activeTab)}
       </div>`;

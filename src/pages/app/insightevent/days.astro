@@ -1416,6 +1416,10 @@ const show_actions = has_selected_dates;
     font-size:14px;
   }
 
+  .mon-statut-safe { background: var(--color-pill-safe-bg); color: var(--color-pill-safe-text); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .mon-statut-warn { background: var(--color-pill-warn-bg); color: var(--color-pill-warn-text); border: 1px solid var(--color-pill-warn-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .mon-statut-risk { background: var(--color-pill-risk-bg); color: var(--color-pill-risk-text); border: 1px solid var(--color-pill-risk-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
 </style>
      
       <!-- Header / breadcrumb placeholder -->
@@ -2381,6 +2385,25 @@ const show_actions = has_selected_dates;
             .replace(/'/g, "&#039;");
         }
 
+        function computeStatusPill(r) {
+          if (r?.is_major_realization_risk_flag === true || r?.is_forced_regime_c_flag === true) {
+            return { cls: 'mon-statut-risk', label: 'À RISQUE' };
+          }
+          const alertMax = Number(r?.alert_level_max ?? 0);
+          const deltaAtt = Number(r?.delta_att_mobility_pct ?? 0);
+          const deltaEvents = Number(r?.delta_att_events_pct ?? 0);
+          const risks = [];
+          if (alertMax >= 2) risks.push({ label: 'ALERTE MÉTÉO', high: alertMax >= 3 });
+          if (deltaAtt < -4) risks.push({ label: 'ALERTE MOBILITÉ', high: deltaAtt < -8 });
+          if (deltaEvents > 5) risks.push({ label: 'ALERTE CONCURRENCE', high: false });
+          if (!risks.length) return { cls: 'mon-statut-safe', label: 'SANS RISQUE' };
+          if (risks.length === 1) {
+            return { cls: risks[0].high ? 'mon-statut-risk' : 'mon-statut-warn', label: risks[0].label };
+          }
+          const hasHigh = risks.some(r => r.high);
+          return { cls: hasHigh ? 'mon-statut-risk' : 'mon-statut-warn', label: `${risks.length} RISQUES` };
+        }
+
         function sectionIconSVG(kind) {
             const icons = {
               alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -3301,8 +3324,7 @@ const show_actions = has_selected_dates;
             
             // STATUT: authoritative signals from scoring model
             const hasRisk = r?.is_major_realization_risk_flag === true;
-            const statutBadgeClass = hasRisk ? 'is-risk' : 'is-safe';
-            const statutText = hasRisk ? 'À RISQUE' : 'SANS RISQUE';
+            const statutPill = computeStatusPill(r);
 
             // Points clés: up to 3 bullets
             const pointsBullets = (() => {
@@ -3374,7 +3396,7 @@ const show_actions = has_selected_dates;
                   </div>
                   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
                     <span style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9CA3AF;">Statut</span>
-                    <span class="${hasRisk ? "mon-statut-risk" : ""}" style="${hasRisk ? "" : "background:#1D3BB3;color:#fff;"}padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${statutText}</span>
+                    <span class="${statutPill.cls}" style="padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${escapeHtml(statutPill.label)}</span>
                   </div>
                 </div>
 
@@ -3627,8 +3649,8 @@ const show_actions = has_selected_dates;
                         else if (t === "seniors")   avail = true;
                         else                        avail = isWE || hasVac || hasHol;
                         return avail
-                          ? { label: "Disponible",      style: "background:rgba(16,185,129,0.1);color:#059669;" }
-                          : { label: "Peu disponible",  style: "background:#FCEBEB;color:#791F1F;" };
+                          ? { label: "Disponible",      style: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" }
+                          : { label: "Peu disponible",  style: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" };
                       }
                       const auds = [audience1, audience2].filter(Boolean);
                       const audRowsHtml = auds.length
@@ -3653,7 +3675,7 @@ const show_actions = has_selected_dates;
                           ${escapeHtml(row.val)}
                           ${row.pill && row.pillLabel ? `
                             <span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:6px;
-                              ${row.pill === 'pill-pos' ? 'background:rgba(16,185,129,0.1);color:#059669;' : row.pill === 'pill-neg' ? 'background:#FCEBEB;color:#791F1F;' : 'background:#F1EFE8;color:#444441;'}">
+                              ${row.pill === 'pill-pos' ? 'background:var(--color-pill-green-bg);color:var(--color-pill-green-text);' : row.pill === 'pill-neg' ? 'background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);' : 'background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);'}">
                               ${escapeHtml(row.pillLabel)}
                             </span>
                           ` : ""}
@@ -3770,14 +3792,14 @@ const show_actions = has_selected_dates;
               return `${count5km} événements concurrents dans un rayon de 5 km — dans la moyenne`;
             })();
             const pressurePill = (() => {
-              if (deltaEvents > 3)  return { label: "Élevée",  style: "background:#FCEBEB;color:#791F1F;" };
-              if (deltaEvents < -3) return { label: "Faible",  style: "background:rgba(16,185,129,0.1);color:#059669;" };
-              return                       { label: "Normale", style: "background:#F1EFE8;color:#444441;" };
+              if (deltaEvents > 3)  return { label: "Élevée",  style: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" };
+              if (deltaEvents < -3) return { label: "Faible",  style: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" };
+              return                       { label: "Normale", style: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
             })();
 
             const top3 = events.slice(0, 3);
 
-            const distBadgeStyle = () => "background:#F1EFE8;color:#444441;";
+            const distBadgeStyle = () => "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
 
             const eventListHtml = top3.length === 0 ? "" : `
               <div style="margin-top:14px;">
@@ -3857,17 +3879,17 @@ const show_actions = has_selected_dates;
             const deltaOps = Number(r?.delta_ops_mobility_car_pct ?? 0);
 
             const attVerdict = (() => {
-              if (deltaAtt >= 0) return { label: "Aucun impact", pill: "background:rgba(16,185,129,0.1);color:#059669;", pillLabel: "Fluide" };
-              if (deltaAtt >= -4) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
-              if (deltaAtt >= -8) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
-              return { label: "Fortement perturbé", pill: "background:#FCEBEB;color:#791F1F;", pillLabel: "Route" };
+              if (deltaAtt >= 0) return { label: "Aucun impact", pill: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);", pillLabel: "Fluide" };
+              if (deltaAtt >= -4) return { label: "Perturbé", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);", pillLabel: "Route" };
+              if (deltaAtt >= -8) return { label: "Perturbé", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);", pillLabel: "Route" };
+              return { label: "Fortement perturbé", pill: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);", pillLabel: "Route" };
             })();
 
             const opsVerdict = (() => {
-              if (deltaOps >= 0) return { label: "Aucun impact", pill: "background:rgba(16,185,129,0.1);color:#059669;", pillLabel: "Fluide" };
-              if (deltaOps >= -4) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
-              if (deltaOps >= -8) return { label: "Perturbé", pill: "background:#FEF3C7;color:#92400E;", pillLabel: "Route" };
-              return { label: "Fortement perturbé", pill: "background:#FCEBEB;color:#791F1F;", pillLabel: "Route" };
+              if (deltaOps >= 0) return { label: "Aucun impact", pill: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);", pillLabel: "Fluide" };
+              if (deltaOps >= -4) return { label: "Perturbé", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);", pillLabel: "Route" };
+              if (deltaOps >= -8) return { label: "Perturbé", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);", pillLabel: "Route" };
+              return { label: "Fortement perturbé", pill: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);", pillLabel: "Route" };
             })();
 
             const isTransitDisrupted = hasTransit && deltaAtt < -3;
@@ -3876,9 +3898,9 @@ const show_actions = has_selected_dates;
 
             const transitPillStyle = (() => {
               if (!hasTransit) return null;
-              if (deltaAtt <= -8) return "background:#FCEBEB;color:#791F1F;";
-              if (deltaAtt < 0) return "background:#FEF3C7;color:#92400E;";
-              return "background:rgba(16,185,129,0.1);color:#059669;";
+              if (deltaAtt <= -8) return "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);";
+              if (deltaAtt < 0) return "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
+              return "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
             })();
 
             const transitPillLabel = (() => {
@@ -3952,8 +3974,8 @@ const show_actions = has_selected_dates;
                 `;
               }
               const routePill = isCarDisruptedAtt
-                ? "background:#FEF3C7;color:#92400E;"
-                : "background:rgba(16,185,129,0.1);color:#059669;";
+                ? "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"
+                : "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
               const routeLabel = isCarDisruptedAtt ? "Route" : "Route fluide";
               return `
                 ${escapeHtml(attVerdict.label)}
@@ -4062,30 +4084,30 @@ const show_actions = has_selected_dates;
             const freqImpact = (() => {
               const hasAttendanceHazard = lvlRain > 0 || lvlSnow > 0 || lvlHeat > 0 || lvlCold > 0;
               if (!hasAttendanceHazard && alertMax === 0) {
-                return { label: "Aucun", pill: "background:#F1EFE8;color:#444441;" };
+                return { label: "Aucun", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
               }
               if (alertMax >= 3 || impactTotal < -10) {
-                return { label: "Défavorable", pill: "background:#FCEBEB;color:#791F1F;" };
+                return { label: "Défavorable", pill: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" };
               }
               if (alertMax >= 1 || impactTotal < 0) {
-                if (isIndoor) return { label: "Légère friction", pill: "background:#FEF3C7;color:#92400E;" };
-                return { label: "Modérément défavorable", pill: "background:#FEF3C7;color:#92400E;" };
+                if (isIndoor) return { label: "Légère friction", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
+                return { label: "Modérément défavorable", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
               }
-              return { label: "Neutre", pill: "background:#F1EFE8;color:#444441;" };
+              return { label: "Neutre", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
             })();
 
             const installRisk = (() => {
-              if (!hasInstallationRisk) return { label: "Aucun", pill: "background:rgba(16,185,129,0.1);color:#059669;" };
+              if (!hasInstallationRisk) return { label: "Aucun", pill: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" };
               if (lvlWind >= 3 || (windGusts != null && windGusts > 60)) {
-                return { label: "Élevé", pill: "background:#FCEBEB;color:#791F1F;" };
+                return { label: "Élevé", pill: "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" };
               }
               if (lvlWind >= 2 || (windGusts != null && windGusts > 40)) {
-                return { label: "Modéré", pill: "background:#FEF3C7;color:#92400E;" };
+                return { label: "Modéré", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
               }
               if (lvlWind >= 1) {
-                return { label: "Faible", pill: "background:#F1EFE8;color:#444441;" };
+                return { label: "Faible", pill: "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" };
               }
-              return { label: "Aucun", pill: "background:rgba(16,185,129,0.1);color:#059669;" };
+              return { label: "Aucun", pill: "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" };
             })();
 
             const hazardRows = [];
@@ -4345,24 +4367,24 @@ const show_actions = has_selected_dates;
                           `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
 
                         const audienceStyle = r.comparison.audience === "Disponible"
-                          ? "background:rgba(16,185,129,0.1);color:#059669;"
-                          : "background:#FCEBEB;color:#791F1F;";
+                          ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"
+                          : "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);";
 
                         const concurrenceStyle = r.comparison.concurrence === "Élevée"
-                          ? "background:#FCEBEB;color:#791F1F;"
-                          : "background:rgba(16,185,129,0.1);color:#059669;";
+                          ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"
+                          : "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
 
                         const accessibiliteStyle = r.comparison.accessibilite === "Fluide"
-                          ? "background:rgba(16,185,129,0.1);color:#059669;"
+                          ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"
                           : r.comparison.accessibilite === "Fortement perturbé"
-                          ? "background:#FCEBEB;color:#791F1F;"
-                          : "background:#FEF3C7;color:#92400E;";
+                          ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"
+                          : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
 
                         const exploitationStyle = r.comparison.exploitation === "Aucune alerte"
-                          ? "background:rgba(16,185,129,0.1);color:#059669;"
+                          ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"
                           : r.comparison.exploitation.includes("3") || r.comparison.exploitation.includes("4")
-                          ? "background:#FCEBEB;color:#791F1F;"
-                          : "background:#FEF3C7;color:#92400E;";
+                          ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"
+                          : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
 
                         return `
                           <div class="ms-comp-metric">

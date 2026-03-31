@@ -42,4 +42,20 @@
   --card-padding-sm: 24px;
   --icon-size-md: 24px;
   --btn-size-md: 44px;
+
+  /* ---- Status pill colors ---- */
+  /* ---- Status pill colors ---- */
+  --color-pill-safe-bg: #1D3BB3;
+  --color-pill-safe-text: #ffffff;
+
+  --color-pill-warn-bg: #FDE8D8;
+  --color-pill-warn-text: #C2410C;
+  --color-pill-warn-border: #F9B999;
+
+  --color-pill-risk-bg: #FCEBEB;
+  --color-pill-risk-text: #b91c1c;
+  --color-pill-risk-border: #F7C1C1;
+
+  --color-pill-green-bg: #E6F6F0;
+  --color-pill-green-text: #059669;
 }

@@ -84,8 +84,8 @@ export const GET: APIRoute = async ({ url }) => {
         opportunity_score_final_local,
         opportunity_medal,
         is_major_realization_risk_flag,
-        major_realization_risk_driver,
         is_forced_regime_c_flag,
+        major_realization_risk_driver,
 
         -- Component scores
         events_score,
@@ -466,6 +466,7 @@ export const GET: APIRoute = async ({ url }) => {
         events_within_50km_count: r.events_within_50km_count ?? 0,
         alert_level_max:          r.alert_level_max           ?? 0,
         is_major_realization_risk_flag: r.is_major_realization_risk_flag ?? false,
+        is_forced_regime_c_flag: r.is_forced_regime_c_flag ?? false,
 
         // Competition (same industry bucket)
         events_within_500m_same_bucket_count: r.events_within_500m_same_bucket_count ?? null,

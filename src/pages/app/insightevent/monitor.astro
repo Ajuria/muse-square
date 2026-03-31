@@ -148,8 +148,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         color: #9CA3AF;
       }
 
-      .mon-statut-safe { background: #1D3BB3; color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-      .mon-statut-risk { background: rgba(220,38,38,0.1); color: #b91c1c; border: 1px solid rgba(220,38,38,0.2); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-safe { background: var(--color-pill-safe-bg); color: var(--color-pill-safe-text); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-warn { background: var(--color-pill-warn-bg); color: var(--color-pill-warn-text); border: 1px solid var(--color-pill-warn-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .mon-statut-risk { background: var(--color-pill-risk-bg); color: var(--color-pill-risk-text); border: 1px solid var(--color-pill-risk-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
       /* ---- Tabs (match days page ms-tab style) ---- */
       .mon-tabs-bar {
@@ -364,14 +365,104 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     return `J-${d}`;
   }
 
+  function getToday() {
+    const d = new Date();
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+
+  function addDays(dateUTC, n) {
+    const d = new Date(dateUTC);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d;
+  }
+
+  function ymdFromUTC(d) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+  }
+
+  function getLastVisitTimestamp(key) {
+    try { return parseInt(localStorage.getItem(key) || "0", 10) || 0; } catch { return 0; }
+  }
+
+  function setLastVisitTimestamp(key) {
+    try { localStorage.setItem(key, String(Date.now())); } catch {}
+  }
+
+  function filterFeedByWindow(allFeed, lastVisitTs) {
+    const today = getToday();
+    const windowStart = ymdFromUTC(addDays(today, -7));
+    const windowEnd   = ymdFromUTC(addDays(today, 6));
+    const mobilityEnd = ymdFromUTC(addDays(today, 14));
+
+    return allFeed.filter(a => {
+      const affected = normalizeYmd(a?.affected_date);
+      const feedDate = normalizeYmd(a?.feed_date);
+      if (!affected) return false;
+
+      const isMobility = String(a?.change_category || "").toLowerCase() === "mobility";
+      const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
+                         String(a?.change_subtype  || "").toLowerCase() === "weather_change";
+
+      const maxDate = isMobility ? mobilityEnd : windowEnd;
+
+      if (affected < windowStart || affected > maxDate) return false;
+      if (isWeather && affected > windowEnd) return false;
+
+      if (lastVisitTs > 0) {
+        const fd = feedDate ? new Date(feedDate).getTime() : 0;
+        if (fd > 0 && fd <= lastVisitTs) return false;
+      }
+
+      return true;
+    });
+  }
+
+  const BLOCK_LABELS = {
+    attendance:   'FRÉQUENTATION',
+    operations:   'EXPLOITATION',
+    installation: 'INSTALLATION',
+    context:      'CONTEXTE',
+  };
+
+  function computeStatusPill(day) {
+    if (day?.is_forced_regime_c_flag === true) {
+      return { cls: 'mon-statut-risk', label: 'À RISQUE' };
+    }
+    const all = [
+      ...(day?.attendance   || []),
+      ...(day?.operations   || []),
+      ...(day?.installation || []),
+      ...(day?.context      || []),
+    ].filter(r => r.severity !== 'A');
+
+    if (!all.length) {
+      return { cls: 'mon-statut-safe', label: 'SANS RISQUE' };
+    }
+
+    const maxSev = all.reduce((max, r) => {
+      return (['D','C','B'].indexOf(r.severity) < ['D','C','B'].indexOf(max) ? r.severity : max);
+    }, 'B');
+
+    const cls = (maxSev === 'D' || maxSev === 'C') ? 'mon-statut-risk' : 'mon-statut-warn';
+
+    if (all.length === 1) {
+      const block = all[0].block;
+      const label = 'ALERTE ' + (BLOCK_LABELS[block] || block.toUpperCase());
+      return { cls, label };
+    }
+
+    const count = all.length;
+    return { cls, label: `${count} RISQUES` };
+  }
+
   function pill(label, style) {
     return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
   }
 
-  const GREEN  = "background:rgba(16,185,129,0.1);color:#059669;";
-  const YELLOW = "background:#FEF3C7;color:#92400E;";
-  const RED    = "background:#FCEBEB;color:#791F1F;";
-  const GREY   = "background:#F1EFE8;color:#444441;";
+  const GREEN  = "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
+  const YELLOW = "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);border:1px solid var(--color-pill-warn-border);";
+  const AMBER  = "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);border:1px solid var(--color-pill-warn-border);";
+  const RED    = "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);border:1px solid var(--color-pill-risk-border);";
 
   function severityDots(level) {
     const l = Math.min(4, Math.max(1, Number(level) || 1));
@@ -662,7 +753,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           const dir = String(a?.direction || "").toLowerCase();
           const pillStyle = (dir === "up" || dir === "improved") ? GREEN
             : (dir === "down" || dir === "worsened" || lvl >= 3) ? RED
-            : lvl >= 2 ? YELLOW : GREY;
+            : lvl >= 2 ? YELLOW : YELLOW;
           const pillLabel = (dir === "up" || dir === "improved") ? "En hausse"
             : (dir === "down" || dir === "worsened") ? "En baisse"
             : "Changement";
@@ -754,7 +845,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       : instRiskLevel === 1 ? "Risque faible"
       : instRiskLevel === 2 ? "Risque modéré"
       : "Risque élevé";
-    const instStyle = instRiskLevel === 0 ? GREEN : instRiskLevel === 1 ? GREY : instRiskLevel === 2 ? YELLOW : RED;
+    const instStyle = instRiskLevel === 0 ? GREEN : instRiskLevel === 1 ? YELLOW : instRiskLevel === 2 ? YELLOW : RED;
 
     function row(label, content, ctaTab) {
       const cta = ctaTab
@@ -866,6 +957,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const score    = currentDay?.opportunity_score ?? currentDay?.opportunity_score_final_local ?? null;
     const safeScore = score !== null ? String(score).trim() : null;
     const hasRisk  = currentDay?.is_major_realization_risk_flag === true;
+    const statusPill = computeStatusPill(currentDay);
     const cev      = countdown(selectedDate);
 
     // All feed items across all days
@@ -887,7 +979,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             <div class="mon-header-date">${escapeHtml(fmtDateLong(selectedDate))}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-            <span class="${hasRisk ? "mon-statut-risk" : "mon-statut-safe"}">${hasRisk ? "À RISQUE" : "SANS RISQUE"}</span>
+            <span class="${statusPill.cls}">${escapeHtml(statusPill.label)}</span>
             ${cev ? `<span class="mon-countdown">${escapeHtml(cev)} avant événement</span>` : ""}
           </div>
         </div>
@@ -1091,11 +1183,20 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
           function renderMonCard(e, idx) {
             const desc = e.description || '';
+            const dateLabel = (() => {
+              const dt = parseYmdToDate(selectedDate);
+              if (!dt) return '';
+              const currentYear = new Date().getFullYear();
+              const opts = dt.getUTCFullYear() !== currentYear
+                ? { day: 'numeric', month: 'short', year: 'numeric' }
+                : { day: 'numeric', month: 'short' };
+              return new Intl.DateTimeFormat('fr-FR', opts).format(dt);
+            })();
             return `
               <div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px;border-left:3px solid var(--color-brand-blue);border-bottom:1px solid rgba(17,24,39,0.07);">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
                   <span style="font-size:14px;font-weight:600;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
-                  <span style="font-size:11px;color:#888;white-space:nowrap;">${Math.round(e.distance_m)}m</span>
+                  <span style="font-size:11px;color:#888;white-space:nowrap;">${dateLabel}</span>
                 </div>
                 ${desc ? `<div style="font-size:13px;color:#374151;line-height:1.5;">${escapeHtml(desc.slice(0,200))}${desc.length>200?'…':''}</div>` : ''}
               </div>`;
