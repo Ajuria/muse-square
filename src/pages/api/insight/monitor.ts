@@ -194,6 +194,7 @@ export const GET: APIRoute = async ({ url }) => {
       WHERE location_id = @location_id
         AND feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
       ORDER BY alert_level DESC, feed_date DESC
+      LIMIT 200
     `;
 
     // Run all queries in parallel
