@@ -3139,7 +3139,7 @@ const show_actions = has_selected_dates;
                 const from = a?.old_value != null ? Math.round(Number(a.old_value)) : null;
                 const to   = a?.new_value != null ? Math.round(Number(a.new_value)) : null;
                 const delta = a?.score_delta != null ? Math.round(Number(a.score_delta)) : (from != null && to != null ? to - from : null);
-                if (from != null && to != null) {
+                if (from != null && to != null && Number.isFinite(from) && Number.isFinite(to)) {
                   const sign = delta >= 0 ? "+" : "";
                   parts.push(`Score : ${from} → ${to} (${sign}${delta})`);
                 }
@@ -3223,7 +3223,7 @@ const show_actions = has_selected_dates;
                 const isLast = idx === dayItems.length - 1;
 
                 return `
-                  <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
+                  <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;border-left:3px solid ${lvl>=3?"#EF4444":lvl>=2?"#F59E0B":"#93C5FD"};padding-left:10px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
                   
                   <!-- Icon: black SVG, no background -->
                     <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">

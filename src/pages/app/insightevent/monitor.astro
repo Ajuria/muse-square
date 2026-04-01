@@ -388,31 +388,25 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     try { localStorage.setItem(key, String(Date.now())); } catch {}
   }
 
-  function filterFeedByWindow(allFeed, lastVisitTs) {
-    const today = getToday();
-    const windowStart = ymdFromUTC(addDays(today, -7));
-    const windowEnd   = ymdFromUTC(addDays(today, 6));
-    const mobilityEnd = ymdFromUTC(addDays(today, 14));
-
+  function filterFeedByWindow(allFeed, lastVisitTs, anchorYmd) {
+    const anchor = anchorYmd ? parseYmdToDate(anchorYmd) : getToday();
+    const windowStart = ymdFromUTC(addDays(anchor, -7));
+    const windowEnd   = ymdFromUTC(addDays(anchor, 6));
+    const mobilityEnd = ymdFromUTC(addDays(anchor, 14));
     return allFeed.filter(a => {
       const affected = normalizeYmd(a?.affected_date);
       const feedDate = normalizeYmd(a?.feed_date);
       if (!affected) return false;
-
       const isMobility = String(a?.change_category || "").toLowerCase() === "mobility";
       const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
                          String(a?.change_subtype  || "").toLowerCase() === "weather_change";
-
       const maxDate = isMobility ? mobilityEnd : windowEnd;
-
       if (affected < windowStart || affected > maxDate) return false;
       if (isWeather && affected > windowEnd) return false;
-
       if (lastVisitTs > 0) {
         const fd = feedDate ? new Date(feedDate).getTime() : 0;
         if (fd > 0 && fd <= lastVisitTs) return false;
       }
-
       return true;
     });
   }
@@ -538,7 +532,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const from  = a?.old_value != null ? Math.round(Number(a.old_value)) : null;
       const to    = a?.new_value != null ? Math.round(Number(a.new_value)) : null;
       const delta = a?.score_delta != null ? Math.round(Number(a.score_delta)) : (from != null && to != null ? to - from : null);
-      if (from != null && to != null) { const sign = delta >= 0 ? "+" : ""; parts.push(`Score : ${from} → ${to} (${sign}${delta})`); }
+      if (from != null && to != null && Number.isFinite(from) && Number.isFinite(to)) { const sign = delta >= 0 ? "+" : ""; parts.push(`Score : ${from} → ${to} (${sign}${delta})`); }
     } else if (cat === "competition" || sub === "event_new" || sub === "event_removed" || sub === "context_change") {
       const name = a?.event_label || a?.event_name || "";
       const km   = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : "";
@@ -566,15 +560,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   }
 
   function renderFeedItems(items, showAll) {
-    const filtered = showAll ? items : items.filter(function(feedItem) {
-      const lvl = Number(feedItem?.alert_level) || 0;
-      const sub = String(feedItem?.change_subtype || "");
-      if (sub === "event_removed" && lvl < 2) return false;
-      if (sub === "event_new" && lvl < 1) return false;
-      if (sub === "mobility_disruption") return true;
-      if (lvl < 2 && sub !== "event_new") return false;
-      return true;
-    });
+    const filtered = items;
 
     const toggleHtml = `
       <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
@@ -604,13 +590,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         const isLast = idx === dayItems.length - 1;
 
         return `
-          <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
+          <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast ? "" : "border-bottom:1px solid #F3F4F6;"}">
             <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">
               ${feedCatIcon(cat)}
             </div>
             <div style="flex:1;min-width:0;">
               <div class="mon-feed-line1">${escapeHtml(line1)}</div>
-              ${line2 ? `<div class="mon-feed-line2" style="display:flex;align-items:center;gap:12px;"><span>${escapeHtml(line2)}</span><span style="display:inline-flex;align-items:center;gap:4px;">${severityDots(lvl)}</span></div>` : ""}
+              ${line2 ? `<div class="mon-feed-line2">${escapeHtml(line2)}</div>` : ""}
               ${line3 ? `<div class="mon-feed-line3">${escapeHtml(line3)}</div>` : ""}
             </div>
           </div>
@@ -665,10 +651,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // Render recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, item, profile) {
+  function renderRecap(currentDay, allFeed, allFeedNew, item, profile) {
     // Statut global
     const eventDate = normalizeYmd(currentDay?.date || "");
-    const alerts = allFeed.filter(a => (Number(a?.alert_level) || 0) >= 2 && normalizeYmd(a?.affected_date) === eventDate);
+    const alerts = allFeedNew.filter(a => (Number(a?.alert_level) || 0) >= 2 && normalizeYmd(a?.affected_date) === eventDate);
     const hasChanges = alerts.length > 0;
     const hasCrit = alerts.some(a => Number(a?.alert_level) >= 3);
     const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level) >= 2);
@@ -704,7 +690,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       .sort((a, b) => ({ D: 0, C: 1, B: 2 }[a.severity] ?? 3) - ({ D: 0, C: 1, B: 2 }[b.severity] ?? 3))
       .slice(0, 5);
 
-    const dotColor = s => s === "D" ? "#b91c1c" : s === "C" ? "#D97706" : "#9CA3AF";
+    const dotColor = s => s === "D" ? "var(--color-pill-risk-border)" : "var(--color-pill-warn-border)";
 
     const vigilanceHtml = vigilanceItems.length ? `
       <div class="mon-card">
@@ -997,7 +983,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // ---- Tab content ----
     let tabContent = "";
     if (activeTab === "recap") {
-      tabContent = renderRecap(currentDay, allFeed, item, profile);
+      const allFeedNew = Array.isArray(data.all_feed_new) ? data.all_feed_new : allFeed;
+      tabContent = renderRecap(currentDay, allFeed, allFeedNew, item, profile);
     } else if (activeTab === "alertes") {
       const showAll = (window.__monFeedShowAll === true);
       const eventDate = normalizeYmd(currentDay?.date || "");
@@ -1444,7 +1431,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
       const LS_KEY = "ms_monitor_last_visit_" + saved_item_id;
       const lastVisit = getLastVisitTimestamp(LS_KEY);
-      data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
+      data.all_feed_new = filterFeedByWindow(data.all_feed || [], lastVisit, firstDate);
+      data.all_feed = filterFeedByWindow(data.all_feed || [], 0, firstDate);
       setLastVisitTimestamp(LS_KEY);
       renderMonitor(data, item, firstDate, "recap");
 
