@@ -454,22 +454,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-    const [daysRows] = await bq.query({
-      query: daysQuery,
-      params: { location_id, selected_dates },
-      types: { selected_dates: ['STRING'] },
-    });
-
-    const [locationContextRows] = await bq.query({
-      query: locationContextQuery,
-      params: { location_id },
-    });
-
-    const [alertsFeedRows] = await bq.query({
-      query: alertsFeedQuery,
-      params: { location_id, selected_dates },
-      types: { selected_dates: ['STRING'] },
-    });
+    const [[daysRows], [locationContextRows], [alertsFeedRows]] = await Promise.all([
+      bq.query({
+        query: daysQuery,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ['STRING'] },
+      }),
+      bq.query({
+        query: locationContextQuery,
+        params: { location_id },
+      }),
+      bq.query({
+        query: alertsFeedQuery,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ['STRING'] },
+      }),
+    ]);
 
     console.log('[alerts debug]', {
       location_id,

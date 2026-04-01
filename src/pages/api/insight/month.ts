@@ -434,10 +434,34 @@ export const GET: APIRoute = async ({ request, locals }) => {
       ORDER BY date ASC
     `;
 
-    const [windowRows, daysRows, ctxRows] = await Promise.all([
+    const sqlRegionViaLocation = `
+      SELECT
+        r.date,
+        r.region_code_insee,
+        r.event_count_region,
+        r.is_public_holiday_flag,
+        r.public_holiday_name_fr,
+        r.is_school_holiday_flag,
+        r.school_holiday_name,
+        r.is_commercial_event_flag_region,
+        r.commercial_event_names_region
+      FROM ${T_REGCTX} r
+      WHERE r.region_code_insee = (
+        SELECT region_code_insee
+        FROM ${T_LOCCTX}
+        WHERE location_id = @location_id
+        LIMIT 1
+      )
+      AND r.date BETWEEN DATE(@window_start_date)
+          AND DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY)
+      ORDER BY r.date ASC
+    `;
+
+    const [windowRows, daysRows, ctxRows, regionRows] = await Promise.all([
       runBQ_timed("fetch_window", sqlWindow, { location_id, window_start_date }),
       runBQ_timed("fetch_days", sqlDays, { location_id, window_start_date }),
-      runBQ_timed("fetch_location_context", sqlCtx, { location_id, window_start_date })
+      runBQ_timed("fetch_location_context", sqlCtx, { location_id, window_start_date }),
+      runBQ_timed("fetch_region_ai_context_daily", sqlRegionViaLocation, { location_id, window_start_date }),
     ]);
 
     const window =
@@ -500,14 +524,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
       raw_type: typeof region_code_insee_raw,
       raw_value: region_code_insee_raw,
     });
-
-    // --- fetch region daily context (date × region_code_insee) ---
-    const regionRows = region_code_insee
-      ? await runBQ_timed("fetch_region_ai_context_daily", sqlRegion, {
-          region_code_insee,
-          window_start_date,
-        })
-      : [];
 
     // --- enrich days with region context (same date) ---
     const regionByDate = new Map<string, any>();

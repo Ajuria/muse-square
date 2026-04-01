@@ -2790,7 +2790,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     ].filter((v) => v && v.trim().length > 0);
 
     const decision_policy_rules =
-      rule_values.length === 0
+      resolved_horizon !== "month" || rule_values.length === 0
         ? []
         : await bqAll(
             `
@@ -2931,53 +2931,75 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const monthConstraintYmd = inferSelectedDateFromMonthMention(q); // YYYY-MM-01 or null
         const monthConstraintYm = monthConstraintYmd ? monthConstraintYmd.slice(0, 7) : null;
 
-        shortlist = await bqAll(
-          `
-          WITH win AS (
-            SELECT
-              DATE(@window_start_date) AS window_start_date,
-              DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
-          )
-          SELECT *
-          FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-          WHERE location_id = @location_id
-            AND date BETWEEN (SELECT window_start_date FROM win)
-                        AND (SELECT window_end_date   FROM win)
-            AND (
-              @month_constraint_ym = ""
-              OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+        const [shortlistResult, month_days_result, worstlistResult] = await Promise.all([
+          bqAll(
+            `
+            WITH win AS (
+              SELECT
+                DATE(@window_start_date) AS window_start_date,
+                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
             )
-            AND COALESCE(opportunity_regime, '') != 'C'
-            AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
-            AND (
-              @filter_weekend_only = FALSE
-              OR is_weekend = TRUE
-            )
-          ORDER BY
-            CAST(opportunity_score AS FLOAT64) DESC,
-            CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-            CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
-            date ASC
-          LIMIT 7
-          `,
-          bqParams({
-            location_id,
-            window_start_date: ws,
-            month_constraint_ym: monthConstraintYm ?? "",
-            filter_weekend_only: wantsWeekendOnly(qRaw),
-          })
-        );
+            SELECT *
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+            WHERE location_id = @location_id
+              AND date BETWEEN (SELECT window_start_date FROM win)
+                          AND (SELECT window_end_date   FROM win)
+              AND (
+                @month_constraint_ym = ""
+                OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+              )
+              AND COALESCE(opportunity_regime, '') != 'C'
+              AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
+              AND (
+                @filter_weekend_only = FALSE
+                OR is_weekend = TRUE
+              )
+            ORDER BY
+              CAST(opportunity_score AS FLOAT64) DESC,
+              CAST(weather_alert_level AS INT64) ASC NULLS LAST,
+              CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
+              date ASC
+            LIMIT 7
+            `,
+            bqParams({
+              location_id,
+              window_start_date: ws,
+              month_constraint_ym: monthConstraintYm ?? "",
+              filter_weekend_only: wantsWeekendOnly(qRaw),
+            })
+          ),
+          resolved_intent === "MOBILITY_UNAVAILABLE"
+            ? Promise.resolve([])
+            : bqAll(
+                `
+                WITH win AS (
+                  SELECT
+                    COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
+                    DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                )
+                SELECT *
+                FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+                WHERE location_id = @location_id
+                  AND date BETWEEN (SELECT window_start_date FROM win)
+                              AND (SELECT window_end_date   FROM win)
+                  AND (
+                    @month_constraint_ym = ""
+                    OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+                  )
+                ORDER BY date ASC
+                `,
+                bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
+              ),
+          resolved_intent === "WINDOW_WORST_DAYS"
+            ? bqWorstlist({ location_id, window_start_date: ws, hard_only: false, limit: 7 })
+            : Promise.resolve([]),
+        ]);
+
+        shortlist = shortlistResult;
+        month_days = month_days_result;
+        worstlist = worstlistResult;
 
         shortlist_rows = shortlist ?? [];
-
-        if (resolved_intent === "WINDOW_WORST_DAYS") {
-          worstlist = await bqWorstlist({
-            location_id,
-            window_start_date: ws,
-            hard_only: false,
-            limit: 7,
-          });
-        }
 
         const shortlist0 = Array.isArray(shortlist) ? shortlist : [];
         const worstlist0 = Array.isArray(worstlist) ? worstlist : [];
@@ -3017,27 +3039,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
         worstlist_rows = monthConstraintYm
           ? worstlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
           : worstlist0;
-
-        month_days = await bqAll(
-          `
-          WITH win AS (
-            SELECT
-              COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-              DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
-          )
-          SELECT *
-          FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-          WHERE location_id = @location_id
-            AND date BETWEEN (SELECT window_start_date FROM win)
-                        AND (SELECT window_end_date   FROM win)
-            AND (
-              @month_constraint_ym = ""
-              OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-            )
-          ORDER BY date ASC
-          `,
-          bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
-        );
 
         const source_rows =
           resolved_intent === "WINDOW_WORST_DAYS"
