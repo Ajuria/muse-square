@@ -264,7 +264,6 @@ if (!location_id) {
     </style>
 
     <div class="ev-wrap">
-      <div class="ev-hero">Mes événements</div>
       <div id="ev-root">
         <div class="ev-loading">
           <img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" />
@@ -324,11 +323,22 @@ if (!location_id) {
     return `J-${d}`;
   }
 
-  function categoryLabel(cat) {
+  function categoryLabel(cat, subtype) {
+    const s = String(subtype || "").toLowerCase();
+    if (s === "weather_worsened")    return "Alerte météo";
+    if (s === "weather_improved")    return "Météo améliorée";
+    if (s === "mobility_disruption") return "Mobilité perturbée";
+    if (s === "mobility_change")     return "Mobilité perturbée";
+    if (s === "event_new")           return "Concurrent détecté";
+    if (s === "event_removed")       return "Concurrent retiré";
+    if (s === "score_up")            return "Indice en hausse";
+    if (s === "score_down")          return "Indice en baisse";
+    if (s === "ranking_up")          return "Classement amélioré";
+    if (s === "ranking_down")        return "Classement dégradé";
     const c = String(cat || "").toLowerCase();
     if (c === "competition") return "Concurrence élevée";
     if (c === "mobility")    return "Mobilité perturbée";
-    if (c === "context")     return "Alerte météo";
+    if (c === "context")     return "Alerte contextuelle";
     if (c === "opportunity") return "Opportunité modifiée";
     return "Signal détecté";
   }
@@ -446,7 +456,7 @@ if (!location_id) {
         const lvl = Number(a?.max_alert_level ?? 0);
         const dotCls = lvl >= 3 ? "ev-dot-risk" : "ev-dot-warn";
         const pillCls = lvl >= 3 ? "ev-pill-risk" : "ev-pill-warn";
-        const label = categoryLabel(a?.top_category);
+        const label = categoryLabel(a?.top_category, a?.top_subtype);
         const monitorHref = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(it.saved_item_id)}&date=${encodeURIComponent(normalizeYmd(it.selected_date))}`;
         return `
           <a href="${escapeHtml(monitorHref)}" class="ev-alert-row">
@@ -510,6 +520,7 @@ if (!location_id) {
     }).join("");
 
     root.innerHTML = `
+      <div class="ev-hero">Mes événements</div>
       ${alertBlockHtml}
       ${groupsHtml}
     `;

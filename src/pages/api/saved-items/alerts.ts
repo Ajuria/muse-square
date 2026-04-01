@@ -76,7 +76,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         '${it.location_id}'   AS location_id,
         '${it.selected_date}' AS selected_date,
         MAX(alert_level)      AS max_alert_level,
-        ARRAY_AGG(change_category ORDER BY alert_level DESC LIMIT 1)[OFFSET(0)] AS top_category
+        ARRAY_AGG(change_category ORDER BY alert_level DESC LIMIT 1)[OFFSET(0)] AS top_category,
+        ARRAY_AGG(change_subtype  ORDER BY alert_level DESC LIMIT 1)[OFFSET(0)] AS top_subtype
       FROM \`${projectId}.semantic.vw_insight_event_change_feed\`
       WHERE location_id   = '${it.location_id}'
         AND affected_date = DATE('${it.selected_date}')
@@ -94,7 +95,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         location_id,
         selected_date,
         MAX(max_alert_level) AS max_alert_level,
-        ARRAY_AGG(top_category ORDER BY max_alert_level DESC LIMIT 1)[OFFSET(0)] AS top_category
+        ARRAY_AGG(top_category ORDER BY max_alert_level DESC LIMIT 1)[OFFSET(0)] AS top_category,
+        ARRAY_AGG(top_subtype  ORDER BY max_alert_level DESC LIMIT 1)[OFFSET(0)] AS top_subtype
       FROM (
         ${unionParts.map(p => `(${p})`).join("\nUNION ALL\n")}
       )
@@ -108,7 +110,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_id:     String(r.location_id     ?? ""),
       selected_date:   String(r.selected_date?.value ?? r.selected_date ?? ""),
       max_alert_level: Number(r.max_alert_level  ?? 0),
-      top_category:    String(r.top_category     ?? ""),
+      top_category:    String(r.top_category  ?? ""),
+      top_subtype:     String(r.top_subtype   ?? ""),
     }));
 
     return new Response(JSON.stringify({ ok: true, alerts }), {
