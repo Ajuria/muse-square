@@ -176,7 +176,19 @@ export const GET: APIRoute = async ({ url }) => {
         new_value,
         distance_m,
         event_label,
+        event_venue_name,
+        event_venue_address,
         city_name,
+        location_type,
+        lvl_rain,
+        lvl_wind,
+        lvl_snow,
+        lvl_heat,
+        lvl_cold,
+        mobility_status_region,
+        mobility_disruption_flag_region,
+        nearest_transit_line_name,
+        transit_network,
         summary
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
