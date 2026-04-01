@@ -388,32 +388,108 @@ if (!location_id) {
   // Feed rendering (identical to monitor.astro)
   // ----------------------------------------------------------------
   function feedLine1(a) {
-    const sub = String(a?.change_subtype||"").toLowerCase();
-    const dir = String(a?.direction||"").toLowerCase();
-    const cat = String(a?.change_category||"").toLowerCase();
-    const nv  = String(a?.new_value??"").toLowerCase();
-    const d   = fmtDateShort(normalizeYmd(a?.affected_date));
-    const map = {
-      context_change: cat==="competition" ? (nv==="true" ? `Concurrent détecté · ${d}` : `Concurrent retiré · ${d}`) : cat==="context" ? (dir==="worsened"||dir==="down" ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`) : cat==="mobility" ? `Mobilité perturbée · ${d}` : `Signal de contexte · ${d}`,
-      score_change: dir==="up" ? `Score en hausse · ${d}` : `Score en baisse · ${d}`,
-      event_new: `Concurrent détecté · ${d}`,
-      event_removed: `Concurrent retiré · ${d}`,
-      weather_change: (dir==="down"||dir==="worsened") ? `Alerte météo renforcée · ${d}` : `Alerte météo réduite · ${d}`,
-      mobility_change: `Mobilité perturbée · ${d}`,
-      mega_event_activation: `Méga-événement annoncé · ${d}`,
-    };
-    return map[sub] || `Signal détecté · ${d}`;
+    const sub  = String(a?.change_subtype || "").toLowerCase();
+    const d    = fmtDateShort(normalizeYmd(a?.affected_date));
+    const ov   = a?.old_value != null ? String(a.old_value) : null;
+    const nv   = a?.new_value != null ? String(a.new_value) : null;
+    const delta = a?.score_delta != null ? Math.round(Number(a.score_delta)) : null;
+    const name  = a?.event_label || "";
+    const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+    const lvlRain = Number(a?.lvl_rain || 0);
+    const lvlWind = Number(a?.lvl_wind || 0);
+    const lvlSnow = Number(a?.lvl_snow || 0);
+    const lvlHeat = Number(a?.lvl_heat || 0);
+    const lvlCold = Number(a?.lvl_cold || 0);
+
+    function weatherType() {
+      const max = Math.max(lvlRain, lvlWind, lvlSnow, lvlHeat, lvlCold);
+      if (max === 0) return null;
+      if (lvlRain === max) return "pluie";
+      if (lvlSnow === max) return "neige";
+      if (lvlWind === max) return "vent";
+      if (lvlHeat === max) return "chaleur";
+      return "froid";
+    }
+
+    if (sub === "score_up") {
+      const sign = delta != null ? ` (+${delta} pts)` : "";
+      return `Indice en hausse · ${ov} → ${nv}${sign}`;
+    }
+    if (sub === "score_down") {
+      const sign = delta != null ? ` (${delta} pts)` : "";
+      return `Indice en baisse · ${ov} → ${nv}${sign}`;
+    }
+    if (sub === "event_new") {
+      const parts = [`Concurrent détecté · ${d}`];
+      if (name) parts.push(name);
+      if (km) parts.push(km);
+      return parts.join(" · ");
+    }
+    if (sub === "event_removed") return `Concurrent retiré · ${d}`;
+    if (sub === "weather_worsened") {
+      const type = weatherType();
+      const label = type ? `Alerte ${type} renforcée` : "Alerte météo renforcée";
+      return `${label} · ${d}${ov && nv ? ` (niv. ${ov} → ${nv})` : ""}`;
+    }
+    if (sub === "weather_improved") {
+      return `Conditions météo normalisées · ${d}${ov && nv ? ` (niv. ${ov} → ${nv})` : ""}`;
+    }
+    if (sub === "mobility_disruption") {
+      const count = ov || "1";
+      return `Perturbation mobilité · ${d} · ${count} incident(s)`;
+    }
+    if (sub === "ranking_up")   return `Classement amélioré · ${ov}e → ${nv}e position`;
+    if (sub === "ranking_down") return `Classement dégradé · ${ov}e → ${nv}e position`;
+    if (sub === "context_change") return null;
+    return `Signal · ${d}`;
   }
 
   function feedLine2(a) {
-    const cat = String(a?.change_category||"").toLowerCase();
-    const lvl = Math.min(4, Math.max(1, Number(a?.alert_level)||1));
-    const vocab = {
-      competition: {1:"Impact de la concurrence locale.",2:"Impact notable de la concurrence locale.",3:"Impact important de la concurrence locale.",4:"Impact majeur de la concurrence locale."},
-      context:     {1:"Impact météo sur cette date.",2:"Impact notable de la météo.",3:"Impact possible sur l'organisation.",4:"Impact important sur l'organisation."},
-      mobility:    {1:"Impact des conditions de mobilité.",2:"Impact notable sur les conditions d'accès.",3:"Impact possible sur l'accès au lieu.",4:"Impact important sur l'accès au lieu."},
-    };
-    return (vocab[cat]&&vocab[cat][lvl]) || "Évolution globale du contexte.";
+    const sub  = String(a?.change_subtype || "").toLowerCase();
+    const loc  = String(a?.location_type || "").toLowerCase();
+    const lvlRain = Number(a?.lvl_rain || 0);
+    const lvlWind = Number(a?.lvl_wind || 0);
+    const lvlSnow = Number(a?.lvl_snow || 0);
+    const lvlHeat = Number(a?.lvl_heat || 0);
+    const lvlCold = Number(a?.lvl_cold || 0);
+    const venue = a?.event_venue_name || "";
+    const city  = a?.city_name || "";
+    const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+
+    if (sub === "score_up") {
+      if (lvlRain > 0) return "Amélioration des conditions de pluie.";
+      if (lvlSnow > 0) return "Réduction du risque neige.";
+      if (lvlWind > 0) return "Vent en baisse.";
+      if (lvlHeat > 0) return "Chaleur moins intense.";
+      if (lvlCold > 0) return "Froid moins intense.";
+      return "Attractivité de la date en progression.";
+    }
+    if (sub === "score_down") {
+      if (lvlRain > 0) return "Fortes pluies prévues — impact sur la fréquentation.";
+      if (lvlSnow > 0) return "Neige prévue — impact sur l'accès et la fréquentation.";
+      if (lvlWind > 0) return "Vent fort prévu — impact sur les installations.";
+      if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort.";
+      if (lvlCold > 0) return "Grand froid prévu — impact sur la fréquentation.";
+      return "Dégradation de l'attractivité de la date.";
+    }
+    if (sub === "event_new") {
+      const parts = [];
+      if (venue) parts.push(venue);
+      if (city && city !== venue) parts.push(city);
+      return parts.length ? parts.join(" · ") : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
+    }
+    if (sub === "event_removed") return "";
+    if (sub === "weather_worsened") {
+      if (loc === "outdoor") return "Impact direct sur les installations et la fréquentation.";
+      if (loc === "mixed")   return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
+      return "Légère friction possible à l'entrée du site.";
+    }
+    if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
+    if (sub === "mobility_disruption") return "Accès au site potentiellement impacté.";
+    if (sub === "ranking_up")   return "Cette date gagne en attractivité relative dans votre région.";
+    if (sub === "ranking_down") return "Cette date perd en attractivité relative dans votre région.";
+    if (sub === "context_change") return "";
+    return "";
   }
 
   function feedLine3(a) {
