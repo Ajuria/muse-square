@@ -22,11 +22,29 @@ export const GET: APIRoute = async ({ locals }) => {
       query: `
         SELECT
           location_id,
+          COALESCE(site_name, company_name, company_address, '') AS site_name,
           company_name,
           company_address,
           company_lat,
           company_lon,
-          is_primary
+          is_primary,
+          company_activity_type,
+          location_type,
+          location_access_pattern,
+          primary_audience_1,
+          primary_audience_2,
+          origin_city_id_1, origin_city_id_2, origin_city_id_3,
+          origin_city_label_1, origin_city_label_2, origin_city_label_3,
+          event_type_1, event_type_2, event_type_3,
+          CAST(weather_sensitivity AS STRING) AS weather_sensitivity,
+          seasonality,
+          event_time_profile,
+          nearest_transit_stop,
+          nearest_transit_stop_id,
+          nearest_transit_lines,
+          CAST(venue_capacity AS STRING) AS venue_capacity,
+          location_description,
+          operating_hours
         FROM \`${projectId}.raw.insight_event_user_location_profile\`
         WHERE clerk_user_id = @clerk_user_id
         ORDER BY is_primary DESC, created_at ASC

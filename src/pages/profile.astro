@@ -1,4 +1,5 @@
 ---
+// @ts-nocheck
 export const prerender = false;
 
 import BaseLayout from "../layouts/BaseLayout.astro";
@@ -21,7 +22,6 @@ function requireString(v: unknown, name: string): string {
   return v.trim();
 }
 
-// ---- AUTH + CONTEXT (SOURCE OF TRUTH) ----
 const clerk_user_id_raw = (Astro.locals as any)?.clerk_user_id;
 const location_id_raw = (Astro.locals as any)?.location_id;
 
@@ -32,17 +32,12 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 const clerk_user_id = clerk_user_id_raw.trim();
 const clerkUser = await clerkClient(Astro).users.getUser(clerk_user_id);
 const hasPassword = clerkUser.passwordEnabled === true;
-console.log('[PROFILE] hasPassword:', hasPassword, 'passwordEnabled:', clerkUser.passwordEnabled);
 
-// IMPORTANT:
-// Profile page must NOT redirect if location_id is missing.
-// It is the page where location_id gets created.
 const location_id =
   typeof location_id_raw === "string" && location_id_raw.trim() !== ""
     ? location_id_raw.trim()
     : null;
 
-// ---- BIGQUERY CLIENT (EU) ----
 const projectId = (process.env.BQ_PROJECT_ID || "").trim();
 const dataset = (process.env.BQ_DATASET || "").trim();
 const table = (process.env.BQ_TABLE || "").trim();
@@ -63,44 +58,8 @@ function makeBQClient(projectId: string) {
 }
 
 const bigquery = makeBQClient(projectId);
-
 const fullTable = `\`${projectId}.${dataset}.${table}\``;
-
 const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
-
-// ---- LOAD SAVED PROFILE (AUTHORITATIVE) ----
-const sql = `
-  SELECT
-    clerk_user_id,
-    location_id,
-    email,
-    first_name,
-    last_name,
-    position,
-    company_name,
-    company_address,
-    company_activity_type,
-    location_type,
-    event_time_profile,
-    location_access_pattern,
-    nearest_transit_stop,
-    nearest_transit_stop_id,
-    nearest_transit_lines,
-    primary_audience_1,
-    primary_audience_2,
-    origin_city_id_1,
-    origin_city_id_2,
-    origin_city_id_3
-  FROM ${fullTable}
-  WHERE clerk_user_id = @clerk_user_id
-    AND location_id = @location_id
-  ORDER BY updated_at DESC
-  LIMIT 1
-`;
-
-let saved_row: any = null;
-// NOTE: do not expose raw DB values directly into HTML attributes.
-// Keep only escaped values in saved_safe.
 
 function escAttr(v: unknown): string {
   const s = v == null ? "" : String(v);
@@ -111,1187 +70,1837 @@ function escAttr(v: unknown): string {
     .replaceAll(">", "&gt;");
 }
 
+// ---- LOAD PRIMARY LOCATION ----
+const sql = `
+  SELECT
+    clerk_user_id, location_id, email,
+    first_name, last_name, position,
+    company_name, company_address,
+    company_activity_type, location_type,
+    event_time_profile, location_access_pattern,
+    nearest_transit_stop, nearest_transit_stop_id, nearest_transit_lines,
+    primary_audience_1, primary_audience_2,
+    origin_city_id_1, origin_city_id_2, origin_city_id_3,
+    origin_city_label_1, origin_city_label_2, origin_city_label_3,
+    site_name, location_description, venue_capacity,
+    event_type_1, event_type_2, event_type_3,
+    weather_sensitivity, seasonality, main_event_objective,
+    operating_hours
+  FROM ${fullTable}
+  WHERE clerk_user_id = @clerk_user_id
+    AND (is_primary = TRUE OR is_primary IS NULL)
+  ORDER BY updated_at DESC
+  LIMIT 1
+`;
+
 let saved_safe: Record<string, string> | null = null;
 
 try {
-  const [rows] = await bigquery.query(
-    location_id
-      ? {
-          query: sql,
-          location: BQ_LOCATION,
-          params: { clerk_user_id, location_id },
-          types: { clerk_user_id: "STRING", location_id: "STRING" },
-        }
-      : {
-          query: sql.replace("AND location_id = @location_id", ""),
-          location: BQ_LOCATION,
-          params: { clerk_user_id },
-          types: { clerk_user_id: "STRING" },
-        }
-  );
-
-  saved_row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-
-  saved_safe = saved_row
-    ? {
-        email: escAttr(saved_row.email),
-        first_name: escAttr(saved_row.first_name),
-        last_name: escAttr(saved_row.last_name),
-        position: escAttr(saved_row.position),
-        company_name: escAttr(saved_row.company_name),
-        company_address: escAttr(saved_row.company_address),
-        company_activity_type: escAttr(saved_row.company_activity_type),
-        location_type: escAttr(saved_row.location_type),
-        event_time_profile: escAttr(saved_row.event_time_profile),
-        location_access_pattern: escAttr(saved_row.location_access_pattern),
-        nearest_transit_stop: escAttr(saved_row.nearest_transit_stop),
-        nearest_transit_stop_id: escAttr(saved_row.nearest_transit_stop_id),
-        nearest_transit_lines: escAttr(saved_row.nearest_transit_lines),
-        primary_audience_1: escAttr(saved_row.primary_audience_1),
-        primary_audience_2: escAttr(saved_row.primary_audience_2),
-        origin_city_id_1: escAttr(saved_row.origin_city_id_1),
-        origin_city_id_2: escAttr(saved_row.origin_city_id_2),
-        origin_city_id_3: escAttr(saved_row.origin_city_id_3),
-      }
-    : null;
-} catch (e) {
-  if (import.meta.env.DEV) {
-    console.error("[PROFILE][BQ FAIL] load_saved_profile", e);
-  } else {
-    console.error("[PROFILE][BQ FAIL] load_saved_profile");
+  const [rows] = await bigquery.query({
+    query: sql,
+    location: BQ_LOCATION,
+    params: { clerk_user_id },
+    types: { clerk_user_id: "STRING" },
+  });
+  const saved_row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  if (saved_row) {
+    saved_safe = {
+      email: escAttr(saved_row.email),
+      first_name: escAttr(saved_row.first_name),
+      last_name: escAttr(saved_row.last_name),
+      position: escAttr(saved_row.position),
+      company_name: escAttr(saved_row.company_name),
+      company_address: escAttr(saved_row.company_address),
+      company_activity_type: escAttr(saved_row.company_activity_type),
+      location_type: escAttr(saved_row.location_type),
+      event_time_profile: escAttr(saved_row.event_time_profile),
+      location_access_pattern: escAttr(saved_row.location_access_pattern),
+      nearest_transit_stop: escAttr(saved_row.nearest_transit_stop),
+      nearest_transit_stop_id: escAttr(saved_row.nearest_transit_stop_id),
+      nearest_transit_lines: escAttr(saved_row.nearest_transit_lines),
+      primary_audience_1: escAttr(saved_row.primary_audience_1),
+      primary_audience_2: escAttr(saved_row.primary_audience_2),
+      origin_city_id_1: escAttr(saved_row.origin_city_id_1),
+      origin_city_id_2: escAttr(saved_row.origin_city_id_2),
+      origin_city_id_3: escAttr(saved_row.origin_city_id_3),
+      origin_city_label_1: escAttr(saved_row.origin_city_label_1),
+      origin_city_label_2: escAttr(saved_row.origin_city_label_2),
+      origin_city_label_3: escAttr(saved_row.origin_city_label_3),
+      site_name: escAttr(saved_row.site_name),
+      location_description: escAttr(saved_row.location_description),
+      venue_capacity: escAttr(saved_row.venue_capacity),
+      event_type_1: escAttr(saved_row.event_type_1),
+      event_type_2: escAttr(saved_row.event_type_2),
+      event_type_3: escAttr(saved_row.event_type_3),
+      weather_sensitivity: escAttr(saved_row.weather_sensitivity),
+      seasonality: escAttr(saved_row.seasonality),
+      main_event_objective: escAttr(saved_row.main_event_objective),
+      operating_hours: escAttr(saved_row.operating_hours),
+    };
   }
+} catch (e) {
+  if (import.meta.env.DEV) console.error("[PROFILE][BQ FAIL] load_primary", e);
   saved_safe = null;
-  saved_row = null;
 }
 
-// ---- NORMALIZE MULTI-SELECT DEFAULTS ----
-const selected_audiences = [
-  saved_safe?.primary_audience_1 || null,
-  saved_safe?.primary_audience_2 || null,
-].filter(Boolean) as string[];
+// ---- LOAD ALL LOCATIONS ----
+type LocationRow = {
+  location_id: string;
+  site_name: string;
+  company_name: string;
+  company_address: string;
+  is_primary: boolean;
+  company_activity_type: string;
+  location_type: string;
+  location_access_pattern: string;
+  primary_audience_1: string;
+  primary_audience_2: string;
+  origin_city_id_1: string;
+  origin_city_id_2: string;
+  origin_city_id_3: string;
+  origin_city_label_1: string;
+  origin_city_label_2: string;
+  origin_city_label_3: string;
+  event_type_1: string;
+  event_type_2: string;
+  event_type_3: string;
+  weather_sensitivity: string;
+  seasonality: string;
+  event_time_profile: string;
+  location_access_pattern_val: string;
+  nearest_transit_stop: string;
+  nearest_transit_stop_id: string;
+  nearest_transit_lines: string;
+  venue_capacity: string;
+  location_description: string;
+  operating_hours: string;
+};
 
-const selected_origin_city_ids = [
-  saved_safe?.origin_city_id_1 || null,
-  saved_safe?.origin_city_id_2 || null,
-  saved_safe?.origin_city_id_3 || null,
-].filter(Boolean) as string[];
+let all_locations: LocationRow[] = [];
 
-// ---- LOAD SECONDARY LOCATIONS ----
-let secondary_locations: Array<{ location_id: string; company_name: string; company_address: string }> = [];
 try {
-  const [secRows] = await bigquery.query({
+  const [locRows] = await bigquery.query({
     query: `
-      SELECT location_id, company_name, company_address
-      FROM \`${projectId}.${dataset}.${table}\`
+      SELECT
+        location_id,
+        COALESCE(site_name, company_name, company_address, '') AS site_name,
+        company_name,
+        company_address,
+        is_primary,
+        company_activity_type,
+        location_type,
+        location_access_pattern,
+        primary_audience_1,
+        primary_audience_2,
+        origin_city_id_1, origin_city_id_2, origin_city_id_3,
+        origin_city_label_1, origin_city_label_2, origin_city_label_3,
+        event_type_1, event_type_2, event_type_3,
+        CAST(weather_sensitivity AS STRING) AS weather_sensitivity,
+        seasonality,
+        event_time_profile,
+        location_access_pattern AS location_access_pattern_val,
+        nearest_transit_stop,
+        nearest_transit_stop_id,
+        nearest_transit_lines,
+        CAST(venue_capacity AS STRING) AS venue_capacity,
+        location_description,
+        operating_hours
+      FROM ${fullTable}
       WHERE clerk_user_id = @clerk_user_id
-        AND is_primary = FALSE
-      ORDER BY created_at ASC
+      ORDER BY is_primary DESC, created_at ASC
     `,
     location: BQ_LOCATION,
     params: { clerk_user_id },
     types: { clerk_user_id: "STRING" },
   });
-  secondary_locations = Array.isArray(secRows) ? secRows.map((r: any) => ({
-    location_id: String(r.location_id || ""),
-    company_name: String(r.company_name || r.company_address || ""),
-    company_address: String(r.company_address || ""),
-  })) : [];
+  all_locations = Array.isArray(locRows)
+    ? locRows.map((r: any) => ({
+        location_id: String(r.location_id || ""),
+        site_name: String(r.site_name || ""),
+        company_name: String(r.company_name || ""),
+        company_address: String(r.company_address || ""),
+        is_primary: r.is_primary === true,
+        company_activity_type: String(r.company_activity_type || ""),
+        location_type: String(r.location_type || ""),
+        location_access_pattern: String(r.location_access_pattern || ""),
+        primary_audience_1: String(r.primary_audience_1 || ""),
+        primary_audience_2: String(r.primary_audience_2 || ""),
+        origin_city_id_1: String(r.origin_city_id_1 || ""),
+        origin_city_id_2: String(r.origin_city_id_2 || ""),
+        origin_city_id_3: String(r.origin_city_id_3 || ""),
+        origin_city_label_1: String(r.origin_city_label_1 || ""),
+        origin_city_label_2: String(r.origin_city_label_2 || ""),
+        origin_city_label_3: String(r.origin_city_label_3 || ""),
+        event_type_1: String(r.event_type_1 || ""),
+        event_type_2: String(r.event_type_2 || ""),
+        event_type_3: String(r.event_type_3 || ""),
+        weather_sensitivity: String(r.weather_sensitivity || ""),
+        seasonality: String(r.seasonality || ""),
+        event_time_profile: String(r.event_time_profile || ""),
+        location_access_pattern_val: String(r.location_access_pattern_val || ""),
+        nearest_transit_stop: String(r.nearest_transit_stop || ""),
+        nearest_transit_stop_id: String(r.nearest_transit_stop_id || ""),
+        nearest_transit_lines: String(r.nearest_transit_lines || ""),
+        venue_capacity: String(r.venue_capacity || ""),
+        location_description: String(r.location_description || ""),
+        operating_hours: String(r.operating_hours || ""),
+      }))
+    : [];
 } catch (_) {}
+
+// ---- HELPERS ----
+const ACTIVITY_LABELS: Record<string, string> = {
+  non_profit: "Associatif & Non lucratif",
+  wellness: "Bien-être & Fitness",
+  cinema_theatre: "Cinéma & Théâtre",
+  commercial: "Commerce & Retail",
+  institutional: "Collectivités & Secteur public",
+  culture: "Culture & Patrimoine",
+  family: "Éducation & Enseignement",
+  live_event: "Événementiel",
+  hotel_lodging: "Hôtellerie & Hébergement",
+  food_nightlife: "Restauration & Bars",
+  science_innovation: "Sciences & Innovation",
+  pro_event: "Salons & Événements professionnels",
+  sport: "Sports & Loisirs actifs",
+  transport_mobility: "Transport & Mobilité locale",
+  outdoor_leisure: "Tourisme & Loisirs",
+  nightlife: "Vie nocturne",
+  unknown: "Autre activité accueillant du public",
+};
+
+const LOCATION_TYPE_LABELS: Record<string, string> = {
+  outdoor: "Extérieur",
+  indoor: "Intérieur",
+  mixed: "Mixte",
+};
+
+const ACCESS_LABELS: Record<string, string> = {
+  public_transit: "Transports",
+  walking: "À pied",
+  car: "Voiture",
+  bike: "Vélo",
+};
+
+const WEATHER_LABELS: Record<string, string> = {
+  "0": "Météo : aucune",
+  "1": "Météo : faible",
+  "2": "Météo : modérée",
+  "3": "Météo : élevée",
+  "4": "Météo : extrême",
+};
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  concert: "Concert / Spectacle",
+  press_conf: "Conférence de presse",
+  tasting: "Dégustation / Soirée gastronomique",
+  charity: "Événement caritatif / Associatif",
+  corporate: "Événement corporate",
+  sport_evt: "Événement sportif",
+  outdoor: "Happening extérieur",
+  inauguration: "Inauguration",
+  open_day: "Journée portes ouvertes",
+  product_launch: "Lancement de produit",
+  store_opening: "Ouverture d'un point de vente",
+  promo: "Promotion en magasin / soldes",
+  seminar: "Séminaire / Formation",
+  launch_party: "Soirée de lancement",
+  expo: "Vernissage / Exposition",
+  other: "Autre",
+};
+
+function buildSummaryTags(loc: LocationRow): string {
+  const tags: string[] = [];
+  if (loc.company_activity_type) tags.push(ACTIVITY_LABELS[loc.company_activity_type] || loc.company_activity_type);
+  const evtTypes = [loc.event_type_1, loc.event_type_2, loc.event_type_3].filter(Boolean).map(v => EVENT_TYPE_LABELS[v] || v);
+  if (evtTypes.length) tags.push(evtTypes.join(", "));
+  if (loc.location_type) tags.push(LOCATION_TYPE_LABELS[loc.location_type] || loc.location_type);
+  if (loc.weather_sensitivity) tags.push(WEATHER_LABELS[loc.weather_sensitivity] || "");
+  return tags.filter(Boolean).join(" · ");
+}
+
+type OperatingHoursMap = Record<string, { open: string; close: string } | null>;
+
+function isIncomplete(loc: LocationRow): boolean {
+  return !loc.company_activity_type || !loc.location_type || !loc.primary_audience_1 || !loc.event_type_1;
+}
 ---
+
 <BaseLayout title="Profil - Muse Square" hideSurveyCta={true}>
-  <div class="min-h-screen bg-white pt-26 pb-20 px-4">
-    <div class="max-w-2xl mx-auto mt-10">
 
-      <!-- Page Header -->
-      <div class="mb-8">
-        <div class="flex items-start justify-between mb-2">
-          <h1 class="text-3xl font-semibold">Profil</h1>
+<style is:global>
+  /* ---- Base ---- */
+  .profile-wrap { max-width: 720px; margin: 0 auto; padding: 6rem 24px 4rem; }
+
+  /* ---- Section headers ---- */
+  .section-title { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: #6b7280; margin-bottom: 1.25rem; }
+  .section-divider { height: 1px; background: #f3f4f6; margin: 2rem 0; }
+
+  /* ---- Fields ---- */
+  .field-group { margin-top: 16px; }
+  .field-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+  .field-req { color: #ef4444; margin-left: 2px; }
+  .field-input { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111827; outline: none; transition: border-color 0.15s; }
+  .field-input:focus { border-bottom-color: #111827; }
+  .field-input[readonly] { color: #9ca3af; cursor: not-allowed; }
+  .field-textarea { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #111827; outline: none; resize: none; line-height: 1.6; }
+  .field-textarea:focus { border-bottom-color: #111827; }
+  .field-select-wrap { position: relative; }
+  .field-select-wrap::after { content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #9ca3af; pointer-events: none; }
+  .field-select { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111827; outline: none; appearance: none; cursor: pointer; }
+  .field-select:focus { border-bottom-color: #111827; }
+  .field-hint { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* ---- Pill multi-select ---- */
+  .pill-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .pill { display: inline-flex; align-items: center; padding: 5px 12px; font-size: 12px; border-radius: 20px; border: 1px solid #e5e7eb; cursor: pointer; user-select: none; color: #6b7280; background: #fff; transition: all 0.12s; }
+  .pill:hover { border-color: #d1d5db; background: #f9fafb; }
+  .pill.pill-active { background: #0b37e5; color: #fff; border-color: #0b37e5; }
+  .pill.pill-disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+  .pill-max-hint { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+
+  /* ---- City search-tag ---- */
+  .city-tag-field { border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; position: relative; transition: border-color 0.15s; }
+  .city-tag-field:focus-within { border-bottom-color: #111827; }
+  .city-tags-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; min-height: 0; }
+  .city-tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; background: #f3f4f6; border: 1px solid #e5e7eb; font-size: 12px; color: #374151; }
+  .city-tag-x { cursor: pointer; color: #9ca3af; font-size: 14px; line-height: 1; padding: 0 1px; }
+  .city-tag-x:hover { color: #ef4444; }
+  .city-search-input { border: none; outline: none; background: transparent; font-size: 13px; color: #111827; padding: 3px 0; width: 220px; }
+  .city-search-input::placeholder { color: #9ca3af; }
+  .city-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; z-index: 200; margin-top: 4px; overflow: hidden; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .city-option { padding: 9px 12px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .city-option:hover { background: #f9fafb; }
+  .city-option-dept { font-size: 11px; color: #9ca3af; }
+
+  /* ---- Operating hours ---- */
+  .schedule { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-top: 4px; }
+  .schedule-row { display: grid; grid-template-columns: 88px 40px 1fr; align-items: center; border-bottom: 1px solid #f3f4f6; }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-row.sched-closed .sched-times { opacity: 0.25; pointer-events: none; }
+  .sched-day { font-size: 13px; padding: 9px 12px; color: #374151; }
+  .sched-day.sched-weekend { font-weight: 500; }
+  .sched-toggle { width: 30px; height: 17px; border-radius: 20px; background: #d1d5db; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
+  .sched-toggle.tog-on { background: #0b37e5; }
+  .sched-toggle::after { content: ''; position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: transform 0.15s; }
+  .sched-toggle.tog-on::after { transform: translateX(13px); }
+  .sched-times { display: flex; align-items: center; gap: 6px; padding: 8px 12px 8px 8px; }
+  .sched-time-input { width: 72px; padding: 5px 7px; font-size: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px; color: #111827; outline: none; text-align: center; }
+  .sched-time-input:focus { border-color: #0b37e5; }
+  .sched-sep { font-size: 11px; color: #9ca3af; }
+  .sched-apply-btn { font-size: 11px; color: #0b37e5; background: none; border: none; cursor: pointer; padding: 6px 0 0; display: block; }
+  .sched-apply-btn:hover { opacity: 0.7; }
+
+  /* ---- Location accordion cards ---- */
+  .loc-card { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: #fff; transition: border-color 0.15s; }
+  .loc-card.loc-expanded { border-color: #d1d5db; }
+  .loc-header { display: flex; align-items: flex-start; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
+  .loc-header:hover { background: #fafafa; }
+  .loc-chevron { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; transition: transform 0.18s; color: #9ca3af; }
+  .loc-expanded .loc-chevron { transform: rotate(90deg); }
+  .loc-meta { flex: 1; min-width: 0; }
+  .loc-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; flex-wrap: wrap; }
+  .loc-name { font-size: 14px; font-weight: 500; color: #111827; }
+  .loc-badge-primary { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; background: #eff6ff; color: #1d4ed8; flex-shrink: 0; }
+  .loc-address { font-size: 12px; color: #6b7280; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-summary { font-size: 12px; color: #6b7280; }
+  .loc-status { font-size: 11px; white-space: nowrap; }
+  .loc-status.is-complete { color: #059669; }
+  .loc-status.is-incomplete { color: #b91c1c; }
+  .loc-body { padding: 0 16px 20px; border-top: 1px solid #f3f4f6; }
+  .loc-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+  .loc-btn-save { padding: 10px 22px; font-size: 13px; font-weight: 500; background: transparent; color: #111827; border: 1px solid #111827; border-radius: 0; cursor: pointer; }
+  .loc-btn-save:hover { background: #f9fafb; }
+  .loc-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .loc-btn-outline { padding: 9px 14px; font-size: 12px; color: #374151; background: transparent; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; }
+  .loc-btn-outline:hover { background: #f9fafb; }
+  .loc-btn-danger { font-size: 12px; color: #ef4444; background: none; border: none; cursor: pointer; padding: 0; }
+  .loc-btn-danger:hover { opacity: 0.7; }
+
+  /* ---- Add site button ---- */
+  .add-site-btn { width: 100%; border: 1px dashed #d1d5db; border-radius: 10px; padding: 13px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; color: #6b7280; font-size: 13px; background: transparent; text-align: left; }
+  .add-site-btn:hover { background: #fafafa; }
+  .add-plus { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; flex-shrink: 0; color: #9ca3af; }
+
+  /* ---- User section save btn ---- */
+  .user-save-btn { margin-top: 16px; padding: 10px 22px; font-size: 13px; font-weight: 500; background: transparent; color: #111827; border: 1px solid #111827; border-radius: 0; cursor: pointer; display: block; margin-left: auto; }
+  .user-save-btn:hover { background: #f9fafb; }
+  .user-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Status messages ---- */
+  .save-status { font-size: 13px; min-height: 18px; margin-top: 8px; }
+  .save-status.status-ok { color: #059669; }
+  .save-status.status-err { color: #dc2626; }
+
+  /* ---- Password modal ---- */
+  .pwd-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); align-items: center; justify-content: center; }
+  .pwd-modal-box { background: #fff; padding: 32px; width: 100%; max-width: 420px; margin: 0 20px; position: relative; }
+  .pwd-modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280; }
+
+  /* ---- Map notice modal ---- */
+  .map-notice-backdrop { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; padding: 20px; }
+</style>
+
+<div class="profile-wrap">
+
+  <!-- PAGE HEADER -->
+  <div style="margin-bottom: 2rem;">
+    <h1 style="font-size: 28px; font-weight: 600; margin-bottom: 4px;">Mes sites</h1>
+    <p style="font-size: 14px; color: #6b7280;">Gérez vos informations et préférences d'analyse.</p>
+  </div>
+
+  <!-- ===== USER PROFILE SECTION ===== -->
+  <div
+    class="loc-card"
+    id="user-profile-card"
+    style="margin-bottom: 0; border-radius: 10px; overflow: hidden;"
+  >
+    <div
+      class="loc-header"
+      onclick="toggleUserProfileCard()"
+      id="user-profile-header"
+    >
+      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="loc-meta">
+        <div class="loc-name-row">
+          <span class="loc-name" id="user-profile-name">
+            {[saved_safe?.first_name, saved_safe?.last_name].filter(Boolean).join(" ") || "Profil utilisateur"}
+            {saved_safe?.position ? ` · ${saved_safe.position}` : ""}
+          </span>
+          <span class="loc-status" id="user-profile-section-title" style="margin-left:auto;font-size:11px;color:#6b7280;">Profil d'utilisateur</span>
         </div>
-        <p class="text-sm text-gray-500">Gérez vos informations et préférences d'analyse.</p>
-      </div>
-
-      <div class="mb-6">
-        <h2 class="text-base font-medium text-black uppercase tracking-wider mb-1">Mon site principal</h2>
-        <p class="text-sm text-gray-500">Votre adresse professionnelle principale utilisée pour les analyses.</p>
-      </div>
-
-      <!-- Form -->
-      <form method="POST" id="profileForm">
-        <!-- Sections only: controls the big gaps between sections -->
-        <div class="space-y-[15px]">
-
-          <!-- SECTION 1: PROFIL D'UTILISATEUR -->
-          <section class="space-y-10">
-            <div>
-              <h2 class="text-base font-medium text-black uppercase tracking-wider">PROFIL D'UTILISATEUR</h2>
-            </div>
-
-            <div class="space-y-[20px]">
-              <div class="grid grid-cols-2 gap-6">
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                    Prénom <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="first_name"
-                    required
-                    value={saved_safe?.first_name ?? ""}
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                    Nom <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="last_name"
-                    required
-                    value={saved_safe?.last_name ?? ""}
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Fonction
-                </label>
-                <input
-                  type="text"
-                  name="position"
-                  value={saved_safe?.position ?? ""}
-                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                />
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={saved_safe?.email ?? ""}
-                  readonly
-                  style="color:#6b7280 !important;"
-                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-200 text-base cursor-not-allowed"
-                />
-              </div>
-
-              {hasPassword && (
-                <div class="pt-2">
-                  <button type="button" id="pwd-open" style="background:none;border:none;padding:0;font-size:14px;color:#4b5563;cursor:pointer;">
-                    → Modifier mon mot de passe
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <!-- SECTION 2: PROFIL D'ENTREPRISE -->
-          <section class="space-y-10">
-            <div>
-              <h2 class="text-base font-medium text-black uppercase tracking-wider">PROFIL D'ENTREPRISE</h2>
-              <p class="text-sm text-gray-500">Requis pour personnaliser les insights métiers</p>
-            </div>
-
-            <div class="space-y-[20px]">
-              <input type="hidden" name="location_id" value={location_id ?? ""} />
-              <input type="hidden" name="origin_city_label_1" id="origin_city_label_1" value={saved_safe?.["origin_city_label_1"] ?? ""} />
-              <input type="hidden" name="origin_city_label_2" id="origin_city_label_2" value={saved_safe?.["origin_city_label_2"] ?? ""} />
-              <input type="hidden" name="origin_city_label_3" id="origin_city_label_3" value={saved_safe?.["origin_city_label_3"] ?? ""} />
-              <input type="hidden" name="nearest_transit_stop_id" id="nearest_transit_stop_id" value={saved_safe?.["nearest_transit_stop_id"] ?? ""} />
-              <input type="hidden" name="nearest_transit_lines" id="nearest_transit_lines" value={saved_safe?.["nearest_transit_lines"] ?? ""} />
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Entreprise <span class="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="company_name"
-                  required
-                  value={saved_safe?.company_name ?? ""}
-                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                />
-              </div>
-
-              <div class="relative">
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Adresse professionnelle
-                </label>
-
-                <input
-                  id="companyAddressInput"
-                  type="text"
-                  name="company_address"
-                  autocomplete="off"
-                  value={saved_safe?.company_address ?? ""}
-                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                />
-
-                <!-- Suggestions dropdown -->
-                <div
-                  id="companyAddressSuggestions"
-                  class="absolute z-50 mt-2 w-full bg-white shadow-lg border border-gray-200 overflow-hidden hidden"
-                  style="border-radius:0;"
-                ></div>
-
-                <p class="text-xs text-gray-500 mt-2">Commencez à taper, puis sélectionnez une proposition.</p>
-              </div>
-
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Secteur d'activité <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="company_activity_type"
-                    required
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
-                  >
-                    <option value="non_profit" selected={(saved_safe?.company_activity_type ?? "") === "non_profit"}>Associatif & Non lucratif</option>
-                    <option value="wellness" selected={(saved_safe?.company_activity_type ?? "") === "wellness"}>Bien-être & Fitness</option>
-                    <option value="cinema_theatre" selected={(saved_safe?.company_activity_type ?? "") === "cinema_theatre"}>Cinéma & Théâtre</option>
-                    <option value="commercial" selected={(saved_safe?.company_activity_type ?? "") === "commercial"}>Commerce & Retail</option>
-                    <option value="institutional" selected={(saved_safe?.company_activity_type ?? "") === "institutional"}>Collectivités & Secteur public</option>
-                    <option value="culture" selected={(saved_safe?.company_activity_type ?? "") === "culture"}>Culture & Patrimoine</option>
-                    <option value="family" selected={(saved_safe?.company_activity_type ?? "") === "family"}>Éducation & Enseignement</option>
-                    <option value="live_event" selected={(saved_safe?.company_activity_type ?? "") === "live_event"}>Événementiel</option>
-                    <option value="hotel_lodging" selected={(saved_safe?.company_activity_type ?? "") === "hotel_lodging"}>Hôtellerie & Hébergement</option>
-                    <option value="food_nightlife" selected={(saved_safe?.company_activity_type ?? "") === "food_nightlife"}>Restauration & Bars</option>
-                    <option value="science_innovation" selected={(saved_safe?.company_activity_type ?? "") === "science_innovation"}>Sciences & Innovation</option>
-                    <option value="pro_event" selected={(saved_safe?.company_activity_type ?? "") === "pro_event"}>Salons & Événements professionnels</option>
-                    <option value="sport" selected={(saved_safe?.company_activity_type ?? "") === "sport"}>Sports & Loisirs actifs</option>
-                    <option value="transport_mobility" selected={(saved_safe?.company_activity_type ?? "") === "transport_mobility"}>Transport & Mobilité locale</option>
-                    <option value="outdoor_leisure" selected={(saved_safe?.company_activity_type ?? "") === "outdoor_leisure"}>Tourisme & Loisirs</option>
-                    <option value="nightlife" selected={(saved_safe?.company_activity_type ?? "") === "nightlife"}>Vie nocturne</option>
-                    <option value="unknown" selected={(saved_safe?.company_activity_type ?? "") === "unknown"}>Autre activité accueillant du public</option>
-                  </select>
-                  <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Audience, Clientèle visée <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="primary_audience_1"
-                    required
-                    multiple
-                    size="6"
-                    class="w-full px-6 py-4 bg-white border-0 border-b border-gray-300 text-base focus:outline-none transition-all overflow-auto"
-                    style="border-radius:0;"
-                  >
-                    <option value="">Sélectionner...</option>
-                    <option value="local" selected={selected_audiences.includes("local")}>Public local / résidents</option>
-                    <option value="tourists" selected={selected_audiences.includes("tourists")}>Touristes</option>
-                    <option value="mixed" selected={selected_audiences.includes("mixed")}>Public mixte (locaux + touristes)</option>
-                    <option value="professionals" selected={selected_audiences.includes("professionals")}>Professionnels</option>
-                    <option value="students" selected={selected_audiences.includes("students")}>Scolaires / étudiants</option>
-                    <option value="families" selected={selected_audiences.includes("families")}>Familles</option>
-                  </select>
-                </div>
-                <p class="text-xs text-gray-500 mt-2">
-                  Maintenez Cmd/Ctrl pour sélectionner jusqu’à 2 audiences
-                </p>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Villes d'origine principales de vos clients <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="origin_city_ids"
-                    required
-                    multiple
-                    size="12"
-                    class="w-full px-5 py-4 bg-white border-0 border-b border-gray-300 text-base focus:outline-none transition-all overflow-auto"
-                    style="border-radius:0;"
-                  >
-                    <optgroup label="Île-de-France">
-                      <option value="75056" selected={selected_origin_city_ids.includes("75056")}>Paris</option>
-                      <option value="92012" selected={selected_origin_city_ids.includes("92012")}>Boulogne-Billancourt</option>
-                      <option value="93066" selected={selected_origin_city_ids.includes("93066")}>Saint-Denis</option>
-                      <option value="93048" selected={selected_origin_city_ids.includes("93048")}>Montreuil</option>
-                      <option value="92050" selected={selected_origin_city_ids.includes("92050")}>Nanterre</option>
-                      <option value="78646" selected={selected_origin_city_ids.includes("78646")}>Versailles</option>
-                      <option value="94028" selected={selected_origin_city_ids.includes("94028")}>Créteil</option>
-                      <option value="94081" selected={selected_origin_city_ids.includes("94081")}>Vitry-sur-Seine</option>
-                      <option value="idf_other" selected={selected_origin_city_ids.includes("idf_other")}>Autres villes de la région</option>
-                      <option value="idf_outside" selected={selected_origin_city_ids.includes("idf_outside")}>Hors région</option>
-                    </optgroup>
-
-                    <optgroup label="Provence–Alpes–Côte d'Azur">
-                      <option value="13055" selected={selected_origin_city_ids.includes("13055")}>Marseille</option>
-                      <option value="06088" selected={selected_origin_city_ids.includes("06088")}>Nice</option>
-                      <option value="13001" selected={selected_origin_city_ids.includes("13001")}>Aix-en-Provence</option>
-                      <option value="83137" selected={selected_origin_city_ids.includes("83137")}>Toulon</option>
-                      <option value="84007" selected={selected_origin_city_ids.includes("84007")}>Avignon</option>
-                      <option value="06029" selected={selected_origin_city_ids.includes("06029")}>Cannes</option>
-                      <option value="06004" selected={selected_origin_city_ids.includes("06004")}>Antibes</option>
-                      <option value="06069" selected={selected_origin_city_ids.includes("06069")}>Grasse</option>
-                      <option value="paca_other" selected={selected_origin_city_ids.includes("paca_other")}>Autres villes de la région</option>
-                      <option value="paca_outside" selected={selected_origin_city_ids.includes("paca_outside")}>Hors région</option>
-                    </optgroup>
-
-                    <optgroup label="Occitanie">
-                      <option value="31555" selected={selected_origin_city_ids.includes("31555")}>Toulouse</option>
-                      <option value="34172" selected={selected_origin_city_ids.includes("34172")}>Montpellier</option>
-                      <option value="30189" selected={selected_origin_city_ids.includes("30189")}>Nîmes</option>
-                      <option value="66136" selected={selected_origin_city_ids.includes("66136")}>Perpignan</option>
-                      <option value="34032" selected={selected_origin_city_ids.includes("34032")}>Béziers</option>
-                      <option value="11262" selected={selected_origin_city_ids.includes("11262")}>Narbonne</option>
-                      <option value="81004" selected={selected_origin_city_ids.includes("81004")}>Albi</option>
-                      <option value="11069" selected={selected_origin_city_ids.includes("11069")}>Carcassonne</option>
-                      <option value="occ_other" selected={selected_origin_city_ids.includes("occ_other")}>Autres villes de la région</option>
-                      <option value="occ_outside" selected={selected_origin_city_ids.includes("occ_outside")}>Hors région</option>
-                    </optgroup>
-                  </select>
-                </div>
-                <p class="text-xs text-gray-500 mt-2">Maintenez Cmd/Ctrl pour sélectionner plusieurs villes</p>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Moments d'activité principaux <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="event_time_profile"
-                    required
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
-                  >
-                    <option value="">Sélectionner...</option>
-                    <option value="day" selected={(saved_safe?.event_time_profile ?? "") === "day"}>Journée</option>
-                    <option value="evening" selected={(saved_safe?.event_time_profile ?? "") === "evening"}>Soirée</option>
-                    <option value="weekend" selected={(saved_safe?.event_time_profile ?? "") === "weekend"}>Week-end</option>
-                    <option value="variable" selected={(saved_safe?.event_time_profile ?? "") === "variable"}>Variable / selon événements</option>
-                  </select>
-                  <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- SECTION 3: ENVIRONNEMENT DE TRAVAIL -->
-          <section class="space-y-10">
-            <div>
-              <h2 class="text-base font-medium text-black uppercase tracking-wider">ENVIRONNEMENT DE TRAVAIL</h2>
-              <p class="text-sm text-gray-500">Requis pour personnaliser les alertes météo et mobilité</p>
-            </div>
-
-            <div class="space-y-[20px]">
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Type de lieu favori <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="location_type"
-                    required
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
-                  >
-                    <option value="">Sélectionner...</option>
-                    <option value="outdoor" selected={(saved_safe?.location_type ?? "") === "outdoor"}>Espace extérieur</option>
-                    <option value="indoor" selected={(saved_safe?.location_type ?? "") === "indoor"}>Espace intérieur</option>
-                    <option value="mixed" selected={(saved_safe?.location_type ?? "") === "mixed"}>Espace mixte</option>
-                  </select>
-                  <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Profil de déplacement audience <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <select
-                    name="location_access_pattern"
-                    required
-                    class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all appearance-none pr-12"
-                  >
-                    <option value="">Sélectionner...</option>
-                    <option value="public_transit" selected={(saved_safe?.location_access_pattern ?? "") === "public_transit"}>Transports en commun / Métro</option>
-                    <option value="walking" selected={(saved_safe?.location_access_pattern ?? "") === "walking"}>À pied</option>
-                    <option value="car" selected={(saved_safe?.location_access_pattern ?? "") === "car"}>Voiture</option>
-                    <option value="bike" selected={(saved_safe?.location_access_pattern ?? "") === "bike"}>Vélo</option>
-                  </select>
-                  <div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div class="relative">
-                <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
-                  Station de métro la plus proche (optionnel)
-                </label>
-                <input
-                  id="metroStopInput"
-                  type="text"
-                  name="nearest_transit_stop"
-                  placeholder="Rechercher une station..."
-                  autocomplete="off"
-                  value={saved_safe?.nearest_transit_stop ?? ""}
-                  class="w-full px-6 py-4 bg-transparent border-0 border-b border-gray-300 text-base focus:outline-none focus:border-black transition-all"
-                />
-                <div
-                  id="metroStopSuggestions"
-                  class="absolute z-50 mt-2 w-full bg-white shadow-lg border border-gray-200 overflow-hidden hidden"
-                  style="border-radius:0;"
-                ></div>
-                <p class="text-xs text-gray-500 mt-2">Tapez pour rechercher</p>
-              </div>
-            </div>
-          </section>
-
-        </div>
-
-        </form>
-
-      <!-- SECONDARY LOCATIONS -->
-      <div class="mt-12">
-        <h2 class="text-base font-medium text-black uppercase tracking-wider mb-1">Mes autres sites</h2>
-        <p class="text-sm text-gray-500 mb-6">Sites secondaires ajoutés depuis le calendrier.</p>
-
-        <div id="secondary-locations-list">
-          {secondary_locations.length === 0 ? (
-            <p class="text-sm text-gray-400">Aucun site secondaire. Ajoutez-en un depuis le calendrier.</p>
-          ) : (
-            secondary_locations.map(loc => (
-              <div class="flex items-center justify-between py-4 border-b border-gray-100" data-loc-id={loc.location_id}>
-                <div class="flex items-center gap-3">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
-                    <path d="M8 1.5C5.51 1.5 3.5 3.51 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.49-2.01-4.5-4.5-4.5z" stroke="#9ca3af" stroke-width="1.2"/>
-                    <circle cx="8" cy="6" r="1.5" stroke="#9ca3af" stroke-width="1.2"/>
-                  </svg>
-                  <div>
-                    <div class="text-sm font-medium text-gray-900">{loc.company_name}</div>
-                    <div class="text-xs text-gray-500">{loc.company_address}</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="text-xs text-red-500 hover:text-red-700 cursor-pointer bg-none border-none"
-                  style="background:none;border:none;padding:0;"
-                  data-delete-loc={loc.location_id}
-                >
-                  Supprimer
-                </button>
-              </div>
-            ))
-          )}
+        <div class="loc-address" id="user-profile-objective" style={`margin-top:2px;${!saved_safe?.main_event_objective ? 'display:none;' : ''}`}>
+          {saved_safe?.main_event_objective && (`Objectif : ${
+            saved_safe.main_event_objective === "maximize_attendance" ? "Maximiser l'affluence" :
+            saved_safe.main_event_objective === "avoid_competition" ? "Éviter la concurrence" :
+            saved_safe.main_event_objective === "optimize_weather" ? "Optimiser le rapport coût / météo" :
+            saved_safe.main_event_objective === "test_market" ? "Tester un nouveau marché" :
+            saved_safe.main_event_objective
+          }`)}
         </div>
       </div>
+    </div>
 
-      <div class="pt-10">
-        <button
-          type="submit"
-          form="profileForm"
-          class="ms-btn w-full h-[56px] font-normal"
-        >
-          Enregistrer les modifications
-        </button>
+    <div class="loc-body" id="user-profile-body" style="display:none; padding: 0 16px 20px;">
+      <div style="margin-bottom: 12px; padding-top: 16px;">
+        <div class="section-title">Profil d'utilisateur</div>
+        <p class="section-desc">Informations personnelles et accès.</p>
       </div>
+
+  <form id="userProfileForm">
+    <div class="field-row">
+      <div class="field-group" style="margin-top:0">
+        <label class="field-label">Prénom <span class="field-req">*</span></label>
+        <input type="text" name="first_name" required value={saved_safe?.first_name ?? ""} class="field-input" />
+      </div>
+      <div class="field-group" style="margin-top:0">
+        <label class="field-label">Nom <span class="field-req">*</span></label>
+        <input type="text" name="last_name" required value={saved_safe?.last_name ?? ""} class="field-input" />
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Fonction</label>
+      <input type="text" name="position" value={saved_safe?.position ?? ""} class="field-input" />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Email</label>
+      <input type="email" name="email" value={saved_safe?.email ?? ""} readonly class="field-input" />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Objectif principal</label>
+      <div class="field-select-wrap">
+        <select name="main_event_objective" class="field-select">
+          <option value="">Sélectionner…</option>
+          <option value="maximize_attendance" selected={(saved_safe?.main_event_objective ?? "") === "maximize_attendance"}>Maximiser l'affluence</option>
+          <option value="avoid_competition" selected={(saved_safe?.main_event_objective ?? "") === "avoid_competition"}>Éviter la concurrence</option>
+          <option value="optimize_weather" selected={(saved_safe?.main_event_objective ?? "") === "optimize_weather"}>Optimiser le rapport coût / météo</option>
+          <option value="test_market" selected={(saved_safe?.main_event_objective ?? "") === "test_market"}>Tester un nouveau marché</option>
+        </select>
+      </div>
+      <p class="field-hint">Utilisé par l'IA comme critère de départage entre dates équivalentes.</p>
+    </div>
+
+    {hasPassword && (
+      <div style="margin-top: 14px;">
+        <button type="button" id="pwd-open" style="background:none;border:none;padding:0;font-size:13px;color:#4b5563;cursor:pointer;">→ Modifier mon mot de passe</button>
+      </div>
+    )}
+
+    <button type="submit" class="user-save-btn" id="userSaveBtn">Enregistrer</button>
+    <div class="save-status" id="userSaveStatus"></div>
+    </form>
     </div>
   </div>
 
-  <script>
-    // @ts-nocheck
-    window.metroConfirmed = false;
-    window.addressConfirmed = false;
-
-    // If fields are pre-filled from saved profile, mark as confirmed
-    const _metroInput = document.getElementById('metroStopInput');
-    const _addressInput = document.getElementById('companyAddressInput');
-    if (_metroInput instanceof HTMLInputElement && _metroInput.value.trim() !== '') window.metroConfirmed = true;
-    if (_addressInput instanceof HTMLInputElement && _addressInput.value.trim() !== '') window.addressConfirmed = true;
-
-    const profileForm = document.getElementById('profileForm');
-
-    profileForm?.addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const form = e.currentTarget;
-        if (!(form instanceof HTMLFormElement)) return;
-
-        if (form.dataset.saving === "1") return;
-        form.dataset.saving = "1";
-
-        const btn = document.querySelector('button[type="submit"][form="profileForm"]');
-        const button = btn instanceof HTMLButtonElement ? btn : null;
-
-        const originalText =
-        button && button.textContent ? button.textContent : "Enregistrer les modifications";
-
-        let status = document.querySelector('#profileSaveStatus');
-        if (!(status instanceof HTMLElement)) {
-        status = document.createElement('div');
-        status.id = 'profileSaveStatus';
-        status.className = 'mt-4 text-sm';
-        status.setAttribute('role', 'status');
-        status.setAttribute('aria-live', 'polite');
-        const submitBtn = document.querySelector('button[type="submit"][form="profileForm"]');
-        if (submitBtn && submitBtn.parentNode) {
-          submitBtn.parentNode.insertBefore(status, submitBtn.nextSibling);
-        } else {
-          document.body.appendChild(status);
-        }
-        }
-
-        function setStatus(message, kind) {
-        status.textContent = message || '';
-        status.className =
-            'mt-4 text-sm ' +
-            (kind === 'error'
-            ? 'text-red-700'
-            : kind === 'success'
-                ? 'text-emerald-700'
-                : 'text-gray-600');
-        }
-
-        function resetButtonText() {
-        if (!button) return;
-        button.textContent = originalText;
-        }
-
-        // Clear status when user edits any field after a save attempt
-        const clearStatusOnce = () => setStatus('', 'info');
-        form.addEventListener('input', clearStatusOnce, { once: true });
-
-        setStatus('', 'info');
-
-        if (button) {
-        button.disabled = true;
-        button.textContent = "Enregistrement...";
-        }
-
-        try {
-        const formData = new FormData(form);
-
-        const metroInput = form.querySelector('#metroStopInput');
-        const metroVal = metroInput instanceof HTMLInputElement ? metroInput.value.trim() : "";
-        if (metroVal !== "" && !window.metroConfirmed) {
-          if (button) button.textContent = originalText;
-          form.dataset.saving = "0";
-          if (button) button.disabled = false;
-          setStatus("Veuillez sélectionner une station depuis la liste.", 'error');
-          return;
-        }
-
-        const addressInput = form.querySelector('#companyAddressInput');
-        const addressVal = addressInput instanceof HTMLInputElement ? addressInput.value.trim() : "";
-        if (addressVal !== "" && !window.addressConfirmed) {
-          if (button) button.textContent = originalText;
-          form.dataset.saving = "0";
-          if (button) button.disabled = false;
-          setStatus("Veuillez sélectionner une adresse depuis la liste.", 'error');
-          return;
-        }
-
-        const data = Object.fromEntries(formData.entries());
-
-        // Fix multi-select arrays (critical)
-        data.primary_audience_1 = formData.getAll("primary_audience_1");
-        data.origin_city_ids = formData.getAll("origin_city_ids");
-
-        // ---- ADD MODE CONTRACT (REQUIRED BY BACKEND) ----
-        const rawLocationId = typeof data.location_id === "string" ? data.location_id.trim() : "";
-
-        data.mode = rawLocationId !== "" ? "update" : "create";
-
-        // In create mode, location_id must NOT be sent
-        if (rawLocationId === "") {
-          delete data.location_id;
-        }
-
-        const res = await fetch('/api/profile/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(data),
-        });
-
-        let out = null;
-        try {
-            out = await res.json();
-        } catch (_) {
-            out = null;
-        }
-
-        if (!res.ok) {
-            if (button) button.textContent = "Réessayer";
-            setStatus((out && out.error) ? out.error : `Erreur lors de l’enregistrement (HTTP ${res.status}).`, 'error');
-            return;
-        }
-
-        if (!out || out.ok !== true) {
-            if (button) button.textContent = "Réessayer";
-            setStatus((out && out.error) ? out.error : 'Erreur lors de l’enregistrement.', 'error');
-            return;
-        }
-
-        setStatus('Profil enregistré.', 'success');
-        if (data.mode === "create" && !localStorage.getItem('ms_map_notice_shown')) {
-          localStorage.setItem('ms_map_notice_shown', '1');
-          document.getElementById('ms-map-notice-modal').style.display = 'flex';
-        }
-
-        // Persist generated UUID after first create (so next saves are updates)
-        if (out && typeof out.location_id === "string" && out.location_id.trim() !== "") {
-          const locInput = form.querySelector('input[name="location_id"]');
-          if (locInput instanceof HTMLInputElement) {
-            locInput.value = out.location_id.trim();
-          }
-        }
-
-        if (button) {
-            button.textContent = "✓ Modifications enregistrées";
-            setTimeout(() => {
-            resetButtonText();
-            }, 2000);
-        }
-        } catch (err) {
-        if (button) button.textContent = "Réessayer";
-        setStatus('Erreur réseau. Veuillez réessayer.', 'error');
-        } finally {
-        form.dataset.saving = "0";
-        if (button) button.disabled = false;
-        // If an error happened, keep "Réessayer" visible; if success timeout already set, it will reset.
-        // If neither, ensure we don't leave an empty label.
-        if (button && !button.textContent) resetButtonText();
-        }
-    });
-
-    const origin = document.querySelector('select[name="origin_city_ids"]');
-    const originSelect = origin instanceof HTMLSelectElement ? origin : null;
-
-    if (originSelect) {
-      function syncOriginCityLabels() {
-        const selected = Array.from(originSelect.selectedOptions);
-
-        // Keep your max-3 rule
-        if (selected.length > 3) {
-          selected[selected.length - 1].selected = false;
-        }
-
-        // Recompute after enforcing limit
-        const kept = Array.from(originSelect.selectedOptions);
-
-        // Only keep real INSEE codes (5 digits). Skip idf_other, paca_other, etc.
-        const labels = kept
-          .filter((opt) => /^\d{5}$/.test(opt.value))
-          .map((opt) => (opt.textContent || "").trim());
-
-        const l1 = document.getElementById("origin_city_label_1");
-        const l2 = document.getElementById("origin_city_label_2");
-        const l3 = document.getElementById("origin_city_label_3");
-
-        if (l1) l1.value = labels[0] || "";
-        if (l2) l2.value = labels[1] || "";
-        if (l3) l3.value = labels[2] || "";
-      }
-
-      originSelect.addEventListener("change", syncOriginCityLabels);
-
-      // Ensure labels are set even if the user doesn’t touch the field before saving
-      syncOriginCityLabels();
-    }
-
-    function enableClickToggleMultiSelect(selectEl, maxSelected) {
-        if (!selectEl || !(selectEl instanceof HTMLSelectElement)) return;
-        if (!selectEl.multiple) return;
-
-        selectEl.addEventListener(
-        'mousedown',
-        function (e) {
-            const opt = e.target;
-            if (!(opt instanceof HTMLOptionElement)) return;
-
-            e.preventDefault();
-
-            opt.selected = !opt.selected;
-
-            const selected = Array.from(selectEl.selectedOptions);
-            if (selected.length > maxSelected) {
-            opt.selected = false;
-            }
-
-            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-        },
-        true
-        );
-    }
-
-    enableClickToggleMultiSelect(
-        document.querySelector('select[name="primary_audience_1"]'),
-        2
-    );
-
-    enableClickToggleMultiSelect(
-        document.querySelector('select[name="origin_city_ids"]'),
-        3
-    );
-
-    // ------------------------------
-    // Metro stop autocomplete
-    // ------------------------------
-    (function () {
-      const input = document.getElementById("metroStopInput");
-      const box = document.getElementById("metroStopSuggestions");
-
-      if (!(input instanceof HTMLInputElement)) return;
-      if (!(box instanceof HTMLDivElement)) return;
-
-      let activeIndex = -1;
-      let items = [];
-
-      function hide() {
-        box.classList.add("hidden");
-        box.innerHTML = "";
-        activeIndex = -1;
-        items = [];
-      }
-
-      function show() {
-        box.classList.remove("hidden");
-      }
-
-      function esc(s) {
-        return String(s)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;");
-      }
-
-      function debounce(fn, ms) {
-        let t = null;
-        return function (...args) {
-          if (t) clearTimeout(t);
-          t = setTimeout(() => fn.apply(this, args), ms);
-        };
-      }
-
-      async function fetchMetro(q) {
-        const res = await fetch(`/api/metro/search?q=${encodeURIComponent(q)}`);
-        if (!res.ok) return [];
-        return await res.json().catch(() => []);
-      }
-
-      function render(stops) {
-        items = stops;
-        activeIndex = -1;
-
-        if (!items.length) { hide(); return; }
-
-        box.innerHTML = items.map((s, i) => `
-          <button
-            type="button"
-            data-idx="${i}"
-            class="w-full text-left px-5 py-3 hover:bg-gray-50 focus:bg-gray-50 outline-none"
-          >
-            <div class="text-sm text-gray-900">${esc(s.stop_name)}</div>
-            ${s.nom_commune ? `<div class="text-xs text-gray-500">${esc(s.nom_commune)}</div>` : ""}
-          </button>
-        `).join("");
-
-        show();
-      }
-
-      function pick(i) {
-        const s = items[i];
-        if (!s) return;
-        input.value = s.stop_name;
-        window.metroConfirmed = true;
-        const idInput = document.getElementById("nearest_transit_stop_id");
-        const linesInput = document.getElementById("nearest_transit_lines");
-        if (idInput instanceof HTMLInputElement) idInput.value = s.stop_id || "";
-        if (linesInput instanceof HTMLInputElement) linesInput.value = s.lines || "";
-        hide();
-      }
-
-      const onInput = debounce(async () => {
-        window.metroConfirmed = false;
-        const idInput = document.getElementById("nearest_transit_stop_id");
-        const linesInput = document.getElementById("nearest_transit_lines");
-        if (idInput instanceof HTMLInputElement) idInput.value = "";
-        if (linesInput instanceof HTMLInputElement) linesInput.value = "";
-        const q = input.value.trim();
-        if (q.length < 2) { hide(); return; }
-        try {
-          const stops = await fetchMetro(q);
-          render(stops);
-        } catch { hide(); }
-      }, 220);
-
-      input.addEventListener("input", onInput);
-
-      box.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("button[data-idx]") : null;
-        if (!btn) return;
-        pick(Number(btn.getAttribute("data-idx")));
-      });
-
-      input.addEventListener("keydown", (e) => {
-        if (box.classList.contains("hidden")) return;
-        if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, items.length - 1); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); }
-        else if (e.key === "Enter" && activeIndex >= 0) { e.preventDefault(); pick(activeIndex); }
-        else if (e.key === "Escape") { hide(); return; }
-
-        const buttons = box.querySelectorAll("button[data-idx]");
-        buttons.forEach(b => b.classList.remove("bg-gray-50"));
-        if (activeIndex >= 0 && buttons[activeIndex]) {
-          buttons[activeIndex].classList.add("bg-gray-50");
-          buttons[activeIndex].scrollIntoView({ block: "nearest" });
-        }
-      });
-
-      document.addEventListener("mousedown", (e) => {
-        const t = e.target;
-        if (!(t instanceof Node)) return;
-        if (t === input || box.contains(t)) return;
-        hide();
-      });
-
-      input.addEventListener("blur", () => setTimeout(() => hide(), 150));
-    })();
-
-    // ------------------------------
-    // BAN address autocomplete (company_address)
-    // ------------------------------
-    (function () {
-      const input = document.getElementById("companyAddressInput");
-      const box = document.getElementById("companyAddressSuggestions");
-
-      if (!(input instanceof HTMLInputElement)) return;
-      if (!(box instanceof HTMLDivElement)) return;
-
-      let aborter = null;
-      let activeIndex = -1;
-      let items = []; // current feature list
-
-      function hide() {
-        box.classList.add("hidden");
-        box.innerHTML = "";
-        activeIndex = -1;
-        items = [];
-      }
-
-      function show() {
-        box.classList.remove("hidden");
-      }
-
-      function esc(s) {
-        return String(s)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
-      }
-
-      function debounce(fn, ms) {
-        let t = null;
-        return function (...args) {
-          if (t) clearTimeout(t);
-          t = setTimeout(() => fn.apply(this, args), ms);
-        };
-      }
-
-      async function fetchBAN(q) {
-        if (aborter) aborter.abort();
-        aborter = new AbortController();
-
-        const url = new URL("https://api-adresse.data.gouv.fr/search");
-        url.searchParams.set("q", q);
-        url.searchParams.set("limit", "6");
-        url.searchParams.set("type", "housenumber");
-
-        const res = await fetch(url.toString(), {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          signal: aborter.signal,
-        });
-
-        if (!res.ok) return [];
-        const data = await res.json().catch(() => null);
-        const feats = Array.isArray(data?.features) ? data.features : [];
-        return feats;
-      }
-
-      function render(features) {
-        items = features;
-        activeIndex = -1;
-
-        if (!items.length) {
-          hide();
-          return;
-        }
-
-        const html = items
-          .map((f, i) => {
-            const label = f?.properties?.label ?? "";
-            const score = typeof f?.properties?.score === "number" ? f.properties.score : null;
-            return `
-              <button
-                type="button"
-                data-idx="${i}"
-                class="w-full text-left px-5 py-3 hover:bg-gray-50 focus:bg-gray-50 outline-none"
-              >
-                <div class="text-sm text-gray-900">${esc(label)}</div>
+  <div class="section-divider"></div>
+
+  <!-- ===== SITES SECTION ===== -->
+  <div class="section-title" style="margin-bottom:4px;">Mes sites</div>
+  <p class="section-desc">Chaque site dispose de son propre profil d'analyse.</p>
+
+  <div id="locations-container">
+    {all_locations.map((loc, idx) => {
+      const summaryText = buildSummaryTags(loc);
+      const incomplete = isIncomplete(loc);
+      const cardId = `loc-card-${idx}`;
+      const bodyId = `loc-body-${idx}`;
+      const isPrimary = loc.is_primary;
+      const audiences = [loc.primary_audience_1, loc.primary_audience_2].filter(Boolean);
+      const eventTypes = [loc.event_type_1, loc.event_type_2, loc.event_type_3].filter(Boolean);
+      const citiesSelected = [
+        { id: loc.origin_city_id_1, label: loc.origin_city_label_1 },
+        { id: loc.origin_city_id_2, label: loc.origin_city_label_2 },
+        { id: loc.origin_city_id_3, label: loc.origin_city_label_3 },
+      ].filter(c => c.id && c.label);
+
+      const AUDIENCE_OPTIONS = [
+        { value: "local", label: "Public local / résidents" },
+        { value: "tourists", label: "Touristes" },
+        { value: "mixed", label: "Public mixte" },
+        { value: "professionals", label: "Professionnels" },
+        { value: "students", label: "Scolaires / étudiants" },
+        { value: "families", label: "Familles" },
+      ];
+
+      const EVENT_TYPE_OPTIONS = [
+        { value: "concert", label: "Concert / Spectacle" },
+        { value: "press_conf", label: "Conférence de presse" },
+        { value: "tasting", label: "Dégustation / Soirée gastronomique" },
+        { value: "charity", label: "Événement caritatif / Associatif" },
+        { value: "corporate", label: "Événement corporate" },
+        { value: "sport_evt", label: "Événement sportif" },
+        { value: "outdoor", label: "Happening extérieur" },
+        { value: "inauguration", label: "Inauguration" },
+        { value: "open_day", label: "Journée portes ouvertes" },
+        { value: "product_launch", label: "Lancement de produit" },
+        { value: "store_opening", label: "Ouverture d'un point de vente" },
+        { value: "promo", label: "Promotion en magasin / soldes" },
+        { value: "seminar", label: "Séminaire / Formation" },
+        { value: "launch_party", label: "Soirée de lancement" },
+        { value: "expo", label: "Vernissage / Exposition" },
+        { value: "other", label: "Autre" },
+      ];
+
+      // Parse operating_hours JSON
+      let ohParsed: OperatingHoursMap = {};
+      try {
+        if (loc.operating_hours) ohParsed = JSON.parse(loc.operating_hours);
+      } catch (_) {}
+
+      const DAYS = [
+        { key: "lun", label: "Lundi", weekend: false },
+        { key: "mar", label: "Mardi", weekend: false },
+        { key: "mer", label: "Mercredi", weekend: false },
+        { key: "jeu", label: "Jeudi", weekend: false },
+        { key: "ven", label: "Vendredi", weekend: false },
+        { key: "sam", label: "Samedi", weekend: true },
+        { key: "dim", label: "Dimanche", weekend: true },
+      ];
+
+      return (
+        <div class="loc-card" id={cardId} data-location-id={loc.location_id}>
+          <div class="loc-header" onclick={`toggleLocCard('${cardId}','${bodyId}')`}>
+            <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="loc-meta">
+              <div class="loc-name-row">
+                <span class="loc-name">{loc.site_name || loc.company_name || loc.company_address || "Site sans nom"}</span>
+                {isPrimary && <span class="loc-badge-primary">Principal</span>}
+                <span class={`loc-status ${incomplete ? "is-incomplete" : "is-complete"}`} style="margin-left:auto">
+                  {incomplete ? "Profil incomplet · IA limitée" : "Profil complet · IA optimisée"}
+                </span>
+              </div>
+              <div class="loc-address">{loc.company_address}</div>
+            </div>
+          </div>
+
+          <div class="loc-body" id={bodyId} style="display:none">
+
+            <input type="hidden" name="location_id" value={loc.location_id} />
+            <input type="hidden" name="mode" value="update" />
+
+            <input type="hidden" id={`city-id-1-${idx}`} name="origin_city_id_1" value={loc.origin_city_id_1} />
+            <input type="hidden" id={`city-id-2-${idx}`} name="origin_city_id_2" value={loc.origin_city_id_2} />
+            <input type="hidden" id={`city-id-3-${idx}`} name="origin_city_id_3" value={loc.origin_city_id_3} />
+            <input type="hidden" id={`city-label-1-${idx}`} name="origin_city_label_1" value={loc.origin_city_label_1} />
+            <input type="hidden" id={`city-label-2-${idx}`} name="origin_city_label_2" value={loc.origin_city_label_2} />
+            <input type="hidden" id={`city-label-3-${idx}`} name="origin_city_label_3" value={loc.origin_city_label_3} />
+
+            <input type="hidden" id={`oh-json-${idx}`} name="operating_hours" value={loc.operating_hours} />
+
+            <input type="hidden" id={`aud-1-${idx}`} name="primary_audience_1" value={loc.primary_audience_1} />
+            <input type="hidden" id={`aud-2-${idx}`} name="primary_audience_2" value={loc.primary_audience_2} />
+            <input type="hidden" id={`et-1-${idx}`} name="event_type_1" value={loc.event_type_1} />
+            <input type="hidden" id={`et-2-${idx}`} name="event_type_2" value={loc.event_type_2} />
+            <input type="hidden" id={`et-3-${idx}`} name="event_type_3" value={loc.event_type_3} />
+
+            <input type="hidden" id={`metro-id-${idx}`} name="nearest_transit_stop_id" value={loc.nearest_transit_stop_id} />
+            <input type="hidden" id={`metro-lines-${idx}`} name="nearest_transit_lines" value={loc.nearest_transit_lines} />
+
+            <div class="field-row" style="margin-top:16px">
+              <div class="field-group" style="margin-top:0">
+                <label class="field-label">Nom du site <span class="field-req">*</span></label>
+                <input type="text" name="site_name" required value={loc.site_name || loc.company_name} class="field-input" />
+              </div>
+              <div class="field-group" style="margin-top:0">
+                <label class="field-label">Capacité d'accueil</label>
+                <input type="number" name="venue_capacity" min="1" placeholder="personnes" value={loc.venue_capacity} class="field-input" />
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Description du site</label>
+              <textarea name="location_description" rows={2} placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea">{loc.location_description}</textarea>
+              <p class="field-hint">Facultatif. Aide l'IA à contextualiser les recommandations.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Adresse professionnelle</label>
+              <input type="text" name="company_address" value={loc.company_address} autocomplete="off" class="field-input addr-autocomplete" data-idx={idx} />
+              <div class="addr-suggestions" id={`addr-suggestions-${idx}`} style="position:absolute;z-index:150;background:#fff;border:1px solid #e5e7eb;border-radius:6px;width:100%;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.06);" data-idx={idx}></div>
+              <p class="field-hint">Commencez à taper, puis sélectionnez une proposition.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Secteur d'activité <span class="field-req">*</span></label>
+              <div class="field-select-wrap">
+                <select name="company_activity_type" required class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {Object.entries(ACTIVITY_LABELS).map(([val, lbl]) => (
+                    <option value={val} selected={loc.company_activity_type === val}>{lbl}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Types d'événements organisés <span class="field-req">*</span></label>
+              <div class="pill-group" data-pill-group={`evt-${idx}`} data-pill-max="3">
+                {EVENT_TYPE_OPTIONS.map(opt => (
+                  <span
+                    class={`pill${eventTypes.includes(opt.value) ? " pill-active" : ""}${eventTypes.length >= 3 && !eventTypes.includes(opt.value) ? " pill-disabled" : ""}`}
+                    data-group={`evt-${idx}`}
+                    data-value={opt.value}
+                  >{opt.label}</span>
+                ))}
+              </div>
+              <p class="pill-max-hint">Jusqu'à 3 types.</p>
+            </div>
+
+            <div class="field-row">
+              <div class="field-group" style="margin-top:0;margin-top:14px">
+                <label class="field-label">Type de lieu <span class="field-req">*</span></label>
+                <div class="field-select-wrap">
+                  <select name="location_type" required class="field-select">
+                    <option value="">Sélectionner…</option>
+                    <option value="outdoor" selected={loc.location_type === "outdoor"}>Espace extérieur</option>
+                    <option value="indoor" selected={loc.location_type === "indoor"}>Espace intérieur</option>
+                    <option value="mixed" selected={loc.location_type === "mixed"}>Espace mixte</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-group" style="margin-top:14px">
+                <label class="field-label">Sensibilité météo <span class="field-req">*</span></label>
+                <div class="field-select-wrap">
+                  <select name="weather_sensitivity" required class="field-select">
+                    <option value="">Sélectionner…</option>
+                    <option value="0" selected={loc.weather_sensitivity === "0"}>0 — Aucune (intérieur protégé)</option>
+                    <option value="1" selected={loc.weather_sensitivity === "1"}>1 — Faible</option>
+                    <option value="2" selected={loc.weather_sensitivity === "2"}>2 — Modérée</option>
+                    <option value="3" selected={loc.weather_sensitivity === "3"}>3 — Élevée</option>
+                    <option value="4" selected={loc.weather_sensitivity === "4"}>4 — Extrême (plein air)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-group" style="margin-top:14px">
+                <label class="field-label">Saisonnalité</label>
+                <div class="field-select-wrap">
+                  <select name="seasonality" class="field-select">
+                    <option value="">Sélectionner…</option>
+                    <option value="year_round" selected={loc.seasonality === "year_round"}>Toute l'année</option>
+                    <option value="spring_summer" selected={loc.seasonality === "spring_summer"}>Printemps – Été (avr–sept)</option>
+                    <option value="autumn_winter" selected={loc.seasonality === "autumn_winter"}>Automne – Hiver (oct–mars)</option>
+                    <option value="summer_only" selected={loc.seasonality === "summer_only"}>Été uniquement (juin–août)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-group" style="margin-top:14px">
+                <label class="field-label">Profil de déplacement <span class="field-req">*</span></label>
+                <div class="field-select-wrap">
+                  <select name="location_access_pattern" required class="field-select">
+                    <option value="">Sélectionner…</option>
+                    <option value="public_transit" selected={loc.location_access_pattern === "public_transit"}>Transports en commun / Métro</option>
+                    <option value="walking" selected={loc.location_access_pattern === "walking"}>À pied</option>
+                    <option value="car" selected={loc.location_access_pattern === "car"}>Voiture</option>
+                    <option value="bike" selected={loc.location_access_pattern === "bike"}>Vélo</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group" style="position:relative">
+              <label class="field-label">Station de métro la plus proche</label>
+              <input
+                type="text"
+                name="nearest_transit_stop"
+                value={loc.nearest_transit_stop}
+                placeholder="Rechercher une station…"
+                autocomplete="off"
+                class="field-input metro-autocomplete"
+                data-idx={idx}
+              />
+              <div class="city-dropdown" id={`metro-suggestions-${idx}`} data-idx={idx}></div>
+              <p class="field-hint">Tapez pour rechercher.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Audience, clientèle visée <span class="field-req">*</span></label>
+              <div class="pill-group" data-pill-group={`aud-${idx}`} data-pill-max="2">
+                {AUDIENCE_OPTIONS.map(opt => (
+                  <span
+                    class={`pill${audiences.includes(opt.value) ? " pill-active" : ""}${audiences.length >= 2 && !audiences.includes(opt.value) ? " pill-disabled" : ""}`}
+                    data-group={`aud-${idx}`}
+                    data-value={opt.value}
+                  >{opt.label}</span>
+                ))}
+              </div>
+              <p class="pill-max-hint">Jusqu'à 2 audiences.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Villes d'origine clients <span class="field-req">*</span></label>
+              <div class="city-tag-field" id={`city-tag-field-${idx}`}>
+                <div class="city-tags-row" id={`city-tags-row-${idx}`}>
+                  {citiesSelected.map(c => (
+                    <span class="city-tag" data-city-id={c.id}>
+                      {c.label}
+                      <span class="city-tag-x" data-idx={idx} data-city-id={c.id}>×</span>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  class="city-search-input"
+                  id={`city-search-${idx}`}
+                  placeholder={citiesSelected.length >= 3 ? "Maximum atteint" : "Rechercher une ville…"}
+                  disabled={citiesSelected.length >= 3}
+                  autocomplete="off"
+                  data-idx={idx}
+                />
+                <div class="city-dropdown" id={`city-dropdown-${idx}`}></div>
+              </div>
+              <p class="field-hint">Tapez pour rechercher · jusqu'à 3 villes · toute la France</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Horaires d'ouverture <span class="field-req">*</span></label>
+              <div class="schedule" id={`schedule-${idx}`}>
+                {DAYS.map(day => {
+                  const dayData = ohParsed[day.key];
+                  const isOpen = dayData !== null && dayData !== undefined;
+                  const openVal = isOpen ? (dayData?.open || "09:00") : "09:00";
+                  const closeVal = isOpen ? (dayData?.close || "22:00") : "22:00";
+                  return (
+                    <div
+                      class={`schedule-row${!isOpen ? " sched-closed" : ""}`}
+                      id={`sched-${idx}-${day.key}`}
+                      data-idx={idx}
+                      data-day={day.key}
+                    >
+                      <span class={`sched-day${day.weekend ? " sched-weekend" : ""}`}>{day.label}</span>
+                      <div
+                        class={`sched-toggle${isOpen ? " tog-on" : ""}`}
+                        onclick={`schedToggle(${idx},'${day.key}')`}
+                      ></div>
+                      <div class="sched-times">
+                        <input class="sched-time-input" type="text" pattern="[0-9]{2}:[0-9]{2}" maxlength="5" placeholder="09:00" value={openVal} data-idx={idx} data-day={day.key} data-type="open" onchange={`schedUpdate(${idx})`} />
+                        <span class="sched-sep">→</span>
+                        <input class="sched-time-input" type="text" pattern="[0-9]{2}:[0-9]{2}" maxlength="5" placeholder="22:00" value={closeVal} data-idx={idx} data-day={day.key} data-type="close" onchange={`schedUpdate(${idx})`} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button type="button" class="sched-apply-btn" onclick={`schedApplyAll(${idx})`}>
+                Appliquer les horaires du lundi à tous les jours ouverts
               </button>
-            `;
-          })
-          .join("");
+              <p class="field-hint" style="margin-top:4px">Les jours fermés sont exclus des recommandations IA.</p>
+            </div>
 
-        box.innerHTML = html;
-        show();
-      }
+            <div class="loc-actions">
+              <div style="display:flex;gap:10px;align-items:center">
+                {!isPrimary && (
+                  <button type="button" class="loc-btn-outline" onclick={`setAsPrimary('${loc.location_id}')`}>
+                    Définir comme principal
+                  </button>
+                )}
+                <button type="button" class="loc-btn-danger" onclick={`deleteLocation('${loc.location_id}', '${cardId}')`}>
+                  Supprimer
+                </button>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <button type="button" class="loc-btn-save" data-idx={idx} onclick={`saveLocation(${idx})`}>
+                  Enregistrer ce site
+                </button>
+                <div class="save-status" id={`loc-save-status-${idx}`}></div>
+              </div>
+            </div>
 
-      function pick(i) {
-        const f = items[i];
-        const label = f?.properties?.label;
-        if (typeof label === "string" && label.trim()) {
-          input.value = label.trim();
-          window.addressConfirmed = true;
-        }
-        hide();
-      }
+          </div>
+        </div>
+      );
+    })}
+  </div>
 
-      const onInput = debounce(async () => {
-        window.addressConfirmed = false;
-        const q = input.value.trim();
-        if (q.length < 6) {
-          hide();
-          return;
-        }
+  <button type="button" class="add-site-btn" id="addSiteBtn">
+    <span class="add-plus">+</span>
+    Ajouter un site
+  </button>
 
-        try {
-          const feats = await fetchBAN(q);
-          render(feats);
-        } catch (e) {
-          // Network / abort: silently degrade
-          hide();
-        }
-      }, 220);
+</div>
 
-      input.addEventListener("input", onInput);
-
-      // Click selection
-      box.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("button[data-idx]") : null;
-        if (!btn) return;
-        const idx = Number(btn.getAttribute("data-idx"));
-        if (Number.isFinite(idx)) pick(idx);
-      });
-
-      // Keyboard navigation
-      input.addEventListener("keydown", (e) => {
-        if (box.classList.contains("hidden")) return;
-
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          activeIndex = Math.min(activeIndex + 1, items.length - 1);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          activeIndex = Math.max(activeIndex - 1, 0);
-        } else if (e.key === "Enter") {
-          if (activeIndex >= 0) {
-            e.preventDefault();
-            pick(activeIndex);
-          }
-        } else if (e.key === "Escape") {
-          hide();
-        }
-
-        // highlight active
-        const buttons = box.querySelectorAll("button[data-idx]");
-        buttons.forEach((b) => b.classList.remove("bg-gray-50"));
-        if (activeIndex >= 0 && buttons[activeIndex]) {
-          buttons[activeIndex].classList.add("bg-gray-50");
-          (buttons[activeIndex]).scrollIntoView({ block: "nearest" });
-        }
-      });
-
-      // Hide when clicking outside
-      document.addEventListener("mousedown", (e) => {
-        const t = e.target;
-        if (!(t instanceof Node)) return;
-        if (t === input || box.contains(t)) return;
-        hide();
-      });
-
-      // Hide on blur (with small delay so click can register)
-      input.addEventListener("blur", () => {
-        setTimeout(() => hide(), 150);
-      });
-    })();
-
-  // ---- Delete secondary location ----
-    document.querySelectorAll('[data-delete-loc]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const locId = btn.getAttribute('data-delete-loc');
-        if (!locId) return;
-        if (!confirm('Supprimer ce site ?')) return;
-        try {
-          const res = await fetch('/api/profile/location-delete', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ location_id: locId }),
-          });
-          if (res.ok) {
-            const row = btn.closest('[data-loc-id]');
-            if (row) row.remove();
-          }
-        } catch (_) {}
-      });
-    });
-  </script>
-
-<!-- Password change modal -->
-<div id="pwd-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:0;padding:32px;width:100%;max-width:420px;margin:0 20px;position:relative;"></div>
-    <button id="pwd-modal-close" type="button" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">✕</button>
+<!-- PASSWORD MODAL -->
+<div id="pwd-modal" class="pwd-modal-backdrop">
+  <div class="pwd-modal-box">
+    <button id="pwd-modal-close" type="button" class="pwd-modal-close">✕</button>
     <h2 style="font-size:18px;font-weight:600;margin:0 0 24px 0;">Modifier mon mot de passe</h2>
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div>
-        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Mot de passe actuel</label>
-        <input id="pwd-current" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
+        <label class="field-label">Mot de passe actuel</label>
+        <input id="pwd-current" type="password" class="field-input" />
       </div>
       <div>
-        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Nouveau mot de passe</label>
-        <input id="pwd-new" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
+        <label class="field-label">Nouveau mot de passe</label>
+        <input id="pwd-new" type="password" class="field-input" />
       </div>
       <div>
-        <label style="display:block;font-size:11px;font-weight:500;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Confirmer le nouveau mot de passe</label>
-        <input id="pwd-confirm" type="password" style="width:100%;padding:14px 0;background:transparent;border:0;border-bottom:1.5px solid #d1d5db;font-size:15px;box-sizing:border-box;outline:none;" />
+        <label class="field-label">Confirmer le nouveau mot de passe</label>
+        <input id="pwd-confirm" type="password" class="field-input" />
       </div>
       <div id="pwd-status" style="font-size:13px;min-height:20px;"></div>
-      <button id="pwd-submit" type="button" style="width:100%;height:52px;background:transparent;color:#111827;border:1.5px solid #111827;border-radius:0;font-size:15px;cursor:pointer;font-weight:600;">Enregistrer</button>
+      <button id="pwd-submit" type="button" class="loc-btn-save" style="width:100%;height:48px;">Enregistrer</button>
     </div>
   </div>
 </div>
 
-<script>
-  // @ts-nocheck
-  const modal = document.getElementById('pwd-modal');
-  const openBtn = document.getElementById('pwd-open');
-  const closeBtn = document.getElementById('pwd-modal-close');
-  const submitBtn = document.getElementById('pwd-submit');
-  const status = document.getElementById('pwd-status');
-
-  function openModal() {
-    if (!modal) return;
-    modal.style.display = 'flex';
-    document.getElementById('pwd-current')?.focus();
-  }
-  function closeModal() {
-    if (!modal) return;
-    modal.style.display = 'none';
-    ['pwd-current','pwd-new','pwd-confirm'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    if (status) status.textContent = '';
-  }
-
-  openBtn?.addEventListener('click', openModal);
-  closeBtn?.addEventListener('click', closeModal);
-  modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-
-  submitBtn?.addEventListener('click', async () => {
-    const current = document.getElementById('pwd-current')?.value;
-    const newPwd = document.getElementById('pwd-new')?.value;
-    const confirm = document.getElementById('pwd-confirm')?.value;
-
-    if (!current || !newPwd || !confirm) {
-      status.style.color = '#b91c1c';
-      status.textContent = 'Tous les champs sont requis.';
-      return;
-    }
-    if (newPwd !== confirm) {
-      status.style.color = '#b91c1c';
-      status.textContent = 'Les mots de passe ne correspondent pas.';
-      return;
-    }
-    if (newPwd.length < 8) {
-      status.style.color = '#b91c1c';
-      status.textContent = 'Le mot de passe doit contenir au moins 8 caractères.';
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Enregistrement...';
-    status.textContent = '';
-
-    try {
-      const res = await fetch('/api/profile/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: current, new_password: newPwd }),
-      });
-      const out = await res.json().catch(() => null);
-      if (!res.ok) {
-        status.style.color = '#b91c1c';
-        status.textContent = out?.error || 'Erreur lors du changement de mot de passe.';
-      } else {
-        status.style.color = '#059669';
-        status.textContent = 'Mot de passe modifié avec succès.';
-        setTimeout(closeModal, 1500);
-      }
-    } catch {
-      status.style.color = '#b91c1c';
-      status.textContent = 'Erreur réseau. Veuillez réessayer.';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Enregistrer';
-    }
-  });
-
-</script>
-
-<style>
-  select, select[multiple] {
-    border-radius: 0 !important;
-  }
-</style>
-
-<div id="ms-map-notice-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:20px;">
+<!-- MAP NOTICE MODAL -->
+<div id="ms-map-notice-modal" class="map-notice-backdrop">
   <div style="background:#fff;width:100%;max-width:420px;padding:40px 32px;text-align:center;">
     <div style="display:flex;justify-content:center;margin-bottom:28px;">
       <div style="width:80px;height:80px;border-radius:50%;background:#1D3BB3;display:flex;align-items:center;justify-content:center;">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
       </div>
     </div>
-    <h1 style="font-size:26px;font-weight:600;color:#000;margin:0 0 14px 0;letter-spacing:-0.01em;line-height:1.1;">Cartes interactives</h1>
-    <p style="font-size:16px;color:rgba(107,114,128,0.92);line-height:1.8;margin:0 auto 10px auto;max-width:340px;font-style:italic;">Si vous utilisez Kaspersky ou un bloqueur de publicités, les fonds de carte peuvent apparaître gris.</p>
-    <p style="font-size:13px;color:rgba(107,114,128,0.75);line-height:1.7;margin:0 auto 28px auto;max-width:340px;">Autorisez <strong style="color:#111;font-style:normal;">basemaps.cartocdn.com</strong> et <strong style="color:#111;font-style:normal;">tile.openstreetmap.org</strong> dans votre antivirus.</p>
-    <button type="button" onclick="document.getElementById('ms-map-notice-modal').style.display='none';" class="ms-btn h-[56px] font-normal" style="width:100%;">J'AI COMPRIS</button>
+    <h1 style="font-size:24px;font-weight:600;margin:0 0 14px 0;">Cartes interactives</h1>
+    <p style="font-size:15px;color:#6b7280;line-height:1.8;margin:0 auto 10px auto;max-width:340px;font-style:italic;">Si vous utilisez Kaspersky ou un bloqueur de publicités, les fonds de carte peuvent apparaître gris.</p>
+    <p style="font-size:13px;color:#9ca3af;line-height:1.7;margin:0 auto 28px auto;max-width:340px;">Autorisez <strong style="color:#111;">basemaps.cartocdn.com</strong> et <strong style="color:#111;">tile.openstreetmap.org</strong> dans votre antivirus.</p>
+    <button type="button" onclick="document.getElementById('ms-map-notice-modal').style.display='none';" class="ms-btn h-[56px] font-normal" style="width:100%;padding:14px;background:#111827;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">J'AI COMPRIS</button>
   </div>
 </div>
+
+<script>
+// @ts-nocheck
+'use strict';
+
+// ============================================================
+// ACCORDION
+// ============================================================
+window.toggleLocCard = function(cardId, bodyId) {
+  const card = document.getElementById(cardId);
+  const body = document.getElementById(bodyId);
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  // Close all
+  document.querySelectorAll('.loc-card').forEach(c => c.classList.remove('loc-expanded'));
+  document.querySelectorAll('.loc-body').forEach(b => { b.style.display = 'none'; });
+  if (!isOpen) {
+    card.classList.add('loc-expanded');
+    body.style.display = 'block';
+  }
+};
+
+window.toggleUserProfileCard = function() {
+  const card = document.getElementById('user-profile-card');
+  const body = document.getElementById('user-profile-body');
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
+};
+
+// ============================================================
+// LABEL MAPS (for summary line rebuild after save)
+// ============================================================
+const _ACTIVITY_LABELS = {
+  non_profit:'Associatif & Non lucratif',wellness:'Bien-être & Fitness',
+  cinema_theatre:'Cinéma & Théâtre',commercial:'Commerce & Retail',
+  institutional:'Collectivités & Secteur public',culture:'Culture & Patrimoine',
+  family:'Éducation & Enseignement',live_event:'Événementiel',
+  hotel_lodging:'Hôtellerie & Hébergement',food_nightlife:'Restauration & Bars',
+  science_innovation:'Sciences & Innovation',pro_event:'Salons & Événements pro',
+  sport:'Sports & Loisirs actifs',transport_mobility:'Transport & Mobilité locale',
+  outdoor_leisure:'Tourisme & Loisirs',nightlife:'Vie nocturne',unknown:'Autre activité accueillant du public',
+};
+const _LOCATION_TYPE_LABELS = { outdoor:'Extérieur', indoor:'Intérieur', mixed:'Mixte' };
+const _WEATHER_LABELS = { '0':'Météo : aucune','1':'Météo : faible','2':'Météo : modérée','3':'Météo : élevée','4':'Météo : extrême' };
+const _EVT_LABELS = {
+  concert:'Concert / Spectacle',press_conf:'Conférence de presse',
+  tasting:'Dégustation / Soirée gastronomique',charity:'Événement caritatif / Associatif',
+  corporate:'Événement corporate',sport_evt:'Événement sportif',
+  outdoor:'Happening extérieur',inauguration:'Inauguration',
+  open_day:'Journée portes ouvertes',product_launch:'Lancement de produit',
+  store_opening:'Ouverture d\'un point de vente',promo:'Promotion en magasin / soldes',
+  seminar:'Séminaire / Formation',launch_party:'Soirée de lancement',
+  expo:'Vernissage / Exposition',other:'Autre',
+};
+
+// Collapse a card and update its summary line from current form values
+function collapseCard(idx, cardId, bodyId, data) {
+  // Rebuild summary tags from saved data
+  const tags = [];
+  if (data.company_activity_type) tags.push(_ACTIVITY_LABELS[data.company_activity_type] || data.company_activity_type);
+  const evtTypes = [data.event_type_1, data.event_type_2, data.event_type_3].filter(Boolean).map(v => _EVT_LABELS[v] || v);
+  if (evtTypes.length) tags.push(evtTypes.join(', '));
+  if (data.location_type) tags.push(_LOCATION_TYPE_LABELS[data.location_type] || data.location_type);
+  if (data.weather_sensitivity) tags.push(_WEATHER_LABELS[data.weather_sensitivity] || '');
+  const summaryText = tags.filter(Boolean).join(' · ');
+
+  // Determine completeness
+  const isComplete = !!(data.company_activity_type && data.location_type && data.event_type_1);
+
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  // Update name
+  const nameEl = card.querySelector('.loc-name');
+  if (nameEl && data.site_name) nameEl.textContent = data.site_name;
+
+  // Update address
+  const addrEl = card.querySelector('.loc-address');
+  if (addrEl && data.company_address) addrEl.textContent = data.company_address;
+
+  // Update summary or incomplete indicator
+  const summaryEl = card.querySelector('.loc-summary');
+  const statusEl = card.querySelector('.loc-status');
+  if (statusEl) {
+    statusEl.textContent = isComplete ? 'Profil complet · IA optimisée' : 'Profil incomplet · IA limitée';
+    statusEl.className = `loc-status ${isComplete ? 'is-complete' : 'is-incomplete'}`;
+    statusEl.style.marginLeft = 'auto';
+  }
+  if (summaryEl) {
+    summaryEl.textContent = isComplete ? summaryText : '';
+    summaryEl.style.display = isComplete ? '' : 'none';
+  }
+
+  // Collapse — close all, mark none expanded
+  document.querySelectorAll('.loc-card').forEach(c => c.classList.remove('loc-expanded'));
+  document.querySelectorAll('.loc-body').forEach(b => { b.style.display = 'none'; });
+}
+
+// ============================================================
+// PILL MULTI-SELECT
+// ============================================================
+const PILL_MAX = {};
+document.querySelectorAll('[data-pill-group]').forEach(pg => {
+  const group = pg.dataset.pillGroup;
+  const max = parseInt(pg.dataset.pillMax || '3', 10);
+  PILL_MAX[group] = max;
+});
+
+document.addEventListener('click', function(e) {
+  const pill = e.target.closest('.pill[data-group]');
+  if (!pill) return;
+  const group = pill.dataset.group;
+  const val = pill.dataset.value;
+  const max = PILL_MAX[group] || 3;
+  const allPills = document.querySelectorAll(`.pill[data-group="${group}"]`);
+  const activePills = document.querySelectorAll(`.pill[data-group="${group}"].pill-active`);
+
+  if (pill.classList.contains('pill-active')) {
+    pill.classList.remove('pill-active');
+  } else {
+    if (activePills.length >= max) return;
+    pill.classList.add('pill-active');
+  }
+
+  // Sync hidden inputs based on group prefix
+  const now = Array.from(document.querySelectorAll(`.pill[data-group="${group}"].pill-active`)).map(p => p.dataset.value);
+  const nowCount = now.length;
+
+  // Disable/enable remaining pills
+  allPills.forEach(p => {
+    if (!p.classList.contains('pill-active')) {
+      p.classList.toggle('pill-disabled', nowCount >= max);
+    } else {
+      p.classList.remove('pill-disabled');
+    }
+  });
+
+  // Determine idx and type from group name: "evt-0", "aud-1" etc
+  const parts = group.split('-');
+  const type = parts[0];
+  const idx = parts[1];
+
+  if (type === 'aud') {
+    const h1 = document.getElementById(`aud-1-${idx}`);
+    const h2 = document.getElementById(`aud-2-${idx}`);
+    if (h1) h1.value = now[0] || '';
+    if (h2) h2.value = now[1] || '';
+  } else if (type === 'evt') {
+    const h1 = document.getElementById(`et-1-${idx}`);
+    const h2 = document.getElementById(`et-2-${idx}`);
+    const h3 = document.getElementById(`et-3-${idx}`);
+    if (h1) h1.value = now[0] || '';
+    if (h2) h2.value = now[1] || '';
+    if (h3) h3.value = now[2] || '';
+  }
+});
+
+// ============================================================
+// CITY SEARCH-TAG
+// ============================================================
+window._cityData = {};
+
+function getCityData(idx) {
+  if (!window._cityData[idx]) {
+    const ids = ['', '', ''];
+    const labels = ['', '', ''];
+    for (let i = 1; i <= 3; i++) {
+      const idEl = document.getElementById(`city-id-${i}-${idx}`);
+      const lblEl = document.getElementById(`city-label-${i}-${idx}`);
+      if (idEl && idEl.value) { ids[i-1] = idEl.value; labels[i-1] = lblEl?.value || ''; }
+    }
+    window._cityData[idx] = ids
+      .map((id, i) => id ? { id, label: labels[i] } : null)
+      .filter(Boolean);
+  }
+  return window._cityData[idx];
+}
+
+function saveCityData(idx) {
+  const data = window._cityData[idx] || [];
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById(`city-id-${i}-${idx}`);
+    const lbl = document.getElementById(`city-label-${i}-${idx}`);
+    if (el) el.value = data[i-1]?.id || '';
+    if (lbl) lbl.value = data[i-1]?.label || '';
+  }
+}
+
+function renderCityTags(idx) {
+  const data = window._cityData[idx] || [];
+  const row = document.getElementById(`city-tags-row-${idx}`);
+  const inp = document.getElementById(`city-search-${idx}`);
+  if (!row || !inp) return;
+  row.innerHTML = data.map(c =>
+    `<span class="city-tag" data-city-id="${c.id}">${c.label}<span class="city-tag-x" data-idx="${idx}" data-city-id="${c.id}">×</span></span>`
+  ).join('');
+  inp.disabled = data.length >= 3;
+  inp.placeholder = data.length >= 3 ? 'Maximum atteint' : 'Rechercher une ville…';
+  saveCityData(idx);
+}
+
+// Init city data from hidden inputs
+document.querySelectorAll('.city-search-input').forEach(inp => {
+  const idx = inp.dataset.idx;
+  getCityData(idx);
+  renderCityTags(idx);
+});
+
+// Click × to remove tag
+document.addEventListener('click', function(e) {
+  const x = e.target.closest('.city-tag-x');
+  if (!x) return;
+  const idx = x.dataset.idx;
+  const cityId = x.dataset.cityId;
+  if (!window._cityData[idx]) return;
+  window._cityData[idx] = window._cityData[idx].filter(c => c.id !== cityId);
+  renderCityTags(idx);
+});
+
+const STATIC_CITIES = [
+  {city_id:'75056',city_name:'Paris',department_name:'75 – Île-de-France'},
+  {city_id:'92012',city_name:'Boulogne-Billancourt',department_name:'92 – Île-de-France'},
+  {city_id:'92050',city_name:'Nanterre',department_name:'92 – Île-de-France'},
+  {city_id:'93066',city_name:'Saint-Denis',department_name:'93 – Île-de-France'},
+  {city_id:'93048',city_name:'Montreuil',department_name:'93 – Île-de-France'},
+  {city_id:'94028',city_name:'Créteil',department_name:'94 – Île-de-France'},
+  {city_id:'94081',city_name:'Vitry-sur-Seine',department_name:'94 – Île-de-France'},
+  {city_id:'78646',city_name:'Versailles',department_name:'78 – Île-de-France'},
+  {city_id:'91228',city_name:'Évry-Courcouronnes',department_name:'91 – Île-de-France'},
+  {city_id:'77288',city_name:'Melun',department_name:'77 – Île-de-France'},
+  {city_id:'95500',city_name:'Cergy',department_name:'95 – Île-de-France'},
+  {city_id:'13055',city_name:'Marseille',department_name:'13 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'06088',city_name:'Nice',department_name:'06 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'13001',city_name:'Aix-en-Provence',department_name:'13 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'83137',city_name:'Toulon',department_name:'83 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'84007',city_name:'Avignon',department_name:'84 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'06029',city_name:'Cannes',department_name:'06 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'06004',city_name:'Antibes',department_name:'06 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'06069',city_name:'Grasse',department_name:'06 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'13056',city_name:'Martigues',department_name:'13 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'13054',city_name:'Istres',department_name:'13 – Provence-Alpes-Côte d\'Azur'},
+  {city_id:'31555',city_name:'Toulouse',department_name:'31 – Occitanie'},
+  {city_id:'34172',city_name:'Montpellier',department_name:'34 – Occitanie'},
+  {city_id:'30189',city_name:'Nîmes',department_name:'30 – Occitanie'},
+  {city_id:'66136',city_name:'Perpignan',department_name:'66 – Occitanie'},
+  {city_id:'34032',city_name:'Béziers',department_name:'34 – Occitanie'},
+  {city_id:'11262',city_name:'Narbonne',department_name:'11 – Occitanie'},
+  {city_id:'81004',city_name:'Albi',department_name:'81 – Occitanie'},
+  {city_id:'11069',city_name:'Carcassonne',department_name:'11 – Occitanie'},
+  {city_id:'31069',city_name:'Blagnac',department_name:'31 – Occitanie'},
+  {city_id:'34337',city_name:'Sète',department_name:'34 – Occitanie'},
+  {city_id:'30133',city_name:'Lunel',department_name:'30 – Occitanie'},
+];
+
+document.addEventListener('input', function(e) {
+  const inp = e.target;
+  if (!inp.classList.contains('city-search-input')) return;
+  const idx = inp.dataset.idx;
+  const q = inp.value.trim().toLowerCase();
+  const dd = document.getElementById(`city-dropdown-${idx}`);
+  if (!dd) return;
+  if (!q || (window._cityData[idx] || []).length >= 3) { dd.style.display = 'none'; return; }
+  const existing = (window._cityData[idx] || []).map(c => c.id);
+  const filtered = STATIC_CITIES.filter(c =>
+    c.city_name.toLowerCase().startsWith(q) && !existing.includes(c.city_id)
+  ).slice(0, 6);
+  if (!filtered.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = filtered.map(r =>
+    `<div class="city-option" data-idx="${idx}" data-city-id="${r.city_id}" data-city-label="${r.city_name}">
+      <span>${r.city_name}</span>
+      <span class="city-option-dept">${r.department_name}</span>
+    </div>`
+  ).join('');
+  dd.style.display = 'block';
+});
+
+// Click city option
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.city-option[data-city-id]');
+  if (!opt) return;
+  const idx = opt.dataset.idx;
+  const cityId = opt.dataset.cityId;
+  const cityLabel = opt.dataset.cityLabel;
+  if (!window._cityData[idx]) window._cityData[idx] = [];
+  if (window._cityData[idx].length >= 3) return;
+  if (window._cityData[idx].find(c => c.id === cityId)) return;
+  window._cityData[idx].push({ id: cityId, label: cityLabel });
+  renderCityTags(idx);
+  const inp = document.getElementById(`city-search-${idx}`);
+  if (inp) inp.value = '';
+  const dd = document.getElementById(`city-dropdown-${idx}`);
+  if (dd) dd.style.display = 'none';
+});
+
+// Hide dropdowns on outside click
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('.city-dropdown').forEach(dd => {
+    if (!dd.contains(e.target)) dd.style.display = 'none';
+  });
+});
+
+// ============================================================
+// OPERATING HOURS
+// ============================================================
+window.schedToggle = function(idx, day) {
+  const row = document.getElementById(`sched-${idx}-${day}`);
+  if (!row) return;
+  const tog = row.querySelector('.sched-toggle');
+  const isOn = tog.classList.contains('tog-on');
+  tog.classList.toggle('tog-on', !isOn);
+  row.classList.toggle('sched-closed', isOn);
+  schedUpdate(idx);
+};
+
+window.schedUpdate = function(idx) {
+  const days = ['lun','mar','mer','jeu','ven','sam','dim'];
+  const result = {};
+  days.forEach(day => {
+    const row = document.getElementById(`sched-${idx}-${day}`);
+    if (!row) return;
+    const isClosed = row.classList.contains('sched-closed');
+    if (isClosed) {
+      result[day] = null;
+    } else {
+      const openEl = row.querySelector('[data-type="open"]');
+      const closeEl = row.querySelector('[data-type="close"]');
+      result[day] = {
+        open: openEl?.value || '09:00',
+        close: closeEl?.value || '22:00',
+      };
+    }
+  });
+  const hiddenEl = document.getElementById(`oh-json-${idx}`);
+  if (hiddenEl) hiddenEl.value = JSON.stringify(result);
+};
+
+window.schedApplyAll = function(idx) {
+  const refRow = document.getElementById(`sched-${idx}-lun`);
+  if (!refRow || refRow.classList.contains('sched-closed')) return;
+  const refOpen = refRow.querySelector('[data-type="open"]')?.value || '09:00';
+  const refClose = refRow.querySelector('[data-type="close"]')?.value || '22:00';
+  ['mar','mer','jeu','ven','sam','dim'].forEach(day => {
+    const row = document.getElementById(`sched-${idx}-${day}`);
+    if (!row) return;
+    // Force open if closed
+    if (row.classList.contains('sched-closed')) {
+      row.classList.remove('sched-closed');
+      const tog = row.querySelector('.sched-toggle');
+      if (tog) tog.classList.add('tog-on');
+    }
+    const openEl = row.querySelector('[data-type="open"]');
+    const closeEl = row.querySelector('[data-type="close"]');
+    if (openEl) openEl.value = refOpen;
+    if (closeEl) closeEl.value = refClose;
+  });
+  schedUpdate(idx);
+};
+
+// Init all schedules on load
+document.querySelectorAll('.schedule').forEach(sched => {
+  const idx = sched.id.replace('schedule-', '');
+  schedUpdate(parseInt(idx, 10));
+});
+
+// ============================================================
+// ADDRESS AUTOCOMPLETE (BAN)
+// ============================================================
+const _addrAborters = {};
+const _addrConfirmed = {};
+
+document.querySelectorAll('.addr-autocomplete').forEach(inp => {
+  const idx = inp.dataset.idx;
+  if (inp.value.trim()) _addrConfirmed[idx] = true;
+});
+
+function debounce(fn, ms) {
+  const timers = {};
+  return function(key, ...args) {
+    clearTimeout(timers[key]);
+    timers[key] = setTimeout(() => fn(key, ...args), ms);
+  };
+}
+
+const fetchBAN = debounce(async function(idx, q) {
+  const dd = document.getElementById(`addr-suggestions-${idx}`);
+  if (!dd) return;
+  if (_addrAborters[idx]) _addrAborters[idx].abort();
+  _addrAborters[idx] = new AbortController();
+  try {
+    const url = new URL('https://api-adresse.data.gouv.fr/search');
+    url.searchParams.set('q', q);
+    url.searchParams.set('limit', '5');
+    url.searchParams.set('type', 'housenumber');
+    const res = await fetch(url.toString(), { signal: _addrAborters[idx].signal });
+    if (!res.ok) { dd.style.display = 'none'; return; }
+    const data = await res.json().catch(() => null);
+    const feats = data?.features || [];
+    if (!feats.length) { dd.style.display = 'none'; return; }
+    dd.innerHTML = feats.map((f, i) =>
+      `<div class="city-option" data-idx="${idx}" data-addr="${f.properties.label}">
+        <span>${f.properties.label}</span>
+      </div>`
+    ).join('');
+    dd.style.display = 'block';
+  } catch (_) { }
+}, 250);
+
+document.addEventListener('input', function(e) {
+  const inp = e.target;
+  if (!inp.classList.contains('addr-autocomplete')) return;
+  const idx = inp.dataset.idx;
+  _addrConfirmed[idx] = false;
+  const q = inp.value.trim();
+  if (q.length < 6) {
+    const dd = document.getElementById(`addr-suggestions-${idx}`);
+    if (dd) dd.style.display = 'none';
+    return;
+  }
+  fetchBAN(idx, q);
+});
+
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.city-option[data-addr]');
+  if (!opt) return;
+  const idx = opt.dataset.idx;
+  const addr = opt.dataset.addr;
+  const inp = document.querySelector(`.addr-autocomplete[data-idx="${idx}"]`);
+  if (inp) inp.value = addr;
+  _addrConfirmed[idx] = true;
+  const dd = document.getElementById(`addr-suggestions-${idx}`);
+  if (dd) dd.style.display = 'none';
+});
+
+// ============================================================
+// METRO AUTOCOMPLETE
+// ============================================================
+const _metroConfirmed = {};
+
+document.querySelectorAll('.metro-autocomplete').forEach(inp => {
+  const idx = inp.dataset.idx;
+  if (inp.value.trim()) _metroConfirmed[idx] = true;
+});
+
+const fetchMetro = debounce(async function(idx, q) {
+  const dd = document.getElementById(`metro-suggestions-${idx}`);
+  if (!dd) return;
+  try {
+    const res = await fetch(`/api/metro/search?q=${encodeURIComponent(q)}`);
+    if (!res.ok) { dd.style.display = 'none'; return; }
+    const stops = await res.json().catch(() => []);
+    if (!stops.length) { dd.style.display = 'none'; return; }
+    dd.innerHTML = stops.slice(0, 8).map(s =>
+      `<div class="city-option" data-idx="${idx}" data-stop-id="${s.stop_id}" data-stop-name="${s.stop_name}" data-lines="${s.lines || ''}">
+        <span>${s.stop_name}</span>
+        <span class="city-option-dept">${s.nom_commune || ''}</span>
+      </div>`
+    ).join('');
+    dd.style.display = 'block';
+  } catch (_) { dd.style.display = 'none'; }
+}, 220);
+
+document.addEventListener('input', function(e) {
+  const inp = e.target;
+  if (!inp.classList.contains('metro-autocomplete')) return;
+  const idx = inp.dataset.idx;
+  _metroConfirmed[idx] = false;
+  const idEl = document.getElementById(`metro-id-${idx}`);
+  const linesEl = document.getElementById(`metro-lines-${idx}`);
+  if (idEl) idEl.value = '';
+  if (linesEl) linesEl.value = '';
+  const q = inp.value.trim();
+  if (q.length < 2) {
+    const dd = document.getElementById(`metro-suggestions-${idx}`);
+    if (dd) dd.style.display = 'none';
+    return;
+  }
+  fetchMetro(idx, q);
+});
+
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.city-option[data-stop-id]');
+  if (!opt) return;
+  const idx = opt.dataset.idx;
+  const inp = document.querySelector(`.metro-autocomplete[data-idx="${idx}"]`);
+  if (inp) inp.value = opt.dataset.stopName;
+  _metroConfirmed[idx] = true;
+  const idEl = document.getElementById(`metro-id-${idx}`);
+  const linesEl = document.getElementById(`metro-lines-${idx}`);
+  if (idEl) idEl.value = opt.dataset.stopId || '';
+  if (linesEl) linesEl.value = opt.dataset.lines || '';
+  const dd = document.getElementById(`metro-suggestions-${idx}`);
+  if (dd) dd.style.display = 'none';
+});
+
+// ============================================================
+// SAVE USER PROFILE
+// ============================================================
+document.getElementById('userProfileForm')?.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const btn = document.getElementById('userSaveBtn');
+  const statusEl = document.getElementById('userSaveStatus');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
+
+  const fd = new FormData(form);
+  const data = Object.fromEntries(fd.entries());
+  data.mode = 'update';
+  // Attach primary location_id and existing site fields from first card
+  const primaryCard = document.querySelector('.loc-card[data-location-id]');
+  if (primaryCard) {
+    data.location_id = primaryCard.dataset.locationId;
+    const idx = primaryCard.id.replace('loc-card-', '');
+    const body = document.getElementById(`loc-body-${idx}`);
+    if (body) {
+      ['primary_audience_1','primary_audience_2',
+       'origin_city_id_1','origin_city_id_2','origin_city_id_3',
+       'origin_city_label_1','origin_city_label_2','origin_city_label_3',
+       'company_address','company_activity_type','location_type',
+       'weather_sensitivity','seasonality','location_access_pattern',
+       'nearest_transit_stop','nearest_transit_stop_id','nearest_transit_lines',
+       'site_name','venue_capacity','location_description',
+       'event_type_1','event_type_2','event_type_3','operating_hours'].forEach(name => {
+        const el = body.querySelector(`[name="${name}"]`);
+        if (el && !data[name]) data[name] = el.value;
+      });
+      // Rebuild arrays
+      data.primary_audience_1 = [data.primary_audience_1, data.primary_audience_2].filter(Boolean);
+      data.origin_city_ids = [data.origin_city_id_1, data.origin_city_id_2, data.origin_city_id_3].filter(Boolean);
+    }
+  }
+
+  try {
+    const res = await fetch('/api/profile/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const out = await res.json().catch(() => null);
+    if (res.ok && out?.ok) {
+      if (statusEl) { statusEl.textContent = 'Profil enregistré.'; statusEl.className = 'save-status status-ok'; }
+      if (btn) btn.textContent = '✓ Enregistré';
+      setTimeout(() => {
+        if (btn) btn.textContent = 'Enregistrer';
+        // Refresh collapsed header
+        const nameEl = document.getElementById('user-profile-name');
+        if (nameEl) {
+          const fn = data.first_name || '';
+          const ln = data.last_name || '';
+          const pos = data.position || '';
+          nameEl.textContent = [fn, ln].filter(Boolean).join(' ') + (pos ? ` · ${pos}` : '');
+        }
+        const objEl = document.getElementById('user-profile-objective');
+        const OBJ_LABELS = {
+          maximize_attendance: "Maximiser l'affluence",
+          avoid_competition: "Éviter la concurrence",
+          optimize_weather: "Optimiser le rapport coût / météo",
+          test_market: "Tester un nouveau marché",
+        };
+        if (objEl) {
+          const val = data.main_event_objective || '';
+          objEl.textContent = val ? `Objectif : ${OBJ_LABELS[val] || val}` : '';
+          objEl.style.display = val ? '' : 'none';
+        }
+        // Collapse
+        const card = document.getElementById('user-profile-card');
+        const body = document.getElementById('user-profile-body');
+        if (card) card.classList.remove('loc-expanded');
+        if (body) body.style.display = 'none';
+      }, 900);
+    } else {
+      if (statusEl) { statusEl.textContent = out?.error || 'Erreur lors de l\'enregistrement.'; statusEl.className = 'save-status status-err'; }
+      if (btn) btn.textContent = 'Réessayer';
+    }
+  } catch (_) {
+    if (statusEl) { statusEl.textContent = 'Erreur réseau.'; statusEl.className = 'save-status status-err'; }
+    if (btn) btn.textContent = 'Réessayer';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
+
+// ============================================================
+// SAVE LOCATION
+// ============================================================
+window.saveLocation = async function(idx) {
+  const btn = document.querySelector(`.loc-btn-save[data-idx="${idx}"]`);
+  const statusEl = document.getElementById(`loc-save-status-${idx}`);
+  const card = document.querySelector(`.loc-card:nth-child(${idx + 1})`);
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
+
+  // Validate address confirmed
+  if (!_addrConfirmed[idx]) {
+    const addrInp = document.querySelector(`.addr-autocomplete[data-idx="${idx}"]`);
+    if (addrInp && addrInp.value.trim()) {
+      if (statusEl) { statusEl.textContent = 'Sélectionnez une adresse depuis la liste.'; statusEl.className = 'save-status status-err'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer ce site'; }
+      return;
+    }
+  }
+  if (!_metroConfirmed[idx]) {
+    const metroInp = document.querySelector(`.metro-autocomplete[data-idx="${idx}"]`);
+    if (metroInp && metroInp.value.trim()) {
+      if (statusEl) { statusEl.textContent = 'Sélectionnez une station depuis la liste.'; statusEl.className = 'save-status status-err'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer ce site'; }
+      return;
+    }
+  }
+
+  // Collect all fields from this card's body
+  const body = document.getElementById(`loc-body-${idx}`);
+  if (!body) return;
+
+  const data = { mode: 'update' };
+
+  // Hidden fields
+  ['location_id','origin_city_id_1','origin_city_id_2','origin_city_id_3',
+   'origin_city_label_1','origin_city_label_2','origin_city_label_3',
+   'operating_hours','primary_audience_1','primary_audience_2',
+   'event_type_1','event_type_2','event_type_3',
+   'nearest_transit_stop_id','nearest_transit_lines'].forEach(name => {
+    const el = body.querySelector(`[name="${name}"]`);
+    if (el) data[name] = el.value;
+  });
+
+  // Named inputs/selects/textareas
+  ['site_name','venue_capacity','location_description','company_address',
+   'company_activity_type','location_type','weather_sensitivity','seasonality',
+   'location_access_pattern','nearest_transit_stop'].forEach(name => {
+    const el = body.querySelector(`[name="${name}"]`);
+    if (el) data[name] = el.value;
+  });
+
+  // company_name = site_name for compatibility
+  data.company_name = data.site_name || data.company_name;
+
+  // Multi-select arrays expected by save.ts
+  data.primary_audience_1 = [data.primary_audience_1, data.primary_audience_2].filter(Boolean);
+  data.origin_city_ids = [data.origin_city_id_1, data.origin_city_id_2, data.origin_city_id_3].filter(Boolean);
+
+  try {
+    const res = await fetch('/api/profile/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const out = await res.json().catch(() => null);
+    if (res.ok && out?.ok) {
+      if (btn) btn.textContent = '✓ Enregistré';
+      // Collapse after brief confirmation delay so user sees the tick
+      setTimeout(() => {
+        if (btn) { btn.textContent = 'Enregistrer ce site'; btn.disabled = false; }
+        if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
+        const cardId = `loc-card-${idx}`;
+        const bodyId = `loc-body-${idx}`;
+        collapseCard(idx, cardId, bodyId, data);
+      }, 900);
+    } else {
+      if (statusEl) { statusEl.textContent = out?.error || 'Erreur.'; statusEl.className = 'save-status status-err'; }
+      if (btn) { btn.textContent = 'Réessayer'; btn.disabled = false; }
+    }
+  } catch (_) {
+    if (statusEl) { statusEl.textContent = 'Erreur réseau.'; statusEl.className = 'save-status status-err'; }
+    if (btn) { btn.textContent = 'Réessayer'; btn.disabled = false; }
+  }
+};
+
+// ============================================================
+// DELETE LOCATION
+// ============================================================
+window.deleteLocation = async function(locationId, cardId) {
+  if (!confirm('Supprimer ce site ?')) return;
+  try {
+    const res = await fetch('/api/profile/location-delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ location_id: locationId }),
+    });
+    if (res.ok) {
+      const card = document.getElementById(cardId);
+      if (card) card.remove();
+    }
+  } catch (_) {}
+};
+
+// ============================================================
+// SET AS PRIMARY (placeholder — needs endpoint)
+// ============================================================
+window.setAsPrimary = function(locationId) {
+  alert('Fonctionnalité à implémenter — endpoint location-set-primary requis.');
+};
+
+// ============================================================
+// ADD SITE
+// ============================================================
+document.getElementById('addSiteBtn')?.addEventListener('click', function() {
+  const container = document.getElementById('locations-container');
+  const addBtn = document.getElementById('addSiteBtn');
+  if (!container || !addBtn) return;
+
+  // Close all existing cards
+  document.querySelectorAll('.loc-card').forEach(c => c.classList.remove('loc-expanded'));
+  document.querySelectorAll('.loc-body').forEach(b => { b.style.display = 'none'; });
+
+  const idx = document.querySelectorAll('.loc-card').length;
+  const cardId = `loc-card-${idx}`;
+  const bodyId = `loc-body-${idx}`;
+
+  const card = document.createElement('div');
+  card.className = 'loc-card loc-expanded';
+  card.id = cardId;
+  card.dataset.locationId = '';
+
+  card.innerHTML = `
+    <div class="loc-header" onclick="toggleLocCard('${cardId}','${bodyId}')">
+      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="transform:rotate(90deg)">
+        <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="loc-meta">
+        <div class="loc-name-row">
+          <span class="loc-name">Nouveau site</span>
+          <span class="loc-status is-incomplete" style="margin-left:auto">Profil incomplet · IA limitée</span>
+        </div>
+        <div class="loc-address"></div>
+      </div>
+    </div>
+    <div class="loc-body" id="${bodyId}" style="display:block">
+      <input type="hidden" name="mode" value="create" />
+      <input type="hidden" id="city-id-1-${idx}" name="origin_city_id_1" value="" />
+      <input type="hidden" id="city-id-2-${idx}" name="origin_city_id_2" value="" />
+      <input type="hidden" id="city-id-3-${idx}" name="origin_city_id_3" value="" />
+      <input type="hidden" id="city-label-1-${idx}" name="origin_city_label_1" value="" />
+      <input type="hidden" id="city-label-2-${idx}" name="origin_city_label_2" value="" />
+      <input type="hidden" id="city-label-3-${idx}" name="origin_city_label_3" value="" />
+      <input type="hidden" id="oh-json-${idx}" name="operating_hours" value="" />
+      <input type="hidden" id="aud-1-${idx}" name="primary_audience_1" value="" />
+      <input type="hidden" id="aud-2-${idx}" name="primary_audience_2" value="" />
+      <input type="hidden" id="et-1-${idx}" name="event_type_1" value="" />
+      <input type="hidden" id="et-2-${idx}" name="event_type_2" value="" />
+      <input type="hidden" id="et-3-${idx}" name="event_type_3" value="" />
+      <input type="hidden" id="metro-id-${idx}" name="nearest_transit_stop_id" value="" />
+      <input type="hidden" id="metro-lines-${idx}" name="nearest_transit_lines" value="" />
+
+      <div class="field-row" style="margin-top:16px">
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Nom du site <span class="field-req">*</span></label>
+          <input type="text" name="site_name" required class="field-input" placeholder="" />
+        </div>
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Capacité d'accueil</label>
+          <input type="number" name="venue_capacity" min="1" placeholder="personnes" class="field-input" />
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Description du site</label>
+        <textarea name="location_description" rows="2" placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea"></textarea>
+        <p class="field-hint">Facultatif.</p>
+      </div>
+      <div class="field-group" style="position:relative">
+        <label class="field-label">Adresse professionnelle</label>
+        <input type="text" name="company_address" autocomplete="off" class="field-input addr-autocomplete" data-idx="${idx}" placeholder="" />
+        <div class="addr-suggestions" id="addr-suggestions-${idx}" style="position:absolute;z-index:150;background:#fff;border:1px solid #e5e7eb;border-radius:6px;width:100%;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.06);" data-idx="${idx}"></div>
+        <p class="field-hint">Commencez à taper, puis sélectionnez une proposition.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Secteur d'activité <span class="field-req">*</span></label>
+        <div class="field-select-wrap">
+          <select name="company_activity_type" required class="field-select">
+            <option value="">Sélectionner…</option>
+            <option value="non_profit">Associatif & Non lucratif</option>
+            <option value="wellness">Bien-être & Fitness</option>
+            <option value="cinema_theatre">Cinéma & Théâtre</option>
+            <option value="commercial">Commerce & Retail</option>
+            <option value="institutional">Collectivités & Secteur public</option>
+            <option value="culture">Culture & Patrimoine</option>
+            <option value="family">Éducation & Enseignement</option>
+            <option value="live_event">Événementiel</option>
+            <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+            <option value="food_nightlife">Restauration & Bars</option>
+            <option value="science_innovation">Sciences & Innovation</option>
+            <option value="pro_event">Salons & Événements pro</option>
+            <option value="sport">Sports & Loisirs actifs</option>
+            <option value="transport_mobility">Transport & Mobilité locale</option>
+            <option value="outdoor_leisure">Tourisme & Loisirs</option>
+            <option value="nightlife">Vie nocturne</option>
+            <option value="unknown">Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Types d'événements organisés <span class="field-req">*</span></label>
+        <div class="pill-group" data-pill-group="evt-${idx}" data-pill-max="3">
+          <span class="pill" data-group="evt-${idx}" data-value="concert">Concert / Spectacle</span>
+          <span class="pill" data-group="evt-${idx}" data-value="press_conf">Conférence de presse</span>
+          <span class="pill" data-group="evt-${idx}" data-value="tasting">Dégustation / Soirée gastronomique</span>
+          <span class="pill" data-group="evt-${idx}" data-value="charity">Événement caritatif / Associatif</span>
+          <span class="pill" data-group="evt-${idx}" data-value="corporate">Événement corporate</span>
+          <span class="pill" data-group="evt-${idx}" data-value="sport_evt">Événement sportif</span>
+          <span class="pill" data-group="evt-${idx}" data-value="outdoor">Happening extérieur</span>
+          <span class="pill" data-group="evt-${idx}" data-value="inauguration">Inauguration</span>
+          <span class="pill" data-group="evt-${idx}" data-value="open_day">Journée portes ouvertes</span>
+          <span class="pill" data-group="evt-${idx}" data-value="product_launch">Lancement de produit</span>
+          <span class="pill" data-group="evt-${idx}" data-value="store_opening">Ouverture d'un point de vente</span>
+          <span class="pill" data-group="evt-${idx}" data-value="promo">Promotion en magasin / soldes</span>
+          <span class="pill" data-group="evt-${idx}" data-value="seminar">Séminaire / Formation</span>
+          <span class="pill" data-group="evt-${idx}" data-value="launch_party">Soirée de lancement</span>
+          <span class="pill" data-group="evt-${idx}" data-value="expo">Vernissage / Exposition</span>
+          <span class="pill" data-group="evt-${idx}" data-value="other">Autre</span>
+        </div>
+        <p class="pill-max-hint">Jusqu'à 3 types.</p>
+      </div>
+      <div class="field-row">
+        <div class="field-group" style="margin-top:14px">
+          <label class="field-label">Type de lieu <span class="field-req">*</span></label>
+          <div class="field-select-wrap">
+            <select name="location_type" required class="field-select">
+              <option value="">Sélectionner…</option>
+              <option value="outdoor">Espace extérieur</option>
+              <option value="indoor">Espace intérieur</option>
+              <option value="mixed">Espace mixte</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:14px">
+          <label class="field-label">Sensibilité météo <span class="field-req">*</span></label>
+          <div class="field-select-wrap">
+            <select name="weather_sensitivity" required class="field-select">
+              <option value="">Sélectionner…</option>
+              <option value="0">0 — Aucune (intérieur protégé)</option>
+              <option value="1">1 — Faible</option>
+              <option value="2">2 — Modérée</option>
+              <option value="3">3 — Élevée</option>
+              <option value="4">4 — Extrême (plein air)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group" style="margin-top:14px">
+          <label class="field-label">Saisonnalité</label>
+          <div class="field-select-wrap">
+            <select name="seasonality" class="field-select">
+              <option value="">Sélectionner…</option>
+              <option value="year_round">Toute l'année</option>
+              <option value="spring_summer">Printemps – Été (avr–sept)</option>
+              <option value="autumn_winter">Automne – Hiver (oct–mars)</option>
+              <option value="summer_only">Été uniquement (juin–août)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:14px">
+          <label class="field-label">Profil de déplacement <span class="field-req">*</span></label>
+          <div class="field-select-wrap">
+            <select name="location_access_pattern" required class="field-select">
+              <option value="">Sélectionner…</option>
+              <option value="public_transit">Transports en commun / Métro</option>
+              <option value="walking">À pied</option>
+              <option value="car">Voiture</option>
+              <option value="bike">Vélo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="field-group" style="position:relative">
+        <label class="field-label">Station de métro la plus proche</label>
+        <input type="text" name="nearest_transit_stop" autocomplete="off" class="field-input metro-autocomplete" data-idx="${idx}" placeholder="Rechercher une station…" />
+        <div class="city-dropdown" id="metro-suggestions-${idx}" data-idx="${idx}"></div>
+        <p class="field-hint">Tapez pour rechercher.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Audience, clientèle visée <span class="field-req">*</span></label>
+        <div class="pill-group" data-pill-group="aud-${idx}" data-pill-max="2">
+          <span class="pill" data-group="aud-${idx}" data-value="local">Public local / résidents</span>
+          <span class="pill" data-group="aud-${idx}" data-value="tourists">Touristes</span>
+          <span class="pill" data-group="aud-${idx}" data-value="mixed">Public mixte</span>
+          <span class="pill" data-group="aud-${idx}" data-value="professionals">Professionnels</span>
+          <span class="pill" data-group="aud-${idx}" data-value="students">Scolaires / étudiants</span>
+          <span class="pill" data-group="aud-${idx}" data-value="families">Familles</span>
+        </div>
+        <p class="pill-max-hint">Jusqu'à 2 audiences.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Villes d'origine clients <span class="field-req">*</span></label>
+        <div class="city-tag-field" id="city-tag-field-${idx}">
+          <div class="city-tags-row" id="city-tags-row-${idx}"></div>
+          <input type="text" class="city-search-input" id="city-search-${idx}" placeholder="Rechercher une ville…" autocomplete="off" data-idx="${idx}" />
+          <div class="city-dropdown" id="city-dropdown-${idx}"></div>
+        </div>
+        <p class="field-hint">Tapez pour rechercher · jusqu'à 3 villes · toute la France</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Horaires d'ouverture <span class="field-req">*</span></label>
+        <div class="schedule" id="schedule-${idx}">
+          ${['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].map((label, i) => {
+            const key = ['lun','mar','mer','jeu','ven','sam','dim'][i];
+            const weekend = i >= 5;
+            return `<div class="schedule-row sched-closed" id="sched-${idx}-${key}" data-idx="${idx}" data-day="${key}">
+              <span class="sched-day${weekend ? ' sched-weekend' : ''}">${label}</span>
+              <div class="sched-toggle" onclick="schedToggle(${idx},'${key}')"></div>
+              <div class="sched-times">
+                <input class="sched-time-input" type="text" pattern="[0-9]{2}:[0-9]{2}" maxlength="5" placeholder="09:00" value="09:00" data-idx="${idx}" data-day="${key}" data-type="open" onchange="schedUpdate(${idx})" />
+                <span class="sched-sep">→</span>
+                <input class="sched-time-input" type="text" pattern="[0-9]{2}:[0-9]{2}" maxlength="5" placeholder="22:00" value="22:00" data-idx="${idx}" data-day="${key}" data-type="close" onchange="schedUpdate(${idx})" />
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <button type="button" class="sched-apply-btn" onclick="schedApplyAll(${idx})">Appliquer les horaires du lundi à tous les jours</button>
+        <p class="field-hint" style="margin-top:4px">Les jours fermés sont exclus des recommandations IA.</p>
+      </div>
+      <div class="loc-actions">
+        <button type="button" class="loc-btn-danger" onclick="this.closest('.loc-card').remove()">Annuler</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <button type="button" class="loc-btn-save" data-idx="${idx}" onclick="saveLocation(${idx})">Enregistrer ce site</button>
+          <div class="save-status" id="loc-save-status-${idx}"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(card);
+
+  // Init pill max for new card
+  card.querySelectorAll('[data-pill-group]').forEach(pg => {
+    PILL_MAX[pg.dataset.pillGroup] = parseInt(pg.dataset.pillMax || '3', 10);
+  });
+
+  // Init city data
+  window._cityData[idx] = [];
+  renderCityTags(idx);
+
+  // Init schedule
+  schedUpdate(idx);
+
+  // Scroll to new card
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ============================================================
+// PASSWORD MODAL
+// ============================================================
+const pwdModal = document.getElementById('pwd-modal');
+document.getElementById('pwd-open')?.addEventListener('click', () => { if (pwdModal) pwdModal.style.display = 'flex'; });
+document.getElementById('pwd-modal-close')?.addEventListener('click', closeModal);
+pwdModal?.addEventListener('click', e => { if (e.target === pwdModal) closeModal(); });
+
+function closeModal() {
+  if (pwdModal) pwdModal.style.display = 'none';
+  ['pwd-current','pwd-new','pwd-confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const s = document.getElementById('pwd-status');
+  if (s) s.textContent = '';
+}
+
+document.getElementById('pwd-submit')?.addEventListener('click', async () => {
+  const current = document.getElementById('pwd-current')?.value;
+  const newPwd = document.getElementById('pwd-new')?.value;
+  const confirm = document.getElementById('pwd-confirm')?.value;
+  const status = document.getElementById('pwd-status');
+  const btn = document.getElementById('pwd-submit');
+
+  if (!current || !newPwd || !confirm) { if(status){status.style.color='#dc2626';status.textContent='Tous les champs sont requis.';} return; }
+  if (newPwd !== confirm) { if(status){status.style.color='#dc2626';status.textContent='Les mots de passe ne correspondent pas.';} return; }
+  if (newPwd.length < 8) { if(status){status.style.color='#dc2626';status.textContent='Minimum 8 caractères.';} return; }
+
+  if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  if(status) status.textContent='';
+
+  try {
+    const res = await fetch('/api/profile/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: current, new_password: newPwd }),
+    });
+    const out = await res.json().catch(() => null);
+    if (res.ok) {
+      if(status){status.style.color='#059669';status.textContent='Mot de passe modifié.';}
+      setTimeout(closeModal, 1500);
+    } else {
+      if(status){status.style.color='#dc2626';status.textContent=out?.error||'Erreur.';}
+    }
+  } catch (_) {
+    if(status){status.style.color='#dc2626';status.textContent='Erreur réseau.';}
+  } finally {
+    if(btn){btn.disabled=false;btn.textContent='Enregistrer';}
+  }
+});
+</script>
 
 </BaseLayout>

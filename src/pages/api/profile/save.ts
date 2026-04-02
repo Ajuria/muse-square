@@ -213,25 +213,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const nearest_transit_stop = getOptionalString(fd, "nearest_transit_stop");
     const nearest_transit_stop_id = getOptionalString(fd, "nearest_transit_stop_id");
     const nearest_transit_lines = getOptionalString(fd, "nearest_transit_lines");
+    const site_name = getOptionalString(fd, "site_name");
+    const location_description = getOptionalString(fd, "location_description");
+    const venue_capacity = fd.get("venue_capacity") ? Number(fd.get("venue_capacity")) : null;
+    const event_type_1 = getOptionalString(fd, "event_type_1");
+    const event_type_2 = getOptionalString(fd, "event_type_2");
+    const event_type_3 = getOptionalString(fd, "event_type_3");
+    const weather_sensitivity = fd.get("weather_sensitivity") ? Number(fd.get("weather_sensitivity")) : null;
+    const seasonality = getOptionalString(fd, "seasonality");
+    const main_event_objective = getOptionalString(fd, "main_event_objective");
+    const operating_hours = getOptionalString(fd, "operating_hours");
 
     // --- Multi-selects (limits enforced; preserve all slots in schema) ---
     const audiences = getAllStrings(fd, "primary_audience_1");
-    if (audiences.length < 1) {
-      throw new HttpError(400, "Missing or invalid field: primary_audience_1 (select at least 1 audience)");
-    }
     if (audiences.length > 2) {
       throw new HttpError(400, "Too many audiences selected (max 2)");
     }
+    const hasAudiences = audiences.length > 0;
     const primary_audience_1 = audiences[0] ?? null;
     const primary_audience_2 = audiences[1] ?? null;
 
     const originCities = getAllStrings(fd, "origin_city_ids");
-    if (originCities.length < 1) {
-      throw new HttpError(400, "Missing or invalid field: origin_city_ids (select at least 1 city)");
-    }
     if (originCities.length > 3) {
       throw new HttpError(400, "Too many origin cities selected (max 3)");
     }
+    const hasOriginCities = originCities.length > 0;
     const origin_city_id_1 = originCities[0] ?? null;
     const origin_city_id_2 = originCities[1] ?? null;
     const origin_city_id_3 = originCities[2] ?? null;
@@ -391,7 +397,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         first_name = @first_name,
         last_name = @last_name,
         position = @position,
-        company_name = @company_name,
+        company_name = IF(@company_name IS NULL, company_name, @company_name),
         company_address = @company_address,
         company_address_key = @company_address_key,
         city_id =
@@ -422,14 +428,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
         nearest_transit_stop = @nearest_transit_stop,
         nearest_transit_stop_id = @nearest_transit_stop_id,
         nearest_transit_lines = @nearest_transit_lines,
-        primary_audience_1 = @primary_audience_1,
-        primary_audience_2 = @primary_audience_2,
-        origin_city_id_1 = @origin_city_id_1,
-        origin_city_id_2 = @origin_city_id_2,
-        origin_city_id_3 = @origin_city_id_3,
-        origin_city_label_1 = @origin_city_label_1,
-        origin_city_label_2 = @origin_city_label_2,
-        origin_city_label_3 = @origin_city_label_3,
+        primary_audience_1 = IF(@hasAudiences, @primary_audience_1, primary_audience_1),
+        primary_audience_2 = IF(@hasAudiences, @primary_audience_2, primary_audience_2),
+        origin_city_id_1 = IF(@hasOriginCities, @origin_city_id_1, origin_city_id_1),
+        origin_city_id_2 = IF(@hasOriginCities, @origin_city_id_2, origin_city_id_2),
+        origin_city_id_3 = IF(@hasOriginCities, @origin_city_id_3, origin_city_id_3),
+        origin_city_label_1 = IF(@hasOriginCities, @origin_city_label_1, origin_city_label_1),
+        origin_city_label_2 = IF(@hasOriginCities, @origin_city_label_2, origin_city_label_2),
+        origin_city_label_3 = IF(@hasOriginCities, @origin_city_label_3, origin_city_label_3),
+        site_name = @site_name,
+        location_description = @location_description,
+        venue_capacity = @venue_capacity,
+        event_type_1 = @event_type_1,
+        event_type_2 = @event_type_2,
+        event_type_3 = @event_type_3,
+        weather_sensitivity = @weather_sensitivity,
+        seasonality = @seasonality,
+        operating_hours = @operating_hours,
         updated_at = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
         clerk_user_id,
@@ -465,6 +480,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
         origin_city_label_1,
         origin_city_label_2,
         origin_city_label_3,
+        site_name,
+        location_description,
+        venue_capacity,
+        event_type_1,
+        event_type_2,
+        event_type_3,
+        weather_sensitivity,
+        seasonality,
+        operating_hours,
         created_at,
         updated_at
       ) VALUES (
@@ -501,6 +525,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @origin_city_label_1,
         @origin_city_label_2,
         @origin_city_label_3,
+        @site_name,
+        @location_description,
+        @venue_capacity,
+        @event_type_1,
+        @event_type_2,
+        @event_type_3,
+        @weather_sensitivity,
+        @seasonality,
+        @operating_hours,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
       )
@@ -539,6 +572,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         origin_city_label_1,
         origin_city_label_2,
         origin_city_label_3,
+        hasAudiences,
+        hasOriginCities,
+        site_name,
+        location_description,
+        venue_capacity,
+        event_type_1,
+        event_type_2,
+        event_type_3,
+        weather_sensitivity,
+        seasonality,
+        main_event_objective,
+        operating_hours,
     };
 
     // BigQuery needs explicit param types when any value is null
@@ -575,9 +620,44 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocode_provider: "STRING",
       company_geocoded_at: "TIMESTAMP",
       company_geocode_status: "STRING",
+      site_name: "STRING",
+      location_description: "STRING",
+      venue_capacity: "INT64",
+      event_type_1: "STRING",
+      event_type_2: "STRING",
+      event_type_3: "STRING",
+      weather_sensitivity: "INT64",
+      seasonality: "STRING",
+      main_event_objective: "STRING",
+      operating_hours: "STRING",
+      hasAudiences: "BOOL",
+      hasOriginCities: "BOOL",
     };
 
     await bigquery.query({ query: mergeQuery, location: BQ_LOCATION, params, types });
+
+    // Propagate user-level fields to all rows for this user
+    await bigquery.query({
+      query: `
+        UPDATE ${fullTable}
+        SET
+          first_name = IF(@first_name IS NULL, first_name, @first_name),
+          last_name = IF(@last_name IS NULL, last_name, @last_name),
+          position = IF(@position IS NULL, position, @position),
+          main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
+          updated_at = CURRENT_TIMESTAMP()
+        WHERE clerk_user_id = @clerk_user_id
+      `,
+      location: BQ_LOCATION,
+      params: { clerk_user_id, first_name, last_name, position, main_event_objective },
+      types: {
+        clerk_user_id: "STRING",
+        first_name: "STRING",
+        last_name: "STRING",
+        position: "STRING",
+        main_event_objective: "STRING",
+      },
+    });
 
     // Immediately sync client_industry_code to dim_client_location
     if (company_activity_type) {
@@ -650,6 +730,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         origin_city_id_1,
         origin_city_id_2,
         origin_city_id_3,
+        site_name,
+        location_description,
+        venue_capacity,
+        event_type_1,
+        event_type_2,
+        event_type_3,
+        weather_sensitivity,
+        seasonality,
+        main_event_objective,
+        operating_hours,
         created_at,
         updated_at
       FROM ${fullTable}

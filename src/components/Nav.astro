@@ -148,8 +148,8 @@ const isAppShell = isApp;
                   </svg>
                 </button>
                 <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
-                  <a href="/profile" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "text-black" : "text-gray-500"}`}>Profil</a>
-                  <a href="/notifications" class={`block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 ${Astro.url.pathname === "/notifications" ? "text-black" : "text-gray-500"}`}>Alertes</a>
+                  <a href="/profile" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Mes sites</a>
+                  <a href="/notifications" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Alertes</a>
                   <Show when="signed-in" client:load>
                     <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Se déconnecter</button>
                   </Show>
@@ -222,7 +222,7 @@ const isAppShell = isApp;
           </li>
 
           <li>
-            <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Profil</a>
+            <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Mes sites</a>
           </li>
           <li>
             <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Alertes</a>
@@ -303,7 +303,8 @@ const isAppShell = isApp;
       var open = false;
       function show() { dropdown.style.display = 'block'; chevron && (chevron.style.transform = 'rotate(180deg)'); open = true; }
       function hide() { dropdown.style.display = 'none'; chevron && (chevron.style.transform = 'rotate(0deg)'); open = false; }
-      btn.addEventListener('click', function(e) { e.stopPropagation(); open ? hide() : show(); });
+      function hideCompte() { var d = document.getElementById('compte-dropdown'); var c = document.getElementById('compte-chevron'); if (d) d.style.display = 'none'; if (c) c.style.transform = 'rotate(0deg)'; }
+      btn.addEventListener('click', function(e) { e.stopPropagation(); if (open) { hide(); } else { hideCompte(); show(); } });
       document.addEventListener('click', function(e) { var item = document.getElementById('piloter-nav-item'); if (item && !item.contains(e.target)) hide(); });
       document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hide(); });
     })();
@@ -332,7 +333,11 @@ const isAppShell = isApp;
 
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        open ? hide() : show();
+        if (open) { hide(); } else {
+          var pd = document.getElementById('piloter-dropdown'); var pc = document.getElementById('piloter-chevron');
+          if (pd) pd.style.display = 'none'; if (pc) pc.style.transform = 'rotate(0deg)';
+          show();
+        }
       });
 
       document.addEventListener('click', function (e) {
