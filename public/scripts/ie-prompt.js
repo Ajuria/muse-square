@@ -25,6 +25,10 @@ if (!root) {
     last: null, // { horizon, intent, used_dates[], top_dates[], month_redirect_url, selected_date }
   };
 
+  // Conversation history for multi-turn memory
+  // Each entry: { role: "user" | "assistant", content: string }
+  let CONVERSATION_HISTORY = [];
+
   function pickTopDatesMinimal(top_dates) {
     if (!Array.isArray(top_dates)) return [];
     return top_dates
@@ -122,6 +126,28 @@ if (!root) {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function renderConfirmationHtml(out) {
+    const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
+    const params = out.params || {};
+    const confirmed_q = escapeHtml(JSON.stringify(out.confirmed_q || ""));
+
+    const paramLines = Object.entries(params)
+      .filter(([, v]) => v !== null && v !== undefined && v !== "")
+      .map(([k, v]) => `<div class="ie-confirm-param"><span class="ie-confirm-key">${escapeHtml(k)}</span><span class="ie-confirm-val">${escapeHtml(String(v))}</span></div>`)
+      .join("");
+
+    return `
+      <div class="ie-confirm-block">
+        <div class="ie-confirm-msg">${msg}</div>
+        <div class="ie-confirm-params">${paramLines}</div>
+        <div class="ie-confirm-actions">
+          <button class="ie-confirm-yes" data-confirmed-q='${JSON.stringify(out.confirmed_q || "")}' data-confirmed-params='${JSON.stringify(params)}'>Confirmer →</button>
+          <button class="ie-confirm-no">Modifier</button>
+        </div>
+      </div>
+    `;
   }
 
   function renderAiOutputHtml(out) {
@@ -314,9 +340,9 @@ if (!root) {
     `;
   }
 
-  async function submitQuestion() {
+  async function submitQuestion(overrideQ, confirmedParams) {
     const ta = qs("ie-prompt-input");
-    const q = (ta && ta.value ? ta.value : "").trim();
+    const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
 
     const btn = qs("ie-prompt-submit-btn");
@@ -337,6 +363,9 @@ if (!root) {
     autoResizeTextarea(ta);
     syncInputWrapHeight();
 
+    // Append user turn to history before sending
+    CONVERSATION_HISTORY.push({ role: "user", content: q });
+
     const aiBubble = appendMsg("ai", "", "is-loading");
     setBubbleHtml(aiBubble, `<div style="display:flex;justify-content:center;width:100%;min-width:0;box-sizing:border-box;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`);
 
@@ -346,7 +375,9 @@ if (!root) {
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({
           q,
-          thread_context: THREAD_CONTEXT
+          thread_context: THREAD_CONTEXT,
+          conversation_history: CONVERSATION_HISTORY.slice(-12),
+          confirmed_params: confirmedParams || null
         })
       });
 
@@ -355,6 +386,14 @@ if (!root) {
       console.log("[ie-prompt] API out", out);
 
       updateThreadContextFromResponse(out);
+
+      // Append assistant turn to history
+      const assistantText = (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim())
+        ? out.ai.output.answer.trim()
+        : (typeof out?.ai?.output?.headline === "string" ? out.ai.output.headline.trim() : "");
+      if (assistantText) {
+        CONVERSATION_HISTORY.push({ role: "assistant", content: assistantText });
+      }
 
       if (out?.ai && out.ai.ok === false && !out?.ai?.output) {
         const errText =
@@ -377,11 +416,20 @@ if (!root) {
         return;
       }
 
+      // Handle parameter confirmation flow
+      if (out.type === "confirmation") {
+        if (aiBubble) {
+          aiBubble.className = "ie-bubble-none";
+          setBubbleHtml(aiBubble, renderConfirmationHtml(out));
+        }
+        return;
+      }
+
       const ok = out.ok === true || out.ok === "true";
       if (!ok) {
         if (aiBubble) {
           aiBubble.className = "ie-bubble is-error";
-          aiBubble.textContent = out.error || "Erreur lors de l’analyse.";
+          aiBubble.textContent = out.error || "Erreur lors de l'analyse.";
         }
         return;
       }
@@ -417,8 +465,22 @@ if (!root) {
     }
   }
 
-  // Bind suggestion cards
-  document.querySelectorAll(".ie-prompt-card").forEach((card) => {
+  // Delegate confirmation button clicks
+  document.addEventListener("click", (e) => {
+    const yes = e.target.closest(".ie-confirm-yes");
+    const no = e.target.closest(".ie-confirm-no");
+    if (yes) {
+      const confirmedQ = yes.dataset.confirmedQ || "";
+      const confirmedParams = JSON.parse(yes.dataset.confirmedParams || "{}");
+      // Re-submit with confirmed params bypassing extraction
+      submitQuestion(confirmedQ, confirmedParams);
+    } else if (no) {
+      qs("ie-prompt-input")?.focus();
+    }
+  });
+
+  // Bind suggestion cards (exclude finder card)
+  document.querySelectorAll(".ie-prompt-card:not(#ie-finder-card)").forEach((card) => {
     card.addEventListener("click", (e) => {
       e.preventDefault();
       const idx = Number(card.getAttribute("data-suggestion-idx") || "0");
@@ -446,6 +508,110 @@ if (!root) {
       autoResizeTextarea(ta);
       syncInputWrapHeight();
     });
+
+  // ---- Finder form ----
+    const finderCard = document.getElementById("ie-finder-card");
+    const finderChip = document.getElementById("ie-finder-chip");
+    const finderForm = document.getElementById("ie-finder-form");
+    const finderChevron = document.getElementById("ie-finder-chevron");
+    const finderError = document.getElementById("ie-finder-error");
+    const finderSubmit = document.getElementById("ie-finder-submit");
+
+    let finderOpen = false;
+
+    function toggleFinderForm() {
+      finderOpen = !finderOpen;
+      if (finderForm) finderForm.style.display = finderOpen ? "block" : "none";
+      if (finderChevron) finderChevron.style.transform = finderOpen ? "rotate(180deg)" : "rotate(0deg)";
+    }
+
+    if (finderCard) {
+      finderCard.addEventListener("click", (e) => {
+        e.preventDefault();
+        toggleFinderForm();
+      });
+    }
+
+    if (finderChip) {
+      finderChip.addEventListener("click", (e) => {
+        e.preventDefault();
+        toggleFinderForm();
+        if (finderOpen && finderForm) {
+          finderForm.scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
+
+    function setFinderError(msg) {
+      if (!finderError) return;
+      finderError.textContent = msg;
+      finderError.style.display = msg ? "block" : "none";
+    }
+
+    async function submitFinder() {
+      setFinderError("");
+
+      const start = document.getElementById("ie-finder-date-start")?.value ?? "";
+      const end = document.getElementById("ie-finder-date-end")?.value ?? "";
+      const weekday = document.getElementById("ie-finder-weekday")?.checked ?? true;
+      const weekend = document.getElementById("ie-finder-weekend")?.checked ?? true;
+      const exclSchool = document.getElementById("ie-finder-excl-school")?.checked ?? false;
+      const exclHolidays = document.getElementById("ie-finder-excl-holidays")?.checked ?? false;
+
+      if (!weekday && !weekend) { setFinderError("Sélectionnez au moins un type de jour."); return; }
+      if (!start || !end) { setFinderError("Renseignez la fenêtre de dates."); return; }
+      if (start > end) { setFinderError("La date de début doit être avant la date de fin."); return; }
+
+      if (finderSubmit) { finderSubmit.disabled = true; finderSubmit.textContent = "Recherche en cours…"; }
+
+      try {
+        const res = await fetch("/api/insight/find-dates", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({
+            date_start: start,
+            date_end: end,
+            allow_weekday: weekday,
+            allow_weekend: weekend,
+            exclude_school_holidays: exclSchool,
+            exclude_public_holidays: exclHolidays,
+          }),
+        });
+
+        const out = await res.json().catch(() => null);
+
+        if (!res.ok || !out?.ok) {
+          setFinderError(out?.error ?? `Erreur (${res.status})`);
+          return;
+        }
+
+        if (!out.dates_csv) {
+          setFinderError("Aucune date disponible pour ces critères.");
+          return;
+        }
+
+        sessionStorage.setItem("ms_finder_narrative", out.narrative ?? "");
+        sessionStorage.setItem("ms_finder_is_least_worst", out.is_least_worst ? "1" : "0");
+
+        window.location.href = `/app/insightevent/days?selected_dates=${encodeURIComponent(out.dates_csv)}&source=finder`;
+
+      } catch (e) {
+        setFinderError("Erreur réseau. Veuillez réessayer.");
+      } finally {
+        if (finderSubmit) { finderSubmit.disabled = false; finderSubmit.textContent = "Trouver les meilleures dates →"; }
+      }
+    }
+
+    if (finderSubmit) finderSubmit.addEventListener("click", submitFinder);
+
+    // Default dates
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+    const in30Str = in30.toISOString().slice(0, 10);
+    const dsEl = document.getElementById("ie-finder-date-start");
+    const deEl = document.getElementById("ie-finder-date-end");
+    if (dsEl && !dsEl.value) dsEl.value = todayStr;
+    if (deEl && !deEl.value) deEl.value = in30Str;
 
     syncInputWrapHeight();
   }

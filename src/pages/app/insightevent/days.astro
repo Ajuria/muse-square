@@ -115,13 +115,12 @@ const show_actions = has_selected_dates;
     }
   }
 
-  /* desktop → EXACTLY 3 CARDS */
   @media (min-width:1024px){
-    .ms-comp-cards{
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-    }
+  .ms-comp-cards{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
   }
+}
 
   .ms-comp-card{
     background:#fff;
@@ -4430,6 +4429,7 @@ const show_actions = has_selected_dates;
 
             </div>
             `;
+
           const chosenDate = savedItemId
             ? (MS._chosenDate || (params.get("selected_date") && params.get("selected_date") !== "__comparison__"
               ? normalizeYmd(params.get("selected_date"))

@@ -45,6 +45,7 @@ export async function runAIPackagerClaude(args: {
   row: Record<string, any>;
   aiLocationContextRow?: Record<string, any>;
   submode?: MonthSubMode; // required iff mode === "month"
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{
   ok: boolean;
   mode: Mode;
@@ -100,9 +101,20 @@ export async function runAIPackagerClaude(args: {
     }
   }
 
+  // Extract conversation history before allowlisting (not a semantic field)
+  const extracted_history: Array<{ role: "user" | "assistant"; content: string }> =
+    Array.isArray(row_enriched._conversation_history)
+      ? row_enriched._conversation_history
+      : (Array.isArray(args.conversationHistory) ? args.conversationHistory : []);
+
+  // Remove _conversation_history from row before allowlist check
+  const row_for_allowlist = Object.fromEntries(
+    Object.entries(row_enriched).filter(([k]) => k !== "_conversation_history")
+  );
+
   // ✅ Claude only sees allowlisted fields (plus jsonable coercion)
-  assertPayloadCoverage(row_enriched);
-  const payload: Record<string, any> = pickAllowedPayload(row_enriched);
+  assertPayloadCoverage(row_for_allowlist);
+  const payload: Record<string, any> = pickAllowedPayload(row_for_allowlist);
 
   /* -------------------------------------------------------------- */
   /* 2) Prompt + validator selection (authoritative) */
@@ -210,6 +222,7 @@ export async function runAIPackagerClaude(args: {
     temperature: 0,
     maxTokens: 2048,
     timeoutMs: 30_000,
+    conversationHistory: extracted_history.length > 0 ? extracted_history : args.conversationHistory,
   });
 
   if (!call.ok) {

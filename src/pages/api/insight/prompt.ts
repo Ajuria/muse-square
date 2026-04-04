@@ -1924,6 +1924,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const q = norm(qRaw);
     const top_k = resolveTopKFromText(qRaw);
 
+    // Multi-turn conversation history (V1)
+    // Shape: [{role: "user"|"assistant", content: string}]
+    const conversation_history: Array<{role: "user"|"assistant"; content: string}> =
+      Array.isArray(body?.conversation_history)
+        ? body.conversation_history
+            .filter((m: any) => (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string" && m.content.trim())
+            .slice(-12) // hard cap at 12 messages (6 turns)
+            .map((m: any) => ({ role: m.role as "user"|"assistant", content: String(m.content).trim() }))
+        : [];
+
     // ---- AUTH + CONTEXT (SOURCE OF TRUTH) ----
     // In prod: require Clerk locals.
     // In dev bypass: allow no Clerk session, but require thread_context.location_id.
@@ -2049,6 +2059,86 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Production guard: Selected Days is 1..7 in your UX. Prevent accidental abuse.
     if (dates.length > 7) {
       throw new Error("dates[] too large (max 7)");
+    }
+
+    // ----------------------------
+    // CONFIRMED PARAMS (V1) — bypass extraction when user already confirmed
+    // ----------------------------
+    const confirmed_params: Record<string, any> | null =
+      body?.confirmed_params && typeof body.confirmed_params === "object"
+        ? body.confirmed_params
+        : null;
+
+    const effective_venue_override: "outdoor" | "indoor" | "ambiguous" | null =
+      (confirmed_params?.exposition as "outdoor" | "indoor" | "ambiguous" | null) ??
+      detectVenueExposureOverride(qRaw);
+
+    const effective_weekend_only: boolean =
+      confirmed_params?.filter_weekend_only === true || wantsWeekendOnly(qRaw);
+
+    // ----------------------------
+    // PARAMETER EXTRACTION + CONFIRMATION (V1)
+    // Only runs on first submission (confirmed_params === null).
+    // Extracts structured params from free text and asks for confirmation
+    // when the question is ambiguous (month without year, outdoor flag, etc).
+    // ----------------------------
+    if (!confirmed_params) {
+      const qn_check = norm(qRaw);
+
+      // Detect month-only mentions without year (ambiguous)
+      const hasMonthNoYear =
+        /\b(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/i.test(qRaw) &&
+        !/\b20\d{2}\b/.test(qRaw);
+
+      // Detect outdoor/indoor mention
+      const venueOverride = detectVenueExposureOverride(qRaw);
+      const hasVenueFlag = venueOverride !== null;
+
+      // Detect top-k mention
+      const explicit_top_k = resolveTopKFromText(qRaw);
+
+      // Only confirm when the question resolves to month horizon AND has ambiguity
+      const needsConfirmation =
+        resolveHorizonFromText(qRaw) === "month" &&
+        hasMonthNoYear &&
+        !isEventLookupQuestion(qRaw);
+
+      if (needsConfirmation) {
+        // Resolve month for display
+        const monthMatch = qRaw.match(/\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b/i);
+        const monthName = monthMatch?.[1] ?? null;
+
+        // Resolve year: current year if month >= current month, else next year
+        const nowMonth = new Date().getUTCMonth() + 1;
+        const MONTHS_FR_MAP: Record<string, number> = {
+          janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5,
+          juin: 6, juillet: 7, aout: 8, août: 8, septembre: 9,
+          octobre: 10, novembre: 11, decembre: 12, décembre: 12,
+        };
+        const monthNum = monthName ? (MONTHS_FR_MAP[monthName.toLowerCase()] ?? null) : null;
+        const nowYear = new Date().getUTCFullYear();
+        const resolvedYear = monthNum ? (monthNum >= nowMonth ? nowYear : nowYear + 1) : nowYear;
+
+        const params: Record<string, any> = {
+          mois: monthName ? `${monthName} ${resolvedYear}` : "non détecté",
+          ...(hasVenueFlag ? { exposition: venueOverride } : {}),
+          ...(explicit_top_k !== 3 ? { top_k: explicit_top_k } : {}),
+          location_id,
+        };
+
+        return new Response(
+          JSON.stringify({
+            type: "confirmation",
+            confirmation_message: `Voici ce que j'ai compris de votre demande. Confirmez ou corrigez avant que j'interroge les données.`,
+            params,
+            confirmed_q: qRaw,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          }
+        );
+      }
     }
 
     const dateMentions = extractDateMentions(qRaw, selected_date.slice(0, 10));
@@ -2970,7 +3060,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
               location_id,
               window_start_date: ws,
               month_constraint_ym: monthConstraintYm ?? "",
-              filter_weekend_only: wantsWeekendOnly(qRaw),
+              filter_weekend_only: effective_weekend_only,
             })
           ),
           resolved_intent === "MOBILITY_UNAVAILABLE"
@@ -3123,16 +3213,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
             })),
             business_profile: {
               location_type: internal_context?.location_type ?? null,
+              company_activity_type: internal_context?.company_activity_type ?? null,
+              business_short_description: internal_context?.business_short_description ?? null,
               event_time_profile: internal_context?.event_time_profile ?? null,
               primary_audience_1: internal_context?.primary_audience_1 ?? null,
               primary_audience_2: internal_context?.primary_audience_2 ?? null,
+              main_event_objective: internal_context?.main_event_objective ?? null,
+              venue_capacity: internal_context?.venue_capacity ?? null,
             },
           };
 
           try {
             ai = await runAIPackagerClaude({
               mode: "v3_narrative",
-              row: narrative_input_mobility,
+              row: { ...narrative_input_mobility, _conversation_history: conversation_history },
             });
             producer = "v3_claude";
           } catch (e) {
@@ -3433,9 +3527,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
           major_realization_risk_driver: day_row?.major_realization_risk_driver ?? null,
           business_profile: {
             location_type: internal_context?.location_type ?? null,
+            company_activity_type: internal_context?.company_activity_type ?? null,
+            business_short_description: internal_context?.business_short_description ?? null,
             event_time_profile: internal_context?.event_time_profile ?? null,
             primary_audience_1: internal_context?.primary_audience_1 ?? null,
             primary_audience_2: internal_context?.primary_audience_2 ?? null,
+            main_event_objective: internal_context?.main_event_objective ?? null,
+            venue_capacity: internal_context?.venue_capacity ?? null,
           },
 
           user_event: saved_item_context ? {
@@ -3452,7 +3550,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ai = await runAIPackagerClaude({
             mode: "v3_narrative",
             submode: resolved_intent as any,
-            row: narrative_input_day,
+            row: { ...narrative_input_day, _conversation_history: conversation_history },
           });
           producer = "v3_claude";
         } catch (e) {
@@ -3699,16 +3797,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
           })),
           business_profile: {
             location_type: internal_context?.location_type ?? null,
+            company_activity_type: internal_context?.company_activity_type ?? null,
+            business_short_description: internal_context?.business_short_description ?? null,
             event_time_profile: internal_context?.event_time_profile ?? null,
             primary_audience_1: internal_context?.primary_audience_1 ?? null,
             primary_audience_2: internal_context?.primary_audience_2 ?? null,
+            main_event_objective: internal_context?.main_event_objective ?? null,
+            venue_capacity: internal_context?.venue_capacity ?? null,
           },
         };
 
         try {
           ai = await runAIPackagerClaude({
             mode: "v3_narrative",
-            row: narrative_input_compare,
+            row: { ...narrative_input_compare, _conversation_history: conversation_history },
           });
           producer = "v3_claude";
         } catch (e) {
@@ -4355,7 +4457,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     try {
       ai = await runAIPackagerClaude({
         mode: "v3_narrative",
-        row: narrative_input_v3,
+        row: { ...narrative_input_v3, _conversation_history: conversation_history },
       });
 
       producer = "v3_claude";

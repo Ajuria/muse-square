@@ -81,19 +81,50 @@ if (!location_id) {
             </div>
           </a>
 
-          <a href="#" class="ie-prompt-card" data-suggestion-idx="2">
+          <a href="#" class="ie-prompt-card" id="ie-finder-card" data-suggestion-idx="2">
             <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:white;"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Quels risques menacent mon ouverture de point de vente vendredi ?</p>
+              <p class="ie-prompt-card-text">Trouver les meilleures dates pour un événement</p>
             </div>
-            <div class="ie-prompt-card-arrow">
+            <div class="ie-prompt-card-arrow" id="ie-finder-chevron">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </div>
           </a>
+
+          <div id="ie-finder-form" style="display:none;background:#f8f9fa;border:1px solid rgba(0,0,0,0.08);padding:20px;margin-top:-10px;">
+            <div style="margin-bottom:16px;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Fenêtre</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input type="date" id="ie-finder-date-start" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
+                <span style="font-size:13px;color:#9ca3af;">→</span>
+                <input type="date" id="ie-finder-date-end" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+              <div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Jours</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekday" checked style="width:16px;height:16px;cursor:pointer;"> Semaine</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekend" checked style="width:16px;height:16px;cursor:pointer;"> Week-end</label>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Exclusions</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-school" checked style="width:16px;height:16px;cursor:pointer;"> Vacances scolaires</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-holidays" style="width:16px;height:16px;cursor:pointer;"> Jours fériés</label>
+                </div>
+              </div>
+            </div>
+            <div id="ie-finder-error" style="display:none;font-size:13px;color:#b91c1c;margin-bottom:12px;padding:8px 12px;background:#fef2f2;border-radius:6px;"></div>
+            <button id="ie-finder-submit" type="button" style="width:100%;background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">
+              Trouver les meilleures dates →
+            </button>
+          </div>
         </section>
 
         <section id="ie-thread" aria-live="polite" hidden>
@@ -119,7 +150,16 @@ if (!location_id) {
             </svg>
           </button>
         </div>
+        <div id="ie-prompt-chips" style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button id="ie-finder-chip" type="button" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
+            Trouver mes dates
+          </button>
+          <a href="/app/insightevent/month" style="display:flex;align-items:center;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;text-decoration:none;">Mois →</a>
+          <a href="/app/insightevent/days" style="display:flex;align-items:center;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;text-decoration:none;">Comparer →</a>
+        </div>
       </div>
+    </div>
 
       <!-- Shared bottom navigation -->
       <InsightBottomBar active="prompt" showActions={false} disableDays={true} />
@@ -540,6 +580,22 @@ if (!location_id) {
       }
 
       .ie-verdict-plain { font-size: 13px; color: var(--color-text-primary); margin-bottom: 10px; line-height: 1.6; }
+
+      .ie-confirm-block { border: 1px solid #B5D4F4; border-radius: 8px; padding: 14px 16px; background: #F4F8FE; margin-bottom: 4px; }
+      .ie-confirm-msg { font-size: 15px; color: #111827; margin-bottom: 10px; line-height: 1.5; }
+      .ie-confirm-params { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+      .ie-confirm-param { display: flex; gap: 8px; font-size: 13px; }
+      .ie-confirm-key { color: #6b7280; font-weight: 500; min-width: 140px; }
+      .ie-confirm-val { color: #111827; font-weight: 600; }
+      .ie-confirm-actions { display: flex; gap: 10px; }
+      .ie-confirm-yes { background: #1D3BB3; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; }
+      .ie-confirm-no { background: transparent; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+      
+      #ie-prompt-chips button:hover,
+      #ie-prompt-chips a:hover {
+        border-color: rgba(0,0,0,0.2);
+        background: #f9fafb;
+      }
 
     </style>
 
