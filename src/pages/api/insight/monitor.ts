@@ -65,7 +65,17 @@ export const GET: APIRoute = async ({ url }) => {
         region_name,
         nearest_transit_stop_name,
         nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name,
-        nearest_transit_stop_distance_m
+        nearest_transit_stop_distance_m,
+        is_primary,
+        site_name,
+        venue_capacity,
+        event_type_1,
+        event_type_2,
+        event_type_3,
+        weather_sensitivity,
+        seasonality,
+        main_event_objective,
+        operating_hours
       FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\`
       WHERE location_id = @location_id
       LIMIT 1
@@ -120,6 +130,7 @@ export const GET: APIRoute = async ({ url }) => {
         -- Competition (total)
         competition_presence_flag,
         events_within_500m_count,
+        events_within_1km_count,
         events_within_5km_count,
         events_within_10km_count,
         events_within_50km_count,
@@ -485,6 +496,7 @@ export const GET: APIRoute = async ({ url }) => {
 
         // Raw scores for context section
         events_within_500m_count: r.events_within_500m_count ?? 0,
+        events_within_1km_count:  r.events_within_1km_count  ?? 0,
         events_within_5km_count:  r.events_within_5km_count  ?? 0,
         events_within_10km_count: r.events_within_10km_count ?? 0,
         events_within_50km_count: r.events_within_50km_count ?? 0,
@@ -509,6 +521,10 @@ export const GET: APIRoute = async ({ url }) => {
         delta_att_events_pct:       r.delta_att_events_pct       ?? 0,
         delta_att_mobility_pct:     r.delta_att_mobility_pct     ?? 0,
         delta_ops_mobility_car_pct: r.delta_ops_mobility_car_pct ?? 0,
+
+        // Primary driver
+        primary_score_driver_label: r.primary_score_driver_label ?? null,
+        primary_driver_confidence:  r.primary_driver_confidence  ?? null,
         lvl_wind:                   r.lvl_wind                   ?? 0,
         lvl_rain:                   r.lvl_rain                   ?? 0,
         lvl_snow:                   r.lvl_snow                   ?? 0,
@@ -559,6 +575,16 @@ export const GET: APIRoute = async ({ url }) => {
             nearest_transit_stop_name: profile.nearest_transit_stop_name ?? null,
             nearest_transit_line_name: profile.nearest_transit_line_name ?? null,
             nearest_transit_stop_distance_m: profile.nearest_transit_stop_distance_m ?? null,
+            is_primary: profile.is_primary ?? null,
+            site_name: profile.site_name ?? null,
+            venue_capacity: profile.venue_capacity ?? null,
+            event_type_1: profile.event_type_1 ?? null,
+            event_type_2: profile.event_type_2 ?? null,
+            event_type_3: profile.event_type_3 ?? null,
+            weather_sensitivity: profile.weather_sensitivity ?? null,
+            seasonality: profile.seasonality ?? null,
+            main_event_objective: profile.main_event_objective ?? null,
+            operating_hours: profile.operating_hours ?? null,
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,

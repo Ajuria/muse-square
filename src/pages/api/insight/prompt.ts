@@ -1248,9 +1248,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const facts: Record<string, number | string | boolean | null> = {
       events_within_500m_count: toNumLocal(row?.events_within_500m_count) || null,
+      events_within_1km_count: toNumLocal(row?.events_within_1km_count) || null,
       events_within_5km_count: Number.isFinite(n5) ? n5 : null,
       events_within_10km_count: Number.isFinite(n10) ? n10 : null,
       events_within_50km_count: Number.isFinite(n50) ? n50 : null,
+      events_within_500m_same_bucket_count: toNumLocal(row?.events_within_500m_same_bucket_count) || null,
+      events_within_1km_same_bucket_count: toNumLocal(row?.events_within_1km_same_bucket_count) || null,
       events_within_5km_same_bucket_count: toNumLocal(row?.events_within_5km_same_bucket_count) || null,
       events_within_10km_same_bucket_count: toNumLocal(row?.events_within_10km_same_bucket_count) || null,
       pct_same_bucket_5km: toNumLocal(row?.pct_same_bucket_5km) || null,
@@ -1260,6 +1263,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     };
 
     const applicable =
+      facts.events_within_500m_count !== null ||      
+      facts.events_within_1km_count !== null ||
       facts.events_within_5km_count !== null ||
       facts.events_within_10km_count !== null ||
       facts.events_within_50km_count !== null;
@@ -4302,11 +4307,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       competition_context: {
         // Total event density (all industries)
         events_within_500m_count: winner?.events_within_500m_count ?? null,
+        events_within_1km_count: winner?.events_within_1km_count ?? null,
         events_within_5km_count: winner?.events_within_5km_count ?? null,
         events_within_10km_count: winner?.events_within_10km_count ?? null,
         events_within_50km_count: winner?.events_within_50km_count ?? null,
         // Same-industry-bucket density (direct competitors)
         events_within_500m_same_bucket_count: winner?.events_within_500m_same_bucket_count ?? null,
+        events_within_1km_same_bucket_count: winner?.events_within_1km_same_bucket_count ?? null,
         events_within_5km_same_bucket_count: winner?.events_within_5km_same_bucket_count ?? null,
         events_within_10km_same_bucket_count: winner?.events_within_10km_same_bucket_count ?? null,
         events_within_50km_same_bucket_count: winner?.events_within_50km_same_bucket_count ?? null,

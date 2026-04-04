@@ -1,9 +1,14 @@
-// msAsterContract.ts
-// Aster Contract = cross-page AI constitution (Prompt / Month / Days)
-// Page contracts must import and enforce these invariants verbatim.
-// No page-specific allowed-input lists. No page-specific output shapes.
+// Scope
+// This contract defines global, non-negotiable invariants for all Insight Event AI uses:
+// - Prompt page (interactive Q&A explorer)
+// - Month page (30-day narration)
+// - Selected Days page (Points clés comparison + per-day packaging)
+// - Monitor page (daily operational risk monitoring per saved event)
+// - Pulse page (daily multi-date operational briefing)
+// - Enrichment layer (competitor event intelligence, online-sourced facts only)
 
 export const MS_ASTER_CONTRACT_VERSION = "ms_aster_1.0.0";
+export const MS_ASTER_ENRICHMENT_PROMPT = `...`;
 
 export const MS_ASTER_CONTRACT = `
 MS ASTER CONTRACT (Core AI Constitution)

@@ -69,7 +69,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
   function getTopCompetitionEvents(day: any, location_context: any): TopEvent[] {
     const clientIndustry = location_context?.client_industry_code;
 
-    const buckets = ["top_events_500m", "top_events_5km", "top_events_10km", "top_events_50km"];
+    const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
 
     let pool: any[] = [];
     for (const k of buckets) {
@@ -809,7 +809,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     function computeTopCompetitionEvents(day: any, location_context: any): any[] {
       const clientIndustry = location_context?.client_industry_code;
 
-      const buckets = ["top_events_500m", "top_events_5km", "top_events_10km", "top_events_50km"];
+      const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
 
       let pool: any[] = [];
       for (const k of buckets) {
@@ -906,6 +906,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         },
         top_competition_events: computeTopCompetitionEvents(day, location_context),
         competition_context: {
+          events_within_500m_same_bucket_count: day?.events_within_500m_same_bucket_count ?? null,
+          events_within_1km_same_bucket_count: day?.events_within_1km_same_bucket_count ?? null,
           events_within_5km_same_bucket_count: day?.events_within_5km_same_bucket_count ?? null,
           events_within_10km_same_bucket_count: day?.events_within_10km_same_bucket_count ?? null,
           events_within_50km_same_bucket_count: day?.events_within_50km_same_bucket_count ?? null,

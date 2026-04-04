@@ -3807,9 +3807,9 @@ const show_actions = has_selected_dates;
                   Top 3 événements concurrents
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
-                  ${top3.map(e => {
+                  ${top3.map((e) => {
                     const title = e?.event_label || "Événement";
-                    const desc = e?.one_liner || "";
+                    const desc = e?.one_liner || e?.description || "";
                     const city = e?.city_name || "";
                     const dm = Number(e?.distance_m) || 0;
                     const kmLabel = dm ? (dm / 1000).toFixed(1) + " km" : "";

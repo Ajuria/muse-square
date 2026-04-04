@@ -55,6 +55,8 @@ window.location.href="/sign-in";
     <div id="sub-concurrence" style="display:flex;align-items:center;">
       <span id="filter-500m" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">500m</span>
       <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
+      <span id="filter-1km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">1km</span>
+      <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
       <span id="filter-5km" style="font-size:13px;font-weight:500;color:#111827;cursor:pointer;">5km</span>
       <span style="font-size:13px;color:#E5E7EB;margin:0 10px;">|</span>
       <span id="filter-10km" style="font-size:13px;font-weight:400;color:#9CA3AF;cursor:pointer;">10km</span>
@@ -216,6 +218,7 @@ html { padding-bottom: 0 !important; margin-bottom: 0 !important; }
   gap: 12px !important;
 }
 
+@keyframes ms-spin { to { transform: rotate(360deg); } }
 </style>
 
 <script is:inline define:vars={{ location_id, date }}>
@@ -225,7 +228,7 @@ if (new URLSearchParams(window.location.search).get("embed") === "1") {
 }
 
 let map
-let eventsLayer500m, eventsLayer5km, eventsLayer10km, eventsLayer50km
+let eventsLayer500m, eventsLayer1km, eventsLayer5km, eventsLayer10km, eventsLayer50km
 let roadLayer
 let subwayLayer
 
@@ -246,6 +249,7 @@ attribution:'© OpenStreetMap contributors'
 ).addTo(map)
 
 eventsLayer500m = L.layerGroup().addTo(map)
+eventsLayer1km  = L.layerGroup().addTo(map)
 eventsLayer5km  = L.layerGroup().addTo(map)
 eventsLayer10km = L.layerGroup().addTo(map)
 eventsLayer50km = L.layerGroup().addTo(map)
@@ -319,106 +323,183 @@ function bucketColor(bucket) {
   return { '500m': '#0F1F3D', '5km': '#4A7FA5', '10km': '#93b4cc', '50km': '#cbd5e1' }[bucket] ?? '#cbd5e1'
 }
 
-function renderEventList(items) {
-  const container = document.getElementById('map-list-events')
-  if (!container) return
+function escapeHtml(v) {
+  return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
 
-  const filtered = items.filter(e => e.event_label || e.title)
+function renderEventList(items) {
+  const container = document.getElementById('map-list-events');
+  if (!container) return;
+
+  const filtered = items.filter(e => (e.event_label || e.title) && e.signal_type !== 'mobility_disruption');
 
   if (filtered.length === 0) {
-    container.innerHTML = ''
-    return
+    container.innerHTML = '';
+    return;
   }
 
-  const visible = filtered.slice(0, 10)
-  const remaining = filtered.length - 10
-  container.innerHTML = visible.map((e, idx) => {
-    const num = idx + 1
-    const id = e.id ?? e.event_uid ?? Math.random().toString(36).slice(2)
-    e = { ...e, id, _num: num }
-    const color = 'var(--color-brand-blue)'
-    const desc = e.description || ''
-    const keywords = (e.keywords && e.keywords.trim())
-      ? e.keywords.split(',').slice(0, 3).map(k =>
-          `<span class="map-event-card__tag">${k.trim()}</span>`
-        ).join('')
-      : ''
-
+  function renderMapCard(e, idx) {
+    const desc = (e.description && e.description !== 'null') ? e.description : '';
+    const uid = String(e.event_uid || e.id || idx);
+    const panelId = `enrich-panel-map-${uid}`;
+    const descId = `enrich-desc-map-${uid}`;
     return `
-      <div class="map-event-card" style="--bucket-color:${color}">
-        <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:baseline;gap:12px;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#4A7FA5;flex:1;">${e.event_venue_name || ''}</span><span style="font-size:11.5px;color:#888;white-space:nowrap;flex-shrink:0;">${Math.round(e.distance_m)}m</span></div>
-        <div class="map-event-card__header">
-          <span class="map-event-card__label"><span class="map-event-card__num">${num}</span>${e.title ?? e.event_label}</span>
+      <div style="border-left:3px solid var(--color-brand-blue);border-bottom:1px solid rgba(17,24,39,0.07);padding:16px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px;">
+          <span style="font-size:14px;font-weight:500;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
+          <span style="font-size:11px;color:#9CA3AF;white-space:nowrap;flex-shrink:0;">${e.distance_m ? Math.round(Number(e.distance_m)) + 'm' : ''}</span>
         </div>
-        ${keywords ? `<div class="map-event-card__tags">${keywords}</div>` : ''}
-        ${e.event_venue_address ? `<div class="map-event-card__venue-address">${e.event_venue_address}</div>` : ''}
-        <div class="map-event-card__desc is-clamped" id="desc-${e.id}">${desc}</div>
-        <button class="map-event-card__toggle" data-target="desc-${e.id}">Lire plus</button>
-      </div>`
-
-  }).join('') + (remaining > 0 ? `
-    <div style="border-top:0.5px solid #E5E7EB;padding:12px 16px;display:flex;justify-content:center;">
-      <button class="map-event-card__more" style="font-size:12px;color:#0b37e5;background:none;border:none;padding:0;cursor:pointer;font-weight:500;">+ ${remaining} autres résultats</button>
-    </div>` : '')
-
-container.querySelectorAll('.map-event-card__toggle').forEach(btn => {
-    const targetId = btn.getAttribute('data-target')
-    const desc = document.getElementById(targetId)
-    if (!desc) return
-    btn.addEventListener('click', () => {
-      const clamped = desc.classList.toggle('is-clamped')
-      btn.textContent = clamped ? 'Lire plus' : 'Lire moins'
-    })
-  })
-
-  const moreBtn = container.querySelector('.map-event-card__more')
-  if (moreBtn) {
-    moreBtn.addEventListener('click', () => {
-      const allItems = filtered.slice(10).map((e, idx) => {
-        const num = idx + 11
-        const id = e.id ?? e.event_uid ?? Math.random().toString(36).slice(2)
-        e = { ...e, id, _num: num }
-        const color = 'var(--color-brand-blue)'
-        const desc = e.description || ''
-        const keywords = (e.keywords && e.keywords.trim())
-          ? e.keywords.split(',').slice(0, 3).map(k =>
-              `<span class="map-event-card__tag">${k.trim()}</span>`
-            ).join('')
-          : ''
-        return `
-          <div class="map-event-card" style="--bucket-color:${color}">
-            <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:baseline;gap:12px;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#4A7FA5;flex:1;">${e.event_venue_name || ''}</span><span style="font-size:11.5px;color:#888;white-space:nowrap;flex-shrink:0;">${Math.round(e.distance_m)}m</span></div>
-        <div class="map-event-card__header">
-          <span class="map-event-card__label"><span class="map-event-card__num">${num}</span>${e.title ?? e.event_label}</span>
+        ${desc ? `<div id="${descId}" style="font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(desc)}</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;">
+          <a href="#"
+            style="font-size:13px;color:#1D3BB3;text-decoration:none;"
+            data-enrich-trigger
+            data-panel-id="${panelId}"
+            data-desc-id="${descId}"
+            data-event-label="${escapeHtml(e.title ?? e.event_label ?? '')}"
+            data-description="${escapeHtml(desc.slice(0, 500))}"
+            data-city-name="${escapeHtml(e.city_name || '')}"
+            data-venue-name="${escapeHtml(e.event_venue_name || '')}"
+            data-event-uid="${escapeHtml(e.event_uid || '')}"
+            data-city-id="${escapeHtml(e.city_id || '')}"
+            data-distance-m="${Math.round(Number(e.distance_m)) || ''}"
+            data-radius-bucket="${escapeHtml(e.radius_bucket || '')}"
+            data-industry-code="${escapeHtml(e.industry_code || '')}"
+            data-signal-type="${escapeHtml(e.signal_type || '')}">
+            En savoir plus →
+          </a>
         </div>
-        ${keywords ? `<div class="map-event-card__tags">${keywords}</div>` : ''}
-        ${e.event_venue_address ? `<div class="map-event-card__venue-address">${e.event_venue_address}</div>` : ''}
-            <div class="map-event-card__desc is-clamped" id="desc-${e.id}">${desc}</div>
-            <button class="map-event-card__toggle" data-target="desc-${e.id}">Lire plus</button>
-          </div>`
-      }).join('')
-      moreBtn.closest('div').insertAdjacentHTML('beforebegin', allItems)
-      moreBtn.closest('div').remove()
-      container.querySelectorAll('.map-event-card__toggle').forEach(btn => {
-        const targetId = btn.getAttribute('data-target')
-        const desc = document.getElementById(targetId)
-        if (!desc) return
-        btn.addEventListener('click', () => {
-          const clamped = desc.classList.toggle('is-clamped')
-          btn.textContent = clamped ? 'Lire plus' : 'Lire moins'
-        })
-      })
-    })
+        <div id="${panelId}" style="display:none;margin-top:10px;"></div>
+      </div>`;
   }
+
+  const visible = filtered.slice(0, 10);
+  const remaining = filtered.length - 10;
+
+  container.innerHTML = visible.map((e, idx) => renderMapCard(e, idx)).join('')
+    + (remaining > 0 ? `
+      <div id="map-more-btn-wrap" style="border-top:0.5px solid #E5E7EB;padding:12px 16px;display:flex;justify-content:center;">
+        <button style="font-size:12px;color:var(--color-brand-blue);background:none;border:none;padding:0;cursor:pointer;font-weight:500;">+ ${remaining} autres résultats</button>
+      </div>` : '');
+
+  wireEnrichLinks(container);
+
+  const moreWrap = container.querySelector('#map-more-btn-wrap');
+  if (moreWrap) {
+    moreWrap.querySelector('button').addEventListener('click', () => {
+      const extra = filtered.slice(10).map((e, idx) => renderMapCard(e, idx + 10)).join('');
+      moreWrap.insertAdjacentHTML('beforebegin', extra);
+      moreWrap.remove();
+      wireEnrichLinks(container);
+    });
+  }
+}
+
+function wireEnrichLinks(root) {
+  root.querySelectorAll("[data-enrich-trigger]").forEach(link => {
+    if (link._enrichWired) return;
+    link._enrichWired = true;
+    link.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      const signalType = link.getAttribute("data-signal-type");
+      if (signalType && signalType !== "event_competition") return;
+      const panelId = link.getAttribute("data-panel-id");
+      const descId = link.getAttribute("data-desc-id");
+      const panel = document.getElementById(panelId);
+      const descEl = document.getElementById(descId);
+      if (!panel) return;
+
+      if (panel.style.display !== "none" && panel.innerHTML.trim()) {
+        panel.style.display = "none";
+        if (descEl) descEl.style.cssText = "font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;";
+        link.textContent = "En savoir plus →";
+        return;
+      }
+
+      if (descEl) descEl.style.cssText = "font-size:13px;color:#374151;line-height:1.55;";
+      panel.style.display = "block";
+      panel.innerHTML = `<div style="font-size:12px;color:#9CA3AF;padding:8px 0;display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border:1.5px solid #E5E7EB;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Recherche en cours…</div>`;
+      link.textContent = "Réduire ↑";
+
+      try {
+        const res = await fetch("/api/insight/enrich-event", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            event_label: link.getAttribute("data-event-label"),
+            description: link.getAttribute("data-description"),
+            city_name: link.getAttribute("data-city-name"),
+            event_venue_name: link.getAttribute("data-venue-name"),
+            event_uid: link.getAttribute("data-event-uid") || null,
+            city_id: link.getAttribute("data-city-id") || null,
+            distance_m: Number(link.getAttribute("data-distance-m")) || null,
+            radius_bucket: link.getAttribute("data-radius-bucket") || null,
+            industry_code: link.getAttribute("data-industry-code") || null,
+          }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!json?.ok || !json?.data) throw new Error("Réponse invalide");
+        const d = json.data;
+        const rows = [
+          d.confirmed_dates      ? ["Dates",        d.confirmed_dates]      : null,
+          d.venue_name           ? ["Lieu",          d.venue_name]           : null,
+          d.venue_capacity       ? ["Capacité",      d.venue_capacity]       : null,
+          d.organizer            ? ["Organisateur",  d.organizer]            : null,
+          d.estimated_attendance ? ["Fréquentation", d.estimated_attendance] : null,
+        ].filter(Boolean);
+
+        const tags = d.audience_profile
+          ? d.audience_profile.split(/[,;]/).map(t => t.trim()).filter(Boolean)
+          : [];
+
+        panel.innerHTML = `
+          <div style="background:#F9FAFB;border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-top:4px;">
+            ${rows.length ? `
+              <div style="display:grid;grid-template-columns:1fr 1fr;">
+                ${rows.map(([label, val], i) => `
+                  <div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;${i % 2 === 0 && i < rows.length - 1 ? 'border-right:0.5px solid #F3F4F6;' : ''}">
+                    <div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">${label}</div>
+                    <div style="font-size:13px;color:#111827;line-height:1.4;">${String(val)}</div>
+                  </div>`).join('')}
+              </div>` : ''}
+            ${tags.length ? `
+              <div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">
+                <div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;">Audience</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                  ${tags.map(t => `<span style="font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;">${escapeHtml(t)}</span>`).join('')}
+                </div>
+              </div>` : ''}
+            ${d.business_takeaway ? `
+              <div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">
+                <div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:5px;">Impact pour votre activité</div>
+                <div style="font-size:12px;color:#111827;line-height:1.55;">${d.business_takeaway}</div>
+              </div>` : ''}
+            <div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:flex;align-items:center;gap:5px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;flex-shrink:0;"></span>
+                Agent IA · web
+              </div>
+              ${d.source_url ? `<a href="${d.source_url}" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Source officielle →</a>` : ''}
+            </div>
+          </div>`;
+        link.textContent = "Réduire ↑";
+      } catch {
+        panel.innerHTML = `<div style="font-size:12px;color:#B91C1C;padding:4px 0;">Données non disponibles.</div>`;
+        link.textContent = "En savoir plus →";
+        if (descEl) descEl.style.cssText = "font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;";
+      }
+    });
+  });
 }
 
 function renderEvents(items, meta) {
   eventsLayer500m.clearLayers()
+  eventsLayer1km.clearLayers()
   eventsLayer5km.clearLayers()
   eventsLayer10km.clearLayers()
   eventsLayer50km.clearLayers()
 
-const buckets = { '500m': [], '5km': [], '10km': [], '50km': [] }
+const buckets = { '500m': [], '1km': [], '5km': [], '10km': [], '50km': [] }
   items.forEach(e => {
     const b = e.radius_bucket || '50km'
     if (buckets[b]) buckets[b].push(e)
@@ -426,6 +507,7 @@ const buckets = { '500m': [], '5km': [], '10km': [], '50km': [] }
 
   console.log('BUCKETS', {
     '500m': buckets['500m'].length,
+    '1km':  buckets['1km'].length,
     '5km':  buckets['5km'].length,
     '10km': buckets['10km'].length,
     '50km': buckets['50km'].length,
@@ -436,6 +518,7 @@ const buckets = { '500m': [], '5km': [], '10km': [], '50km': [] }
   // Global numbering across all buckets for list
   const allVisible = [
     ...buckets['500m'],
+    ...buckets['1km'],
     ...buckets['5km'],
     ...buckets['10km'],
     ...buckets['50km'],
@@ -447,13 +530,14 @@ const buckets = { '500m': [], '5km': [], '10km': [], '50km': [] }
 
   const layerMap = {
     '500m': eventsLayer500m,
+    '1km':  eventsLayer1km,
     '5km':  eventsLayer5km,
     '10km': eventsLayer10km,
     '50km': eventsLayer50km,
   }
 
   let globalNum = 1
-  ;['500m','5km','10km','50km'].forEach(bucket => {
+  ;['500m','1km','5km','10km','50km'].forEach(bucket => {
     buckets[bucket].forEach(e => {
       const lat = Number(e.latitude)
       const lng = Number(e.longitude)
@@ -513,13 +597,15 @@ window.addEventListener("load", () => {
 
   const radiusIncludes = {
     'filter-500m': ['500m'],
-    'filter-5km':  ['500m', '5km'],
-    'filter-10km': ['500m', '5km', '10km'],
+    'filter-1km':  ['500m', '1km'],
+    'filter-5km':  ['500m', '1km', '5km'],
+    'filter-10km': ['500m', '1km', '5km', '10km'],
   }
 
   function applyRadius(id) {
     activeRadius = id
     setInactive(getEl('filter-500m'))
+    setInactive(getEl('filter-1km'))
     setInactive(getEl('filter-5km'))
     setInactive(getEl('filter-10km'))
     setActive(getEl(id))
@@ -527,6 +613,7 @@ window.addEventListener("load", () => {
   }
 
   getEl('filter-500m').addEventListener('click', () => applyRadius('filter-500m'))
+  getEl('filter-1km').addEventListener('click',  () => applyRadius('filter-1km'))
   getEl('filter-5km').addEventListener('click',  () => applyRadius('filter-5km'))
   getEl('filter-10km').addEventListener('click', () => applyRadius('filter-10km'))
 
@@ -612,12 +699,14 @@ window.addEventListener("load", () => {
   function applyIndustryFilter() {
     // Clear all event layers
     eventsLayer500m.clearLayers()
+    eventsLayer1km.clearLayers()
     eventsLayer5km.clearLayers()
     eventsLayer10km.clearLayers()
     eventsLayer50km.clearLayers()
 
     const layerMap = {
       '500m': eventsLayer500m,
+      '1km':  eventsLayer1km,
       '5km':  eventsLayer5km,
       '10km': eventsLayer10km,
       '50km': eventsLayer50km,
@@ -631,7 +720,7 @@ window.addEventListener("load", () => {
 
     // Re-render markers
     let num = 1
-    ;['500m','5km','10km','50km'].forEach(bucket => {
+    ;['500m','1km','5km','10km','50km'].forEach(bucket => {
       filtered.filter(e => e.radius_bucket === bucket).forEach(e => {
         const lat = Number(e.latitude)
         const lng = Number(e.longitude)
@@ -643,8 +732,8 @@ window.addEventListener("load", () => {
 
     // Show/hide layers based on active radius (cumulative)
     const included = radiusIncludes[activeRadius] || []
-    ;['500m','5km','10km','50km'].forEach(bucket => {
-      const layer = { '500m': eventsLayer500m, '5km': eventsLayer5km, '10km': eventsLayer10km, '50km': eventsLayer50km }[bucket]
+    ;['500m','1km','5km','10km','50km'].forEach(bucket => {
+      const layer = { '500m': eventsLayer500m, '1km': eventsLayer1km, '5km': eventsLayer5km, '10km': eventsLayer10km, '50km': eventsLayer50km }[bucket]
       if (included.includes(bucket)) map.addLayer(layer)
       else map.removeLayer(layer)
     })
@@ -658,8 +747,12 @@ window.addEventListener("load", () => {
       const lat = Number(e.latitude), lng = Number(e.longitude)
       if (Number.isFinite(lat) && Number.isFinite(lng)) bounds.push([lat, lng])
     })
+    const radiusZoom = { 'filter-500m': 17, 'filter-1km': 16, 'filter-5km': 14, 'filter-10km': 13 };
+    const zoomLevel = radiusZoom[activeRadius] || 14;
+    const vLat = Number(map._lastVenueLat);
+    const vLon = Number(map._lastVenueLon);
     if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
-    else if (bounds.length === 1) map.setView(bounds[0], 14)
+    else if (Number.isFinite(vLat) && Number.isFinite(vLon)) map.setView([vLat, vLon], zoomLevel)
   }
 
   // Override renderEvents to store allEvents and build industry row
@@ -696,7 +789,7 @@ window.addEventListener("load", () => {
     subMobilite.style.display = 'flex'
     subConcurrence.style.display = 'none'
     industryRow.style.display = 'none'
-    map.removeLayer(eventsLayer500m); map.removeLayer(eventsLayer5km)
+    map.removeLayer(eventsLayer500m); map.removeLayer(eventsLayer1km); map.removeLayer(eventsLayer5km)
     map.removeLayer(eventsLayer10km); map.removeLayer(eventsLayer50km)
     roadLayer.addTo(map)
     subwayLayer.addTo(map)
