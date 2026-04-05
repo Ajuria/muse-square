@@ -1,0 +1,74 @@
+---
+const { active = "veille" } = Astro.props;
+
+const u = new URL(Astro.request.url);
+const hrefVeille = "/app/insightevent/pulse";
+const hrefEvenements = "/app/insightevent/monitor";
+---
+
+<div class="ms-bottombar" role="navigation" aria-label="Navigation Piloter">
+  <div class="ms-bottombar-nav">
+
+    <a class={`ms-bottombar-item ${active === "veille" ? "is-active" : ""}`} href={hrefVeille} aria-label="Veille" aria-current={active === "veille" ? "page" : undefined}>
+      <div class="ms-bottombar-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M6.3 6.3a8 8 0 0 0 0 11.4"/>
+          <path d="M17.7 6.3a8 8 0 0 1 0 11.4"/>
+          <path d="M3.5 3.5a14 14 0 0 0 0 17"/>
+          <path d="M20.5 3.5a14 14 0 0 1 0 17"/>
+        </svg>
+      </div>
+      <div class="ms-bottombar-label">VEILLE</div>
+    </a>
+
+    <a class={`ms-bottombar-item ${active === "evenements" ? "is-active" : ""}`} href={hrefEvenements} aria-label="Mes événements" aria-current={active === "evenements" ? "page" : undefined}>
+      <div class="ms-bottombar-ico" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="ms-bottombar-label">MES ÉVÉNEMENTS</div>
+    </a>
+
+  </div>
+</div>
+
+<style is:global>
+.ms-bottombar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  background: #ffffff;
+  border-top: 1px solid rgba(17,24,39,0.10);
+}
+.ms-bottombar-nav {
+  max-width: 620px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 74px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.ms-bottombar-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: rgba(17,24,39,0.55);
+  padding: 8px 10px;
+  border-radius: 12px;
+  line-height: 1;
+  transition: color 120ms ease;
+}
+.ms-bottombar-item.is-active { color: #1D3BB3; }
+.ms-bottombar-item:hover { color: #1D3BB3; }
+.ms-bottombar-ico { display: flex; align-items: center; justify-content: center; }
+.ms-bottombar-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+</style>

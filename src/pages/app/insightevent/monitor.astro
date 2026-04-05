@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 
 const location_id =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
@@ -30,7 +30,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         width: 100%;
         max-width: 720px;
         margin: 0 auto;
-        padding: 20px 20px 160px 20px;
+        padding: 0 24px 160px 24px;
         box-sizing: border-box;
         overflow: hidden;
       }
@@ -314,7 +314,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-  </BaseLayout>
+  
+  <PiloterBottomBar active="evenements" />
+  
+</BaseLayout>
 </Show>
 
 <script is:inline define:vars={{ location_id, saved_item_id, focused_date }}>
@@ -1592,6 +1595,146 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
   }
 
+  async function renderEventList(root) {
+    if (!root) return;
+
+    root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:120px;width:auto;" loading="lazy" /></div>`;
+
+    const res = await fetch("/api/saved-items/list", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ limit: 50, offset: 0 }),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    const items = Array.isArray(json?.items) ? json.items : [];
+
+    const pending = items.filter(i => !normalizeYmd(i?.selected_date?.value ?? i?.selected_date ?? ""));
+    const active  = items.filter(i =>  normalizeYmd(i?.selected_date?.value ?? i?.selected_date ?? ""));
+
+    function fmtShort(ymd) {
+      const d = parseYmdToDate(ymd);
+      if (!d) return ymd;
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      const month = new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d);
+      return `${month.charAt(0).toUpperCase() + month.slice(1)} ${day}`;
+    }
+
+    function datesSummary(item) {
+      const raw = Array.isArray(item?.dates) ? item.dates
+        : typeof item?.dates === "string" ? item.dates.split(",")
+        : [];
+      const dates = raw.map(normalizeYmd).filter(Boolean);
+      const shown = dates.slice(0, 3).map(fmtShort);
+      const rest = Math.max(0, dates.length - shown.length);
+      return shown.join(" · ") + (rest > 0 ? ` · +${rest}` : "");
+    }
+
+    function sectionLabel(label) {
+      return `<div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;">${escapeHtml(label)}</div>`;
+    }
+
+    function emptyState(msg) {
+      return `<div style="padding:18px 0;font-size:14px;color:#9ca3af;border-bottom:1px solid #eef2f7;">${escapeHtml(msg)}</div>`;
+    }
+
+    function pendingRow(item) {
+      const id = String(item.saved_item_id || "");
+      const title = item.title || "Sans titre";
+      const dates = datesSummary(item);
+      const dec = normalizeYmd(item?.decision_date?.value ?? item?.decision_date ?? "");
+      const decLabel = dec ? countdown(dec) : "—";
+      const decColor = (() => {
+        if (!dec) return "#6b7280";
+        const d = Math.round((parseYmdToDate(dec) - new Date().setHours(0,0,0,0)) / 86400000);
+        return d <= 7 ? "#b91c1c" : "#6b7280";
+      })();
+      const href = `/app/insightevent/days?saved_item_id=${encodeURIComponent(id)}&selected_date=__comparison__`;
+      return `
+        <div style="border-bottom:1px solid #eef2f7;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:20px;font-weight:400;color:#111827;margin-bottom:4px;">${escapeHtml(title)}</div>
+            <div style="font-size:14px;color:#6b7280;">${escapeHtml(dates)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;flex-shrink:0;">
+            <div style="text-align:right;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Décision</div>
+              <div style="font-size:14px;font-weight:500;color:${decColor};">${escapeHtml(decLabel)}</div>
+            </div>
+            <a href="${escapeHtml(href)}" style="font-size:14px;font-weight:500;color:#111827;text-decoration:none;white-space:nowrap;">Choisir</a>
+          </div>
+        </div>`;
+    }
+
+    function activeRow(item) {
+      const id = String(item.saved_item_id || "");
+      const title = item.title || "Sans titre";
+      const selDate = normalizeYmd(item?.selected_date?.value ?? item?.selected_date ?? "");
+      const dateLabel = selDate ? fmtShort(selDate) : "—";
+      const evt = normalizeYmd(item?.event_end_date?.value ?? item?.event_end_date ?? "");
+      const evtLabel = evt ? countdown(evt) : "—";
+      const href = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(id)}&date=${encodeURIComponent(selDate)}`;
+      return `
+        <div onclick="window.location.href='${escapeHtml(href)}'" style="border-bottom:1px solid #eef2f7;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;"
+          onmouseover="this.querySelector('.mon-row-title').style.color='#1D3BB3'"
+          onmouseout="this.querySelector('.mon-row-title').style.color='#111827'">
+          <div style="min-width:0;flex:1;">
+            <div class="mon-row-title" style="font-size:20px;font-weight:400;color:#111827;margin-bottom:4px;transition:color 150ms ease;">${escapeHtml(title)}</div>
+            <div style="font-size:12px;color:#9ca3af;font-style:italic;">Date validée le ${escapeHtml(dateLabel)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;flex-shrink:0;">
+            <div style="text-align:right;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Début</div>
+              <div style="font-size:14px;font-weight:500;color:#6b7280;">${escapeHtml(dateLabel)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Fin</div>
+              <div style="font-size:14px;font-weight:500;color:#6b7280;">${escapeHtml(evtLabel)}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function locationGroup(groupItems, label, isPrimary, rowFn) {
+      return `
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:8px;">
+            ${escapeHtml(label)}
+            ${isPrimary ? `<span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#f1efe8;color:#444441;">Principal</span>` : ""}
+          </div>
+          ${groupItems.map(rowFn).join("")}
+        </div>`;
+    }
+
+    function groupByLocation(arr, rowFn) {
+      if (!arr.length) return emptyState(rowFn === activeRow ? "Aucun événement en cours." : "Aucune date en attente de décision.");
+      const order = [];
+      const map = new Map();
+      arr.forEach(i => {
+        const key = i.location_id || "unknown";
+        if (!map.has(key)) {
+          map.set(key, []);
+          order.push({ key, label: i.location_label || i.location_id || "Site", is_primary: i.is_primary });
+        }
+        map.get(key).push(i);
+      });
+      return order.map(({ key, label, is_primary }) =>
+        locationGroup(map.get(key), label, is_primary, rowFn)
+      ).join("");
+    }
+
+    root.innerHTML = `
+      <div style="padding-top:40px;">
+        <div style="font-size:28px;font-weight:300;color:#111827;letter-spacing:-0.01em;margin:10px 0 20px 0;">Mes événements</div>
+        ${sectionLabel("En attente de décision")}
+        ${groupByLocation(pending, pendingRow)}
+        <div style="height:8px;"></div>
+        ${sectionLabel("Événements en cours")}
+        ${groupByLocation(active, activeRow)}
+      </div>
+    `;
+  }
+
   // ----------------------------------------------------------------
   // Fetch helpers
   // ----------------------------------------------------------------
@@ -1631,7 +1774,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   (async function boot() {
     const root = document.getElementById("mon-root");
     try {
-      if (!saved_item_id) throw new Error("saved_item_id manquant dans l'URL.");
+      if (!saved_item_id) {
+        await renderEventList(root);
+        return;
+      }
 
       const item  = await fetchSavedItem(saved_item_id);
       const dates = extractDates(item).map(normalizeYmd).filter(Boolean).slice(0, 7);

@@ -2055,7 +2055,13 @@ const show_actions = has_selected_dates;
           // Title block (template-like)
           const head = `
             <div class="ms-saved-wrap">
-              <div class="ms-saved-hero">Listes de dates</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="ms-saved-hero">Mes dates</div>
+                <button onclick="window.location.href='/app/insightevent/month'" onmouseover="this.style.color='#1D3BB3';this.style.borderColor='#1D3BB3';" onmouseout="this.style.color='#111827';this.style.borderColor='rgba(17,24,39,0.12)';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(17,24,39,0.06);border:0.5px solid rgba(17,24,39,0.12);border-radius:20px;font-size:13px;font-weight:500;color:#111827;cursor:pointer;font-family:inherit;letter-spacing:0.01em;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>
+                  Calendrier
+                </button>
+              </div>
             </div>
           `;
 

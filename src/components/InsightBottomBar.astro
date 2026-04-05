@@ -75,18 +75,7 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
       <div class="ms-bottombar-label">EXPLORER</div>
     </a>
 
-    <a class={`ms-bottombar-item ${active === "month" ? "is-active" : ""}`} href={hrefMonth} aria-label="Mois" aria-current={active === "month" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M7 2v3M17 2v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="M3.5 9h17" stroke="currentColor" stroke-width="1.8"/>
-          <path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.8"/>
-        </svg>
-      </div>
-      <div class="ms-bottombar-label">SÉLECTIONNER</div>
-    </a>
-
-    <a class={`ms-bottombar-item ${active === "days" ? "is-active" : ""}`} href={hrefDays} aria-label="Jours" aria-current={active === "days" ? "page" : undefined}>
+    <a class={`ms-bottombar-item ${active === "days" ? "is-active" : ""}`} href={hrefDays} aria-label="Mes dates" aria-current={active === "days" ? "page" : undefined}>
       <div class="ms-bottombar-ico" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>
@@ -94,10 +83,8 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
           <path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="ms-bottombar-label">COMPARER</div>
+      <div class="ms-bottombar-label">MES DATES</div>
     </a>
-  </div>
-</div>
 
 <script is:inline>
   (function () {
