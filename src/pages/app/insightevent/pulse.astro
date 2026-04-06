@@ -185,7 +185,7 @@ if (!location_id) {
         <div>
           <div class="pls-loc-name" id="pls-loc-name"></div>
           <div class="pls-loc-addr" id="pls-loc-addr"></div>
-          <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;">Veille opérationnelle · 7 jours</div>
+          <div id="pls-subtitle" style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;">Veille opérationnelle · 7 jours</div>
         </div>
         <button type="button" class="pls-loc-btn" id="pls-loc-switch" style="display:none;">
           Changer de site
@@ -530,23 +530,59 @@ if (!location_id) {
     }
 
     return toggleHtml + [...byDate.entries()].sort((a,b) => b[0].localeCompare(a[0])).map(([d, dayItems]) => {
-      const itemsHtml = dayItems.map((a, idx) => {
-        const line1 = feedLine1(a);
-        const line2 = feedLine2(a);
-        const line3 = feedLine3(a);
-        const cat = String(a?.change_category||"").toLowerCase();
-        const lvl = Number(a?.alert_level)||1;
-        const isLast = idx===dayItems.length-1;
-        return `
-          <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;"}">
-            <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">${feedCatIcon(cat)}</div>
-            <div style="flex:1;min-width:0;">
-              <div class="mon-feed-line1">${escapeHtml(line1)}</div>
-              ${line2?`<div class="mon-feed-line2">${escapeHtml(line2)}</div>`:""}
-              ${line3?`<div class="mon-feed-line3">${escapeHtml(line3)}</div>`:""}
-            </div>
-          </div>`;
-      }).join("");
+      // Sub-group by location_label if present (multisite)
+      const hasLocLabels = dayItems.some(a => a?.location_label);
+      let itemsHtml = "";
+      if (hasLocLabels) {
+        const byLoc = new Map();
+        for (const a of dayItems) {
+          const lbl = a?.location_label || "—";
+          if (!byLoc.has(lbl)) byLoc.set(lbl, []);
+          byLoc.get(lbl).push(a);
+        }
+        itemsHtml = [...byLoc.entries()].map(([locLabel, locItems]) => {
+          const locItemsHtml = locItems.map((a, idx) => {
+            const line1 = feedLine1(a);
+            const line2 = feedLine2(a);
+            const line3 = feedLine3(a);
+            const cat = String(a?.change_category||"").toLowerCase();
+            const lvl = Number(a?.alert_level)||1;
+            const isLast = idx===locItems.length-1;
+            return `
+              <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;"}">
+                <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">${feedCatIcon(cat)}</div>
+                <div style="flex:1;min-width:0;">
+                  <div class="mon-feed-line1">${escapeHtml(line1)}</div>
+                  ${line2?`<div class="mon-feed-line2">${escapeHtml(line2)}</div>`:""}
+                  ${line3?`<div class="mon-feed-line3">${escapeHtml(line3)}</div>`:""}
+                </div>
+              </div>`;
+          }).join("");
+          return `
+            <div style="margin-bottom:4px;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1D3BB3;padding:10px 0 4px 0;">${escapeHtml(locLabel)}</div>
+              ${locItemsHtml}
+            </div>`;
+        }).join("");
+      } else {
+        itemsHtml = dayItems.map((a, idx) => {
+          const line1 = feedLine1(a);
+          const line2 = feedLine2(a);
+          const line3 = feedLine3(a);
+          const cat = String(a?.change_category||"").toLowerCase();
+          const lvl = Number(a?.alert_level)||1;
+          const isLast = idx===dayItems.length-1;
+          return `
+            <div style="padding:14px 0;display:flex;align-items:flex-start;gap:12px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;"}">
+              <div style="flex:0 0 auto;width:24px;display:flex;align-items:center;justify-content:center;margin-top:2px;">${feedCatIcon(cat)}</div>
+              <div style="flex:1;min-width:0;">
+                <div class="mon-feed-line1">${escapeHtml(line1)}</div>
+                ${line2?`<div class="mon-feed-line2">${escapeHtml(line2)}</div>`:""}
+                ${line3?`<div class="mon-feed-line3">${escapeHtml(line3)}</div>`:""}
+              </div>
+            </div>`;
+        }).join("");
+      }
 
       const dateLabel = (() => {
         const today = todayYmd();
@@ -688,6 +724,82 @@ if (!location_id) {
   // Recap tab
   // ----------------------------------------------------------------
   function renderRecap(currentDay, allFeed, profile) {
+    const isMultisiteFeed = allFeed.some(a => a?.location_label);
+
+    if (isMultisiteFeed) {
+      // Multisite recap: grouped feed for the selected date, all sites
+      const dayFeed = allFeed.filter(a => normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
+      const hasCritDay = dayFeed.some(a => Number(a?.alert_level||0) >= 3);
+      const hasWarnDay = !hasCritDay && dayFeed.some(a => Number(a?.alert_level||0) >= 2);
+      const statusBg    = hasCritDay ? "#FCEBEB" : hasWarnDay ? "#FEF3C7" : "rgba(16,185,129,0.1)";
+      const statusColor = hasCritDay ? "#791F1F" : hasWarnDay ? "#92400E" : "#059669";
+      const statusLabel = hasCritDay
+        ? `⚠ ${dayFeed.filter(a=>Number(a?.alert_level||0)>=3).length} signal(aux) critique(s) · tous sites`
+        : hasWarnDay ? `⚠ ${dayFeed.filter(a=>Number(a?.alert_level||0)>=2).length} signal(aux) à surveiller · tous sites`
+        : "✓ Rien de nouveau sur tous les sites";
+
+      // Build site-grouped feed for this date
+      const byLoc = new Map();
+      for (const a of dayFeed) {
+        const lbl = a?.location_label || "—";
+        if (!byLoc.has(lbl)) byLoc.set(lbl, []);
+        byLoc.get(lbl).push(a);
+      }
+
+      const feedHtml = byLoc.size === 0
+        ? `<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:14px;">Aucun signal pour cette date.</div>`
+        : [...byLoc.entries()].map(([locLabel, locItems]) => {
+            const locItemsHtml = locItems.slice(0, 4).map((a, idx) => {
+              const line1 = feedLine1(a);
+              const line2 = feedLine2(a);
+              const cat = String(a?.change_category||"").toLowerCase();
+              const lvl = Number(a?.alert_level)||1;
+              const isLast = idx === Math.min(locItems.length, 4) - 1;
+              return `<div style="padding:11px 0;display:flex;align-items:flex-start;gap:10px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;}"}">
+                <div style="flex:0 0 auto;width:20px;display:flex;align-items:center;justify-content:center;margin-top:1px;">${feedCatIcon(cat)}</div>
+                <div style="flex:1;min-width:0;">
+                  <div class="mon-feed-line1">${escapeHtml(line1)}</div>
+                  ${line2?`<div class="mon-feed-line2">${escapeHtml(line2)}</div>`:""}
+                </div>
+              </div>`;
+            }).join("");
+            return `<div style="margin-bottom:4px;">
+              <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1D3BB3;padding:10px 0 4px 0;">${escapeHtml(locLabel)}</div>
+              ${locItemsHtml}
+              ${locItems.length > 4 ? `<div style="padding:8px 0 2px 0;"><button type="button" data-switch-tab="alertes" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">+${locItems.length - 4} signaux →</button></div>` : ""}
+            </div>`;
+          }).join("");
+
+      const vigilanceMulti = [...(currentDay.attendance||[]),...(currentDay.operations||[]),...(currentDay.installation||[]),...(currentDay.context||[])]
+        .filter(r => r.severity!=="A")
+        .sort((a,b) => ({D:0,C:1,B:2}[a.severity]??3)-({D:0,C:1,B:2}[b.severity]??3))
+        .slice(0,5);
+      const dotColor = s => s === "D" ? "var(--color-pill-risk-border)" : "var(--color-pill-warn-border)";
+      const vigilanceMultiHtml = vigilanceMulti.length ? `
+        <div class="mon-card">
+          <div class="mon-head">${iconSVG("alert")}<div class="mon-kicker" style="margin:0;">Points de vigilance</div></div>
+          ${vigilanceMulti.map(r => `
+            <div class="mon-vigilance-item">
+              <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${dotColor(r.severity)};display:inline-block;"></span>
+              <span>${escapeHtml(r.sentence)}</span>
+            </div>`).join("")}
+        </div>` : `
+        <div class="mon-card">
+          <span class="mon-status-ok">✓ Aucun point de vigilance</span>
+          <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables sur tous les sites.</div>
+        </div>`;
+
+      return `<div class="mon-panels">
+        ${vigilanceMultiHtml}
+        <div class="mon-card">
+          <span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:500;background:${statusBg};color:${statusColor};margin-bottom:${byLoc.size?'12':'0'}px;">${statusLabel}</span>
+          ${feedHtml}
+        </div>
+        <div style="font-size:11px;color:#9CA3AF;text-align:center;padding:4px 0;">Score affiché : pire valeur tous sites confondus</div>
+        ${renderContext(currentDay, profile)}
+      </div>`;
+    }
+
     const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2 && normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
     const hasCrit = alerts.some(a => Number(a?.alert_level)>=3);
     const hasWatch = !hasCrit && alerts.some(a => Number(a?.alert_level)>=2);
@@ -838,10 +950,26 @@ if (!location_id) {
         if (btn) btn.addEventListener("click", () => { window.__plsFeedShowAll=!showAll; renderPulse(data, selectedDate, "alertes"); });
       }, 0);
     } else if (activeTab==="carte") {
+      const mapLocs = Array.isArray(data._locations) && data._locations.length > 1
+        ? data._locations
+        : null;
+      const primaryLoc = mapLocs ? (mapLocs.find(l => l.is_primary) || mapLocs[0]) : null;
+      const defaultLocId = primaryLoc ? primaryLoc.location_id : location_id;
       tabContent = `
         <div class="mon-panels">
-          <iframe
-            src="/app/insightevent/map?location_id=${encodeURIComponent(location_id)}&date=${encodeURIComponent(selectedDate)}&embed=1"
+          ${mapLocs ? `
+            <div style="display:flex;align-items:center;gap:0;border:0.5px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:8px;">
+              ${mapLocs.map((l, i) => {
+                const isDefault = l.location_id === defaultLocId;
+                return `<button type="button"
+                  data-map-loc="${escapeHtml(l.location_id)}"
+                  style="flex:1;padding:10px 14px;font-size:13px;font-weight:${isDefault?'500':'400'};color:${isDefault?'#111827':'#9CA3AF'};background:${isDefault?'#fff':'#F9FAFB'};border:none;border-right:${i<mapLocs.length-1?'0.5px solid #E5E7EB':'none'};cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  ${escapeHtml(l.company_name || l.location_id)}
+                </button>`;
+              }).join('')}
+            </div>` : ''}
+          <iframe id="pls-map-iframe"
+            src="/app/insightevent/map?location_id=${encodeURIComponent(defaultLocId)}&date=${encodeURIComponent(selectedDate)}&embed=1"
             style="width:100%;height:600px;border:none;border-radius:14px;margin-top:8px;display:block;"
             loading="lazy"
           ></iframe>
@@ -885,6 +1013,23 @@ if (!location_id) {
         e.stopPropagation(); e.preventDefault();
         const t = btn.getAttribute("data-switch-tab");
         if (t) renderPulse(data, selectedDate, t);
+      });
+    });
+
+    // Wire map site selector
+    root.querySelectorAll("[data-map-loc]").forEach((btn, i) => {
+      btn.addEventListener("click", () => {
+        const locId = btn.getAttribute("data-map-loc");
+        const iframe = root.querySelector("#pls-map-iframe");
+        if (iframe && locId) {
+          iframe.src = `/app/insightevent/map?location_id=${encodeURIComponent(locId)}&date=${encodeURIComponent(selectedDate)}&embed=1`;
+        }
+        root.querySelectorAll("[data-map-loc]").forEach(b => {
+          const isActive = b === btn;
+          b.style.fontWeight = isActive ? '500' : '400';
+          b.style.color = isActive ? '#111827' : '#9CA3AF';
+          b.style.background = isActive ? '#fff' : '#F9FAFB';
+        });
       });
     });
 
@@ -935,44 +1080,93 @@ if (!location_id) {
   (async function boot() {
     const root = document.getElementById("pls-root");
     try {
-      const [data, locs] = await Promise.all([
-        fetchPulse(currentLocationId),
-        fetchLocations().catch(()=>[]),
-      ]);
-
+      const locs = await fetchLocations().catch(() => []);
       allLocations = locs;
 
-      // Set location name
-      const currentLoc = locs.find(l => l.location_id===currentLocationId);
-      const nameEl = document.getElementById("pls-loc-name");
-      const addrEl = document.getElementById("pls-loc-addr");
+      const isMultisite = locs.length > 1;
+
+      const nameEl   = document.getElementById("pls-loc-name");
+      const addrEl   = document.getElementById("pls-loc-addr");
       const switchBtn = document.getElementById("pls-loc-switch");
+      const subtitleEl = document.getElementById("pls-subtitle");
 
-      if (nameEl) nameEl.textContent = currentLoc?.company_name || data.profile?.city_name || "Mon site";
-      if (addrEl) addrEl.textContent = currentLoc?.company_address || "";
-      if (switchBtn && locs.length > 1) {
-        switchBtn.style.display = "block";
-        switchBtn.addEventListener("click", async () => {
-          const other = locs.find(l => l.location_id!==currentLocationId);
-          if (!other) return;
-          currentLocationId = other.location_id;
-          if (nameEl) nameEl.textContent = other.company_name || "";
-          if (addrEl) addrEl.textContent = other.company_address || "";
-          if (root) root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" style="height:100px;width:auto;" /></div>`;
-          try {
-            const newData = await fetchPulse(currentLocationId);
-            renderPulse(newData, todayYmd(), "recap");
-          } catch(e) {
-            if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message||"Erreur.")}</div>`;
+      // Hide "Changer de site" in multisite mode
+      if (switchBtn) switchBtn.style.display = "none";
+
+      if (isMultisite) {
+        // Multisite: fetch all locations in parallel
+        if (nameEl) nameEl.textContent = "Tous mes sites";
+        if (addrEl) addrEl.textContent = `${locs.length} sites surveillés`;
+        if (subtitleEl) subtitleEl.textContent = `Veille opérationnelle · 7 jours · ${locs.length} sites`;
+
+        const results = await Promise.all(
+          locs.map(l => fetchPulse(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
+        );
+        const valid = results.filter(Boolean);
+        if (!valid.length) throw new Error("Aucune donnée disponible.");
+
+        // Merge all_feed arrays, tagging each signal with location_label
+        const mergedFeed = valid.flatMap(({ data, loc }) =>
+          (data.all_feed || []).map(a => ({ ...a, location_label: loc.company_name || loc.location_id }))
+        );
+
+        // Merge days: worst score per date across all sites
+        const dateMap = new Map();
+        for (const { data } of valid) {
+          for (const day of (data.days || [])) {
+            const ymd = String(day.date || "").slice(0, 10);
+            const existing = dateMap.get(ymd);
+            if (!existing) {
+              dateMap.set(ymd, { ...day });
+            } else {
+              // Worst opportunity_score (lower = worse)
+              if (day.opportunity_score !== null && (existing.opportunity_score === null || day.opportunity_score < existing.opportunity_score)) {
+                existing.opportunity_score = day.opportunity_score;
+              }
+              // Worst is_forced_regime_c_flag
+              if (day.is_forced_regime_c_flag) existing.is_forced_regime_c_flag = true;
+              // Worst risk blocks: merge arrays
+              existing.attendance   = [...(existing.attendance   || []), ...(day.attendance   || [])];
+              existing.operations   = [...(existing.operations   || []), ...(day.operations   || [])];
+              existing.installation = [...(existing.installation || []), ...(day.installation || [])];
+              existing.context      = [...(existing.context      || []), ...(day.context      || [])];
+            }
           }
-        });
-      }
+        }
+        const mergedDays = [...dateMap.values()];
 
-      const LS_KEY = "ms_pulse_last_visit";
-      const lastVisit = getLastVisitTimestamp(LS_KEY);
-      data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
-      setLastVisitTimestamp(LS_KEY);
-      renderPulse(data, todayYmd(), "recap");
+        // Use profile from primary location (first valid result)
+        const mergedProfile = valid[0].data.profile || null;
+
+        const mergedData = {
+          ok: true,
+          profile: mergedProfile,
+          days: mergedDays,
+          all_feed: mergedFeed,
+          _locations: locs,
+        };
+
+        const LS_KEY = "ms_pulse_last_visit";
+        const lastVisit = getLastVisitTimestamp(LS_KEY);
+        mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, lastVisit);
+        setLastVisitTimestamp(LS_KEY);
+        renderPulse(mergedData, todayYmd(), "recap");
+
+      } else {
+        // Single site: original behaviour
+        const currentLoc = locs.find(l => l.location_id === currentLocationId);
+        const data = await fetchPulse(currentLocationId);
+
+        if (nameEl) nameEl.textContent = currentLoc?.company_name || data.profile?.city_name || "Mon site";
+        if (addrEl) addrEl.textContent = currentLoc?.company_address || "";
+
+        const LS_KEY = "ms_pulse_last_visit";
+        const lastVisit = getLastVisitTimestamp(LS_KEY);
+        data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
+        setLastVisitTimestamp(LS_KEY);
+        data._locations = [];
+        renderPulse(data, todayYmd(), "recap");
+      }
 
     } catch(e) {
       if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message||"Erreur de chargement.")}</div>`;
