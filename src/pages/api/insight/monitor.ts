@@ -25,7 +25,7 @@ function normalizeYmd(v: string): string {
   return m[1];
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
@@ -40,6 +40,10 @@ export const GET: APIRoute = async ({ url }) => {
     if (!selected_dates.length) {
       throw new Error("No valid dates provided.");
     }
+
+    const clerk_user_id = (locals as any)?.clerk_user_id
+      ? String((locals as any).clerk_user_id).trim()
+      : null;
 
     // ----------------------------------------------------------------
     // 1. Profile query — vw_insight_event_ai_location_context
@@ -208,7 +212,7 @@ export const GET: APIRoute = async ({ url }) => {
     `;
 
     // Run all queries in parallel
-    const [[profileRows], [signalRows], [feedRows]] = await Promise.all([
+    const [[profileRows], [signalRows], [feedRows], [savedItemRows]] = await Promise.all([
       bq.query({
         query: profileQuery,
         params: { location_id },
@@ -226,6 +230,23 @@ export const GET: APIRoute = async ({ url }) => {
         location: "EU",
         maxResults: 5000,
       }),
+      clerk_user_id ? bq.query({
+        query: `
+          SELECT
+            saved_item_id,
+            title,
+            selected_date,
+            event_end_date,
+            event_type
+          FROM \`muse-square-open-data.raw.saved_items\`
+          WHERE location_id = @location_id
+            AND clerk_user_id = @clerk_user_id
+            AND selected_date IS NOT NULL
+        `,
+        params: { location_id, clerk_user_id },
+        location: "EU",
+        maxResults: 100,
+      }) : Promise.resolve([[]]),
     ]);
 
     const profile = profileRows?.[0] ?? null;
@@ -256,11 +277,49 @@ export const GET: APIRoute = async ({ url }) => {
       nearest_transit_line_name:     r?.nearest_transit_line_name     ?? null,
       transit_network:               r?.transit_network               ?? null,
       summary:                       r?.summary                       ?? null,
+      active_event_title:            (() => {
+        const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
+        if (!affected || !Array.isArray(savedItemRows)) return null;
+        const match = savedItemRows.find((s: any) => {
+          const sd = s?.selected_date?.value ?? s?.selected_date ?? null;
+          return sd && String(sd).slice(0,10) === String(affected).slice(0,10);
+        });
+        return match?.title ?? null;
+      })(),
+      active_event_type:             (() => {
+        const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
+        if (!affected || !Array.isArray(savedItemRows)) return null;
+        const match = savedItemRows.find((s: any) => {
+          const sd = s?.selected_date?.value ?? s?.selected_date ?? null;
+          return sd && String(sd).slice(0,10) === String(affected).slice(0,10);
+        });
+        return match?.event_type ?? null;
+      })(),
+      has_active_event:              (() => {
+        const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
+        if (!affected || !Array.isArray(savedItemRows)) return false;
+        return savedItemRows.some((s: any) => {
+          const sd = s?.selected_date?.value ?? s?.selected_date ?? null;
+          return sd && String(sd).slice(0,10) === String(affected).slice(0,10);
+        });
+      })(),
+      primary_audience_1:            profile?.primary_audience_1      ?? null,
+      primary_audience_2:            profile?.primary_audience_2      ?? null,
+      operating_hours:               profile?.operating_hours         ?? null,
+      company_activity_type:         profile?.company_activity_type   ?? null,
+      event_time_profile:            profile?.event_time_profile      ?? null,
+      location_type_client:          profile?.location_type           ?? null,
+      client_industry_code:          profile?.client_industry_code    ?? null,
+      company_industry:              profile?.company_industry        ?? null,
+      main_event_objective:          profile?.main_event_objective    ?? null,
+      event_type_1:                  profile?.event_type_1            ?? null,
+      event_type_2:                  profile?.event_type_2            ?? null,
+      event_type_3:                  profile?.event_type_3            ?? null,
+      capacity_sensitivity:          profile?.capacity_sensitivity    ?? null,
+      geographic_catchment:          profile?.geographic_catchment    ?? null,
+      weather_sensitivity:           profile?.weather_sensitivity     ?? null,
+      venue_capacity:                profile?.venue_capacity          ?? null,
     }));
-
-    console.log('[FEED SAMPLE]', JSON.stringify(changeFeed[0]));
-    console.log('[FEED DEBUG]', changeFeed.length, changeFeed.filter(f => f.affected_date?.slice(0,10) === '2026-07-06').length);
-    console.log('[FEED DEBUG 23]', changeFeed.filter(f => f.affected_date?.slice(0,10) === '2026-03-23').length);
 
     // ----------------------------------------------------------------
     // 3. Build risk matrix per day

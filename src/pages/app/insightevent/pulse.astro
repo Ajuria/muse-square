@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 
 const location_id =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
@@ -185,6 +185,7 @@ if (!location_id) {
         <div>
           <div class="pls-loc-name" id="pls-loc-name"></div>
           <div class="pls-loc-addr" id="pls-loc-addr"></div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;">Veille opérationnelle · 7 jours</div>
         </div>
         <button type="button" class="pls-loc-btn" id="pls-loc-switch" style="display:none;">
           Changer de site
@@ -201,6 +202,8 @@ if (!location_id) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
+  
+  <PiloterBottomBar active="veille" />
 
   </BaseLayout>
 </Show>

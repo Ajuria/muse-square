@@ -2098,10 +2098,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const explicit_top_k = resolveTopKFromText(qRaw);
 
       // Only confirm when the question resolves to month horizon AND has ambiguity
-      const needsConfirmation =
-        resolveHorizonFromText(qRaw) === "month" &&
-        hasMonthNoYear &&
-        !isEventLookupQuestion(qRaw);
+      const needsConfirmation = false;
 
       if (needsConfirmation) {
         // Resolve month for display

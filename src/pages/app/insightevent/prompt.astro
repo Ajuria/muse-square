@@ -16,6 +16,11 @@ const location_id =
     ? (Astro.locals as any).location_id.trim()
     : null;
 
+const first_name =
+  (Astro.locals && typeof (Astro.locals as any).first_name === "string")
+    ? (Astro.locals as any).first_name.trim()
+    : null;
+
 const IS_DEV = import.meta.env.DEV;
 
 // Option A (hard stop): no location_id => redirect (404 template later)
@@ -47,8 +52,8 @@ if (!location_id) {
         <!-- EMPTY STATE (shown before first submit) -->
         <section id="ie-prompt-empty">
           <div id="ie-prompt-hero">
-            <h1 id="ie-prompt-title">Agissez au bon moment.</h1>
-            <p id="ie-prompt-subtitle">Concurrence, mobilité, météo: identifiez vos risques avant de vous engager!</p>
+            <p id="ie-prompt-greeting" style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9CA3AF;margin:0 0 10px 0;"></p>
+            <h1 id="ie-prompt-title" data-firstname={first_name ?? ""}></h1>
           </div>
 
           <div id="ie-prompt-suggestions-label">SUGGESTIONS</div>
@@ -86,7 +91,7 @@ if (!location_id) {
               <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:white;"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Trouver les meilleures dates pour un événement</p>
+              <p class="ie-prompt-card-text">Trouver une date pour un événement</p>
             </div>
             <div class="ie-prompt-card-arrow" id="ie-finder-chevron">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -150,14 +155,7 @@ if (!location_id) {
             </svg>
           </button>
         </div>
-        <div id="ie-prompt-chips" style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button id="ie-finder-chip" type="button" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
-            Trouver mes dates
-          </button>
-          <a href="/app/insightevent/month" style="display:flex;align-items:center;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;text-decoration:none;">Mois →</a>
-          <a href="/app/insightevent/days" style="display:flex;align-items:center;padding:6px 12px;border:1px solid rgba(0,0,0,0.12);border-radius:20px;background:#fff;font-size:13px;font-family:inherit;color:#111827;cursor:pointer;text-decoration:none;">Comparer →</a>
-        </div>
+        <div id="ie-prompt-chips"></div>
       </div>
     </div>
 
@@ -201,7 +199,7 @@ if (!location_id) {
       #ie-prompt-user-btn{ width:40px; height:40px; border-radius:50%; border:1px solid rgba(0,0,0,0.12); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
       #ie-prompt-hero{ margin-bottom: 48px; }
-      #ie-prompt-title{ font-size: 40px; font-weight: 300; line-height: 1.1; color: #111827; margin: 0 0 20px 0; }
+      #ie-prompt-title{ font-size: 28px; font-weight: 300; line-height: 1.3; color: #111827; margin: 0; }
       #ie-prompt-subtitle{ font-size:18px; line-height: 1.5; color: #6b7280; margin:0; }
 
       #ie-prompt-suggestions-label{ font-size: 12px; letter-spacing: 0.08em; color: #9ca3af; font-weight: 600; text-transform: uppercase; margin: 0 0 16px 0; }
@@ -598,6 +596,31 @@ if (!location_id) {
       }
 
     </style>
+
+    <script is:inline>
+      (function() {
+        const greetEl = document.getElementById('ie-prompt-greeting');
+        const titleEl = document.getElementById('ie-prompt-title');
+        if (!greetEl || !titleEl) return;
+
+        const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+        const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+        const now = new Date();
+        greetEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+
+        const name = (titleEl.getAttribute('data-firstname') || '').trim();
+        const greeting = name ? `Bonjour ${name}.` : 'Bonjour.';
+
+        const hour = now.getHours();
+        const morning = ['Que souhaitez-vous explorer ?','Par où commençons-nous ?','Quelle date souhaitez-vous évaluer ?','Quelle est votre prochaine décision ?'];
+        const afternoon = ['Sur quoi travaillez-vous aujourd\'hui ?','Quelle décision préparez-vous ?','Quel événement planifiez-vous ?','Où en êtes-vous dans votre planification ?'];
+        const evening = ['Quels risques souhaitez-vous anticiper ?','Que souhaitez-vous préparer pour demain ?','Quelle date souhaitez-vous sécuriser ?','Quel est votre prochain défi ?'];
+        const pool = hour < 12 ? morning : hour < 18 ? afternoon : evening;
+        const questions = pool[now.getDate() % pool.length];
+
+        titleEl.innerHTML = `${greeting}<br>${questions}`;
+      })();
+    </script>
 
     <script type="module" src="/scripts/ie-prompt.js" defer></script>
 

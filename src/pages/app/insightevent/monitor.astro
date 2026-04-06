@@ -551,8 +551,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
   function feedLine2(a) {
     const sub  = String(a?.change_subtype || "").toLowerCase();
-    const lvl  = Number(a?.alert_level || 1);
     const loc  = String(a?.location_type || "").toLowerCase();
+    const locClient = String(a?.location_type_client || "").toLowerCase();
     const lvlRain = Number(a?.lvl_rain || 0);
     const lvlWind = Number(a?.lvl_wind || 0);
     const lvlSnow = Number(a?.lvl_snow || 0);
@@ -561,6 +561,30 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const venue = a?.event_venue_name || "";
     const city  = a?.city_name || "";
     const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+    const distM = Number(a?.distance_m || 0);
+    const aud1  = String(a?.primary_audience_1 || "").toLowerCase();
+    const aud2  = String(a?.primary_audience_2 || "").toLowerCase();
+    const activ = String(a?.company_activity_type || "").toLowerCase();
+    const hasActiveEvent = Boolean(a?.has_active_event);
+    const activeTitle = a?.active_event_title || null;
+    const weatherSens = String(a?.weather_sensitivity || "").toLowerCase();
+    const capSens = String(a?.capacity_sensitivity || "").toLowerCase();
+    const isOutdoorClient = locClient === "outdoor" || locClient === "mixed";
+
+    // Best-effort operating hours overlap parser
+    function parseHours(s) {
+      if (!s) return null;
+      const m = String(s).match(/(\d{1,2})[h:]?(\d{0,2})\s*[-–]\s*(\d{1,2})[h:]?(\d{0,2})/i);
+      if (!m) return null;
+      const start = parseInt(m[1]) * 60 + (parseInt(m[2]) || 0);
+      const end   = parseInt(m[3]) * 60 + (parseInt(m[4]) || 0);
+      return { start, end };
+    }
+
+    function audienceLabel(code) {
+      const map = { local: "résidents locaux", professionals: "professionnels", tourists: "touristes", students: "étudiants", families: "familles", seniors: "seniors" };
+      return map[code] || code;
+    }
 
     if (sub === "score_up") {
       if (lvlRain > 0) return "Amélioration des conditions de pluie.";
@@ -570,28 +594,76 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (lvlCold > 0) return "Froid moins intense.";
       return "Attractivité de la date en progression.";
     }
+
     if (sub === "score_down") {
-      if (lvlRain > 0) return "Fortes pluies prévues — impact sur la fréquentation.";
+      if (lvlRain > 0) {
+        if (isOutdoorClient) return "Fortes pluies prévues — impact direct sur vos installations et la fréquentation.";
+        return "Fortes pluies prévues — possible friction à l'entrée du site.";
+      }
       if (lvlSnow > 0) return "Neige prévue — impact sur l'accès et la fréquentation.";
-      if (lvlWind > 0) return "Vent fort prévu — impact sur les installations.";
-      if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort.";
+      if (lvlWind > 0) {
+        if (isOutdoorClient) return "Vent fort prévu — vérifier la solidité des structures et signalétiques.";
+        return "Vent fort prévu — impact sur les conditions d'exploitation.";
+      }
+      if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort et la durée de présence.";
       if (lvlCold > 0) return "Grand froid prévu — impact sur la fréquentation.";
       return "Dégradation de l'attractivité de la date.";
     }
+
     if (sub === "event_new") {
       const parts = [];
-      if (venue) parts.push(venue);
-      if (city && city !== venue) parts.push(city);
-      return parts.length ? parts.join(" · ") : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
+
+      // Proximity tier
+      if (distM > 0 && distM <= 500) {
+        parts.push(`Concurrent à ${Math.round(distM)} m`);
+      } else if (distM > 0) {
+        parts.push(`À ${km} de votre site`);
+      } else if (venue) {
+        parts.push(venue);
+      } else if (city) {
+        parts.push(city);
+      }
+
+      // Audience overlap
+      const audParts = [aud1, aud2].filter(Boolean);
+      if (audParts.length) {
+        parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
+      }
+
+      // Active event context
+      if (hasActiveEvent && activeTitle) {
+        parts.push(`pendant votre événement "${activeTitle}"`);
+      }
+
+      // Hours overlap best-effort
+      const oh = parseHours(a?.operating_hours);
+      if (oh) {
+        parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
+      }
+
+      return parts.length ? parts.join(" — ") + "." : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
     }
+
     if (sub === "event_removed") return "";
+
     if (sub === "weather_worsened") {
-      if (loc === "outdoor") return "Impact direct sur les installations et la fréquentation.";
-      if (loc === "mixed")   return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
+      if (weatherSens === "high" || weatherSens === "élevée") {
+        if (isOutdoorClient) return "Impact direct sur vos installations et la fréquentation — sensibilité météo élevée.";
+        return "Impact probable sur la fréquentation — votre activité est sensible aux conditions météo.";
+      }
+      if (isOutdoorClient) return "Impact direct sur les installations et la fréquentation.";
+      if (locClient === "mixed") return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
       return "Légère friction possible à l'entrée du site.";
     }
+
     if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
-    if (sub === "mobility_disruption") return "Accès au site potentiellement impacté.";
+
+    if (sub === "mobility_disruption") {
+      if (hasActiveEvent && activeTitle) return `Accès au site potentiellement impacté pendant votre événement "${activeTitle}".`;
+      if (capSens === "high" || capSens === "élevée") return "Accès perturbé — votre activité dépend d'une fréquentation élevée.";
+      return "Accès au site potentiellement impacté.";
+    }
+
     if (sub === "ranking_up")   return "Cette date gagne en attractivité relative dans votre région.";
     if (sub === "ranking_down") return "Cette date perd en attractivité relative dans votre région.";
     if (sub === "context_change") return "";
@@ -1600,17 +1672,65 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:120px;width:auto;" loading="lazy" /></div>`;
 
-    const res = await fetch("/api/saved-items/list", {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ limit: 50, offset: 0 }),
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => null);
+    const [listRes, alertsRes] = await Promise.all([
+      fetch("/api/saved-items/list", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ limit: 50, offset: 0 }),
+        cache: "no-store",
+      }),
+      Promise.resolve(null),
+    ]);
+    const json = await listRes.json().catch(() => null);
     const items = Array.isArray(json?.items) ? json.items : [];
 
     const pending = items.filter(i => !normalizeYmd(i?.selected_date?.value ?? i?.selected_date ?? ""));
     const active  = items.filter(i =>  normalizeYmd(i?.selected_date?.value ?? i?.selected_date ?? ""));
+
+    // Fetch alerts for active items
+    let alertsData = [];
+    if (active.length) {
+      try {
+        const alertable = active.map(it => ({
+          saved_item_id: it.saved_item_id,
+          location_id: it.location_id,
+          selected_date: normalizeYmd(it?.selected_date?.value ?? it?.selected_date ?? ""),
+        }));
+        const aRes = await fetch("/api/saved-items/alerts", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ items: alertable }),
+          cache: "no-store",
+        });
+        const aJson = await aRes.json().catch(() => null);
+        alertsData = Array.isArray(aJson?.alerts) ? aJson.alerts : [];
+      } catch (_) {}
+    }
+
+    const alertLookup = {};
+    for (const a of alertsData) alertLookup[a.saved_item_id] = a;
+
+    const flagged = active.filter(it => Number(alertLookup[it.saved_item_id]?.max_alert_level ?? 0) >= 2);
+
+    function categoryLabel(cat, subtype) {
+      const s = String(subtype || "").toLowerCase();
+      if (s === "weather_worsened")    return "Alerte météo";
+      if (s === "weather_improved")    return "Météo améliorée";
+      if (s === "mobility_disruption") return "Mobilité perturbée";
+      if (s === "mobility_change")     return "Mobilité perturbée";
+      if (s === "event_new")           return "Concurrent détecté";
+      if (s === "event_removed")       return "Concurrent retiré";
+      if (s === "score_up")            return "Indice en hausse";
+      if (s === "score_down")          return "Indice en baisse";
+      if (s === "ranking_up")          return "Classement amélioré";
+      if (s === "ranking_down")        return "Classement dégradé";
+      const c = String(cat || "").toLowerCase();
+      if (c === "competition") return "Concurrence élevée";
+      if (c === "mobility")    return "Mobilité perturbée";
+      if (c === "context")     return "Alerte contextuelle";
+      if (c === "opportunity") return "Opportunité modifiée";
+      return "Signal détecté";
+    }
 
     function fmtShort(ymd) {
       const d = parseYmdToDate(ymd);
@@ -1630,12 +1750,15 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return shown.join(" · ") + (rest > 0 ? ` · +${rest}` : "");
     }
 
-    function sectionLabel(label) {
-      return `<div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;">${escapeHtml(label)}</div>`;
+    function card(headHtml, bodyHtml) {
+      return `<div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(17,24,39,0.06);margin-bottom:16px;">
+        <div style="padding:14px 20px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;">${headHtml}</div>
+        ${bodyHtml}
+      </div>`;
     }
 
     function emptyState(msg) {
-      return `<div style="padding:18px 0;font-size:14px;color:#9ca3af;border-bottom:1px solid #eef2f7;">${escapeHtml(msg)}</div>`;
+      return `<div style="padding:16px 20px;font-size:14px;color:#9ca3af;">${escapeHtml(msg)}</div>`;
     }
 
     function pendingRow(item) {
@@ -1651,17 +1774,17 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       })();
       const href = `/app/insightevent/days?saved_item_id=${encodeURIComponent(id)}&selected_date=__comparison__`;
       return `
-        <div style="border-bottom:1px solid #eef2f7;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:0.5px solid #F3F4F6;">
           <div style="min-width:0;flex:1;">
-            <div style="font-size:20px;font-weight:400;color:#111827;margin-bottom:4px;">${escapeHtml(title)}</div>
-            <div style="font-size:14px;color:#6b7280;">${escapeHtml(dates)}</div>
+            <div style="font-size:16px;font-weight:400;color:#111827;margin-bottom:3px;">${escapeHtml(title)}</div>
+            <div style="font-size:13px;color:#6b7280;">${escapeHtml(dates)}</div>
           </div>
           <div style="display:flex;align-items:center;gap:20px;flex-shrink:0;">
             <div style="text-align:right;">
               <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Décision</div>
               <div style="font-size:14px;font-weight:500;color:${decColor};">${escapeHtml(decLabel)}</div>
             </div>
-            <a href="${escapeHtml(href)}" style="font-size:14px;font-weight:500;color:#111827;text-decoration:none;white-space:nowrap;">Choisir</a>
+            <a href="${escapeHtml(href)}" style="font-size:14px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Choisir →</a>
           </div>
         </div>`;
     }
@@ -1672,38 +1795,32 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const selDate = normalizeYmd(item?.selected_date?.value ?? item?.selected_date ?? "");
       const dateLabel = selDate ? fmtShort(selDate) : "—";
       const evt = normalizeYmd(item?.event_end_date?.value ?? item?.event_end_date ?? "");
-      const evtLabel = evt ? countdown(evt) : "—";
+      const evtD = evt ? Math.round((parseYmdToDate(evt) - new Date().setHours(0,0,0,0)) / 86400000) : null;
+      const evtLabel = evt ? (evtD === 0 ? "Aujourd'hui" : evtD !== null && evtD < 0 ? fmtShort(evt) : evtD <= 7 ? `J-${evtD}` : fmtShort(evt)) : "—";
+      const evtColor = evtD !== null && evtD === 0 ? "#059669" : evtD !== null && evtD < 0 ? "#b91c1c" : evtD !== null && evtD <= 7 ? "#d97706" : "#6b7280";
       const href = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(id)}&date=${encodeURIComponent(selDate)}`;
       return `
-        <div onclick="window.location.href='${escapeHtml(href)}'" style="border-bottom:1px solid #eef2f7;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;"
+        <div onclick="window.location.href='${escapeHtml(href)}'" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:0.5px solid #F3F4F6;cursor:pointer;"
           onmouseover="this.querySelector('.mon-row-title').style.color='#1D3BB3'"
           onmouseout="this.querySelector('.mon-row-title').style.color='#111827'">
           <div style="min-width:0;flex:1;">
-            <div class="mon-row-title" style="font-size:20px;font-weight:400;color:#111827;margin-bottom:4px;transition:color 150ms ease;">${escapeHtml(title)}</div>
-            <div style="font-size:12px;color:#9ca3af;font-style:italic;">Date validée le ${escapeHtml(dateLabel)}</div>
+            <div class="mon-row-title" style="font-size:16px;font-weight:400;color:#111827;margin-bottom:3px;transition:color 150ms ease;">${escapeHtml(title)}</div>
+            <div style="font-size:12px;color:#9ca3af;font-style:italic;">Date validée le ${escapeHtml((() => { const d = parseYmdToDate(selDate); if (!d) return dateLabel; return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long"}).format(d); })())}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:20px;flex-shrink:0;">
-            <div style="text-align:right;">
-              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Début</div>
-              <div style="font-size:14px;font-weight:500;color:#6b7280;">${escapeHtml(dateLabel)}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;">Fin</div>
-              <div style="font-size:14px;font-weight:500;color:#6b7280;">${escapeHtml(evtLabel)}</div>
-            </div>
+          <div style="display:flex;gap:20px;flex-shrink:0;">
+            <div style="font-size:14px;font-weight:500;color:#6b7280;min-width:52px;text-align:right;">${escapeHtml(dateLabel)}</div>
+            <div style="font-size:14px;font-weight:500;color:${evtColor};min-width:52px;text-align:right;">${escapeHtml(evtLabel)}</div>
           </div>
         </div>`;
     }
 
     function locationGroup(groupItems, label, isPrimary, rowFn) {
       return `
-        <div style="margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:8px;">
-            ${escapeHtml(label)}
-            ${isPrimary ? `<span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#f1efe8;color:#444441;">Principal</span>` : ""}
-          </div>
-          ${groupItems.map(rowFn).join("")}
-        </div>`;
+        <div style="padding:10px 20px;border-bottom:0.5px solid #F3F4F6;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;">${escapeHtml(label)}</span>
+          ${isPrimary ? `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6B7280;border:0.5px solid #E5E7EB;">Principal</span>` : ""}
+        </div>
+        ${groupItems.map(rowFn).join("")}`;
     }
 
     function groupByLocation(arr, rowFn) {
@@ -1723,14 +1840,52 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       ).join("");
     }
 
+    // Alert block
+    const alertBlockHtml = flagged.length ? card(
+      `<span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;flex:1;">Points de vigilance</span>
+       <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#FCEBEB;color:#791F1F;">${flagged.length} alerte${flagged.length > 1 ? "s" : ""}</span>`,
+      flagged.map(it => {
+        const a = alertLookup[it.saved_item_id];
+        const lvl = Number(a?.max_alert_level ?? 0);
+        const dotColor = lvl >= 3 ? "#E24B4A" : "#EF9F27";
+        const pillBg = lvl >= 3 ? "#FCEBEB" : "#FAEEDA";
+        const pillColor = lvl >= 3 ? "#791F1F" : "#633806";
+        const label = categoryLabel(a?.top_category, a?.top_subtype);
+        const selDate = normalizeYmd(it?.selected_date?.value ?? it?.selected_date ?? "");
+        const href = `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(String(it.saved_item_id || ""))}&date=${encodeURIComponent(selDate)}`;
+        return `<a href="${escapeHtml(href)}" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 20px;border-bottom:0.5px solid #F3F4F6;text-decoration:none;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;display:inline-block;"></span>
+            <span style="font-size:14px;font-weight:500;color:#111827;">${escapeHtml(it.title || "Sans titre")}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:6px;background:${pillBg};color:${pillColor};">${escapeHtml(label)}</span>
+            <span style="font-size:13px;color:#9CA3AF;">→</span>
+          </div>
+        </a>`;
+      }).join("")
+    ) : "";
+
+    // Pending card
+    const pendingCardHtml = card(
+      `<span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;flex:1;">En attente de décision</span>`,
+      pending.length ? groupByLocation(pending, pendingRow) : emptyState("Aucune date en attente de décision.")
+    );
+
+    // Active card
+    const activeCardHtml = card(
+      `<span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;flex:1;">Événements en cours</span>
+       <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:52px;text-align:right;">Début</span>
+       <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:52px;text-align:right;">Fin</span>`,
+      active.length ? groupByLocation(active, activeRow) : emptyState("Aucun événement en cours.")
+    );
+
     root.innerHTML = `
       <div style="padding-top:40px;">
         <div style="font-size:28px;font-weight:300;color:#111827;letter-spacing:-0.01em;margin:10px 0 20px 0;">Mes événements</div>
-        ${sectionLabel("En attente de décision")}
-        ${groupByLocation(pending, pendingRow)}
-        <div style="height:8px;"></div>
-        ${sectionLabel("Événements en cours")}
-        ${groupByLocation(active, activeRow)}
+        ${alertBlockHtml}
+        ${pendingCardHtml}
+        ${activeCardHtml}
       </div>
     `;
   }

@@ -2057,7 +2057,7 @@ const show_actions = has_selected_dates;
             <div class="ms-saved-wrap">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="ms-saved-hero">Mes dates</div>
-                <button onclick="window.location.href='/app/insightevent/month'" onmouseover="this.style.color='#1D3BB3';this.style.borderColor='#1D3BB3';" onmouseout="this.style.color='#111827';this.style.borderColor='rgba(17,24,39,0.12)';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(17,24,39,0.06);border:0.5px solid rgba(17,24,39,0.12);border-radius:20px;font-size:13px;font-weight:500;color:#111827;cursor:pointer;font-family:inherit;letter-spacing:0.01em;">
+                <button onclick="window.location.href='/app/insightevent/month'" onmouseover="this.style.color='#1D3BB3';this.style.borderColor='#1D3BB3';" onmouseout="this.style.color='#111827';this.style.borderColor='rgba(17,24,39,0.12)';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(17,24,39,0.06);border:0.5px solid rgba(17,24,39,0.12);border-radius:6px;font-size:13px;font-weight:500;color:#111827;cursor:pointer;font-family:inherit;letter-spacing:0.01em;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>
                   Calendrier
                 </button>
@@ -2109,16 +2109,19 @@ const show_actions = has_selected_dates;
           const groupsHtml = locationOrder.map(({ key, label, is_primary }) => {
             const groupItems = locationMap.get(key);
             return `
-              <div style="margin-bottom:8px;" data-location-label="${escapeHtml(label)}">
-                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;padding:20px 0 10px 0;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:8px;">
-                  ${escapeHtml(label)}
-                  ${is_primary ? `<span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#f1efe8;color:#444441;">Principal</span>` : ""}
+              <div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(17,24,39,0.06);margin-bottom:16px;" data-location-label="${escapeHtml(label)}">
+                <div style="padding:14px 20px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;">${escapeHtml(label)}</span>
+                  ${is_primary ? `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6B7280;border:0.5px solid #E5E7EB;">Principal</span>` : ""}
+                  <span style="flex:1;"></span>
+                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:64px;text-align:right;">Date décision</span>
+                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:64px;text-align:right;">Début</span>
+                  <span style="min-width:64px;text-align:right;"></span>
                 </div>
-                <div class="ms-saved-list">
+                <div>
                   ${groupItems.map((it) => {
                     const id = it?.saved_item_id ? String(it.saved_item_id) : "";
                     const title = it?.title ? String(it.title) : "Sans titre";
-                    const stage = stageLabel(it?.stage) || "—";
                     const desc = it?.description ? String(it.description) : "";
 
                     function short10Words(s) {
@@ -2133,18 +2136,44 @@ const show_actions = has_selected_dates;
 
                     const dates = extractDates(it);
                     const datesCsv = dates.join(",");
-                    const count = Number(it?.number_of_dates || dates.length || 0) || 0;
-
                     const ds = datesSummary(dates);
-
-                    // Left subline:
-                    // - show date(s) summary
-                    // - then a muted description (or stage hint if no description)
                     const hint = desc ? short10Words(desc) : "";
                     const hintSafe = hint ? escapeHtml(hint) : "";
-                    
+
+                    function smartLabel(ymd) {
+                      if (!ymd) return "—";
+                      const raw = normalizeYmd(String(ymd?.value ?? ymd ?? ""));
+                      if (!raw) return "—";
+                      const d = parseYmdToDate(raw);
+                      if (!d) return "—";
+                      const diff = Math.round((d - new Date().setHours(0,0,0,0)) / 86400000);
+                      if (diff === 0) return "Aujourd'hui";
+                      if (diff < 0)  return fmtShortFr(raw);
+                      if (diff <= 7) return `J-${diff}`;
+                      return fmtShortFr(raw);
+                    }
+                    function smartColor(ymd) {
+                      if (!ymd) return "#6b7280";
+                      const raw = normalizeYmd(String(ymd?.value ?? ymd ?? ""));
+                      if (!raw) return "#6b7280";
+                      const d = parseYmdToDate(raw);
+                      if (!d) return "#6b7280";
+                      const diff = Math.round((d - new Date().setHours(0,0,0,0)) / 86400000);
+                      if (diff === 0) return "#059669";
+                      if (diff < 0)  return "#9CA3AF";
+                      if (diff <= 7) return "#d97706";
+                      return "#6b7280";
+                    }
+                    const decVal = smartLabel(it?.decision_date);
+                    const decColor = smartColor(it?.decision_date);
+                    const evtVal = smartLabel(it?.event_end_date);
+                    const evtColor = smartColor(it?.event_end_date);
+
                     return `
-                      <div class="ms-saved-row ms-saved-tr"
+                      <div class="ms-saved-tr"
+                        style="padding:14px 20px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #F3F4F6;cursor:pointer;transition:background 120ms;"
+                        onmouseover="this.style.background='#F9FAFB';this.querySelector('.ms-saved-title2').style.color='#1D3BB3';"
+                        onmouseout="this.style.background='';this.querySelector('.ms-saved-title2').style.color='#111827';"
                         data-id="${escapeHtml(id)}"
                         data-dates="${escapeHtml(datesCsv)}"
                         data-title="${escapeHtml(title)}"
@@ -2154,29 +2183,25 @@ const show_actions = has_selected_dates;
                         data-selected-date="${escapeHtml(String(it?.selected_date || ""))}"
                         data-event-type="${escapeHtml(String(it?.event_type || ""))}"
                         data-launch-hour="${escapeHtml(String(it?.launch_hour ?? ""))}">
-                        <div class="ms-saved-left">
-                          <div class="ms-saved-title2" style="cursor:pointer;" data-action="consult">${escapeHtml(title)}</div>
+                        <div class="ms-saved-left" style="flex:1;min-width:0;">
+                          <div class="ms-saved-title2" style="cursor:pointer;font-size:15px;font-weight:400;color:#111827;margin-bottom:3px;" data-action="consult">${escapeHtml(title)}</div>
                           <div class="ms-saved-subline">
-                            <span class="ms-saved-datesline">${escapeHtml(ds.text || "")}</span>
-                            ${hintSafe ? `<span class="ms-saved-sep">|</span><span class="ms-saved-desc">${hintSafe}</span>` : ""}
+                            ${(() => {
+                              const selDate = normalizeYmd(String(it?.selected_date?.value ?? it?.selected_date ?? ""));
+                              if (selDate) {
+                                const d = parseYmdToDate(selDate);
+                                const label = d ? new Intl.DateTimeFormat("fr-FR", { day:"numeric", month:"long" }).format(d) : selDate;
+                                return `<span style="font-style:italic;color:#9CA3AF;font-size:12px;">Date validée le ${escapeHtml(label)}</span>`;
+                              }
+                              const count = dates.length;
+                              return `<span style="font-style:italic;color:#9CA3AF;font-size:12px;">${count} date${count > 1 ? "s" : ""} en cours de sélection</span>`;
+                            })()}
                           </div>
                         </div>
-
-                        <div class="ms-saved-right">
-                          <div class="ms-saved-kpis">
-                            <div class="ms-kpi">
-                              <div class="ms-kpi-label">Décision</div>
-                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.decision_date, "") || "—")}</div>
-                            </div>
-                            <div class="ms-kpi">
-                              <div class="ms-kpi-label">Événement</div>
-                              <div class="ms-kpi-value">${escapeHtml(countdownLabel(it?.event_end_date, "") || "—")}</div>
-                            </div>
-                          </div>
-
-                          <div class="ms-saved-actions c-actions">
-                            <button type="button" class="ms-btn-row ms-edit">Modifier</button>
-                          </div>
+                        <div style="font-size:14px;font-weight:500;color:${decColor};min-width:64px;text-align:right;flex-shrink:0;">${escapeHtml(decVal)}</div>
+                        <div style="font-size:14px;font-weight:500;color:${evtColor};min-width:64px;text-align:right;flex-shrink:0;">${escapeHtml(evtVal)}</div>
+                        <div style="min-width:64px;text-align:right;flex-shrink:0;">
+                          <button type="button" class="ms-btn-row ms-edit" style="font-size:13px;font-weight:500;color:#6b7280;transition:color 120ms;" onmouseover="this.style.color='#1D3BB3';" onmouseout="this.style.color='#6b7280';">Modifier</button>
                         </div>
                       </div>
                     `;
@@ -3098,39 +3123,107 @@ const show_actions = has_selected_dates;
             }
 
             function feedLine2(a) {
+              const sub  = String(a?.change_subtype || "").toLowerCase();
+              const loc  = String(a?.location_type || "").toLowerCase();
+              const locClient = String(a?.location_type_client || "").toLowerCase();
+              const lvlRain = Number(a?.lvl_rain || 0);
+              const lvlWind = Number(a?.lvl_wind || 0);
+              const lvlSnow = Number(a?.lvl_snow || 0);
+              const lvlHeat = Number(a?.lvl_heat || 0);
+              const lvlCold = Number(a?.lvl_cold || 0);
+              const venue = a?.event_venue_name || "";
+              const city  = a?.city_name || "";
+              const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+              const distM = Number(a?.distance_m || 0);
+              const aud1  = String(a?.primary_audience_1 || "").toLowerCase();
+              const aud2  = String(a?.primary_audience_2 || "").toLowerCase();
+              const hasActiveEvent = Boolean(a?.has_active_event);
+              const activeTitle = a?.active_event_title || null;
+              const weatherSens = String(a?.weather_sensitivity || "").toLowerCase();
+              const capSens = String(a?.capacity_sensitivity || "").toLowerCase();
+              const isOutdoorClient = locClient === "outdoor" || locClient === "mixed";
+
+              function parseHours(s) {
+                if (!s) return null;
+                const m = String(s).match(/(\d{1,2})[h:]?(\d{0,2})\s*[-–]\s*(\d{1,2})[h:]?(\d{0,2})/i);
+                if (!m) return null;
+                const start = parseInt(m[1]) * 60 + (parseInt(m[2]) || 0);
+                const end   = parseInt(m[3]) * 60 + (parseInt(m[4]) || 0);
+                return { start, end };
+              }
+
+              function audienceLabel(code) {
+                const map = { local: "résidents locaux", professionals: "professionnels", tourists: "touristes", students: "étudiants", families: "familles", seniors: "seniors" };
+                return map[code] || code;
+              }
+
+              if (sub === "score_up") {
+                if (lvlRain > 0) return "Amélioration des conditions de pluie.";
+                if (lvlSnow > 0) return "Réduction du risque neige.";
+                if (lvlWind > 0) return "Vent en baisse.";
+                if (lvlHeat > 0) return "Chaleur moins intense.";
+                if (lvlCold > 0) return "Froid moins intense.";
+                return "Attractivité de la date en progression.";
+              }
+              if (sub === "score_down") {
+                if (lvlRain > 0) {
+                  if (isOutdoorClient) return "Fortes pluies prévues — impact direct sur vos installations et la fréquentation.";
+                  return "Fortes pluies prévues — possible friction à l'entrée du site.";
+                }
+                if (lvlSnow > 0) return "Neige prévue — impact sur l'accès et la fréquentation.";
+                if (lvlWind > 0) {
+                  if (isOutdoorClient) return "Vent fort prévu — vérifier la solidité des structures et signalétiques.";
+                  return "Vent fort prévu — impact sur les conditions d'exploitation.";
+                }
+                if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort et la durée de présence.";
+                if (lvlCold > 0) return "Grand froid prévu — impact sur la fréquentation.";
+                return "Dégradation de l'attractivité de la date.";
+              }
+              if (sub === "event_new") {
+                const parts = [];
+                if (distM > 0 && distM <= 500) {
+                  parts.push(`Concurrent à ${Math.round(distM)} m`);
+                } else if (distM > 0) {
+                  parts.push(`À ${km} de votre site`);
+                } else if (venue) {
+                  parts.push(venue);
+                } else if (city) {
+                  parts.push(city);
+                }
+                const audParts = [aud1, aud2].filter(Boolean);
+                if (audParts.length) parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
+                if (hasActiveEvent && activeTitle) parts.push(`pendant votre événement "${activeTitle}"`);
+                const oh = parseHours(a?.operating_hours);
+                if (oh) parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
+                return parts.length ? parts.join(" — ") + "." : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
+              }
+              if (sub === "event_removed") return "";
+              if (sub === "weather_worsened") {
+                if (weatherSens === "high" || weatherSens === "élevée") {
+                  if (isOutdoorClient) return "Impact direct sur vos installations et la fréquentation — sensibilité météo élevée.";
+                  return "Impact probable sur la fréquentation — votre activité est sensible aux conditions météo.";
+                }
+                if (isOutdoorClient) return "Impact direct sur les installations et la fréquentation.";
+                if (locClient === "mixed") return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
+                return "Légère friction possible à l'entrée du site.";
+              }
+              if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
+              if (sub === "mobility_disruption") {
+                if (hasActiveEvent && activeTitle) return `Accès au site potentiellement impacté pendant votre événement "${activeTitle}".`;
+                if (capSens === "high" || capSens === "élevée") return "Accès perturbé — votre activité dépend d'une fréquentation élevée.";
+                return "Accès au site potentiellement impacté.";
+              }
+              if (sub === "ranking_up")   return "Cette date gagne en attractivité relative dans votre région.";
+              if (sub === "ranking_down") return "Cette date perd en attractivité relative dans votre région.";
+              if (sub === "context_change") return "";
               const cat = String(a?.change_category || "").toLowerCase();
               const lvl = Math.min(4, Math.max(1, Number(a?.alert_level) || 1));
               const vocab = {
-                competition: {
-                  1: "Impact de la concurrence locale.",
-                  2: "Impact notable de la concurrence locale.",
-                  3: "Impact important de la concurrence locale.",
-                  4: "Impact majeur de la concurrence locale.",
-                },
-                opportunity: {
-                  1: "Évolution globale du contexte.",
-                  2: "Évolution notable du contexte global.",
-                  3: "Impact sensible sur l'attractivité de la date.",
-                  4: "Impact important sur l'attractivité de la date.",
-                },
-                context: {
-                  1: "Impact météo sur cette date.",
-                  2: "Impact notable de la météo sur cette date.",
-                  3: "Impact possible de la météo sur l'organisation.",
-                  4: "Impact important de la météo sur l'organisation.",
-                },
-                planning: {
-                  1: "Impact de l'activité événementielle locale.",
-                  2: "Impact notable de l'activité événementielle locale.",
-                  3: "Impact important de l'activité événementielle locale.",
-                  4: "Impact majeur de l'activité événementielle locale.",
-                },
-                mobility: {
-                  1: "Impact des conditions de mobilité.",
-                  2: "Impact notable sur les conditions d'accès.",
-                  3: "Impact possible sur l'accès au lieu.",
-                  4: "Impact important sur l'accès au lieu.",
-                },
+                competition: { 1: "Impact de la concurrence locale.", 2: "Impact notable de la concurrence locale.", 3: "Impact important de la concurrence locale.", 4: "Impact majeur de la concurrence locale." },
+                opportunity: { 1: "Évolution globale du contexte.", 2: "Évolution notable du contexte global.", 3: "Impact sensible sur l'attractivité de la date.", 4: "Impact important sur l'attractivité de la date." },
+                context:     { 1: "Impact météo sur cette date.", 2: "Impact notable de la météo sur cette date.", 3: "Impact possible de la météo sur l'organisation.", 4: "Impact important de la météo sur l'organisation." },
+                planning:    { 1: "Impact de l'activité événementielle locale.", 2: "Impact notable de l'activité événementielle locale.", 3: "Impact important de l'activité événementielle locale.", 4: "Impact majeur de l'activité événementielle locale." },
+                mobility:    { 1: "Impact des conditions de mobilité.", 2: "Impact notable sur les conditions d'accès.", 3: "Impact possible sur l'accès au lieu.", 4: "Impact important sur l'accès au lieu." },
               };
               return (vocab[cat] && vocab[cat][lvl]) || "Évolution globale du contexte.";
             }
