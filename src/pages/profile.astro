@@ -448,7 +448,7 @@ function isIncomplete(loc: LocationRow): boolean {
   <!-- PAGE HEADER -->
   <div style="margin-bottom: 2rem;">
     <h1 style="font-size: 28px; font-weight: 600; margin-bottom: 4px;">Mes sites</h1>
-    <p style="font-size: 14px; color: #6b7280;">Gérez vos informations et préférences d'analyse.</p>
+    <p style="font-size: 14px; color: #6b7280;">Gérez vos lieux physiques et vos préférences d'analyse.</p>
   </div>
 
   <!-- ===== USER PROFILE SECTION ===== -->
@@ -543,7 +543,7 @@ function isIncomplete(loc: LocationRow): boolean {
 
   <!-- ===== SITES SECTION ===== -->
   <div class="section-title" style="margin-bottom:4px;">Mes sites</div>
-  <p class="section-desc">Chaque site dispose de son propre profil d'analyse.</p>
+  <p class="section-desc">Chaque lieu dispose de son propre profil d'analyse IA.</p>
 
   <div id="locations-container">
     {all_locations.map((loc, idx) => {
@@ -865,7 +865,7 @@ function isIncomplete(loc: LocationRow): boolean {
 
   <button type="button" class="add-site-btn" id="addSiteBtn">
     <span class="add-plus">+</span>
-    Ajouter un site
+    Ajouter un site physique
   </button>
 
 </div>
@@ -1524,6 +1524,39 @@ window.saveLocation = async function(idx) {
   // Collect all fields from this card's body
   const body = document.getElementById(`loc-body-${idx}`);
   if (!body) return;
+
+  // Validate required fields before submit
+  const requiredSelects = ['company_activity_type', 'location_type', 'weather_sensitivity', 'location_access_pattern'];
+  const missingFields = [];
+  requiredSelects.forEach(name => {
+    const el = body.querySelector(`[name="${name}"]`);
+    if (!el || !el.value) missingFields.push(el);
+  });
+  const siteNameEl = body.querySelector('[name="site_name"]');
+  if (!siteNameEl || !siteNameEl.value.trim()) missingFields.push(siteNameEl);
+  const aud1El = document.getElementById(`aud-1-${idx}`);
+  if (!aud1El || !aud1El.value) {
+    const audGroup = body.querySelector('[data-pill-group]');
+    if (audGroup) missingFields.push(audGroup);
+  }
+  const et1El = document.getElementById(`et-1-${idx}`);
+  if (!et1El || !et1El.value) {
+    const etGroup = body.querySelectorAll('[data-pill-group]')[1];
+    if (etGroup) missingFields.push(etGroup);
+  }
+
+  if (missingFields.length > 0) {
+    missingFields.forEach(el => {
+      if (!el) return;
+      el.style.outline = '2px solid #ef4444';
+      el.style.borderColor = '#ef4444';
+      setTimeout(() => { el.style.outline = ''; el.style.borderColor = ''; }, 3000);
+    });
+    if (statusEl) { statusEl.textContent = 'Merci de compléter les champs obligatoires.'; statusEl.className = 'save-status status-err'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer ce site'; }
+    missingFields[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   const data = { mode: 'update' };
 

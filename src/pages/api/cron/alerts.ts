@@ -20,6 +20,7 @@ export const GET: APIRoute = async ({ request }) => {
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
     const resend = new Resend(process.env.RESEND_API_KEY);
     const baseUrl = process.env.APP_BASE_URL || "https://dev.musesquare.com";
+    const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
 
     const [rows] = await bigquery.query({
       query: `
@@ -32,14 +33,21 @@ export const GET: APIRoute = async ({ request }) => {
           a.direction,
           a.affected_date,
           a.event_label,
-          a.summary,
+          a.old_value,
+          a.new_value,
+          a.score_delta,
+          a.distance_m,
           s.title,
           s.selected_date,
           s.decision_date,
           s.clerk_user_id,
           s.location_id,
           p.email,
-          p.first_name
+          p.first_name,
+          p.company_activity_type,
+          p.location_type,
+          p.primary_audience_1,
+          p.main_event_objective
         FROM \`${projectId}.raw.alerts\` a
         JOIN \`${projectId}.raw.saved_items\` s
           ON a.saved_item_id = s.saved_item_id
@@ -69,12 +77,13 @@ export const GET: APIRoute = async ({ request }) => {
 
     for (const row of rows) {
       try {
+        const narrative = await generateNarrative(row, anthropicKey);
         await resend.emails.send({
           from: "Insight <insight@musesquare.com>",
           replyTo: "contact@musesquare.com",
           to: row.email,
           subject: `Alerte niveau ${row.alert_level} — ${row.title}`,
-          html: buildAlertEmail(row, baseUrl),
+          html: buildAlertEmail(row, baseUrl, narrative),
         });
         sent++;
         alertIds.push(row.alert_id);
@@ -127,7 +136,60 @@ function pill(label: string, style: string): string {
   return `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;${style}">${esc(label)}</span>`;
 }
 
-function buildAlertEmail(row: any, baseUrl: string): string {
+async function generateNarrative(row: any, anthropicKey: string): Promise<string> {
+  if (!anthropicKey) return "";
+  try {
+    const cat = String(row.change_category || "").toLowerCase();
+    const sub = String(row.change_subtype || "").toLowerCase();
+    const affectedDate = fmtDate(row.affected_date);
+    const km = row.distance_m ? `${(Number(row.distance_m)/1000).toFixed(1)} km` : null;
+    const delta = row.score_delta ? Math.round(Number(row.score_delta)) : null;
+    const ov = row.old_value ? String(row.old_value) : null;
+    const nv = row.new_value ? String(row.new_value) : null;
+    const eventLabel = row.event_label ? String(row.event_label) : null;
+    const locationType = String(row.location_type || "").toLowerCase();
+    const audience = String(row.primary_audience_1 || "").toLowerCase();
+
+    const context = [
+      `Événement client : "${row.title}"`,
+      `Date concernée : ${affectedDate}`,
+      `Catégorie du signal : ${cat}`,
+      `Sous-type : ${sub}`,
+      row.alert_level >= 4 ? "Niveau : impact majeur" : "Niveau : impact fort",
+      eventLabel ? `Concurrent détecté : ${eventLabel}` : null,
+      km ? `Distance : ${km} du site` : null,
+      delta ? `Variation de score : ${delta > 0 ? '+' : ''}${delta} pts` : null,
+      ov && nv ? `Changement : ${ov} → ${nv}` : null,
+      locationType ? `Type de lieu client : ${locationType}` : null,
+      audience ? `Audience principale : ${audience}` : null,
+    ].filter(Boolean).join('\n');
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 200,
+        messages: [{
+          role: "user",
+          content: `Tu es l'assistant IA de Muse Square Insight, une plateforme de veille opérationnelle pour professionnels de l'événementiel en France. Écris UNE phrase d'alerte en français, naturelle et directe, qui explique ce signal à un professionnel. La phrase doit mentionner l'impact concret sur son activité et se terminer par une suggestion d'action. Pas de formule de politesse, pas de titre, juste la phrase.\n\nContexte du signal :\n${context}`
+        }],
+      }),
+    });
+    const json = await res.json().catch(() => null);
+    const text = json?.content?.[0]?.text?.trim() || "";
+    return text;
+  } catch (e) {
+    console.error("[alerts] narrative generation failed:", e);
+    return "";
+  }
+}
+
+function buildAlertEmail(row: any, baseUrl: string, narrative: string): string {
   const firstName = row.first_name ? String(row.first_name) : "vous";
   const title = esc(row.title);
   const affectedDate = fmtDate(row.affected_date);
@@ -172,7 +234,7 @@ function buildAlertEmail(row: any, baseUrl: string): string {
   <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
     <div style="font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#0b37e5;margin-bottom:12px;">Alerte · ${esc(affectedDate)}</div>
     <div style="font-size:28px;font-weight:300;color:#111827;line-height:1.1;margin-bottom:24px;">${title}</div>
-    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)}, un signal important a été détecté sur votre date du ${esc(affectedDate)} — vérifiez l'impact sur votre événement.</div>
+    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)},<br><br>${narrative ? esc(narrative) : `Un signal important a été détecté sur votre date du ${esc(affectedDate)} — vérifiez l'impact sur votre événement.`}</div>
   </td></tr>
 
   <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
@@ -191,9 +253,12 @@ function buildAlertEmail(row: any, baseUrl: string): string {
     </div>
   </td></tr>
 
-  <tr><td style="background:#ffffff;padding:40px 40px;border-top:0;">
-    <a href="${monitorUrl}" style="display:inline-block;padding:12px 28px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;">
+  <tr><td style="background:#ffffff;padding:32px 40px 40px 40px;border-top:0;">
+    <a href="${monitorUrl}" style="display:inline-block;padding:12px 28px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;margin-right:12px;">
       Voir le détail →
+    </a>
+    <a href="${baseUrl}/app/insightevent/prompt" style="display:inline-block;padding:12px 20px;background:transparent;color:#0b37e5;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;border:1px solid #0b37e5;">
+      Explorer des alternatives →
     </a>
   </td></tr>
 

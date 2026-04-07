@@ -228,6 +228,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       types: updateTypes,
     });
 
+    // Snapshot signal levels at PLANIFIER → PILOTER transition
+    if (selected_date && selected_date !== "NULL") {
+      fetch(`${new URL(request.url).origin}/api/saved-items/snapshot`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: request.headers.get("cookie") || "" },
+        body: JSON.stringify({ saved_item_id, selected_date }),
+      }).catch(e => console.error("[snapshot] fire-and-forget failed:", e));
+    }
+
     const responseHeaders: Record<string, string> = { "content-type": "application/json" };
     if (selected_date && selected_date !== "NULL") {
       responseHeaders["Set-Cookie"] = `ms_piloter=${encodeURIComponent(saved_item_id)}|${encodeURIComponent(selected_date)}; Path=/; SameSite=Lax; Max-Age=31536000`;

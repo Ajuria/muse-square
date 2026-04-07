@@ -1161,6 +1161,216 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // Main render
   // ----------------------------------------------------------------
+  function renderBilan(item, snapshot, savedItemId) {
+    const root = document.getElementById("mon-root");
+    if (!root) return;
+
+    const selDate = normalizeYmd(item?.selected_date?.value ?? item?.selected_date ?? "");
+
+    function radioGroup(id, options) {
+      return `<div id="rg-${id}" style="display:flex;flex-direction:column;gap:7px;margin-bottom:20px;">
+        ${options.map((opt, i) => `
+          <div class="bilan-opt" data-group="${id}" data-value="${escapeHtml(opt.value)}"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:.5px solid #E5E7EB;border-radius:10px;cursor:pointer;">
+            <span class="bilan-dot" style="width:16px;height:16px;border-radius:50%;border:1.5px solid #D1D5DB;flex-shrink:0;display:inline-block;"></span>
+            <span style="font-size:13px;color:#111827;">${escapeHtml(opt.label)}</span>
+          </div>`).join('')}
+      </div>`;
+    }
+
+    function predictionBadge(label) {
+      return `<span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:6px;background:#EEF2FF;color:#1D3BB3;margin-bottom:8px;">${escapeHtml(label)}</span>`;
+    }
+
+    const weatherPred = snapshot
+      ? (snapshot.lvl_rain > 1 || snapshot.lvl_wind > 1 || snapshot.lvl_snow > 1
+          ? `Risque météo prévu (niv. ${Math.max(snapshot.lvl_rain||0, snapshot.lvl_wind||0, snapshot.lvl_snow||0)})`
+          : "Conditions météo favorables prévues")
+      : null;
+
+    const concPred = snapshot
+      ? (snapshot.delta_att_events_pct > 3 ? "Pression concurrentielle élevée prévue" : "Faible pression concurrentielle prévue")
+      : null;
+
+    const mobPred = snapshot
+      ? (snapshot.delta_att_mobility_car_pct < -4 ? "Perturbations mobilité prévues" : "Accessibilité fluide prévue")
+      : null;
+
+    root.innerHTML = `
+      <div class="mon-card-decision" style="margin-bottom:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#6B7280;flex-shrink:0;"></span>
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B7280;">Événement terminé · ${escapeHtml(fmtDateLong(selDate))}</span>
+        </div>
+        <div style="font-size:20px;font-weight:500;color:#111827;margin-bottom:4px;">${escapeHtml(item?.title || "Événement")}</div>
+        <div style="font-size:13px;color:#6b7280;">Bilan conditions externes — aide à calibrer vos prochaines recommandations.</div>
+      </div>
+
+      <div class="mon-panels" style="padding-top:16px;">
+        <div class="mon-card">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:16px;">Conditions externes</div>
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:4px;">Météo</div>
+          ${weatherPred ? predictionBadge('Nous avions prévu : ' + weatherPred) : ''}
+          <div style="font-size:12px;color:#6b7280;margin-bottom:10px;">Les conditions météo correspondaient-elles à nos prévisions ?</div>
+          ${radioGroup('meteo', [
+            {value:'conforme',  label:'Oui, conforme'},
+            {value:'mieux',     label:'Meilleures que prévu'},
+            {value:'pire',      label:'Pires que prévu'},
+          ])}
+
+          <div style="height:1px;background:#F3F4F6;margin:4px 0 18px;"></div>
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:4px;">Concurrence</div>
+          ${concPred ? predictionBadge('Nous avions prévu : ' + concPred) : ''}
+          <div style="font-size:12px;color:#6b7280;margin-bottom:10px;">Avez-vous observé une pression concurrentielle ce jour-là ?</div>
+          ${radioGroup('conc', [
+            {value:'faible',   label:'Faible — aucun impact notable'},
+            {value:'moderee',  label:'Modérée — impact limité'},
+            {value:'forte',    label:'Forte — impact ressenti'},
+          ])}
+
+          <div style="height:1px;background:#F3F4F6;margin:4px 0 18px;"></div>
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:4px;">Accessibilité</div>
+          ${mobPred ? predictionBadge('Nous avions prévu : ' + mobPred) : ''}
+          <div style="font-size:12px;color:#6b7280;margin-bottom:10px;">L'accès à votre site était-il fluide pour vos visiteurs ?</div>
+          ${radioGroup('mob', [
+            {value:'fluide',    label:'Fluide'},
+            {value:'difficile', label:'Quelques difficultés'},
+            {value:'perturbe',  label:'Fortement perturbé'},
+          ])}
+        </div>
+
+        <div class="mon-card">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:16px;">Votre performance</div>
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Fréquentation</div>
+          ${radioGroup('freq', [
+            {value:'beyond',    label:'Bien au-delà des attentes'},
+            {value:'conforme',  label:'Conforme aux attentes'},
+            {value:'endeca',    label:'En deçà des attentes'},
+          ])}
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:6px;">
+            Nombre de visiteurs <span style="color:#9CA3AF;font-weight:400;">(optionnel)</span>
+          </div>
+          <input id="bilan-attendance" type="number" placeholder="ex. 340"
+            style="width:140px;padding:8px 12px;border:.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;color:#111827;background:#fff;margin-bottom:20px;" />
+
+          <div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:6px;">
+            Commentaire <span style="color:#9CA3AF;font-weight:400;">(optionnel)</span>
+          </div>
+          <textarea id="bilan-comment" placeholder="Contexte particulier, observation, retour terrain…"
+            style="width:100%;padding:10px 12px;border:.5px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;color:#111827;background:#fff;resize:vertical;min-height:72px;margin-bottom:20px;"></textarea>
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button id="bilan-submit"
+              style="padding:10px 20px;background:#1D3BB3;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;">
+              Envoyer mon bilan
+            </button>
+            <button id="bilan-later"
+              style="padding:10px 16px;background:none;color:#9CA3AF;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;">
+              Plus tard
+            </button>
+          </div>
+          <div id="bilan-error" style="font-size:12px;color:#B91C1C;margin-top:8px;display:none;"></div>
+        </div>
+      </div>`;
+
+    // Wire radio options
+    root.querySelectorAll(".bilan-opt").forEach(opt => {
+      opt.addEventListener("click", () => {
+        const group = opt.getAttribute("data-group");
+        root.querySelectorAll(`.bilan-opt[data-group="${group}"]`).forEach(o => {
+          o.style.borderColor = "#E5E7EB";
+          o.style.background = "#fff";
+          o.querySelector(".bilan-dot").style.cssText = "width:16px;height:16px;border-radius:50%;border:1.5px solid #D1D5DB;flex-shrink:0;display:inline-block;";
+        });
+        opt.style.borderColor = "#1D3BB3";
+        opt.style.background = "#EEF2FF";
+        opt.querySelector(".bilan-dot").style.cssText = "width:16px;height:16px;border-radius:50%;border:1.5px solid #1D3BB3;background:#1D3BB3;flex-shrink:0;display:inline-block;";
+      });
+    });
+
+    // Wire later button
+    root.querySelector("#bilan-later")?.addEventListener("click", () => {
+      try { localStorage.setItem("ms_bilan_later_" + savedItemId, String(Date.now())); } catch {}
+      window.location.href = "/app/insightevent/monitor";
+    });
+
+    // Wire submit
+    root.querySelector("#bilan-submit")?.addEventListener("click", async () => {
+      const get = (group) => root.querySelector(`.bilan-opt[data-group="${group}"][style*="EEF2FF"]`)?.getAttribute("data-value") || null;
+      const meteo = get("meteo");
+      const conc  = get("conc");
+      const mob   = get("mob");
+      const freq  = get("freq");
+      const attendance = parseInt(root.querySelector("#bilan-attendance")?.value || "") || null;
+      const comment    = root.querySelector("#bilan-comment")?.value?.trim() || null;
+
+      const errorEl = root.querySelector("#bilan-error");
+
+      if (!meteo || !conc || !mob || !freq) {
+        if (errorEl) { errorEl.textContent = "Merci de répondre à toutes les questions obligatoires."; errorEl.style.display = "block"; }
+        return;
+      }
+      if (errorEl) errorEl.style.display = "none";
+
+      const submitBtn = root.querySelector("#bilan-submit");
+      if (submitBtn) { submitBtn.textContent = "Envoi…"; submitBtn.disabled = true; }
+
+      try {
+        const res = await fetch("/api/saved-items/bilan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            saved_item_id: savedItemId,
+            selected_date: selDate,
+            weather_accuracy: meteo,
+            competition_felt: conc,
+            mobility_felt:    mob,
+            attendance_vs_expect: freq,
+            attendance_approx:    attendance,
+            free_comment:         comment,
+            collection_channel:   "in_app",
+          }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!json?.ok) throw new Error(json?.error || "Erreur");
+        renderBilanConfirm(root, item, selDate);
+      } catch (e) {
+        if (submitBtn) { submitBtn.textContent = "Envoyer mon bilan"; submitBtn.disabled = false; }
+        if (errorEl) { errorEl.textContent = "Erreur lors de l'envoi. Réessayez."; errorEl.style.display = "block"; }
+      }
+    });
+  }
+
+  function renderBilanConfirm(root, item, selDate) {
+    root.innerHTML = `
+      <div class="mon-card-decision" style="margin-bottom:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#6B7280;flex-shrink:0;"></span>
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6B7280;">Bilan enregistré</span>
+        </div>
+        <div style="font-size:20px;font-weight:500;color:#111827;">${escapeHtml(item?.title || "Événement")}</div>
+      </div>
+      <div class="mon-panels" style="padding-top:16px;">
+        <div class="mon-card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="width:20px;height:20px;border-radius:50%;background:#eaf3de;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#3b6d11" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span style="font-size:14px;font-weight:500;color:#111827;">Merci — votre retour améliore vos prochaines recommandations.</span>
+          </div>
+          <a href="/app/insightevent/monitor"
+            style="display:inline-flex;align-items:center;padding:10px 18px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:13px;font-weight:500;text-decoration:none;">
+            Retour à mes événements
+          </a>
+        </div>
+      </div>`;
+  }
+  
   function renderMonitor(data, item, selectedDate, activeTab) {
     activeTab = activeTab || "recap";
     const root = document.getElementById("mon-root");
@@ -1956,6 +2166,29 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       data.all_feed_new = filterFeedByWindow(data.all_feed || [], lastVisit, firstDate);
       data.all_feed = filterFeedByWindow(data.all_feed || [], 0, firstDate);
       setLastVisitTimestamp(LS_KEY);
+
+      // Bilan trigger: event ended > 7 days ago, not yet submitted, not snoozed
+      const eventEnd = normalizeYmd(item?.event_end_date?.value ?? item?.event_end_date ?? "");
+      const bilanSnoozedAt = (() => { try { return parseInt(localStorage.getItem("ms_bilan_later_" + saved_item_id) || "0", 10) || 0; } catch { return 0; } })();
+      const bilanSnoozedRecently = bilanSnoozedAt > 0 && (Date.now() - bilanSnoozedAt) < 48 * 60 * 60 * 1000;
+      const modeBilan = new URLSearchParams(window.location.search).get("mode") === "bilan";
+
+      if (eventEnd && !bilanSnoozedRecently) {
+        const endDate = parseYmdToDate(eventEnd);
+        const daysAgo = endDate ? Math.round((Date.now() - endDate.getTime()) / 86400000) : 0;
+        if (daysAgo >= 7 || modeBilan) {
+          // Check if already submitted
+          const snapshotRes = await fetch(`/api/saved-items/snapshot?saved_item_id=${encodeURIComponent(saved_item_id)}`, { cache: "no-store" }).catch(() => null);
+          const snapshotJson = snapshotRes ? await snapshotRes.json().catch(() => null) : null;
+          const snapshot = snapshotJson?.snapshot || null;
+          const bilanSubmitted = snapshotJson?.bilan_submitted === true;
+          if (!bilanSubmitted) {
+            renderBilan(item, snapshot, saved_item_id);
+            return;
+          }
+        }
+      }
+
       renderMonitor(data, item, firstDate, "recap");
 
     } catch (e) {
