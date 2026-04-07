@@ -450,6 +450,7 @@ if (!location_id) {
   function feedLine2(a) {
     const sub  = String(a?.change_subtype || "").toLowerCase();
     const loc  = String(a?.location_type || "").toLowerCase();
+    const locClient = String(a?.location_type_client || "").toLowerCase();
     const lvlRain = Number(a?.lvl_rain || 0);
     const lvlWind = Number(a?.lvl_wind || 0);
     const lvlSnow = Number(a?.lvl_snow || 0);
@@ -458,6 +459,29 @@ if (!location_id) {
     const venue = a?.event_venue_name || "";
     const city  = a?.city_name || "";
     const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+    const distM = Number(a?.distance_m || 0);
+    const aud1  = String(a?.primary_audience_1 || "").toLowerCase();
+    const aud2  = String(a?.primary_audience_2 || "").toLowerCase();
+    const activ = String(a?.company_activity_type || "").toLowerCase();
+    const hasActiveEvent = Boolean(a?.has_active_event);
+    const activeTitle = a?.active_event_title || null;
+    const weatherSens = Number(a?.weather_sensitivity || 0);
+    const capSens = String(a?.capacity_sensitivity || "").toLowerCase();
+    const isOutdoorClient = locClient === "outdoor" || locClient === "mixed";
+
+    function parseHours(s) {
+      if (!s) return null;
+      const m = String(s).match(/(\d{1,2})[h:]?(\d{0,2})\s*[-–]\s*(\d{1,2})[h:]?(\d{0,2})/i);
+      if (!m) return null;
+      const start = parseInt(m[1]) * 60 + (parseInt(m[2]) || 0);
+      const end   = parseInt(m[3]) * 60 + (parseInt(m[4]) || 0);
+      return { start, end };
+    }
+
+    function audienceLabel(code) {
+      const map = { local: "résidents locaux", professionals: "professionnels", tourists: "touristes", students: "étudiants", families: "familles", seniors: "seniors" };
+      return map[code] || code;
+    }
 
     if (sub === "score_up") {
       if (lvlRain > 0) return "Amélioration des conditions de pluie.";
@@ -467,28 +491,67 @@ if (!location_id) {
       if (lvlCold > 0) return "Froid moins intense.";
       return "Attractivité de la date en progression.";
     }
+
     if (sub === "score_down") {
-      if (lvlRain > 0) return "Fortes pluies prévues — impact sur la fréquentation.";
+      if (lvlRain > 0) {
+        if (isOutdoorClient) return "Fortes pluies prévues — impact direct sur vos installations et la fréquentation.";
+        return "Fortes pluies prévues — possible friction à l'entrée du site.";
+      }
       if (lvlSnow > 0) return "Neige prévue — impact sur l'accès et la fréquentation.";
-      if (lvlWind > 0) return "Vent fort prévu — impact sur les installations.";
-      if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort.";
+      if (lvlWind > 0) {
+        if (isOutdoorClient) return "Vent fort prévu — vérifier la solidité des structures et signalétiques.";
+        return "Vent fort prévu — impact sur les conditions d'exploitation.";
+      }
+      if (lvlHeat > 0) return "Chaleur forte prévue — impact sur le confort et la durée de présence.";
       if (lvlCold > 0) return "Grand froid prévu — impact sur la fréquentation.";
       return "Dégradation de l'attractivité de la date.";
     }
+
     if (sub === "event_new") {
       const parts = [];
-      if (venue) parts.push(venue);
-      if (city && city !== venue) parts.push(city);
-      return parts.length ? parts.join(" · ") : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
+      if (distM > 0 && distM <= 500) {
+        parts.push(`Concurrent à ${Math.round(distM)} m`);
+      } else if (distM > 0) {
+        parts.push(`À ${km} de votre site`);
+      } else if (venue) {
+        parts.push(venue);
+      } else if (city) {
+        parts.push(city);
+      }
+      const audParts = [aud1, aud2].filter(Boolean);
+      if (audParts.length) {
+        parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
+      }
+      if (hasActiveEvent && activeTitle) {
+        parts.push(`pendant votre événement "${activeTitle}"`);
+      }
+      const oh = parseHours(a?.operating_hours);
+      if (oh) {
+        parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
+      }
+      return parts.length ? parts.join(" — ") + "." : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
     }
+
     if (sub === "event_removed") return "";
+
     if (sub === "weather_worsened") {
-      if (loc === "outdoor") return "Impact direct sur les installations et la fréquentation.";
-      if (loc === "mixed")   return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
+      if (weatherSens >= 3) {
+        if (isOutdoorClient) return "Impact direct sur vos installations et la fréquentation — sensibilité météo élevée.";
+        return "Impact probable sur la fréquentation — votre activité est sensible aux conditions météo.";
+      }
+      if (isOutdoorClient) return "Impact direct sur les installations et la fréquentation.";
+      if (locClient === "mixed") return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
       return "Légère friction possible à l'entrée du site.";
     }
+
     if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
-    if (sub === "mobility_disruption") return "Accès au site potentiellement impacté.";
+
+    if (sub === "mobility_disruption") {
+      if (hasActiveEvent && activeTitle) return `Accès au site potentiellement impacté pendant votre événement "${activeTitle}".`;
+      if (capSens === "high" || capSens === "élevée") return "Accès perturbé — votre activité dépend d'une fréquentation élevée.";
+      return "Accès au site potentiellement impacté.";
+    }
+
     if (sub === "ranking_up")   return "Cette date gagne en attractivité relative dans votre région.";
     if (sub === "ranking_down") return "Cette date perd en attractivité relative dans votre région.";
     if (sub === "context_change") return "";
@@ -612,14 +675,12 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Context card (identical to monitor.astro renderContext)
   // ----------------------------------------------------------------
-  function renderContext(day, profile) {
+  function renderContextRows(day, profile) {
     const aud1 = profile?.primary_audience_1 ?? null;
     const aud2 = profile?.primary_audience_2 ?? null;
     const locationType = profile?.location_type ?? null;
     const isOutdoorOrMixed = locationType==="outdoor"||locationType==="mixed";
-
     const audienceFrMap = { local:"Résidents locaux", professionals:"Professionnels", tourists:"Touristes", students:"Étudiants", families:"Familles", seniors:"Seniors" };
-
     const dt = parseYmdToDate(normalizeYmd(day?.date||""));
     const isWeekend = dt ? (dt.getUTCDay()===0||dt.getUTCDay()===6) : false;
     const hasVacation = Boolean(day?.vacation_name);
@@ -637,66 +698,53 @@ if (!location_id) {
       else avail=isWeekend||hasVacation||hasHoliday;
       return avail ? {label:"Disponible",style:GREEN} : {label:"Peu disponible",style:RED};
     }
-
     function mobLabel(delta) {
       if (delta>=0) return {label:"Fluide",style:GREEN};
       if (delta>=-4) return {label:"Perturbé",style:YELLOW};
       return {label:"Fortement perturbé",style:RED};
     }
+    function row(label, content, ctaTab) {
+      const cta = ctaTab ? `<button type="button" data-switch-tab="${ctaTab}" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;">Voir →</button>` : "";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;"><span style="display:flex;align-items:center;"><span style="font-size:13px;color:#6b7280;width:200px;flex-shrink:0;">${escapeHtml(label)}</span>${content}</span>${cta}</div>`;
+    }
+    function section(label, rowsHtml) {
+      return `<div><div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#111827;padding:12px 0 2px 0;">${escapeHtml(label)}</div>${rowsHtml}</div>`;
+    }
+    function divider() { return `<div style="height:1px;background:#F3F4F6;margin:4px 0 0 0;"></div>`; }
 
     const count500    = Number(day?.events_within_500m_count)||0;
     const count5km    = Number(day?.events_within_5km_count)||0;
     const deltaEvents = Number(day?.delta_att_events_pct??0);
     const concStyle   = deltaEvents>3 ? RED : GREEN;
     const concLabel   = deltaEvents>3 ? "Élevée" : deltaEvents<-3 ? "Basse" : "Normale";
-
-    const deltaAtt = Number(day?.delta_att_mobility_pct??0);
-    const deltaOps = Number(day?.delta_ops_mobility_car_pct??0);
-    const attMob   = mobLabel(deltaAtt);
-    const opsMob   = mobLabel(deltaOps);
-
-    const alertMax   = Number(day?.alert_level_max??0);
-    const freqLabel  = alertMax===0 ? "Aucune alerte" : `Alerte niv. ${alertMax}`;
-    const freqStyle  = alertMax===0 ? GREEN : alertMax<=2 ? YELLOW : RED;
-
+    const deltaAtt    = Number(day?.delta_att_mobility_pct??0);
+    const deltaOps    = Number(day?.delta_ops_mobility_car_pct??0);
+    const attMob      = mobLabel(deltaAtt);
+    const opsMob      = mobLabel(deltaOps);
+    const alertMax    = Number(day?.alert_level_max??0);
+    const freqLabel   = alertMax===0 ? "Aucune alerte" : `Alerte niv. ${alertMax}`;
+    const freqStyle   = alertMax===0 ? GREEN : alertMax<=2 ? YELLOW : RED;
     const lvlWind=Number(day?.lvl_wind??0), lvlRain=Number(day?.lvl_rain??0), lvlSnow=Number(day?.lvl_snow??0);
-    const instLevel = Math.max(lvlWind,lvlRain,lvlSnow);
-    const instLabel = instLevel===0?"Aucun risque":instLevel===1?"Risque faible":instLevel===2?"Risque modéré":"Risque élevé";
-    const instStyle = instLevel===0?GREEN:instLevel===1?YELLOW:instLevel===2?YELLOW:RED;
-
-    function row(label, content, ctaTab) {
-      const cta = ctaTab ? `<button type="button" data-switch-tab="${ctaTab}" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;">Voir →</button>` : "";
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
-        <span style="display:flex;align-items:center;gap:0;">
-          <span style="font-size:13px;color:#6b7280;width:200px;flex-shrink:0;">${escapeHtml(label)}</span>
-          ${content}
-        </span>${cta}</div>`;
-    }
-
-    function section(label, rowsHtml) {
-      return `<div style="margin-bottom:0;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#111827;padding:12px 0 2px 0;">${escapeHtml(label)}</div>
-        ${rowsHtml}</div>`;
-    }
-
-    function divider() { return `<div style="height:1px;background:#F3F4F6;margin:4px 0 0 0;"></div>`; }
+    const instLevel   = Math.max(lvlWind,lvlRain,lvlSnow);
+    const instLabel   = instLevel===0?"Aucun risque":instLevel===1?"Risque faible":instLevel===2?"Risque modéré":"Risque élevé";
+    const instStyle   = instLevel===0?GREEN:instLevel===1?YELLOW:instLevel===2?YELLOW:RED;
 
     const audienceRows = [aud1,aud2].filter(Boolean).length
       ? [aud1,aud2].filter(Boolean).map(a => { const av=audAvail(a); return row(audienceFrMap[a]||a, pill(av.label,av.style)); }).join("")
       : row("—", pill(isWeekend||hasVacation||hasHoliday?"Disponible":"Peu disponible", isWeekend||hasVacation||hasHoliday?GREEN:RED));
 
-    const concurrenceRows =
-      row(`${count500} événements < 500m`, pill(concLabel,concStyle), "carte") +
-      row(`${count5km} événements < 5km`,  pill(concLabel,concStyle));
-
-    const accessibiliteRows =
-      row("Visiteurs < 5km",     pill(attMob.label,attMob.style), "carte") +
-      row("Prestataires < 10km", pill(opsMob.label,opsMob.style));
-
-    const exploitationRows = isOutdoorOrMixed
-      ? row("Impact fréquentation", pill(freqLabel,freqStyle), "alertes") + row("Risque installation", pill(instLabel,instStyle))
-      : row("Impact fréquentation", pill(freqLabel,freqStyle), "alertes");
-
+    return section("Audience", audienceRows)
+      + divider()
+      + section("Concurrence", row(`${count500} événements < 500m`, pill(concLabel,concStyle)) + row(`${count5km} événements < 5km`, pill(concLabel,concStyle)))
+      + divider()
+      + section("Accessibilité", row("Visiteurs < 5km", pill(attMob.label,attMob.style)) + row("Prestataires < 10km", pill(opsMob.label,opsMob.style)))
+      + divider()
+      + section("Exploitation", isOutdoorOrMixed
+          ? row("Impact fréquentation", pill(freqLabel,freqStyle)) + row("Risque installation", pill(instLabel,instStyle))
+          : row("Impact fréquentation", pill(freqLabel,freqStyle)));
+  }
+  
+  function renderContext(day, profile) {
     return `
       <div class="mon-card">
         <div class="mon-head" style="margin-bottom:0;cursor:pointer;" id="pls-context-toggle">
@@ -709,13 +757,7 @@ if (!location_id) {
           </svg>
         </div>
         <div id="pls-context-body" style="margin-top:16px;">
-          ${section("Audience", audienceRows)}
-          ${divider()}
-          ${section("Concurrence", concurrenceRows)}
-          ${divider()}
-          ${section("Accessibilité", accessibiliteRows)}
-          ${divider()}
-          ${section("Exploitation", exploitationRows)}
+          ${renderContextRows(day, profile)}
         </div>
       </div>`;
   }
@@ -723,11 +765,60 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, profile) {
+  function renderRecap(currentDay, allFeed, profile, siteData) {
     const isMultisiteFeed = allFeed.some(a => a?.location_label);
 
     if (isMultisiteFeed) {
-      // Multisite recap: grouped feed for the selected date, all sites
+      siteData = Array.isArray(siteData) ? siteData : [];
+
+      // ---- Points de vigilance: one row per site, worst risk first ----
+      const siteVigilance = siteData.map(s => {
+        const dayForDate = (s.days || []).find(d => normalizeYmd(d.date) === normalizeYmd(currentDay?.date));
+        const risks = [...(dayForDate?.attendance||[]),...(dayForDate?.operations||[]),...(dayForDate?.installation||[]),...(dayForDate?.context||[])]
+          .filter(r => r.severity !== "A")
+          .sort((a,b) => ({D:0,C:1,B:2}[a.severity]??3)-({D:0,C:1,B:2}[b.severity]??3));
+        return { label: s.label, topRisk: risks[0] || null, hasRisk: risks.length > 0 };
+      }).sort((a,b) => {
+        const sev = r => r?.topRisk?.severity;
+        const order = {D:0,C:1,B:2};
+        const av = order[sev(a)] ?? 3;
+        const bv = order[sev(b)] ?? 3;
+        return av - bv;
+      });
+
+      const riskyCount = siteVigilance.filter(s => s.hasRisk).length;
+      const vigPillCls = riskyCount === 0 ? 'mon-statut-safe' : siteVigilance.some(s => s.topRisk?.severity === 'D' || s.topRisk?.severity === 'C') ? 'mon-statut-risk' : 'mon-statut-warn';
+      const vigPillLabel = riskyCount === 0 ? 'TOUS SITES OK' : `${riskyCount} SITE${riskyCount>1?'S':''} À SURVEILLER`;
+
+      const dotColor = s => (s === 'D' || s === 'C') ? 'var(--color-pill-risk-border)' : 'var(--color-pill-warn-border)';
+
+      const vigilanceRows = siteVigilance.map((s, idx) => {
+        const isLast = idx === siteVigilance.length - 1;
+        const dot = s.hasRisk
+          ? `<span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;background:${dotColor(s.topRisk?.severity)};display:inline-block;"></span>`
+          : `<span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;border:1px solid #D1FAE5;background:#D1FAE5;display:inline-block;"></span>`;
+        const sentence = s.hasRisk ? s.topRisk.sentence : "Aucun point de vigilance";
+        const sentenceColor = s.hasRisk ? '#111827' : '#9CA3AF';
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;${isLast?'':'border-bottom:1px solid #F3F4F6;'}">
+          ${dot}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:3px;">${escapeHtml(s.label)}</div>
+            <div style="font-size:13px;color:${sentenceColor};line-height:1.35;">${escapeHtml(sentence)}</div>
+          </div>
+          <div style="font-size:12px;color:#9CA3AF;flex-shrink:0;margin-top:2px;">→</div>
+        </div>`;
+      }).join('');
+
+      const vigilanceMultiHtml = `
+        <div class="mon-card" style="padding:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #F3F4F6;">
+            <div style="display:flex;align-items:center;gap:10px;">${iconSVG("alert")}<div class="mon-kicker" style="margin:0;">Points de vigilance</div></div>
+            <span class="${vigPillCls}" style="font-size:11px;padding:4px 10px;">${vigPillLabel}</span>
+          </div>
+          <div style="padding:0 20px;">${vigilanceRows}</div>
+        </div>`;
+
+      // ---- Signals card ----
       const dayFeed = allFeed.filter(a => normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
       const hasCritDay = dayFeed.some(a => Number(a?.alert_level||0) >= 3);
       const hasWarnDay = !hasCritDay && dayFeed.some(a => Number(a?.alert_level||0) >= 2);
@@ -738,7 +829,6 @@ if (!location_id) {
         : hasWarnDay ? `⚠ ${dayFeed.filter(a=>Number(a?.alert_level||0)>=2).length} signal(aux) à surveiller · tous sites`
         : "✓ Rien de nouveau sur tous les sites";
 
-      // Build site-grouped feed for this date
       const byLoc = new Map();
       for (const a of dayFeed) {
         const lbl = a?.location_label || "—";
@@ -749,13 +839,13 @@ if (!location_id) {
       const feedHtml = byLoc.size === 0
         ? `<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:14px;">Aucun signal pour cette date.</div>`
         : [...byLoc.entries()].map(([locLabel, locItems]) => {
-            const locItemsHtml = locItems.slice(0, 4).map((a, idx) => {
+            const locItemsHtml = locItems.slice(0,4).map((a, idx) => {
               const line1 = feedLine1(a);
               const line2 = feedLine2(a);
               const cat = String(a?.change_category||"").toLowerCase();
               const lvl = Number(a?.alert_level)||1;
-              const isLast = idx === Math.min(locItems.length, 4) - 1;
-              return `<div style="padding:11px 0;display:flex;align-items:flex-start;gap:10px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;}"}">
+              const isLast = idx === Math.min(locItems.length,4)-1;
+              return `<div style="padding:11px 0;display:flex;align-items:flex-start;gap:10px;border-left:3px solid ${lvl>=3?"var(--color-pill-risk-border)":lvl>=2?"var(--color-pill-warn-border)":"var(--color-pill-green-text)"};padding-left:10px;${isLast?"":"border-bottom:1px solid #F3F4F6;"}">
                 <div style="flex:0 0 auto;width:20px;display:flex;align-items:center;justify-content:center;margin-top:1px;">${feedCatIcon(cat)}</div>
                 <div style="flex:1;min-width:0;">
                   <div class="mon-feed-line1">${escapeHtml(line1)}</div>
@@ -766,38 +856,43 @@ if (!location_id) {
             return `<div style="margin-bottom:4px;">
               <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1D3BB3;padding:10px 0 4px 0;">${escapeHtml(locLabel)}</div>
               ${locItemsHtml}
-              ${locItems.length > 4 ? `<div style="padding:8px 0 2px 0;"><button type="button" data-switch-tab="alertes" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">+${locItems.length - 4} signaux →</button></div>` : ""}
+              ${locItems.length>4?`<div style="padding:8px 0 2px 0;"><button type="button" data-switch-tab="alertes" style="font-size:11px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">+${locItems.length-4} signaux →</button></div>`:""}
             </div>`;
           }).join("");
 
-      const vigilanceMulti = [...(currentDay.attendance||[]),...(currentDay.operations||[]),...(currentDay.installation||[]),...(currentDay.context||[])]
-        .filter(r => r.severity!=="A")
-        .sort((a,b) => ({D:0,C:1,B:2}[a.severity]??3)-({D:0,C:1,B:2}[b.severity]??3))
-        .slice(0,5);
-      const dotColor = s => s === "D" ? "var(--color-pill-risk-border)" : "var(--color-pill-warn-border)";
-      const vigilanceMultiHtml = vigilanceMulti.length ? `
-        <div class="mon-card">
-          <div class="mon-head">${iconSVG("alert")}<div class="mon-kicker" style="margin:0;">Points de vigilance</div></div>
-          ${vigilanceMulti.map(r => `
-            <div class="mon-vigilance-item">
-              <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${dotColor(r.severity)};display:inline-block;"></span>
-              <span>${escapeHtml(r.sentence)}</span>
-            </div>`).join("")}
-        </div>` : `
-        <div class="mon-card">
-          <span class="mon-status-ok">✓ Aucun point de vigilance</span>
-          <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables sur tous les sites.</div>
-        </div>`;
-
-      return `<div class="mon-panels">
-        ${vigilanceMultiHtml}
+      const signalsCardHtml = `
         <div class="mon-card">
           <span style="display:inline-block;padding:4px 10px;border-radius:6px;font-size:13px;font-weight:500;background:${statusBg};color:${statusColor};margin-bottom:${byLoc.size?'12':'0'}px;">${statusLabel}</span>
           ${feedHtml}
-        </div>
-        <div style="font-size:11px;color:#9CA3AF;text-align:center;padding:4px 0;">Score affiché : pire valeur tous sites confondus</div>
-        ${renderContext(currentDay, profile)}
-      </div>`;
+        </div>`;
+
+      // ---- Contexte de référence: tab switcher per site ----
+      const ctxTabs = siteData.map((s, i) =>
+        `<button type="button" data-ctx-tab="${i}"
+          style="font-size:13px;font-weight:${i===0?'500':'400'};color:${i===0?'#111827':'#9CA3AF'};padding:10px 14px;border:none;border-right:${i<siteData.length-1?'0.5px solid #E5E7EB':'none'};background:${i===0?'#fff':'#F9FAFB'};cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">
+          ${escapeHtml(s.label)}
+        </button>`
+      ).join('');
+
+      const ctxTabBarHtml = siteData.length > 1
+        ? `<div style="display:flex;border-bottom:0.5px solid #E5E7EB;overflow-x:auto;" id="pls-ctx-tabbar">${ctxTabs}</div>`
+        : '';
+
+      const firstSiteDay = (siteData[0]?.days||[]).find(d => normalizeYmd(d.date) === normalizeYmd(currentDay?.date)) || currentDay;
+      const firstSiteProfile = siteData[0]?.profile || profile;
+
+      const contextCardHtml = `
+        <div class="mon-card" style="padding:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0 20px;">
+            <div style="display:flex;align-items:center;gap:10px;">${iconSVG("context")}<div class="mon-kicker" style="margin:0;">Contexte de référence</div></div>
+          </div>
+          ${ctxTabBarHtml}
+          <div id="pls-ctx-body" style="padding:0 20px 16px;">
+            ${renderContextRows(firstSiteDay, firstSiteProfile)}
+          </div>
+        </div>`;
+
+      return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${vigilanceMultiHtml}${signalsCardHtml}${contextCardHtml}</div>`;
     }
 
     const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2 && normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
@@ -941,7 +1036,7 @@ if (!location_id) {
     // Tab content
     let tabContent = "";
     if (activeTab==="recap") {
-      tabContent = renderRecap(currentDay, allFeed, profile);
+      tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || []);
     } else if (activeTab==="alertes") {
       const showAll = (window.__plsFeedShowAll===true);
       tabContent = `<div class="mon-panels"><div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
@@ -971,7 +1066,6 @@ if (!location_id) {
           <iframe id="pls-map-iframe"
             src="/app/insightevent/map?location_id=${encodeURIComponent(defaultLocId)}&date=${encodeURIComponent(selectedDate)}&embed=1"
             style="width:100%;height:600px;border:none;border-radius:14px;margin-top:8px;display:block;"
-            loading="lazy"
           ></iframe>
         </div>`;
     }
@@ -1016,22 +1110,48 @@ if (!location_id) {
       });
     });
 
-    // Wire map site selector
-    root.querySelectorAll("[data-map-loc]").forEach((btn, i) => {
-      btn.addEventListener("click", () => {
-        const locId = btn.getAttribute("data-map-loc");
-        const iframe = root.querySelector("#pls-map-iframe");
-        if (iframe && locId) {
-          iframe.src = `/app/insightevent/map?location_id=${encodeURIComponent(locId)}&date=${encodeURIComponent(selectedDate)}&embed=1`;
-        }
-        root.querySelectorAll("[data-map-loc]").forEach(b => {
-          const isActive = b === btn;
-          b.style.fontWeight = isActive ? '500' : '400';
-          b.style.color = isActive ? '#111827' : '#9CA3AF';
-          b.style.background = isActive ? '#fff' : '#F9FAFB';
+    // Wire multisite context tab switcher
+    const ctxTabBar = root.querySelector("#pls-ctx-tabbar");
+    if (ctxTabBar && data._siteData) {
+      ctxTabBar.querySelectorAll("[data-ctx-tab]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.getAttribute("data-ctx-tab"));
+          const site = data._siteData[idx];
+          if (!site) return;
+          const siteDay = (site.days||[]).find(d => normalizeYmd(d.date) === normalizeYmd(selectedDate)) || currentDay;
+          const ctxBody = root.querySelector("#pls-ctx-body");
+          if (ctxBody) ctxBody.innerHTML = renderContextRows(siteDay, site.profile);
+          ctxTabBar.querySelectorAll("[data-ctx-tab]").forEach(b => {
+            const isActive = b === btn;
+            b.style.fontWeight = isActive ? '500' : '400';
+            b.style.color = isActive ? '#111827' : '#9CA3AF';
+            b.style.background = isActive ? '#fff' : '#F9FAFB';
+          });
         });
       });
-    });
+    }
+
+    // Wire map site selector
+    if (activeTab === "carte") {
+      root.querySelectorAll("[data-map-loc]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const locId = btn.getAttribute("data-map-loc");
+          const iframe = root.querySelector("#pls-map-iframe");
+          if (iframe && locId) {
+            iframe.src = "about:blank";
+            setTimeout(() => {
+              iframe.src = `/app/insightevent/map?location_id=${encodeURIComponent(locId)}&date=${encodeURIComponent(selectedDate)}&embed=1`;
+            }, 0);
+          }
+          root.querySelectorAll("[data-map-loc]").forEach(b => {
+            const isActive = b === btn;
+            b.style.fontWeight = isActive ? '500' : '400';
+            b.style.color = isActive ? '#111827' : '#9CA3AF';
+            b.style.background = isActive ? '#fff' : '#F9FAFB';
+          });
+        });
+      });
+    }
 
     if (activeTab==="carte") {
       const iframe = root.querySelector("iframe");
@@ -1144,6 +1264,12 @@ if (!location_id) {
           days: mergedDays,
           all_feed: mergedFeed,
           _locations: locs,
+          _siteData: valid.map(({ data, loc }) => ({
+            location_id: loc.location_id,
+            label: loc.company_name || loc.location_id,
+            profile: data.profile || null,
+            days: data.days || [],
+          })),
         };
 
         const LS_KEY = "ms_pulse_last_visit";

@@ -567,7 +567,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const activ = String(a?.company_activity_type || "").toLowerCase();
     const hasActiveEvent = Boolean(a?.has_active_event);
     const activeTitle = a?.active_event_title || null;
-    const weatherSens = String(a?.weather_sensitivity || "").toLowerCase();
+    const weatherSens = Number(a?.weather_sensitivity || 0);
     const capSens = String(a?.capacity_sensitivity || "").toLowerCase();
     const isOutdoorClient = locClient === "outdoor" || locClient === "mixed";
 
@@ -647,7 +647,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     if (sub === "event_removed") return "";
 
     if (sub === "weather_worsened") {
-      if (weatherSens === "high" || weatherSens === "élevée") {
+      if (weatherSens >= 3) {
         if (isOutdoorClient) return "Impact direct sur vos installations et la fréquentation — sensibilité météo élevée.";
         return "Impact probable sur la fréquentation — votre activité est sensible aux conditions météo.";
       }
@@ -1883,8 +1883,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     root.innerHTML = `
       <div style="padding-top:40px;">
         <div style="font-size:28px;font-weight:300;color:#111827;letter-spacing:-0.01em;margin:10px 0 20px 0;">Mes événements</div>
-        ${alertBlockHtml}
         ${pendingCardHtml}
+        ${alertBlockHtml}
         ${activeCardHtml}
       </div>
     `;

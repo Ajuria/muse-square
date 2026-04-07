@@ -9,18 +9,20 @@ import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 // Server-side guards
 // --------------------
 
-const location_id =
+const locals_location_id =
   (Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim())
     ? (Astro.locals as any).location_id.trim()
     : null;
 
-if (!location_id) {
+if (!locals_location_id) {
   return Astro.redirect("/profile");
 }
 
+const is_embed = Astro.url?.searchParams?.get("embed") === "1";
+const url_location_id = Astro.url?.searchParams?.get("location_id") ?? "";
+const location_id = (is_embed && url_location_id) ? url_location_id : locals_location_id;
 const date = Astro.url?.searchParams?.get("date") ?? "";
 const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
-const is_embed = Astro.url?.searchParams?.get("embed") === "1";
 ---
 
 <Show when="signed-out" client:load>

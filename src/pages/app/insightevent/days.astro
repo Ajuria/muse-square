@@ -3137,9 +3137,10 @@ const show_actions = has_selected_dates;
               const distM = Number(a?.distance_m || 0);
               const aud1  = String(a?.primary_audience_1 || "").toLowerCase();
               const aud2  = String(a?.primary_audience_2 || "").toLowerCase();
+              const activ = String(a?.company_activity_type || "").toLowerCase();
               const hasActiveEvent = Boolean(a?.has_active_event);
               const activeTitle = a?.active_event_title || null;
-              const weatherSens = String(a?.weather_sensitivity || "").toLowerCase();
+              const weatherSens = Number(a?.weather_sensitivity || 0);
               const capSens = String(a?.capacity_sensitivity || "").toLowerCase();
               const isOutdoorClient = locClient === "outdoor" || locClient === "mixed";
 
@@ -3165,6 +3166,7 @@ const show_actions = has_selected_dates;
                 if (lvlCold > 0) return "Froid moins intense.";
                 return "Attractivité de la date en progression.";
               }
+
               if (sub === "score_down") {
                 if (lvlRain > 0) {
                   if (isOutdoorClient) return "Fortes pluies prévues — impact direct sur vos installations et la fréquentation.";
@@ -3179,6 +3181,7 @@ const show_actions = has_selected_dates;
                 if (lvlCold > 0) return "Grand froid prévu — impact sur la fréquentation.";
                 return "Dégradation de l'attractivité de la date.";
               }
+
               if (sub === "event_new") {
                 const parts = [];
                 if (distM > 0 && distM <= 500) {
@@ -3191,15 +3194,23 @@ const show_actions = has_selected_dates;
                   parts.push(city);
                 }
                 const audParts = [aud1, aud2].filter(Boolean);
-                if (audParts.length) parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
-                if (hasActiveEvent && activeTitle) parts.push(`pendant votre événement "${activeTitle}"`);
+                if (audParts.length) {
+                  parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
+                }
+                if (hasActiveEvent && activeTitle) {
+                  parts.push(`pendant votre événement "${activeTitle}"`);
+                }
                 const oh = parseHours(a?.operating_hours);
-                if (oh) parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
+                if (oh) {
+                  parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
+                }
                 return parts.length ? parts.join(" — ") + "." : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
               }
+
               if (sub === "event_removed") return "";
+
               if (sub === "weather_worsened") {
-                if (weatherSens === "high" || weatherSens === "élevée") {
+                if (weatherSens >= 3) {
                   if (isOutdoorClient) return "Impact direct sur vos installations et la fréquentation — sensibilité météo élevée.";
                   return "Impact probable sur la fréquentation — votre activité est sensible aux conditions météo.";
                 }
@@ -3207,25 +3218,19 @@ const show_actions = has_selected_dates;
                 if (locClient === "mixed") return "Impact probable sur les espaces extérieurs et la venue des visiteurs.";
                 return "Légère friction possible à l'entrée du site.";
               }
+
               if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
+
               if (sub === "mobility_disruption") {
                 if (hasActiveEvent && activeTitle) return `Accès au site potentiellement impacté pendant votre événement "${activeTitle}".`;
                 if (capSens === "high" || capSens === "élevée") return "Accès perturbé — votre activité dépend d'une fréquentation élevée.";
                 return "Accès au site potentiellement impacté.";
               }
+
               if (sub === "ranking_up")   return "Cette date gagne en attractivité relative dans votre région.";
               if (sub === "ranking_down") return "Cette date perd en attractivité relative dans votre région.";
               if (sub === "context_change") return "";
-              const cat = String(a?.change_category || "").toLowerCase();
-              const lvl = Math.min(4, Math.max(1, Number(a?.alert_level) || 1));
-              const vocab = {
-                competition: { 1: "Impact de la concurrence locale.", 2: "Impact notable de la concurrence locale.", 3: "Impact important de la concurrence locale.", 4: "Impact majeur de la concurrence locale." },
-                opportunity: { 1: "Évolution globale du contexte.", 2: "Évolution notable du contexte global.", 3: "Impact sensible sur l'attractivité de la date.", 4: "Impact important sur l'attractivité de la date." },
-                context:     { 1: "Impact météo sur cette date.", 2: "Impact notable de la météo sur cette date.", 3: "Impact possible de la météo sur l'organisation.", 4: "Impact important de la météo sur l'organisation." },
-                planning:    { 1: "Impact de l'activité événementielle locale.", 2: "Impact notable de l'activité événementielle locale.", 3: "Impact important de l'activité événementielle locale.", 4: "Impact majeur de l'activité événementielle locale." },
-                mobility:    { 1: "Impact des conditions de mobilité.", 2: "Impact notable sur les conditions d'accès.", 3: "Impact possible sur l'accès au lieu.", 4: "Impact important sur l'accès au lieu." },
-              };
-              return (vocab[cat] && vocab[cat][lvl]) || "Évolution globale du contexte.";
+              return "";
             }
 
             function feedLine3(a) {
