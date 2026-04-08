@@ -490,6 +490,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         weather_sensitivity,
         seasonality,
         operating_hours,
+        main_event_objective,
         created_at,
         updated_at
       ) VALUES (
