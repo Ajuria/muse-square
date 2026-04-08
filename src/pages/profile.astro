@@ -549,7 +549,8 @@ function isIncomplete(loc: LocationRow): boolean {
   <p class="section-desc">Chaque lieu dispose de son propre profil d'analyse IA.</p>
 
   <div id="locations-container">
-    {all_locations.map((loc, idx) => {
+    {all_locations.map((loc, rawIdx) => {
+      const idx = rawIdx + 10;
       const summaryText = buildSummaryTags(loc);
       const incomplete = isIncomplete(loc);
       const cardId = `loc-card-${idx}`;
