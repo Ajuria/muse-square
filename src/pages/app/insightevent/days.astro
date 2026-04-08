@@ -4366,11 +4366,21 @@ const show_actions = has_selected_dates;
                 score_global: r?.opportunity_score_final_local ?? null,
 
                 audience: (() => {
-                  const dt = parseYmdToDate(d);
-                  const isWeekend = dt && (dt.getUTCDay() === 0 || dt.getUTCDay() === 6);
-                  const hasVacation = Boolean(r?.vacation_name);
-                  const hasHoliday = Boolean(r?.holiday_name);
-                  return (isWeekend || hasVacation || hasHoliday) ? "Disponible" : "Peu disponible";
+                  const label = String(r?.audience_availability_label || "").trim();
+                  if (!label) {
+                    const dt = parseYmdToDate(d);
+                    const isWeekend = dt && (dt.getUTCDay() === 0 || dt.getUTCDay() === 6);
+                    const hasVacation = Boolean(r?.vacation_name);
+                    const hasHoliday = Boolean(r?.holiday_name);
+                    return (isWeekend || hasVacation || hasHoliday) ? "Disponible" : "Peu disponible";
+                  }
+                  const delta = Number(r?.delta_att_calendar_pct ?? null);
+                  if (Number.isFinite(delta)) {
+                    if (delta >= 1.5) return "Disponible";
+                    if (delta >= 0.0) return "Partielle";
+                    return "Peu disponible";
+                  }
+                  return label;
                 })(),
 
                 concurrence: (() => {
@@ -4471,6 +4481,8 @@ const show_actions = has_selected_dates;
 
                         const audienceStyle = r.comparison.audience === "Disponible"
                           ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"
+                          : r.comparison.audience === "Partielle"
+                          ? "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"
                           : "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);";
 
                         const concurrenceStyle = r.comparison.concurrence === "Élevée"
