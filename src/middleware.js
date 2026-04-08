@@ -87,7 +87,7 @@ async function getProfileContext(clerk_user_id) {
       first_name
     FROM \`${projectId}.${dataset}.${table}\`
     WHERE clerk_user_id = @clerk_user_id
-      AND is_primary = TRUE
+      AND (is_primary = TRUE OR is_primary IS NULL)
     LIMIT 1
   `;
 
