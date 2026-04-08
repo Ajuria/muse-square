@@ -195,7 +195,8 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       userId &&
       !context.locals.profileRowExists &&
       !isOnboardingRoute(context.request) &&
-      !path.startsWith("/profile")
+      !path.startsWith("/profile") &&
+      !path.startsWith("/api/profile")
     ) {
       console.log("[MW] -> force onboarding: /onboarding");
       return context.redirect("/onboarding", 302);
