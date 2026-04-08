@@ -1422,11 +1422,13 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
   const primaryCard = document.querySelector('.loc-card[data-location-id]');
-  const existingLocationId = primaryCard?.dataset.locationId || '';
+  const primaryCardIdx = primaryCard?.id.replace('loc-card-', '');
+  const primaryBody = primaryCardIdx ? document.getElementById(`loc-body-${primaryCardIdx}`) : null;
+  const existingLocationId = primaryBody?.querySelector('[name="location_id"]')?.value || '';
   data.mode = existingLocationId ? 'update' : 'create';
   if (existingLocationId) {
     data.location_id = existingLocationId;
-    const idx = primaryCard.id.replace('loc-card-', '');
+    const idx = primaryCardIdx;
     const body = document.getElementById(`loc-body-${idx}`);
     if (body) {
       ['primary_audience_1','primary_audience_2',
@@ -1562,7 +1564,8 @@ window.saveLocation = async function(idx) {
     return;
   }
 
-  const data = { mode: 'update' };
+  const modeEl = body.querySelector('[name="mode"]');
+  const data = { mode: modeEl?.value || 'update' };
 
   // Hidden fields
   ['location_id','origin_city_id_1','origin_city_id_2','origin_city_id_3',
