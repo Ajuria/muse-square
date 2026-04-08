@@ -130,6 +130,134 @@ if (!location_id) {
               Trouver les meilleures dates →
             </button>
           </div>
+
+          <!-- CONCURRENCE SECTION (hidden by default) -->
+          <div id="ie-concurrence-section" style="display:none;">
+            <div id="ie-concurrence-label">AJOUTER À MA VEILLE</div>
+
+            <button class="ie-conc-card" id="ie-conc-event" data-path="event">
+              <div class="ie-prompt-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </div>
+              <div class="ie-prompt-card-content">
+                <p class="ie-conc-card-title">Ajouter un événement connu</p>
+                <p class="ie-conc-card-sub">Lancement produit, ouverture, salon, conférence de presse, exposition…</p>
+              </div>
+              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-event">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </button>
+            <div class="ie-conc-form" id="ie-form-event" style="display:none;">
+              <div class="ie-conc-form-inner">
+                <div class="ie-conc-grid-2">
+                  <div><div class="ie-fl">Nom <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Lancement Taycan" id="ie-evt-name" /></div>
+                  <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-evt-city" /></div>
+                </div>
+                <div class="ie-conc-grid-2">
+                  <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" /></div>
+                  <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" /></div>
+                </div>
+                <div class="ie-conc-grid-2">
+                  <div><div class="ie-fl">Organisateur</div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-evt-organizer" /></div>
+                  <div><div class="ie-fl">Nom du lieu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-evt-venue" /></div>
+                </div>
+                <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-evt-url" /><div class="ie-hint">Sans lien, l'IA recherche automatiquement.</div></div>
+                <div class="ie-conc-actions">
+                  <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
+                  <button class="ie-conc-btn-ghost" data-close-path="event">Annuler</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="ie-conc-card" id="ie-conc-competitor" data-path="competitor">
+              <div class="ie-prompt-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="ie-prompt-card-content">
+                <p class="ie-conc-card-title">Suivre un concurrent connu</p>
+                <p class="ie-conc-card-sub">Hôtel, musée, salle de spectacle, marque, organisateur…</p>
+              </div>
+              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-competitor">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </button>
+            <div class="ie-conc-form" id="ie-form-competitor" style="display:none;">
+              <div class="ie-conc-form-inner">
+                <div class="ie-conc-grid-2">
+                  <div><div class="ie-fl">Nom du concurrent <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-comp-name" /><div class="ie-hint">L'IA corrigera l'orthographe.</div></div>
+                  <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-comp-city" /></div>
+                </div>
+                <div><div class="ie-fl">Secteur d'activité</div>
+                  <select class="ie-conc-input" id="ie-comp-sector">
+                    <option value="">Sélectionner…</option>
+                    <option value="live_event">Événementiel</option>
+                    <option value="commercial">Commerce & Retail</option>
+                    <option value="culture">Culture & Patrimoine</option>
+                    <option value="pro_event">Salons & Événements pro.</option>
+                    <option value="outdoor_leisure">Tourisme & Loisirs</option>
+                    <option value="unknown">Autre</option>
+                  </select>
+                </div>
+                <div class="ie-conc-grid-2">
+                  <div><div class="ie-fl">Nom d'un lieu connu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-comp-venue" /></div>
+                  <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-comp-url" /></div>
+                </div>
+                <div class="ie-conc-actions">
+                  <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
+                  <button class="ie-conc-btn-ghost" data-close-path="competitor">Annuler</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="ie-conc-card" id="ie-conc-search" data-path="search">
+              <div class="ie-prompt-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="white" stroke-width="1.8"/><path d="M21 21l-4.35-4.35" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </div>
+              <div class="ie-prompt-card-content">
+                <p class="ie-conc-card-title">Rechercher des concurrents</p>
+                <p class="ie-conc-card-sub">Par mot-clé et zone géographique dans notre base de données</p>
+              </div>
+              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-search">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </button>
+            <div class="ie-conc-form" id="ie-form-search" style="display:none;">
+              <div class="ie-conc-form-inner">
+                <div><div class="ie-fl">Mot-clé <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. salon mariage, festival jazz, GL Events" id="ie-search-kw" /></div>
+                <div class="ie-conc-grid-2">
+                  <div>
+                    <div class="ie-fl">Zone géographique <span class="ie-req">*</span></div>
+                    <input type="text" class="ie-conc-input" placeholder="Rechercher une ville…" id="ie-search-zone" autocomplete="off" />
+                    <div id="ie-search-city-dd" style="display:none;border:.5px solid #e5e7eb;border-radius:8px;margin-top:3px;overflow:hidden;background:#fff;position:relative;z-index:20;"></div>
+                    <input type="hidden" id="ie-search-zone-id" />
+                  </div>
+                  <div>
+                    <div class="ie-fl">Rayon <span style="color:#9CA3AF;">(max 50km)</span></div>
+                    <select class="ie-conc-input" id="ie-search-radius">
+                      <option value="5">5 km</option>
+                      <option value="10">10 km</option>
+                      <option value="20">20 km</option>
+                      <option value="30" selected>30 km (profil)</option>
+                      <option value="50">50 km</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="ie-conc-actions">
+                  <button class="ie-conc-btn-primary" id="ie-search-submit">Rechercher →</button>
+                  <button class="ie-conc-btn-ghost" data-close-path="search">Annuler</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MARKETING SECTION (hidden by default) -->
+          <div id="ie-marketing-section" style="display:none;">
+            <div id="ie-concurrence-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:0 0 16px 0;">MARKETING</div>
+            <div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:12px;padding:24px;text-align:center;color:#6b7280;font-size:15px;line-height:1.6;">
+              Bientôt disponible — cadence concurrentielle, audience overlap, timing de communication.
+            </div>
+          </div>
+
         </section>
 
         <section id="ie-thread" aria-live="polite" hidden>
@@ -153,6 +281,20 @@ if (!location_id) {
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
+          </button>
+        </div>
+        <div id="ie-mode-switcher">
+          <button class="ie-mode-btn active" data-mode="planning" id="ie-mode-btn-planning">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Planning
+          </button>
+          <button class="ie-mode-btn" data-mode="concurrence" id="ie-mode-btn-concurrence">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Concurrence
+          </button>
+          <button class="ie-mode-btn" data-mode="marketing" id="ie-mode-btn-marketing">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Marketing
           </button>
         </div>
         <div id="ie-prompt-chips"></div>
@@ -595,6 +737,169 @@ if (!location_id) {
         background: #f9fafb;
       }
 
+      /* ---- MODE SWITCHER ---- */
+      #ie-mode-switcher {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 24px;
+      }
+      .ie-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: none;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        color: #9ca3af;
+        cursor: pointer;
+        transition: color 120ms, background 120ms;
+      }
+      .ie-mode-btn svg {
+        width: 15px;
+        height: 15px;
+        stroke: #9ca3af;
+        flex-shrink: 0;
+        transition: stroke 120ms;
+      }
+      .ie-mode-btn:hover {
+        background: #f9fafb;
+        color: #6b7280;
+      }
+      .ie-mode-btn.active {
+        color: #1D3BB3;
+        background: #EEF2FF;
+      }
+      .ie-mode-btn.active svg {
+        stroke: #1D3BB3;
+      }
+
+      /* ---- CONCURRENCE SECTION ---- */
+      #ie-concurrence-label {
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: #9ca3af;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin: 0 0 16px 0;
+      }
+      .ie-conc-card {
+        width: 100%;
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 0;
+        padding: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        transition: border-color 200ms;
+      }
+      .ie-conc-card:hover { border-color: rgba(0,0,0,0.2); }
+      .ie-conc-card.active {
+        border-color: #1D3BB3;
+        margin-bottom: 0;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .ie-conc-card-title {
+        font-size: 16px;
+        color: #111827;
+        margin: 0 0 3px 0;
+        font-weight: 500;
+      }
+      .ie-conc-card-sub {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.4;
+      }
+      .ie-conc-chev svg {
+        width: 24px;
+        height: 24px;
+        stroke: #9ca3af;
+        transition: transform 200ms;
+      }
+      .ie-conc-chev.open svg { transform: rotate(180deg); }
+
+      .ie-conc-form {
+        margin-bottom: 16px;
+      }
+      .ie-conc-form-inner {
+        background: #f8f9fa;
+        border: 1px solid #1D3BB3;
+        border-top: none;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .ie-conc-grid-2 {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 10px;
+      }
+      .ie-fl {
+        font-size: 11px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+      .ie-req { color: #E24B4A; }
+      .ie-hint {
+        font-size: 11px;
+        color: #9CA3AF;
+        margin-top: 3px;
+        line-height: 1.5;
+      }
+      .ie-conc-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #111827;
+        background: #fff;
+        appearance: none;
+      }
+      .ie-conc-input:focus { outline: none; border-color: #1D3BB3; }
+      .ie-conc-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+        justify-content: flex-end;
+      }
+      .ie-conc-btn-primary {
+        background: #1D3BB3;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        padding: 9px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .ie-conc-btn-ghost {
+        background: none;
+        color: #6b7280;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 7px;
+        padding: 9px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
     </style>
 
     <script is:inline>
@@ -620,6 +925,195 @@ if (!location_id) {
 
         titleEl.innerHTML = `${greeting}<br>${questions}`;
       })();
+    </script>
+
+    <script is:inline>
+    (function() {
+      const CITIES = [
+        {name:'Nîmes',id:'30189',dept:'30 – Occitanie'},
+        {name:'Montpellier',id:'34172',dept:'34 – Occitanie'},
+        {name:'Marseille',id:'13055',dept:'13 – PACA'},
+        {name:'Paris',id:'75056',dept:'75 – Île-de-France'},
+        {name:'Lyon',id:'69123',dept:'69 – Auvergne-Rhône-Alpes'},
+        {name:'Toulouse',id:'31555',dept:'31 – Occitanie'},
+        {name:'Bordeaux',id:'33063',dept:'33 – Nouvelle-Aquitaine'},
+        {name:'Nice',id:'06088',dept:'06 – PACA'},
+        {name:'Narbonne',id:'11262',dept:'11 – Occitanie'},
+        {name:'Perpignan',id:'66136',dept:'66 – Occitanie'},
+      ];
+
+      let currentMode = 'planning';
+      let openPath = null;
+
+      const suggestionsEl = document.getElementById('ie-prompt-suggestions-label');
+      const concurrenceEl = document.getElementById('ie-concurrence-section');
+      const marketingEl   = document.getElementById('ie-marketing-section');
+      const inputEl       = document.getElementById('ie-prompt-input');
+
+      // Cards to show/hide per mode
+      const planningCards = document.querySelectorAll('.ie-prompt-card');
+      const finderForm    = document.getElementById('ie-finder-form');
+
+      function setMode(m) {
+        currentMode = m;
+        closeAllPaths();
+
+        // Planning cards + suggestions label
+        const showPlanning = m === 'planning';
+        if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
+        planningCards.forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
+        if (finderForm) finderForm.style.display = 'none';
+
+        // Concurrence section
+        if (concurrenceEl) concurrenceEl.style.display = m === 'concurrence' ? 'block' : 'none';
+
+        // Marketing section
+        if (marketingEl) marketingEl.style.display = m === 'marketing' ? 'block' : 'none';
+
+        // Mode buttons
+        document.querySelectorAll('.ie-mode-btn').forEach(btn => {
+          const active = btn.dataset.mode === m;
+          btn.classList.toggle('active', active);
+        });
+
+        // Input placeholder
+        const ph = {
+          planning: 'Posez votre question…',
+          concurrence: 'Ajoutez un contexte ou validez directement…',
+          marketing: 'Bientôt disponible…',
+        };
+        if (inputEl) inputEl.placeholder = ph[m] || 'Posez votre question…';
+      }
+
+      function closeAllPaths() {
+        ['event','competitor','search'].forEach(p => {
+          const form = document.getElementById('ie-form-' + p);
+          const card = document.getElementById('ie-conc-' + p);
+          const chev = document.getElementById('ie-chev-' + p);
+          if (form) form.style.display = 'none';
+          if (card) card.classList.remove('active');
+          if (chev) chev.classList.remove('open');
+        });
+        openPath = null;
+        const inputBar = document.getElementById('ie-prompt-input-bar');
+        if (inputBar) inputBar.style.display = '';
+      }
+
+      function togglePath(p) {
+        if (openPath === p) { closeAllPaths(); return; }
+        closeAllPaths();
+        openPath = p;
+        const form = document.getElementById('ie-form-' + p);
+        const card = document.getElementById('ie-conc-' + p);
+        const chev = document.getElementById('ie-chev-' + p);
+        if (form) form.style.display = 'block';
+        if (card) card.classList.add('active');
+        if (chev) chev.classList.add('open');
+        const inputBar = document.getElementById('ie-prompt-input-bar');
+        if (inputBar) inputBar.style.display = 'none';
+      }
+
+      // Mode switcher clicks
+      document.querySelectorAll('.ie-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => setMode(btn.dataset.mode));
+      });
+
+      // Concurrence card clicks
+      document.querySelectorAll('.ie-conc-card').forEach(card => {
+        card.addEventListener('click', () => togglePath(card.dataset.path));
+      });
+
+      // Cancel buttons
+      document.querySelectorAll('[data-close-path]').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); closeAllPaths(); });
+      });
+
+      // City autocomplete
+      const zoneInput = document.getElementById('ie-search-zone');
+      const cityDd    = document.getElementById('ie-search-city-dd');
+      const zoneIdEl  = document.getElementById('ie-search-zone-id');
+
+      if (zoneInput && cityDd) {
+        zoneInput.addEventListener('input', () => filterCities(zoneInput.value));
+        zoneInput.addEventListener('focus', () => filterCities(zoneInput.value));
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#ie-search-zone') && !e.target.closest('#ie-search-city-dd'))
+            cityDd.style.display = 'none';
+        });
+      }
+
+      function filterCities(val) {
+        if (!cityDd) return;
+        if (!val || val.length < 1) { cityDd.style.display = 'none'; return; }
+        const f = CITIES.filter(c => c.name.toLowerCase().startsWith(val.toLowerCase())).slice(0,5);
+        if (!f.length) { cityDd.style.display = 'none'; return; }
+        cityDd.innerHTML = f.map(c =>
+          `<div data-city-name="${c.name}" data-city-id="${c.id}" style="padding:9px 12px;font-size:14px;cursor:pointer;color:#111827;">${c.name} <span style="color:#9CA3AF;font-size:12px;">· ${c.dept}</span></div>`
+        ).join('');
+        cityDd.querySelectorAll('[data-city-name]').forEach(opt => {
+          opt.addEventListener('click', () => {
+            if (zoneInput) zoneInput.value = opt.dataset.cityName;
+            if (zoneIdEl)  zoneIdEl.value  = opt.dataset.cityId;
+            cityDd.style.display = 'none';
+          });
+        });
+        cityDd.style.display = 'block';
+      }
+
+      // Submit handlers — call existing API endpoints
+      const evtSubmit = document.getElementById('ie-evt-submit');
+      if (evtSubmit) {
+        evtSubmit.addEventListener('click', async () => {
+          const name      = document.getElementById('ie-evt-name')?.value.trim();
+          const city      = document.getElementById('ie-evt-city')?.value.trim();
+          const dateStart = document.getElementById('ie-evt-date-start')?.value;
+          if (!name || !city || !dateStart) {
+            alert('Merci de remplir les champs obligatoires.');
+            return;
+          }
+          const body = {
+            event_name:     name,
+            event_city:     city,
+            date_start:     dateStart,
+            date_end:       document.getElementById('ie-evt-date-end')?.value || null,
+            organizer_name: document.getElementById('ie-evt-organizer')?.value.trim() || null,
+            venue_name:     document.getElementById('ie-evt-venue')?.value.trim() || null,
+            source_url:     document.getElementById('ie-evt-url')?.value.trim() || null,
+          };
+          evtSubmit.disabled = true;
+          evtSubmit.textContent = 'Analyse en cours…';
+          try {
+            const check = await fetch('/api/competitive/check-event', {
+              method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)
+            }).then(r=>r.json());
+            if (check.ok && check.exists && check.matches?.[0]?.confidence_score >= 0.7) {
+              const add = await fetch('/api/competitive/add-event', {
+                method:'POST', headers:{'content-type':'application/json'},
+                body: JSON.stringify({ ...check.matches[0], source_system:'database' })
+              }).then(r=>r.json());
+              alert('Événement ajouté à vos Marques suivies.');
+              closeAllPaths();
+            } else {
+              const search = await fetch('/api/competitive/search-event', {
+                method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)
+              }).then(r=>r.json());
+              console.log('[search-event]', search);
+              alert(search.candidates?.length
+                ? `${search.candidates.length} résultat(s) trouvé(s) — carte de validation à implémenter.`
+                : 'Aucun résultat trouvé — saisie manuelle à implémenter.');
+            }
+          } catch(e) {
+            alert('Erreur — veuillez réessayer.');
+          } finally {
+            evtSubmit.disabled = false;
+            evtSubmit.textContent = 'Continuer →';
+          }
+        });
+      }
+
+      // Initialize
+      setMode('planning');
+    })();
     </script>
 
     <script type="module" src="/scripts/ie-prompt.js" defer></script>

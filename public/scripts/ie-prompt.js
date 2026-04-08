@@ -523,6 +523,8 @@ if (!root) {
       finderOpen = !finderOpen;
       if (finderForm) finderForm.style.display = finderOpen ? "block" : "none";
       if (finderChevron) finderChevron.style.transform = finderOpen ? "rotate(180deg)" : "rotate(0deg)";
+      const inputBar = document.getElementById('ie-prompt-input-bar');
+      if (inputBar) inputBar.style.display = finderOpen ? 'none' : '';
     }
 
     if (finderCard) {

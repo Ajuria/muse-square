@@ -32,6 +32,9 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 const clerk_user_id = clerk_user_id_raw.trim();
 const clerkUser = await clerkClient(Astro).users.getUser(clerk_user_id);
 const hasPassword = clerkUser.passwordEnabled === true;
+const clerkEmail = clerkUser.emailAddresses?.find(
+  e => e.id === clerkUser.primaryEmailAddressId
+)?.emailAddress ?? clerkUser.emailAddresses?.[0]?.emailAddress ?? "";
 
 const location_id =
   typeof location_id_raw === "string" && location_id_raw.trim() !== ""
@@ -510,7 +513,7 @@ function isIncomplete(loc: LocationRow): boolean {
 
     <div class="field-group">
       <label class="field-label">Email</label>
-      <input type="email" name="email" value={saved_safe?.email ?? ""} readonly class="field-input" />
+      <input type="email" name="email" value={saved_safe?.email || clerkEmail} readonly class="field-input" />
     </div>
 
     <div class="field-group">
@@ -1417,11 +1420,11 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
 
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
-  data.mode = 'update';
-  // Attach primary location_id and existing site fields from first card
   const primaryCard = document.querySelector('.loc-card[data-location-id]');
-  if (primaryCard) {
-    data.location_id = primaryCard.dataset.locationId;
+  const existingLocationId = primaryCard?.dataset.locationId || '';
+  data.mode = existingLocationId ? 'update' : 'create';
+  if (existingLocationId) {
+    data.location_id = existingLocationId;
     const idx = primaryCard.id.replace('loc-card-', '');
     const body = document.getElementById(`loc-body-${idx}`);
     if (body) {
