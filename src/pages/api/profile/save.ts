@@ -445,6 +445,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         weather_sensitivity = @weather_sensitivity,
         seasonality = @seasonality,
         operating_hours = @operating_hours,
+        main_event_objective = @main_event_objective,
         updated_at = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
         clerk_user_id,
@@ -534,6 +535,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @weather_sensitivity,
         @seasonality,
         @operating_hours,
+        @main_event_objective,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
       )
@@ -740,6 +742,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality,
         main_event_objective,
         operating_hours,
+        main_event_objective,
         created_at,
         updated_at
       FROM ${fullTable}
