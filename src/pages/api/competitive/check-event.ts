@@ -35,70 +35,117 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const [rows] = await bq.query({
       query: `
         SELECT
-          event_id,
+          calendar_item_uid,
           event_name,
-          event_date_start,
-          event_city,
-          event_address,
-          organizer_name,
+          event_start_date,
+          event_end_date,
+          city_name,
+          region_insee,
           industry_code,
-          industry_bucket,
-          primary_audience,
-          secondary_audience,
-          location_type,
+          source_system,
           description,
-          source_url,
-          source_type,
-          confidence_score,
-          community_confirmations
-        FROM \`${projectId}.raw.user_contributed_events\`
-        WHERE LOWER(event_city) = LOWER(@event_city)
-          AND LOWER(event_name) LIKE CONCAT('%', LOWER(@event_name_partial), '%')
-          AND (
-            @has_date = FALSE
-            OR ABS(DATE_DIFF(event_date_start, DATE(@date_start), DAY)) <= 3
+          keywords,
+          theme
+        FROM \`${projectId}.semantic.vw_insight_eventcalendar_event_lookup\`
+        WHERE (
+          LOWER(event_name) LIKE CONCAT('%', LOWER(@event_name_partial), '%')
+        )
+        AND (
+          @has_city = FALSE
+          OR city_name IS NULL
+          OR LOWER(city_name) LIKE CONCAT('%', LOWER(@event_city), '%')
+        )
+        AND (
+          @has_date = FALSE
+          OR event_start_date IS NULL
+          OR (
+            event_start_date <= DATE_ADD(DATE(@date_start), INTERVAL 3 DAY)
+            AND (
+              event_end_date IS NULL
+              OR event_end_date >= DATE_SUB(DATE(@date_start), INTERVAL 3 DAY)
+            )
           )
-          AND confidence_score >= 0.5
-        ORDER BY confidence_score DESC, community_confirmations DESC
-        LIMIT 5
+          OR (
+            -- Wider fallback: same year, name+city matched strongly enough
+            EXTRACT(YEAR FROM event_start_date) = EXTRACT(YEAR FROM DATE(@date_start))
+          )
+        )
+        GROUP BY calendar_item_uid, event_name, event_start_date, event_end_date, city_name, region_insee, industry_code, source_system, description, keywords, theme
+        ORDER BY
+          -- Exact name match first
+          CASE WHEN LOWER(event_name) LIKE CONCAT('%', LOWER(@event_name_exact), '%') THEN 0 ELSE 1 END,
+          event_start_date ASC
+        LIMIT 10
       `,
       params: {
-        event_city,
         event_name_partial: event_name.split(' ')[0] ?? event_name,
+        event_name_exact: event_name,
+        has_city: Boolean(event_city),
+        event_city: event_city || "",
         has_date: hasDate,
         date_start: hasDate ? date_start : "2000-01-01",
       },
       types: {
-        event_city:           "STRING",
-        event_name_partial:   "STRING",
-        has_date:             "BOOL",
-        date_start:           "STRING",
+        event_name_partial: "STRING",
+        event_name_exact:   "STRING",
+        has_city:           "BOOL",
+        event_city:         "STRING",
+        has_date:           "BOOL",
+        date_start:         "STRING",
       },
       location: BQ_LOCATION,
     });
 
-    const exists = Array.isArray(rows) && rows.length > 0;
+    // Deduplicate by event_name + event_start_date (view has one row per city/arrondissement)
+    const seen = new Set<string>();
+    const dedupedRows = (Array.isArray(rows) ? rows : []).filter((r: any) => {
+      const key = `${r.event_name}__${r.event_start_date?.value ?? r.event_start_date ?? ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const exists = dedupedRows.length > 0;
+
+    // Distinguish: found with matching dates vs found but wrong dates
+    // matchingDates: rows where requested date falls within event window (±3 days)
+    // If none match strictly, treat all rows as "known editions" (found_wrong_dates path)
+    const matchingDates = exists && hasDate
+      ? dedupedRows.filter((r: any) => {
+          const start = r.event_start_date?.value ?? r.event_start_date ?? null;
+          const end   = r.event_end_date?.value   ?? r.event_end_date   ?? null;
+          if (!start) return true;
+          const qs = new Date(date_start);
+          const es = new Date(start);
+          const ee = end ? new Date(end) : es;
+          return qs >= new Date(es.getTime() - 3 * 86400000)
+              && qs <= new Date(ee.getTime() + 3 * 86400000);
+        })
+      : rows;
+
+    const found_wrong_dates = exists && hasDate && matchingDates.length === 0;
 
     return new Response(JSON.stringify({
       ok: true,
       exists,
-      matches: exists ? rows.map((r: any) => ({
-        event_id:             r.event_id,
-        event_name:           r.event_name,
-        event_date_start:     r.event_date_start?.value ?? r.event_date_start ?? null,
-        event_city:           r.event_city,
-        event_address:        r.event_address ?? null,
-        organizer_name:       r.organizer_name ?? null,
-        industry_code:        r.industry_code ?? null,
-        industry_bucket:      r.industry_bucket ?? null,
-        primary_audience:     r.primary_audience ?? null,
-        secondary_audience:   r.secondary_audience ?? null,
-        description:          r.description ?? null,
-        source_url:           r.source_url ?? null,
-        source_type:          r.source_type ?? null,
-        confidence_score:     r.confidence_score ?? null,
-        community_confirmations: r.community_confirmations ?? 0,
+      found_wrong_dates,
+      known_editions: found_wrong_dates ? dedupedRows.map((r: any) => ({
+        event_name:       r.event_name,
+        event_start_date: r.event_start_date?.value ?? r.event_start_date ?? null,
+        event_end_date:   r.event_end_date?.value   ?? r.event_end_date   ?? null,
+        city_name:        r.city_name ?? null,
       })) : [],
+      matches: matchingDates.map((r: any) => ({
+        event_id:         r.calendar_item_uid,
+        event_name:       r.event_name,
+        event_date_start: r.event_start_date?.value ?? r.event_start_date ?? null,
+        event_date_end:   r.event_end_date?.value   ?? r.event_end_date   ?? null,
+        event_city:       r.city_name ?? event_city,
+        industry_code:    r.industry_code ?? null,
+        description:      r.description ?? null,
+        source_system:    r.source_system ?? null,
+        confidence_score: r.source_system === 'mega_event' ? 0.95 : 0.75,
+        community_confirmations: 0,
+      })),
     }), {
       status: 200, headers: { "content-type": "application/json" }
     });

@@ -163,8 +163,8 @@ if (!location_id) {
                 </div>
                 <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-evt-url" /><div class="ie-hint">Sans lien, l'IA recherche automatiquement.</div></div>
                 <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
                   <button class="ie-conc-btn-ghost" data-close-path="event">Annuler</button>
+                  <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
                 </div>
               </div>
             </div>
@@ -203,8 +203,8 @@ if (!location_id) {
                   <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-comp-url" /></div>
                 </div>
                 <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
                   <button class="ie-conc-btn-ghost" data-close-path="competitor">Annuler</button>
+                  <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
                 </div>
               </div>
             </div>
@@ -243,8 +243,8 @@ if (!location_id) {
                   </div>
                 </div>
                 <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-primary" id="ie-search-submit">Rechercher →</button>
                   <button class="ie-conc-btn-ghost" data-close-path="search">Annuler</button>
+                  <button class="ie-conc-btn-primary" id="ie-search-submit">Rechercher →</button>
                 </div>
               </div>
             </div>
@@ -879,11 +879,10 @@ if (!location_id) {
         justify-content: flex-end;
       }
       .ie-conc-btn-primary {
-        background: #1D3BB3;
-        color: #fff;
+        background: none;
+        color: #1D3BB3;
         border: none;
-        border-radius: 7px;
-        padding: 9px 18px;
+        padding: 0;
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
@@ -891,10 +890,9 @@ if (!location_id) {
       }
       .ie-conc-btn-ghost {
         background: none;
-        color: #6b7280;
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 7px;
-        padding: 9px 14px;
+        color: #9ca3af;
+        border: none;
+        padding: 0;
         font-size: 13px;
         cursor: pointer;
         font-family: inherit;
@@ -988,6 +986,7 @@ if (!location_id) {
         };
         if (inputEl) inputEl.placeholder = ph[m] || 'Posez votre question…';
       }
+      window.__ieSetMode = setMode;
 
       function closeAllPaths() {
         ['event','competitor','search'].forEach(p => {
@@ -1011,6 +1010,7 @@ if (!location_id) {
         const card = document.getElementById('ie-conc-' + p);
         const chev = document.getElementById('ie-chev-' + p);
         if (form) form.style.display = 'block';
+        if (p === 'event') initFlatpickrOnce();
         if (card) card.classList.add('active');
         if (chev) chev.classList.add('open');
         const inputBar = document.getElementById('ie-prompt-input-bar');
@@ -1069,6 +1069,13 @@ if (!location_id) {
         return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       }
 
+      function fmtDateFr(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        const months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+        return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+      }
+
       function renderCandidateCards(candidates, submittedLabel, noResultMsg, source) {
         const thread = document.getElementById('ie-thread');
         const empty  = document.getElementById('ie-prompt-empty');
@@ -1103,7 +1110,7 @@ if (!location_id) {
         const cardsHtml = candidates.map((c, i) => {
           const cf = confLabel(c.confidence);
           const meta = [
-            c.event_date_start ? `${c.event_date_start}${c.event_date_end ? ' → ' + c.event_date_end : ''}` : null,
+            c.event_date_start ? `${fmtDateFr(c.event_date_start)}${c.event_date_end ? ' → ' + fmtDateFr(c.event_date_end) : ''}` : null,
             c.event_city || null,
             c.organizer_name || null,
             c.venue_name || null,
@@ -1124,16 +1131,16 @@ if (!location_id) {
               </div>
               ${meta ? `<div class="ie-card-row" style="margin-bottom:10px;">${escapeHtmlConc(meta)}</div>` : ''}
               ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtmlConc(c.description)}</div>` : ''}
-              <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
                 <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
-                <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Confirmer et ajouter →</button>
+                <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Ajouter à ma veille →</button>
               </div>
             </div>
           `;
         }).join('');
 
         aiRow.innerHTML = `<div class="ie-bubble-none">
-          <div style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
+          <div class="ie-cand-header" style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
             ${candidates.length} résultat${candidates.length > 1 ? 's' : ''} trouvé${candidates.length > 1 ? 's' : ''}. Confirmez l'événement à ajouter à votre veille.
           </div>
           ${cardsHtml}
@@ -1163,8 +1170,9 @@ if (!location_id) {
 
               const successRow = document.createElement('div');
               successRow.className = 'ie-msg ie-msg-ai';
-              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#27500A;background:#EAF3DE;border-radius:var(--border-radius-md);padding:10px 14px;">
-                Événement ajouté à votre veille concurrentielle.
+              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille.
               </div>`;
               thread.appendChild(successRow);
               successRow.scrollIntoView({ block: 'end' });
@@ -1180,9 +1188,31 @@ if (!location_id) {
           btn.addEventListener('click', () => {
             const idx = parseInt(btn.getAttribute('data-cand-reject'));
             const card = document.getElementById(`ie-cand-${idx}`);
-            if (card) {
-              card.style.opacity = '0.25';
-              card.querySelectorAll('button').forEach(b => b.disabled = true);
+            if (card) card.remove();
+            const remaining = aiRow.querySelectorAll('[id^="ie-cand-"]');
+            const headerEl = aiRow.querySelector('.ie-cand-header');
+            if (remaining.length === 0) {
+              if (headerEl) headerEl.textContent = 'Aucun résultat retenu. — ';
+              const link = document.createElement('a');
+              link.href = '#';
+              link.textContent = 'Nouvelle recherche';
+              link.style.cssText = 'color:#1D3BB3;font-size:14px;text-decoration:none;';
+              link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const thread = document.getElementById('ie-thread');
+                if (thread) thread.setAttribute('hidden', 'true');
+                const empty = document.getElementById('ie-prompt-empty');
+                if (empty) empty.removeAttribute('hidden');
+                if (typeof window.__ieSetMode === 'function') window.__ieSetMode('concurrence');
+                setTimeout(() => {
+                  const sec = document.getElementById('ie-concurrence-section');
+                  const th = document.getElementById('ie-thread');
+                  console.log('[nouvelle-recherche] thread hidden attr:', th?.getAttribute('hidden'), 'thread display:', window.getComputedStyle(th).display);
+                  console.log('[nouvelle-recherche] concurrenceEl display:', sec?.style.display, 'offsetParent:', sec?.offsetParent);
+                  sec?.scrollIntoView({ block: 'start' });
+                }, 50);
+              });
+              if (headerEl) headerEl.appendChild(link);
             }
           });
         });
@@ -1224,18 +1254,28 @@ if (!location_id) {
           evtSubmit.textContent = 'Analyse en cours…';
 
           closeAllPaths();
-          setMode('planning');
 
           try {
             const check = await fetch('/api/competitive/check-event', {
               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
             }).then(r => r.json());
 
+            console.log('[check-event] response:', JSON.stringify(check));
+
             if (check.ok && check.found_wrong_dates) {
-              const editions = (check.known_editions || [])
-                .map(e => `${e.event_name} (${e.event_start_date} → ${e.event_end_date})`)
-                .join(', ');
-              renderCandidateCards([], submittedLabel, `Cet événement existe dans notre base mais pas pour ces dates. Éditions connues : ${editions}`);
+              const knownCandidates = (check.known_editions || []).map((e) => ({
+                event_name: e.event_name,
+                event_date_start: e.event_start_date,
+                event_date_end: e.event_end_date,
+                event_city: e.city_name || body.event_city,
+                organizer_name: null,
+                venue_name: null,
+                estimated_attendance: null,
+                description: `Information disponible, mais dates non concordantes.`,
+                confidence: 'medium',
+                confidence_score: 0.7,
+              }));
+              renderCandidateCards(knownCandidates, submittedLabel, 'Cet événement existe dans notre base mais pas pour la date demandée. Aucune autre source trouvée.', 'database');
             } else if (check.ok && check.exists && check.matches?.length > 0) {
               renderCandidateCards(check.matches, submittedLabel, null, 'database');
             } else {
@@ -1257,18 +1297,23 @@ if (!location_id) {
       // Initialize
       setMode('planning');
 
-      // Flatpickr date pickers
-      if (window.flatpickr) {
+      // Flatpickr date pickers — init lazily on first open
+      let _fpInitDone = false;
+      function initFlatpickrOnce() {
+        if (_fpInitDone) return;
+        if (!window.flatpickr) return;
+        const locale = window.flatpickr.l10ns?.fr ? 'fr' : 'default';
         window.flatpickr('#ie-evt-date-start', {
-          locale: 'fr',
+          locale,
           dateFormat: 'd/m/Y',
           disableMobile: true,
         });
         window.flatpickr('#ie-evt-date-end', {
-          locale: 'fr',
+          locale,
           dateFormat: 'd/m/Y',
           disableMobile: true,
         });
+        _fpInitDone = true;
       }
     })();
     </script>

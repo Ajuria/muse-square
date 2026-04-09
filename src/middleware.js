@@ -43,6 +43,7 @@ const isProtectedRoute = createRouteMatcher([
   "/profile(.*)",
   "/api/profile(.*)",
   "/api/saved-items(.*)",
+  "/api/competitive(.*)",
 ]);
 
 const isAppRoute = createRouteMatcher([
@@ -58,6 +59,7 @@ const isLocalsRoute = createRouteMatcher([
   "/api/saved-items(.*)",
   "/api/insight(.*)",
   "/api/profile(.*)",
+  "/api/competitive(.*)",
 ]);
 
 const DEV_BYPASS_PROMPT =

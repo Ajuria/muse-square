@@ -83,10 +83,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Build search query — richer context = better results
-    const queryParts = [event_name, event_city];
+    const year = date_start ? date_start.slice(0, 4) : new Date().getFullYear().toString();
+    const queryParts = [event_name, event_city, year];
     if (organizer_name) queryParts.push(organizer_name);
     if (venue_name)     queryParts.push(venue_name);
-    if (date_start)     queryParts.push(date_start.slice(0, 7)); // YYYY-MM only
+    if (date_start)     queryParts.push(date_start.slice(0, 7));
 
     const userPrompt = `Recherche et extrait les informations structurées pour l'événement suivant :
 
