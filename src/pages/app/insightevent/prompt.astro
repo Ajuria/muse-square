@@ -154,8 +154,8 @@ if (!location_id) {
                   <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-evt-city" /></div>
                 </div>
                 <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" /></div>
-                  <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" /></div>
+                  <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" readonly /></div>
+                  <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" readonly /></div>
                 </div>
                 <div class="ie-conc-grid-2">
                   <div><div class="ie-fl">Organisateur</div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-evt-organizer" /></div>
@@ -902,6 +902,10 @@ if (!location_id) {
 
     </style>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.min.js"></script>
+
     <script is:inline>
       (function() {
         const greetEl = document.getElementById('ie-prompt-greeting');
@@ -1061,49 +1065,188 @@ if (!location_id) {
       }
 
       // Submit handlers — call existing API endpoints
+      function escapeHtmlConc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function renderCandidateCards(candidates, submittedLabel, noResultMsg, source) {
+        const thread = document.getElementById('ie-thread');
+        const empty  = document.getElementById('ie-prompt-empty');
+        if (!thread) return;
+
+        if (empty) empty.setAttribute('hidden', 'true');
+        thread.removeAttribute('hidden');
+
+        const userRow = document.createElement('div');
+        userRow.className = 'ie-msg ie-msg-user';
+        userRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+        thread.appendChild(userRow);
+
+        const aiRow = document.createElement('div');
+        aiRow.className = 'ie-msg ie-msg-ai';
+
+        if (!candidates.length) {
+          aiRow.innerHTML = `<div class="ie-bubble-none" style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">
+            ${escapeHtmlConc(noResultMsg || 'Aucun résultat trouvé pour cet événement. Vérifiez le nom et la ville, ou ajoutez-le manuellement via le lien source.')}
+          </div>`;
+          thread.appendChild(aiRow);
+          aiRow.scrollIntoView({ block: 'end' });
+          return;
+        }
+
+        const confLabel = (c) => {
+          if (c === 'high')   return { text: 'Haute confiance',   cls: 'conf-high-pill' };
+          if (c === 'medium') return { text: 'Confiance moyenne', cls: 'conf-med-pill' };
+          return                     { text: 'Faible confiance',  cls: 'conf-low-pill' };
+        };
+
+        const cardsHtml = candidates.map((c, i) => {
+          const cf = confLabel(c.confidence);
+          const meta = [
+            c.event_date_start ? `${c.event_date_start}${c.event_date_end ? ' → ' + c.event_date_end : ''}` : null,
+            c.event_city || null,
+            c.organizer_name || null,
+            c.venue_name || null,
+            c.estimated_attendance ? `~${c.estimated_attendance.toLocaleString('fr-FR')} visiteurs` : null,
+          ].filter(Boolean).join(' · ');
+
+          return `
+            <div class="ie-card-blue" style="margin-bottom:10px;" id="ie-cand-${i}">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="ie-card-label" style="flex:1;min-width:0;">${escapeHtmlConc(c.event_name || 'Événement')}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;">
+                  ${source === 'database' ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Base MS</span>` : source === 'web' ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#F3F4F6;color:#6B7280;">Web</span>` : ''}
+                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;
+                    ${cf.cls === 'conf-high-pill' ? 'background:#EAF3DE;color:#27500A;' : cf.cls === 'conf-med-pill' ? 'background:#FAEEDA;color:#633806;' : 'background:#FCEBEB;color:#791F1F;'}">
+                    ${escapeHtmlConc(cf.text)}
+                  </span>
+                </div>
+              </div>
+              ${meta ? `<div class="ie-card-row" style="margin-bottom:10px;">${escapeHtmlConc(meta)}</div>` : ''}
+              ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtmlConc(c.description)}</div>` : ''}
+              <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
+                <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Confirmer et ajouter →</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        aiRow.innerHTML = `<div class="ie-bubble-none">
+          <div style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
+            ${candidates.length} résultat${candidates.length > 1 ? 's' : ''} trouvé${candidates.length > 1 ? 's' : ''}. Confirmez l'événement à ajouter à votre veille.
+          </div>
+          ${cardsHtml}
+        </div>`;
+
+        thread.appendChild(aiRow);
+        aiRow.scrollIntoView({ block: 'end' });
+
+        aiRow.querySelectorAll('[data-cand-confirm]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const idx = parseInt(btn.getAttribute('data-cand-confirm'));
+            const candidate = candidates[idx];
+            btn.disabled = true;
+            btn.textContent = '…';
+            try {
+              const res = await fetch('/api/competitive/add-event', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ ...candidate, source_system: 'agent_auto' }),
+              }).then(r => r.json());
+
+              const card = document.getElementById(`ie-cand-${idx}`);
+              if (card) {
+                card.style.opacity = '0.4';
+                card.querySelectorAll('button').forEach(b => b.disabled = true);
+              }
+
+              const successRow = document.createElement('div');
+              successRow.className = 'ie-msg ie-msg-ai';
+              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#27500A;background:#EAF3DE;border-radius:var(--border-radius-md);padding:10px 14px;">
+                Événement ajouté à votre veille concurrentielle.
+              </div>`;
+              thread.appendChild(successRow);
+              successRow.scrollIntoView({ block: 'end' });
+
+            } catch(e) {
+              btn.disabled = false;
+              btn.textContent = 'Confirmer et ajouter →';
+            }
+          });
+        });
+
+        aiRow.querySelectorAll('[data-cand-reject]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.getAttribute('data-cand-reject'));
+            const card = document.getElementById(`ie-cand-${idx}`);
+            if (card) {
+              card.style.opacity = '0.25';
+              card.querySelectorAll('button').forEach(b => b.disabled = true);
+            }
+          });
+        });
+      }
+
       const evtSubmit = document.getElementById('ie-evt-submit');
       if (evtSubmit) {
         evtSubmit.addEventListener('click', async () => {
           const name      = document.getElementById('ie-evt-name')?.value.trim();
           const city      = document.getElementById('ie-evt-city')?.value.trim();
-          const dateStart = document.getElementById('ie-evt-date-start')?.value;
+          const dateStartRaw = document.getElementById('ie-evt-date-start')?.value.trim();
+          const dateStart = (() => {
+            const m = (dateStartRaw || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            return m ? `${m[3]}-${m[2]}-${m[1]}` : dateStartRaw;
+          })();
           if (!name || !city || !dateStart) {
-            alert('Merci de remplir les champs obligatoires.');
+            document.getElementById('ie-evt-name')?.closest('.ie-conc-form-inner')
+              ?.querySelectorAll('input')[0]?.focus();
             return;
           }
+
           const body = {
             event_name:     name,
             event_city:     city,
             date_start:     dateStart,
-            date_end:       document.getElementById('ie-evt-date-end')?.value || null,
+            date_end: (() => {
+              const v = document.getElementById('ie-evt-date-end')?.value.trim() || '';
+              const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+              return m ? `${m[3]}-${m[2]}-${m[1]}` : (v || null);
+            })(),
             organizer_name: document.getElementById('ie-evt-organizer')?.value.trim() || null,
             venue_name:     document.getElementById('ie-evt-venue')?.value.trim() || null,
             source_url:     document.getElementById('ie-evt-url')?.value.trim() || null,
           };
+
+          const submittedLabel = [name, city, dateStart].filter(Boolean).join(' — ');
+
           evtSubmit.disabled = true;
           evtSubmit.textContent = 'Analyse en cours…';
+
+          closeAllPaths();
+          setMode('planning');
+
           try {
             const check = await fetch('/api/competitive/check-event', {
-              method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)
-            }).then(r=>r.json());
-            if (check.ok && check.exists && check.matches?.[0]?.confidence_score >= 0.7) {
-              const add = await fetch('/api/competitive/add-event', {
-                method:'POST', headers:{'content-type':'application/json'},
-                body: JSON.stringify({ ...check.matches[0], source_system:'database' })
-              }).then(r=>r.json());
-              alert('Événement ajouté à vos Marques suivies.');
-              closeAllPaths();
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+            }).then(r => r.json());
+
+            if (check.ok && check.found_wrong_dates) {
+              const editions = (check.known_editions || [])
+                .map(e => `${e.event_name} (${e.event_start_date} → ${e.event_end_date})`)
+                .join(', ');
+              renderCandidateCards([], submittedLabel, `Cet événement existe dans notre base mais pas pour ces dates. Éditions connues : ${editions}`);
+            } else if (check.ok && check.exists && check.matches?.length > 0) {
+              renderCandidateCards(check.matches, submittedLabel, null, 'database');
             } else {
               const search = await fetch('/api/competitive/search-event', {
-                method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)
-              }).then(r=>r.json());
-              console.log('[search-event]', search);
-              alert(search.candidates?.length
-                ? `${search.candidates.length} résultat(s) trouvé(s) — carte de validation à implémenter.`
-                : 'Aucun résultat trouvé — saisie manuelle à implémenter.');
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json());
+              renderCandidateCards(search.candidates || [], submittedLabel, null, 'web');
             }
+
           } catch(e) {
-            alert('Erreur — veuillez réessayer.');
+            renderCandidateCards([], submittedLabel);
           } finally {
             evtSubmit.disabled = false;
             evtSubmit.textContent = 'Continuer →';
@@ -1113,6 +1256,20 @@ if (!location_id) {
 
       // Initialize
       setMode('planning');
+
+      // Flatpickr date pickers
+      if (window.flatpickr) {
+        window.flatpickr('#ie-evt-date-start', {
+          locale: 'fr',
+          dateFormat: 'd/m/Y',
+          disableMobile: true,
+        });
+        window.flatpickr('#ie-evt-date-end', {
+          locale: 'fr',
+          dateFormat: 'd/m/Y',
+          disableMobile: true,
+        });
+      }
     })();
     </script>
 
