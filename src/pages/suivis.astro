@@ -1,0 +1,148 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const clerk_user_id_raw = (Astro.locals as any)?.clerk_user_id;
+if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
+  return Astro.redirect("/sign-in");
+}
+---
+
+<BaseLayout title="Mes suivis - Muse Square" hideSurveyCta={true}>
+  <div class="min-h-screen bg-white pt-26 pb-20 px-4">
+    <div class="max-w-2xl mx-auto mt-10">
+
+      <div class="mb-8">
+        <h1 class="text-3xl font-semibold">Mes suivis</h1>
+        <p class="text-sm text-gray-500 mt-2">Événements et marques suivis par site.</p>
+      </div>
+
+      <div class="flex gap-2 mb-8">
+        <button id="tab-events" onclick="showTab('events')" class="px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase">Événements</button>
+        <button id="tab-brands" onclick="showTab('brands')" class="px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase">Marques & lieux</button>
+      </div>
+
+      <div id="panel-loading" class="text-sm text-gray-400">Chargement…</div>
+
+      <div id="panel-events" style="display:none;"></div>
+      <div id="panel-brands" style="display:none;"></div>
+
+    </div>
+  </div>
+</BaseLayout>
+
+<script is:inline>
+  var currentTab = 'events';
+  var data = null;
+
+  function showTab(t) {
+    currentTab = t;
+    var evtBtn = document.getElementById('tab-events');
+    var brdBtn = document.getElementById('tab-brands');
+    var evtPanel = document.getElementById('panel-events');
+    var brdPanel = document.getElementById('panel-brands');
+
+    if (t === 'events') {
+      evtBtn.className = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
+      brdBtn.className = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      evtPanel.style.display = 'block';
+      brdPanel.style.display = 'none';
+    } else {
+      brdBtn.className = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
+      evtBtn.className = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      brdPanel.style.display = 'block';
+      evtPanel.style.display = 'none';
+    }
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    var parts = iso.slice(0, 10).split('-');
+    return parseInt(parts[2]) + ' ' + months[parseInt(parts[1]) - 1] + ' ' + parts[0];
+  }
+
+  function renderGroups(items, renderRow) {
+    if (!items || items.length === 0) {
+      return '<p class="text-sm text-gray-400">Aucun suivi pour le moment.</p>';
+    }
+    var groups = {};
+    items.forEach(function(item) {
+      var key = item.location_label || item.location_id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    var html = '';
+    Object.keys(groups).forEach(function(key) {
+      html += '<div class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">' + escH(key) + '</div>';
+      html += '<div class="border border-gray-100 mb-8">';
+      groups[key].forEach(function(item, idx) {
+        var border = idx < groups[key].length - 1 ? 'border-b border-gray-100' : '';
+        html += '<div class="flex items-center justify-between gap-4 px-4 py-3 ' + border + '">';
+        html += '<div>';
+        html += '<div class="text-sm font-medium text-gray-900">' + escH(item.name) + '</div>';
+        html += '<div class="text-xs text-gray-400 mt-0.5">' + escH(renderRow(item)) + '</div>';
+        html += '</div>';
+        html += '<button onclick="unfollow(\'' + escH(item.type) + '\',\'' + escH(item.id) + '\')" class="text-xs text-gray-300 hover:text-gray-500 whitespace-nowrap flex-shrink-0">Ne plus suivre</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    return html;
+  }
+
+  function escH(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function unfollow(type, id) {
+    var endpoint = type === 'event' ? '/api/competitive/unfollow-event' : '/api/competitive/unfollow-competitor';
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      await loadData();
+    } catch(e) {}
+  }
+
+  async function loadData() {
+    try {
+      var res = await fetch('/api/competitive/suivis');
+      var out = await res.json().catch(() => null);
+      if (!out || !out.ok) return;
+      data = out;
+
+      var evtPanel = document.getElementById('panel-events');
+      var brdPanel = document.getElementById('panel-brands');
+      var loading  = document.getElementById('panel-loading');
+
+      if (loading) loading.style.display = 'none';
+
+      evtPanel.innerHTML = renderGroups(out.events, function(item) {
+        var parts = ['Événement'];
+        if (item.date_start) {
+          var d = fmtDate(item.date_start);
+          if (item.date_end && item.date_end !== item.date_start) d += ' → ' + fmtDate(item.date_end);
+          parts.push(d);
+        }
+        if (item.city) parts.push(item.city);
+        return parts.join(' · ');
+      });
+
+      brdPanel.innerHTML = renderGroups(out.competitors, function(item) {
+        var parts = [];
+        if (item.competitor_type) parts.push(item.competitor_type);
+        if (item.industry_code) parts.push(item.industry_code);
+        if (item.city) parts.push(item.city);
+        return parts.join(' · ');
+      });
+
+      showTab(currentTab);
+    } catch(e) {}
+  }
+
+  loadData();
+</script>

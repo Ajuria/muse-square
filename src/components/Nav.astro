@@ -15,7 +15,7 @@ const isActive = (href: string) => {
   return currentPath === h || (h !== "/" && currentPath.startsWith(h + "/"));
 };
 
-const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
+const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications" || Astro.url.pathname === "/suivis";
 let dbSavedItemId = "";
 let dbDate = "";
 
@@ -41,7 +41,7 @@ if (isApp) {
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor") || currentPath.startsWith("/app/insightevent/events");
 const isPulse = currentPath === "/app/insightevent/pulse";
 const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse;
-const isProfile = currentPath === "/profile" || currentPath === "/notifications";
+const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath === "/suivis";
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
 const isAppShell = isApp;
@@ -124,10 +124,11 @@ const isAppShell = isApp;
                   </svg>
                 </button>
                 <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
-                  <a href="/profile" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Mes sites</a>
+                  <a href="/profile" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Sites</a>
+                  <a href="/suivis" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Suivis</a>
                   <a href="/notifications" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Alertes</a>
                   <Show when="signed-in" client:load>
-                    <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Se déconnecter</button>
+                    <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Me déconnecter</button>
                   </Show>
                 </div>
               </li>
@@ -199,6 +200,9 @@ const isAppShell = isApp;
 
           <li>
             <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Mes sites</a>
+          </li>
+          <li>
+            <a href="/suivis" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Mes suivis</a>
           </li>
           <li>
             <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Alertes</a>
