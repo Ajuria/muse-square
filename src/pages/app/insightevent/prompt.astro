@@ -86,12 +86,14 @@ if (!location_id) {
             </div>
           </a>
 
+          <div id="ie-prompt-actions-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:24px 0 16px 0;">ACTIONS</div>
           <a href="#" class="ie-prompt-card" id="ie-finder-card" data-suggestion-idx="2">
             <div class="ie-prompt-card-icon">
               <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:white;"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Trouver une date pour un événement</p>
+              <p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">Trouver une date</p>
+              <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">Jusqu'à 7 meilleures dates sur une fenêtre choisie</p>
             </div>
             <div class="ie-prompt-card-arrow" id="ie-finder-chevron">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -133,15 +135,18 @@ if (!location_id) {
 
           <!-- CONCURRENCE SECTION (hidden by default) -->
           <div id="ie-concurrence-section" style="display:none;">
-            <div id="ie-concurrence-label">AJOUTER À MA VEILLE</div>
+            <div id="ie-concurrence-label">ACTIONS</div>
+            <div style="border-left:3px solid #1D3BB3;background:#E6F1FB;padding:12px 14px;margin-bottom:16px;">
+              <p style="font-size:13px;color:#0C447C;line-height:1.6;margin:0;">Identifiez les événements et marques qui disputent votre audience. Suivez-les pour recevoir des alertes dans votre veille quotidienne.</p>
+            </div>
 
             <button class="ie-conc-card" id="ie-conc-event" data-path="event">
               <div class="ie-prompt-card-icon">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
               </div>
               <div class="ie-prompt-card-content">
-                <p class="ie-conc-card-title">Ajouter un événement connu</p>
-                <p class="ie-conc-card-sub">Lancement produit, ouverture, salon, conférence de presse, exposition…</p>
+                <p class="ie-conc-card-title">Événement concurrent</p>
+                <p class="ie-conc-card-sub">Salon, festival, lancement, exposition, conférence de presse…</p>
               </div>
               <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-event">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -174,8 +179,8 @@ if (!location_id) {
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
               <div class="ie-prompt-card-content">
-                <p class="ie-conc-card-title">Suivre un concurrent connu</p>
-                <p class="ie-conc-card-sub">Hôtel, musée, salle de spectacle, marque, organisateur…</p>
+                <p class="ie-conc-card-title">Marque ou lieu</p>
+                <p class="ie-conc-card-sub">Hôtel, musée, organisateur, enseigne, salle de spectacle…</p>
               </div>
               <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-competitor">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -220,44 +225,9 @@ if (!location_id) {
               </div>
             </div>
 
-            <button class="ie-conc-card" id="ie-conc-search" data-path="search">
-              <div class="ie-prompt-card-icon">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="white" stroke-width="1.8"/><path d="M21 21l-4.35-4.35" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-              </div>
-              <div class="ie-prompt-card-content">
-                <p class="ie-conc-card-title">Rechercher des concurrents</p>
-                <p class="ie-conc-card-sub">Par mot-clé et zone géographique dans notre base de données</p>
-              </div>
-              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-search">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-            </button>
-            <div class="ie-conc-form" id="ie-form-search" style="display:none;">
-              <div class="ie-conc-form-inner">
-                <div><div class="ie-fl">Mot-clé <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. salon mariage, festival jazz, GL Events" id="ie-search-kw" /></div>
-                <div class="ie-conc-grid-2">
-                  <div>
-                    <div class="ie-fl">Zone géographique <span class="ie-req">*</span></div>
-                    <input type="text" class="ie-conc-input" placeholder="Rechercher une ville…" id="ie-search-zone" autocomplete="off" />
-                    <div id="ie-search-city-dd" style="display:none;border:.5px solid #e5e7eb;border-radius:8px;margin-top:3px;overflow:hidden;background:#fff;position:relative;z-index:20;"></div>
-                    <input type="hidden" id="ie-search-zone-id" />
-                  </div>
-                  <div>
-                    <div class="ie-fl">Rayon <span style="color:#9CA3AF;">(max 50km)</span></div>
-                    <select class="ie-conc-input" id="ie-search-radius">
-                      <option value="5">5 km</option>
-                      <option value="10">10 km</option>
-                      <option value="20">20 km</option>
-                      <option value="30" selected>30 km (profil)</option>
-                      <option value="50">50 km</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-ghost" data-close-path="search">Annuler</button>
-                  <button class="ie-conc-btn-primary" id="ie-search-submit">Rechercher →</button>
-                </div>
-              </div>
+            <div style="border:0.5px dashed rgba(0,0,0,0.12);border-radius:8px;padding:14px 16px;text-align:center;margin-top:4px;">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Bientôt disponible</div>
+              <div style="font-size:12px;color:#6b7280;">Recherche par mot-clé et zone géographique</div>
             </div>
           </div>
 
@@ -976,6 +946,8 @@ if (!location_id) {
         if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
         planningCards.forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
         if (finderForm) finderForm.style.display = 'none';
+        const actionsLabel = document.getElementById('ie-prompt-actions-label');
+        if (actionsLabel) actionsLabel.style.display = showPlanning ? '' : 'none';
 
         // Concurrence section
         if (concurrenceEl) concurrenceEl.style.display = m === 'concurrence' ? 'block' : 'none';
@@ -1149,10 +1121,19 @@ if (!location_id) {
               </div>
               ${meta ? `<div class="ie-card-row" style="margin-bottom:10px;">${escapeHtmlConc(meta)}</div>` : ''}
               ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtmlConc(c.description)}</div>` : ''}
-              ${c.source_url ? `<div style="margin-bottom:8px;"><a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" id="ie-src-link-${i}" style="font-size:12px;color:#1D3BB3;text-decoration:none;" data-src-idx="${i}">Vérifier la source →</a></div>` : ''}
-              <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
-                <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
-                <button class="ie-conc-btn-primary" data-cand-confirm="${i}" ${c.source_url ? 'disabled data-needs-verify="true"' : ''} style="${c.source_url ? 'opacity:0.35;cursor:not-allowed;' : ''}">Ajouter à ma veille →</button>
+              <div id="ie-cand-actions-${i}" style="padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
+                ${c.source_url ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
+                  <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-src-idx="${i}">Vérifier la source →</a>
+                </div>
+                <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Vérifiez que cette source correspond bien à l'événement avant d'ajouter à votre veille.</div>
+                ` : `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Ajouter à ma veille →</button>
+                </div>
+                `}
               </div>
             </div>
           `;
@@ -1171,81 +1152,44 @@ if (!location_id) {
         aiRow.querySelectorAll('a[data-src-idx]').forEach(link => {
           link.addEventListener('click', () => {
             const idx = link.getAttribute('data-src-idx');
-            const confirmBtn = aiRow.querySelector(`[data-cand-confirm="${idx}"]`);
-            if (confirmBtn && confirmBtn.getAttribute('data-needs-verify') === 'true') {
-              confirmBtn.removeAttribute('disabled');
-              confirmBtn.removeAttribute('data-needs-verify');
-              confirmBtn.style.opacity = '1';
-              confirmBtn.style.cursor = 'pointer';
-            }
-          });
-        });
-
-        aiRow.querySelectorAll('[data-cand-confirm]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const idx = parseInt(btn.getAttribute('data-cand-confirm'));
-            const candidate = candidates[idx];
-            btn.disabled = true;
-            btn.textContent = '…';
-            try {
-              const res = await fetch('/api/competitive/add-event', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ ...candidate, source_system: 'agent_auto' }),
-              }).then(r => r.json());
-
-              const card = document.getElementById(`ie-cand-${idx}`);
-              if (card) {
-                card.style.opacity = '0.4';
-                card.querySelectorAll('button').forEach(b => b.disabled = true);
-              }
-
-              const successRow = document.createElement('div');
-              successRow.className = 'ie-msg ie-msg-ai';
-              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                ${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille. Gérez vos suivis dans Compte → Suivis.
-              </div>`;
-              thread.appendChild(successRow);
-              successRow.scrollIntoView({ block: 'end' });
-
-            } catch(e) {
-              console.error('[add-event] failed:', e);
-              btn.disabled = false;
-              btn.textContent = 'Ajouter à ma veille →';
-            }
-          });
-        });
-
-        aiRow.querySelectorAll('[data-cand-reject]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx = parseInt(btn.getAttribute('data-cand-reject'));
-            const card = document.getElementById(`ie-cand-${idx}`);
-            if (card) card.remove();
-            const remaining = aiRow.querySelectorAll('[id^="ie-cand-"]');
-            const headerEl = aiRow.querySelector('.ie-cand-header');
-            if (remaining.length === 0) {
-              if (headerEl) headerEl.textContent = 'Aucun résultat retenu. — ';
-              const link = document.createElement('a');
-              link.href = '#';
-              link.textContent = 'Nouvelle recherche';
-              link.style.cssText = 'color:#1D3BB3;font-size:14px;text-decoration:none;';
-              link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const thread = document.getElementById('ie-thread');
-                if (thread) thread.setAttribute('hidden', 'true');
-                const empty = document.getElementById('ie-prompt-empty');
-                if (empty) empty.removeAttribute('hidden');
-                if (typeof window.__ieSetMode === 'function') window.__ieSetMode('concurrence');
-                setTimeout(() => {
-                  const sec = document.getElementById('ie-concurrence-section');
-                  const th = document.getElementById('ie-thread');
-                  console.log('[nouvelle-recherche] thread hidden attr:', th?.getAttribute('hidden'), 'thread display:', window.getComputedStyle(th).display);
-                  console.log('[nouvelle-recherche] concurrenceEl display:', sec?.style.display, 'offsetParent:', sec?.offsetParent);
-                  sec?.scrollIntoView({ block: 'start' });
-                }, 50);
+            const actionsEl = aiRow.querySelector(`#ie-cand-actions-${idx}`);
+            if (actionsEl) {
+              actionsEl.innerHTML = `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-cand-reject="${idx}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-cand-confirm="${idx}">Ajouter à ma veille →</button>
+                </div>
+              `;
+              actionsEl.querySelector(`[data-cand-confirm="${idx}"]`)?.addEventListener('click', async () => {
+                const candidate = candidates[parseInt(idx)];
+                const btn = actionsEl.querySelector(`[data-cand-confirm="${idx}"]`);
+                btn.disabled = true;
+                btn.textContent = '…';
+                try {
+                  await fetch('/api/competitive/add-event', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ ...candidate, source_system: 'agent_auto' }),
+                  }).then(r => r.json());
+                  const card = document.getElementById(`ie-cand-${idx}`);
+                  if (card) { card.style.opacity = '0.4'; card.querySelectorAll('button, a').forEach(b => b.disabled = true); }
+                  const successRow = document.createElement('div');
+                  successRow.className = 'ie-msg ie-msg-ai';
+                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille. Gérez vos suivis dans Compte → Suivis.</div>`;
+                  thread.appendChild(successRow);
+                  successRow.scrollIntoView({ block: 'end' });
+                } catch(e) {
+                  btn.disabled = false;
+                  btn.textContent = 'Ajouter à ma veille →';
+                }
               });
-              if (headerEl) headerEl.appendChild(link);
+              actionsEl.querySelector(`[data-cand-reject="${idx}"]`)?.addEventListener('click', () => {
+                const card = document.getElementById(`ie-cand-${idx}`);
+                if (card) card.remove();
+                const remaining = aiRow.querySelectorAll('[id^="ie-cand-"]');
+                const headerEl = aiRow.querySelector('.ie-cand-header');
+                if (remaining.length === 0 && headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+              });
             }
           });
         });
@@ -1469,13 +1413,19 @@ if (!location_id) {
               ${meta ? `<div class="ie-card-row" style="margin-bottom:6px;">${escapeHtmlConc(meta)}</div>` : ''}
               ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:8px;line-height:1.5;">${escapeHtmlConc(c.description)}</div>` : ''}
               ${c.source_sentence ? `<div class="ie-card-row" style="font-size:12px;color:#9CA3AF;margin-bottom:8px;font-style:italic;line-height:1.4;">"${escapeHtmlConc(c.source_sentence)}"</div>` : ''}
-              ${c.source_url ? `<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-                <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
-                <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier →</a>
-              </div>` : ''}
-              <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
-                <button class="ie-conc-btn-ghost" data-comp-reject="${i}">Ce n'est pas ça</button>
-                <button class="ie-conc-btn-primary" data-comp-confirm="${i}" ${c.source_url ? 'disabled data-needs-verify="true"' : ''} style="${c.source_url ? 'opacity:0.35;cursor:not-allowed;' : ''}">Ajouter à ma veille →</button>
+              <div id="ie-comp-actions-${i}" style="padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
+                ${c.source_url ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
+                  <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier la source →</a>
+                </div>
+                <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Vérifiez que cette source correspond bien au concurrent avant d'ajouter à votre veille.</div>
+                ` : `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-comp-reject="${i}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-comp-confirm="${i}">Ajouter à ma veille →</button>
+                </div>
+                `}
               </div>
             </div>
           `;
@@ -1494,61 +1444,44 @@ if (!location_id) {
         aiRow.querySelectorAll('a[data-comp-src-idx]').forEach(link => {
           link.addEventListener('click', () => {
             const idx = link.getAttribute('data-comp-src-idx');
-            const confirmBtn = aiRow.querySelector(`[data-comp-confirm="${idx}"]`);
-            if (confirmBtn && confirmBtn.getAttribute('data-needs-verify') === 'true') {
-              confirmBtn.removeAttribute('disabled');
-              confirmBtn.removeAttribute('data-needs-verify');
-              confirmBtn.style.opacity = '1';
-              confirmBtn.style.cursor = 'pointer';
-            }
-          });
-        });
-
-        aiRow.querySelectorAll('[data-comp-confirm]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const idx = parseInt(btn.getAttribute('data-comp-confirm'));
-            const candidate = candidates[idx];
-            btn.disabled = true;
-            btn.textContent = '…';
-            try {
-              const res = await fetch('/api/competitive/add-competitor', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ ...candidate, source_system: 'user_confirmed' }),
-              }).then(r => r.json());
-
-              const card = document.getElementById(`ie-comp-cand-${idx}`);
-              if (card) {
-                card.style.opacity = '0.4';
-                card.querySelectorAll('button').forEach(b => b.disabled = true);
-              }
-
-              const successRow = document.createElement('div');
-              successRow.className = 'ie-msg ie-msg-ai';
-              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                ${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille.
-              </div>`;
-              thread.appendChild(successRow);
-              successRow.scrollIntoView({ block: 'end' });
-
-            } catch(e) {
-              console.error('[add-competitor] failed:', e);
-              btn.disabled = false;
-              btn.textContent = 'Ajouter à ma veille →';
-            }
-          });
-        });
-
-        aiRow.querySelectorAll('[data-comp-reject]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx = parseInt(btn.getAttribute('data-comp-reject'));
-            const card = document.getElementById(`ie-comp-cand-${idx}`);
-            if (card) card.remove();
-            const remaining = aiRow.querySelectorAll('[id^="ie-comp-cand-"]');
-            const headerEl = aiRow.querySelector('.ie-cand-header');
-            if (remaining.length === 0) {
-              if (headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+            const actionsEl = aiRow.querySelector(`#ie-comp-actions-${idx}`);
+            if (actionsEl) {
+              actionsEl.innerHTML = `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-comp-reject="${idx}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-comp-confirm="${idx}">Ajouter à ma veille →</button>
+                </div>
+              `;
+              actionsEl.querySelector(`[data-comp-confirm="${idx}"]`)?.addEventListener('click', async () => {
+                const candidate = candidates[parseInt(idx)];
+                const btn = actionsEl.querySelector(`[data-comp-confirm="${idx}"]`);
+                btn.disabled = true;
+                btn.textContent = '…';
+                try {
+                  await fetch('/api/competitive/add-competitor', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ ...candidate, source_system: 'user_confirmed' }),
+                  }).then(r => r.json());
+                  const card = document.getElementById(`ie-comp-cand-${idx}`);
+                  if (card) { card.style.opacity = '0.4'; card.querySelectorAll('button, a').forEach(b => b.disabled = true); }
+                  const successRow = document.createElement('div');
+                  successRow.className = 'ie-msg ie-msg-ai';
+                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille.</div>`;
+                  thread.appendChild(successRow);
+                  successRow.scrollIntoView({ block: 'end' });
+                } catch(e) {
+                  btn.disabled = false;
+                  btn.textContent = 'Ajouter à ma veille →';
+                }
+              });
+              actionsEl.querySelector(`[data-comp-reject="${idx}"]`)?.addEventListener('click', () => {
+                const card = document.getElementById(`ie-comp-cand-${idx}`);
+                if (card) card.remove();
+                const remaining = aiRow.querySelectorAll('[id^="ie-comp-cand-"]');
+                const headerEl = aiRow.querySelector('.ie-cand-header');
+                if (remaining.length === 0 && headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+              });
             }
           });
         });
