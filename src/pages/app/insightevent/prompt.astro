@@ -190,12 +190,23 @@ if (!location_id) {
                 <div><div class="ie-fl">Secteur d'activité</div>
                   <select class="ie-conc-input" id="ie-comp-sector">
                     <option value="">Sélectionner…</option>
-                    <option value="live_event">Événementiel</option>
+                    <option value="non_profit">Associatif & Non lucratif</option>
+                    <option value="wellness">Bien-être & Fitness</option>
+                    <option value="cinema_theatre">Cinéma & Théâtre</option>
                     <option value="commercial">Commerce & Retail</option>
+                    <option value="institutional">Collectivités & Secteur public</option>
                     <option value="culture">Culture & Patrimoine</option>
-                    <option value="pro_event">Salons & Événements pro.</option>
+                    <option value="family">Éducation & Enseignement</option>
+                    <option value="live_event">Événementiel</option>
+                    <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+                    <option value="food_nightlife">Restauration & Bars</option>
+                    <option value="science_innovation">Sciences & Innovation</option>
+                    <option value="pro_event">Salons & Événements professionnels</option>
+                    <option value="sport">Sports & Loisirs actifs</option>
+                    <option value="transport_mobility">Transport & Mobilité locale</option>
                     <option value="outdoor_leisure">Tourisme & Loisirs</option>
-                    <option value="unknown">Autre</option>
+                    <option value="nightlife">Vie nocturne</option>
+                    <option value="unknown">Autre activité accueillant du public</option>
                   </select>
                 </div>
                 <div class="ie-conc-grid-2">
@@ -1076,6 +1087,16 @@ if (!location_id) {
         return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
       }
 
+      function sourceStyle(sourceType, sourceSystem) {
+        if (sourceSystem === 'user_confirmed' || sourceSystem === 'ms_database')
+          return { label: 'Muse Square', bg: 'var(--color-pill-safe-bg)', color: 'var(--color-pill-safe-text)' };
+        if (sourceType === 'Site officiel' || sourceType === 'Eventbrite' || sourceType === 'OpenAgenda')
+          return { label: sourceType, bg: 'var(--color-pill-source-verified-bg)', color: 'var(--color-pill-source-verified-text)' };
+        if (sourceType === 'LinkedIn' || sourceType === 'Annuaire pro')
+          return { label: sourceType, bg: 'var(--color-pill-source-mid-bg)', color: 'var(--color-pill-source-mid-text)' };
+        return { label: sourceType || 'Web', bg: 'var(--color-pill-source-low-bg)', color: 'var(--color-pill-source-low-text)' };
+      }
+
       function renderCandidateCards(candidates, submittedLabel, noResultMsg, source) {
         const thread = document.getElementById('ie-thread');
         const empty  = document.getElementById('ie-prompt-empty');
@@ -1122,18 +1143,16 @@ if (!location_id) {
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
                 <div class="ie-card-label" style="flex:1;min-width:0;">${escapeHtmlConc(c.event_name || 'Événement')}</div>
                 <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;">
-                  ${source === 'database' ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Base MS</span>` : source === 'web' ? `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#F3F4F6;color:#6B7280;">Web</span>` : ''}
-                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;
-                    ${cf.cls === 'conf-high-pill' ? 'background:#EAF3DE;color:#27500A;' : cf.cls === 'conf-med-pill' ? 'background:#FAEEDA;color:#633806;' : 'background:#FCEBEB;color:#791F1F;'}">
-                    ${escapeHtmlConc(cf.text)}
-                  </span>
+                  ${(() => { const s = sourceStyle(c.source_type, c.source_system || (source === 'database' ? 'ms_database' : null)); return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${s.color};">${escapeHtmlConc(s.label)}</span>`; })()}
+                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;${cf.cls === 'conf-high-pill' ? 'background:var(--color-pill-source-verified-bg);color:var(--color-pill-source-verified-text);' : cf.cls === 'conf-med-pill' ? 'background:var(--color-pill-source-mid-bg);color:var(--color-pill-source-mid-text);' : 'background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);'}">${escapeHtmlConc(cf.text)}</span>
                 </div>
               </div>
               ${meta ? `<div class="ie-card-row" style="margin-bottom:10px;">${escapeHtmlConc(meta)}</div>` : ''}
               ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtmlConc(c.description)}</div>` : ''}
+              ${c.source_url ? `<div style="margin-bottom:8px;"><a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" id="ie-src-link-${i}" style="font-size:12px;color:#1D3BB3;text-decoration:none;" data-src-idx="${i}">Vérifier la source →</a></div>` : ''}
               <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
                 <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
-                <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Ajouter à ma veille →</button>
+                <button class="ie-conc-btn-primary" data-cand-confirm="${i}" ${c.source_url ? 'disabled data-needs-verify="true"' : ''} style="${c.source_url ? 'opacity:0.35;cursor:not-allowed;' : ''}">Ajouter à ma veille →</button>
               </div>
             </div>
           `;
@@ -1148,6 +1167,19 @@ if (!location_id) {
 
         thread.appendChild(aiRow);
         aiRow.scrollIntoView({ block: 'end' });
+
+        aiRow.querySelectorAll('a[data-src-idx]').forEach(link => {
+          link.addEventListener('click', () => {
+            const idx = link.getAttribute('data-src-idx');
+            const confirmBtn = aiRow.querySelector(`[data-cand-confirm="${idx}"]`);
+            if (confirmBtn && confirmBtn.getAttribute('data-needs-verify') === 'true') {
+              confirmBtn.removeAttribute('disabled');
+              confirmBtn.removeAttribute('data-needs-verify');
+              confirmBtn.style.opacity = '1';
+              confirmBtn.style.cursor = 'pointer';
+            }
+          });
+        });
 
         aiRow.querySelectorAll('[data-cand-confirm]').forEach(btn => {
           btn.addEventListener('click', async () => {
@@ -1172,14 +1204,15 @@ if (!location_id) {
               successRow.className = 'ie-msg ie-msg-ai';
               successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                ${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille.
+                ${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille. Gérez vos suivis dans Compte → Suivis.
               </div>`;
               thread.appendChild(successRow);
               successRow.scrollIntoView({ block: 'end' });
 
             } catch(e) {
+              console.error('[add-event] failed:', e);
               btn.disabled = false;
-              btn.textContent = 'Confirmer et ajouter →';
+              btn.textContent = 'Ajouter à ma veille →';
             }
           });
         });
@@ -1267,6 +1300,8 @@ if (!location_id) {
                 event_name: e.event_name,
                 event_date_start: e.event_start_date,
                 event_date_end: e.event_end_date,
+                date_start: e.event_start_date,
+                date_end: e.event_end_date,
                 event_city: e.city_name || body.event_city,
                 organizer_name: null,
                 venue_name: null,
@@ -1274,8 +1309,15 @@ if (!location_id) {
                 description: `Information disponible, mais dates non concordantes.`,
                 confidence: 'medium',
                 confidence_score: 0.7,
+                source_url: null,
+                _source: 'database',
               }));
-              renderCandidateCards(knownCandidates, submittedLabel, 'Cet événement existe dans notre base mais pas pour la date demandée. Aucune autre source trouvée.', 'database');
+              const search = await fetch('/api/competitive/search-event', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json()).catch(() => ({ candidates: [] }));
+              const webCandidates = (search.candidates || []).map((c) => ({ ...c, _source: 'web' }));
+              const allCandidates = [...knownCandidates, ...webCandidates];
+              renderCandidateCards(allCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'mixed');
             } else if (check.ok && check.exists && check.matches?.length > 0) {
               renderCandidateCards(check.matches, submittedLabel, null, 'database');
             } else {
@@ -1291,6 +1333,224 @@ if (!location_id) {
             evtSubmit.disabled = false;
             evtSubmit.textContent = 'Continuer →';
           }
+        });
+      }
+
+      const compSubmit = document.getElementById('ie-comp-submit');
+      if (compSubmit) {
+        compSubmit.addEventListener('click', async () => {
+          const name   = document.getElementById('ie-comp-name')?.value.trim();
+          const city   = document.getElementById('ie-comp-city')?.value.trim();
+          const sector = document.getElementById('ie-comp-sector')?.value || null;
+          const venue  = document.getElementById('ie-comp-venue')?.value.trim() || null;
+          const url    = document.getElementById('ie-comp-url')?.value.trim() || null;
+
+          if (!name || !city) {
+            document.getElementById('ie-comp-name')?.focus();
+            return;
+          }
+
+          const submittedLabel = [name, city].filter(Boolean).join(' — ');
+
+          compSubmit.disabled = true;
+          compSubmit.textContent = 'Analyse en cours…';
+          closeAllPaths();
+
+          const body = {
+            competitor_name: name,
+            competitor_city: city,
+            industry_code:   sector || null,
+            venue_name:      venue || null,
+            source_url:      url || null,
+          };
+
+          try {
+            // Step 1 — database lookup
+            const check = await fetch('/api/competitive/check-competitor', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+            }).then(r => r.json());
+
+            console.log('[check-competitor] response:', JSON.stringify(check));
+
+            if (check.ok && check.exists && check.matches?.length > 0) {
+              // Found in DB — map to candidate card shape
+              const dbCandidates = check.matches.map(m => ({
+                competitor_name:      m.competitor_name,
+                city:                 m.city,
+                industry_code:        m.industry_code,
+                industry_bucket:      m.industry_bucket,
+                primary_audience:     m.primary_audience,
+                secondary_audience:   m.secondary_audience,
+                address:              m.address,
+                description:          m.description,
+                source_url:           m.source_url,
+                google_rating:        m.google_rating,
+                google_review_count:  m.google_review_count,
+                google_review_summary: m.google_review_summary,
+                photos:               m.photos,
+                confidence:           m.confidence_score >= 0.9 ? 'high' : m.confidence_score >= 0.7 ? 'medium' : 'low',
+                confidence_score:     m.confidence_score,
+                is_user_vetted:       m.is_user_vetted,
+                source_system:        m.source_system,
+                _source:              'database',
+              }));
+              renderCompetitorCards(dbCandidates, submittedLabel, null, 'database');
+            } else {
+              // Step 2 — web search fallback
+              const search = await fetch('/api/competitive/search-competitor', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json()).catch(() => ({ candidates: [] }));
+
+              console.log('[search-competitor] response:', JSON.stringify(search));
+
+              const webCandidates = (search.candidates || []).map(c => ({ ...c, _source: 'web' }));
+              renderCompetitorCards(webCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'web');
+            }
+
+          } catch(e) {
+            console.error('[comp-submit]', e);
+            renderCompetitorCards([], submittedLabel, 'Erreur réseau. Veuillez réessayer.', null);
+          } finally {
+            compSubmit.disabled = false;
+            compSubmit.textContent = 'Continuer →';
+          }
+        });
+      }
+
+      function renderCompetitorCards(candidates, submittedLabel, noResultMsg, source) {
+        const thread = document.getElementById('ie-thread');
+        const empty  = document.getElementById('ie-prompt-empty');
+        if (!thread) return;
+
+        if (empty) empty.setAttribute('hidden', 'true');
+        thread.removeAttribute('hidden');
+
+        const userRow = document.createElement('div');
+        userRow.className = 'ie-msg ie-msg-user';
+        userRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+        thread.appendChild(userRow);
+
+        const aiRow = document.createElement('div');
+        aiRow.className = 'ie-msg ie-msg-ai';
+
+        if (!candidates.length) {
+          aiRow.innerHTML = `<div class="ie-bubble-none" style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">
+            ${escapeHtmlConc(noResultMsg || 'Aucun résultat trouvé. Vérifiez le nom et la ville.')}
+          </div>`;
+          thread.appendChild(aiRow);
+          aiRow.scrollIntoView({ block: 'end' });
+          return;
+        }
+
+        const confLabel = (c) => {
+          if (c === 'high')   return { text: 'Haute confiance',   cls: 'conf-high-pill' };
+          if (c === 'medium') return { text: 'Confiance moyenne', cls: 'conf-med-pill' };
+          return                     { text: 'Faible confiance',  cls: 'conf-low-pill' };
+        };
+
+        const cardsHtml = candidates.map((c, i) => {
+          const cf = confLabel(c.confidence);
+          const meta = [
+            c.city || null,
+            c.industry_code || null,
+            c.address || null,
+            c.google_rating ? `★ ${c.google_rating}${c.google_review_count ? ` (${c.google_review_count} avis)` : ''}` : null,
+          ].filter(Boolean).join(' · ');
+
+          return `
+            <div class="ie-card-blue" style="margin-bottom:10px;" id="ie-comp-cand-${i}">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="ie-card-label" style="flex:1;min-width:0;">${escapeHtmlConc(c.competitor_name || 'Concurrent')}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;">
+                  ${(() => { const s = sourceStyle(c.source_type, c.source_system); return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${s.color};">${escapeHtmlConc(s.label)}</span>`; })()}
+                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;${cf.cls === 'conf-high-pill' ? 'background:var(--color-pill-source-verified-bg);color:var(--color-pill-source-verified-text);' : cf.cls === 'conf-med-pill' ? 'background:var(--color-pill-source-mid-bg);color:var(--color-pill-source-mid-text);' : 'background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);'}">${escapeHtmlConc(cf.text)}</span>
+                </div>
+              </div>
+              ${meta ? `<div class="ie-card-row" style="margin-bottom:6px;">${escapeHtmlConc(meta)}</div>` : ''}
+              ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:8px;line-height:1.5;">${escapeHtmlConc(c.description)}</div>` : ''}
+              ${c.source_sentence ? `<div class="ie-card-row" style="font-size:12px;color:#9CA3AF;margin-bottom:8px;font-style:italic;line-height:1.4;">"${escapeHtmlConc(c.source_sentence)}"</div>` : ''}
+              ${c.source_url ? `<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
+                <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier →</a>
+              </div>` : ''}
+              <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
+                <button class="ie-conc-btn-ghost" data-comp-reject="${i}">Ce n'est pas ça</button>
+                <button class="ie-conc-btn-primary" data-comp-confirm="${i}" ${c.source_url ? 'disabled data-needs-verify="true"' : ''} style="${c.source_url ? 'opacity:0.35;cursor:not-allowed;' : ''}">Ajouter à ma veille →</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        aiRow.innerHTML = `<div class="ie-bubble-none">
+          <div class="ie-cand-header" style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
+            ${candidates.length} résultat${candidates.length > 1 ? 's' : ''} trouvé${candidates.length > 1 ? 's' : ''}. Confirmez le concurrent à ajouter à votre veille.
+          </div>
+          ${cardsHtml}
+        </div>`;
+
+        thread.appendChild(aiRow);
+        aiRow.scrollIntoView({ block: 'end' });
+
+        aiRow.querySelectorAll('a[data-comp-src-idx]').forEach(link => {
+          link.addEventListener('click', () => {
+            const idx = link.getAttribute('data-comp-src-idx');
+            const confirmBtn = aiRow.querySelector(`[data-comp-confirm="${idx}"]`);
+            if (confirmBtn && confirmBtn.getAttribute('data-needs-verify') === 'true') {
+              confirmBtn.removeAttribute('disabled');
+              confirmBtn.removeAttribute('data-needs-verify');
+              confirmBtn.style.opacity = '1';
+              confirmBtn.style.cursor = 'pointer';
+            }
+          });
+        });
+
+        aiRow.querySelectorAll('[data-comp-confirm]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const idx = parseInt(btn.getAttribute('data-comp-confirm'));
+            const candidate = candidates[idx];
+            btn.disabled = true;
+            btn.textContent = '…';
+            try {
+              const res = await fetch('/api/competitive/add-competitor', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ ...candidate, source_system: 'user_confirmed' }),
+              }).then(r => r.json());
+
+              const card = document.getElementById(`ie-comp-cand-${idx}`);
+              if (card) {
+                card.style.opacity = '0.4';
+                card.querySelectorAll('button').forEach(b => b.disabled = true);
+              }
+
+              const successRow = document.createElement('div');
+              successRow.className = 'ie-msg ie-msg-ai';
+              successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille.
+              </div>`;
+              thread.appendChild(successRow);
+              successRow.scrollIntoView({ block: 'end' });
+
+            } catch(e) {
+              console.error('[add-competitor] failed:', e);
+              btn.disabled = false;
+              btn.textContent = 'Ajouter à ma veille →';
+            }
+          });
+        });
+
+        aiRow.querySelectorAll('[data-comp-reject]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.getAttribute('data-comp-reject'));
+            const card = document.getElementById(`ie-comp-cand-${idx}`);
+            if (card) card.remove();
+            const remaining = aiRow.querySelectorAll('[id^="ie-comp-cand-"]');
+            const headerEl = aiRow.querySelector('.ie-cand-header');
+            if (remaining.length === 0) {
+              if (headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+            }
+          });
         });
       }
 

@@ -1,0 +1,229 @@
+import "dotenv/config";
+import type { APIRoute } from "astro";
+import { makeBQClient } from "../../../lib/bq";
+import { randomUUID } from "crypto";
+
+export const prerender = false;
+
+const VALID_INDUSTRY = new Set([
+  "non_profit","wellness","cinema_theatre","commercial","institutional",
+  "culture","family","live_event","hotel_lodging","food_nightlife",
+  "science_innovation","pro_event","sport","transport_mobility",
+  "outdoor_leisure","nightlife","unknown"
+]);
+
+const INDUSTRY_BUCKET: Record<string, string> = {
+  non_profit:"institutional_activity", wellness:"leisure_activity",
+  cinema_theatre:"culture_event", commercial:"commercial_activity",
+  institutional:"institutional_activity", culture:"culture_event",
+  family:"institutional_activity", live_event:"culture_event",
+  hotel_lodging:"commercial_activity", food_nightlife:"commercial_activity",
+  science_innovation:"institutional_activity", pro_event:"commercial_activity",
+  sport:"leisure_activity", transport_mobility:"institutional_activity",
+  outdoor_leisure:"leisure_activity", nightlife:"culture_event",
+  unknown:"unknown",
+};
+
+export const POST: APIRoute = async ({ request, locals }) => {
+  try {
+    const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
+    const location_id   = String((locals as any)?.location_id   || "").trim();
+    if (!clerk_user_id || !location_id) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401, headers: { "content-type": "application/json" }
+      });
+    }
+
+    const body = await request.json().catch(() => null);
+
+    const competitor_name     = String(body?.competitor_name     || "").trim();
+    const city                = String(body?.city                || "").trim();
+
+    if (!competitor_name || !city) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city" }), {
+        status: 400, headers: { "content-type": "application/json" }
+      });
+    }
+
+    const industry_code       = VALID_INDUSTRY.has(body?.industry_code) ? body.industry_code : null;
+    const industry_bucket     = industry_code ? (INDUSTRY_BUCKET[industry_code] ?? null) : null;
+    const primary_audience    = String(body?.primary_audience    || "").trim() || null;
+    const secondary_audience  = String(body?.secondary_audience  || "").trim() || null;
+    const address             = String(body?.address             || "").trim() || null;
+    const source_url          = String(body?.source_url          || "").trim() || null;
+    const description         = String(body?.description         || "").trim() || null;
+    const google_place_id     = String(body?.google_place_id     || "").trim() || null;
+    const photos              = String(body?.photos              || "").trim() || null;
+    const google_rating       = typeof body?.google_rating === "number" ? body.google_rating : null;
+    const google_review_count = typeof body?.google_review_count === "number" ? Math.round(body.google_review_count) : null;
+    const google_review_summary = String(body?.google_review_summary || "").trim() || null;
+    const lat                 = typeof body?.lat === "number" ? body.lat : null;
+    const lon                 = typeof body?.lon === "number" ? body.lon : null;
+    const source_system       = String(body?.source_system || "user_confirmed").trim();
+
+    const confidence_score = (() => {
+      const base = typeof body?.confidence_score === "number" ? body.confidence_score : null;
+      if (base !== null) return Math.min(base + 0.1, 1.0); // boost on confirmation
+      if (industry_code && source_url) return 0.8;
+      if (industry_code) return 0.7;
+      if (source_url) return 0.5;
+      return 0.3;
+    })();
+
+    const projectId   = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+    const bq          = makeBQClient(projectId);
+    const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
+
+    // ── 1. Check if competitor_directory already has this entry ──
+    const [existingDir] = await bq.query({
+      query: `
+        SELECT competitor_id, confidence_score
+        FROM \`${projectId}.raw.competitor_directory\`
+        WHERE LOWER(competitor_name) = LOWER(@competitor_name)
+          AND LOWER(city) = LOWER(@city)
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      params: { competitor_name, city },
+      types:  { competitor_name: "STRING", city: "STRING" },
+      location: BQ_LOCATION,
+    });
+
+    let competitor_id: string;
+
+    if (Array.isArray(existingDir) && existingDir.length > 0) {
+      // Entry exists — update confidence and vetting status
+      competitor_id = String(existingDir[0].competitor_id);
+      await bq.query({
+        query: `
+          UPDATE \`${projectId}.raw.competitor_directory\`
+          SET
+            confidence_score = @confidence_score,
+            is_user_vetted   = TRUE,
+            vetted_at        = CURRENT_TIMESTAMP(),
+            vetted_by        = @clerk_user_id,
+            updated_at       = CURRENT_TIMESTAMP()
+          WHERE competitor_id = @competitor_id
+            AND deleted_at IS NULL
+        `,
+        params: { confidence_score, clerk_user_id, competitor_id },
+        types:  { confidence_score: "FLOAT64", clerk_user_id: "STRING", competitor_id: "STRING" },
+        location: BQ_LOCATION,
+      });
+    } else {
+      // New entry — insert into competitor_directory
+      competitor_id = randomUUID();
+      await bq.query({
+        query: `
+          INSERT INTO \`${projectId}.raw.competitor_directory\` (
+            competitor_id, competitor_name, address, city,
+            industry_code, industry_bucket,
+            primary_audience, secondary_audience,
+            lat, lon,
+            source_system, google_place_id, photos,
+            google_rating, google_review_count, google_review_summary,
+            description, source_url,
+            confidence_score, is_user_vetted, vetted_at, vetted_by,
+            created_at, updated_at, deleted_at
+          ) VALUES (
+            @competitor_id, @competitor_name, @address, @city,
+            @industry_code, @industry_bucket,
+            @primary_audience, @secondary_audience,
+            @lat, @lon,
+            @source_system, @google_place_id, @photos,
+            @google_rating, @google_review_count, @google_review_summary,
+            @description, @source_url,
+            @confidence_score, TRUE, CURRENT_TIMESTAMP(), @clerk_user_id,
+            CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), NULL
+          )
+        `,
+        params: {
+          competitor_id, competitor_name, city,
+          address:              address              ?? null,
+          industry_code:        industry_code        ?? null,
+          industry_bucket:      industry_bucket      ?? null,
+          primary_audience:     primary_audience     ?? null,
+          secondary_audience:   secondary_audience   ?? null,
+          lat:                  lat                  ?? null,
+          lon:                  lon                  ?? null,
+          source_system,
+          google_place_id:      google_place_id      ?? null,
+          photos:               photos               ?? null,
+          google_rating:        google_rating        ?? null,
+          google_review_count:  google_review_count  ?? null,
+          google_review_summary: google_review_summary ?? null,
+          description:          description          ?? null,
+          source_url:           source_url           ?? null,
+          confidence_score,
+          clerk_user_id,
+        },
+        types: {
+          competitor_id: "STRING", competitor_name: "STRING", city: "STRING",
+          address: "STRING", industry_code: "STRING", industry_bucket: "STRING",
+          primary_audience: "STRING", secondary_audience: "STRING",
+          lat: "FLOAT64", lon: "FLOAT64",
+          source_system: "STRING", google_place_id: "STRING", photos: "STRING",
+          google_rating: "FLOAT64", google_review_count: "INT64",
+          google_review_summary: "STRING", description: "STRING", source_url: "STRING",
+          confidence_score: "FLOAT64", clerk_user_id: "STRING",
+        },
+        location: BQ_LOCATION,
+      });
+    }
+
+    // ── 2. Check if tracking record already exists ──
+    const [existingTracking] = await bq.query({
+      query: `
+        SELECT tracking_id
+        FROM \`${projectId}.raw.competitor_tracking\`
+        WHERE competitor_id  = @competitor_id
+          AND clerk_user_id  = @clerk_user_id
+          AND location_id    = @location_id
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      params: { competitor_id, clerk_user_id, location_id },
+      types:  { competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING" },
+      location: BQ_LOCATION,
+    });
+
+    let action: string;
+
+    if (Array.isArray(existingTracking) && existingTracking.length > 0) {
+      action = "already_tracked";
+    } else {
+      const tracking_id = randomUUID();
+      await bq.query({
+        query: `
+          INSERT INTO \`${projectId}.raw.competitor_tracking\` (
+            tracking_id, competitor_id, clerk_user_id, location_id,
+            created_at, deleted_at
+          ) VALUES (
+            @tracking_id, @competitor_id, @clerk_user_id, @location_id,
+            CURRENT_TIMESTAMP(), NULL
+          )
+        `,
+        params: { tracking_id, competitor_id, clerk_user_id, location_id },
+        types:  {
+          tracking_id: "STRING", competitor_id: "STRING",
+          clerk_user_id: "STRING", location_id: "STRING",
+        },
+        location: BQ_LOCATION,
+      });
+      action = "created";
+    }
+
+    return new Response(JSON.stringify({
+      ok: true,
+      action,
+      competitor_id,
+      confidence_score,
+    }), { status: 200, headers: { "content-type": "application/json" } });
+
+  } catch (err: any) {
+    console.error("[add-competitor]", err?.message);
+    return new Response(JSON.stringify({ ok: false, error: err?.message }), {
+      status: 500, headers: { "content-type": "application/json" }
+    });
+  }
+};

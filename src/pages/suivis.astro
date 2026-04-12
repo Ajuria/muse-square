@@ -34,6 +34,17 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 
 <script is:inline>
   var currentTab = 'events';
+  var INDUSTRY_LABELS = {
+    non_profit:'Associatif & Non lucratif', wellness:'Bien-être & Fitness',
+    cinema_theatre:'Cinéma & Théâtre', commercial:'Commerce & Retail',
+    institutional:'Collectivités & Secteur public', culture:'Culture & Patrimoine',
+    family:'Éducation & Enseignement', live_event:'Événementiel',
+    hotel_lodging:'Hôtellerie & Hébergement', food_nightlife:'Restauration & Bars',
+    science_innovation:'Sciences & Innovation', pro_event:'Salons & Événements professionnels',
+    sport:'Sports & Loisirs actifs', transport_mobility:'Transport & Mobilité locale',
+    outdoor_leisure:'Tourisme & Loisirs', nightlife:'Vie nocturne',
+    unknown:'Autre activité accueillant du public',
+  };
   var data = null;
 
   function showTab(t) {
@@ -134,8 +145,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 
       brdPanel.innerHTML = renderGroups(out.competitors, function(item) {
         var parts = [];
-        if (item.competitor_type) parts.push(item.competitor_type);
-        if (item.industry_code) parts.push(item.industry_code);
+        if (item.industry_code) parts.push(INDUSTRY_LABELS[item.industry_code] || item.industry_code);
         if (item.city) parts.push(item.city);
         return parts.join(' · ');
       });
