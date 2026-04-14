@@ -665,45 +665,88 @@ export const POST: APIRoute = async ({ request, locals }) => {
       },
     });
 
-    // Immediately sync client_industry_code to dim_client_location
-    if (company_activity_type) {
-      const activityTypeToIndustryCode: Record<string, string> = {
-        non_profit: 'Associatif & Non lucratif',
-        wellness: 'Sports & Loisirs actifs',
-        cinema_theatre: 'Cinéma & Théâtre',
-        commercial: 'Commerce & Retail',
-        institutional: 'Collectivités & Secteur public',
-        culture: 'Culture & Patrimoine',
-        family: 'Éducation & Enseignement',
-        live_event: 'Événementiel',
-        hotel_lodging: 'Hôtellerie & Hébergement',
-        food_nightlife: 'Restauration & Bars',
-        science_innovation: 'Sciences & Innovation',
-        pro_event: 'Événementiel',
-        sport: 'Sports & Loisirs actifs',
-        transport_mobility: 'Transport & Mobilité locale',
-        outdoor_leisure: 'Tourisme & Loisirs',
-        nightlife: 'Restauration & Bars',
-        unknown: 'Autre activité accueillant du public',
-      };
-      const client_industry_code = company_activity_type
-        ? (activityTypeToIndustryCode[company_activity_type] ?? company_activity_type)
-        : null;
+    // ── Sync dim_client_location directly (bypass dbt for immediate effect) ──
+    const activityToIndustry: Record<string, string> = {
+      non_profit: 'Associatif & Non lucratif',
+      wellness: 'Sports & Loisirs actifs',
+      cinema_theatre: 'Cinéma & Théâtre',
+      commercial: 'Commerce & Retail',
+      institutional: 'Collectivités & Secteur public',
+      culture: 'Culture & Patrimoine',
+      family: 'Éducation & Enseignement',
+      live_event: 'Événementiel',
+      hotel_lodging: 'Hôtellerie & Hébergement',
+      food_nightlife: 'Restauration & Bars',
+      science_innovation: 'Sciences & Innovation',
+      pro_event: 'Événementiel',
+      sport: 'Sports & Loisirs actifs',
+      transport_mobility: 'Transport & Mobilité locale',
+      outdoor_leisure: 'Tourisme & Loisirs',
+      nightlife: 'Restauration & Bars',
+      unknown: 'Autre activité accueillant du public',
+    };
 
-      if (client_industry_code) {
-        const syncQuery = `
-          UPDATE \`${projectId}.dims.dim_client_location\`
-          SET client_industry_code = @client_industry_code
-          WHERE location_id = @location_id
-        `;
-        await bigquery.query({
-          query: syncQuery,
-          location: BQ_LOCATION,
-          params: { client_industry_code, location_id },
-          types: { client_industry_code: 'STRING', location_id: 'STRING' },
-        });
-      }
-    }
+    const derivedIndustryCode = company_activity_type
+      ? (activityToIndustry[company_activity_type] ?? company_activity_type)
+      : null;
+
+    await bigquery.query({
+      query: `
+        MERGE \`${projectId}.dims.dim_client_location\` T
+        USING (SELECT @location_id AS location_id) S
+        ON T.location_id = S.location_id
+        WHEN MATCHED THEN UPDATE SET
+          location_label        = @location_label,
+          location_type         = @location_type,
+          active_flag           = TRUE,
+          latitude              = @latitude,
+          longitude             = @longitude,
+          client_industry_code  = @client_industry_code,
+          location_access_pattern = @location_access_pattern,
+          origin_city_ids       = @origin_city_ids,
+          geo_point             = IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
+        WHEN NOT MATCHED THEN INSERT (
+          location_id, location_label, location_type, active_flag,
+          city_id_granular, city_id_commune, location_source,
+          latitude, longitude, client_industry_code,
+          location_access_pattern, origin_city_ids, geo_point
+        ) VALUES (
+          @location_id, @location_label, @location_type, TRUE,
+          @city_id, @city_id, 'website',
+          @latitude, @longitude, @client_industry_code,
+          @location_access_pattern, @origin_city_ids,
+          IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
+        )
+      `,
+      location: BQ_LOCATION,
+      params: {
+        location_id,
+        location_label:         company_name ?? company_address ?? location_id,
+        location_type:          location_type ?? null,
+        latitude:               company_lat ?? null,
+        longitude:              company_lon ?? null,
+        client_industry_code:   derivedIndustryCode,
+        location_access_pattern: location_access_pattern ?? null,
+        origin_city_ids:        [origin_city_id_1, origin_city_id_2, origin_city_id_3]
+                                  .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+                                  .join(','),
+        city_id:                city_id ?? null,
+      },
+      types: {
+        location_id: 'STRING',
+        location_label: 'STRING',
+        location_type: 'STRING',
+        latitude: 'FLOAT64',
+        longitude: 'FLOAT64',
+        client_industry_code: 'STRING',
+        location_access_pattern: 'STRING',
+        origin_city_ids: 'STRING',
+        city_id: 'STRING',
+      },
+    }).catch((e) => {
+      // Non-fatal — dbt nightly job is the fallback
+      console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
+    });
 
     // Read-back proof: return the row as stored in BigQuery after MERGE
     const readBackQuery = `
