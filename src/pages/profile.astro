@@ -667,8 +667,8 @@ function isIncomplete(loc: LocationRow): boolean {
             </div>
 
             <div class="field-group">
-              <label class="field-label">Adresse professionnelle</label>
-              <input type="text" name="company_address" value={loc.company_address} autocomplete="off" class="field-input addr-autocomplete" data-idx={idx} />
+              <label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>
+              <input type="text" name="company_address" value={loc.company_address} autocomplete="off" class="field-input addr-autocomplete" data-idx={idx} required />
               <div class="addr-suggestions" id={`addr-suggestions-${idx}`} style="position:absolute;z-index:150;background:#fff;border:1px solid #e5e7eb;border-radius:6px;width:100%;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.06);" data-idx={idx}></div>
               <p class="field-hint">Commencez à taper, puis sélectionnez une proposition.</p>
             </div>
@@ -1533,6 +1533,13 @@ window.saveLocation = async function(idx) {
 
   // Validate required fields before submit
   const requiredSelects = ['company_activity_type', 'location_type', 'weather_sensitivity', 'location_access_pattern'];
+  const addrInpCheck = body.querySelector('[name="company_address"]');
+  if (!addrInpCheck || !addrInpCheck.value.trim()) {
+    if (statusEl) { statusEl.textContent = 'L\'adresse professionnelle est obligatoire.'; statusEl.className = 'save-status status-err'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer ce site'; }
+    if (addrInpCheck) addrInpCheck.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const missingFields = [];
   requiredSelects.forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
@@ -1711,8 +1718,8 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
         <p class="field-hint">Facultatif.</p>
       </div>
       <div class="field-group" style="position:relative">
-        <label class="field-label">Adresse professionnelle</label>
-        <input type="text" name="company_address" autocomplete="off" class="field-input addr-autocomplete" data-idx="${idx}" placeholder="" />
+        <label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>
+        <input type="text" name="company_address" autocomplete="off" class="field-input addr-autocomplete" data-idx="${idx}" placeholder="" required />
         <div class="addr-suggestions" id="addr-suggestions-${idx}" style="position:absolute;z-index:150;background:#fff;border:1px solid #e5e7eb;border-radius:6px;width:100%;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.06);" data-idx="${idx}"></div>
         <p class="field-hint">Commencez à taper, puis sélectionnez une proposition.</p>
       </div>

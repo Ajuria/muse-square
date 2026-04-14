@@ -202,6 +202,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // --- Company / environment ---
     const company_name = getOptionalString(fd, "company_name");
     const company_address = getOptionalString(fd, "company_address");
+    if (!company_address) {
+      throw new HttpError(400, "L'adresse professionnelle est obligatoire.");
+    }
     const company_address_key = company_address
       ? sha256Hex(normalizeAddressForKey(company_address))
       : ""; // sentinel => no address

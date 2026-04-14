@@ -2892,8 +2892,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
 
     if (!internal_context) {
-      throw new Error(
-        `Missing semantic internal context: vw_insight_event_ai_location_context for location_id=${location_id}`
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Votre profil est incomplet. Renseignez votre adresse dans Compte → Profil pour accéder à l'analyse.",
+          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
       );
     }
 
