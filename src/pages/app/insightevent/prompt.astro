@@ -1071,16 +1071,10 @@ if (!location_id) {
 
       function renderCandidateCards(candidates, submittedLabel, noResultMsg, source) {
         const thread = document.getElementById('ie-thread');
-        const empty  = document.getElementById('ie-prompt-empty');
         if (!thread) return;
 
-        if (empty) empty.setAttribute('hidden', 'true');
-        thread.removeAttribute('hidden');
-
-        const userRow = document.createElement('div');
-        userRow.className = 'ie-msg ie-msg-user';
-        userRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
-        thread.appendChild(userRow);
+        const existingLoader = document.getElementById('ie-evt-loading');
+        if (existingLoader) existingLoader.remove();
 
         const aiRow = document.createElement('div');
         aiRow.className = 'ie-msg ie-msg-ai';
@@ -1232,6 +1226,20 @@ if (!location_id) {
 
           closeAllPaths();
 
+          const thread = document.getElementById('ie-thread');
+          const empty  = document.getElementById('ie-prompt-empty');
+          if (empty) empty.setAttribute('hidden', 'true');
+          if (thread) thread.removeAttribute('hidden');
+          const evtLoadingRow = document.createElement('div');
+          evtLoadingRow.className = 'ie-msg ie-msg-user';
+          evtLoadingRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+          if (thread) thread.appendChild(evtLoadingRow);
+          const evtLoadingAiRow = document.createElement('div');
+          evtLoadingAiRow.id = 'ie-evt-loading';
+          evtLoadingAiRow.className = 'ie-msg ie-msg-ai';
+          evtLoadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;justify-content:center;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`;
+          if (thread) { thread.appendChild(evtLoadingAiRow); evtLoadingAiRow.scrollIntoView({ block: 'end' }); }
+
           try {
             const check = await fetch('/api/competitive/check-event', {
               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
@@ -1300,6 +1308,20 @@ if (!location_id) {
           compSubmit.textContent = 'Analyse en cours…';
           closeAllPaths();
 
+          const thread = document.getElementById('ie-thread');
+          const empty  = document.getElementById('ie-prompt-empty');
+          if (empty) empty.setAttribute('hidden', 'true');
+          if (thread) thread.removeAttribute('hidden');
+          const loadingRow = document.createElement('div');
+          loadingRow.className = 'ie-msg ie-msg-user';
+          loadingRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+          if (thread) thread.appendChild(loadingRow);
+          const loadingAiRow = document.createElement('div');
+          loadingAiRow.id = 'ie-comp-loading';
+          loadingAiRow.className = 'ie-msg ie-msg-ai';
+          loadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;justify-content:center;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`;
+          if (thread) { thread.appendChild(loadingAiRow); loadingAiRow.scrollIntoView({ block: 'end' }); }
+
           const body = {
             competitor_name: name,
             competitor_city: city,
@@ -1363,16 +1385,10 @@ if (!location_id) {
 
       function renderCompetitorCards(candidates, submittedLabel, noResultMsg, source) {
         const thread = document.getElementById('ie-thread');
-        const empty  = document.getElementById('ie-prompt-empty');
         if (!thread) return;
 
-        if (empty) empty.setAttribute('hidden', 'true');
-        thread.removeAttribute('hidden');
-
-        const userRow = document.createElement('div');
-        userRow.className = 'ie-msg ie-msg-user';
-        userRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
-        thread.appendChild(userRow);
+        const existingLoader = document.getElementById('ie-comp-loading');
+        if (existingLoader) existingLoader.remove();
 
         const aiRow = document.createElement('div');
         aiRow.className = 'ie-msg ie-msg-ai';

@@ -72,9 +72,57 @@ export const GET: APIRoute = async ({ request }) => {
       });
     }
 
+    // ── Competitor alerts (separate table, no saved_item_id) ─────────────────
+    const [competitorRows] = await bigquery.query({
+      query: `
+        SELECT
+          ca.competitor_alert_id,
+          ca.competitor_event_id,
+          ca.competitor_id,
+          ca.location_id,
+          ca.clerk_user_id,
+          ca.alert_level,
+          ca.change_category,
+          ca.change_subtype,
+          ca.direction,
+          ca.affected_date,
+          ca.event_label,
+          ca.old_value,
+          ca.new_value,
+          ca.distance_m,
+          ca.conflict_score,
+          ca.watched_event_name         AS title,
+          p.email,
+          p.first_name,
+          p.company_activity_type,
+          p.location_type,
+          p.primary_audience_1,
+          p.main_event_objective
+        FROM \`${projectId}.raw.competitor_alerts\` ca
+        JOIN \`${projectId}.raw.insight_event_user_location_profile\` p
+          ON ca.clerk_user_id = p.clerk_user_id
+          AND ca.location_id = p.location_id
+        JOIN \`${projectId}.raw.notification_preferences\` n
+          ON ca.clerk_user_id = n.clerk_user_id
+        WHERE ca.alert_level >= 3
+          AND ca.notified_at IS NULL
+          AND n.alerts_critical = TRUE
+          AND p.email IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (
+          PARTITION BY ca.clerk_user_id ORDER BY ca.created_at DESC
+        ) = 1
+        LIMIT 100
+      `,
+      location: BQ_LOCATION,
+    });
+
+    const competitorAlerts = Array.isArray(competitorRows) ? competitorRows : [];
+
     let sent = 0;
     const alertIds: string[] = [];
+    const competitorAlertIds: string[] = [];
 
+    // ── Standard alerts loop ──────────────────────────────────────────────────
     for (const row of rows) {
       try {
         const narrative = await generateNarrative(row, anthropicKey);
@@ -90,6 +138,36 @@ export const GET: APIRoute = async ({ request }) => {
       } catch (e) {
         console.error("[cron/alerts] send failed for", row.email, e);
       }
+    }
+
+    // ── Competitor alerts loop ────────────────────────────────────────────────
+    for (const row of competitorAlerts) {
+      try {
+        const narrative = await generateNarrative(row, anthropicKey);
+        await resend.emails.send({
+          from: "Insight <insight@musesquare.com>",
+          replyTo: "contact@musesquare.com",
+          to: row.email,
+          subject: `Concurrent détecté — ${row.event_label ?? "alerte concurrence"}`,
+          html: buildAlertEmail(row, baseUrl, narrative),
+        });
+        sent++;
+        competitorAlertIds.push(row.competitor_alert_id);
+      } catch (e) {
+        console.error("[cron/alerts] competitor send failed for", row.email, e);
+      }
+    }
+
+    if (competitorAlertIds.length > 0) {
+      const ids = competitorAlertIds.map((id) => `'${id}'`).join(",");
+      await bigquery.query({
+        query: `
+          UPDATE \`${projectId}.raw.competitor_alerts\`
+          SET notified_at = CURRENT_TIMESTAMP()
+          WHERE competitor_alert_id IN (${ids})
+        `,
+        location: BQ_LOCATION,
+      });
     }
 
     if (alertIds.length > 0) {

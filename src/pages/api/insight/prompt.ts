@@ -561,7 +561,20 @@ function detectVenueExposureOverride(qRaw: string): "outdoor" | "indoor" | "ambi
 
 function wantsWeekendOnly(qRaw: string): boolean {
   const q = norm(qRaw);
-  return q.includes("weekend") || q.includes("week-end") || q.includes("week end");
+  return q.includes("weekend") || q.includes("week-end") || q.includes("week end") ||
+    q.includes("samedi") || q.includes("dimanche");
+}
+
+function wantedWeekdayFilter(qRaw: string): number | null {
+  const q = norm(qRaw);
+  if (q.includes("lundi")) return 1;
+  if (q.includes("mardi")) return 2;
+  if (q.includes("mercredi")) return 3;
+  if (q.includes("jeudi")) return 4;
+  if (q.includes("vendredi")) return 5;
+  if (q.includes("samedi")) return 6;
+  if (q.includes("dimanche")) return 0;
+  return null;
 }
 
 function addDaysYmd(ymd: string, deltaDays: number): string {
@@ -1923,6 +1936,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const qRaw = requireString(body?.q, "body.q");
     const q = norm(qRaw);
     const top_k = resolveTopKFromText(qRaw);
+    const request_mode: "planning" | "concurrence" | "marketing" =
+      body?.mode === "concurrence" ? "concurrence"
+      : body?.mode === "marketing" ? "marketing"
+      : "planning";
 
     // Multi-turn conversation history (V1)
     // Shape: [{role: "user"|"assistant", content: string}]
@@ -2075,6 +2092,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const effective_weekend_only: boolean =
       confirmed_params?.filter_weekend_only === true || wantsWeekendOnly(qRaw);
+
+    const wanted_weekday = wantedWeekdayFilter(qRaw);
+    // BigQuery DAYOFWEEK: 1=Sunday, 2=Monday, ..., 7=Saturday
+    const filter_weekday_bq: number =
+      wanted_weekday === null ? -1 :
+      wanted_weekday === 0 ? 1 :   // dimanche
+      wanted_weekday + 1;           // lundi=2, mardi=3, ..., samedi=7
+    const filter_weekday: number = wanted_weekday === null ? -1 : wanted_weekday;
 
     // ----------------------------
     // PARAMETER EXTRACTION + CONFIRMATION (V1)
@@ -2925,7 +2950,83 @@ export const POST: APIRoute = async ({ request, locals }) => {
     type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic";
     let producer: ProducerMeta = "deterministic";
 
+    const isUnknownIntent =
+      request_mode === "concurrence" ||
+      resolved_intent === "INTENT_UNKNOWN" ||
+      (resolved_horizon === "month" && !isScoringIntent(resolved_intent as Intent));
 
+    if (isUnknownIntent) {
+      const isConcurrence = request_mode === "concurrence";
+
+      const systemPrompt = isConcurrence
+        ? `Tu es un expert en intelligence concurrentielle pour les professionnels de l'événementiel en France. Tu réponds en français.
+
+Contexte du client :
+- Type de lieu : ${internal_context?.location_type ?? "non renseigné"}
+- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+- Description : ${internal_context?.business_short_description ?? "non renseignée"}
+- Audience principale : ${internal_context?.primary_audience_1 ?? "non renseignée"}
+- Profil temporel : ${internal_context?.event_time_profile ?? "non renseigné"}
+
+Règles :
+- Analyse toujours la menace ou l'opportunité concurrentielle en la mettant en perspective avec le profil ci-dessus.
+- Quand tu utilises une recherche web, indique-le explicitement.
+- Quand tu réponds depuis tes connaissances, indique-le aussi.
+- Ne fabrique jamais de données chiffrées sans source.
+- Sois direct et opérationnel — le client doit pouvoir agir sur ta réponse.`
+        : `Tu es l'assistant de Muse Square Insight, une plateforme française d'intelligence contextuelle pour les professionnels de l'événementiel. Tu réponds en français. Quand tu utilises une recherche web, indique-le clairement. Quand tu réponds depuis tes connaissances, indique-le aussi. Ne fabrique jamais de données.`;
+
+      const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1024,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          system: systemPrompt,
+          messages: [{ role: "user", content: qRaw }],
+        }),
+      }).then(r => r.json());
+
+      const textBlock = webSearchResult.content?.find((b: any) => b.type === "text");
+      const usedWebSearch = webSearchResult.content?.some((b: any) => b.type === "tool_use" && b.name === "web_search");
+      const answerText = textBlock?.text ?? "Je n'ai pas pu trouver de réponse.";
+
+      return new Response(JSON.stringify({
+        ok: true,
+        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", mode: request_mode },
+        ai: {
+          headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+          verdict: "",
+          answer: answerText,
+          key_facts: [],
+          reasons: [],
+          caveats: [usedWebSearch
+            ? "Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."
+            : "Cette réponse est basée sur les connaissances générales du modèle, pas sur les données Muse Square."
+          ],
+          output: {
+            headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+            verdict: "",
+            answer: answerText,
+            key_facts: [],
+            reasons: [],
+            caveats: [],
+          },
+          meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+          actions: { month_redirect_url: null, primary: null, secondary: [] },
+        },
+        actions: { month_redirect_url: null, primary: null, secondary: [] },
+        top_dates: [],
+        decision_payload: { kind: "lookup", horizon: "lookup_event", intent: "EVENT_LOOKUP", used_dates: [], signals: {} },
+        window_aggregates_v3: null,
+        ui_packaging_v3: null,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
 
     switch (resolved_horizon) {
       case "month": {
@@ -3046,6 +3147,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 @filter_weekend_only = FALSE
                 OR is_weekend = TRUE
               )
+              AND (
+                @filter_weekday = -1
+                OR EXTRACT(DAYOFWEEK FROM date) = @filter_weekday_bq
+              )
             ORDER BY
               CAST(opportunity_score AS FLOAT64) DESC,
               CAST(weather_alert_level AS INT64) ASC NULLS LAST,
@@ -3058,6 +3163,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
               window_start_date: ws,
               month_constraint_ym: monthConstraintYm ?? "",
               filter_weekend_only: effective_weekend_only,
+              filter_weekday,
+              filter_weekday_bq,
             })
           ),
           resolved_intent === "MOBILITY_UNAVAILABLE"

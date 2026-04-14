@@ -36,19 +36,37 @@ export const GET: APIRoute = async ({ locals }) => {
         location: BQ_LOCATION,
       }),
       bq.query({
-        query: `
-          SELECT
-            watched_competitor_id, location_id, competitor_name,
-            industry_code, city
-          FROM \`${projectId}.raw.watched_competitors\`
-          WHERE clerk_user_id = @clerk_user_id
-            AND deleted_at IS NULL
-          ORDER BY created_at ASC
-        `,
-        params: { clerk_user_id },
-        types: { clerk_user_id: "STRING" },
-        location: BQ_LOCATION,
-      }),
+      query: `
+        SELECT
+          wc.watched_competitor_id,
+          wc.location_id,
+          wc.competitor_name,
+          wc.industry_code,
+          wc.city,
+          wc.competitor_id,
+          wc.source_url                         AS wc_source_url,
+          wc.confidence_score                   AS wc_confidence_score,
+          cd.source_url                         AS cd_source_url,
+          cd.confidence_score                   AS cd_confidence_score,
+          cd.is_user_vetted,
+          cd.description,
+          cd.address,
+          cd.google_rating,
+          cd.google_review_count,
+          cd.google_review_summary,
+          cd.photos
+        FROM \`${projectId}.raw.watched_competitors\` wc
+        LEFT JOIN \`${projectId}.raw.competitor_directory\` cd
+          ON wc.competitor_id = cd.competitor_id
+          AND cd.deleted_at IS NULL
+        WHERE wc.clerk_user_id = @clerk_user_id
+          AND wc.deleted_at IS NULL
+        ORDER BY wc.created_at ASC
+      `,
+      params: { clerk_user_id },
+      types: { clerk_user_id: "STRING" },
+      location: BQ_LOCATION,
+    }),
       bq.query({
         query: `
           SELECT location_id, COALESCE(site_name, company_name, location_id) AS location_label
@@ -78,13 +96,24 @@ export const GET: APIRoute = async ({ locals }) => {
     }));
 
     const competitors = (compRows[0] ?? []).map((r: any) => ({
-      id:              r.watched_competitor_id,
-      type:            'competitor',
-      location_id:     r.location_id,
-      location_label:  locationMap[r.location_id] ?? r.location_id,
-      name:          r.competitor_name,
-      industry_code: r.industry_code ?? null,
-      city:          r.city ?? null,
+      id:                   r.watched_competitor_id,
+      type:                 'competitor',
+      location_id:          r.location_id,
+      location_label:       locationMap[r.location_id] ?? r.location_id,
+      name:                 r.competitor_name,
+      industry_code:        r.industry_code ?? null,
+      city:                 r.city ?? null,
+      competitor_id:        r.competitor_id ?? null,
+      // source_url: prefer watched_competitors (user-set), fall back to directory
+      source_url:           r.wc_source_url ?? r.cd_source_url ?? null,
+      confidence_score:     r.wc_confidence_score ?? r.cd_confidence_score ?? null,
+      is_user_vetted:       r.is_user_vetted ?? false,
+      description:          r.description ?? null,
+      address:              r.address ?? null,
+      google_rating:        r.google_rating ?? null,
+      google_review_count:  r.google_review_count ?? null,
+      google_review_summary: r.google_review_summary ?? null,
+      photos:               r.photos ?? null,
     }));
 
     return new Response(JSON.stringify({ ok: true, events, competitors }), {

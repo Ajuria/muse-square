@@ -171,7 +171,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ── 2. Check if tracking record already exists ──
+    // ── 2. Write competitor_id back to watched_competitors (FK) ──
+    await bq.query({
+      query: `
+        UPDATE \`${projectId}.raw.watched_competitors\`
+        SET competitor_id = @competitor_id
+        WHERE clerk_user_id = @clerk_user_id
+          AND LOWER(competitor_name) = LOWER(@competitor_name)
+          AND LOWER(city) = LOWER(@city)
+          AND deleted_at IS NULL
+          AND competitor_id IS NULL
+      `,
+      params: { competitor_id, clerk_user_id, competitor_name, city },
+      types: {
+        competitor_id: "STRING", clerk_user_id: "STRING",
+        competitor_name: "STRING", city: "STRING",
+      },
+      location: BQ_LOCATION,
+    });
+
+    // ── 3. Check if tracking record already exists ──
     const [existingTracking] = await bq.query({
       query: `
         SELECT tracking_id

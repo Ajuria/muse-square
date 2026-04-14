@@ -1,0 +1,474 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const clerk_user_id_raw = (Astro.locals as any)?.clerk_user_id;
+if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
+  return Astro.redirect("/sign-in");
+}
+---
+
+<BaseLayout title="Mes suivis - Muse Square" hideSurveyCta={true}>
+  <div class="min-h-screen bg-white pt-26 pb-20 px-4">
+    <div class="max-w-2xl mx-auto mt-10">
+
+      <div class="mb-8">
+        <h1 class="text-3xl font-semibold">Mes suivis</h1>
+        <p class="text-sm text-gray-500 mt-2">Événements et marques suivis par site.</p>
+      </div>
+
+      <div class="flex gap-2 mb-8">
+        <button id="tab-events" onclick="showTab('events')"
+          class="px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase">
+          Événements
+        </button>
+        <button id="tab-brands" onclick="showTab('brands')"
+          class="px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase">
+          Marques & lieux
+        </button>
+      </div>
+
+      <div id="panel-loading" class="text-sm text-gray-400">Chargement…</div>
+      <div id="panel-events" style="display:none;"></div>
+      <div id="panel-brands" style="display:none;"></div>
+
+    </div>
+  </div>
+</BaseLayout>
+
+<script is:inline>
+(function () {
+
+  var currentTab = 'events';
+  var expandedId = null;
+  var data = null;
+  var eventsCache = {};
+  var editingUrlId = null;
+
+  var INDUSTRY_LABELS = {
+    non_profit:'Associatif & Non lucratif', wellness:'Bien-être & Fitness',
+    cinema_theatre:'Cinéma & Théâtre', commercial:'Commerce & Retail',
+    institutional:'Collectivités & Secteur public', culture:'Culture & Patrimoine',
+    family:'Éducation & Enseignement', live_event:'Événementiel',
+    hotel_lodging:'Hôtellerie & Hébergement', food_nightlife:'Restauration & Bars',
+    science_innovation:'Sciences & Innovation', pro_event:'Salons & Événements professionnels',
+    sport:'Sports & Loisirs actifs', transport_mobility:'Transport & Mobilité locale',
+    outdoor_leisure:'Tourisme & Loisirs', nightlife:'Vie nocturne',
+    unknown:'Autre activité accueillant du public',
+  };
+
+  function escH(s) {
+    return String(s || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    var parts = iso.slice(0,10).split('-');
+    return parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1] + ' ' + parts[0];
+  }
+
+  function fmtDay(iso) {
+    if (!iso) return { day:'—', month:'' };
+    var months = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+    var parts = iso.slice(0,10).split('-');
+    return { day: parseInt(parts[2]), month: months[parseInt(parts[1])-1] };
+  }
+
+  function showTab(t) {
+    currentTab = t;
+    var evtBtn  = document.getElementById('tab-events');
+    var brdBtn  = document.getElementById('tab-brands');
+    var evtPanel = document.getElementById('panel-events');
+    var brdPanel = document.getElementById('panel-brands');
+    if (t === 'events') {
+      evtBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
+      brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      evtPanel.style.display = 'block';
+      brdPanel.style.display = 'none';
+    } else {
+      brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
+      evtBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      brdPanel.style.display = 'block';
+      evtPanel.style.display = 'none';
+    }
+  }
+
+  // ── Events tab ────────────────────────────────────────────────────
+
+  function renderEventsPanel(items) {
+    if (!items || items.length === 0) {
+      return '<p class="text-sm text-gray-400">Aucun événement suivi pour le moment.</p>';
+    }
+    var groups = groupByLocation(items);
+    var html = '';
+    Object.keys(groups).forEach(function(key) {
+      html += '<div style="font-size:11px;font-weight:500;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.10em;margin-bottom:8px;">' + escH(key) + '</div>';
+      html += '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:20px;">';
+      groups[key].forEach(function(item, idx) {
+        var border = idx < groups[key].length - 1 ? 'border-bottom:0.5px solid #F3F4F6;' : '';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;' + border + '">';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-size:14px;font-weight:500;color:#111827;">' + escH(item.name) + '</div>';
+        var sub = [];
+        if (item.date_start) {
+          var d = fmtDate(item.date_start);
+          if (item.date_end && item.date_end !== item.date_start) d += ' → ' + fmtDate(item.date_end);
+          sub.push(d);
+        }
+        if (item.city) sub.push(item.city);
+        html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;">' + escH(sub.join(' · ')) + '</div>';
+        html += '</div>';
+        html += '<button onclick="unfollowEvent(\'' + escH(item.id) + '\')" style="font-size:12px;color:#D1D5DB;background:none;border:none;cursor:pointer;white-space:nowrap;padding:0;" onmouseover="this.style.color=\'#6B7280\'" onmouseout="this.style.color=\'#D1D5DB\'">Ne plus suivre</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    return html;
+  }
+
+  // ── Brands tab ────────────────────────────────────────────────────
+
+  function renderBrandsPanel(items) {
+    if (!items || items.length === 0) {
+      return '<p class="text-sm text-gray-400">Aucune marque suivie pour le moment.</p>';
+    }
+    var groups = groupByLocation(items);
+    var html = '';
+    Object.keys(groups).forEach(function(key) {
+      html += '<div style="font-size:11px;font-weight:500;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.10em;margin-bottom:8px;">' + escH(key) + '</div>';
+      html += '<div style="margin-bottom:20px;display:flex;flex-direction:column;gap:6px;">';
+      groups[key].forEach(function(item) {
+        html += renderCompetitorRow(item);
+      });
+      html += '</div>';
+    });
+    return html;
+  }
+
+  function renderCompetitorRow(item) {
+    var isExpanded = expandedId === item.id;
+    var industryLabel = INDUSTRY_LABELS[item.industry_code] || item.industry_code || '';
+    var subParts = [];
+    if (industryLabel) subParts.push(industryLabel);
+    if (item.city) subParts.push(item.city);
+    var distKm = item.distance_m ? (item.distance_m / 1000).toFixed(1) + ' km' : null;
+    if (distKm) subParts.push(distKm);
+
+    var html = '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;" id="comp-row-' + escH(item.id) + '">';
+
+    // ── Header (always visible) ──
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;' + (isExpanded ? 'background:#F9FAFB;border-bottom:0.5px solid #E5E7EB;' : '') + '" onclick="toggleExpand(\'' + escH(item.id) + '\')">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-size:14px;font-weight:500;color:#111827;">' + escH(item.name) + '</div>';
+    html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;">' + escH(subParts.join(' · ')) + '</div>';
+    html += '</div>';
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
+    html += '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#3B6D11;">Suivi actif</span>';
+    // chevron
+    if (isExpanded) {
+      html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M19 9l-7 7-7-7"/></svg>';
+    } else {
+      html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>';
+    }
+    html += '</div>';
+    html += '</div>';
+
+    if (isExpanded) {
+      html += renderExpandedBody(item);
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderExpandedBody(item) {
+    var isEditingUrl = editingUrlId === item.id;
+    var confidencePct = item.confidence_score ? Math.round(item.confidence_score * 100) : 0;
+    var html = '<div style="padding:16px 14px;display:flex;flex-direction:column;gap:16px;">';
+
+    // ── Info row: address + url + actions ──
+    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">';
+
+    // Address
+    if (item.address || item.city) {
+      html += '<div style="flex:1;min-width:150px;">';
+      html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Adresse</div>';
+      var addrParts = [];
+      if (item.address) addrParts.push(item.address);
+      var distKm = item.distance_m ? (item.distance_m / 1000).toFixed(1) + ' km' : null;
+      if (distKm) addrParts.push(distKm);
+      html += '<div style="font-size:13px;color:#374151;">' + escH(addrParts.join(' · ')) + '</div>';
+      html += '</div>';
+    }
+
+    // URL
+    html += '<div style="flex:1;min-width:150px;">';
+    html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">URL surveillée</div>';
+    if (isEditingUrl) {
+      // Editable input
+      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+      html += '<div style="display:flex;gap:6px;align-items:center;">';
+      html += '<input id="url-input-' + escH(item.id) + '" type="url" value="' + escH(item.source_url || '') + '" placeholder="https://exemple.fr/agenda" style="flex:1;border:0;border-bottom:1.5px solid #d1d5db;padding:6px 0;font-size:12px;background:transparent;outline:none;font-family:inherit;color:#111827;" />';
+      html += '<button onclick="saveUrl(\'' + escH(item.id) + '\')" style="padding:5px 10px;background:#111827;color:#fff;border:none;font-size:11px;font-weight:500;cursor:pointer;border-radius:6px;white-space:nowrap;">Enregistrer</button>';
+      html += '<button onclick="cancelEditUrl(\'' + escH(item.id) + '\')" style="padding:5px 8px;background:none;border:0.5px solid #E5E7EB;font-size:11px;color:#6B7280;cursor:pointer;border-radius:6px;">Annuler</button>';
+      html += '</div>';
+      html += '<div id="url-error-' + escH(item.id) + '" style="display:none;font-size:11px;color:#b91c1c;"></div>';
+      html += '<div style="font-size:11px;color:#9CA3AF;">Entrez l\'URL de la page agenda ou événements.</div>';
+      html += '</div>';
+    } else if (item.source_url) {
+      html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+      var domain = item.source_url.replace(/^https?:\/\//, '').split('/')[0];
+      html += '<a href="' + escH(item.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#185FA5;text-decoration:none;word-break:break-all;">' + escH(domain) + '</a>';
+      html += '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:#EAF3DE;color:#3B6D11;white-space:nowrap;">' + confidencePct + '%</span>';
+      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:11px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Modifier</button>';
+      html += '</div>';
+    } else {
+      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:12px;color:#185FA5;background:none;border:none;cursor:pointer;padding:0;text-align:left;">+ Ajouter une URL de surveillance</button>';
+    }
+    html += '</div>';
+
+    // Actions
+    html += '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">';
+    html += '<button onclick="unfollowCompetitor(\'' + escH(item.id) + '\')" style="font-size:12px;color:#9CA3AF;background:none;border:none;cursor:pointer;padding:0;white-space:nowrap;" onmouseover="this.style.color=\'#b91c1c\'" onmouseout="this.style.color=\'#9CA3AF\'">Ne plus suivre</button>';
+    html += '</div>';
+
+    html += '</div>'; // end info row
+
+    // ── Description ──
+    if (item.description) {
+      html += '<div style="font-size:13px;color:#374151;line-height:1.65;border-left:2px solid #E5E7EB;padding-left:10px;">' + escH(item.description) + '</div>';
+    }
+
+    // ── Detected events ──
+    html += '<div>';
+    html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Événements détectés</div>';
+    html += '<div id="comp-events-' + escH(item.id) + '">';
+    html += '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Chargement…</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // ── Google Places placeholder ──
+    html += '<div style="border:0.5px dashed #E5E7EB;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;">';
+    html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>';
+    html += '<div style="font-size:12px;color:#9CA3AF;">Données Google Places à venir — note, avis, photos</div>';
+    html += '</div>';
+
+    html += '</div>'; // end body
+    return html;
+  }
+
+  function renderDetectedEvents(events) {
+    if (!Array.isArray(events) || events.length === 0) {
+      return '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Aucun événement détecté pour le moment.<br><span style="font-size:12px;">Prochaine analyse : cette nuit à 03h00</span></div>';
+    }
+    var html = '<div style="display:flex;flex-direction:column;gap:6px;">';
+    events.forEach(function(ev) {
+      var d = fmtDay(ev.event_date);
+      html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:0.5px solid #E5E7EB;border-radius:8px;">';
+      html += '<div style="flex-shrink:0;text-align:center;min-width:32px;">';
+      html += '<div style="font-size:15px;font-weight:500;color:#111827;">' + escH(String(d.day)) + '</div>';
+      html += '<div style="font-size:10px;color:#9CA3AF;text-transform:uppercase;">' + escH(d.month) + '</div>';
+      html += '</div>';
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:13px;font-weight:500;color:#111827;">' + escH(ev.event_name || '—') + '</div>';
+      var sub = [];
+      if (ev.venue_name) sub.push(ev.venue_name);
+      if (ev.event_city) sub.push(ev.event_city);
+      if (ev.venue_exposure && ev.venue_exposure !== 'unknown') {
+        sub.push(ev.venue_exposure === 'indoor' ? 'Intérieur' : 'Extérieur');
+      }
+      if (sub.length) {
+        html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;">' + escH(sub.join(' · ')) + '</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;font-style:italic;">Prochaine analyse : cette nuit à 03h00</div>';
+    return html;
+  }
+
+  // ── Interactions ──────────────────────────────────────────────────
+
+  function toggleExpand(id) {
+    if (expandedId === id) {
+      expandedId = null;
+      editingUrlId = null;
+    } else {
+      expandedId = id;
+      editingUrlId = null;
+    }
+    rerenderBrands();
+    if (expandedId === id) {
+      loadCompetitorEvents(id);
+    }
+  }
+
+  function startEditUrl(id) {
+    editingUrlId = id;
+    rerenderBrands();
+    // Focus the input after render
+    setTimeout(function() {
+      var input = document.getElementById('url-input-' + id);
+      if (input) input.focus();
+    }, 0);
+  }
+
+  function cancelEditUrl(id) {
+    editingUrlId = null;
+    rerenderBrands();
+  }
+
+  async function saveUrl(id) {
+    var input = document.getElementById('url-input-' + id);
+    var errorEl = document.getElementById('url-error-' + id);
+    if (!input) return;
+    var url = (input.value || '').trim();
+
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    if (!url) {
+      if (errorEl) { errorEl.textContent = 'URL requise.'; errorEl.style.display = 'block'; }
+      return;
+    }
+    try { new URL(url); } catch {
+      if (errorEl) { errorEl.textContent = 'URL invalide — ex: https://exemple.fr/agenda'; errorEl.style.display = 'block'; }
+      return;
+    }
+
+    try {
+      var res = await fetch('/api/competitive/update-competitor-url', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ watched_competitor_id: id, source_url: url }),
+      });
+      var json = await res.json().catch(() => null);
+      if (!json || !json.ok) throw new Error(json?.error || 'Erreur API');
+
+      // Update local data
+      var comp = data.competitors.find(function(c) { return c.id === id; });
+      if (comp) {
+        comp.source_url = url;
+        comp.confidence_score = json.confidence_score;
+        comp.is_user_vetted = json.is_user_vetted;
+      }
+
+      editingUrlId = null;
+      rerenderBrands();
+    } catch(e) {
+      if (errorEl) { errorEl.textContent = e?.message || 'Erreur.'; errorEl.style.display = 'block'; }
+    }
+  }
+
+  async function loadCompetitorEvents(watchedCompetitorId) {
+    var comp = data && data.competitors
+      ? data.competitors.find(function(c) { return c.id === watchedCompetitorId; })
+      : null;
+
+    var el = document.getElementById('comp-events-' + watchedCompetitorId);
+    if (!el) return;
+
+    if (!comp || !comp.competitor_id) {
+      el.innerHTML = '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Aucun événement détecté — ajoutez une URL pour démarrer la surveillance.</div>';
+      return;
+    }
+
+    // Use cache if available
+    if (eventsCache[comp.competitor_id]) {
+      el.innerHTML = renderDetectedEvents(eventsCache[comp.competitor_id]);
+      return;
+    }
+
+    try {
+      var res = await fetch('/api/competitive/competitor-events?competitor_id=' + encodeURIComponent(comp.competitor_id));
+      var json = await res.json().catch(() => null);
+      var events = (json && json.ok && Array.isArray(json.events)) ? json.events : [];
+      eventsCache[comp.competitor_id] = events;
+      el.innerHTML = renderDetectedEvents(events);
+    } catch(e) {
+      el.innerHTML = '<div style="font-size:13px;color:#9CA3AF;">Erreur de chargement.</div>';
+    }
+  }
+
+  async function unfollowEvent(id) {
+    try {
+      await fetch('/api/competitive/unfollow-event', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      await loadData();
+    } catch(e) {}
+  }
+
+  async function unfollowCompetitor(id) {
+    var ok = window.confirm('Ne plus suivre ce concurrent ?');
+    if (!ok) return;
+    try {
+      await fetch('/api/competitive/unfollow-competitor', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      expandedId = null;
+      editingUrlId = null;
+      await loadData();
+    } catch(e) {}
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────
+
+  function groupByLocation(items) {
+    var groups = {};
+    items.forEach(function(item) {
+      var key = item.location_label || item.location_id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    return groups;
+  }
+
+  function rerenderBrands() {
+    var brdPanel = document.getElementById('panel-brands');
+    if (!brdPanel || !data) return;
+    brdPanel.innerHTML = renderBrandsPanel(data.competitors);
+  }
+
+  // ── Data loading ──────────────────────────────────────────────────
+
+  async function loadData() {
+    try {
+      var res = await fetch('/api/competitive/suivis');
+      var out = await res.json().catch(() => null);
+      if (!out || !out.ok) return;
+      data = out;
+
+      var loading  = document.getElementById('panel-loading');
+      var evtPanel = document.getElementById('panel-events');
+      var brdPanel = document.getElementById('panel-brands');
+
+      if (loading) loading.style.display = 'none';
+      evtPanel.innerHTML = renderEventsPanel(out.events);
+      brdPanel.innerHTML = renderBrandsPanel(out.competitors);
+
+      showTab(currentTab);
+    } catch(e) {}
+  }
+
+  // Expose to inline onclick handlers
+  window.showTab          = showTab;
+  window.toggleExpand     = toggleExpand;
+  window.startEditUrl     = startEditUrl;
+  window.cancelEditUrl    = cancelEditUrl;
+  window.saveUrl          = saveUrl;
+  window.unfollowEvent    = unfollowEvent;
+  window.unfollowCompetitor = unfollowCompetitor;
+
+  loadData();
+
+})();
+</script>

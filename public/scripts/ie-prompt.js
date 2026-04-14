@@ -370,11 +370,16 @@ if (!root) {
     setBubbleHtml(aiBubble, `<div style="display:flex;justify-content:center;width:100%;min-width:0;box-sizing:border-box;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`);
 
     try {
+      const currentMode = typeof window.__ieSetMode === 'function'
+        ? (document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning')
+        : 'planning';
+
       const res = await fetch("/api/insight/prompt", {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({
           q,
+          mode: currentMode,
           thread_context: THREAD_CONTEXT,
           conversation_history: CONVERSATION_HISTORY.slice(-12),
           confirmed_params: confirmedParams || null
@@ -435,11 +440,26 @@ if (!root) {
       }
 
       const html = renderAiOutputHtml(out);
+      const producer = out?.meta?.producer ?? null;
+      const sourcePillHtml = (() => {
+        if (!producer) return '';
+        let label, bg, color;
+        if (producer === 'v3_claude' || producer === 'deterministic' || producer === 'v3_fallback_deterministic') {
+          label = 'Muse Square'; bg = 'var(--color-pill-safe-bg)'; color = 'var(--color-pill-safe-text)';
+        } else if (producer === 'web_search') {
+          label = 'Web'; bg = 'var(--color-pill-source-low-bg)'; color = 'var(--color-pill-source-low-text)';
+        } else if (producer === 'llm_only') {
+          label = 'Claude — non vérifiée'; bg = 'var(--color-pill-source-mid-bg)'; color = 'var(--color-pill-source-mid-text)';
+        } else {
+          return '';
+        }
+        return `<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:${bg};color:${color};margin-bottom:10px;letter-spacing:.04em;">${label}</div>`;
+      })();
 
       if (aiBubble) {
         aiBubble.className = "ie-bubble-none";
         if (html) {
-          setBubbleHtml(aiBubble, html);
+          setBubbleHtml(aiBubble, sourcePillHtml + html);
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
