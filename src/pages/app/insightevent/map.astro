@@ -340,15 +340,32 @@ function renderEventList(items) {
     return;
   }
 
+  const followedEvents = filtered.filter(e => e.is_followed);
+  const otherEvents = filtered.filter(e => !e.is_followed);
+
+  function followedAccent(conflictScore) {
+    if (conflictScore >= 3) return "#E24B4A";
+    if (conflictScore >= 1) return "#EF9F27";
+    return "#1D3BB3";
+  }
+
   function renderMapCard(e, idx) {
     const desc = (e.description && e.description !== 'null') ? e.description : '';
     const uid = String(e.event_uid || e.id || idx);
     const panelId = `enrich-panel-map-${uid}`;
     const descId = `enrich-desc-map-${uid}`;
+    const isFollowed = Boolean(e.is_followed);
+    const accent = isFollowed ? followedAccent(e.conflict_score || 0) : "var(--color-brand-blue)";
+    const followedBadge = isFollowed
+      ? `<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:${accent === '#E24B4A' ? '#FCEBEB' : accent === '#EF9F27' ? '#FAEEDA' : '#EEF2FF'};color:${accent};white-space:nowrap;flex-shrink:0;">Suivi</span>`
+      : "";
     return `
-      <div style="border-left:3px solid var(--color-brand-blue);border-bottom:1px solid rgba(17,24,39,0.07);padding:16px 12px;">
+      <div style="border-left:3px solid ${accent};border-bottom:1px solid rgba(17,24,39,0.07);padding:16px 12px;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px;">
-          <span style="font-size:14px;font-weight:500;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
+          <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:14px;font-weight:500;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
+            ${followedBadge}
+          </span>
           <span style="font-size:11px;color:#9CA3AF;white-space:nowrap;flex-shrink:0;">${e.distance_m ? Math.round(Number(e.distance_m)) + 'm' : ''}</span>
         </div>
         ${desc ? `<div id="${descId}" style="font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(desc)}</div>` : ''}
@@ -375,21 +392,33 @@ function renderEventList(items) {
       </div>`;
   }
 
-  const visible = filtered.slice(0, 10);
-  const remaining = filtered.length - 10;
+  const followedSection = followedEvents.length ? `
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;padding:14px 12px 6px 12px;">
+      Concurrents suivis · ${followedEvents.length}
+    </div>
+    ${followedEvents.map((e, idx) => renderMapCard(e, idx)).join('')}
+    <div style="height:1px;background:#E5E7EB;margin:8px 0;"></div>
+  ` : '';
 
-  container.innerHTML = visible.map((e, idx) => renderMapCard(e, idx)).join('')
-    + (remaining > 0 ? `
+  const otherVisible = otherEvents.slice(0, followedEvents.length ? 10 : 10);
+  const otherRemaining = otherEvents.length - otherVisible.length;
+  const otherSection = otherEvents.length ? `
+    ${followedEvents.length ? `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;padding:8px 12px 6px 12px;">Environnement concurrentiel · ${otherEvents.length}</div>` : ''}
+    ${otherVisible.map((e, idx) => renderMapCard(e, followedEvents.length + idx)).join('')}
+    ${otherRemaining > 0 ? `
       <div id="map-more-btn-wrap" style="border-top:0.5px solid #E5E7EB;padding:12px 16px;display:flex;justify-content:center;">
-        <button style="font-size:12px;color:var(--color-brand-blue);background:none;border:none;padding:0;cursor:pointer;font-weight:500;">+ ${remaining} autres résultats</button>
-      </div>` : '');
+        <button style="font-size:12px;color:var(--color-brand-blue);background:none;border:none;padding:0;cursor:pointer;font-weight:500;">+ ${otherRemaining} autres résultats</button>
+      </div>` : ''}
+  ` : '';
+
+  container.innerHTML = followedSection + otherSection;
 
   wireEnrichLinks(container);
 
   const moreWrap = container.querySelector('#map-more-btn-wrap');
   if (moreWrap) {
     moreWrap.querySelector('button').addEventListener('click', () => {
-      const extra = filtered.slice(10).map((e, idx) => renderMapCard(e, idx + 10)).join('');
+      const extra = otherEvents.slice(otherVisible.length).map((e, idx) => renderMapCard(e, followedEvents.length + otherVisible.length + idx)).join('');
       moreWrap.insertAdjacentHTML('beforebegin', extra);
       moreWrap.remove();
       wireEnrichLinks(container);
@@ -714,8 +743,8 @@ window.addEventListener("load", () => {
       '50km': eventsLayer50km,
     }
 
-    // Filter by active industries
-    const filtered = allEvents.filter(e => industryState[e.industry_code] !== false)
+    // Filter by active industries — always include followed events
+    const filtered = allEvents.filter(e => e.is_followed || industryState[e.industry_code] !== false)
 
     // Re-render list with filtered events
     renderEventList(filtered)
@@ -734,9 +763,12 @@ window.addEventListener("load", () => {
 
     // Show/hide layers based on active radius (cumulative)
     const included = radiusIncludes[activeRadius] || []
+    console.log('followed in filtered:', filtered.filter(e=>e.is_followed).map(e=>e.title))
+    console.log('activeRadius:', activeRadius, 'included:', included)
     ;['500m','1km','5km','10km','50km'].forEach(bucket => {
       const layer = { '500m': eventsLayer500m, '1km': eventsLayer1km, '5km': eventsLayer5km, '10km': eventsLayer10km, '50km': eventsLayer50km }[bucket]
-      if (included.includes(bucket)) map.addLayer(layer)
+      const hasFollowedInBucket = filtered.some(e => e.is_followed && e.radius_bucket === bucket)
+      if (included.includes(bucket) || hasFollowedInBucket) map.addLayer(layer)
       else map.removeLayer(layer)
     })
 
@@ -762,6 +794,7 @@ window.addEventListener("load", () => {
   window._onEventsLoaded = function(events) {
     allEvents = events
     buildIndustryRow(events)
+    applyRadius('filter-5km')
   }
 
   // ---- Mobilité ----
@@ -807,12 +840,11 @@ window.addEventListener("load", () => {
     else if (_bounds.length === 1) map.setView(_bounds[0], 14)
   })
 
-  // ---- Initial state: concurrence, 5km active ----
+  // ---- Initial state: concurrence, layers pre-hidden ----
   eventsLayer50km.remove()
   roadLayer.remove()
   setActive(modeConcurrence)
   setInactive(modeMobilite)
-  applyRadius('filter-5km')
 })
 
 </script>

@@ -1245,8 +1245,6 @@ if (!location_id) {
               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
             }).then(r => r.json());
 
-            console.log('[check-event] response:', JSON.stringify(check));
-
             if (check.ok && check.found_wrong_dates) {
               const knownCandidates = (check.known_editions || []).map((e) => ({
                 event_name: e.event_name,
@@ -1336,8 +1334,6 @@ if (!location_id) {
               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
             }).then(r => r.json());
 
-            console.log('[check-competitor] response:', JSON.stringify(check));
-
             if (check.ok && check.exists && check.matches?.length > 0) {
               // Found in DB — map to candidate card shape
               const dbCandidates = check.matches.map(m => ({
@@ -1360,17 +1356,15 @@ if (!location_id) {
                 source_system:        m.source_system,
                 _source:              'database',
               }));
-              renderCompetitorCards(dbCandidates, submittedLabel, null, 'database');
+              renderCompetitorCards(dbCandidates, submittedLabel, null, 'database', url);
             } else {
               // Step 2 — web search fallback
               const search = await fetch('/api/competitive/search-competitor', {
                 method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
               }).then(r => r.json()).catch(() => ({ candidates: [] }));
 
-              console.log('[search-competitor] response:', JSON.stringify(search));
-
               const webCandidates = (search.candidates || []).map(c => ({ ...c, _source: 'web' }));
-              renderCompetitorCards(webCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'web');
+              renderCompetitorCards(webCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'web', url);
             }
 
           } catch(e) {
@@ -1383,7 +1377,7 @@ if (!location_id) {
         });
       }
 
-      function renderCompetitorCards(candidates, submittedLabel, noResultMsg, source) {
+      function renderCompetitorCards(candidates, submittedLabel, noResultMsg, source, userUrl) {
         const thread = document.getElementById('ie-thread');
         if (!thread) return;
 
@@ -1430,10 +1424,10 @@ if (!location_id) {
               ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:8px;line-height:1.5;">${escapeHtmlConc(c.description)}</div>` : ''}
               ${c.source_sentence ? `<div class="ie-card-row" style="font-size:12px;color:#9CA3AF;margin-bottom:8px;font-style:italic;line-height:1.4;">"${escapeHtmlConc(c.source_sentence)}"</div>` : ''}
               <div id="ie-comp-actions-${i}" style="padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
-                ${c.source_url ? `
+                ${(userUrl || c.source_url) ? `
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
-                  <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier la source →</a>
+                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc((userUrl || c.source_url).replace(/^https?:\/\/(www\.)?/, ''))}</span>
+                  <a href="${escapeHtmlConc(userUrl || c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier la source →</a>
                 </div>
                 <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Vérifiez que cette source correspond bien au concurrent avant d'ajouter à votre veille.</div>
                 ` : `
@@ -1474,16 +1468,32 @@ if (!location_id) {
                 btn.disabled = true;
                 btn.textContent = '…';
                 try {
-                  await fetch('/api/competitive/add-competitor', {
+                  const addResult = await fetch('/api/competitive/add-competitor', {
                     method: 'POST',
                     headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ ...candidate, source_system: 'user_confirmed' }),
+                    body: JSON.stringify({ ...candidate, source_system: 'user_confirmed', source_url: userUrl || candidate.source_url || null }),
                   }).then(r => r.json());
                   const card = document.getElementById(`ie-comp-cand-${idx}`);
                   if (card) { card.style.opacity = '0.4'; card.querySelectorAll('button, a').forEach(b => b.disabled = true); }
                   const successRow = document.createElement('div');
                   successRow.className = 'ie-msg ie-msg-ai';
-                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille.</div>`;
+                  const crawlMsg = (() => {
+                    const cs = addResult?.crawl_status;
+                    const es = addResult?.extraction_status;
+                    if (!candidate.source_url && !userUrl) return ' \u2014 ajoutez une URL dans Mes suivis pour d\u00e9marrer la veille.';
+                    if (cs === 'accessible') return ' \u2014 URL accessible, premi\u00e8re extraction cette nuit.';
+                    const usedUrl = userUrl || candidate.source_url || '';
+                    const path = (() => { try { return new URL(usedUrl).pathname.toLowerCase(); } catch { return ''; } })();
+                    const isHomepage = !path || path === '/' || /^\/(fr|en|de|es)\/?$/.test(path);
+                    const isAgenda = /agenda|programme|events?|calendar|kalend|manifestation/.test(path);
+                    if (cs === 'blocked' || es === 'fetch_error' || es === 'timeout') {
+                      if (isHomepage) return ' \u2014 page d\u2019accueil prot\u00e9g\u00e9e. Essayez l\u2019URL de la page agenda ou programme dans Mes suivis.';
+                      if (isAgenda) return ' \u2014 page agenda inaccessible aux robots. La veille tentera quand m\u00eame cette nuit.';
+                      return ' \u2014 page inaccessible. Essayez une URL pointant directement vers les \u00e9v\u00e9nements ou le programme.';
+                    }
+                    return ' \u2014 premi\u00e8re analyse cette nuit \u00e0 03h00.';
+                  })();
+                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille${escapeHtmlConc(crawlMsg)}</div>`;
                   thread.appendChild(successRow);
                   successRow.scrollIntoView({ block: 'end' });
                 } catch(e) {

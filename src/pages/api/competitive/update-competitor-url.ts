@@ -121,10 +121,86 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
+    // ── 3. Inline crawl check ──
+    let crawl_status: "accessible" | "blocked" | "no_url" = "no_url";
+    let fetch_http_status: number | null = null;
+    let extraction_status = "no_url";
+
+    try {
+      const { randomUUID } = await import("crypto");
+      const browserless_token = process.env.BROWSERLESS_TOKEN ?? "";
+      const bqlQuery = `mutation CheckPage {
+        goto(url: "${source_url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
+        verify(type: cloudflare) { found solved }
+        text { text }
+      }`;
+      const scrapeRes = await fetch(
+        `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: bqlQuery }),
+          signal: AbortSignal.timeout(15000),
+        }
+      );
+      fetch_http_status = scrapeRes.status;
+      if (scrapeRes.ok) {
+        const bqlResult = await scrapeRes.json();
+        const text = bqlResult?.data?.text?.text || "";
+        const hasContent = text.length > 100;
+        extraction_status = hasContent ? "partial" : "empty";
+        crawl_status = hasContent ? "accessible" : "blocked";
+      } else {
+        extraction_status = "fetch_error";
+        crawl_status = "blocked";
+      }
+
+      if (competitor_id) {
+        const competitor_event_id = randomUUID();
+        const run_id = randomUUID();
+        await bq.query({
+          query: `
+            INSERT INTO \`${projectId}.raw.competitor_events\` (
+              competitor_event_id, competitor_id, location_id, source_url,
+              vetted_by_clerk_user_id, crawled_at, run_id, crawl_version,
+              extraction_status, fetch_http_status, extracted_field_count,
+              extraction_model, is_user_confirmed, created_at
+            ) VALUES (
+              @competitor_event_id, @competitor_id, @location_id, @source_url,
+              @clerk_user_id, CURRENT_TIMESTAMP(), @run_id, 1,
+              @extraction_status, @fetch_http_status, 0,
+              'inline_check_v1', FALSE, CURRENT_TIMESTAMP()
+            )
+          `,
+          params: {
+            competitor_event_id,
+            competitor_id,
+            location_id: String((locals as any)?.location_id || "").trim(),
+            source_url,
+            clerk_user_id,
+            run_id,
+            extraction_status,
+            fetch_http_status: fetch_http_status ?? null,
+          },
+          types: {
+            competitor_event_id: "STRING", competitor_id: "STRING",
+            location_id: "STRING", source_url: "STRING",
+            clerk_user_id: "STRING", run_id: "STRING",
+            extraction_status: "STRING", fetch_http_status: "INT64",
+          },
+          location: BQ_LOCATION,
+        });
+      }
+    } catch {
+      // crawl check failed silently — do not block the response
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       confidence_score: new_confidence,
       is_user_vetted: true,
+      crawl_status,
+      extraction_status,
     }), { status: 200, headers: { "content-type": "application/json" } });
 
   } catch (err: any) {

@@ -114,6 +114,7 @@ if (!location_id) {
       .mon-feed-line1 { font-size: 14px; font-weight: 700; color: #111827; line-height: 1.3; margin-bottom: 3px; }
       .mon-feed-line2 { font-size: 13px; color: #374151; line-height: 1.4; margin-bottom: 2px; }
       .mon-feed-line3 { font-size: 12px; color: #6B7280; }
+      .mon-feed-line4 { font-size: 12px; color: #6B7280; }
 
       .mon-vigilance-item {
         display: flex; align-items: flex-start; gap: 10px;
@@ -423,10 +424,8 @@ if (!location_id) {
       return `Indice en baisse · ${ov} → ${nv}${sign}`;
     }
     if (sub === "event_new") {
-      const parts = [`Concurrent détecté · ${d}`];
-      if (name) parts.push(name);
-      if (km) parts.push(km);
-      return parts.join(" · ");
+      const isFollowed = a?._source === "competitor_alerts";
+      return isFollowed ? "Concurrent suivi" : "Nouveau concurrent détecté";
     }
     if (sub === "event_removed") return `Concurrent retiré · ${d}`;
     if (sub === "weather_worsened") {
@@ -508,28 +507,9 @@ if (!location_id) {
     }
 
     if (sub === "event_new") {
-      const parts = [];
-      if (distM > 0 && distM <= 500) {
-        parts.push(`Concurrent à ${Math.round(distM)} m`);
-      } else if (distM > 0) {
-        parts.push(`À ${km} de votre site`);
-      } else if (venue) {
-        parts.push(venue);
-      } else if (city) {
-        parts.push(city);
-      }
-      const audParts = [aud1, aud2].filter(Boolean);
-      if (audParts.length) {
-        parts.push(`cible potentielle : ${audParts.map(audienceLabel).join(", ")}`);
-      }
-      if (hasActiveEvent && activeTitle) {
-        parts.push(`pendant votre événement "${activeTitle}"`);
-      }
-      const oh = parseHours(a?.operating_hours);
-      if (oh) {
-        parts.push(`vos horaires d'ouverture : ${Math.floor(oh.start/60)}h–${Math.floor(oh.end/60)}h`);
-      }
-      return parts.length ? parts.join(" — ") + "." : km ? `À ${km} de votre site.` : "Concurrent détecté dans votre zone.";
+      const name = a?.event_label || "";
+      const distPart = km ? ` — à ${km}` : "";
+      return name ? `Concurrent : ${name}${distPart}.` : "";
     }
 
     if (sub === "event_removed") return "";
@@ -568,12 +548,25 @@ if (!location_id) {
       const delta = a?.score_delta!=null ? Math.round(Number(a.score_delta)) : (from!=null&&to!=null ? to-from : null);
       if (from!=null&&to!=null&&Number.isFinite(from)&&Number.isFinite(to)) { const sign=delta>=0?"+":""; parts.push(`Score : ${from} → ${to} (${sign}${delta})`); }
     } else if (cat==="competition"||sub==="event_new"||sub==="event_removed") {
-      const name = a?.event_label||a?.event_name||"";
-      const km   = a?.distance_m!=null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : "";
-      if (name&&km) parts.push(`${name} · ${km}`);
-      else if (name) parts.push(name);
+      if (sub==="event_new") return "";
     }
     return parts.join(" · ");
+  }
+
+  function feedLine4(a) {
+    const sub = String(a?.change_subtype || "").toLowerCase();
+    if (sub === "event_new" || sub === "proximity" || sub === "industry_overlap" || sub === "audience_overlap" || sub === "industry_audience_overlap" || sub === "date_conflict") {
+      const SUBTYPE_LABELS = {
+        event_new: "Proximité géographique",
+        proximity: "Proximité géographique",
+        industry_overlap: "Même secteur",
+        audience_overlap: "Même audience",
+        industry_audience_overlap: "Secteur & audience",
+        date_conflict: "Même date",
+      };
+      return `Menace : ${SUBTYPE_LABELS[sub] || "Signal concurrent"}`;
+    }
+    return "";
   }
 
   function renderFeedItems(items, showAll) {
@@ -608,6 +601,7 @@ if (!location_id) {
             const line1 = feedLine1(a);
             const line2 = feedLine2(a);
             const line3 = feedLine3(a);
+            const line4 = feedLine4(a);
             const cat = String(a?.change_category||"").toLowerCase();
             const lvl = Number(a?.alert_level)||1;
             const isLast = idx===locItems.length-1;
@@ -618,6 +612,7 @@ if (!location_id) {
                   <div class="mon-feed-line1">${escapeHtml(line1)}</div>
                   ${line2?`<div class="mon-feed-line2">${escapeHtml(line2)}</div>`:""}
                   ${line3?`<div class="mon-feed-line3">${escapeHtml(line3)}</div>`:""}
+                  ${line4?`<div class="mon-feed-line4">${escapeHtml(line4)}</div>`:""}
                 </div>
               </div>`;
           }).join("");
@@ -762,10 +757,155 @@ if (!location_id) {
       </div>`;
   }
 
+
+  function renderSuivisMonitorSection(allFeed, eventDate, followedCount) {
+    const SIGNAL_LABELS = {
+      event: "Événement", launch: "Lancement", opening: "Ouverture",
+      campaign: "Campagne", press: "Communiqué", partnership: "Partenariat", unknown: "Signal",
+    };
+
+    const signals = allFeed.filter(a =>
+      a._source === "competitor_alerts" &&
+      normalizeYmd(a?.affected_date) >= ymdOffset(eventDate, -7) &&
+      normalizeYmd(a?.affected_date) <= ymdOffset(eventDate, 7)
+    );
+
+    function ymdOffset(ymd, days) {
+      const d = parseYmdToDate(ymd);
+      if (!d) return ymd;
+      d.setUTCDate(d.getUTCDate() + days);
+      return ymdFromUTC(d);
+    }
+
+    function ymdFromUTC(d) {
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+    }
+
+    function dayDiff(eventDateStr, refDate) {
+      const e = parseYmdToDate(normalizeYmd(eventDateStr));
+      const r = parseYmdToDate(refDate);
+      if (!e || !r) return null;
+      return Math.round((e.getTime() - r.getTime()) / 86400000);
+    }
+
+    function impactLabel(diff) {
+      if (diff === null) return null;
+      if (diff === 0) return { text: "Même jour que votre événement", color: "#791F1F" };
+      if (diff > 0)   return { text: `${diff} jour${diff > 1 ? "s" : ""} après votre événement`, color: "#6B7280" };
+      return { text: `${Math.abs(diff)} jour${Math.abs(diff) > 1 ? "s" : ""} avant votre événement`, color: "#854F0B" };
+    }
+
+    function rowAccentColor(diff) {
+      if (diff === null) return "#9CA3AF";
+      if (diff === 0) return "#E24B4A";
+      if (Math.abs(diff) <= 3) return "#EF9F27";
+      return "#9CA3AF";
+    }
+
+    function signalPillStyle(type) {
+      if (type === "event")       return "background:#FCEBEB;color:#791F1F;";
+      if (type === "launch")      return "background:#FAEEDA;color:#633806;";
+      if (type === "opening")     return "background:#FAEEDA;color:#633806;";
+      if (type === "campaign")    return "background:#EAF3DE;color:#27500A;";
+      return "background:var(--color-background-secondary,#F3F4F6);color:#6B7280;";
+    }
+
+    if (signals.length === 0) {
+      if (!followedCount) return "";
+      return `
+        <div class="mon-card">
+          <div class="mon-head">
+            <div class="mon-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+              <div class="mon-kicker" style="margin:0;">Concurrents suivis</div>
+              <div style="font-size:13px;color:#6B7280;margin-top:4px;">Aucun signal détecté dans la fenêtre ±7 jours. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">Gérer mes suivis →</a></div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    const fmtDate = (iso) => {
+      if (!iso) return "—";
+      const months = ["jan.","fév.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+      const raw = String(iso).slice(0,10);
+      const parts = raw.split("-");
+      return parseInt(parts[2]) + " " + months[parseInt(parts[1])-1] + " " + parts[0];
+    };
+
+    const rowsHtml = signals.map(s => {
+      const affectedDate = normalizeYmd(s.affected_date);
+      const diff = dayDiff(affectedDate, eventDate);
+      const impact = impactLabel(diff);
+      const accent = rowAccentColor(diff);
+      const signalType = s.change_subtype || "event";
+      const label = SIGNAL_LABELS[signalType] || "Signal";
+      const pillStyle = signalPillStyle(signalType);
+      const eventName = s.event_label || "—";
+      const venueName = s.event_venue_name || null;
+      const competitorName = (() => {
+        const nv = String(s.new_value || "");
+        const m = nv.match(/^(.+?)\s+détecté le/);
+        return m ? m[1].trim() : null;
+      })();
+      const distKm = s.distance_m ? (s.distance_m / 1000).toFixed(1) + " km" : null;
+
+      return `
+        <div style="border:0.5px solid #E5E7EB;border-left:3px solid ${accent};padding:14px 16px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:500;color:#111827;">${escapeHtml(eventName)}</span>
+              <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
+            </div>
+            ${impact ? `<div style="flex-shrink:0;font-size:11px;font-weight:500;color:${impact.color};white-space:nowrap;">${escapeHtml(impact.text)}</div>` : ""}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            ${competitorName ? `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Concurrent</span>
+              <span style="font-size:13px;color:#111827;">${escapeHtml(competitorName)}</span>
+            </div>` : ""}
+            ${venueName ? `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Lieu</span>
+              <span style="font-size:13px;color:#111827;">${escapeHtml(venueName)}</span>
+            </div>` : ""}
+            ${distKm ? `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Distance</span>
+              <span style="font-size:13px;color:#6B7280;">${escapeHtml(distKm)}</span>
+            </div>` : ""}
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Date</span>
+              <span style="font-size:13px;color:#6B7280;">${escapeHtml(fmtDate(affectedDate))}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="mon-card">
+        <div class="mon-head" style="margin-bottom:12px;">
+          <div class="mon-ico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex:1;gap:12px;">
+            <div class="mon-kicker" style="margin:0;">Concurrents suivis</div>
+            <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#FCEBEB;color:#791F1F;font-weight:500;">${signals.length} signal${signals.length > 1 ? "s" : ""} · ±7j</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0;">${rowsHtml}</div>
+        <div style="padding-top:10px;display:flex;justify-content:flex-end;">
+          <a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Gérer mes suivis →</a>
+        </div>
+      </div>`;
+  }
+
   // ----------------------------------------------------------------
   // Recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, profile, siteData) {
+  function renderRecap(currentDay, allFeed, profile, siteData, followedCount, selectedDate) {
     const isMultisiteFeed = allFeed.some(a => a?.location_label);
 
     if (isMultisiteFeed) {
@@ -892,7 +1032,8 @@ if (!location_id) {
           </div>
         </div>`;
 
-      return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${vigilanceMultiHtml}${signalsCardHtml}${contextCardHtml}</div>`;
+      const suivisHtml = renderSuivisMonitorSection(allFeed, normalizeYmd(currentDay?.date || ""), followedCount || 0);
+      return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${suivisHtml}${vigilanceMultiHtml}${signalsCardHtml}${contextCardHtml}</div>`;
     }
 
     const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2 && normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
@@ -957,7 +1098,8 @@ if (!location_id) {
         <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables pour la journée.</div>
       </div>`;
 
-    return `<div class="mon-panels">${vigilanceHtml}${statusHtml}${renderContext(currentDay, profile)}</div>`;
+    const suivisHtml = renderSuivisMonitorSection(allFeed, selectedDate, followedCount || 0);
+    return `<div class="mon-panels">${suivisHtml}${vigilanceHtml}${statusHtml}${renderContext(currentDay, profile)}</div>`;
   }
 
   // ----------------------------------------------------------------
@@ -1036,7 +1178,7 @@ if (!location_id) {
     // Tab content
     let tabContent = "";
     if (activeTab==="recap") {
-      tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || []);
+      tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || [], Number(data.competitor_followed_count ?? 0), selectedDate);
     } else if (activeTab==="alertes") {
       const showAll = (window.__plsFeedShowAll===true);
       tabContent = `<div class="mon-panels"><div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
@@ -1264,6 +1406,7 @@ if (!location_id) {
           days: mergedDays,
           all_feed: mergedFeed,
           _locations: locs,
+          competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
           _siteData: valid.map(({ data, loc }) => ({
             location_id: loc.location_id,
             label: loc.company_name || loc.location_id,

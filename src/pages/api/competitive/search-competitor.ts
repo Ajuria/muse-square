@@ -216,6 +216,12 @@ Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > pre
       !(c.source_url && JUNK_PATTERNS.some(p => p.test(c.source_url)))
     );
 
+    // If user provided a source_url, inject it into the top candidate
+    if (source_url && filtered.length > 0) {
+      filtered[0].source_url = source_url;
+      filtered[0].source_type = classifySource(source_url);
+    }
+
     return new Response(JSON.stringify({
       ok:         true,
       candidates: filtered,

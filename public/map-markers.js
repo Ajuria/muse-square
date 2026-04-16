@@ -59,14 +59,15 @@ function venuePin() {
  * Event pin: standard teardrop pin, neutral steel blue.
  * Competition context — not an alert.
  */
-function eventPin(number) {
+function eventPin(number, fillColor) {
+  const color = fillColor || '#0b37e5';
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
       <filter id="e-shadow" x="-30%" y="-10%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/>
       </filter>
       <path d="M14 2C7.373 2 2 7.373 2 14c0 8.5 12 20 12 20S26 22.5 26 14C26 7.373 20.627 2 14 2z"
-            fill="#0b37e5" filter="url(#e-shadow)"/>
+            fill="${color}" filter="url(#e-shadow)"/>
       <text x="14" y="19" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff" font-family="sans-serif">${number}</text>
     </svg>`;
 }
@@ -246,9 +247,19 @@ function createVenueMarker(location) {
 /**
  * createEventMarker(signal)  — signal is one row from vw_insight_event_map_signals
  */
+function followedPinColor(conflictScore) {
+  if (conflictScore >= 3) return '#E24B4A';
+  if (conflictScore >= 1) return '#EF9F27';
+  return '#1D3BB3';
+}
+
 function createEventMarker(signal, number) {
-  const icon = makeIcon(eventPin(number ?? '★'), 28, 36, 14, 36);
-  return L.marker([signal.latitude, signal.longitude], { icon, zIndexOffset: 100 })
+  const pinColor = signal.is_followed
+    ? followedPinColor(signal.conflict_score || 0)
+    : '#0b37e5';
+  const zIndex = signal.is_followed ? 500 : 100;
+  const icon = makeIcon(eventPin(number ?? '★', pinColor), 28, 36, 14, 36);
+  return L.marker([signal.latitude, signal.longitude], { icon, zIndexOffset: zIndex })
     .bindTooltip(eventPopup(signal), { permanent: false, sticky: true, maxWidth: 200, className: 'mp-tooltip' });
 }
 

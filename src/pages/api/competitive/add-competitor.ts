@@ -171,26 +171,149 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ── 2. Write competitor_id back to watched_competitors (FK) ──
-    await bq.query({
+    // ── 2. Upsert watched_competitors ──
+    const [existingWatched] = await bq.query({
       query: `
-        UPDATE \`${projectId}.raw.watched_competitors\`
-        SET competitor_id = @competitor_id
+        SELECT watched_competitor_id
+        FROM \`${projectId}.raw.watched_competitors\`
         WHERE clerk_user_id = @clerk_user_id
           AND LOWER(competitor_name) = LOWER(@competitor_name)
           AND LOWER(city) = LOWER(@city)
           AND deleted_at IS NULL
-          AND competitor_id IS NULL
+        LIMIT 1
       `,
-      params: { competitor_id, clerk_user_id, competitor_name, city },
-      types: {
-        competitor_id: "STRING", clerk_user_id: "STRING",
-        competitor_name: "STRING", city: "STRING",
-      },
+      params: { clerk_user_id, competitor_name, city },
+      types: { clerk_user_id: "STRING", competitor_name: "STRING", city: "STRING" },
       location: BQ_LOCATION,
     });
 
-    // ── 3. Check if tracking record already exists ──
+    if (Array.isArray(existingWatched) && existingWatched.length > 0) {
+      await bq.query({
+        query: `
+          UPDATE \`${projectId}.raw.watched_competitors\`
+          SET competitor_id = @competitor_id
+          WHERE watched_competitor_id = @watched_competitor_id
+            AND deleted_at IS NULL
+        `,
+        params: { competitor_id, watched_competitor_id: String(existingWatched[0].watched_competitor_id) },
+        types: { competitor_id: "STRING", watched_competitor_id: "STRING" },
+        location: BQ_LOCATION,
+      });
+    } else {
+      const watched_competitor_id = randomUUID();
+      await bq.query({
+        query: `
+          INSERT INTO \`${projectId}.raw.watched_competitors\` (
+            watched_competitor_id, clerk_user_id, location_id,
+            competitor_id, competitor_name, industry_code, city,
+            source_url, confidence_score, created_at, deleted_at
+          ) VALUES (
+            @watched_competitor_id, @clerk_user_id, @location_id,
+            @competitor_id, @competitor_name, @industry_code, @city,
+            @source_url, @confidence_score, CURRENT_TIMESTAMP(), NULL
+          )
+        `,
+        params: {
+          watched_competitor_id, clerk_user_id, location_id,
+          competitor_id, competitor_name,
+          industry_code: industry_code ?? null,
+          city,
+          source_url: source_url ?? null,
+          confidence_score,
+        },
+        types: {
+          watched_competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING",
+          competitor_id: "STRING", competitor_name: "STRING",
+          industry_code: "STRING", city: "STRING",
+          source_url: "STRING", confidence_score: "FLOAT64",
+        },
+        location: BQ_LOCATION,
+      });
+    }
+
+    // ── 3. Inline crawl attempt (Browserless) ──
+    let crawl_status: "accessible" | "blocked" | "no_url" = "no_url";
+    let fetch_http_status: number | null = null;
+    let extracted_field_count = 0;
+    let extraction_status = "no_url";
+
+    if (source_url) {
+      try {
+        const browserless_token = process.env.BROWSERLESS_TOKEN ?? "";
+        const bqlQuery = `mutation CheckPage {
+          goto(url: "${source_url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
+          verify(type: cloudflare) { found solved }
+          text { text }
+        }`;
+
+        const scrapeRes = await fetch(
+          `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ query: bqlQuery }),
+            signal: AbortSignal.timeout(15000),
+          }
+        );
+        fetch_http_status = scrapeRes.status;
+        if (scrapeRes.ok) {
+          const bqlResult = await scrapeRes.json();
+          const text = bqlResult?.data?.text?.text || "";
+          const hasContent = text.length > 100;
+          extraction_status = hasContent ? "partial" : "empty";
+          extracted_field_count = hasContent ? 1 : 0;
+          crawl_status = hasContent ? "accessible" : "blocked";
+        } else {
+          extraction_status = "fetch_error";
+          crawl_status = "blocked";
+        }
+      } catch (crawlErr: any) {
+        console.error("[add-competitor] crawl failed:", crawlErr?.message);
+        extraction_status = "timeout";
+        crawl_status = "blocked";
+      }
+
+      // Write result to raw.competitor_events
+      const competitor_event_id = randomUUID();
+      const run_id = randomUUID();
+      await bq.query({
+        query: `
+          INSERT INTO \`${projectId}.raw.competitor_events\` (
+            competitor_event_id, competitor_id, location_id, source_url,
+            vetted_by_clerk_user_id, crawled_at, run_id, crawl_version,
+            extraction_status, fetch_http_status, extracted_field_count,
+            extraction_model, is_user_confirmed, created_at
+          ) VALUES (
+            @competitor_event_id, @competitor_id, @location_id, @source_url,
+            @clerk_user_id, CURRENT_TIMESTAMP(), @run_id, 1,
+            @extraction_status, @fetch_http_status, @extracted_field_count,
+            'inline_check_v1', FALSE, CURRENT_TIMESTAMP()
+          )
+        `,
+        params: {
+          competitor_event_id,
+          competitor_id,
+          location_id,
+          source_url,
+          clerk_user_id,
+          run_id,
+          extraction_status,
+          fetch_http_status: fetch_http_status ?? null,
+          extracted_field_count,
+        },
+        types: {
+          competitor_event_id: "STRING", competitor_id: "STRING",
+          location_id: "STRING", source_url: "STRING",
+          clerk_user_id: "STRING", run_id: "STRING",
+          extraction_status: "STRING",
+          fetch_http_status: "INT64",
+          extracted_field_count: "INT64",
+        },
+        location: BQ_LOCATION,
+      });
+    }
+
+    // ── 4. Check if tracking record already exists ──
     const [existingTracking] = await bq.query({
       query: `
         SELECT tracking_id
@@ -237,6 +360,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       action,
       competitor_id,
       confidence_score,
+      crawl_status,
+      extraction_status,
     }), { status: 200, headers: { "content-type": "application/json" } });
 
   } catch (err: any) {

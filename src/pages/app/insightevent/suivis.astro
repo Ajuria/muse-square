@@ -157,6 +157,14 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
     if (item.city) subParts.push(item.city);
     var distKm = item.distance_m ? (item.distance_m / 1000).toFixed(1) + ' km' : null;
     if (distKm) subParts.push(distKm);
+    const crawlBadge = (() => {
+      const es = item.extraction_status;
+      if (!es || es === "no_url") return null;
+      if (es === "timeout" || es === "fetch_error" || (item.fetch_http_status && item.fetch_http_status >= 400)) return { label: "URL inaccessible", bg: "#FCEBEB", color: "#791F1F" };
+      if (es === "empty") return { label: "Page vide", bg: "#FAEEDA", color: "#633806" };
+      if (es === "partial" && item.extracted_field_count > 0) return { label: "Actif", bg: "#EAF3DE", color: "#27500A" };
+      return null;
+    })();
 
     var html = '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;" id="comp-row-' + escH(item.id) + '">';
 
@@ -164,7 +172,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
     html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;' + (isExpanded ? 'background:#F9FAFB;border-bottom:0.5px solid #E5E7EB;' : '') + '" onclick="toggleExpand(\'' + escH(item.id) + '\')">';
     html += '<div style="flex:1;min-width:0;">';
     html += '<div style="font-size:14px;font-weight:500;color:#111827;">' + escH(item.name) + '</div>';
-    html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;">' + escH(subParts.join(' · ')) + '</div>';
+    html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;display:flex;align-items:center;gap:6px;">' + escH(subParts.join(' · ')) + (crawlBadge ? '<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:' + crawlBadge.bg + ';color:' + crawlBadge.color + ';">' + crawlBadge.label + '</span>' : '') + '</div>';
     html += '</div>';
     html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
     html += '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#3B6D11;">Suivi actif</span>';
@@ -225,7 +233,21 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       html += '<a href="' + escH(item.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#185FA5;text-decoration:none;word-break:break-all;">' + escH(domain) + '</a>';
       html += '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:#EAF3DE;color:#3B6D11;white-space:nowrap;">' + confidencePct + '%</span>';
       html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:11px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Modifier</button>';
+      var esUrl = item.extraction_status;
+      var isFailed = esUrl === "timeout" || esUrl === "fetch_error" || esUrl === "empty" || (item.fetch_http_status && item.fetch_http_status >= 400);
       html += '</div>';
+      if (isFailed) {
+        var urlPath = '';
+        try { urlPath = new URL(item.source_url).pathname.toLowerCase(); } catch {}
+        var isHomepageUrl = !urlPath || urlPath === '/' || /^\/(fr|en|de|es)\/?$/.test(urlPath);
+        var isAgendaUrl = /agenda|programme|events?|calendar|manifestation/.test(urlPath);
+        var crawlErrMsg = isHomepageUrl
+          ? 'Page d\'accueil prot\u00e9g\u00e9e. Essayez l\'URL de la page agenda ou programme.'
+          : isAgendaUrl
+          ? 'Page agenda inaccessible aux robots. La veille tentera quand m\u00eame cette nuit \u2014 ou essayez une URL alternative.'
+          : 'Page inaccessible. Essayez une URL pointant directement vers les \u00e9v\u00e9nements ou le programme.';
+        html += '<div style="font-size:11px;color:#B91C1C;margin-top:4px;">' + crawlErrMsg + '</div>';
+      }
     } else {
       html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:12px;color:#185FA5;background:none;border:none;cursor:pointer;padding:0;text-align:left;">+ Ajouter une URL de surveillance</button>';
     }
@@ -355,10 +377,14 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
         comp.source_url = url;
         comp.confidence_score = json.confidence_score;
         comp.is_user_vetted = json.is_user_vetted;
+        comp.extraction_status = json.extraction_status ?? null;
+        comp.fetch_http_status = null;
+        if (comp.competitor_id) delete eventsCache[comp.competitor_id];
       }
 
       editingUrlId = null;
       rerenderBrands();
+
     } catch(e) {
       if (errorEl) { errorEl.textContent = e?.message || 'Erreur.'; errorEl.style.display = 'block'; }
     }

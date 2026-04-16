@@ -212,7 +212,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     `;
 
     // Run all queries in parallel
-    const [[profileRows], [signalRows], [feedRows], [savedItemRows]] = await Promise.all([
+    const [[profileRows], [signalRows], [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows]] = await Promise.all([
       bq.query({
         query: profileQuery,
         params: { location_id },
@@ -247,9 +247,96 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location: "EU",
         maxResults: 100,
       }) : Promise.resolve([[]]),
+      bq.query({
+        query: `
+          SELECT
+            competitor_alert_id,
+            competitor_event_id,
+            competitor_id,
+            location_id,
+            alert_level,
+            change_category,
+            change_subtype,
+            affected_date,
+            event_label,
+            old_value,
+            new_value,
+            direction,
+            distance_m,
+            conflict_score,
+            watched_event_id,
+            watched_event_name,
+            created_at
+          FROM \`muse-square-open-data.raw.competitor_alerts\`
+          WHERE location_id = @location_id
+            AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+          ORDER BY alert_level DESC, created_at DESC
+          LIMIT 200
+        `,
+        params: { location_id },
+        location: "EU",
+      }),
+      clerk_user_id ? bq.query({
+        query: `
+          SELECT COUNT(*) AS cnt
+          FROM \`muse-square-open-data.raw.watched_competitors\`
+          WHERE clerk_user_id = @clerk_user_id
+            AND deleted_at IS NULL
+        `,
+        params: { clerk_user_id },
+        location: "EU",
+      }) : Promise.resolve([[{ cnt: 0 }]]),
     ]);
 
     const profile = profileRows?.[0] ?? null;
+
+    const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
+      feed_date:                     r?.created_at?.value        ?? r?.created_at        ?? null,
+      affected_date:                 r?.affected_date?.value     ?? r?.affected_date     ?? null,
+      change_category:               r?.change_category                                  ?? "competition",
+      change_subtype:                r?.change_subtype                                   ?? "event_new",
+      direction:                     r?.direction                                        ?? "down",
+      alert_level:                   r?.alert_level                                      ?? 2,
+      score_delta:                   null,
+      old_value:                     r?.old_value                                        ?? null,
+      new_value:                     r?.new_value                                        ?? null,
+      distance_m:                    r?.distance_m                                       ?? null,
+      event_label:                   r?.event_label                                      ?? null,
+      event_venue_name:              null,
+      event_venue_address:           null,
+      city_name:                     null,
+      location_type:                 null,
+      lvl_rain:                      null,
+      lvl_wind:                      null,
+      lvl_snow:                      null,
+      lvl_heat:                      null,
+      lvl_cold:                      null,
+      mobility_status_region:        null,
+      mobility_disruption_flag_region: null,
+      nearest_transit_line_name:     null,
+      transit_network:               null,
+      summary:                       null,
+      active_event_title:            r?.watched_event_name                               ?? null,
+      active_event_type:             null,
+      has_active_event:              Boolean(r?.watched_event_id),
+      primary_audience_1:            profile?.primary_audience_1                        ?? null,
+      primary_audience_2:            profile?.primary_audience_2                        ?? null,
+      operating_hours:               profile?.operating_hours                           ?? null,
+      company_activity_type:         profile?.company_activity_type                     ?? null,
+      event_time_profile:            profile?.event_time_profile                        ?? null,
+      location_type_client:          profile?.location_type                             ?? null,
+      client_industry_code:          profile?.client_industry_code                      ?? null,
+      company_industry:              profile?.company_industry                          ?? null,
+      main_event_objective:          profile?.main_event_objective                      ?? null,
+      event_type_1:                  profile?.event_type_1                              ?? null,
+      event_type_2:                  profile?.event_type_2                              ?? null,
+      event_type_3:                  profile?.event_type_3                              ?? null,
+      capacity_sensitivity:          profile?.capacity_sensitivity                      ?? null,
+      geographic_catchment:          profile?.geographic_catchment                      ?? null,
+      weather_sensitivity:           profile?.weather_sensitivity                       ?? null,
+      venue_capacity:                profile?.venue_capacity                            ?? null,
+      _source:                       "competitor_alerts",
+    }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
@@ -320,6 +407,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       weather_sensitivity:           profile?.weather_sensitivity     ?? null,
       venue_capacity:                profile?.venue_capacity          ?? null,
     }));
+
+    const mergedFeed = [
+      ...changeFeed,
+      ...competitorAlertFeed,
+    ].sort((a, b) => {
+      const lvlDiff = (Number(b.alert_level) || 0) - (Number(a.alert_level) || 0);
+      if (lvlDiff !== 0) return lvlDiff;
+      return String(b.feed_date || "").localeCompare(String(a.feed_date || ""));
+    });
 
     // ----------------------------------------------------------------
     // 3. Build risk matrix per day
@@ -591,7 +687,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         primary_audience_2:         r.primary_audience_2         ?? null,
 
         // Change feed filtered to this date
-        change_feed: changeFeed.filter(
+        change_feed: mergedFeed.filter(
           (f) => (f.affected_date ?? "").slice(0, 10) === String(r.date?.value ?? r.date ?? "").slice(0, 10)
         ),
         
@@ -651,7 +747,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       worst_day_count: worstDayCount,
       total_day_count: days.length,
       days,
-      all_feed: changeFeed,
+      all_feed: mergedFeed,
+      competitor_followed_count: Number((followedCountRows as any[])[0]?.cnt ?? 0),
     });
   } catch (err: any) {
     return json(400, {

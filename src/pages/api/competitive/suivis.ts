@@ -54,11 +54,32 @@ export const GET: APIRoute = async ({ locals }) => {
           cd.google_rating,
           cd.google_review_count,
           cd.google_review_summary,
-          cd.photos
+          cd.photos,
+          ce.crawled_at,
+          ce.extraction_status,
+          ce.extracted_field_count,
+          ce.fetch_http_status
         FROM \`${projectId}.raw.watched_competitors\` wc
         LEFT JOIN \`${projectId}.raw.competitor_directory\` cd
           ON wc.competitor_id = cd.competitor_id
           AND cd.deleted_at IS NULL
+        LEFT JOIN (
+          SELECT
+            ce_inner.competitor_id,
+            ce_inner.extraction_status,
+            ce_inner.extracted_field_count,
+            ce_inner.fetch_http_status,
+            ce_inner.crawled_at,
+            ce_inner.source_url,
+            ROW_NUMBER() OVER (
+              PARTITION BY ce_inner.competitor_id
+              ORDER BY ce_inner.crawled_at DESC
+            ) AS rn
+          FROM \`${projectId}.raw.competitor_events\` ce_inner
+          WHERE ce_inner.source_url IS NOT NULL
+        ) ce ON wc.competitor_id = ce.competitor_id
+              AND ce.source_url = wc.source_url
+              AND ce.rn = 1
         WHERE wc.clerk_user_id = @clerk_user_id
           AND wc.deleted_at IS NULL
         ORDER BY wc.created_at ASC
@@ -114,6 +135,10 @@ export const GET: APIRoute = async ({ locals }) => {
       google_review_count:  r.google_review_count ?? null,
       google_review_summary: r.google_review_summary ?? null,
       photos:               r.photos ?? null,
+      crawled_at:           r.crawled_at ?? null,
+      extraction_status:    r.extraction_status ?? null,
+      extracted_field_count: r.extracted_field_count ?? null,
+      fetch_http_status:    r.fetch_http_status ?? null,
     }));
 
     return new Response(JSON.stringify({ ok: true, events, competitors }), {

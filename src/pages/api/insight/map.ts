@@ -88,40 +88,137 @@ export const GET: APIRoute = async ({ url }) => {
         keyword_priority_rank ASC
     `;
 
-    const [rows] = await bq.query({
-      query,
-      params: { location_id, date },
-      location: "EU",
+    const [[rows], [alertRows], [competitorEventRows]] = await Promise.all([
+      bq.query({
+        query,
+        params: { location_id, date },
+        location: "EU",
+      }),
+      bq.query({
+        query: `
+          SELECT
+            ca.event_label,
+            ca.conflict_score,
+            ca.distance_m,
+            ca.change_subtype,
+            ca.new_value,
+            ca.competitor_event_id
+          FROM \`muse-square-open-data.raw.competitor_alerts\` ca
+          WHERE ca.location_id = @location_id
+            AND ca.affected_date = @date
+          ORDER BY ca.conflict_score DESC
+        `,
+        params: { location_id, date },
+        location: "EU",
+      }),
+      bq.query({
+        query: `
+          SELECT
+            ce.competitor_event_id,
+            ce.event_name,
+            ce.event_lat,
+            ce.event_lon,
+            ce.venue_name,
+            ce.venue_address,
+            ce.event_city,
+            ce.distance_from_location_m,
+            ce.industry_code,
+            ce.description
+          FROM \`muse-square-open-data.raw.competitor_events\` ce
+          INNER JOIN \`muse-square-open-data.raw.competitor_alerts\` ca
+            ON ce.competitor_event_id = ca.competitor_event_id
+          WHERE ca.location_id = @location_id
+            AND ca.affected_date = @date
+            AND ce.event_lat IS NOT NULL
+            AND ce.event_lon IS NOT NULL
+        `,
+        params: { location_id, date },
+        location: "EU",
+      }),
+    ]);
+
+    // Build lookup: competitor_event_id → alert row
+    const alertByCompetitorEventId = new Map<string, { event_label: string; conflict_score: number; distance_m: number | null; change_subtype: string | null }>();
+    for (const a of (alertRows || [])) {
+      const id = String(a.competitor_event_id || "").trim();
+      if (!id) continue;
+      const existing = alertByCompetitorEventId.get(id);
+      if (!existing || Number(a.conflict_score) > existing.conflict_score) {
+        alertByCompetitorEventId.set(id, {
+          event_label: String(a.event_label || "").trim(),
+          conflict_score: Number(a.conflict_score ?? 0),
+          distance_m: a.distance_m ?? null,
+          change_subtype: a.change_subtype ?? null,
+        });
+      }
+    }
+
+    // Build synthetic followed events from raw.competitor_events
+    const followedSyntheticEvents = (competitorEventRows || []).map((ce: any) => {
+      const alert = alertByCompetitorEventId.get(String(ce.competitor_event_id || "").trim());
+      const distM = Number(ce.distance_from_location_m ?? alert?.distance_m ?? 0);
+      const bucket = distM <= 500 ? "500m" : distM <= 1000 ? "1km" : distM <= 5000 ? "5km" : distM <= 10000 ? "10km" : "50km";
+      return {
+        id: `followed::${ce.competitor_event_id}`,
+        event_uid: String(ce.competitor_event_id),
+        signal_type: "event_competition",
+        source_system: "competitor_surveillance",
+        title: String(ce.event_name || ""),
+        description: String(ce.description || ""),
+        longDescription: "",
+        city_name: String(ce.event_city || ""),
+        theme: "",
+        keywords: "",
+        event_venue_name: ce.venue_name || null,
+        event_venue_address: ce.venue_address || null,
+        latitude: Number(ce.event_lat),
+        longitude: Number(ce.event_lon),
+        distance_m: distM || null,
+        radius_bucket: bucket,
+        radius_precedence: 0,
+        industry_code: ce.industry_code || null,
+        keyword_priority_rank: 0,
+        is_followed: true,
+        conflict_score: alert?.conflict_score ?? 0,
+      };
     });
 
-    const events = (rows || [])
+    const events = [
+      ...followedSyntheticEvents,
+      ...(rows || [])
       .filter((r:any)=> r.latitude && r.longitude)
-      .map((r: any) => ({
-      id: String(r.signal_id),
-      event_uid: r.event_uid,
-      signal_type: r.signal_type,
-      source_system: r.source_system,
+      .map((r: any) => {
+        return {
+          id: String(r.signal_id),
+          event_uid: r.event_uid,
+          signal_type: r.signal_type,
+          source_system: r.source_system,
 
-      title: r.event_label || "",
-      description: r.description || "",
-      longDescription: r.longDescription || "",
+          title: r.event_label || "",
+          description: r.description || "",
+          longDescription: r.longDescription || "",
 
-      city_name: r.city_name || "",
-      theme: r.theme || "",
-      keywords: r.keywords || "",
-      event_venue_name: r.event_venue_name || null,
-      event_venue_address: r.event_venue_address || null,
+          city_name: r.city_name || "",
+          theme: r.theme || "",
+          keywords: r.keywords || "",
+          event_venue_name: r.event_venue_name || null,
+          event_venue_address: r.event_venue_address || null,
 
-      latitude: Number(r.latitude),
-      longitude: Number(r.longitude),
+          latitude: Number(r.latitude),
+          longitude: Number(r.longitude),
 
-      distance_m: r.distance_m ?? null,
-      radius_bucket: r.radius_bucket,
-      radius_precedence: r.radius_precedence,
+          distance_m: r.distance_m ?? null,
+          radius_bucket: r.radius_bucket,
+          radius_precedence: r.radius_precedence,
 
-      industry_code: r.industry_code,
-      keyword_priority_rank: r.keyword_priority_rank
-    }));
+          industry_code: r.industry_code,
+          keyword_priority_rank: r.keyword_priority_rank,
+
+          is_followed: false,
+          conflict_score: 0,
+        };
+      }),
+    ];
 
     const isMobilityDisruption = (r: any) => r.signal_type === 'mobility_disruption' && r.latitude && r.longitude;
 

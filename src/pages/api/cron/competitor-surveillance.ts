@@ -38,6 +38,7 @@ interface CompetitorSource {
 }
 
 interface ExtractionResult {
+  signal_type: "event" | "launch" | "opening" | "campaign" | "press" | "partnership" | "unknown" | null;
   event_name: string | null;
   event_date: string | null;
   event_date_end: string | null;
@@ -77,7 +78,15 @@ const EXTRACTION_MODEL = "claude-sonnet-4-20250514";
 // 55s — safe margin for Vercel Pro 60s limit
 const TIMEOUT_MS = 55_000;
 
-const EXTRACTION_PROMPT = `You are a strict event data extractor. You read content from a competitor's website and extract structured event information.
+const EXTRACTION_PROMPT = `You are a strict business signal extractor. You read content from a competitor's website and extract structured information about their next upcoming business event or signal.
+
+A "business signal" is any of the following:
+- A scheduled public or professional event (exhibition, salon, conference, concert, festival, workshop)
+- A product or service launch
+- A store, showroom, or point-of-sale opening
+- A marketing campaign or promotional period
+- A press release or major announcement
+- A partnership, acquisition, or expansion announcement
 
 The content will contain two sections:
 1. JSON-LD STRUCTURED DATA — machine-readable schema.org markup. Prioritize this over page text.
@@ -87,15 +96,17 @@ RULES — non-negotiable:
 - Return ONLY valid JSON. No preamble, no markdown, no explanation.
 - If a field is not explicitly stated in the content, return null. Never infer, never guess.
 - Dates must be in YYYY-MM-DD format. If you cannot determine the exact date, return null.
+- signal_type must be exactly one of: "event", "launch", "opening", "campaign", "press", "partnership", "unknown" — nothing else.
 - venue_exposure must be exactly "indoor", "outdoor", or "unknown" — nothing else.
 - industry_code must be one of: non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event, hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility, outdoor_leisure, nightlife, unknown — or null.
 - primary_audience and secondary_audience must be one of: families, professionals, students, seniors, tourists, locals, art_lovers, sports_fans, general_public — or null.
 - capacity and estimated_attendance must be integers or null. Never compute or estimate them.
-- If the page contains multiple events, extract only the NEXT upcoming event (earliest future date).
-- If no event is found at all, return all fields as null.
+- If the page contains multiple signals, extract only the NEXT upcoming one (earliest future date or most recent announcement).
+- If no signal is found at all, return all fields as null.
 
 Return this exact JSON structure:
 {
+  "signal_type": null,
   "event_name": null,
   "event_date": null,
   "event_date_end": null,
@@ -170,6 +181,9 @@ function validateExtraction(raw: unknown): ExtractionResult {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
   return {
+    signal_type: ["event","launch","opening","campaign","press","partnership","unknown"].includes(r.signal_type as string)
+      ? (r.signal_type as ExtractionResult["signal_type"])
+      : null,
     event_name:
       typeof r.event_name === "string" ? r.event_name.trim() || null : null,
     event_date:
@@ -328,10 +342,12 @@ function qualifyUrl(url: string): { qualified: boolean; reason: string } {
 
 const DATE_PATTERN = /\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre|\d{1,2}[\/\-]\d{2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i;
 
-const EVENT_KEYWORDS = /\b(exposition|concert|conférence|conference|salon|festival|spectacle|atelier|séance|seance|représentation|representation|inauguration|vernissage|lancement|colloque|forum|rencontre|projection|performance|résidence|residence|masterclass|workshop)\b/i;
+const EVENT_KEYWORDS = /\b(exposition|concert|conférence|conference|salon|festival|spectacle|atelier|séance|seance|représentation|representation|inauguration|vernissage|lancement|colloque|forum|rencontre|projection|performance|résidence|residence|masterclass|workshop|lancement|ouverture|inauguration|partenariat|partnership|campagne|campaign|offre|promotion|soldes|collection|nouveauté|nouveau|nouvelle|annonce|communiqué|presse|press|release|produit|product|service|store|magasin|boutique|pop.up|showroom|flagship|concept.store|déploiement|deployment|expansion|levée de fonds|fundraising|acquisition|fusion|merger|recrutement|hiring)\b/i;
+
+const BUSINESS_SIGNALS = /\b(nous\s+ouvrons|we\s+are\s+opening|grand\s+ouverture|soft\s+launch|hard\s+launch|available\s+now|disponible\s+maintenant|à\s+partir\s+du|starting|dès\s+le|coming\s+soon|bientôt|prochainement|save\s+the\s+date|mark\s+your\s+calendar|rejoignez.nous|join\s+us|inscrivez.vous|register\s+now)\b/i;
 
 function hasEventSignals(text: string): boolean {
-  return DATE_PATTERN.test(text) && EVENT_KEYWORDS.test(text);
+  return DATE_PATTERN.test(text) && (EVENT_KEYWORDS.test(text) || BUSINESS_SIGNALS.test(text));
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -526,7 +542,7 @@ export const GET: APIRoute = async ({ request }) => {
               extraction_status, fetch_http_status, extracted_field_count,
               extraction_model, html_byte_length, raw_extraction_json,
               is_user_confirmed, confirmation_source, user_confirmed_at,
-              user_confirmed_by, created_at
+              user_confirmed_by, created_at, signal_type
             ) VALUES (
               @competitor_event_id, @competitor_id, @location_id, @source_url,
               @vetted_by_clerk_user_id, @crawled_at, @run_id, @crawl_version,
@@ -539,7 +555,7 @@ export const GET: APIRoute = async ({ request }) => {
               @extraction_status, @fetch_http_status, @extracted_field_count,
               @extraction_model, @html_byte_length, @raw_extraction_json,
               @is_user_confirmed, @confirmation_source, @user_confirmed_at,
-              NULL, @created_at
+              NULL, @created_at, @signal_type
             )
           `,
           params: {
@@ -581,6 +597,7 @@ export const GET: APIRoute = async ({ request }) => {
             confirmation_source:     confirmationSource,
             user_confirmed_at:       isAutoConfirmed ? crawledAt : null,
             created_at:              crawledAt,
+            signal_type:             extraction.signal_type ?? null,
           },
           types: {
             competitor_event_id:      "STRING",
@@ -621,6 +638,7 @@ export const GET: APIRoute = async ({ request }) => {
             confirmation_source:      "STRING",
             user_confirmed_at:        "STRING",
             created_at:               "STRING",
+            signal_type:              "STRING",
           },
           location: BQ_LOCATION,
         });

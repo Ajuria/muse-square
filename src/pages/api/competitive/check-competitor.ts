@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const bq          = makeBQClient(projectId);
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
-    const [rows] = await bq.query({
+    let [rows] = await bq.query({
       query: `
         SELECT
           competitor_id,
@@ -80,6 +80,57 @@ export const POST: APIRoute = async ({ request, locals }) => {
       },
       location: BQ_LOCATION,
     });
+
+    // Fallback: query raw.competitor_directory directly if view returned nothing
+    if (!Array.isArray(rows) || rows.length === 0) {
+      [rows] = await bq.query({
+        query: `
+          SELECT
+            competitor_id,
+            competitor_name,
+            address,
+            city,
+            NULL AS city_id,
+            NULL AS region_code_insee,
+            industry_code,
+            NULL AS industry_bucket,
+            primary_audience,
+            secondary_audience,
+            lat,
+            lon,
+            source_system,
+            google_place_id,
+            photos,
+            google_rating,
+            google_review_count,
+            google_review_summary,
+            description,
+            source_url,
+            confidence_score,
+            is_user_vetted
+          FROM \`${projectId}.raw.competitor_directory\`
+          WHERE LOWER(competitor_name) LIKE CONCAT('%', LOWER(@name_full), '%')
+            AND LOWER(city) LIKE CONCAT('%', LOWER(@competitor_city), '%')
+            AND deleted_at IS NULL
+          ORDER BY
+            CASE WHEN LOWER(competitor_name) = LOWER(@competitor_name) THEN 0 ELSE 1 END,
+            is_user_vetted DESC,
+            confidence_score DESC
+          LIMIT 10
+        `,
+        params: {
+          name_full:       competitor_name,
+          competitor_name: competitor_name.toLowerCase(),
+          competitor_city: competitor_city.toLowerCase(),
+        },
+        types: {
+          name_full:       "STRING",
+          competitor_name: "STRING",
+          competitor_city: "STRING",
+        },
+        location: BQ_LOCATION,
+      });
+    }
 
     const exists = Array.isArray(rows) && rows.length > 0;
 

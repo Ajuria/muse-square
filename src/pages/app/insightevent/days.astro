@@ -2649,7 +2649,6 @@ const show_actions = has_selected_dates;
                 .join("")}
             </div>
           `;
-
           pillsContainer.querySelectorAll("button[data-date]").forEach((btn) => {
             btn.addEventListener("click", () => {
               const d = btn.getAttribute("data-date");
@@ -2662,13 +2661,19 @@ const show_actions = has_selected_dates;
               if (selectedDate === "__comparison__") {
                 if (typeof MS.renderComparisonSection === "function") {
                   MS.renderComparisonSection(dayRowsByDate);
+                  renderPills(dayRowsByDate);
                 }
               } else {
-                renderFocusedDay(dayRowsByDate, MS.pointsCles, MS.savedItemMeta);
+                const _clickedDate = selectedDate;
+                MS._pendingTabDate = _clickedDate;
+                fetchCompetitorSignals(_clickedDate).then(res => {
+                  if (MS._pendingTabDate !== _clickedDate) return;
+                  MS.competitorSignals = res.signals;
+                  MS.competitorFollowedCount = res.followed_count;
+                  renderFocusedDay(dayRowsByDate, MS.pointsCles, MS.savedItemMeta);
+                  renderPills(dayRowsByDate);
+                });
               }
-              
-              // renderPills called AFTER so tabs re-inject into the fresh DOM
-              setTimeout(() => renderPills(dayRowsByDate), 0);
             });
           });
         }
@@ -3042,6 +3047,8 @@ const show_actions = has_selected_dates;
           const concurrenceHtml = renderConcurrenceHexLike(row);
           const mobiliteHtml = renderMobiliteHexLike(row);
           const meteoHtml = renderMeteoHexLike(row);
+          const suivisSignals = MS.competitorSignals || [];
+          const suivisHtml = renderSuivisHexLike(suivisSignals, selectedDate, MS.competitorFollowedCount || 0);
 
           container.innerHTML = `
 
@@ -3052,18 +3059,13 @@ const show_actions = has_selected_dates;
                 ${renderAudienceContext(row)}
             </div>
                                       
-            <!-- ZONE B (GREY - constrained to match breakdown width) -->
-            
-            <div class="ms-days-wrap" style="padding-top:0;border-top:none;overflow:visible;">
-                </div>
-              </div>
-            </div>
-          </div>
-          
+          <!-- ZONE B (GREY - constrained to match breakdown width) -->
+                
           <!-- ZONE C — PANELS -->
           <div class="ms-days-wrap">
             <div id="ms-zone-c">
               <div class="ms-panels">
+                ${suivisHtml}
                 ${calendrierHtml}
                 ${concurrenceHtml}
                 ${mobiliteHtml}
@@ -3647,6 +3649,140 @@ const show_actions = has_selected_dates;
                   SYNTHÈSE DÉCISIONNELLE
                 </div>
                 ${body}
+              </div>
+            `;
+          }
+
+          function renderSuivisHexLike(signals, date, followedCount) {
+            const SIGNAL_LABELS = {
+              event:       "Événement",
+              launch:      "Lancement",
+              opening:     "Ouverture",
+              campaign:    "Campagne",
+              press:       "Communiqué",
+              partnership: "Partenariat",
+              unknown:     "Signal",
+            };
+
+            function dayDiff(eventDate, refDate) {
+              const e = parseYmdToDate(eventDate);
+              const r = parseYmdToDate(refDate);
+              if (!e || !r) return null;
+              return Math.round((e.getTime() - r.getTime()) / 86400000);
+            }
+
+            function impactLabel(diff) {
+              if (diff === null) return null;
+              if (diff === 0) return { text: "Même jour que votre lancement", color: "#791F1F" };
+              if (diff > 0)  return { text: `${diff} jour${diff > 1 ? "s" : ""} après votre lancement`, color: "#6B7280" };
+              return { text: `${Math.abs(diff)} jour${Math.abs(diff) > 1 ? "s" : ""} avant votre lancement`, color: "#854F0B" };
+            }
+
+            function rowAccentColor(diff) {
+              if (diff === null) return "#9CA3AF";
+              if (diff === 0)   return "#E24B4A";
+              if (Math.abs(diff) <= 3) return "#EF9F27";
+              return "#9CA3AF";
+            }
+
+            function signalPillStyle(type) {
+              if (type === "event")       return "background:#FCEBEB;color:#791F1F;";
+              if (type === "launch")      return "background:#FAEEDA;color:#633806;";
+              if (type === "opening")     return "background:#FAEEDA;color:#633806;";
+              if (type === "campaign")    return "background:#EAF3DE;color:#27500A;";
+              if (type === "press")       return "background:var(--color-background-secondary);color:var(--color-text-secondary);";
+              if (type === "partnership") return "background:var(--color-background-secondary);color:var(--color-text-secondary);";
+              return "background:var(--color-background-secondary);color:var(--color-text-secondary);";
+            }
+
+            if (!Array.isArray(signals) || signals.length === 0) {
+              if (!followedCount) return "";
+              return `
+                <div class="ms-section">
+                  <div class="ms-card">
+                    <div class="ms-head">
+                      <div class="ms-ico">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      </div>
+                      <div class="ms-head-content">
+                        <span style="font-size:13px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Concurrents suivis</span>
+                      </div>
+                    </div>
+                    <div class="ms-below">
+                      <div style="font-size:13px;color:#6B7280;margin-bottom:8px;">Aucun signal détecté dans la fenêtre ±7 jours.</div>
+                      <div><a href="/app/insightevent/suivis" style="font-size:13px;color:#1D3BB3;text-decoration:none;">Gérer mes suivis →</a></div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+
+            const rowsHtml = signals.map(s => {
+              const diff = dayDiff(s.event_date, date);
+              const impact = impactLabel(diff);
+              const accent = rowAccentColor(diff);
+              const label = SIGNAL_LABELS[s.signal_type] || "Signal";
+              const pillStyle = signalPillStyle(s.signal_type);
+
+              const venueParts = [s.venue_name, s.event_city].filter(Boolean);
+              const distKm = s.distance_from_location_m
+                ? (s.distance_from_location_m / 1000).toFixed(1) + " km"
+                : null;
+              if (distKm) venueParts.push(distKm);
+
+              const fmtDate = (iso) => {
+                if (!iso) return "—";
+                const months = ["jan.","fév.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+                const parts = iso.slice(0,10).split("-");
+                return parseInt(parts[2]) + " " + months[parseInt(parts[1])-1] + " " + parts[0];
+              };
+
+              return `
+                <div style="border:0.5px solid #E5E7EB;border-left:3px solid ${accent};padding:14px 16px;">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <span style="font-size:13px;font-weight:500;color:#111827;">${escapeHtml(s.event_name || "—")}</span>
+                      <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
+                    </div>
+                    ${impact ? `<div style="flex-shrink:0;font-size:11px;font-weight:500;color:${impact.color};white-space:nowrap;">${escapeHtml(impact.text)}</div>` : ""}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:3px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Concurrent</span>
+                      <span style="font-size:13px;color:#111827;">${escapeHtml(s.competitor_name || "—")}</span>
+                    </div>
+                    ${venueParts.length ? `
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Lieu</span>
+                      <span style="font-size:13px;color:#6B7280;">${escapeHtml(venueParts.join(" · "))}</span>
+                    </div>` : ""}
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Date</span>
+                      <span style="font-size:13px;color:#6B7280;">${escapeHtml(fmtDate(s.event_date))}${s.event_date_end && s.event_date_end !== s.event_date ? " → " + escapeHtml(fmtDate(s.event_date_end)) : ""}</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join("");
+
+            return `
+              <div class="ms-section">
+                <div class="ms-card" style="border-left:3px solid #1D3BB3;padding:0;overflow:hidden;">
+                  <div style="padding:18px 24px 14px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span style="font-size:13px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Concurrents suivis</span>
+                    </div>
+                    <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#FCEBEB;color:#791F1F;font-weight:500;">${signals.length} signal${signals.length > 1 ? "s" : ""} · ±7j</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:0;">
+                    ${rowsHtml}
+                  </div>
+                  <div style="padding:10px 24px;border-top:0.5px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:11px;color:#9CA3AF;font-style:italic;">Fenêtre ±7 jours · analyse quotidienne</span>
+                    <a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Gérer mes suivis →</a>
+                  </div>
+                </div>
               </div>
             `;
           }
@@ -4620,6 +4756,22 @@ const show_actions = has_selected_dates;
             });
           });
           }  
+        
+        async function fetchCompetitorSignals(date) {
+          if (!date || date === "__comparison__") return { signals: [], followed_count: 0 };
+          try {
+            const res = await fetch(
+              `/api/competitive/competitor-signals?selected_date=${encodeURIComponent(date)}`
+            );
+            const json = await res.json().catch(() => null);
+            return {
+              signals: (json?.ok && Array.isArray(json.signals)) ? json.signals : [],
+              followed_count: json?.followed_count ?? 0,
+            };
+          } catch(e) {
+            return { signals: [], followed_count: 0 };
+          }
+        }
 
         async function fetchDays() {
           if (!container) return null;
@@ -4865,6 +5017,11 @@ const show_actions = has_selected_dates;
             MS.pointsCles = data.points_cles ?? null;
             MS.alerts = Array.isArray(data.alerts) ? data.alerts : [];
             MS.savedItemMeta = savedItemMeta ?? null;
+            const _cs = await fetchCompetitorSignals(
+              selectedDate !== "__comparison__" ? selectedDate : (selectedDates[0] || "")
+            );
+            MS.competitorSignals = _cs.signals;
+            MS.competitorFollowedCount = _cs.followed_count;
 
             if ((!selectedDate || (selectedDate !== "__comparison__" && !byDate.has(selectedDate))) && selectedDates.length > 0) {
               const firstFound = selectedDates.find((d) => byDate.has(d));
