@@ -58,7 +58,8 @@ export const GET: APIRoute = async ({ locals }) => {
           ce.crawled_at,
           ce.extraction_status,
           ce.extracted_field_count,
-          ce.fetch_http_status
+          ce.fetch_http_status,
+          ce.extraction_model
         FROM \`${projectId}.raw.watched_competitors\` wc
         LEFT JOIN \`${projectId}.raw.competitor_directory\` cd
           ON wc.competitor_id = cd.competitor_id
@@ -71,6 +72,7 @@ export const GET: APIRoute = async ({ locals }) => {
             ce_inner.fetch_http_status,
             ce_inner.crawled_at,
             ce_inner.source_url,
+            ce_inner.extraction_model,
             ROW_NUMBER() OVER (
               PARTITION BY ce_inner.competitor_id
               ORDER BY ce_inner.crawled_at DESC
@@ -139,6 +141,7 @@ export const GET: APIRoute = async ({ locals }) => {
       extraction_status:    r.extraction_status ?? null,
       extracted_field_count: r.extracted_field_count ?? null,
       fetch_http_status:    r.fetch_http_status ?? null,
+      extraction_model:     r.extraction_model ?? null,
     }));
 
     return new Response(JSON.stringify({ ok: true, events, competitors }), {

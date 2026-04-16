@@ -162,7 +162,10 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       if (!es || es === "no_url") return null;
       if (es === "timeout" || es === "fetch_error" || (item.fetch_http_status && item.fetch_http_status >= 400)) return { label: "URL inaccessible", bg: "#FCEBEB", color: "#791F1F" };
       if (es === "empty") return { label: "Page vide", bg: "#FAEEDA", color: "#633806" };
-      if (es === "partial" && item.extracted_field_count > 0) return { label: "Actif", bg: "#EAF3DE", color: "#27500A" };
+      if (es === "partial" && item.extracted_field_count > 0) {
+        if (item.extraction_model === "url_discovery_v1") return { label: "Auto-détectée", bg: "#EEF2FF", color: "#3730A3" };
+        return { label: "Actif", bg: "#EAF3DE", color: "#27500A" };
+      }
       return null;
     })();
 

@@ -3733,7 +3733,10 @@ const show_actions = has_selected_dates;
               const fmtDate = (iso) => {
                 if (!iso) return "—";
                 const months = ["jan.","fév.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
-                const parts = iso.slice(0,10).split("-");
+                const s = iso?.value ?? iso;
+                const str = typeof s === "string" ? s : String(s ?? "");
+                const parts = str.slice(0,10).split("-");
+                if (parts.length < 3) return str;
                 return parseInt(parts[2]) + " " + months[parseInt(parts[1])-1] + " " + parts[0];
               };
 

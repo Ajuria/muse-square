@@ -1480,7 +1480,9 @@ if (!location_id) {
                   const crawlMsg = (() => {
                     const cs = addResult?.crawl_status;
                     const es = addResult?.extraction_status;
+                    const ds = addResult?.discovery_status;
                     if (!candidate.source_url && !userUrl) return ' \u2014 ajoutez une URL dans Mes suivis pour d\u00e9marrer la veille.';
+                    if (ds === 'found') return ' \u2014 URL agenda trouv\u00e9e automatiquement \u2014 premi\u00e8re extraction cette nuit.';
                     if (cs === 'accessible') return ' \u2014 URL accessible, premi\u00e8re extraction cette nuit.';
                     const usedUrl = userUrl || candidate.source_url || '';
                     const path = (() => { try { return new URL(usedUrl).pathname.toLowerCase(); } catch { return ''; } })();
