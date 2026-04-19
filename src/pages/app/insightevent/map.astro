@@ -361,14 +361,18 @@ function renderEventList(items) {
       : "";
     return `
       <div style="border-left:3px solid ${accent};border-bottom:1px solid rgba(17,24,39,0.07);padding:16px 12px;">
+        ${isFollowed && e.google_photos ? `<img src="${e.google_photos}" alt="" style="width:100%;height:110px;object-fit:cover;border-radius:6px;margin-bottom:10px;display:block;" onerror="this.style.display='none'" />` : ''}
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px;">
           <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span style="font-size:14px;font-weight:500;color:#0F1F3D;">${idx+1}. ${escapeHtml(e.title ?? e.event_label)}</span>
+            <span style="font-size:14px;font-weight:500;color:#0F1F3D;">${idx+1}. ${escapeHtml(isFollowed && e.competitor_name ? e.competitor_name : (e.title ?? e.event_label))}</span>
             ${followedBadge}
           </span>
-          <span style="font-size:11px;color:#9CA3AF;white-space:nowrap;flex-shrink:0;">${e.distance_m ? Math.round(Number(e.distance_m)) + 'm' : ''}</span>
+          <span style="font-size:11px;color:#9CA3AF;white-space:nowrap;flex-shrink:0;">${e.distance_m ? (Number(e.distance_m)/1000).toFixed(1) + ' km' : ''}</span>
         </div>
-        ${desc ? `<div id="${descId}" style="font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(desc)}</div>` : ''}
+        ${isFollowed && e.google_rating ? `<div style="font-size:12px;color:#854F0B;font-weight:500;margin-bottom:6px;">★ ${e.google_rating}${e.google_rating_count ? ` · ${Number(e.google_rating_count).toLocaleString('fr-FR')} avis` : ''}</div>` : ''}
+        ${isFollowed && e.event_venue_address ? `<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">${escapeHtml(e.event_venue_address)}</div>` : ''}
+        ${isFollowed ? `<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9CA3AF;margin-bottom:3px;">Événement détecté</div><div style="font-size:13px;color:#374151;font-weight:400;margin-bottom:6px;">${escapeHtml(e.title || '')}</div>` : ''}
+        ${!isFollowed && desc ? `<div id="${descId}" style="font-size:13px;color:#374151;line-height:1.55;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(desc)}</div>` : ''}
         <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;">
           <a href="#"
             style="font-size:13px;color:#1D3BB3;text-decoration:none;"

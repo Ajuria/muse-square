@@ -169,6 +169,32 @@ function venuePopup(location) {
 }
 
 function eventPopup(signal) {
+  if (signal.is_followed) {
+    const ratingHtml = signal.google_rating
+      ? `<div class="mp-followed-rating">★ ${signal.google_rating}${signal.google_rating_count ? ` · ${signal.google_rating_count.toLocaleString('fr-FR')} avis` : ''}</div>`
+      : '';
+    const photoHtml = signal.google_photos
+      ? `<img src="${signal.google_photos}" alt="" class="mp-followed-photo" onerror="this.style.display='none'" />`
+      : '';
+    const distHtml = signal.distance_m
+      ? `<span class="mp-badge mp-badge--bucket">${(signal.distance_m / 1000).toFixed(1)} km</span>`
+      : '';
+    return `
+      <div class="mp-popup mp-popup--followed">
+        ${photoHtml}
+        <div class="mp-popup-followed-body">
+          <div class="mp-popup-label">${signal.competitor_name || signal.title || '—'}</div>
+          ${ratingHtml}
+          ${signal.event_venue_address ? `<div class="mp-popup-venue-address">${signal.event_venue_address}</div>` : ''}
+          <div class="mp-popup-meta">
+            ${distHtml}
+            <span class="mp-badge" style="background:#EEF2FF;color:#1D3BB3;">Suivi</span>
+          </div>
+          <div class="mp-popup-label" style="font-size:12px;font-weight:400;color:#374151;margin-top:4px;">${signal.title || ''}</div>
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="mp-popup mp-popup--event">
       ${signal.event_venue_name ? `<div class="mp-popup-venue-name">${signal.event_venue_name}</div>` : ''}
@@ -179,7 +205,7 @@ function eventPopup(signal) {
       ${signal.event_venue_address ? `<div class="mp-popup-venue-address">${signal.event_venue_address}</div>` : ''}
       <div class="mp-popup-meta">
         ${signal.city_name ? `<span>${signal.city_name}</span>` : ''}
-        <span class="mp-badge mp-badge--bucket">${Math.round(signal.distance_m)}m</span>
+        ${signal.distance_m ? `<span class="mp-badge mp-badge--bucket">${Math.round(signal.distance_m)}m</span>` : ''}
       </div>
       ${signal.description
         ? `<div class="mp-popup-desc">${signal.description.slice(0, 120)}${signal.description.length > 120 ? '…' : ''}</div>`
@@ -507,6 +533,10 @@ function createSubwayMarker(signal) {
       color: #1D4ED8;
       border: 1px solid #BFDBFE;
     }
+    .mp-popup--followed { padding: 0; min-width: 200px; }
+    .mp-followed-photo { width: 100%; height: 110px; object-fit: cover; border-radius: 8px 8px 0 0; display: block; }
+    .mp-popup-followed-body { padding: 10px 14px 12px; }
+    .mp-followed-rating { font-size: 12px; color: #854F0B; font-weight: 500; margin-bottom: 4px; }
   `;
 
   document.head.appendChild(style);

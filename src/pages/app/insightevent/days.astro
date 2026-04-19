@@ -674,7 +674,7 @@ const show_actions = has_selected_dates;
     line-height:1.8;
     color:#1a1a2e;
     margin:0 12px;
-    box-shadow:0 2px 12px rgba(17,24,39,0.06);
+    box-shadow:none;
   }
 
   .ms-card-decision{
@@ -2106,8 +2106,22 @@ const show_actions = has_selected_dates;
             locationMap.get(key).push(it);
           });
 
+          function isItemPast(it) {
+            const dates = extractDatesFromSavedItem(it);
+            if (!dates.length) return false;
+            const earliest = dates.sort()[0];
+            const d = parseYmdToDate(earliest);
+            if (!d) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return d.getTime() < today.getTime();
+          }
+
           const groupsHtml = locationOrder.map(({ key, label, is_primary }) => {
             const groupItems = locationMap.get(key);
+            const upcomingItems = groupItems.filter(it => !isItemPast(it));
+            const pastItems = groupItems.filter(it => isItemPast(it));
+            const pastId = 'past-' + key.replace(/[^a-zA-Z0-9]/g, '_');
             return `
               <div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(17,24,39,0.06);margin-bottom:16px;" data-location-label="${escapeHtml(label)}">
                 <div style="padding:14px 20px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;">
@@ -2118,8 +2132,9 @@ const show_actions = has_selected_dates;
                   <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:64px;text-align:right;">Début</span>
                   <span style="min-width:64px;text-align:right;"></span>
                 </div>
+                ${upcomingItems.length === 0 ? `<div style="padding:14px 20px;font-size:13px;color:#9CA3AF;">Aucun événement à venir</div>` : ''}
                 <div>
-                  ${groupItems.map((it) => {
+                  ${upcomingItems.map((it) => {
                     const id = it?.saved_item_id ? String(it.saved_item_id) : "";
                     const title = it?.title ? String(it.title) : "Sans titre";
                     const desc = it?.description ? String(it.description) : "";
@@ -2207,6 +2222,44 @@ const show_actions = has_selected_dates;
                     `;
                   }).join("")}
                 </div>
+                ${pastItems.length > 0 ? `
+                  <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;border-top:0.5px solid #E5E7EB;" onclick="(function(e){var el=document.getElementById('${pastId}');var chev=document.getElementById('chev-${pastId}');if(!el)return;var open=el.style.display!=='none';el.style.display=open?'none':'block';if(chev)chev.style.transform=open?'rotate(0deg)':'rotate(180deg)';})(event)">
+                    <div style="display:flex;align-items:center;">
+                      <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;">Passées</span>
+                      <span style="font-size:10px;font-weight:500;background:#F3F4F6;color:#9CA3AF;padding:1px 7px;border-radius:20px;margin-left:6px;">${pastItems.length}</span>
+                    </div>
+                    <svg id="chev-${pastId}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div id="${pastId}" style="display:none;border-top:0.5px solid #F3F4F6;padding:0 20px;">
+                    ${pastItems.map((it) => {
+                      const title = it?.title ? String(it.title) : "Sans titre";
+                      const dates = extractDatesFromSavedItem(it);
+                      const earliest = dates.sort()[0] || "";
+                      const d = parseYmdToDate(earliest);
+                      const dateFr = d ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(d) : earliest;
+                      const medal = it?.medal || it?.opportunity_medal || null;
+                      const score = it?.opportunity_score_final_local ?? it?.score ?? null;
+                      const medalClass = medal ? (String(medal).toUpperCase().startsWith("A") ? "md-medal-a" : String(medal).toUpperCase().startsWith("B") ? "md-medal-b" : "md-medal-c") : "";
+                      const medalBg = String(medal || "").toUpperCase().startsWith("A") ? "#E1F5EE" : String(medal || "").toUpperCase().startsWith("B") ? "#FAEEDA" : "#FCEBEB";
+                      const medalColor = String(medal || "").toUpperCase().startsWith("A") ? "#0F6E56" : String(medal || "").toUpperCase().startsWith("B") ? "#854F0B" : "#A32D2D";
+                      return `
+                        <div style="padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #F3F4F6;opacity:0.5;">
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-size:14px;font-weight:400;color:#6B7280;">${escapeHtml(title)}</div>
+                            <div style="font-size:12px;color:#9CA3AF;margin-top:2px;">${escapeHtml(dateFr)}</div>
+                          </div>
+                          ${medal ? `<span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;background:${medalBg};color:${medalColor};">${escapeHtml(String(medal))}</span>` : ""}
+                          ${score != null ? `<span style="font-size:11px;color:#9CA3AF;margin-left:8px;">Score ${Math.round(Number(score))}</span>` : ""}
+                        </div>
+                      `;
+                    }).join("")}
+                  </div>
+                ` : `
+                  <div style="padding:10px 20px;display:flex;align-items:center;border-top:0.5px solid #E5E7EB;">
+                    <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;">Passées</span>
+                    <span style="font-size:10px;font-weight:500;background:#F3F4F6;color:#9CA3AF;padding:1px 7px;border-radius:20px;margin-left:6px;">0</span>
+                  </div>
+                `}
               </div>
             `;
           }).join("");

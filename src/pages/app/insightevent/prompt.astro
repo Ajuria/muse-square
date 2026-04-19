@@ -135,99 +135,121 @@ if (!location_id) {
 
           <!-- CONCURRENCE SECTION (hidden by default) -->
           <div id="ie-concurrence-section" style="display:none;">
-            <div id="ie-concurrence-label">ACTIONS</div>
-            <div style="border-left:3px solid #1D3BB3;background:#E6F1FB;padding:12px 14px;margin-bottom:16px;">
-              <p style="font-size:13px;color:#0C447C;line-height:1.6;margin:0;">Identifiez les événements et marques qui disputent votre audience. Suivez-les pour recevoir des alertes dans votre veille quotidienne.</p>
-            </div>
-
-            <button class="ie-conc-card" id="ie-conc-event" data-path="event">
-              <div class="ie-prompt-card-icon">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <div id="ie-conc-empty-state">
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Recherchez un concurrent, un événement ou un mot-clé dans votre zone.</p>
               </div>
-              <div class="ie-prompt-card-content">
-                <p class="ie-conc-card-title">Événement concurrent</p>
-                <p class="ie-conc-card-sub">Salon, festival, lancement, exposition, conférence de presse…</p>
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><path d="M12 5v14M5 12h14"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Ajoutez les résultats à votre veille concurrentielle, actualisée chaque nuit.</p>
               </div>
-              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-event">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-            </button>
-            <div class="ie-conc-form" id="ie-form-event" style="display:none;">
-              <div class="ie-conc-form-inner">
-                <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Nom <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Lancement Taycan" id="ie-evt-name" /></div>
-                  <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-evt-city" /></div>
-                </div>
-                <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" readonly /></div>
-                  <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" readonly /></div>
-                </div>
-                <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Organisateur</div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-evt-organizer" /></div>
-                  <div><div class="ie-fl">Nom du lieu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-evt-venue" /></div>
-                </div>
-                <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-evt-url" /><div class="ie-hint">Sans lien, l'IA recherche automatiquement.</div></div>
-                <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-ghost" data-close-path="event">Annuler</button>
-                  <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
-                </div>
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Complétez avec une recherche web si la base de données ne suffit pas.</p>
               </div>
             </div>
 
-            <button class="ie-conc-card" id="ie-conc-competitor" data-path="competitor">
-              <div class="ie-prompt-card-icon">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div class="ie-prompt-card-content">
-                <p class="ie-conc-card-title">Marque ou lieu</p>
-                <p class="ie-conc-card-sub">Hôtel, musée, organisateur, enseigne, salle de spectacle…</p>
-              </div>
-              <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-competitor">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-            </button>
-            <div class="ie-conc-form" id="ie-form-competitor" style="display:none;">
-              <div class="ie-conc-form-inner">
-                <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Nom du concurrent <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-comp-name" /><div class="ie-hint">L'IA corrigera l'orthographe.</div></div>
-                  <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-comp-city" /></div>
-                </div>
-                <div><div class="ie-fl">Secteur d'activité</div>
-                  <select class="ie-conc-input" id="ie-comp-sector">
-                    <option value="">Sélectionner…</option>
-                    <option value="non_profit">Associatif & Non lucratif</option>
-                    <option value="wellness">Bien-être & Fitness</option>
-                    <option value="cinema_theatre">Cinéma & Théâtre</option>
-                    <option value="commercial">Commerce & Retail</option>
-                    <option value="institutional">Collectivités & Secteur public</option>
-                    <option value="culture">Culture & Patrimoine</option>
-                    <option value="family">Éducation & Enseignement</option>
-                    <option value="live_event">Événementiel</option>
-                    <option value="hotel_lodging">Hôtellerie & Hébergement</option>
-                    <option value="food_nightlife">Restauration & Bars</option>
-                    <option value="science_innovation">Sciences & Innovation</option>
-                    <option value="pro_event">Salons & Événements professionnels</option>
-                    <option value="sport">Sports & Loisirs actifs</option>
-                    <option value="transport_mobility">Transport & Mobilité locale</option>
-                    <option value="outdoor_leisure">Tourisme & Loisirs</option>
-                    <option value="nightlife">Vie nocturne</option>
-                    <option value="unknown">Autre activité accueillant du public</option>
-                  </select>
-                </div>
-                <div class="ie-conc-grid-2">
-                  <div><div class="ie-fl">Nom d'un lieu connu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-comp-venue" /></div>
-                  <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-comp-url" /></div>
-                </div>
-                <div class="ie-conc-actions">
-                  <button class="ie-conc-btn-ghost" data-close-path="competitor">Annuler</button>
-                  <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
-                </div>
-              </div>
+            <div id="ie-conc-loading" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Recherche en cours...</div>
+            <div id="ie-conc-empty" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:14px;">Aucun résultat. Essayez un autre mot-clé.</div>
+
+            <div id="ie-conc-db-results" style="display:none;"></div>
+
+            <div id="ie-conc-web-cta" style="display:none;border:0.5px dashed rgba(0,0,0,0.12);border-radius:0;padding:14px 16px;text-align:center;margin:16px 0;cursor:pointer;transition:background 120ms;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+              <span style="font-size:13px;color:#1D3BB3;font-weight:500;">Rechercher aussi sur le web →</span>
+            </div>
+            <div id="ie-conc-web-loading" style="display:none;text-align:center;padding:16px 0;color:#9CA3AF;font-size:13px;">Recherche web en cours...</div>
+            <div id="ie-conc-web-results" style="display:none;"></div>
+
+            <div id="ie-conc-manual-section" style="display:none;margin-top:20px;">
+              <a href="#" id="ie-conc-manual-link" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Saisie manuelle d'un événement ou concurrent</a>
             </div>
 
-            <div style="border:0.5px dashed rgba(0,0,0,0.12);border-radius:8px;padding:14px 16px;text-align:center;margin-top:4px;">
-              <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Bientôt disponible</div>
-              <div style="font-size:12px;color:#6b7280;">Recherche par mot-clé et zone géographique</div>
+            <div id="ie-conc-manual-forms" style="display:none;margin-top:16px;">
+              <button class="ie-conc-card" id="ie-conc-event" data-path="event">
+                <div class="ie-prompt-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </div>
+                <div class="ie-prompt-card-content">
+                  <p class="ie-conc-card-title">Événement concurrent</p>
+                  <p class="ie-conc-card-sub">Salon, festival, lancement, exposition, conférence de presse…</p>
+                </div>
+                <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-event">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </button>
+              <div class="ie-conc-form" id="ie-form-event" style="display:none;">
+                <div class="ie-conc-form-inner">
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Lancement Taycan" id="ie-evt-name" /></div>
+                    <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-evt-city" /></div>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" readonly /></div>
+                    <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" readonly /></div>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Organisateur</div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-evt-organizer" /></div>
+                    <div><div class="ie-fl">Nom du lieu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-evt-venue" /></div>
+                  </div>
+                  <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-evt-url" /><div class="ie-hint">Sans lien, l'IA recherche automatiquement.</div></div>
+                  <div class="ie-conc-actions">
+                    <button class="ie-conc-btn-ghost" data-close-path="event">Annuler</button>
+                    <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
+                  </div>
+                </div>
+              </div>
+
+              <button class="ie-conc-card" id="ie-conc-competitor" data-path="competitor">
+                <div class="ie-prompt-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="ie-prompt-card-content">
+                  <p class="ie-conc-card-title">Marque ou lieu</p>
+                  <p class="ie-conc-card-sub">Hôtel, musée, organisateur, enseigne, salle de spectacle…</p>
+                </div>
+                <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-competitor">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </button>
+              <div class="ie-conc-form" id="ie-form-competitor" style="display:none;">
+                <div class="ie-conc-form-inner">
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom du concurrent <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-comp-name" /><div class="ie-hint">L'IA corrigera l'orthographe.</div></div>
+                    <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-comp-city" /></div>
+                  </div>
+                  <div><div class="ie-fl">Secteur d'activité</div>
+                    <select class="ie-conc-input" id="ie-comp-sector">
+                      <option value="">Sélectionner…</option>
+                      <option value="non_profit">Associatif & Non lucratif</option>
+                      <option value="wellness">Bien-être & Fitness</option>
+                      <option value="cinema_theatre">Cinéma & Théâtre</option>
+                      <option value="commercial">Commerce & Retail</option>
+                      <option value="institutional">Collectivités & Secteur public</option>
+                      <option value="culture">Culture & Patrimoine</option>
+                      <option value="family">Éducation & Enseignement</option>
+                      <option value="live_event">Événementiel</option>
+                      <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+                      <option value="food_nightlife">Restauration & Bars</option>
+                      <option value="science_innovation">Sciences & Innovation</option>
+                      <option value="pro_event">Salons & Événements professionnels</option>
+                      <option value="sport">Sports & Loisirs actifs</option>
+                      <option value="transport_mobility">Transport & Mobilité locale</option>
+                      <option value="outdoor_leisure">Tourisme & Loisirs</option>
+                      <option value="nightlife">Vie nocturne</option>
+                      <option value="unknown">Autre activité accueillant du public</option>
+                    </select>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom d'un lieu connu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-comp-venue" /></div>
+                    <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-comp-url" /></div>
+                  </div>
+                  <div class="ie-conc-actions">
+                    <button class="ie-conc-btn-ghost" data-close-path="competitor">Annuler</button>
+                    <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -961,13 +983,47 @@ if (!location_id) {
           btn.classList.toggle('active', active);
         });
 
+        // Update greeting for mode
+        const titleEl = document.getElementById('ie-prompt-title');
+        if (titleEl) {
+          const name = (titleEl.getAttribute('data-firstname') || '').trim();
+          const greetName = name ? `Bonjour ${name}.` : 'Bonjour.';
+          if (m === 'concurrence') {
+            var cMorning = ['Quel concurrent souhaitez-vous surveiller ?','Quels événements se préparent dans votre zone ?','Qui souhaitez-vous ajouter à votre veille ?'];
+            var cAfternoon = ['Quel événement concurrent avez-vous repéré ?','Quelle marque souhaitez-vous suivre ?','Quels salons approchent dans votre secteur ?'];
+            var cEvening = ['Quel concurrent souhaitez-vous anticiper ?','Quels événements méritent votre attention ?','Quelle veille souhaitez-vous renforcer ?'];
+            var cHour = new Date().getHours();
+            var cPool = cHour < 12 ? cMorning : cHour < 18 ? cAfternoon : cEvening;
+            var cQ = cPool[new Date().getDate() % cPool.length];
+            titleEl.innerHTML = greetName + '<br>' + cQ;
+          } else if (m === 'planning') {
+            const hour = new Date().getHours();
+            const morning = ['Que souhaitez-vous explorer ?','Par où commençons-nous ?','Quelle date souhaitez-vous évaluer ?','Quelle est votre prochaine décision ?'];
+            const afternoon = ['Sur quoi travaillez-vous aujourd\'hui ?','Quelle décision préparez-vous ?','Quel événement planifiez-vous ?','Où en êtes-vous dans votre planification ?'];
+            const evening = ['Quels risques souhaitez-vous anticiper ?','Que souhaitez-vous préparer pour demain ?','Quelle date souhaitez-vous sécuriser ?','Quel est votre prochain défi ?'];
+            const pool = hour < 12 ? morning : hour < 18 ? afternoon : evening;
+            const q = pool[new Date().getDate() % pool.length];
+            titleEl.innerHTML = greetName + '<br>' + q;
+          } else {
+            titleEl.innerHTML = greetName;
+          }
+        }
+
         // Input placeholder
         const ph = {
           planning: 'Posez votre question…',
-          concurrence: 'Ajoutez un contexte ou validez directement…',
+          concurrence: 'Rechercher un événement, un concurrent, ou par mot-clé…',
           marketing: 'Bientôt disponible…',
         };
         if (inputEl) inputEl.placeholder = ph[m] || 'Posez votre question…';
+
+        // Input wrap stays visible in all modes — only placeholder, icon, and handler change
+        const submitBtn = document.getElementById('ie-prompt-submit-btn');
+        if (m === 'concurrence') {
+          if (submitBtn) submitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="2.5" stroke-linecap="round"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        } else {
+          if (submitBtn) submitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+        }
       }
       window.__ieSetMode = setMode;
 
@@ -1347,9 +1403,8 @@ if (!location_id) {
                 description:          m.description,
                 source_url:           m.source_url,
                 google_rating:        m.google_rating,
-                google_review_count:  m.google_review_count,
-                google_review_summary: m.google_review_summary,
-                photos:               m.photos,
+                google_rating_count:  m.google_rating_count,
+                google_photos:        m.google_photos,
                 confidence:           m.confidence_score >= 0.9 ? 'high' : m.confidence_score >= 0.7 ? 'medium' : 'low',
                 confidence_score:     m.confidence_score,
                 is_user_vetted:       m.is_user_vetted,
@@ -1408,7 +1463,7 @@ if (!location_id) {
             c.city || null,
             c.industry_code || null,
             c.address || null,
-            c.google_rating ? `★ ${c.google_rating}${c.google_review_count ? ` (${c.google_review_count} avis)` : ''}` : null,
+            c.google_rating ? `★ ${c.google_rating}${c.google_rating_count ? ` (${c.google_rating_count.toLocaleString('fr-FR')} avis)` : ''}` : null,
           ].filter(Boolean).join(' · ');
 
           return `
@@ -1514,6 +1569,317 @@ if (!location_id) {
           });
         });
       }
+
+      // ---- Concurrence search ----
+      const concSearchInput = null; // Now uses shared #ie-prompt-input
+      const concSearchBtn = null;   // Now uses shared #ie-prompt-submit-btn
+      const concManualLink = document.getElementById('ie-conc-manual-link');
+
+      if (concManualLink) {
+        concManualLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          const forms = document.getElementById('ie-conc-manual-forms');
+          if (forms) forms.style.display = forms.style.display === 'none' ? 'block' : 'none';
+          concManualLink.textContent = forms && forms.style.display !== 'none' ? 'Masquer la saisie manuelle' : 'Saisie manuelle d\'un événement ou concurrent';
+        });
+      }
+
+      function escapeHtmlSearch(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      async function runConcSearch() {
+        const q = (document.getElementById('ie-prompt-input')?.value || '').trim();
+        if (!q) {
+          const es = document.getElementById('ie-conc-empty-state');
+          if (es) es.style.display = '';
+          const dbR = document.getElementById('ie-conc-db-results');
+          if (dbR) { dbR.style.display = 'none'; dbR.innerHTML = ''; }
+          const wR = document.getElementById('ie-conc-web-results');
+          if (wR) { wR.style.display = 'none'; wR.innerHTML = ''; }
+          const wC = document.getElementById('ie-conc-web-cta');
+          if (wC) wC.style.display = 'none';
+          const eE = document.getElementById('ie-conc-empty');
+          if (eE) eE.style.display = 'none';
+          return;
+        }
+
+        const dbResultsEl = document.getElementById('ie-conc-db-results');
+        const webCtaEl = document.getElementById('ie-conc-web-cta');
+        const webResultsEl = document.getElementById('ie-conc-web-results');
+        const loadingEl = document.getElementById('ie-conc-loading');
+        const emptyEl = document.getElementById('ie-conc-empty');
+        const webLoadingEl = document.getElementById('ie-conc-web-loading');
+
+        if (dbResultsEl) { dbResultsEl.style.display = 'none'; dbResultsEl.innerHTML = ''; }
+        if (webCtaEl) webCtaEl.style.display = 'none';
+        if (webResultsEl) { webResultsEl.style.display = 'none'; webResultsEl.innerHTML = ''; }
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'block';
+        const emptyStateEl = document.getElementById('ie-conc-empty-state');
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+
+        try {
+          const res = await fetch('/api/competitive/search-db', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ query: q }),
+          });
+          const json = await res.json().catch(() => null);
+          const results = Array.isArray(json?.results) ? json.results : [];
+
+          if (loadingEl) loadingEl.style.display = 'none';
+
+          if (results.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'block';
+          } else {
+            renderDbResults(results, dbResultsEl);
+          }
+
+          if (webCtaEl) {
+            webCtaEl.style.display = 'flex';
+            webCtaEl.onclick = async () => {
+              webCtaEl.style.display = 'none';
+              if (webLoadingEl) webLoadingEl.style.display = 'block';
+              try {
+                const wRes = await fetch('/api/competitive/search-web', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ query: q }),
+                });
+                const wJson = await wRes.json().catch(() => null);
+                const wResults = Array.isArray(wJson?.results) ? wJson.results : [];
+                if (webLoadingEl) webLoadingEl.style.display = 'none';
+                if (wResults.length > 0) {
+                  renderWebResults(wResults, webResultsEl);
+                }
+              } catch {
+                if (webLoadingEl) webLoadingEl.style.display = 'none';
+              }
+            };
+          }
+
+        } catch {
+          if (loadingEl) loadingEl.style.display = 'none';
+          if (emptyEl) emptyEl.style.display = 'block';
+        }
+      }
+
+      function renderDbResults(results, container) {
+        if (!container) return;
+        const html = `
+          <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Dans votre zone</div>
+          ${results.map((r, i) => {
+            const isEvent = r.type === 'event';
+            const iconBg = isEvent ? '#E6F1FB' : '#EEEDFE';
+            const iconStroke = isEvent ? '#185FA5' : '#534AB7';
+            const badgeBg = isEvent ? '#E6F1FB' : '#EEEDFE';
+            const badgeColor = isEvent ? '#0C447C' : '#3C3489';
+            const badgeLabel = isEvent ? 'Événement' : 'Lieu';
+            const isFollowed = r.is_followed === true;
+            const iconSvg = isEvent
+              ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + iconStroke + '" stroke-width="1.6"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>'
+              : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + iconStroke + '" stroke-width="1.6"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+            const meta = [r.distance_km ? r.distance_km.toFixed(1) + ' km' : null, r.date_label, r.source_system].filter(Boolean).join(' · ');
+
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-db-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (isEvent ? 'event' : 'competitor') + '" data-industry="' + escapeHtmlSearch(r.industry_code || '') + '">' +
+              '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-db-detail-' + i + '\').style.display=document.getElementById(\'ie-db-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
+                '<div style="width:36px;height:36px;border-radius:8px;background:' + iconBg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + iconSvg + '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-size:15px;font-weight:500;color:#111827;margin-bottom:3px;">' + escapeHtmlSearch(r.name) + '</div>' +
+                  '<div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                    '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + badgeBg + ';color:' + badgeColor + ';">' + badgeLabel + '</span>' +
+                    '<span>' + escapeHtmlSearch(meta) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="flex-shrink:0;margin-top:2px;">' +
+                  (isFollowed
+                    ? '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>'
+                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-db-confirm-' + i + '\').style.display=document.getElementById(\'ie-db-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">Suivre</button>') +
+                '</div>' +
+              '</div>' +
+              '<div id="ie-db-detail-' + i + '" style="display:none;padding:0 16px 14px 64px;">' +
+                (r.description ? '<div style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:10px;">' + escapeHtmlSearch(r.description) + '</div>' : '') +
+                (r.industry_code ? '<div style="font-size:12px;color:#9CA3AF;margin-bottom:6px;">Secteur : ' + escapeHtmlSearch(r.industry_code) + '</div>' : '') +
+                '<div id="ie-db-confirm-' + i + '" style="display:none;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9fafb;">' +
+                  '<div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Ajouter à votre veille</div>' +
+                  '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Secteur d\'activité</div>' +
+                    '<select style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;">' +
+                      '<option value="">-- Sélectionner --</option>' +
+                      '<option' + (r.industry_code === 'Culture & Patrimoine' ? ' selected' : '') + '>Culture & Patrimoine</option>' +
+                      '<option' + (r.industry_code === 'Événementiel' ? ' selected' : '') + '>Événementiel</option>' +
+                      '<option' + (r.industry_code === 'Salons & Événements professionnels' ? ' selected' : '') + '>Salons & Événements professionnels</option>' +
+                      '<option' + (r.industry_code === 'Commerce & Retail' ? ' selected' : '') + '>Commerce & Retail</option>' +
+                      '<option' + (r.industry_code === 'Tourisme & Loisirs' ? ' selected' : '') + '>Tourisme & Loisirs</option>' +
+                      '<option' + (r.industry_code === 'Restauration & Bars' ? ' selected' : '') + '>Restauration & Bars</option>' +
+                      '<option' + (r.industry_code === 'Sports & Loisirs actifs' ? ' selected' : '') + '>Sports & Loisirs actifs</option>' +
+                    '</select>' +
+                  '</div>' +
+                  '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
+                    '<button style="padding:6px 12px;background:none;color:#9CA3AF;border:none;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'ie-db-confirm-' + i + '\').style.display=\'none\'">Annuler</button>' +
+                    '<button style="padding:6px 16px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;" onclick="ieDbFollow(this,' + i + ')">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('')}
+        `;
+        container.innerHTML = html;
+        container.style.display = 'block';
+      }
+
+      window.ieDbFollow = async function(btn, idx) {
+        var card = document.getElementById('ie-db-card-' + idx);
+        if (!card) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var name = card.getAttribute('data-name') || '';
+        var type = card.getAttribute('data-type') || 'competitor';
+        var selectEl = document.getElementById('ie-db-confirm-' + idx)?.querySelector('select');
+        var industry = selectEl ? selectEl.value : (card.getAttribute('data-industry') || '');
+
+        try {
+          var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
+          var body = type === 'event'
+            ? { event_name: name, source_system: 'user_confirmed' }
+            : { competitor_name: name, industry_code: industry || null, source_system: 'user_confirmed' };
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          await res.json();
+          card.style.opacity = '0.4';
+          card.querySelectorAll('button, a').forEach(function(b) { b.disabled = true; });
+          var confirmEl = document.getElementById('ie-db-confirm-' + idx);
+          if (confirmEl) confirmEl.style.display = 'none';
+          var actionArea = card.querySelector('[style*="flex-shrink:0;margin-top:2px"]');
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+        } catch(e) {
+          btn.disabled = false;
+          btn.textContent = 'Suivre';
+        }
+      };
+
+      function renderWebResults(results, container) {
+        if (!container) return;
+        const html = `
+          <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            Résultats web
+            <span style="font-size:10px;font-weight:500;padding:1px 8px;border-radius:20px;background:#f3f4f6;color:#9CA3AF;">Non vérifié</span>
+          </div>
+          ${results.map((r, i) => {
+            const domain = r.source_url ? (() => { try { return new URL(r.source_url).hostname.replace('www.',''); } catch { return ''; } })() : '';
+
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-web-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (r.type || 'competitor') + '">' +
+              '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-web-detail-' + i + '\').style.display=document.getElementById(\'ie-web-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
+                '<div style="width:36px;height:36px;border-radius:8px;background:#FAEEDA;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
+                '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-size:15px;font-weight:500;color:#111827;margin-bottom:3px;">' + escapeHtmlSearch(r.name) + '</div>' +
+                  '<div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                    '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:#FAEEDA;color:#633806;">Web</span>' +
+                    '<span>' + escapeHtmlSearch([r.location, domain].filter(Boolean).join(' · ')) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div id="ie-web-actions-' + i + '" style="flex-shrink:0;margin-top:2px;">' +
+                  (r.source_url
+                    ? '<a href="' + escapeHtmlSearch(r.source_url) + '" target="_blank" rel="noopener" style="font-size:13px;color:#1D3BB3;text-decoration:none;white-space:nowrap;" onclick="event.stopPropagation();markWebVerified(' + i + ')">Vérifier la source →</a>'
+                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-web-confirm-' + i + '\').style.display=\'block\'">Suivre</button>') +
+                '</div>' +
+              '</div>' +
+              '<div id="ie-web-detail-' + i + '" style="display:none;padding:0 16px 14px 64px;">' +
+                (r.description ? '<div style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:10px;">' + escapeHtmlSearch(r.description) + '</div>' : '') +
+                (r.confidence ? '<div style="font-size:12px;color:#9CA3AF;margin-bottom:6px;">Confiance : <span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + (r.confidence === 'high' ? '#E1F5EE' : '#FAEEDA') + ';color:' + (r.confidence === 'high' ? '#0F6E56' : '#854F0B') + ';">' + (r.confidence === 'high' ? 'Source pré-validée' : 'À confirmer') + '</span></div>' : '') +
+                '<div id="ie-web-post-verify-' + i + '" style="display:none;padding-top:10px;border-top:0.5px solid rgba(0,0,0,0.06);">' +
+                  '<div style="display:flex;align-items:center;gap:12px;justify-content:flex-end;">' +
+                    '<button style="font-size:13px;color:#9CA3AF;background:none;border:none;cursor:pointer;padding:0;" onclick="document.getElementById(\'ie-web-card-' + i + '\').remove()">Ce n\'est pas ça</button>' +
+                    '<span style="font-size:12px;color:rgba(0,0,0,0.12);">|</span>' +
+                    '<button style="font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="document.getElementById(\'ie-web-confirm-' + i + '\').style.display=document.getElementById(\'ie-web-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div id="ie-web-confirm-' + i + '" style="display:none;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9fafb;">' +
+                  '<div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Ajouter à votre veille</div>' +
+                  '<div style="display:flex;gap:12px;margin-bottom:10px;">' +
+                    '<div style="flex:1;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Secteur d\'activité</div>' +
+                      '<select style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;">' +
+                        '<option value="">-- Sélectionner --</option>' +
+                        '<option>Culture & Patrimoine</option><option>Événementiel</option><option>Salons & Événements professionnels</option><option>Commerce & Retail</option><option>Tourisme & Loisirs</option>' +
+                      '</select>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Page agenda / programme</div>' +
+                    '<input type="text" value="' + escapeHtmlSearch(r.source_url || '') + '" placeholder="https://... /agenda ou /programme" style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;" />' +
+                    '<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:4px;">Indiquer la page agenda ou actualités permet de mieux détecter les futurs événements.</div>' +
+                  '</div>' +
+                  '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
+                    '<button style="padding:6px 12px;background:none;color:#9CA3AF;border:none;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'ie-web-confirm-' + i + '\').style.display=\'none\'">Annuler</button>' +
+                    '<button style="padding:6px 16px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;" onclick="ieWebFollow(this,' + i + ')">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('')}
+        `;
+        container.innerHTML = html;
+        container.style.display = 'block';
+      }
+
+      window.ieWebFollow = async function(btn, idx) {
+        var card = document.getElementById('ie-web-card-' + idx);
+        if (!card) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var name = card.getAttribute('data-name') || '';
+        var type = card.getAttribute('data-type') || 'competitor';
+        var confirmEl = document.getElementById('ie-web-confirm-' + idx);
+        var selectEl = confirmEl ? confirmEl.querySelector('select') : null;
+        var industry = selectEl ? selectEl.value : '';
+        var urlInput = confirmEl ? confirmEl.querySelector('input[type="text"]') : null;
+        var agendaUrl = urlInput ? urlInput.value.trim() : '';
+
+        try {
+          var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
+          var body = type === 'event'
+            ? { event_name: name, source_system: 'user_confirmed', source_url: agendaUrl || null }
+            : { competitor_name: name, industry_code: industry || null, source_url: agendaUrl || null, source_system: 'user_confirmed' };
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          await res.json();
+          card.style.opacity = '0.4';
+          card.querySelectorAll('button, a, input, select').forEach(function(b) { b.disabled = true; });
+          if (confirmEl) confirmEl.style.display = 'none';
+          var actionArea = document.getElementById('ie-web-actions-' + idx);
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+        } catch(e) {
+          btn.disabled = false;
+          btn.textContent = 'Suivre';
+        }
+      };
+
+      window.markWebVerified = function(idx) {
+        const actionsEl = document.getElementById('ie-web-actions-' + idx);
+        const detailEl = document.getElementById('ie-web-detail-' + idx);
+        const postVerifyEl = document.getElementById('ie-web-post-verify-' + idx);
+        if (actionsEl) actionsEl.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Source pré-validée</span>';
+        if (detailEl) detailEl.style.display = 'block';
+        if (postVerifyEl) postVerifyEl.style.display = 'flex';
+      };
+
+      document.querySelectorAll('.ie-conc-pill[data-pill-q]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var q = btn.getAttribute('data-pill-q') || '';
+          var inp = document.getElementById('ie-prompt-input');
+          if (inp) inp.value = q;
+          runConcSearch();
+        });
+      });
+
+      window.__ieRunConcSearch = runConcSearch;
 
       // Initialize
       setMode('planning');

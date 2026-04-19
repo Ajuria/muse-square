@@ -52,36 +52,33 @@ export const GET: APIRoute = async ({ locals }) => {
           cd.description,
           cd.address,
           cd.google_rating,
-          cd.google_review_count,
-          cd.google_review_summary,
-          cd.photos,
-          ce.crawled_at,
+          cd.google_rating_count,
+          cd.google_photos,
+          cd.first_crawled_at,
+          cd.last_crawled_at,
+          cd.total_crawl_runs                   AS total_runs,
+          cd.total_events_detected,
           ce.extraction_status,
           ce.extracted_field_count,
           ce.fetch_http_status,
           ce.extraction_model
         FROM \`${projectId}.raw.watched_competitors\` wc
-        LEFT JOIN \`${projectId}.raw.competitor_directory\` cd
+        LEFT JOIN \`${projectId}.semantic.vw_insight_event_competitor_lookup\` cd
           ON wc.competitor_id = cd.competitor_id
-          AND cd.deleted_at IS NULL
         LEFT JOIN (
           SELECT
-            ce_inner.competitor_id,
-            ce_inner.extraction_status,
-            ce_inner.extracted_field_count,
-            ce_inner.fetch_http_status,
-            ce_inner.crawled_at,
-            ce_inner.source_url,
-            ce_inner.extraction_model,
-            ROW_NUMBER() OVER (
-              PARTITION BY ce_inner.competitor_id
-              ORDER BY ce_inner.crawled_at DESC
-            ) AS rn
-          FROM \`${projectId}.raw.competitor_events\` ce_inner
-          WHERE ce_inner.source_url IS NOT NULL
+            competitor_id,
+            extraction_status,
+            extracted_field_count,
+            fetch_http_status,
+            extraction_model
+          FROM \`${projectId}.raw.competitor_events\`
+          WHERE source_url IS NOT NULL
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY competitor_id
+            ORDER BY crawled_at DESC
+          ) = 1
         ) ce ON wc.competitor_id = ce.competitor_id
-              AND ce.source_url = wc.source_url
-              AND ce.rn = 1
         WHERE wc.clerk_user_id = @clerk_user_id
           AND wc.deleted_at IS NULL
         ORDER BY wc.created_at ASC
@@ -134,14 +131,16 @@ export const GET: APIRoute = async ({ locals }) => {
       description:          r.description ?? null,
       address:              r.address ?? null,
       google_rating:        r.google_rating ?? null,
-      google_review_count:  r.google_review_count ?? null,
-      google_review_summary: r.google_review_summary ?? null,
-      photos:               r.photos ?? null,
-      crawled_at:           r.crawled_at ?? null,
-      extraction_status:    r.extraction_status ?? null,
-      extracted_field_count: r.extracted_field_count ?? null,
-      fetch_http_status:    r.fetch_http_status ?? null,
-      extraction_model:     r.extraction_model ?? null,
+      google_rating_count:  r.google_rating_count ?? null,
+      google_photos:        r.google_photos ?? null,
+      extraction_status:      r.extraction_status ?? null,
+      extracted_field_count:  r.extracted_field_count ?? null,
+      fetch_http_status:      r.fetch_http_status ?? null,
+      extraction_model:       r.extraction_model ?? null,
+      first_crawled_at:       r.first_crawled_at?.value ?? r.first_crawled_at ?? null,
+      last_crawled_at:        r.last_crawled_at?.value  ?? r.last_crawled_at  ?? null,
+      total_runs:             Number(r.total_runs ?? 0),
+      total_events_detected:  Number(r.total_events_detected ?? 0),
     }));
 
     return new Response(JSON.stringify({ ok: true, events, competitors }), {

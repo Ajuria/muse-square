@@ -345,6 +345,13 @@ if (!root) {
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
 
+    // In concurrence mode, route to search instead of AI prompt
+    const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
+    if (activeMode === 'concurrence' && typeof window.__ieRunConcSearch === 'function') {
+      window.__ieRunConcSearch();
+      return;
+    }
+
     const btn = qs("ie-prompt-submit-btn");
     btn?.setAttribute("disabled", "true");
 

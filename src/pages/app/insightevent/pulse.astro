@@ -757,18 +757,11 @@ if (!location_id) {
       </div>`;
   }
 
-
-  function renderSuivisMonitorSection(allFeed, eventDate, followedCount) {
+  function renderSuivisMonitorSection(signals, eventDate, followedCount) {
     const SIGNAL_LABELS = {
       event: "Événement", launch: "Lancement", opening: "Ouverture",
       campaign: "Campagne", press: "Communiqué", partnership: "Partenariat", unknown: "Signal",
     };
-
-    const signals = allFeed.filter(a =>
-      a._source === "competitor_alerts" &&
-      normalizeYmd(a?.affected_date) >= ymdOffset(eventDate, -7) &&
-      normalizeYmd(a?.affected_date) <= ymdOffset(eventDate, 7)
-    );
 
     function ymdOffset(ymd, days) {
       const d = parseYmdToDate(ymd);
@@ -790,9 +783,9 @@ if (!location_id) {
 
     function impactLabel(diff) {
       if (diff === null) return null;
-      if (diff === 0) return { text: "Même jour que votre événement", color: "#791F1F" };
-      if (diff > 0)   return { text: `${diff} jour${diff > 1 ? "s" : ""} après votre événement`, color: "#6B7280" };
-      return { text: `${Math.abs(diff)} jour${Math.abs(diff) > 1 ? "s" : ""} avant votre événement`, color: "#854F0B" };
+      if (diff === 0) return { text: "Aujourd'hui", color: "#791F1F" };
+      if (diff > 0)   return { text: `Dans ${diff} jour${diff > 1 ? "s" : ""}`, color: "#6B7280" };
+      return { text: `Il y a ${Math.abs(diff)} jour${Math.abs(diff) > 1 ? "s" : ""}`, color: "#9CA3AF" };
     }
 
     function rowAccentColor(diff) {
@@ -835,37 +828,33 @@ if (!location_id) {
     };
 
     const rowsHtml = signals.map(s => {
-      const affectedDate = normalizeYmd(s.affected_date);
+      const affectedDate = normalizeYmd(s.event_date?.value ?? s.event_date ?? s.affected_date);
       const diff = dayDiff(affectedDate, eventDate);
       const impact = impactLabel(diff);
       const accent = rowAccentColor(diff);
       const signalType = s.change_subtype || "event";
       const label = SIGNAL_LABELS[signalType] || "Signal";
       const pillStyle = signalPillStyle(signalType);
-      const eventName = s.event_label || "—";
+      const eventName = s.event_name || s.event_label || "—";
       const venueName = s.event_venue_name || null;
-      const competitorName = (() => {
-        const nv = String(s.new_value || "");
-        const m = nv.match(/^(.+?)\s+détecté le/);
-        return m ? m[1].trim() : null;
-      })();
+      const competitorName = s.competitor_name || null;
       const distKm = s.distance_m ? (s.distance_m / 1000).toFixed(1) + " km" : null;
 
       return `
         <div style="border:0.5px solid #E5E7EB;border-left:3px solid ${accent};padding:14px 16px;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:13px;font-weight:500;color:#111827;">${escapeHtml(eventName)}</span>
-              <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
-            </div>
-            ${impact ? `<div style="flex-shrink:0;font-size:11px;font-weight:500;color:${impact.color};white-space:nowrap;">${escapeHtml(impact.text)}</div>` : ""}
-          </div>
+          ${impact ? `<div style="display:flex;justify-content:flex-end;margin-bottom:4px;"><span style="font-size:11px;font-weight:500;color:${impact.color};">${escapeHtml(impact.text)}</span></div>` : ""}
           <div style="display:flex;flex-direction:column;gap:3px;">
             ${competitorName ? `
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Concurrent</span>
               <span style="font-size:13px;color:#111827;">${escapeHtml(competitorName)}</span>
+              ${s.google_rating ? `<span style="font-size:11px;color:#854F0B;font-weight:500;">★ ${s.google_rating}${s.google_rating_count ? ` · ${Number(s.google_rating_count).toLocaleString('fr-FR')} avis` : ''}</span>` : ''}
             </div>` : ""}
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Événement</span>
+              <span style="font-size:13px;color:#111827;">${escapeHtml(eventName)}</span>
+              <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
+            </div>
             ${venueName ? `
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Lieu</span>
@@ -905,7 +894,7 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, profile, siteData, followedCount, selectedDate) {
+  function renderRecap(currentDay, allFeed, profile, siteData, followedCount, selectedDate, competitorSignals) {
     const isMultisiteFeed = allFeed.some(a => a?.location_label);
 
     if (isMultisiteFeed) {
@@ -1032,7 +1021,7 @@ if (!location_id) {
           </div>
         </div>`;
 
-      const suivisHtml = renderSuivisMonitorSection(allFeed, normalizeYmd(currentDay?.date || ""), followedCount || 0);
+      const suivisHtml = renderSuivisMonitorSection(competitorSignals, normalizeYmd(currentDay?.date || ""), followedCount || 0);
       return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${suivisHtml}${vigilanceMultiHtml}${signalsCardHtml}${contextCardHtml}</div>`;
     }
 
@@ -1098,7 +1087,7 @@ if (!location_id) {
         <div style="font-size:13px;color:#6b7280;margin-top:6px;">Conditions favorables pour la journée.</div>
       </div>`;
 
-    const suivisHtml = renderSuivisMonitorSection(allFeed, selectedDate, followedCount || 0);
+    const suivisHtml = renderSuivisMonitorSection(competitorSignals, selectedDate, followedCount || 0);
     return `<div class="mon-panels">${suivisHtml}${vigilanceHtml}${statusHtml}${renderContext(currentDay, profile)}</div>`;
   }
 
@@ -1178,7 +1167,7 @@ if (!location_id) {
     // Tab content
     let tabContent = "";
     if (activeTab==="recap") {
-      tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || [], Number(data.competitor_followed_count ?? 0), selectedDate);
+      tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || [], Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0), selectedDate, data._competitor_signals || []);
     } else if (activeTab==="alertes") {
       const showAll = (window.__plsFeedShowAll===true);
       tabContent = `<div class="mon-panels"><div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
@@ -1333,6 +1322,20 @@ if (!location_id) {
     return json;
   }
 
+  async function fetchCompetitorSignals(date) {
+    if (!date) return { signals: [], followed_count: 0 };
+    try {
+      const res = await fetch(
+        `/api/competitive/competitor-signals?selected_date=${encodeURIComponent(date)}`
+      );
+      const json = await res.json().catch(() => null);
+      return {
+        signals: (json?.ok && Array.isArray(json.signals)) ? json.signals : [],
+        followed_count: json?.followed_count ?? 0,
+      };
+    } catch { return { signals: [], followed_count: 0 }; }
+  }
+
   // ----------------------------------------------------------------
   // Boot
   // ----------------------------------------------------------------
@@ -1419,6 +1422,9 @@ if (!location_id) {
         const lastVisit = getLastVisitTimestamp(LS_KEY);
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, lastVisit);
         setLastVisitTimestamp(LS_KEY);
+        const csResult = await fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0 }));
+        mergedData._competitor_signals = csResult.signals;
+        mergedData._competitor_followed_count = csResult.followed_count;
         renderPulse(mergedData, todayYmd(), "recap");
 
       } else {
@@ -1434,6 +1440,9 @@ if (!location_id) {
         data.all_feed = filterFeedByWindow(data.all_feed || [], lastVisit);
         setLastVisitTimestamp(LS_KEY);
         data._locations = [];
+        const csResult = await fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0 }));
+        data._competitor_signals = csResult.signals;
+        data._competitor_followed_count = csResult.followed_count;
         renderPulse(data, todayYmd(), "recap");
       }
 

@@ -114,23 +114,26 @@ export const GET: APIRoute = async ({ url }) => {
       bq.query({
         query: `
           SELECT
-            ce.competitor_event_id,
-            ce.event_name,
-            ce.event_lat,
-            ce.event_lon,
-            ce.venue_name,
-            ce.venue_address,
-            ce.event_city,
-            ce.distance_from_location_m,
-            ce.industry_code,
-            ce.description
-          FROM \`muse-square-open-data.raw.competitor_events\` ce
-          INNER JOIN \`muse-square-open-data.raw.competitor_alerts\` ca
-            ON ce.competitor_event_id = ca.competitor_event_id
-          WHERE ca.location_id = @location_id
-            AND ca.affected_date = @date
-            AND ce.event_lat IS NOT NULL
-            AND ce.event_lon IS NOT NULL
+            competitor_event_id,
+            event_name,
+            competitor_lat       AS event_lat,
+            competitor_lon       AS event_lon,
+            venue_name,
+            competitor_address   AS venue_address,
+            event_city,
+            distance_from_location_m,
+            event_industry_code  AS industry_code,
+            description,
+            conflict_score,
+            google_photos,
+            google_rating,
+            google_rating_count,
+            competitor_name
+          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_signals\`
+          WHERE location_id = @location_id
+            AND event_date = @date
+            AND competitor_lat IS NOT NULL
+            AND competitor_lon IS NOT NULL
         `,
         params: { location_id, date },
         location: "EU",
@@ -153,10 +156,9 @@ export const GET: APIRoute = async ({ url }) => {
       }
     }
 
-    // Build synthetic followed events from raw.competitor_events
+    // Build synthetic followed events from vw_insight_event_competitor_signals
     const followedSyntheticEvents = (competitorEventRows || []).map((ce: any) => {
-      const alert = alertByCompetitorEventId.get(String(ce.competitor_event_id || "").trim());
-      const distM = Number(ce.distance_from_location_m ?? alert?.distance_m ?? 0);
+      const distM = Number(ce.distance_from_location_m ?? 0);
       const bucket = distM <= 500 ? "500m" : distM <= 1000 ? "1km" : distM <= 5000 ? "5km" : distM <= 10000 ? "10km" : "50km";
       return {
         id: `followed::${ce.competitor_event_id}`,
@@ -179,7 +181,11 @@ export const GET: APIRoute = async ({ url }) => {
         industry_code: ce.industry_code || null,
         keyword_priority_rank: 0,
         is_followed: true,
-        conflict_score: alert?.conflict_score ?? 0,
+        conflict_score: Number(ce.conflict_score ?? 0),
+        competitor_name: ce.competitor_name || null,
+        google_photos: ce.google_photos || null,
+        google_rating: ce.google_rating ?? null,
+        google_rating_count: ce.google_rating_count ?? null,
       };
     });
 

@@ -101,30 +101,32 @@ RULES — non-negotiable:
 - industry_code must be one of: non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event, hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility, outdoor_leisure, nightlife, unknown — or null.
 - primary_audience and secondary_audience must be one of: families, professionals, students, seniors, tourists, locals, art_lovers, sports_fans, general_public — or null.
 - capacity and estimated_attendance must be integers or null. Never compute or estimate them.
-- If the page contains multiple signals, extract only the NEXT upcoming one (earliest future date or most recent announcement).
-- If no signal is found at all, return all fields as null.
+- If the page contains multiple signals, extract ALL of them as an array.
+- If no signal is found at all, return an empty array [].
 
-Return this exact JSON structure:
-{
-  "signal_type": null,
-  "event_name": null,
-  "event_date": null,
-  "event_date_end": null,
-  "event_date_raw": null,
-  "event_type": null,
-  "description": null,
-  "venue_name": null,
-  "venue_address": null,
-  "event_city": null,
-  "event_lat": null,
-  "event_lon": null,
-  "capacity": null,
-  "estimated_attendance": null,
-  "venue_exposure": null,
-  "primary_audience": null,
-  "secondary_audience": null,
-  "audience_description": null,
-  "industry_code": null
+Return this exact JSON structure — an array of objects:
+[
+  {
+    "signal_type": null,
+    "event_name": null,
+    "event_date": null,
+    "event_date_end": null,
+    "event_date_raw": null,
+    "event_type": null,
+    "description": null,
+    "venue_name": null,
+    "venue_address": null,
+    "event_city": null,
+    "event_lat": null,
+    "event_lon": null,
+    "capacity": null,
+    "estimated_attendance": null,
+    "venue_exposure": null,
+    "primary_audience": null,
+    "secondary_audience": null,
+    "audience_description": null,
+    "industry_code": null
+  }
 }`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -488,47 +490,58 @@ export const GET: APIRoute = async ({ request }) => {
 
         rawExtractionJson = rawText;
 
-        const parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
-        extraction = validateExtraction(parsed);
+        const parsedRaw = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+        const extractionArray: ExtractionResult[] = Array.isArray(parsedRaw)
+          ? parsedRaw.map(validateExtraction)
+          : [validateExtraction(parsedRaw)];
 
-        const fieldCount = countExtractedFields(extraction);
+        if (extractionArray.length === 0) {
+          extractionStatus = "failed";
+          throw new Error("no_events_extracted");
+        }
 
-        extractionStatus =
-          fieldCount === 0
-            ? "failed"
-            : extraction.event_date === null
-            ? "partial"
-            : "success";
+        let anySuccess = false;
+        let anyPartial = false;
 
-        // Compute distance from location if both sets of coords are available
-        const distanceM =
-          extraction.event_lat !== null &&
-          extraction.event_lon !== null &&
-          comp.location_lat !== null &&
-          comp.location_lon !== null
-            ? Math.round(
-                haversineDistance(
-                  comp.location_lat,
-                  comp.location_lon,
-                  extraction.event_lat,
-                  extraction.event_lon
+        for (const extraction of extractionArray) {
+          const fieldCount = countExtractedFields(extraction);
+
+          const rowStatus: "success" | "partial" | "failed" =
+            fieldCount === 0
+              ? "failed"
+              : extraction.event_date === null
+              ? "partial"
+              : "success";
+
+          if (rowStatus === "success") anySuccess = true;
+          else if (rowStatus === "partial") anyPartial = true;
+
+          const distanceM =
+            extraction.event_lat !== null &&
+            extraction.event_lon !== null &&
+            comp.location_lat !== null &&
+            comp.location_lon !== null
+              ? Math.round(
+                  haversineDistance(
+                    comp.location_lat,
+                    comp.location_lon,
+                    extraction.event_lat,
+                    extraction.event_lon
+                  )
                 )
-              )
+              : null;
+
+          const isAutoConfirmed = rowStatus === "success" && fieldCount >= 4;
+          const confirmationSource = isAutoConfirmed ? "auto_quality_gate" : null;
+
+          const industryCodeSource = comp.competitor_industry_code
+            ? "competitor_directory_inherited"
+            : extraction.industry_code
+            ? "claude_extracted"
             : null;
+          const finalIndustryCode = comp.competitor_industry_code ?? extraction.industry_code;
 
-        // Step 5: Auto-confirmation quality gate
-        const isAutoConfirmed = extractionStatus === "success" && fieldCount >= 4;
-        const confirmationSource = isAutoConfirmed ? "auto_quality_gate" : null;
-
-        const industryCodeSource = comp.competitor_industry_code
-          ? "competitor_directory_inherited"
-          : extraction.industry_code
-          ? "claude_extracted"
-          : null;
-        const finalIndustryCode = comp.competitor_industry_code ?? extraction.industry_code;
-
-        // Write success/partial row
-        await bq.query({
+          await bq.query({
           query: `
             INSERT INTO \`${projectId}.raw.competitor_events\` (
               competitor_event_id, competitor_id, location_id, source_url,
@@ -643,6 +656,9 @@ export const GET: APIRoute = async ({ request }) => {
           location: BQ_LOCATION,
         });
 
+        } // close for (const extraction of extractionArray)
+
+        extractionStatus = anySuccess ? "success" : anyPartial ? "partial" : "failed";
         if (extractionStatus === "success") results.success++;
         else if (extractionStatus === "partial") results.partial++;
         else results.failed++;

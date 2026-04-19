@@ -41,13 +41,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
           conflict_score,
           industry_overlap,
           audience_overlap,
-          distance_flag
+          distance_flag,
+          google_rating,
+          google_rating_count,
+          google_photos
         FROM \`${projectId}.semantic.vw_insight_event_competitor_signals\`
         WHERE location_id = @location_id
           AND event_date IS NOT NULL
+          AND event_name IS NOT NULL
           AND event_date BETWEEN
             DATE_SUB(DATE(@selected_date), INTERVAL 7 DAY)
             AND DATE_ADD(DATE(@selected_date), INTERVAL 7 DAY)
+        QUALIFY ROW_NUMBER() OVER (
+          PARTITION BY competitor_id, event_date
+          ORDER BY conflict_score DESC
+        ) = 1
         ORDER BY
           ABS(DATE_DIFF(event_date, DATE(@selected_date), DAY)) ASC,
           conflict_score DESC
@@ -86,6 +94,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       industry_overlap:         r.industry_overlap ?? false,
       audience_overlap:         r.audience_overlap ?? false,
       distance_flag:            r.distance_flag ?? false,
+      google_rating:            r.google_rating ?? null,
+      google_rating_count:      r.google_rating_count ?? null,
+      google_photos:            r.google_photos ?? null,
     }));
 
     return new Response(JSON.stringify({ ok: true, signals, followed_count }), {

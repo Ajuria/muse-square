@@ -25,7 +25,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
         </button>
         <button id="tab-brands" onclick="showTab('brands')"
           class="px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase">
-          Marques & lieux
+          Concurrents
         </button>
       </div>
 
@@ -40,7 +40,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
 <script is:inline>
 (function () {
 
-  var currentTab = 'events';
+  var currentTab = 'brands';
   var expandedId = null;
   var data = null;
   var eventsCache = {};
@@ -98,35 +98,72 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   }
 
   // ── Events tab ────────────────────────────────────────────────────
-
-  function renderEventsPanel(items) {
-    if (!items || items.length === 0) {
-      return '<p class="text-sm text-gray-400">Aucun événement suivi pour le moment.</p>';
+  function renderEventsPanel(competitors) {
+    if (!competitors || competitors.length === 0) {
+      return '<p style="font-size:13px;color:#6B7280;font-style:italic;">Aucun concurrent suivi pour le moment.</p>';
     }
-    var groups = groupByLocation(items);
+    var groups = groupByLocation(competitors);
     var html = '';
-    Object.keys(groups).forEach(function(key) {
-      html += '<div style="font-size:11px;font-weight:500;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.10em;margin-bottom:8px;">' + escH(key) + '</div>';
-      html += '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:20px;">';
-      groups[key].forEach(function(item, idx) {
-        var border = idx < groups[key].length - 1 ? 'border-bottom:0.5px solid #F3F4F6;' : '';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;' + border + '">';
-        html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:14px;font-weight:500;color:#111827;">' + escH(item.name) + '</div>';
-        var sub = [];
-        if (item.date_start) {
-          var d = fmtDate(item.date_start);
-          if (item.date_end && item.date_end !== item.date_start) d += ' → ' + fmtDate(item.date_end);
-          sub.push(d);
+    var hasAny = false;
+    Object.keys(groups).forEach(function(locKey) {
+      var locHtml = '';
+      groups[locKey].forEach(function(comp) {
+        if (!comp.competitor_id) return;
+        var evts = eventsCache[comp.competitor_id] || [];
+        if (!evts.length) return;
+        var industryLabel = INDUSTRY_LABELS[comp.industry_code] || comp.industry_code || '';
+        if (compExpanded[comp.competitor_id] === undefined) compExpanded[comp.competitor_id] = true;
+        var isCompOpen = compExpanded[comp.competitor_id];
+        locHtml += '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-bottom:8px;">';
+        locHtml += '<div style="padding:10px 14px;background:#F9FAFB;' + (isCompOpen ? 'border-bottom:0.5px solid #E5E7EB;' : '') + 'cursor:pointer;display:flex;align-items:center;justify-content:space-between;" onclick="toggleCompExpand(\'' + escH(comp.competitor_id) + '\')">';
+        locHtml += '<div>';
+        locHtml += '<div style="font-size:13px;font-weight:500;color:#111827;">' + escH(comp.name) + '</div>';
+        if (industryLabel) locHtml += '<div style="font-size:11px;color:#6B7280;margin-top:1px;">' + escH(industryLabel) + '</div>';
+        locHtml += '</div>';
+        if (isCompOpen) {
+          locHtml += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M19 9l-7 7-7-7"/></svg>';
+        } else {
+          locHtml += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>';
         }
-        if (item.city) sub.push(item.city);
-        html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;">' + escH(sub.join(' · ')) + '</div>';
-        html += '</div>';
-        html += '<button onclick="unfollowEvent(\'' + escH(item.id) + '\')" style="font-size:12px;color:#D1D5DB;background:none;border:none;cursor:pointer;white-space:nowrap;padding:0;" onmouseover="this.style.color=\'#6B7280\'" onmouseout="this.style.color=\'#D1D5DB\'">Ne plus suivre</button>';
-        html += '</div>';
+        locHtml += '</div>';
+        if (!isCompOpen) { locHtml += '</div>'; hasAny = true; return; }
+        evts.forEach(function(ev, idx) {
+          var isLast = idx === evts.length - 1;
+          var d = fmtDay(ev.event_date);
+          locHtml += '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;' + (isLast ? '' : 'border-bottom:0.5px solid #F3F4F6;') + '">';
+          locHtml += '<div style="flex-shrink:0;text-align:center;min-width:28px;">';
+          locHtml += '<div style="font-size:15px;font-weight:500;color:#111827;">' + escH(String(d.day)) + '</div>';
+          locHtml += '<div style="font-size:10px;color:#9CA3AF;text-transform:uppercase;">' + escH(d.month) + '</div>';
+          locHtml += '</div>';
+          locHtml += '<div style="flex:1;min-width:0;">';
+          locHtml += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+          locHtml += '<span style="font-size:13px;font-weight:500;color:#111827;">' + escH(ev.event_name || '—') + '</span>';
+          if (ev.signal_type || ev.event_type) {
+            locHtml += '<span style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:20px;background:#FCEBEB;color:#791F1F;">' + escH(ev.signal_type || ev.event_type) + '</span>';
+          }
+          locHtml += '</div>';
+          var sub = [];
+          if (ev.venue_name) sub.push(ev.venue_name);
+          if (ev.venue_exposure && ev.venue_exposure !== 'unknown') sub.push(ev.venue_exposure === 'indoor' ? 'Intérieur' : 'Extérieur');
+          if (sub.length) locHtml += '<div style="font-size:11px;color:#6B7280;margin-top:2px;">' + escH(sub.join(' · ')) + '</div>';
+          locHtml += '</div>';
+          locHtml += '</div>';
+        });
+        locHtml += '</div>';
+        hasAny = true;
       });
-      html += '</div>';
+      if (locHtml) {
+        var locIdx = Object.keys(groups).indexOf(locKey);
+        if (locExpanded[locIdx] === undefined) locExpanded[locIdx] = true;
+        var isOpen = locExpanded[locIdx];
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:8px;margin-top:1.5rem;" onclick="toggleLocExpand(' + locIdx + ')">';
+        html += '<div style="font-size:11px;font-weight:500;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.10em;">' + escH(locKey) + '</div>';
+        html += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" style="transition:transform 0.15s;transform:rotate(' + (isOpen ? '90' : '0') + 'deg)"><path d="M9 18l6-6-6-6"/></svg>';
+        html += '</div>';
+        if (isOpen) html += locHtml;
+      }
     });
+    if (!hasAny) return '<p style="font-size:13px;color:#6B7280;font-style:italic;">Aucun événement détecté pour le moment.</p>';
     return html;
   }
 
@@ -152,33 +189,21 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   function renderCompetitorRow(item) {
     var isExpanded = expandedId === item.id;
     var industryLabel = INDUSTRY_LABELS[item.industry_code] || item.industry_code || '';
-    var subParts = [];
-    if (industryLabel) subParts.push(industryLabel);
-    if (item.city) subParts.push(item.city);
-    var distKm = item.distance_m ? (item.distance_m / 1000).toFixed(1) + ' km' : null;
-    if (distKm) subParts.push(distKm);
-    const crawlBadge = (() => {
-      const es = item.extraction_status;
-      if (!es || es === "no_url") return null;
-      if (es === "timeout" || es === "fetch_error" || (item.fetch_http_status && item.fetch_http_status >= 400)) return { label: "URL inaccessible", bg: "#FCEBEB", color: "#791F1F" };
-      if (es === "empty") return { label: "Page vide", bg: "#FAEEDA", color: "#633806" };
-      if (es === "partial" && item.extracted_field_count > 0) {
-        if (item.extraction_model === "url_discovery_v1") return { label: "Auto-détectée", bg: "#EEF2FF", color: "#3730A3" };
-        return { label: "Actif", bg: "#EAF3DE", color: "#27500A" };
-      }
-      return null;
-    })();
-
+    
     var html = '<div style="border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;" id="comp-row-' + escH(item.id) + '">';
 
     // ── Header (always visible) ──
     html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;' + (isExpanded ? 'background:#F9FAFB;border-bottom:0.5px solid #E5E7EB;' : '') + '" onclick="toggleExpand(\'' + escH(item.id) + '\')">';
     html += '<div style="flex:1;min-width:0;">';
     html += '<div style="font-size:14px;font-weight:500;color:#111827;">' + escH(item.name) + '</div>';
-    html += '<div style="font-size:12px;color:#6B7280;margin-top:2px;display:flex;align-items:center;gap:6px;">' + escH(subParts.join(' · ')) + (crawlBadge ? '<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:' + crawlBadge.bg + ';color:' + crawlBadge.color + ';">' + crawlBadge.label + '</span>' : '') + '</div>';
+    var statusBadge = (item.extraction_status === 'fetch_error' || item.extraction_status === 'failed' || (item.fetch_http_status && item.fetch_http_status >= 400))
+      ? '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#FCEBEB;color:#791F1F;white-space:nowrap;">Suivi interrompu</span>'
+      : item.source_url
+      ? '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#27500A;white-space:nowrap;">Suivi actif</span>'
+      : '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#F1EFE8;color:#444441;white-space:nowrap;">Sans URL</span>';
+    html += '<div style="font-size:12px;color:#6B7280;margin-top:4px;display:flex;align-items:center;gap:6px;">' + escH(industryLabel) + '&nbsp;&nbsp;' + statusBadge + '</div>';
     html += '</div>';
     html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
-    html += '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#3B6D11;">Suivi actif</span>';
     // chevron
     if (isExpanded) {
       html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M19 9l-7 7-7-7"/></svg>';
@@ -199,28 +224,15 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   function renderExpandedBody(item) {
     var isEditingUrl = editingUrlId === item.id;
     var confidencePct = item.confidence_score ? Math.round(item.confidence_score * 100) : 0;
-    var html = '<div style="padding:16px 14px;display:flex;flex-direction:column;gap:16px;">';
+    var isFailed = item.extraction_status === 'fetch_error' || item.extraction_status === 'failed' ||
+      (item.fetch_http_status && item.fetch_http_status >= 400);
 
-    // ── Info row: address + url + actions ──
-    html += '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">';
+    var html = '<div style="border-top:0.5px solid #E5E7EB;padding:14px;display:flex;flex-direction:column;gap:14px;">';
 
-    // Address
-    if (item.address || item.city) {
-      html += '<div style="flex:1;min-width:150px;">';
-      html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">Adresse</div>';
-      var addrParts = [];
-      if (item.address) addrParts.push(item.address);
-      var distKm = item.distance_m ? (item.distance_m / 1000).toFixed(1) + ' km' : null;
-      if (distKm) addrParts.push(distKm);
-      html += '<div style="font-size:13px;color:#374151;">' + escH(addrParts.join(' · ')) + '</div>';
-      html += '</div>';
-    }
-
-    // URL
-    html += '<div style="flex:1;min-width:150px;">';
-    html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:4px;">URL surveillée</div>';
+    // ── URL section ──
+    html += '<div>';
+    html += '<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;color:#9CA3AF;margin-bottom:5px;">URL surveillée</div>';
     if (isEditingUrl) {
-      // Editable input
       html += '<div style="display:flex;flex-direction:column;gap:6px;">';
       html += '<div style="display:flex;gap:6px;align-items:center;">';
       html += '<input id="url-input-' + escH(item.id) + '" type="url" value="' + escH(item.source_url || '') + '" placeholder="https://exemple.fr/agenda" style="flex:1;border:0;border-bottom:1.5px solid #d1d5db;padding:6px 0;font-size:12px;background:transparent;outline:none;font-family:inherit;color:#111827;" />';
@@ -228,61 +240,54 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       html += '<button onclick="cancelEditUrl(\'' + escH(item.id) + '\')" style="padding:5px 8px;background:none;border:0.5px solid #E5E7EB;font-size:11px;color:#6B7280;cursor:pointer;border-radius:6px;">Annuler</button>';
       html += '</div>';
       html += '<div id="url-error-' + escH(item.id) + '" style="display:none;font-size:11px;color:#b91c1c;"></div>';
-      html += '<div style="font-size:11px;color:#9CA3AF;">Entrez l\'URL de la page agenda ou événements.</div>';
       html += '</div>';
     } else if (item.source_url) {
-      html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
-      var domain = item.source_url.replace(/^https?:\/\//, '').split('/')[0];
-      html += '<a href="' + escH(item.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#185FA5;text-decoration:none;word-break:break-all;">' + escH(domain) + '</a>';
-      html += '<span style="font-size:11px;padding:1px 6px;border-radius:20px;background:#EAF3DE;color:#3B6D11;white-space:nowrap;">' + confidencePct + '%</span>';
-      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:11px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;">Modifier</button>';
-      var esUrl = item.extraction_status;
-      var isFailed = esUrl === "timeout" || esUrl === "fetch_error" || esUrl === "empty" || (item.fetch_http_status && item.fetch_http_status >= 400);
+      html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+      html += '<a href="' + escH(item.source_url) + '" target="_blank" rel="noopener" style="font-size:13px;color:#185FA5;text-decoration:none;word-break:break-all;">' + escH(item.source_url.replace(/^https?:\/\//, '')) + '</a>';
+      html += '<span style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:20px;background:' + (isFailed ? '#FCEBEB' : '#EAF3DE') + ';color:' + (isFailed ? '#791F1F' : '#3B6D11') + ';">' + confidencePct + '%</span>';
       html += '</div>';
       if (isFailed) {
         var urlPath = '';
         try { urlPath = new URL(item.source_url).pathname.toLowerCase(); } catch {}
-        var isHomepageUrl = !urlPath || urlPath === '/' || /^\/(fr|en|de|es)\/?$/.test(urlPath);
-        var isAgendaUrl = /agenda|programme|events?|calendar|manifestation/.test(urlPath);
-        var crawlErrMsg = isHomepageUrl
-          ? 'Page d\'accueil prot\u00e9g\u00e9e. Essayez l\'URL de la page agenda ou programme.'
-          : isAgendaUrl
-          ? 'Page agenda inaccessible aux robots. La veille tentera quand m\u00eame cette nuit \u2014 ou essayez une URL alternative.'
-          : 'Page inaccessible. Essayez une URL pointant directement vers les \u00e9v\u00e9nements ou le programme.';
-        html += '<div style="font-size:11px;color:#B91C1C;margin-top:4px;">' + crawlErrMsg + '</div>';
+        var isHomepage = !urlPath || urlPath === '/' || /^\/(fr|en|de|es)\/?$/.test(urlPath);
+        var failMsg = isHomepage
+          ? 'Page d\'accueil protégée — essayez l\'URL de la page agenda ou programme.'
+          : 'Page inaccessible — essayez une URL pointant directement vers les événements.';
+        html += '<div style="font-size:12px;color:#B91C1C;margin-top:6px;line-height:1.5;">' + failMsg + '</div>';
       }
+      html += '<div style="display:flex;align-items:center;gap:12px;margin-top:6px;">';
+      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:12px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;">Modifier l\'URL</button>';
+      html += '<span style="font-size:10px;color:#D1D5DB;">·</span>';
+      html += '<button onclick="unfollowCompetitor(\'' + escH(item.id) + '\')" style="font-size:12px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;" onmouseover="this.style.color=\'#b91c1c\'" onmouseout="this.style.color=\'#6B7280\'">Ne plus suivre</button>';
+      html += '</div>';
     } else {
-      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:12px;color:#185FA5;background:none;border:none;cursor:pointer;padding:0;text-align:left;">+ Ajouter une URL de surveillance</button>';
+      html += '<div style="font-size:13px;color:#6B7280;margin-bottom:6px;">Aucune URL configurée — la surveillance est inactive.</div>';
+      html += '<div style="display:flex;align-items:center;gap:12px;">';
+      html += '<button onclick="startEditUrl(\'' + escH(item.id) + '\')" style="font-size:12px;color:#185FA5;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;">+ Ajouter une URL</button>';
+      html += '<span style="font-size:10px;color:#D1D5DB;">·</span>';
+      html += '<button onclick="unfollowCompetitor(\'' + escH(item.id) + '\')" style="font-size:12px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;" onmouseover="this.style.color=\'#b91c1c\'" onmouseout="this.style.color=\'#6B7280\'">Ne plus suivre</button>';
+      html += '</div>';
     }
     html += '</div>';
 
-    // Actions
-    html += '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">';
-    html += '<button onclick="unfollowCompetitor(\'' + escH(item.id) + '\')" style="font-size:12px;color:#9CA3AF;background:none;border:none;cursor:pointer;padding:0;white-space:nowrap;" onmouseover="this.style.color=\'#b91c1c\'" onmouseout="this.style.color=\'#9CA3AF\'">Ne plus suivre</button>';
-    html += '</div>';
-
-    html += '</div>'; // end info row
-
-    // ── Description ──
-    if (item.description) {
-      html += '<div style="font-size:13px;color:#374151;line-height:1.65;border-left:2px solid #E5E7EB;padding-left:10px;">' + escH(item.description) + '</div>';
+    // ── Extraction stats ──
+    if (item.total_runs > 0) {
+      var firstDate = item.first_crawled_at ? fmtDate(String(item.first_crawled_at).slice(0,10)) : '—';
+      var lastDate  = item.last_crawled_at  ? fmtDate(String(item.last_crawled_at).slice(0,10))  : '—';
+      html += '<div>';
+      html += '<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;color:#9CA3AF;margin-bottom:8px;">Statistiques d\'extraction</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px;">';
+      html += '<div><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;">Total</div><div style="font-size:13px;color:#111827;">' + item.total_runs + ' extraction' + (item.total_runs > 1 ? 's' : '') + '</div></div>';
+      html += '<div><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;">Première</div><div style="font-size:13px;color:#111827;">' + firstDate + '</div></div>';
+      html += '<div><div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;">Dernière</div><div style="font-size:13px;color:#111827;">' + lastDate + '</div></div>';
+      html += '</div>';
+      html += '<button id="hist-toggle-' + escH(item.id) + '" onclick="toggleCrawlHistory(\'' + escH(item.id) + '\',\'' + escH(item.competitor_id) + '\')" style="font-size:11px;color:#6B7280;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;">Voir l\'historique complet ↓</button>';
+      html += '<div id="hist-body-' + escH(item.id) + '" style="display:none;margin-top:8px;"></div>';
+      html += '</div>';
     }
 
-    // ── Detected events ──
-    html += '<div>';
-    html += '<div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Événements détectés</div>';
-    html += '<div id="comp-events-' + escH(item.id) + '">';
-    html += '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Chargement…</div>';
+    html += '<div style="font-size:11px;color:#9CA3AF;font-style:italic;">Prochaine analyse : cette nuit à 03h00</div>';
     html += '</div>';
-    html += '</div>';
-
-    // ── Google Places placeholder ──
-    html += '<div style="border:0.5px dashed #E5E7EB;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;">';
-    html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>';
-    html += '<div style="font-size:12px;color:#9CA3AF;">Données Google Places à venir — note, avis, photos</div>';
-    html += '</div>';
-
-    html += '</div>'; // end body
     return html;
   }
 
@@ -398,29 +403,94 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       ? data.competitors.find(function(c) { return c.id === watchedCompetitorId; })
       : null;
 
+    if (!comp || !comp.competitor_id) return;
+
+    if (!eventsCache[comp.competitor_id]) {
+      try {
+        var res = await fetch('/api/competitive/competitor-events?competitor_id=' + encodeURIComponent(comp.competitor_id));
+        var json = await res.json().catch(function() { return null; });
+        eventsCache[comp.competitor_id] = (json && json.ok && Array.isArray(json.events)) ? json.events : [];
+      } catch(e) {
+        eventsCache[comp.competitor_id] = [];
+      }
+    }
+
     var el = document.getElementById('comp-events-' + watchedCompetitorId);
-    if (!el) return;
+    if (el) el.innerHTML = renderDetectedEvents(eventsCache[comp.competitor_id]);
+  }
 
-    if (!comp || !comp.competitor_id) {
-      el.innerHTML = '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Aucun événement détecté — ajoutez une URL pour démarrer la surveillance.</div>';
+  var locExpanded = {};
+  var compExpanded = {};
+
+  function toggleCompExpand(competitorId) {
+    compExpanded[competitorId] = !compExpanded[competitorId];
+    var evtPanel = document.getElementById('panel-events');
+    if (evtPanel && data) evtPanel.innerHTML = renderEventsPanel(data.competitors);
+  }
+
+  function toggleLocExpand(idx) {
+    locExpanded[idx] = !locExpanded[idx];
+    var evtPanel = document.getElementById('panel-events');
+    if (evtPanel && data) evtPanel.innerHTML = renderEventsPanel(data.competitors);
+  }
+
+  var crawlHistoryCache = {};
+
+  async function toggleCrawlHistory(watchedId, competitorId) {
+    console.log('toggleCrawlHistory called', watchedId, competitorId);
+    var bodyEl   = document.getElementById('hist-body-' + watchedId);
+    var toggleEl = document.getElementById('hist-toggle-' + watchedId);
+    if (!bodyEl || !toggleEl) return;
+    var isOpen = bodyEl.style.display !== 'none' && bodyEl.innerHTML !== '';
+    if (isOpen) {
+      bodyEl.style.display = 'none';
+      toggleEl.textContent = 'Voir l\'historique complet ↓';
       return;
     }
-
-    // Use cache if available
-    if (eventsCache[comp.competitor_id]) {
-      el.innerHTML = renderDetectedEvents(eventsCache[comp.competitor_id]);
+    bodyEl.style.display = 'block';
+    toggleEl.textContent = 'Masquer l\'historique ↑';
+    if (crawlHistoryCache[competitorId]) {
+      bodyEl.innerHTML = renderCrawlHistory(crawlHistoryCache[competitorId]);
       return;
     }
-
+    bodyEl.innerHTML = '<div style="font-size:12px;color:#9CA3AF;">Chargement…</div>';
     try {
-      var res = await fetch('/api/competitive/competitor-events?competitor_id=' + encodeURIComponent(comp.competitor_id));
-      var json = await res.json().catch(() => null);
-      var events = (json && json.ok && Array.isArray(json.events)) ? json.events : [];
-      eventsCache[comp.competitor_id] = events;
-      el.innerHTML = renderDetectedEvents(events);
+      var res  = await fetch('/api/competitive/competitor-crawl-history?competitor_id=' + encodeURIComponent(competitorId));
+      var json = await res.json().catch(function() { return null; });
+      var history = (json && json.ok && Array.isArray(json.history)) ? json.history : [];
+      crawlHistoryCache[competitorId] = history;
+      bodyEl.innerHTML = renderCrawlHistory(history);
     } catch(e) {
-      el.innerHTML = '<div style="font-size:13px;color:#9CA3AF;">Erreur de chargement.</div>';
+      bodyEl.innerHTML = '<div style="font-size:12px;color:#B91C1C;">Erreur de chargement.</div>';
     }
+  }
+
+  function renderCrawlHistory(history) {
+    if (!history.length) return '<div style="font-size:12px;color:#9CA3AF;">Aucun historique disponible.</div>';
+    var STATUS_LABEL = { success: 'Succès', partial: 'Partiel', failed: 'Échec', fetch_error: 'Inaccessible' };
+    var STATUS_COLOR = { success: '#27500A', partial: '#633806', failed: '#791F1F', fetch_error: '#791F1F' };
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    html += '<thead><tr>';
+    html += '<th style="text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;padding:4px 0;border-bottom:0.5px solid #E5E7EB;">Date</th>';
+    html += '<th style="text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;padding:4px 0;border-bottom:0.5px solid #E5E7EB;">Statut</th>';
+    html += '<th style="text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;padding:4px 0;border-bottom:0.5px solid #E5E7EB;">Événements</th>';
+    html += '<th style="text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9CA3AF;padding:4px 0;border-bottom:0.5px solid #E5E7EB;">Champs</th>';
+    html += '</tr></thead><tbody>';
+    history.forEach(function(r, idx) {
+      var isLast = idx === history.length - 1;
+      var border = isLast ? '' : 'border-bottom:0.5px solid #F3F4F6;';
+      var statusLabel = STATUS_LABEL[r.extraction_status] || r.extraction_status || '—';
+      var statusColor = STATUS_COLOR[r.extraction_status] || '#6B7280';
+      var dateStr = r.crawled_at ? r.crawled_at.slice(0,10).split('-').reverse().join('/') + ' · ' + r.crawled_at.slice(11,16) : '—';
+      html += '<tr>';
+      html += '<td style="padding:6px 0;' + border + 'color:#374151;">' + escH(dateStr) + '</td>';
+      html += '<td style="padding:6px 0;' + border + 'color:' + statusColor + ';">' + escH(statusLabel) + '</td>';
+      html += '<td style="padding:6px 0;' + border + 'color:#374151;">' + r.event_count + '</td>';
+      html += '<td style="padding:6px 0;' + border + 'color:#374151;">' + r.max_field_count + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
   }
 
   async function unfollowEvent(id) {
@@ -481,20 +551,28 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       var brdPanel = document.getElementById('panel-brands');
 
       if (loading) loading.style.display = 'none';
-      evtPanel.innerHTML = renderEventsPanel(out.events);
+      await Promise.all(
+        (out.competitors || [])
+          .filter(function(c) { return c.competitor_id; })
+          .map(function(c) { return loadCompetitorEvents(c.id); })
+      );
+      evtPanel.innerHTML = renderEventsPanel(out.competitors);
       brdPanel.innerHTML = renderBrandsPanel(out.competitors);
 
-      showTab(currentTab);
-    } catch(e) {}
+      showTab('events');
+    } catch(e) { console.error('loadData error', e); }
   }
 
   // Expose to inline onclick handlers
-  window.showTab          = showTab;
-  window.toggleExpand     = toggleExpand;
-  window.startEditUrl     = startEditUrl;
-  window.cancelEditUrl    = cancelEditUrl;
-  window.saveUrl          = saveUrl;
-  window.unfollowEvent    = unfollowEvent;
+  window.showTab            = showTab;
+  window.toggleLocExpand    = toggleLocExpand;
+  window.toggleCompExpand   = toggleCompExpand;
+  window.toggleCrawlHistory = toggleCrawlHistory;
+  window.toggleExpand       = toggleExpand;
+  window.startEditUrl       = startEditUrl;
+  window.cancelEditUrl      = cancelEditUrl;
+  window.saveUrl            = saveUrl;
+  window.unfollowEvent      = unfollowEvent;
   window.unfollowCompetitor = unfollowCompetitor;
 
   loadData();

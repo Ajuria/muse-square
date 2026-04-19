@@ -47,6 +47,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
           AND is_user_confirmed = TRUE
           AND extraction_status IN ('success', 'partial')
           AND event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        QUALIFY ROW_NUMBER() OVER (
+          PARTITION BY competitor_id, event_name, event_date
+          ORDER BY crawled_at DESC
+        ) = 1
         ORDER BY event_date ASC
         LIMIT 20
       `,

@@ -40,7 +40,7 @@ if (isApp) {
 }
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor") || currentPath.startsWith("/app/insightevent/events");
 const isPulse = currentPath === "/app/insightevent/pulse";
-const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse;
+const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse && !currentPath.startsWith("/app/insightevent/suivis");
 const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");

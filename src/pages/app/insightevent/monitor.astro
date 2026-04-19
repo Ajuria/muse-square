@@ -41,7 +41,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         border: 1px solid #E8EDF5;
         border-radius: 14px;
         padding: 24px;
-        box-shadow: 0 2px 12px rgba(17,24,39,0.06);
+        box-shadow:none;
       }
 
       .mon-card-decision {
@@ -481,17 +481,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     return "";
   }
 
-  function renderSuivisMonitorSection(allFeed, eventDate, followedCount) {
+  function renderSuivisMonitorSection(signals, eventDate, followedCount) {
     const SIGNAL_LABELS = {
       event: "Événement", launch: "Lancement", opening: "Ouverture",
       campaign: "Campagne", press: "Communiqué", partnership: "Partenariat", unknown: "Signal",
     };
-
-    const signals = allFeed.filter(a =>
-      a._source === "competitor_alerts" &&
-      normalizeYmd(a?.affected_date) >= ymdOffset(eventDate, -7) &&
-      normalizeYmd(a?.affected_date) <= ymdOffset(eventDate, 7)
-    );
 
     function ymdOffset(ymd, days) {
       const d = parseYmdToDate(ymd);
@@ -558,37 +552,33 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     };
 
     const rowsHtml = signals.map(s => {
-      const affectedDate = normalizeYmd(s.affected_date);
+      const affectedDate = normalizeYmd(s.event_date ?? s.affected_date);
       const diff = dayDiff(affectedDate, eventDate);
       const impact = impactLabel(diff);
       const accent = rowAccentColor(diff);
       const signalType = s.change_subtype || "event";
       const label = SIGNAL_LABELS[signalType] || "Signal";
       const pillStyle = signalPillStyle(signalType);
-      const eventName = s.event_label || "—";
+      const eventName = s.event_name || s.event_label || "—";
       const venueName = s.event_venue_name || null;
-      const competitorName = (() => {
-        const nv = String(s.new_value || "");
-        const m = nv.match(/^(.+?)\s+détecté le/);
-        return m ? m[1].trim() : null;
-      })();
+      const competitorName = s.competitor_name || null;
       const distKm = s.distance_m ? (s.distance_m / 1000).toFixed(1) + " km" : null;
 
       return `
         <div style="border:0.5px solid #E5E7EB;border-left:3px solid ${accent};padding:14px 16px;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:13px;font-weight:500;color:#111827;">${escapeHtml(eventName)}</span>
-              <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
-            </div>
-            ${impact ? `<div style="flex-shrink:0;font-size:11px;font-weight:500;color:${impact.color};white-space:nowrap;">${escapeHtml(impact.text)}</div>` : ""}
-          </div>
+          ${impact ? `<div style="display:flex;justify-content:flex-end;margin-bottom:4px;"><span style="font-size:11px;font-weight:500;color:${impact.color};">${escapeHtml(impact.text)}</span></div>` : ""}
           <div style="display:flex;flex-direction:column;gap:3px;">
             ${competitorName ? `
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Concurrent</span>
               <span style="font-size:13px;color:#111827;">${escapeHtml(competitorName)}</span>
+              ${s.google_rating ? `<span style="font-size:11px;color:#854F0B;font-weight:500;">★ ${s.google_rating}${s.google_rating_count ? ` · ${Number(s.google_rating_count).toLocaleString('fr-FR')} avis` : ''}</span>` : ''}
             </div>` : ""}
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Événement</span>
+              <span style="font-size:13px;color:#111827;">${escapeHtml(eventName)}</span>
+              <span style="font-size:11px;padding:1px 7px;border-radius:20px;white-space:nowrap;${pillStyle}">${escapeHtml(label)}</span>
+            </div>
             ${venueName ? `
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;min-width:72px;">Lieu</span>
@@ -864,6 +854,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return true;
     });
 
+    console.log('followed in filtered:', filtered.filter(e=>e.is_followed).map(e=>e.title));
+
     const toggleHtml = `
       <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
         <button type="button" id="mon-feed-toggle" style="font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;">
@@ -920,7 +912,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
       return `
         <div style="margin-bottom:16px;">
-          <div style="background:#fff;border:1px solid #E8EDF5;border-radius:12px;padding:0 16px;box-shadow:0 1px 4px rgba(17,24,39,0.04);">
+          <div style="background:#fff;border:1px solid #E8EDF5;border-radius:12px;padding:0 16px;box-shadow:none;">
             <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(17,24,39,0.38);padding:14px 0 10px 0;border-bottom:1px solid #F3F4F6;">
               ${escapeHtml(dateLabel)}
             </div>
@@ -955,7 +947,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // Render recap tab
   // ----------------------------------------------------------------
-  function renderRecap(currentDay, allFeed, allFeedNew, item, profile, followedCount) {
+  function renderRecap(currentDay, allFeed, allFeedNew, item, profile, followedCount, competitorSignals) {
     // Statut global
     const eventDate = normalizeYmd(currentDay?.date || "");
     const alerts = allFeedNew.filter(a => (Number(a?.alert_level) || 0) >= 2 && normalizeYmd(a?.affected_date) === eventDate);
@@ -1019,7 +1011,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // Contexte de référence (open by default)
     const contextHtml = renderContext(currentDay, profile);
 
-    const suivisHtml = renderSuivisMonitorSection(allFeed, eventDate, followedCount || 0);
+    const suivisHtml = renderSuivisMonitorSection(competitorSignals, eventDate, followedCount || 0);
     return `<div class="mon-panels">${suivisHtml}${vigilanceHtml}${statusHtml}${contextHtml}</div>`;
   }
 
@@ -1569,7 +1561,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     // All feed items across all days
     const allFeed = Array.isArray(data.all_feed) ? data.all_feed : days.flatMap(function(d) { return Array.isArray(d.change_feed) ? d.change_feed : []; });
-    const competitorFollowedCount = Number(data.competitor_followed_count ?? 0);
+    const competitorFollowedCount = Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0);
 
     // Selected dates for map URL
     const allDates = days.map(d => normalizeYmd(d.date)).filter(Boolean);
@@ -1606,7 +1598,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     let tabContent = "";
     if (activeTab === "recap") {
       const allFeedNew = Array.isArray(data.all_feed_new) ? data.all_feed_new : allFeed;
-      tabContent = renderRecap(currentDay, allFeed, allFeedNew, item, profile, competitorFollowedCount);
+      tabContent = renderRecap(currentDay, allFeed, allFeedNew, item, profile, competitorFollowedCount, data._competitor_signals || []);
     } else if (activeTab === "alertes") {
       const showAll = (window.__monFeedShowAll === true);
       const eventDate = normalizeYmd(currentDay?.date || "");
@@ -2154,7 +2146,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     function card(headHtml, bodyHtml) {
-      return `<div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(17,24,39,0.06);margin-bottom:16px;">
+      return `<div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:none;margin-bottom:16px;">
         <div style="padding:14px 20px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;">${headHtml}</div>
         ${bodyHtml}
       </div>`;
@@ -2283,12 +2275,62 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       active.length ? groupByLocation(active, activeRow) : emptyState("Aucun événement en cours.")
     );
 
+    // Past events: selected_date is set AND event_end_date is in the past
+    const past = items.filter(i => {
+      const selDate = normalizeYmd(i?.selected_date?.value ?? i?.selected_date ?? "");
+      if (!selDate) return false;
+      const endDate = normalizeYmd(i?.event_end_date?.value ?? i?.event_end_date ?? "");
+      const checkDate = endDate || selDate;
+      const d = parseYmdToDate(checkDate);
+      if (!d) return false;
+      const today = new Date(); today.setHours(0,0,0,0);
+      return d.getTime() < today.getTime();
+    });
+
+    // Filter active to exclude past
+    const activeOnly = active.filter(i => !past.includes(i));
+
+    // Rebuild active card with filtered list
+    const activeCardHtmlFiltered = card(
+      `<span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;flex:1;">Événements en cours</span>
+       <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:52px;text-align:right;">Début</span>
+       <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:52px;text-align:right;">Fin</span>`,
+      activeOnly.length ? groupByLocation(activeOnly, activeRow) : emptyState("Aucun événement en cours.")
+    );
+
+    function pastRow(item) {
+      const title = item.title || "Sans titre";
+      const selDate = normalizeYmd(item?.selected_date?.value ?? item?.selected_date ?? "");
+      const d = parseYmdToDate(selDate);
+      const dateFr = d ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(d) : selDate;
+      return `
+        <div style="padding:12px 20px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #F3F4F6;opacity:0.5;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:400;color:#6B7280;">${escapeHtml(title)}</div>
+            <div style="font-size:12px;color:#9CA3AF;margin-top:2px;">${escapeHtml(dateFr)}</div>
+          </div>
+        </div>`;
+    }
+
+    const pastCardHtml = `
+      <div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:none;margin-bottom:16px;">
+        <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;cursor:${past.length ? 'pointer' : 'default'};user-select:none;" ${past.length ? 'onclick="(function(){var el=document.getElementById(\'mon-past-list\');var chev=document.getElementById(\'mon-past-chevron\');if(!el)return;var open=el.style.display!==\'none\';el.style.display=open?\'none\':\'block\';if(chev)chev.style.transform=open?\'rotate(0deg)\':\'rotate(180deg)\';})()"' : ''}>
+          <div style="display:flex;align-items:center;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;">Passées</span>
+            <span style="font-size:10px;font-weight:500;background:#F3F4F6;color:#9CA3AF;padding:1px 7px;border-radius:20px;margin-left:6px;">${past.length}</span>
+          </div>
+          ${past.length ? '<svg id="mon-past-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>' : ''}
+        </div>
+        ${past.length ? `<div id="mon-past-list" style="display:none;border-top:0.5px solid #F3F4F6;padding:0;">${past.map(pastRow).join("")}</div>` : ''}
+      </div>`;
+
     root.innerHTML = `
       <div style="padding-top:40px;">
         <div style="font-size:28px;font-weight:300;color:#111827;letter-spacing:-0.01em;margin:10px 0 20px 0;">Mes événements</div>
         ${pendingCardHtml}
         ${alertBlockHtml}
-        ${activeCardHtml}
+        ${activeCardHtmlFiltered}
+        ${pastCardHtml}
       </div>
     `;
   }
@@ -2324,6 +2366,20 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) throw new Error(json?.error || "Erreur monitor API");
     return json;
+  }
+
+  async function fetchCompetitorSignals(date) {
+    if (!date || date === "__comparison__") return { signals: [], followed_count: 0 };
+    try {
+      const res = await fetch(
+        `/api/competitive/competitor-signals?selected_date=${encodeURIComponent(date)}`
+      );
+      const json = await res.json().catch(() => null);
+      return {
+        signals: (json?.ok && Array.isArray(json.signals)) ? json.signals : [],
+        followed_count: json?.followed_count ?? 0,
+      };
+    } catch { return { signals: [], followed_count: 0 }; }
   }
 
   // ----------------------------------------------------------------
@@ -2382,6 +2438,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         }
       }
 
+      const csResult = await fetchCompetitorSignals(firstDate);
+      data._competitor_signals = csResult.signals;
+      data._competitor_followed_count = csResult.followed_count;
       renderMonitor(data, item, firstDate, "recap");
 
     } catch (e) {
