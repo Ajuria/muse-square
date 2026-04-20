@@ -474,7 +474,7 @@ export const GET: APIRoute = async ({ request }) => {
         // Step 4: Claude extraction
         const message = await anthropic.messages.create({
           model: EXTRACTION_MODEL,
-          max_tokens: 1024,
+          max_tokens: 8192,
           messages: [
             {
               role: "user",
@@ -541,6 +541,32 @@ export const GET: APIRoute = async ({ request }) => {
             : null;
           const finalIndustryCode = comp.competitor_industry_code ?? extraction.industry_code;
 
+          // Dedup: skip if same event already exists for this competitor
+          if (extraction.event_name) {
+            const [dupeRows] = await bq.query({
+              query: `
+                SELECT 1 FROM \`${projectId}.raw.competitor_events\`
+                WHERE competitor_id = @competitor_id
+                  AND event_name = @event_name
+                  AND (event_date = @event_date OR (event_date IS NULL AND @event_date IS NULL))
+                  AND extraction_status = 'success'
+                LIMIT 1
+              `,
+              params: {
+                competitor_id: comp.competitor_id,
+                event_name: extraction.event_name,
+                event_date: extraction.event_date ?? null,
+              },
+              types: {
+                competitor_id: "STRING",
+                event_name: "STRING",
+                event_date: "STRING",
+              },
+              location: BQ_LOCATION,
+            });
+            if ((dupeRows as any[]).length > 0) continue;
+          }
+
           await bq.query({
           query: `
             INSERT INTO \`${projectId}.raw.competitor_events\` (
@@ -600,7 +626,7 @@ export const GET: APIRoute = async ({ request }) => {
             audience_description:    extraction.audience_description,
             industry_code:           finalIndustryCode ?? null,
             industry_code_source:    industryCodeSource,
-            extraction_status:       extractionStatus,
+            extraction_status:       rowStatus,
             fetch_http_status:       fetchStatus,
             extracted_field_count:   fieldCount,
             extraction_model:        EXTRACTION_MODEL,
