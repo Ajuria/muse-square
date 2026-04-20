@@ -1170,7 +1170,8 @@ if (!location_id) {
       tabContent = renderRecap(currentDay, allFeed, profile, data._siteData || [], Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0), selectedDate, data._competitor_signals || []);
     } else if (activeTab==="alertes") {
       const showAll = (window.__plsFeedShowAll===true);
-      tabContent = `<div class="mon-panels"><div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
+      const csHtml = renderSuivisMonitorSection(data._competitor_signals || [], selectedDate, Number(data._competitor_followed_count ?? 0));
+      tabContent = `<div class="mon-panels">${csHtml}<div style="padding-top:8px;">${renderFeedItems(allFeed, showAll)}</div></div>`;
       setTimeout(() => {
         const btn = root.querySelector("#pls-feed-toggle");
         if (btn) btn.addEventListener("click", () => { window.__plsFeedShowAll=!showAll; renderPulse(data, selectedDate, "alertes"); });

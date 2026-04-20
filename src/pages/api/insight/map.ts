@@ -131,7 +131,7 @@ export const GET: APIRoute = async ({ url }) => {
             competitor_name
           FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_signals\`
           WHERE location_id = @location_id
-            AND event_date = @date
+            AND @date BETWEEN event_date AND COALESCE(event_date_end, event_date)
             AND competitor_lat IS NOT NULL
             AND competitor_lon IS NOT NULL
         `,
