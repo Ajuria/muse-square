@@ -44,22 +44,46 @@ export const GET: APIRoute = async ({ url, locals }) => {
           distance_flag,
           google_rating,
           google_rating_count,
-          google_photos
+          google_photos,
+          CASE
+            WHEN event_date_end IS NULL OR event_date_end = event_date
+            THEN DATE(@selected_date) = event_date
+            WHEN DATE_DIFF(event_date_end, event_date, DAY) <= 3
+            THEN DATE(@selected_date) = event_date
+            ELSE DATE(@selected_date) BETWEEN event_date AND DATE_ADD(event_date, INTERVAL 1 DAY)
+          END AS is_launch,
+          DATE(@selected_date) BETWEEN event_date AND COALESCE(event_date_end, event_date)
+          AS is_active,
+          event_date > DATE(@selected_date)
+          AS is_upcoming
         FROM \`${projectId}.semantic.vw_insight_event_competitor_signals\`
         WHERE location_id = @location_id
           AND event_date IS NOT NULL
           AND event_name IS NOT NULL
-          AND event_date BETWEEN
-            DATE_SUB(DATE(@selected_date), INTERVAL 7 DAY)
-            AND DATE_ADD(DATE(@selected_date), INTERVAL 7 DAY)
+          AND (
+            event_date BETWEEN DATE_SUB(DATE(@selected_date), INTERVAL 7 DAY)
+                           AND DATE_ADD(DATE(@selected_date), INTERVAL 7 DAY)
+            OR DATE(@selected_date) BETWEEN event_date AND COALESCE(event_date_end, event_date)
+          )
+          AND NOT (
+            event_date < DATE(@selected_date)
+            AND COALESCE(event_date_end, event_date) < DATE(@selected_date)
+          )
         QUALIFY ROW_NUMBER() OVER (
-          PARTITION BY competitor_id, event_date
+          PARTITION BY competitor_id, event_name
           ORDER BY conflict_score DESC
         ) = 1
         ORDER BY
+          CASE
+            WHEN event_date_end IS NULL OR event_date_end = event_date
+            THEN CASE WHEN DATE(@selected_date) = event_date THEN 0 ELSE 1 END
+            WHEN DATE_DIFF(event_date_end, event_date, DAY) <= 3
+            THEN CASE WHEN DATE(@selected_date) = event_date THEN 0 ELSE 1 END
+            ELSE CASE WHEN DATE(@selected_date) BETWEEN event_date AND DATE_ADD(event_date, INTERVAL 1 DAY) THEN 0 ELSE 1 END
+          END,
           ABS(DATE_DIFF(event_date, DATE(@selected_date), DAY)) ASC,
           conflict_score DESC
-        LIMIT 10
+        LIMIT 30
       `,
       params: { location_id, selected_date },
       types:  { location_id: "STRING", selected_date: "STRING" },
@@ -97,6 +121,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       google_rating:            r.google_rating ?? null,
       google_rating_count:      r.google_rating_count ?? null,
       google_photos:            r.google_photos ?? null,
+      is_launch:                r.is_launch ?? false,
+      is_active:                r.is_active ?? false,
+      is_upcoming:              r.is_upcoming ?? false,
     }));
 
     return new Response(JSON.stringify({ ok: true, signals, followed_count }), {
