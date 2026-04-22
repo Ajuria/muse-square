@@ -963,6 +963,21 @@ if (!location_id) {
         currentMode = m;
         closeAllPaths();
 
+        // Toggle thread visibility based on mode
+        const thread = document.getElementById('ie-thread');
+        const empty = document.getElementById('ie-prompt-empty');
+        const hasThreadContent = thread && !thread.hasAttribute('hidden') && thread.innerHTML.trim();
+
+        if (m === 'planning' && hasThreadContent) {
+          // Returning to planning with existing results — show thread, hide empty
+          if (thread) thread.removeAttribute('hidden');
+          if (empty) empty.setAttribute('hidden', 'true');
+        } else if (m !== 'planning') {
+          // Leaving planning — hide thread but don't clear it
+          if (thread) thread.setAttribute('hidden', 'true');
+          if (empty) empty.removeAttribute('hidden');
+        }
+
         // Planning cards + suggestions label
         const showPlanning = m === 'planning';
         if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
