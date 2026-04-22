@@ -3783,18 +3783,75 @@ const show_actions = has_selected_dates;
               const active = compSignals.filter(s => s.is_active && !s.is_launch);
               const upcoming = compSignals.filter(s => s.is_upcoming && !s.is_active && !s.is_launch);
 
+              // --- Dynamic takeaway ---
+              const AUDIENCE_FR = {
+                local: "résidents locaux", professionals: "professionnels",
+                tourists: "touristes", students: "étudiants",
+                families: "familles", seniors: "seniors",
+                general_public: "grand public", art_lovers: "amateurs d'art",
+                mixed: "public mixte"
+              };
+              const locAuds = [first.location_primary_audience_1, first.location_primary_audience_2].filter(Boolean);
+              
+              // Find shared audiences at COMPETITOR level
+              const compAuds = [first.competitor_primary_audience, first.competitor_secondary_audience].filter(Boolean);
+              const sharedCompAuds = compAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
+              
+              // Find shared audiences at EVENT level (more precise)
+              const eventAuds = [...new Set(compSignals.map(s => s.event_primary_audience).filter(Boolean))];
+              const sharedEventAuds = eventAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
+              
+              // Are events short-lived (< 14 days) or long-running?
+              const shortEvents = compSignals.filter(s => {
+                if (!s.event_date_end) return true;
+                const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
+                const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
+                return (end - start) / 86400000 < 14;
+              });
+              const longEvents = compSignals.filter(s => {
+                if (!s.event_date_end) return false;
+                const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
+                const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
+                return (end - start) / 86400000 >= 14;
+              });
+
               let takeaway = "";
               let takeawayAccent = "#1D3BB3";
-              if (hasAudienceOverlap && hasIndustryOverlap) {
-                takeaway = `Concurrent direct — même audience et secteur${distKm ? ` à ${distKm} km` : ""}. ${active.length ? "Capte votre public cible en ce moment." : ""}`;
+
+              if (sharedEventAuds.length > 0 && launches.length > 0) {
+                // Highest threat: event-level audience match + launch timing
+                takeaway = `Lancement ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — captation directe de votre audience.`;
                 takeawayAccent = "#E24B4A";
-              } else if (hasIndustryOverlap) {
-                const count = active.length + launches.length;
-                takeaway = `${count} événement${count > 1 ? "s" : ""} dans le même secteur${active.length > 3 ? " — offre dense, différenciez votre programmation." : "."}`;
-              } else if (hasDistanceFlag) {
-                takeaway = `Concurrent à proximité${distKm ? ` (${distKm} km)` : ""} — surveillez la fréquentation.`;
+              } else if (sharedEventAuds.length > 0 && shortEvents.length > 0) {
+                // Event audience match + short event = real competition
+                takeaway = `${shortEvents.length} événement${shortEvents.length > 1 ? "s" : ""} ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — concurrence directe sur votre public.`;
+                takeawayAccent = "#E24B4A";
+              } else if (sharedCompAuds.length > 0 && sharedEventAuds.length === 0) {
+                // Competitor targets your audience, but current events don't
+                const eventAudLabels = eventAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
+                takeaway = eventAudLabels
+                  ? `Concurrent ciblant ${sharedCompAuds.join(" et ")}, mais programmation actuelle orientée ${eventAudLabels} — impact limité.`
+                  : `Concurrent ciblant ${sharedCompAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — surveiller la programmation.`;
+                takeawayAccent = "#EF9F27";
+              } else if (sharedEventAuds.length > 0 && longEvents.length > 0 && shortEvents.length === 0) {
+                // Only long-running events with audience match = background noise
+                takeaway = `Programmation longue ciblant ${sharedEventAuds.join(" et ")} — présence continue, impact diffus.`;
+                takeawayAccent = "#EF9F27";
+              } else if (hasIndustryOverlap && !hasAudienceOverlap) {
+                takeaway = `Même secteur, public différent${distKm ? ` (${distKm} km)` : ""} — concurrence indirecte.`;
+                takeawayAccent = "#1D3BB3";
+              } else if (hasDistanceFlag && !hasAudienceOverlap && !hasIndustryOverlap) {
+                const compAudLabel = compAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
+                takeaway = compAudLabel
+                  ? `Cible ${compAudLabel}${distKm ? ` à ${distKm} km` : ""} — public différent du vôtre.`
+                  : `À proximité${distKm ? ` (${distKm} km)` : ""} — faible risque.`;
+                takeawayAccent = "#1D3BB3";
+              } else if (!hasAnyOverlap) {
+                takeaway = "";
+                takeawayAccent = "#9CA3AF";
               } else {
-                takeaway = "Secteur et audience différents — faible risque de compétition directe.";
+                takeaway = `${compSignals.length} événement${compSignals.length > 1 ? "s" : ""} détecté${compSignals.length > 1 ? "s" : ""}${distKm ? ` à ${distKm} km` : ""}.`;
+                takeawayAccent = "#1D3BB3";
               }
 
               const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -3806,8 +3863,9 @@ const show_actions = has_selected_dates;
                 ? `<span style="color:#854F0B;font-weight:500;">★ ${rating}${ratingCount ? ` · ${Number(ratingCount).toLocaleString('fr-FR')} avis` : ''}</span>`
                 : '';
 
-              const flagsHtml = hasAnyOverlap ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${hasAudienceOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même audience</span>' : ''}
+              const sharedAudLabel = sharedEventAuds.length ? sharedEventAuds.join(", ") : (sharedCompAuds.length ? sharedCompAuds.join(", ") : null);
+              const flagsHtml = (hasAnyOverlap || sharedAudLabel) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${sharedAudLabel ? `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Cible : ${escapeHtml(sharedAudLabel)}</span>` : (hasAudienceOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même audience</span>' : '')}
                 ${hasIndustryOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même secteur</span>' : ''}
                 ${hasDistanceFlag ? `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Proximité${distKm ? ` (${distKm} km)` : ''}</span>` : ''}
               </div>` : '';

@@ -55,7 +55,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
           DATE(@selected_date) BETWEEN event_date AND COALESCE(event_date_end, event_date)
           AS is_active,
           event_date > DATE(@selected_date)
-          AS is_upcoming
+          AS is_upcoming,
+          competitor_primary_audience,
+          competitor_secondary_audience,
+          competitor_industry_code,
+          location_industry_code,
+          location_primary_audience_1,
+          location_primary_audience_2,
+          event_primary_audience,
+          event_type
         FROM \`${projectId}.semantic.vw_insight_event_competitor_signals\`
         WHERE location_id = @location_id
           AND event_date IS NOT NULL
@@ -124,6 +132,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       is_launch:                r.is_launch ?? false,
       is_active:                r.is_active ?? false,
       is_upcoming:              r.is_upcoming ?? false,
+      competitor_primary_audience: r.competitor_primary_audience ?? null,
+      competitor_secondary_audience: r.competitor_secondary_audience ?? null,
+      competitor_industry_code:   r.competitor_industry_code ?? null,
+      location_industry_code:     r.location_industry_code ?? null,
+      location_primary_audience_1: r.location_primary_audience_1 ?? null,
+      location_primary_audience_2: r.location_primary_audience_2 ?? null,
+      event_primary_audience:     r.event_primary_audience ?? null,
+      event_type:                 r.event_type ?? null,
     }));
 
     return new Response(JSON.stringify({ ok: true, signals, followed_count }), {

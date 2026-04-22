@@ -830,22 +830,75 @@ if (!location_id) {
       const active = compSignals.filter(s => s.is_active && !s.is_launch);
       const upcoming = compSignals.filter(s => s.is_upcoming && !s.is_active && !s.is_launch);
 
-      // Takeaway
+      // --- Dynamic takeaway ---
+      const AUDIENCE_FR = {
+        local: "résidents locaux", professionals: "professionnels",
+        tourists: "touristes", students: "étudiants",
+        families: "familles", seniors: "seniors",
+        general_public: "grand public", art_lovers: "amateurs d'art",
+        mixed: "public mixte"
+      };
+      const locAuds = [first.location_primary_audience_1, first.location_primary_audience_2].filter(Boolean);
+      
+      // Find shared audiences at COMPETITOR level
+      const compAuds = [first.competitor_primary_audience, first.competitor_secondary_audience].filter(Boolean);
+      const sharedCompAuds = compAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
+      
+      // Find shared audiences at EVENT level (more precise)
+      const eventAuds = [...new Set(compSignals.map(s => s.event_primary_audience).filter(Boolean))];
+      const sharedEventAuds = eventAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
+      
+      // Are events short-lived (< 14 days) or long-running?
+      const shortEvents = compSignals.filter(s => {
+        if (!s.event_date_end) return true;
+        const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
+        const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
+        return (end - start) / 86400000 < 14;
+      });
+      const longEvents = compSignals.filter(s => {
+        if (!s.event_date_end) return false;
+        const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
+        const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
+        return (end - start) / 86400000 >= 14;
+      });
+
       let takeaway = "";
-      let takeawayClass = "ms-comp-takeaway ms-comp-takeaway-low";
-      if (hasAudienceOverlap && hasIndustryOverlap) {
-        takeaway = `Concurrent direct — même audience et secteur${distKm ? ` à ${distKm} km` : ""}. ${active.length ? "Capte votre public cible en ce moment." : ""}`;
-        takeawayClass = "ms-comp-takeaway";
-      } else if (hasIndustryOverlap) {
-        const count = active.length + launches.length;
-        takeaway = `${count} événement${count > 1 ? "s" : ""} dans le même secteur${active.length > 3 ? " — offre dense, différenciez votre programmation." : "."}`;
-        takeawayClass = "ms-comp-takeaway ms-comp-takeaway-low";
-      } else if (hasDistanceFlag) {
-        takeaway = `Concurrent à proximité${distKm ? ` (${distKm} km)` : ""} — surveillez la fréquentation.`;
-        takeawayClass = "ms-comp-takeaway ms-comp-takeaway-low";
+      let takeawayAccent = "#1D3BB3";
+
+      if (sharedEventAuds.length > 0 && launches.length > 0) {
+        // Highest threat: event-level audience match + launch timing
+        takeaway = `Lancement ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — captation directe de votre audience.`;
+        takeawayAccent = "#E24B4A";
+      } else if (sharedEventAuds.length > 0 && shortEvents.length > 0) {
+        // Event audience match + short event = real competition
+        takeaway = `${shortEvents.length} événement${shortEvents.length > 1 ? "s" : ""} ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — concurrence directe sur votre public.`;
+        takeawayAccent = "#E24B4A";
+      } else if (sharedCompAuds.length > 0 && sharedEventAuds.length === 0) {
+        // Competitor targets your audience, but current events don't
+        const eventAudLabels = eventAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
+        takeaway = eventAudLabels
+          ? `Concurrent ciblant ${sharedCompAuds.join(" et ")}, mais programmation actuelle orientée ${eventAudLabels} — impact limité.`
+          : `Concurrent ciblant ${sharedCompAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — surveiller la programmation.`;
+        takeawayAccent = "#EF9F27";
+      } else if (sharedEventAuds.length > 0 && longEvents.length > 0 && shortEvents.length === 0) {
+        // Only long-running events with audience match = background noise
+        takeaway = `Programmation longue ciblant ${sharedEventAuds.join(" et ")} — présence continue, impact diffus.`;
+        takeawayAccent = "#EF9F27";
+      } else if (hasIndustryOverlap && !hasAudienceOverlap) {
+        takeaway = `Même secteur, public différent${distKm ? ` (${distKm} km)` : ""} — concurrence indirecte.`;
+        takeawayAccent = "#1D3BB3";
+      } else if (hasDistanceFlag && !hasAudienceOverlap && !hasIndustryOverlap) {
+        const compAudLabel = compAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
+        takeaway = compAudLabel
+          ? `Cible ${compAudLabel}${distKm ? ` à ${distKm} km` : ""} — public différent du vôtre.`
+          : `À proximité${distKm ? ` (${distKm} km)` : ""} — faible risque.`;
+        takeawayAccent = "#1D3BB3";
+      } else if (!hasAnyOverlap) {
+        takeaway = "";
+        takeawayAccent = "#9CA3AF";
       } else {
-        takeaway = "Secteur et audience différents — faible risque de compétition directe.";
-        takeawayClass = "ms-comp-takeaway ms-comp-takeaway-low";
+        takeaway = `${compSignals.length} événement${compSignals.length > 1 ? "s" : ""} détecté${compSignals.length > 1 ? "s" : ""}${distKm ? ` à ${distKm} km` : ""}.`;
+        takeawayAccent = "#1D3BB3";
       }
 
       // Photo or initials
@@ -860,8 +913,9 @@ if (!location_id) {
         : '';
 
       // Overlap flags HTML (only shown when true)
-      const flagsHtml = hasAnyOverlap ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${hasAudienceOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même audience</span>' : ''}
+      const sharedAudLabel = sharedEventAuds.length ? sharedEventAuds.join(", ") : (sharedCompAuds.length ? sharedCompAuds.join(", ") : null);
+      const flagsHtml = (hasAnyOverlap || sharedAudLabel) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${sharedAudLabel ? `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Cible : ${escapeHtml(sharedAudLabel)}</span>` : (hasAudienceOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même audience</span>' : '')}
         ${hasIndustryOverlap ? '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Même secteur</span>' : ''}
         ${hasDistanceFlag ? `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#FCEBEB;color:#791F1F;">Proximité${distKm ? ` (${distKm} km)` : ''}</span>` : ''}
       </div>` : '';
@@ -931,7 +985,7 @@ if (!location_id) {
         </div>
         <div style="padding:0 20px 16px;">
           ${flagsHtml}
-          ${takeaway ? `<div class="${takeawayClass}" style="font-size:12px;color:#111827;background:#F9FAFB;border-radius:8px;padding:10px 14px;margin-top:${hasAnyOverlap ? '10' : '0'}px;line-height:1.45;border-left:3px solid ${hasAudienceOverlap || (hasIndustryOverlap && active.length > 3) ? '#E24B4A' : '#1D3BB3'};">${escapeHtml(takeaway)}</div>` : ''}
+          ${takeaway ? `<div style="font-size:12px;color:#111827;background:#F9FAFB;border-radius:8px;padding:10px 14px;margin-top:${hasAnyOverlap ? '10' : '0'}px;line-height:1.45;border-left:3px solid ${takeawayAccent};">${escapeHtml(takeaway)}</div>` : ''}
           ${launchesHtml}
           ${activeHtml}
           ${upcomingHtml}
@@ -1083,7 +1137,18 @@ if (!location_id) {
         </div>`;
 
       const suivisHtml = renderSuivisMonitorSection(competitorSignals, normalizeYmd(currentDay?.date || ""), followedCount || 0);
-      return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${suivisHtml}${vigilanceMultiHtml}${signalsCardHtml}${contextCardHtml}</div>`;
+      const totalCompEvents = (competitorSignals || []).length;
+      const allClearHtml = (riskyCount === 0 && !hasCritDay && !hasWarnDay)
+        ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(16,185,129,0.06);border-radius:12px;border:1px solid rgba(16,185,129,0.15);">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:16px;">✓</span>
+              <span style="font-size:14px;font-weight:500;color:#059669;">Aucun risque détecté</span>
+            </div>
+            <span style="font-size:12px;color:#6B7280;">${new Set(competitorSignals.map(s=>s.competitor_id)).size || 0} concurrent${new Set(competitorSignals.map(s=>s.competitor_id)).size > 1 ? 's' : ''} surveillé${new Set(competitorSignals.map(s=>s.competitor_id)).size > 1 ? 's' : ''} · ${totalCompEvents} événement${totalCompEvents > 1 ? 's' : ''}</span>
+          </div>`
+        : null;
+      const risksHtml = allClearHtml ? '' : (vigilanceMultiHtml + signalsCardHtml);
+      return `<div class="mon-panels" data-site-data='${escapeHtml(JSON.stringify(siteData.map((s,i) => ({i, location_id: s.location_id, label: s.label}))))}'>${allClearHtml || risksHtml}${suivisHtml}${contextCardHtml}</div>`;
     }
 
     const alerts = allFeed.filter(a => Number(a?.alert_level||0) >= 2 && normalizeYmd(a?.affected_date) === normalizeYmd(currentDay?.date));
@@ -1149,7 +1214,19 @@ if (!location_id) {
       </div>`;
 
     const suivisHtml = renderSuivisMonitorSection(competitorSignals, selectedDate, followedCount || 0);
-    return `<div class="mon-panels">${suivisHtml}${vigilanceHtml}${statusHtml}${renderContext(currentDay, profile)}</div>`;
+    const totalCompEvents = (competitorSignals || []).length;
+    const hasAnyRisk = vigilance.length > 0 || alerts.length > 0;
+    const allClearHtml = !hasAnyRisk
+      ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(16,185,129,0.06);border-radius:12px;border:1px solid rgba(16,185,129,0.15);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:16px;">✓</span>
+            <span style="font-size:14px;font-weight:500;color:#059669;">Aucun risque détecté</span>
+          </div>
+          <span style="font-size:12px;color:#6B7280;">${new Set(competitorSignals.map(s=>s.competitor_id)).size || 0} concurrent${new Set(competitorSignals.map(s=>s.competitor_id)).size > 1 ? 's' : ''} surveillé${new Set(competitorSignals.map(s=>s.competitor_id)).size > 1 ? 's' : ''} · ${totalCompEvents} événement${totalCompEvents > 1 ? 's' : ''}</span>
+        </div>`
+      : null;
+    const risksHtml = allClearHtml ? '' : (vigilanceHtml + statusHtml);
+    return `<div class="mon-panels">${allClearHtml || risksHtml}${suivisHtml}${renderContext(currentDay, profile)}</div>`;
   }
 
   // ----------------------------------------------------------------
