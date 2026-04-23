@@ -61,8 +61,8 @@ export async function findDates(params: FindDatesParams): Promise<FindDatesResul
       FROM \`muse-square-open-data.mart.fct_location_context_features_daily\`
       WHERE
         location_id = @location_id
-        AND date >= @date_start
-        AND date <= @date_end
+        AND date >= DATE(@date_start)
+        AND date <= DATE(@date_end)
         AND has_valid_baseline_flag = true
         AND (
           (@allow_weekday = true AND is_weekend_flag = false)
