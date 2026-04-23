@@ -593,6 +593,7 @@ if (!root) {
 
       if (finderSubmit) { finderSubmit.disabled = true; finderSubmit.textContent = "Recherche en cours…"; }
 
+      console.log("[finder] payload:", JSON.stringify({ date_start: start, date_end: end, allow_weekday: weekday, allow_weekend: weekend, exclude_school_holidays: exclSchool, exclude_public_holidays: exclHolidays }));
       try {
         const res = await fetch("/api/insight/find-dates", {
           method: "POST",

@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Split first word for partial matching (same pattern as check-event)
     const firstWord  = query.split(/\s+/)[0] || query;
 
-    const [eventResult, competitorResult, watchedEventsResult, watchedCompetitorsResult] = await Promise.all([
+    const [eventResult, competitorResult, directoryResult, watchedEventsResult, watchedCompetitorsResult] = await Promise.all([
       // Events from event calendar lookup
       bq.query({
         query: `
@@ -95,7 +95,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             description,
             source_url,
             google_rating,
-            google_review_count,
+            google_rating_count,
             lat,
             lon,
             confidence_score,
@@ -112,6 +112,37 @@ export const POST: APIRoute = async ({ request, locals }) => {
             CASE WHEN competitor_name_norm LIKE CONCAT('%', LOWER(@query), '%') THEN 0 ELSE 1 END,
             is_user_vetted DESC,
             confidence_score DESC
+          LIMIT 10
+        `,
+        params: { query: queryLower },
+        types:  { query: "STRING" },
+        location: BQ_LOCATION,
+      }),
+
+      // Competitors from competitor directory (manually added entries)
+      bq.query({
+        query: `
+          SELECT
+            competitor_id AS id,
+            competitor_name AS name,
+            city,
+            city_id,
+            industry_code,
+            address,
+            description,
+            source_url,
+            google_rating,
+            google_rating_count,
+            lat,
+            lon,
+            'competitor' AS type
+          FROM \`${projectId}.mart.fct_competitor_directory\`
+          WHERE (
+            LOWER(competitor_name) LIKE CONCAT('%', LOWER(@query), '%')
+            OR LOWER(description) LIKE CONCAT('%', LOWER(@query), '%')
+          )
+          ORDER BY
+            CASE WHEN LOWER(competitor_name) LIKE CONCAT('%', LOWER(@query), '%') THEN 0 ELSE 1 END
           LIMIT 10
         `,
         params: { query: queryLower },
@@ -146,6 +177,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const [eventRows]      = eventResult;
     const [competitorRows] = competitorResult;
+    const [directoryRows]  = directoryResult;
     const [watchedEvents]  = watchedEventsResult;
     const [watchedComps]   = watchedCompetitorsResult;
 
@@ -207,7 +239,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
 
     // Format competitor results
-    const competitors = (Array.isArray(competitorRows) ? competitorRows : []).map((r: any) => {
+    // Merge competitor lookup + directory, deduplicate by id
+    const seenCompIds = new Set<string>();
+    const allCompetitorRows = [...(Array.isArray(competitorRows) ? competitorRows : []), ...(Array.isArray(directoryRows) ? directoryRows : [])].filter((r: any) => {
+      const id = String(r.id || "");
+      if (seenCompIds.has(id)) return false;
+      seenCompIds.add(id);
+      return true;
+    });
+    const competitors = allCompetitorRows.map((r: any) => {
       const distKm = computeDistanceKm(
         r.lat != null ? Number(r.lat) : null,
         r.lon != null ? Number(r.lon) : null,
@@ -223,7 +263,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         description:    r.description ?? null,
         source_url:     r.source_url ?? null,
         google_rating:  r.google_rating ?? null,
-        google_review_count: r.google_review_count ?? null,
+        google_rating_count: r.google_rating_count ?? null,
         distance_km:    distKm,
         confidence_score: r.confidence_score ?? null,
         date_label:     null as string | null,

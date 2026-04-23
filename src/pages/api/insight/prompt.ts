@@ -4420,7 +4420,36 @@ Règles :
     })();
     console.log("[V3] rows count:", rows.length, "winner:", winner ? ymdFromAnyDate(winner?.date) : "null");
     if (!winner) {
-      throw new Error("No ranked rows available for month narrative V3");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data" },
+          ai: {
+            headline: "Aucune donnée disponible",
+            verdict: "",
+            answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+            key_facts: [],
+            reasons: [],
+            caveats: [],
+            output: {
+              headline: "Aucune donnée disponible",
+              verdict: "",
+              answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+              key_facts: [],
+              reasons: [],
+              caveats: [],
+            },
+            meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+            actions: { month_redirect_url: null, primary: null, secondary: [] },
+          },
+          actions: { month_redirect_url: null, primary: null, secondary: [] },
+          top_dates: [],
+          decision_payload: { kind: "scoring", horizon: "month", intent: resolved_intent, used_dates: [], signals: {} },
+          window_aggregates_v3: null,
+          ui_packaging_v3: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
     }
 
     // ------------------------------------
