@@ -392,7 +392,8 @@ export const GET: APIRoute = async ({ request }) => {
           cd.vetted_by,
           cd.industry_code                    AS competitor_industry_code,
           lp.company_lat                      AS location_lat,
-          lp.company_lon                      AS location_lon
+          lp.company_lon                      AS location_lon,
+          lc.last_crawled
         FROM \`${projectId}.raw.competitor_directory\` cd
         INNER JOIN \`${projectId}.raw.competitor_tracking\` ct
           ON cd.competitor_id = ct.competitor_id
@@ -404,9 +405,16 @@ export const GET: APIRoute = async ({ request }) => {
             PARTITION BY location_id ORDER BY updated_at DESC
           ) = 1
         ) lp ON ct.location_id = lp.location_id
+        LEFT JOIN (
+          SELECT competitor_id, MAX(crawled_at) AS last_crawled
+          FROM \`${projectId}.raw.competitor_events\`
+          GROUP BY competitor_id
+        ) lc ON cd.competitor_id = lc.competitor_id
         WHERE cd.source_url IS NOT NULL
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
+        ORDER BY lc.last_crawled ASC NULLS FIRST
+        LIMIT 1
       `,
       location: BQ_LOCATION,
     });
@@ -414,12 +422,20 @@ export const GET: APIRoute = async ({ request }) => {
     const competitors = sources as CompetitorSource[];
 
     // ── Step 2-5: Fetch → Extract → Write per competitor ─────────────────────
-    for (const comp of competitors) {
+    // Pick ONE competitor — oldest crawled first
+    const comp = competitors[0];
+    // Skip if this competitor was already crawled in the last 12 hours
+    const lastCrawled = (comp as any)?.last_crawled;
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    if (comp && lastCrawled && String(lastCrawled) > twelveHoursAgo) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "all_competitors_crawled_recently", ...results }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (comp) {
       // Timeout guard — break loop before Vercel kills the function
-      if (Date.now() - startTime > TIMEOUT_MS) {
-        results.errors.push("Timeout reached — remaining competitors deferred to next run");
-        break;
-      }
+      // (timeout guard removed — single competitor mode, no loop)
 
       results.processed++;
 
