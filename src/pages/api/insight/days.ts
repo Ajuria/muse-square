@@ -1,9 +1,7 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
-
 import { makeBQClient } from "../../../lib/bq";
-const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -59,14 +57,6 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
     return (x / 1000).toFixed(1);
   }
 
-  function isSameIndustry(eventIndustry: any, clientIndustry: any): boolean {
-    const e = typeof eventIndustry === "string" ? eventIndustry.toLowerCase() : "";
-    const c = typeof clientIndustry === "string" ? clientIndustry.toLowerCase() : "";
-    if (!e || !c) return false;
-    if (c === "cultural") return e.includes("culture") || e.includes("patrimoine");
-    return false;
-  }
-
   type TopEvent = {
     event_label?: string;
     city_name?: string;
@@ -79,7 +69,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
   function getTopCompetitionEvents(day: any, location_context: any): TopEvent[] {
     const clientIndustry = location_context?.client_industry_code;
 
-    const buckets = ["top_events_500m", "top_events_5km", "top_events_10km", "top_events_50km"];
+    const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
 
     let pool: any[] = [];
     for (const k of buckets) {
@@ -91,7 +81,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
     }
     if (!pool.length) return [];
 
-    const same = pool.filter((e) => isSameIndustry(e?.industry_code, clientIndustry));
+    const same = pool.filter((e) => e?.industry_code === clientIndustry);
     const chosen = same.length ? same : pool;
 
     const sorted = chosen
@@ -227,7 +217,7 @@ export function renderDeterministicText(input: DeterministicRenderInput): string
   const { label: dowFr, isWeekend } = weekdayLabelFr(date);
 
   const out: string[] = [];
-  out.push(`Points clés — ${dowFr} ${date}${isWeekend ? " (week-end)" : ""}`);
+  // header line removed
 
   // ---- Synthèse (3–5 bullets max) ----
   const synth: string[] = [];
@@ -439,21 +429,127 @@ export const GET: APIRoute = async ({ url, locals }) => {
     LIMIT 1
   `;
 
+  const alertsFeedQuery = `
+    SELECT
+      feed_date,
+      affected_date,
+      change_category,
+      change_subtype,
+      direction,
+      alert_level,
+      summary,
+      score_delta,
+      old_value,
+      new_value,
+      distance_m,
+      radius_bucket,
+      event_label,
+      event_venue_name,
+      event_venue_address,
+      city_name,
+      location_type,
+      lvl_rain,
+      lvl_wind,
+      lvl_snow,
+      lvl_heat,
+      lvl_cold,
+      mobility_status_region,
+      mobility_disruption_flag_region,
+      nearest_transit_line_name,
+      transit_network
+    FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
+    WHERE location_id = @location_id
+      AND affected_date IN UNNEST(ARRAY(
+        SELECT PARSE_DATE('%Y-%m-%d', d)
+        FROM UNNEST(@selected_dates) AS d
+      ))
+    ORDER BY alert_level DESC, feed_date DESC
+  `;
+
   try {
-    const [daysRows] = await bq.query({
-      query: daysQuery,
-      params: {
-        location_id,
-        selected_dates,
-      },
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+    const [[daysRows], [locationContextRows], [alertsFeedRows]] = await Promise.all([
+      bq.query({
+        query: daysQuery,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ['STRING'] },
+      }),
+      bq.query({
+        query: locationContextQuery,
+        params: { location_id },
+      }),
+      bq.query({
+        query: alertsFeedQuery,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ['STRING'] },
+      }),
+    ]);
+
+    console.log('[alerts debug]', {
+      location_id,
+      selected_dates,
+      row_count: alertsFeedRows?.length ?? 'undefined',
+      first_row: alertsFeedRows?.[0] ?? null,
     });
 
-    const [locationContextRows] = await bq.query({
-      query: locationContextQuery,
-      params: { location_id },
-    });
+    const location_context_for_feed = locationContextRows?.[0] ?? null;
 
-        const location_context = locationContextRows?.[0] ?? null;
+    const alerts = (Array.isArray(alertsFeedRows) ? alertsFeedRows : []).map((r: any) => ({
+      feed_date:                       (r?.feed_date?.value   ?? r?.feed_date   ?? null) as string | null,
+      affected_date:                   (r?.affected_date?.value ?? r?.affected_date ?? null) as string | null,
+      change_category:                 r?.change_category  ?? null,
+      change_subtype:                  r?.change_subtype   ?? null,
+      direction:                       r?.direction        ?? null,
+      alert_level:                     r?.alert_level      ?? null,
+      summary:                         r?.summary          ?? null,
+      score_delta:                     r?.score_delta      ?? null,
+      old_value:                       r?.old_value        ?? null,
+      new_value:                       r?.new_value        ?? null,
+      distance_m:                      r?.distance_m       ?? null,
+      radius_bucket:                   r?.radius_bucket    ?? null,
+      event_label:                     r?.event_label      ?? null,
+      event_venue_name:                r?.event_venue_name ?? null,
+      event_venue_address:             r?.event_venue_address ?? null,
+      city_name:                       r?.city_name        ?? null,
+      location_type:                   r?.location_type    ?? null,
+      lvl_rain:                        r?.lvl_rain         ?? null,
+      lvl_wind:                        r?.lvl_wind         ?? null,
+      lvl_snow:                        r?.lvl_snow         ?? null,
+      lvl_heat:                        r?.lvl_heat         ?? null,
+      lvl_cold:                        r?.lvl_cold         ?? null,
+      mobility_status_region:          r?.mobility_status_region ?? null,
+      mobility_disruption_flag_region: r?.mobility_disruption_flag_region ?? null,
+      nearest_transit_line_name:       r?.nearest_transit_line_name ?? null,
+      transit_network:                 r?.transit_network  ?? null,
+      // Profile-injected fields (same pattern as monitor.ts)
+      primary_audience_1:              location_context_for_feed?.primary_audience_1   ?? null,
+      primary_audience_2:              location_context_for_feed?.primary_audience_2   ?? null,
+      operating_hours:                 location_context_for_feed?.operating_hours      ?? null,
+      company_activity_type:           location_context_for_feed?.company_activity_type ?? null,
+      event_time_profile:              location_context_for_feed?.event_time_profile   ?? null,
+      location_type_client:            location_context_for_feed?.location_type        ?? null,
+      client_industry_code:            location_context_for_feed?.client_industry_code ?? null,
+      company_industry:                location_context_for_feed?.company_industry     ?? null,
+      main_event_objective:            location_context_for_feed?.main_event_objective ?? null,
+      event_type_1:                    location_context_for_feed?.event_type_1         ?? null,
+      event_type_2:                    location_context_for_feed?.event_type_2         ?? null,
+      event_type_3:                    location_context_for_feed?.event_type_3         ?? null,
+      capacity_sensitivity:            location_context_for_feed?.capacity_sensitivity ?? null,
+      geographic_catchment:            location_context_for_feed?.geographic_catchment ?? null,
+      weather_sensitivity:             location_context_for_feed?.weather_sensitivity  ?? null,
+      venue_capacity:                  location_context_for_feed?.venue_capacity       ?? null,
+    }));
+
+        const location_context_raw = locationContextRows?.[0] ?? null;
+        const location_context = location_context_raw ? {
+          ...location_context_raw,
+          nearest_transit_line_name: Array.isArray(location_context_raw.nearest_transit_line_name)
+            ? location_context_raw.nearest_transit_line_name.join(', ')
+            : (location_context_raw.nearest_transit_line_name ?? null),
+          transit_network: Array.isArray(location_context_raw.transit_network)
+            ? location_context_raw.transit_network[0] ?? null
+            : (location_context_raw.transit_network ?? null),
+        } : null;
 
     // -----------------------------
     // Normalize days (required)
@@ -678,9 +774,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // 6) (Optional but recommended) Competition summary inputs
     const competition_summary = (() => {
-      // Simple deterministic: max events in 50km within the selection + how many days have any competition
       let max50 = 0;
       let daysWithCompetition = 0;
+      let daysWithSameBucketCompetition = 0;
+      let maxPressureRatio = 0;
+      let totalSameBucket5km = 0;
+      let baselineAvg: number | null = null;
 
       for (const d of days_deduped) {
         const c =
@@ -693,42 +792,192 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
         const v50 = Number(d?.events_within_50km_count ?? 0);
         if (Number.isFinite(v50)) max50 = Math.max(max50, v50);
+
+        const sameBucket5km = Number(d?.events_within_5km_same_bucket_count ?? 0);
+        if (Number.isFinite(sameBucket5km) && sameBucket5km > 0) {
+          daysWithSameBucketCompetition += 1;
+          totalSameBucket5km += sameBucket5km;
+        }
+
+        const ratio = Number(d?.competition_pressure_ratio ?? 0);
+        if (Number.isFinite(ratio)) maxPressureRatio = Math.max(maxPressureRatio, ratio);
+
+        const baseline = Number(d?.baseline_comp_avg ?? null);
+        if (Number.isFinite(baseline) && baselineAvg === null) baselineAvg = baseline;
       }
 
-      return { daysWithCompetition, max50 };
+      return {
+        daysWithCompetition,
+        max50,
+        daysWithSameBucketCompetition,
+        maxPressureRatio,
+        avgSameBucket5km: daysWithSameBucketCompetition > 0
+          ? Math.round(totalSameBucket5km / daysWithSameBucketCompetition)
+          : 0,
+        baselineAvg,
+      };
     })();
 
-    const current_day =
-      days_deduped.find((d) => d?.date === current_date) ?? null;
+    function pickString(obj: any, keys: string[]): string | null {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (typeof v === "string" && v.trim()) return v.trim();
+      }
+      return null;
+    }
 
-    const current_special_labels =
-      special_days.find((x) => x.date === current_date)?.labels ?? [];
+    function firstSentence(s: any): string {
+      const v = typeof s === "string" ? s.trim().replace(/\s+/g, " ") : "";
+      if (!v) return "";
+      const m = v.match(/^(.+?[.!?])(\s|$)/);
+      return (m ? m[1] : v);
+    }
 
-    const comparison = {
-      selection_count: days_deduped.length,
-      rank_by_score: null as number | null,
-      has_any_weather_signal_in_selection: false,
-      is_current_weather_signal: false,
-      has_any_competition_in_selection: false,
-      is_current_competition: false,
-    };
+    function truncate(s: any, max = 120): string {
+      const v = typeof s === "string" ? s.trim().replace(/\s+/g, " ") : "";
+      if (!v) return "";
+      if (v.length <= max) return v;
+      return v.slice(0, max - 1).trimEnd() + "…";
+    }
 
-    const points_cles_text = renderPointsClesV1({
-      mode: "selected_day",
-      current_day,
-      selection_days: days_deduped,
-      current_special_labels,
-      location_context,
+    // Uses ONLY fields that exist in your top_events_* structs.
+    function eventOneLine(e: any): string {
+      const theme = pickString(e, ["theme"]);
+      if (theme) return truncate(theme, 90);
+
+      const keywords = pickString(e, ["keywords"]);
+      if (keywords) return truncate(keywords, 90);
+
+      const d = pickString(e, ["description", "longDescription"]);
+      return d ? truncate(firstSentence(d), 120) : "";
+    }
+
+    // Computes the actual list the UI should display: radius + industry + distance
+    function computeTopCompetitionEvents(day: any, location_context: any): any[] {
+      const clientIndustry = location_context?.client_industry_code;
+
+      const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
+
+      let pool: any[] = [];
+      for (const k of buckets) {
+        const arr = Array.isArray(day?.[k]) ? day[k] : [];
+        if (arr.length) { pool = arr; break; }
+      }
+      if (!pool.length) return [];
+
+      const sameIndustry = pool.filter((e) => e?.industry_code === clientIndustry);
+      const chosen = sameIndustry.length ? sameIndustry : pool;
+
+      const sorted = chosen.slice().sort(
+        (a, b) =>
+          Number(a?.distance_m ?? 1e18) - Number(b?.distance_m ?? 1e18) ||
+          String(a?.event_uid ?? "").localeCompare(String(b?.event_uid ?? ""))
+      );
+
+      // Return only fields you render + computed one-liner
+      return sorted.slice(0, 3).map((e) => ({
+        event_uid: e?.event_uid ?? null,
+        event_label: e?.event_label ?? null,
+        city_name: e?.city_name ?? null,
+        distance_m: (typeof e?.distance_m === "number" ? e.distance_m : null),
+        industry_code: e?.industry_code ?? null,
+        radius_bucket: e?.radius_bucket ?? null,
+        one_liner: eventOneLine(e),
+      }));
+    }
+
+    // Compute points_cles per day and embed inside each day row
+    const days_with_points_cles = days_deduped.map((day) => {
+      const day_special_labels =
+        special_days.find((x) => x.date === day.date)?.labels ?? [];
+
+      const text = renderPointsClesV1({
+        mode: "selected_day",
+        current_day: day,
+        selection_days: days_deduped,
+        current_special_labels: day_special_labels,
+        location_context,
+      });
+
+      // interpretation sentences based on attendance deltas
+      const eventsDelta = Number(day?.delta_att_events_pct ?? 0);
+      const weatherDelta = Number(day?.delta_att_weather_total_pct ?? 0);
+      const mobilityDelta = Number(day?.delta_att_mobility_pct ?? 0);
+      const calendarDelta = Number(day?.delta_att_calendar_pct ?? 0);
+
+      function interpretEvents(v:number){
+        if(v > 3) return "Forte concurrence d'événements à proximité.";
+        if(v > 1) return "Concurrence modérée d'événements.";
+        if(v > -1) return "Peu d'événements concurrents.";
+        return "Très peu de concurrence événementielle.";
+      }
+
+      function interpretWeather(_v:number){
+        const alertMax = Number(day?.alert_level_max ?? 0);
+        const lvlRain  = Number(day?.lvl_rain  ?? 0);
+        const lvlSnow  = Number(day?.lvl_snow  ?? 0);
+        const lvlWind  = Number(day?.lvl_wind  ?? 0);
+        const lvlHeat  = Number(day?.lvl_heat  ?? 0);
+        const lvlCold  = Number(day?.lvl_cold  ?? 0);
+        const locationType = location_context?.location_type ?? null;
+        const isIndoor = locationType === "indoor";
+        if (alertMax >= 3 || lvlSnow >= 2) return isIndoor ? "Accès au site potentiellement perturbé." : "Risque élevé sur la fréquentation et les installations.";
+        if (alertMax >= 1 || lvlRain >= 2 || lvlWind >= 2) return isIndoor ? "Légère friction à l'entrée, sans impact sur la venue globale." : "Surveiller l'impact sur la fréquentation et les installations extérieures.";
+        if (lvlRain === 1 || lvlWind === 1) return isIndoor ? "Aucun impact attendu sur la venue." : "Impact limité, surveiller les installations légères.";
+        if (lvlHeat >= 1) return isIndoor ? "Chaleur forte : prévoir climatisation." : "Chaleur forte : impact possible sur le confort et le temps de présence.";
+        if (lvlCold >= 1) return isIndoor ? "Froid intense : prévoir chauffage à l'entrée." : "Froid intense : impact possible sur la fréquentation.";
+        return "Aucun impact météo attendu sur la venue ou les installations.";
+      }
+
+      function interpretMobility(v:number){
+        if(v > 1) return "Accessibilité facilitée.";
+        if(v > -1) return "Conditions de transport normales.";
+        return "Risque de perturbations de transport.";
+      }
+
+      function interpretCalendar(v:number){
+        if(v > 1) return "Contexte calendrier favorable.";
+        if(v > -1) return "Contexte calendrier neutre.";
+        return "Contexte calendrier défavorable.";
+      }
+
+      return {
+        ...day,
+        points_cles: { text, location_context },
+        interpretation: {
+          regime: day?.opportunite_regime_fr ?? null,
+          events: interpretEvents(eventsDelta),
+          weather: interpretWeather(weatherDelta),
+          mobility: interpretMobility(mobilityDelta),
+          calendar: interpretCalendar(calendarDelta),
+        },
+        top_competition_events: computeTopCompetitionEvents(day, location_context),
+        competition_context: {
+          events_within_500m_same_bucket_count: day?.events_within_500m_same_bucket_count ?? null,
+          events_within_1km_same_bucket_count: day?.events_within_1km_same_bucket_count ?? null,
+          events_within_5km_same_bucket_count: day?.events_within_5km_same_bucket_count ?? null,
+          events_within_10km_same_bucket_count: day?.events_within_10km_same_bucket_count ?? null,
+          events_within_50km_same_bucket_count: day?.events_within_50km_same_bucket_count ?? null,
+          pct_same_bucket_5km: day?.pct_same_bucket_5km ?? null,
+          competition_pressure_ratio: day?.competition_pressure_ratio ?? null,
+          baseline_comp_avg: day?.baseline_comp_avg ?? null,
+          has_valid_baseline_flag: day?.has_valid_baseline_flag ?? null,
+          competition_index_local: day?.competition_index_local ?? null,
+        },
+      };
     });
 
     return new Response(
       JSON.stringify({
         location_id,
         selected_dates,
-        days: days_deduped,
+        days: days_with_points_cles,
+        alerts,
+        competition_summary,
+        // keep global for backward compat (uses first date)
         points_cles: {
           location_context,
-          text: points_cles_text,
+          text: days_with_points_cles[0]?.points_cles?.text ?? null,
         },
       }),
       {
@@ -736,6 +985,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         headers: { "Content-Type": "application/json; charset=utf-8" },
       }
     );
+
   } catch (err) {
     console.error("[api/insight/days] Error", err);
     return new Response(
@@ -747,4 +997,3 @@ export const GET: APIRoute = async ({ url, locals }) => {
     );
   }
 };
-

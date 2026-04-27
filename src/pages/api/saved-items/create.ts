@@ -33,15 +33,12 @@ function requireLocationIdFromLocals(locals: any): string {
   return v.trim();
 }
 
-type Stage = "option" | "exploration" | "prevalidation" | "retenue";
-
-function normalizeStage(s: unknown): Stage {
-  const v = typeof s === "string" ? s.trim().toLowerCase() : "";
-  if (v === "option") return "option";
-  if (v === "exploration") return "exploration";
-  if (v === "prevalidation" || v === "pré-validation" || v === "pre-validation") return "prevalidation";
-  if (v === "retenue" || v === "retendue" || v === "date retenue") return "retenue";
-  throw new HttpError(400, "Invalid stage");
+function normalizeDateOptional(s: unknown, name: string): string | null {
+  if (s == null || s === "") return null;
+  if (typeof s !== "string") throw new HttpError(400, `Invalid field: ${name}`);
+  const v = s.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new HttpError(400, `Invalid date format for ${name}: ${v}`);
+  return v;
 }
 
 function normalizeDateYMD(s: string): string {
@@ -90,10 +87,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       typeof body?.description === "string" && body.description.trim().length
         ? body.description.trim().slice(0, 240)
         : null;
-
-    const stage = body?.stage == null || body.stage === ""
-        ? "option"
-        : normalizeStage(body.stage);
+    
+    const decision_date = normalizeDateOptional(body?.decision_date, "decision_date");
+    const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
+    const event_type = typeof body?.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
+    const launch_hour = typeof body?.launch_hour === "number" ? body.launch_hour : (body?.launch_hour != null && body.launch_hour !== "" ? parseInt(body.launch_hour, 10) : null);
 
     const rawDates = Array.isArray(body?.dates) ? body.dates : null;
     if (!rawDates || rawDates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
@@ -110,20 +108,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const number_of_dates = dates.length;
 
-    // ---- Stage rules ----
-    if (number_of_dates >= 2 && stage === "retenue") {
-      throw new HttpError(400, "Stage 'retenue' is only allowed when exactly 1 date is saved.");
-    }
-
-    const allowedStagesForList: Stage[] = ["option", "exploration", "prevalidation"];
-    const allowedStagesForSingle: Stage[] = ["option", "exploration", "prevalidation", "retenue"];
-
-    if (number_of_dates >= 2 && !allowedStagesForList.includes(stage)) {
-      throw new HttpError(400, "Invalid stage for a multi-date list.");
-    }
-    if (number_of_dates === 1 && !allowedStagesForSingle.includes(stage)) {
-      throw new HttpError(400, "Invalid stage for a single date.");
-    }
+    // No stage rules needed
 
     // ---- BigQuery wiring (reuse your pattern) ----
     const projectId = requireString(process.env.BQ_PROJECT_ID, "BQ_PROJECT_ID");
@@ -148,6 +133,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         title,
         description,
         stage,
+        decision_date,
+        event_end_date,
+        event_type,
+        launch_hour,
         created_at,
         updated_at
     )
@@ -158,7 +147,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @number_of_dates,
         @title,
         @description,
-        @stage,
+        'option',
+        IF(@decision_date = '', NULL, PARSE_DATE('%F', @decision_date)),
+        IF(@event_end_date = '', NULL, PARSE_DATE('%F', @event_end_date)),
+        @event_type,
+        @launch_hour,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -185,25 +178,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
         query: script,
         location: BQ_LOCATION,
         params: {
-            saved_item_id,
-            location_id,
-            clerk_user_id,
-            number_of_dates,
-            title,
-            description,
-            stage,
-            dates, // array of YYYY-MM-DD strings
-        },
-        types: {
-            saved_item_id: "STRING",
-            location_id: "STRING",
-            clerk_user_id: "STRING",
-            number_of_dates: "INT64",
-            title: "STRING",
-            description: "STRING",
-            stage: "STRING",
-            dates: ["STRING"], // ARRAY<STRING>
-        },
+    saved_item_id,
+    location_id,
+    clerk_user_id,
+    number_of_dates,
+    title,
+    description,
+    decision_date: decision_date ?? "",
+    event_end_date: event_end_date ?? "",
+    event_type: event_type ?? null,
+    launch_hour: launch_hour ?? null,
+    dates,
+},
+types: {
+    saved_item_id: "STRING",
+    location_id: "STRING",
+    clerk_user_id: "STRING",
+    number_of_dates: "INT64",
+    title: "STRING",
+    description: "STRING",
+    decision_date: "STRING",
+    event_end_date: "STRING",
+    event_type: "STRING",
+    launch_hour: "INT64",
+    dates: ["STRING"],
+},
     });
 
     return new Response(
@@ -212,7 +211,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         saved_item_id,
         location_id,
         number_of_dates,
-        stage,
+        decision_date,
+        event_end_date,
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );

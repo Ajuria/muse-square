@@ -45,6 +45,7 @@ type ScoringIntent =
   | "DAY_DIMENSION_DETAIL"
   | "COMPARE_DATES"
   | "DRIVER_PRIMARY"
+  | "MOBILITY_UNAVAILABLE"
   | "INTENT_UNKNOWN";
 
 type Intent = ScoringIntent | "EVENT_LOOKUP" | "LOOKUP_EVENT";
@@ -66,6 +67,7 @@ type ApiActions = {
 
 type AiResponseV1 = {
   headline: string;
+  verdict: string;
   answer: string;
   reasons: string[];
   key_facts: string[];
@@ -200,6 +202,7 @@ function normalizeAiOutput(
   ) {
     return {
       headline: out.headline,
+      verdict: typeof out.verdict === "string" ? out.verdict.trim() : "",
       answer: out.answer,
       reasons: asStringArray(out.reasons),
       key_facts: asStringArray(out.key_facts),
@@ -229,15 +232,19 @@ function normalizeAiOutput(
       : [];
 
     const answer =
-      typeof out.answer === "string" && out.answer.trim()
-        ? out.answer.trim()
-        : (typeof out.summary === "string" && out.summary.trim()
-            ? out.summary.trim()
-            : (bulletsTxt.length
-                ? `• ${bulletsTxt.slice(0, 5).join("\n• ")}`
-                : (key_facts.length
-                    ? `• ${key_facts.slice(0, 5).join("\n• ")}`
-                    : "Résumé basé sur les données disponibles.")));
+      Array.isArray(out.answer) && out.answer.length
+        ? out.answer
+        : (out.answer && typeof out.answer === "object" && !Array.isArray(out.answer))
+          ? out.answer
+          : typeof out.answer === "string" && out.answer.trim()
+            ? out.answer.trim()
+          : (typeof out.summary === "string" && out.summary.trim()
+              ? out.summary.trim()
+              : (bulletsTxt.length
+                  ? `• ${bulletsTxt.slice(0, 5).join("\n• ")}`
+                  : (key_facts.length
+                      ? `• ${key_facts.slice(0, 5).join("\n• ")}`
+                      : "Résumé basé sur les données disponibles.")));
 
     const reasons =
       Array.isArray(out.reasons) ? asStringArray(out.reasons)
@@ -256,9 +263,8 @@ function normalizeAiOutput(
 
     return {
       headline,
-      answer, // ✅ use the computed answer (summary/bullets/key_facts fallback)
-      // Deterministic engines are allowed to ship user-facing key_facts.
-      // We control duplication elsewhere (conversation layer / deterministic_reasons).
+      verdict: typeof out.verdict === "string" ? out.verdict.trim() : "",
+      answer,
       reasons: isDeterministicMode ? [] : (
         (Array.isArray(out.reasons) && out.reasons.length)
           ? asStringArray(out.reasons)
@@ -275,6 +281,7 @@ function normalizeAiOutput(
   if (typeof out === "string" && out.trim()) {
     return {
       headline: "Résumé",
+      verdict: "",
       answer: out.trim(),
       reasons: [],
       key_facts: [],
@@ -286,9 +293,11 @@ function normalizeAiOutput(
 
   // Fallback: use raw_text if present
   const raw = typeof ai?.raw_text === "string" ? ai.raw_text.trim() : "";
+  console.log("[normalizeAiOutput] FALLBACK hit, ai.ok:", ai?.ok, "ai.output:", JSON.stringify(ai?.output)?.slice(0, 100));
   return {
     headline: "Résumé",
-    answer: raw || "Je n’ai pas pu produire une réponse utile avec les données disponibles.",
+    verdict: "",
+    answer: raw || "Je n'ai pas pu produire une réponse utile avec les données disponibles.",
     reasons: [],
     key_facts: [],
     actions,
@@ -305,6 +314,48 @@ function norm(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// ------------------------------------
+// SHARED LEXICAL MARKERS (avoid drift)
+// ------------------------------------
+
+const EVALUATION_MARKERS = [
+  "meilleur",
+  "meilleurs",
+  "top",
+  "pire",
+  "pires",
+  "eviter",
+  "éviter",
+  "defavorable",
+  "défavorable",
+  "moins favorable",
+  "plus favorable",
+  "plus complique",
+  "plus compliqué",
+  "plus risque",
+  "plus risqué",
+];
+
+const COMPARISON_MARKERS = [
+  "compar",
+  "difference",
+  "différence",
+  "entre",
+  " vs ",
+  "vs ",
+];
+
+const PLANNING_VERBS = [
+  "organiser",
+  "planifier",
+  "programmer",
+  "choisir",
+  "decider",
+  "décider",
+  "prevoir",
+  "prévoir",
+];
 
 function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringIntent {
   const q = norm(qRaw);
@@ -327,7 +378,7 @@ function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringI
 
     if (
       q.includes("meteo") || q.includes("pluie") || q.includes("vent") || q.includes("alerte") ||
-      q.includes("evenement") || q.includes("concurrence") ||
+      q.includes("evenement") || q.includes("concurrence") || q.includes("concurrent") ||
       q.includes("tourisme") || q.includes("affluence") ||
       q.includes("mobilite") || q.includes("trafic") || q.includes("deplacement") || q.includes("transport")
     ) {
@@ -337,14 +388,22 @@ function resolveIntentFromText(qRaw: string, horizon: ResolvedHorizon): ScoringI
     return "DAY_WHY";
   }
 
-  // Primary driver / factor
+  // Mobility questions — dedicated intent
   if (
-    q.includes("principal") ||
-    q.includes("facteur") ||
-    q.includes("point de vigilance") ||
-    q.includes("complique le plus") ||
-    q.includes("surtout a cause")
-  ) return "DRIVER_PRIMARY";
+    q.includes("transport") ||
+    q.includes("deplacement") ||
+    q.includes("déplacement") ||
+    q.includes("circulation") ||
+    q.includes("trafic") ||
+    q.includes("perturbation") ||
+    q.includes("mobilite") ||
+    q.includes("mobilité") ||
+    q.includes("greve") ||
+    q.includes("grève") ||
+    q.includes("retard") ||
+    q.includes("metro") ||
+    q.includes("métro")
+  ) return "MOBILITY_UNAVAILABLE";
 
   // Patterns / streaks / trends
   if (
@@ -489,9 +548,33 @@ function resolveTopKFromText(qRaw: string): number {
   return 3;
 }
 
+function detectVenueExposureOverride(qRaw: string): "outdoor" | "indoor" | "ambiguous" | null {
+  const q = norm(qRaw);
+  const hasOutdoor = q.includes("exterieur") || q.includes("outdoor") || q.includes("plein air") || q.includes("dehors");
+  const hasIndoor = q.includes("interieur") || q.includes("indoor") || q.includes("salle") || q.includes("couvert");
+  const hasAmbiguity = q.includes("ne sais pas") || q.includes("pas encore") || q.includes("peut-etre") || q.includes("peut être") || q.includes("soit") && (hasOutdoor || hasIndoor);
+  if (hasAmbiguity && (hasOutdoor || hasIndoor)) return "ambiguous";
+  if (hasOutdoor && !hasIndoor) return "outdoor";
+  if (hasIndoor && !hasOutdoor) return "indoor";
+  return null;
+}
+
 function wantsWeekendOnly(qRaw: string): boolean {
   const q = norm(qRaw);
-  return q.includes("weekend") || q.includes("week-end") || q.includes("week end");
+  return q.includes("weekend") || q.includes("week-end") || q.includes("week end") ||
+    q.includes("samedi") || q.includes("dimanche");
+}
+
+function wantedWeekdayFilter(qRaw: string): number | null {
+  const q = norm(qRaw);
+  if (q.includes("lundi")) return 1;
+  if (q.includes("mardi")) return 2;
+  if (q.includes("mercredi")) return 3;
+  if (q.includes("jeudi")) return 4;
+  if (q.includes("vendredi")) return 5;
+  if (q.includes("samedi")) return 6;
+  if (q.includes("dimanche")) return 0;
+  return null;
 }
 
 function addDaysYmd(ymd: string, deltaDays: number): string {
@@ -519,35 +602,79 @@ function toBoolOrNullLocal(v: any): boolean | null {
   return toBoolOrNullStrict(v);
 }
 
-function isEventLookupQuestion(q: string): boolean {
-  const s = norm(q ?? "");
+function isEventLookupQuestion(qRaw: string): boolean {
+  const s = norm(qRaw ?? "");
 
-  const lookupPhrase =
+  // ----------------------------
+  // HARD NEGATIVE SHIELD
+  // ----------------------------
+
+  if (EVALUATION_MARKERS.some(k => s.includes(k))) return false;
+  if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
+  if (PLANNING_VERBS.some(k => s.includes(k))) return false;
+
+  // ----------------------------
+  // POSITIVE LOOKUP SIGNALS
+  // ----------------------------
+  const explicitLookup =
     s.includes("a quelle date") ||
-    s.includes("c est quand") ||
+    s.includes("à quelle date") ||
     s.includes("quand a lieu") ||
-    s.includes("dates de ") ||
-    s.includes("date de debut") ||
-    s.includes("date de fin");
+    s.includes("c est quand") ||
+    s.includes("agenda") ||
+    s.includes("calendrier") ||
+    s.includes("quels evenements") ||
+    s.includes("quels événements") ||
+    s.includes("y a t il") ||
+    s.includes("y a-t-il") ||
+    s.includes("black friday") ||
+    s.includes("saint valentin") ||
+    s.includes("fete des meres") ||
+    s.includes("fête des mères") ||
+    s.includes("fete des peres") ||
+    s.includes("fête des pères") ||
+    s.includes("noel") ||
+    s.includes("noël") ||
+    s.includes("paques") ||
+    s.includes("pâques") ||
+    s.includes("toussaint") ||
+    s.includes("pentecote") ||
+    s.includes("pentecôte") ||
+    s.includes("feria") ||
+    s.includes("festival")||
+    s.includes("concert de") ||
+    s.includes("concert d") ||
+    s.includes("tournee de") ||
+    s.includes("tournée de");
 
-  if (!lookupPhrase) return false;
+  if (explicitLookup) return true;
 
-  const hasScoringKeywords =
-    s.includes("meilleur") ||
-    s.includes("meilleurs") ||
-    s.includes("top") ||
-    s.includes("pire") ||
-    s.includes("eviter") ||
-    s.includes("defavorable") ||
-    s.includes("periode stable") ||
-    s.includes("tendance") ||
-    s.includes("sequence") ||
-    s.includes("compar") ||
-    s.includes("entre") ||
-    s.includes(" vs ") ||
-    s.includes("vs ");
+  // ----------------------------
+  // MINIMAL TEMPORAL QUERY
+  // (e.g. "14 juin", "samedi nimes")
+  // ----------------------------
 
-  return !hasScoringKeywords;
+  const hasMonth =
+    /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/i.test(qRaw);
+
+  const hasNumericDate =
+    /\b\d{1,2}\b/.test(qRaw);
+
+  const hasWeekday =
+    /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(qRaw);
+
+  // MINIMAL TEMPORAL QUERY — only when NO evaluation/planning intent
+
+  const hasEvaluationIntent =
+    EVALUATION_MARKERS.some(k => s.includes(k)) ||
+    PLANNING_VERBS.some(k => s.includes(k)) ||
+    s.includes("jours");
+
+  if (!hasEvaluationIntent && (hasMonth || hasNumericDate || hasWeekday)) {
+    return true;
+  }
+  
+  return false;
 }
 
 function adaptDayFactsByDate(ir: any): Record<string, any[]> {
@@ -899,7 +1026,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const dFr = fmtDateFr(d);
 
         const reg = String(r?.opportunity_regime ?? "ND");
-        const score = toFiniteNumOrNullLocal(r?.opportunity_score_final_local);
+        const score = toFiniteNumOrNullLocal(r?.opportunity_score_final_local ?? r?.opportunity_score);
         const alert = toFiniteNumOrNullLocal(
           r?.alert_level_max ??            // selected_days surface (common)
           r?.weather_alert_level ??        // month/day surface
@@ -907,7 +1034,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           r?.weather_alert_level_max       // alt naming
         );
         const pr = toFiniteNumOrNullLocal(
-          r?.precip_probability_max_pct ??
+          r?.precipitation_probability_max_pct ??
           r?.precipitation_probability_max_pct
         );
 
@@ -1041,8 +1168,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   function buildWeatherSignal(row: any, ctx: any): DecisionSignal {
     const { exposure, basis } = inferVenueExposureFromContext(ctx);
 
-    const alert = row?.weather_alert_level ?? null;
-    const precipProb = row?.precip_probability_max_pct ?? null;
+    const alert = row?.alert_level_max ?? row?.weather_alert_level ?? null;
+    const precipProb = row?.precipitation_probability_max_pct ?? row?.precipitation_probability_max_pct ?? null;
     const wind = row?.wind_speed_10m_max ?? null;
     const wxCode = row?.weather_code ?? null;
 
@@ -1052,7 +1179,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const facts: Record<string, number | string | boolean | null> = {
       weather_alert_level: Number.isFinite(alertNum) ? alertNum : null,
-      precip_probability_max_pct: Number.isFinite(precipNum) ? precipNum : null,
+      precipitation_probability_max_pct: Number.isFinite(precipNum) ? precipNum : null,
       wind_speed_10m_max: Number.isFinite(windNum) ? windNum : null,
       weather_code: typeof wxCode === "string" && wxCode.trim() ? wxCode.trim() : (wxCode ?? null),
       venue_exposure: exposure,
@@ -1061,7 +1188,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Applicability = we can at least compute alert OR (precip/wind) + some context info.
     const hasAlert = facts.weather_alert_level !== null;
-    const hasPrecip = facts.precip_probability_max_pct !== null;
+    const hasPrecip = facts.precipitation_probability_max_pct !== null;
     const hasWind = facts.wind_speed_10m_max !== null;
 
     const applicable = hasAlert || hasPrecip || hasWind;
@@ -1081,14 +1208,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (Number.isFinite(alertNum) && alertNum >= 3) {
       impact = "blocking";
     } else {
-      const precipNonZero = Number.isFinite(precipNum) && precipNum > 0;
-      const windNonZero = Number.isFinite(windNum) && windNum > 0;
+      const precipSignificant = Number.isFinite(precipNum) && precipNum > 20;
+      const windSignificant = Number.isFinite(windNum) && windNum >= 25;
+      const alertPresent = Number.isFinite(alertNum) && alertNum >= 1;
 
-      if (exposure !== "indoor" && (precipNonZero || windNonZero)) {
+      if (exposure !== "indoor" && (precipSignificant || windSignificant || alertPresent)) {
         impact = "risk";
       }
-      if (exposure === "indoor" && (Number.isFinite(alertNum) && alertNum >= 1)) {
-        // alert still matters even indoor (truth: alert exists)
+      if (exposure === "indoor" && alertPresent) {
         impact = "risk";
       }
     }
@@ -1100,15 +1227,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ? "Signal météo bloquant: niveau d’alerte météo ≥ 3 (règle hard v1)."
           : impact === "risk"
             ? (exposure === "indoor"
-                ? "Signal météo à risque: présence d’une alerte météo (même en intérieur)."
+                ? "Signal météo à risque: alerte météo active (niveau ≥ 1)."
                 : (() => {
                     const parts: string[] = [];
-                    const precipNonZero = Number.isFinite(precipNum) && precipNum > 0;
-                    const windNonZero = Number.isFinite(windNum) && windNum > 0;
-                    if (precipNonZero) parts.push("pluie");
-                    if (windNonZero) parts.push("vent");
-                    const what = parts.length ? parts.join(" et ") : "météo";
-                    return `Signal météo à risque: ${what} non nul(s) et lieu non confirmé intérieur.`;
+                    if (Number.isFinite(precipNum) && precipNum > 20) parts.push(`pluie ${Math.round(precipNum)}%`);
+                    if (Number.isFinite(windNum) && windNum >= 25) parts.push(`vent ${Math.round(windNum)} m/s`);
+                    if (Number.isFinite(alertNum) && alertNum >= 1) parts.push(`alerte niveau ${Math.round(alertNum)}`);
+                    const what = parts.length ? parts.join(", ") : "signal météo";
+                    return `Signal météo à risque: ${what}.`;
                   })())
             : "Signal météo neutre: aucune alerte bloquante et pas de risque météo détectable via les champs disponibles.";
 
@@ -1130,15 +1256,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const n10 = typeof c10 === "number" ? c10 : Number(c10);
     const n50 = typeof c50 === "number" ? c50 : Number(c50);
 
+    const ratio = row?.competition_pressure_ratio ?? null;
+    const ratioNum = typeof ratio === "number" ? ratio : Number(ratio);
+
     const facts: Record<string, number | string | boolean | null> = {
+      events_within_500m_count: toNumLocal(row?.events_within_500m_count) || null,
+      events_within_1km_count: toNumLocal(row?.events_within_1km_count) || null,
       events_within_5km_count: Number.isFinite(n5) ? n5 : null,
       events_within_10km_count: Number.isFinite(n10) ? n10 : null,
       events_within_50km_count: Number.isFinite(n50) ? n50 : null,
+      events_within_500m_same_bucket_count: toNumLocal(row?.events_within_500m_same_bucket_count) || null,
+      events_within_1km_same_bucket_count: toNumLocal(row?.events_within_1km_same_bucket_count) || null,
+      events_within_5km_same_bucket_count: toNumLocal(row?.events_within_5km_same_bucket_count) || null,
+      events_within_10km_same_bucket_count: toNumLocal(row?.events_within_10km_same_bucket_count) || null,
+      pct_same_bucket_5km: toNumLocal(row?.pct_same_bucket_5km) || null,
+      competition_pressure_ratio: Number.isFinite(ratioNum) ? ratioNum : null,
+      baseline_comp_avg: toNumLocal(row?.baseline_comp_avg) || null,
       competition_scope: deriveCompetitionScopeLocal(row),
-
     };
 
     const applicable =
+      facts.events_within_500m_count !== null ||      
+      facts.events_within_1km_count !== null ||
       facts.events_within_5km_count !== null ||
       facts.events_within_10km_count !== null ||
       facts.events_within_50km_count !== null;
@@ -1278,8 +1417,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const rb = regimeRank(b?.opportunity_regime);
         if (ra !== rb) return ra - rb;
 
-        const sa = num(a?.opportunity_score_final_local);
-        const sb = num(b?.opportunity_score_final_local);
+        const sa = num(a?.opportunity_score_final_local ?? a?.opportunity_score);
+        const sb = num(b?.opportunity_score_final_local ?? b?.opportunity_score);
         const saOk = Number.isFinite(sa);
         const sbOk = Number.isFinite(sb);
         if (saOk !== sbOk) return saOk ? -1 : 1;
@@ -1415,7 +1554,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .map((r) => {
         const n = typeof r?.opportunity_score_final_local === "number"
           ? r.opportunity_score_final_local
-          : Number(r?.opportunity_score_final_local);
+          : typeof r?.opportunity_score === "number"
+          ? r.opportunity_score
+          : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
         return Number.isFinite(n) ? n : null;
       })
       .filter((x): x is number => x !== null)
@@ -1551,7 +1692,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         // Weather filters
         if (activeWeather) {
           const alert = toNum(r?.weather_alert_level);
-          const pr = toNum(r?.precip_probability_max_pct);
+          const pr = toNum(r?.precipitation_probability_max_pct);
           const wi = toNum(r?.wind_speed_10m_max);
 
           if (negAlerte) {
@@ -1795,6 +1936,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const qRaw = requireString(body?.q, "body.q");
     const q = norm(qRaw);
     const top_k = resolveTopKFromText(qRaw);
+    const request_mode: "planning" | "concurrence" | "marketing" =
+      body?.mode === "concurrence" ? "concurrence"
+      : body?.mode === "marketing" ? "marketing"
+      : "planning";
+
+    // Multi-turn conversation history (V1)
+    // Shape: [{role: "user"|"assistant", content: string}]
+    const conversation_history: Array<{role: "user"|"assistant"; content: string}> =
+      Array.isArray(body?.conversation_history)
+        ? body.conversation_history
+            .filter((m: any) => (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string" && m.content.trim())
+            .slice(-12) // hard cap at 12 messages (6 turns)
+            .map((m: any) => ({ role: m.role as "user"|"assistant", content: String(m.content).trim() }))
+        : [];
 
     // ---- AUTH + CONTEXT (SOURCE OF TRUTH) ----
     // In prod: require Clerk locals.
@@ -1878,7 +2033,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
       let m: number | null = null;
       for (const k of Object.keys(months)) {
-        if (qn.includes(k)) { m = months[k]; break; }
+        // Use word boundary check: month name must be preceded and followed by non-letter
+        const re = new RegExp(`(?:^|[^a-z])${k}(?:[^a-z]|$)`);
+        if (re.test(qn)) { m = months[k]; break; }
       }
       if (!m) return null;
 
@@ -1921,6 +2078,91 @@ export const POST: APIRoute = async ({ request, locals }) => {
       throw new Error("dates[] too large (max 7)");
     }
 
+    // ----------------------------
+    // CONFIRMED PARAMS (V1) — bypass extraction when user already confirmed
+    // ----------------------------
+    const confirmed_params: Record<string, any> | null =
+      body?.confirmed_params && typeof body.confirmed_params === "object"
+        ? body.confirmed_params
+        : null;
+
+    const effective_venue_override: "outdoor" | "indoor" | "ambiguous" | null =
+      (confirmed_params?.exposition as "outdoor" | "indoor" | "ambiguous" | null) ??
+      detectVenueExposureOverride(qRaw);
+
+    const effective_weekend_only: boolean =
+      confirmed_params?.filter_weekend_only === true || wantsWeekendOnly(qRaw);
+
+    const wanted_weekday = wantedWeekdayFilter(qRaw);
+    // BigQuery DAYOFWEEK: 1=Sunday, 2=Monday, ..., 7=Saturday
+    const filter_weekday_bq: number =
+      wanted_weekday === null ? -1 :
+      wanted_weekday === 0 ? 1 :   // dimanche
+      wanted_weekday + 1;           // lundi=2, mardi=3, ..., samedi=7
+    const filter_weekday: number = wanted_weekday === null ? -1 : wanted_weekday;
+
+    // ----------------------------
+    // PARAMETER EXTRACTION + CONFIRMATION (V1)
+    // Only runs on first submission (confirmed_params === null).
+    // Extracts structured params from free text and asks for confirmation
+    // when the question is ambiguous (month without year, outdoor flag, etc).
+    // ----------------------------
+    if (!confirmed_params) {
+      const qn_check = norm(qRaw);
+
+      // Detect month-only mentions without year (ambiguous)
+      const hasMonthNoYear =
+        /\b(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/i.test(qRaw) &&
+        !/\b20\d{2}\b/.test(qRaw);
+
+      // Detect outdoor/indoor mention
+      const venueOverride = detectVenueExposureOverride(qRaw);
+      const hasVenueFlag = venueOverride !== null;
+
+      // Detect top-k mention
+      const explicit_top_k = resolveTopKFromText(qRaw);
+
+      // Only confirm when the question resolves to month horizon AND has ambiguity
+      const needsConfirmation = false;
+
+      if (needsConfirmation) {
+        // Resolve month for display
+        const monthMatch = qRaw.match(/\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b/i);
+        const monthName = monthMatch?.[1] ?? null;
+
+        // Resolve year: current year if month >= current month, else next year
+        const nowMonth = new Date().getUTCMonth() + 1;
+        const MONTHS_FR_MAP: Record<string, number> = {
+          janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5,
+          juin: 6, juillet: 7, aout: 8, août: 8, septembre: 9,
+          octobre: 10, novembre: 11, decembre: 12, décembre: 12,
+        };
+        const monthNum = monthName ? (MONTHS_FR_MAP[monthName.toLowerCase()] ?? null) : null;
+        const nowYear = new Date().getUTCFullYear();
+        const resolvedYear = monthNum ? (monthNum >= nowMonth ? nowYear : nowYear + 1) : nowYear;
+
+        const params: Record<string, any> = {
+          mois: monthName ? `${monthName} ${resolvedYear}` : "non détecté",
+          ...(hasVenueFlag ? { exposition: venueOverride } : {}),
+          ...(explicit_top_k !== 3 ? { top_k: explicit_top_k } : {}),
+          location_id,
+        };
+
+        return new Response(
+          JSON.stringify({
+            type: "confirmation",
+            confirmation_message: `Voici ce que j'ai compris de votre demande. Confirmez ou corrigez avant que j'interroge les données.`,
+            params,
+            confirmed_q: qRaw,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          }
+        );
+      }
+    }
+
     const dateMentions = extractDateMentions(qRaw, selected_date.slice(0, 10));
     const extracted_dates = dateMentions.dates;
 
@@ -1955,14 +2197,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       resolved_intent = resolveIntentFromText(qRaw, "day");
     }
 
-
     // Only force DAY when a date token includes both day + month
     const hasExplicitDayAndMonth =
       dateMentions.dates.length === 1 &&
       /\b(\d{1,2}|1er)\b/i.test(qRaw) &&
       /\b(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/i.test(qRaw);
 
-    if (hasExplicitDayAndMonth) {
+    if (hasExplicitDayAndMonth && resolved_intent === "DAY_WHY") {
       resolved_horizon = "day";
       resolved_intent = "DAY_WHY";
     }
@@ -2050,7 +2291,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       (!hasExplicitAnyDate && asksCompare && refersToTop2 && thread_top_dates.length >= 2)
         ? thread_top_dates.slice(0, 2)
         : [];
-    
+
+    // ------------------------------------
+    // LOOKUP OVERRIDE (after compare logic)
+    // ------------------------------------
+    if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
+      resolved_horizon = "lookup_event";
+      resolved_intent = "LOOKUP_EVENT";
+    }
+        
     console.log({
       q: qRaw,
       isEventLookupQuestion: isEventLookupQuestion(qRaw),
@@ -2114,16 +2363,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             date,
             location_id,
-            opportunity_score_final_local,
+            CAST(opportunity_score AS FLOAT64) AS opportunity_score,
             opportunity_medal,
             opportunity_regime,
             weather_code,
             weather_alert_level,
-            precipitation_probability_max_pct AS precip_probability_max_pct,
+            precipitation_probability_max_pct,
             wind_speed_10m_max,
+            events_within_500m_count,
             events_within_5km_count,
             events_within_10km_count,
             events_within_50km_count,
+            events_within_500m_same_bucket_count,
+            events_within_5km_same_bucket_count,
+            events_within_10km_same_bucket_count,
+            events_within_50km_same_bucket_count,
+            pct_same_bucket_5km,
+            competition_index_local,
+            baseline_comp_avg,
+            has_valid_baseline_flag,
+            competition_pressure_ratio,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -2155,7 +2414,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY location_id, date
             ORDER BY
-              opportunity_score_final_local DESC,
+              CAST(opportunity_score AS FLOAT64) DESC,
               CAST(weather_alert_level AS INT64) ASC NULLS LAST,
               events_within_10km_count ASC NULLS LAST
           ) = 1
@@ -2163,13 +2422,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         SELECT *
         FROM dedup
         ORDER BY
-          opportunity_score_final_local DESC,
+          CAST(opportunity_score AS FLOAT64) DESC,
           CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-          CAST(precip_probability_max_pct AS FLOAT64) ASC NULLS LAST,
+          CAST(precipitation_probability_max_pct AS FLOAT64) ASC NULLS LAST,
           CAST(wind_speed_10m_max AS FLOAT64) ASC NULLS LAST,
-          CAST(events_within_5km_count AS INT64) ASC NULLS LAST,
           CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
-          CAST(events_within_50km_count AS INT64) ASC NULLS LAST,
           date ASC
         LIMIT @limit
       `;
@@ -2211,16 +2468,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             date,
             location_id,
-            opportunity_score_final_local,
+            CAST(opportunity_score AS FLOAT64) AS opportunity_score,
             opportunity_medal,
             opportunity_regime,
             weather_code,
             weather_alert_level,
-            precipitation_probability_max_pct AS precip_probability_max_pct,
+            precipitation_probability_max_pct,
             wind_speed_10m_max,
+            events_within_500m_count,
             events_within_5km_count,
             events_within_10km_count,
             events_within_50km_count,
+            events_within_500m_same_bucket_count,
+            events_within_5km_same_bucket_count,
+            events_within_10km_same_bucket_count,
+            events_within_50km_same_bucket_count,
+            pct_same_bucket_5km,
+            competition_index_local,
+            baseline_comp_avg,
+            has_valid_baseline_flag,
+            competition_pressure_ratio,
             is_public_holiday_fr_flag,
             is_school_holiday_flag,
             is_weekend,
@@ -2228,7 +2495,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             is_commercial_event_flag,
             is_selected_day,
             available_next_views,
-            relative_rank_bucket
+            relative_rank_bucket  
           FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
           WHERE location_id = @location_id
             AND date BETWEEN (SELECT window_start_date FROM win)
@@ -2249,15 +2516,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
           FROM filtered
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY location_id, date
-            ORDER BY
-              opportunity_score_final_local ASC,
+            ORDER BY      
+              CAST(opportunity_score AS FLOAT64) ASC,
               CAST(weather_alert_level AS INT64) DESC NULLS LAST,
               events_within_10km_count DESC NULLS LAST
           ) = 1
         )
         SELECT *
         FROM dedup
-        ORDER BY opportunity_score_final_local ASC, date ASC
+        ORDER BY CAST(opportunity_score AS FLOAT64) ASC, date ASC
         LIMIT @limit
       `;
 
@@ -2429,6 +2696,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Apply auto-constraints (truth-only)
       // ----------------------------
       const constraints = policy.auto_constraints;
+      if (qRaw && (qRaw.toLowerCase().includes("weekend") || qRaw.toLowerCase().includes("week-end"))) {
+        constraints.add("filter_weekend_only");
+      }
 
       const filtered = rows.filter((r) => {
         const ph = toBoolOrNullLocal(r?.is_public_holiday_fr_flag);
@@ -2474,7 +2744,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Deterministic ordering driven by priority_dimensions
       // ----------------------------
       // Available truth fields on vw_insight_event_30d_day_surface:
-      // - weather_alert_level, precip_probability_max_pct, wind_speed_10m_max
+      // - weather_alert_level, precipitation_probability_max_pct, wind_speed_10m_max
       // - events_within_10km_count
       // - is_weekend, is_public_holiday_fr_flag, is_school_holiday_flag
       //
@@ -2492,8 +2762,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             if (aOk !== bOk) return aOk ? -1 : 1;
             if (aOk && bOk && aAlert !== bAlert) return aAlert - bAlert;
 
-            const aP = toNum(a?.precip_probability_max_pct);
-            const bP = toNum(b?.precip_probability_max_pct);
+            const aP = toNum(a?.precipitation_probability_max_pct);
+            const bP = toNum(b?.precipitation_probability_max_pct);
             const aPOk = Number.isFinite(aP);
             const bPOk = Number.isFinite(bP);
             if (aPOk !== bPOk) return aPOk ? -1 : 1;
@@ -2576,8 +2846,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const wx = Number.isFinite(toNum(r?.weather_alert_level))
           ? String(toNum(r?.weather_alert_level))
           : "ND";
-        const pr = Number.isFinite(toNum(r?.precip_probability_max_pct))
-          ? String(toNum(r?.precip_probability_max_pct))
+        const pr = Number.isFinite(toNum(r?.precipitation_probability_max_pct))
+          ? String(toNum(r?.precipitation_probability_max_pct))
           : "ND";
         const wi = Number.isFinite(toNum(r?.wind_speed_10m_max))
           ? String(toNum(r?.wind_speed_10m_max))
@@ -2622,8 +2892,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
 
     if (!internal_context) {
-      throw new Error(
-        `Missing semantic internal context: vw_insight_event_ai_location_context for location_id=${location_id}`
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Votre profil est incomplet. Renseignez votre adresse dans Compte → Profil pour accéder à l'analyse.",
+          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
       );
     }
 
@@ -2637,7 +2912,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     ].filter((v) => v && v.trim().length > 0);
 
     const decision_policy_rules =
-      rule_values.length === 0
+      resolved_horizon !== "month" || rule_values.length === 0
         ? []
         : await bqAll(
             `
@@ -2680,7 +2955,83 @@ export const POST: APIRoute = async ({ request, locals }) => {
     type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic";
     let producer: ProducerMeta = "deterministic";
 
+    const isUnknownIntent =
+      request_mode === "concurrence" ||
+      resolved_intent === "INTENT_UNKNOWN" ||
+      (resolved_horizon === "month" && !isScoringIntent(resolved_intent as Intent));
 
+    if (isUnknownIntent) {
+      const isConcurrence = request_mode === "concurrence";
+
+      const systemPrompt = isConcurrence
+        ? `Tu es un expert en intelligence concurrentielle pour les professionnels de l'événementiel en France. Tu réponds en français.
+
+Contexte du client :
+- Type de lieu : ${internal_context?.location_type ?? "non renseigné"}
+- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+- Description : ${internal_context?.business_short_description ?? "non renseignée"}
+- Audience principale : ${internal_context?.primary_audience_1 ?? "non renseignée"}
+- Profil temporel : ${internal_context?.event_time_profile ?? "non renseigné"}
+
+Règles :
+- Analyse toujours la menace ou l'opportunité concurrentielle en la mettant en perspective avec le profil ci-dessus.
+- Quand tu utilises une recherche web, indique-le explicitement.
+- Quand tu réponds depuis tes connaissances, indique-le aussi.
+- Ne fabrique jamais de données chiffrées sans source.
+- Sois direct et opérationnel — le client doit pouvoir agir sur ta réponse.`
+        : `Tu es l'assistant de Muse Square Insight, une plateforme française d'intelligence contextuelle pour les professionnels de l'événementiel. Tu réponds en français. Quand tu utilises une recherche web, indique-le clairement. Quand tu réponds depuis tes connaissances, indique-le aussi. Ne fabrique jamais de données.`;
+
+      const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1024,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          system: systemPrompt,
+          messages: [{ role: "user", content: qRaw }],
+        }),
+      }).then(r => r.json());
+
+      const textBlock = webSearchResult.content?.find((b: any) => b.type === "text");
+      const usedWebSearch = webSearchResult.content?.some((b: any) => b.type === "tool_use" && b.name === "web_search");
+      const answerText = textBlock?.text ?? "Je n'ai pas pu trouver de réponse.";
+
+      return new Response(JSON.stringify({
+        ok: true,
+        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", mode: request_mode },
+        ai: {
+          headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+          verdict: "",
+          answer: answerText,
+          key_facts: [],
+          reasons: [],
+          caveats: [usedWebSearch
+            ? "Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."
+            : "Cette réponse est basée sur les connaissances générales du modèle, pas sur les données Muse Square."
+          ],
+          output: {
+            headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+            verdict: "",
+            answer: answerText,
+            key_facts: [],
+            reasons: [],
+            caveats: [],
+          },
+          meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+          actions: { month_redirect_url: null, primary: null, secondary: [] },
+        },
+        actions: { month_redirect_url: null, primary: null, secondary: [] },
+        top_dates: [],
+        decision_payload: { kind: "lookup", horizon: "lookup_event", intent: "EVENT_LOOKUP", used_dates: [], signals: {} },
+        window_aggregates_v3: null,
+        ui_packaging_v3: null,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
 
     switch (resolved_horizon) {
       case "month": {
@@ -2736,18 +3087,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
               COUNTIF(opportunity_regime = 'C') AS days_c,
               COUNTIF(relative_rank_bucket = 'risk') AS days_risk,
               COUNTIF(relative_rank_bucket = 'top')  AS days_top_bucket,
-              MIN(opportunity_score_final_local) AS score_min,
-              MAX(opportunity_score_final_local) AS score_max,
+              MIN(CAST(opportunity_score AS FLOAT64)) AS score_min,
+              MAX(CAST(opportunity_score AS FLOAT64)) AS score_max,
               COUNTIF(weather_code IS NULL) AS days_missing_weather,
               ARRAY_AGG(
                 STRUCT(
                   date,
                   opportunity_regime,
-                  opportunity_score_final_local,
+                  CAST(opportunity_score AS FLOAT64) AS opportunity_score,
                   opportunity_medal,
                   weather_code
                 )
-                ORDER BY best_day_rank_excl_forced_c ASC, date ASC
+                ORDER BY CAST(opportunity_score AS FLOAT64) DESC, date ASC
                 LIMIT 3
               ) AS top_days
             FROM base
@@ -2778,48 +3129,81 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const monthConstraintYmd = inferSelectedDateFromMonthMention(q); // YYYY-MM-01 or null
         const monthConstraintYm = monthConstraintYmd ? monthConstraintYmd.slice(0, 7) : null;
 
-        shortlist = await bqAll(
-          `
-          WITH win AS (
-            SELECT
-              DATE(@window_start_date) AS window_start_date,
-              DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
-          )
-          SELECT *
-          FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-          WHERE location_id = @location_id
-            AND date BETWEEN (SELECT window_start_date FROM win)
-                        AND (SELECT window_end_date   FROM win)
-            AND (
-              @month_constraint_ym = ""
-              OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+        const [shortlistResult, month_days_result, worstlistResult] = await Promise.all([
+          bqAll(
+            `
+            WITH win AS (
+              SELECT
+                DATE(@window_start_date) AS window_start_date,
+                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
             )
-            AND COALESCE(opportunity_regime, '') != 'C'
-            AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
-          ORDER BY
-            opportunity_score_final_local DESC,
-            CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-            CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
-            date ASC
-          LIMIT 7
-          `,
-          bqParams({
-            location_id,
-            window_start_date: ws,
-            month_constraint_ym: monthConstraintYm ?? "",
-          })
-        );
+            SELECT *
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+            WHERE location_id = @location_id
+              AND date BETWEEN (SELECT window_start_date FROM win)
+                          AND (SELECT window_end_date   FROM win)
+              AND (
+                @month_constraint_ym = ""
+                OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+              )
+              AND COALESCE(opportunity_regime, '') != 'C'
+              AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
+              AND (
+                @filter_weekend_only = FALSE
+                OR is_weekend = TRUE
+              )
+              AND (
+                @filter_weekday = -1
+                OR EXTRACT(DAYOFWEEK FROM date) = @filter_weekday_bq
+              )
+            ORDER BY
+              CAST(opportunity_score AS FLOAT64) DESC,
+              CAST(weather_alert_level AS INT64) ASC NULLS LAST,
+              CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
+              date ASC
+            LIMIT 7
+            `,
+            bqParams({
+              location_id,
+              window_start_date: ws,
+              month_constraint_ym: monthConstraintYm ?? "",
+              filter_weekend_only: effective_weekend_only,
+              filter_weekday,
+              filter_weekday_bq,
+            })
+          ),
+          resolved_intent === "MOBILITY_UNAVAILABLE"
+            ? Promise.resolve([])
+            : bqAll(
+                `
+                WITH win AS (
+                  SELECT
+                    COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
+                    DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                )
+                SELECT *
+                FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+                WHERE location_id = @location_id
+                  AND date BETWEEN (SELECT window_start_date FROM win)
+                              AND (SELECT window_end_date   FROM win)
+                  AND (
+                    @month_constraint_ym = ""
+                    OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
+                  )
+                ORDER BY date ASC
+                `,
+                bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
+              ),
+          resolved_intent === "WINDOW_WORST_DAYS"
+            ? bqWorstlist({ location_id, window_start_date: ws, hard_only: false, limit: 7 })
+            : Promise.resolve([]),
+        ]);
+
+        shortlist = shortlistResult;
+        month_days = month_days_result;
+        worstlist = worstlistResult;
 
         shortlist_rows = shortlist ?? [];
-
-        if (resolved_intent === "WINDOW_WORST_DAYS") {
-          worstlist = await bqWorstlist({
-            location_id,
-            window_start_date: ws,
-            hard_only: false,
-            limit: 7,
-          });
-        }
 
         const shortlist0 = Array.isArray(shortlist) ? shortlist : [];
         const worstlist0 = Array.isArray(worstlist) ? worstlist : [];
@@ -2860,27 +3244,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ? worstlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
           : worstlist0;
 
-        month_days = await bqAll(
-          `
-          WITH win AS (
-            SELECT
-              COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-              DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
-          )
-          SELECT *
-          FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-          WHERE location_id = @location_id
-            AND date BETWEEN (SELECT window_start_date FROM win)
-                        AND (SELECT window_end_date   FROM win)
-            AND (
-              @month_constraint_ym = ""
-              OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-            )
-          ORDER BY date ASC
-          `,
-          bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
-        );
-
         const source_rows =
           resolved_intent === "WINDOW_WORST_DAYS"
             ? worstlist_rows
@@ -2909,6 +3272,93 @@ export const POST: APIRoute = async ({ request, locals }) => {
             errors: [],
             warnings: [],
           };
+          break;
+        }
+
+        if (resolved_intent === "MOBILITY_UNAVAILABLE") {
+          const mobility_rows = await bqAll(
+            `
+            SELECT
+              disruption_date,
+              disruption_source,
+              title_merged,
+              severity,
+              perturbation_lvl,
+              route_long_name,
+              short_name,
+              mode,
+              nom_commune,
+              disruption_category,
+              is_active_flag,
+              is_planned_flag,
+              delay_minutes,
+              disruption_begin_ts,
+              disruption_end_ts
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_mobility_disruptions\`
+            WHERE location_id = @location_id
+              AND disruption_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 29 DAY)
+            ORDER BY is_active_flag DESC, perturbation_lvl DESC, disruption_date ASC
+            LIMIT 10
+            `,
+            { location_id }
+          );
+
+          const narrative_input_mobility = {
+            horizon: "month",
+            intent: "MOBILITY_DISRUPTIONS",
+            disruptions: mobility_rows.map((r: any) => ({
+              date: ymdFromAnyDate(r?.disruption_date),
+              title: r?.title_merged ?? null,
+              severity: r?.severity ?? null,
+              perturbation_lvl: r?.perturbation_lvl ?? null,
+              route: r?.route_long_name ?? r?.short_name ?? null,
+              mode: r?.mode ?? null,
+              category: r?.disruption_category ?? null,
+              is_active: r?.is_active_flag ?? null,
+              is_planned: r?.is_planned_flag ?? null,
+              delay_minutes: r?.delay_minutes ?? null,
+              begin_ts: r?.disruption_begin_ts ?? null,
+              end_ts: r?.disruption_end_ts ?? null,
+            })),
+            business_profile: {
+              location_type: internal_context?.location_type ?? null,
+              company_activity_type: internal_context?.company_activity_type ?? null,
+              business_short_description: internal_context?.business_short_description ?? null,
+              event_time_profile: internal_context?.event_time_profile ?? null,
+              primary_audience_1: internal_context?.primary_audience_1 ?? null,
+              primary_audience_2: internal_context?.primary_audience_2 ?? null,
+              main_event_objective: internal_context?.main_event_objective ?? null,
+              venue_capacity: internal_context?.venue_capacity ?? null,
+            },
+          };
+
+          try {
+            ai = await runAIPackagerClaude({
+              mode: "v3_narrative",
+              row: { ...narrative_input_mobility, _conversation_history: conversation_history },
+            });
+            producer = "v3_claude";
+          } catch (e) {
+            const active = mobility_rows.filter((r: any) => r?.is_active_flag === true);
+            ai = {
+              ok: true,
+              mode: "deterministic_mobility_v1",
+              output: {
+                headline: active.length > 0 ? "Perturbations actives détectées" : "Aucune perturbation active",
+                summary: active.length > 0
+                  ? `${active.length} perturbation(s) active(s) sur la période.`
+                  : "Aucune perturbation de transport active sur les 30 prochains jours.",
+                key_facts: mobility_rows.slice(0, 4).map((r: any) =>
+                  `${r?.title_merged ?? "Perturbation"} — ${r?.severity ?? "ND"}`
+                ),
+                caveat: null,
+              },
+              raw_text: "",
+              errors: [],
+              warnings: [],
+            };
+            producer = "v3_fallback_deterministic";
+          }
           break;
         }
 
@@ -3054,30 +3504,181 @@ export const POST: APIRoute = async ({ request, locals }) => {
           line_items: dayLineItems,
         });
 
-        const headline =
+        const det_headline =
           render_lines.find((l) => l.kind === "headline")?.text_fr ??
           "Pourquoi ce jour";
-
-        const key_facts =
+        const det_key_facts =
           render_lines
             .filter((l) => l.kind !== "headline")
             .map((l) => String(l.text_fr ?? "").trim())
             .filter(Boolean);
 
-        ai = {
-          ok: true,
-          mode: "deterministic_daywhy_ir_v1",
-          output: {
-            headline,
-            answer: "",
-            key_facts,
-            reasons: [],
-            caveats: [],
+        // ------------------------------------
+        // V3 Day → Claude narration
+        // ------------------------------------
+        const avg_same_bucket_5km_window_day = await (async () => {
+          const ws = effective_date.slice(0, 7) + "-01";
+          const rows = await bqAll(
+            `
+            WITH win AS (
+              SELECT
+                DATE(@window_start_date) AS window_start_date,
+                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+            )
+            SELECT events_within_5km_same_bucket_count
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
+            WHERE location_id = @location_id
+              AND date BETWEEN (SELECT window_start_date FROM win)
+                          AND (SELECT window_end_date FROM win)
+            `,
+            bqParams({ location_id, window_start_date: ws })
+          );
+          const vals = rows
+            .map((r: any) => {
+              const n = typeof r?.events_within_5km_same_bucket_count === "number"
+                ? r.events_within_5km_same_bucket_count
+                : Number(r?.events_within_5km_same_bucket_count);
+              return Number.isFinite(n) ? n : null;
+            })
+            .filter((n): n is number => n !== null);
+          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        })();
+        
+        const saved_item_context = await (async () => {
+          if (!effective_date || !location_id) return null;
+          try {
+            const rows = await bqAll(
+              `
+              SELECT i.title, i.description, i.event_type
+              FROM \`${projectId}.raw.saved_item_dates\` d
+              JOIN \`${projectId}.raw.saved_items\` i
+                ON i.saved_item_id = d.saved_item_id
+              WHERE DATE(d.date) = DATE(@effective_date)
+                AND d.location_id = @location_id
+                ${clerk_user_id ? "AND d.clerk_user_id = @clerk_user_id" : ""}
+              LIMIT 1
+              `,
+              bqParams({
+                effective_date,
+                location_id,
+                ...(clerk_user_id ? { clerk_user_id } : {}),
+              })
+            );
+            return rows.length ? rows[0] : null;
+          } catch (e) {
+            return null;
+          }
+        })();
+        
+        const narrative_input_day = {
+          horizon: "day",
+          intent: resolved_intent,
+          date: effective_date,
+          display_label: day_row?.display_label ?? effective_date,
+          scoring: {
+            regime: day_row?.opportunity_regime ?? null,
+            score: day_row?.opportunity_score_final_local ?? null,
+            medal: day_row?.opportunity_medal ?? null,
+            events_score: day_row?.events_score ?? null,
+            weather_score: day_row?.weather_score ?? null,
+            calendar_score: day_row?.calendar_score ?? null,
+            mobility_score: day_row?.mobility_score ?? null,
           },
-          raw_text: "",
-          errors: [],
-          warnings: [],
+          primary_driver: {
+            label_fr: day_row?.primary_score_driver_label_fr ?? null,
+            confidence_fr: day_row?.primary_driver_confidence_fr ?? null,
+          },
+          weather: {
+            label_fr: day_row?.weather_label_fr ?? null,
+            alert_level_max: day_row?.alert_level_max ?? null,
+            wind_speed_10m_max: day_row?.wind_speed_10m_max ?? null,
+            precipitation_probability_max_pct: day_row?.precipitation_probability_max_pct ?? null,
+            impact_weather_pct: day_row?.impact_weather_pct ?? null,
+            lvl_wind: day_row?.lvl_wind ?? null,
+            lvl_rain: day_row?.lvl_rain ?? null,
+          },
+          competition: {
+            events_within_5km_count: day_row?.events_within_5km_count ?? null,
+            events_within_10km_count: day_row?.events_within_10km_count ?? null,
+            events_within_50km_count: day_row?.events_within_50km_count ?? null,
+            delta_att_events_pct: day_row?.delta_att_events_pct ?? null,
+            events_within_5km_same_bucket_count: day_row?.events_within_5km_same_bucket_count ?? null,
+            events_within_10km_same_bucket_count: day_row?.events_within_10km_same_bucket_count ?? null,
+            pct_same_bucket_5km: day_row?.pct_same_bucket_5km ?? null,
+            avg_same_bucket_5km_window: avg_same_bucket_5km_window_day,
+            has_valid_baseline: avg_same_bucket_5km_window_day !== null,
+            baseline_comp_avg: day_row?.baseline_comp_avg ?? null,
+            has_valid_baseline_flag: day_row?.has_valid_baseline_flag ?? null,
+            top_competitors: Array.isArray(day_row?.top_competitors)
+              ? day_row.top_competitors.slice(0, 10).map((tc: any) => ({
+                  name: tc?.e?.event_label ?? null,
+                  distance_m: tc?.e?.distance_m ?? null,
+                  radius_bucket: tc?.e?.radius_bucket ?? null,
+                  industry_code: tc?.e?.industry_code ?? null,
+                  theme: tc?.e?.theme ?? null,
+                  description: typeof tc?.e?.description === "string"
+                    ? tc.e.description.trim().slice(0, 150)
+                    : null,
+                }))
+              : [],
+          },
+          audience: {
+            availability_label: day_row?.audience_availability_label ?? null,
+            is_weekend: day_row?.is_weekend ?? null,
+            is_public_holiday_fr_flag: day_row?.is_public_holiday_fr_flag ?? null,
+            is_school_holiday_flag: day_row?.is_school_holiday_flag ?? null,
+            is_commercial_event_flag: day_row?.is_commercial_event_flag ?? null,
+          },
+          signals_fr: Array.isArray(day_row?.daily_signal_summary_fr)
+            ? day_row.daily_signal_summary_fr
+            : [],
+          is_major_realization_risk: day_row?.is_major_realization_risk_flag ?? null,
+          major_realization_risk_driver: day_row?.major_realization_risk_driver ?? null,
+          business_profile: {
+            location_type: internal_context?.location_type ?? null,
+            company_activity_type: internal_context?.company_activity_type ?? null,
+            business_short_description: internal_context?.business_short_description ?? null,
+            event_time_profile: internal_context?.event_time_profile ?? null,
+            primary_audience_1: internal_context?.primary_audience_1 ?? null,
+            primary_audience_2: internal_context?.primary_audience_2 ?? null,
+            main_event_objective: internal_context?.main_event_objective ?? null,
+            venue_capacity: internal_context?.venue_capacity ?? null,
+          },
+
+          user_event: saved_item_context ? {
+            title: saved_item_context.title ?? null,
+            description: saved_item_context.description ?? null,
+            event_type: saved_item_context.event_type ?? null,
+          } : null,
         };
+
+        console.log("[DAY_WHY payload] competition:", JSON.stringify(narrative_input_day.competition));
+        console.log("[DAY_WHY payload] user_event:", JSON.stringify(narrative_input_day.user_event));
+
+        try {
+          ai = await runAIPackagerClaude({
+            mode: "v3_narrative",
+            submode: resolved_intent as any,
+            row: { ...narrative_input_day, _conversation_history: conversation_history },
+          });
+          producer = "v3_claude";
+        } catch (e) {
+          ai = {
+            ok: true,
+            mode: "deterministic_daywhy_ir_v1",
+            output: {
+              headline: det_headline,
+              answer: "",
+              key_facts: det_key_facts,
+              reasons: [],
+              caveats: [],
+            },
+            raw_text: "",
+            errors: [],
+            warnings: [],
+          };
+          producer = "v3_fallback_deterministic";
+        }
 
         break;
       }
@@ -3262,21 +3863,78 @@ export const POST: APIRoute = async ({ request, locals }) => {
             ? key_facts_filtered
             : buildCompareKeyFactsFallback(selected_days_rows);
 
-        ai = {
-          ok: true,
-          mode: "deterministic_compare_dates_v1",
-          output: {
-            headline,
-            answer: "Comparaison des points clés ci-dessous.",
-            key_facts,
-            caveat,
-            reasons: [],
-            caveats: caveat ? [caveat] : [],
-          },
-          raw_text: "",
-          errors: [],
-          warnings: [],
+        const det_compare_output = {
+          headline,
+          answer: "Comparaison des points clés ci-dessous.",
+          key_facts,
+          caveat,
+          reasons: [],
+          caveats: caveat ? [caveat] : [],
         };
+
+        // ------------------------------------
+        // V3 Compare → Claude narration
+        // ------------------------------------
+        const narrative_input_compare = {
+          horizon: "selected_days",
+          intent: "COMPARE_DATES",
+          winner_date: v1.winner_date,
+          tie_flag: v1.tie_flag,
+          dates: selected_days_rows.map((r: any) => ({
+            date: ymdFromAnyDate(r?.date),
+            display_label: r?.display_label ?? ymdFromAnyDate(r?.date),
+            regime: r?.opportunity_regime ?? null,
+            score: r?.opportunity_score_final_local ?? null,
+            medal: r?.opportunity_medal ?? null,
+            primary_driver_label_fr: r?.primary_score_driver_label_fr ?? null,
+            weather: {
+              label_fr: r?.weather_label_fr ?? null,
+              alert_level_max: r?.alert_level_max ?? null,
+              wind_speed_10m_max: r?.wind_speed_10m_max ?? null,
+              precipitation_probability_max_pct: r?.precipitation_probability_max_pct ?? null,
+            },
+            competition: {
+              events_within_5km_count: r?.events_within_5km_count ?? null,
+              events_within_10km_count: r?.events_within_10km_count ?? null,
+              events_within_50km_count: r?.events_within_50km_count ?? null,
+              events_within_5km_same_bucket_count: r?.events_within_5km_same_bucket_count ?? null,
+              events_within_10km_same_bucket_count: r?.events_within_10km_same_bucket_count ?? null,
+              pct_same_bucket_5km: r?.pct_same_bucket_5km ?? null,
+              competition_pressure_ratio: r?.competition_pressure_ratio ?? null,
+              baseline_comp_avg: r?.baseline_comp_avg ?? null,
+            },
+          })),
+          business_profile: {
+            location_type: internal_context?.location_type ?? null,
+            company_activity_type: internal_context?.company_activity_type ?? null,
+            business_short_description: internal_context?.business_short_description ?? null,
+            event_time_profile: internal_context?.event_time_profile ?? null,
+            primary_audience_1: internal_context?.primary_audience_1 ?? null,
+            primary_audience_2: internal_context?.primary_audience_2 ?? null,
+            main_event_objective: internal_context?.main_event_objective ?? null,
+            venue_capacity: internal_context?.venue_capacity ?? null,
+          },
+        };
+
+        try {
+          ai = await runAIPackagerClaude({
+            mode: "v3_narrative",
+            row: { ...narrative_input_compare, _conversation_history: conversation_history },
+          });
+          producer = "v3_claude";
+        } catch (e) {
+          console.error("[COMPARE_DATES] Claude failed, using fallback:", String(e));
+          ai = {
+            ok: true,
+            mode: "deterministic_compare_dates_v1",
+            output: det_compare_output,
+            raw_text: "",
+            errors: [],
+            warnings: [],
+          };
+          producer = "v3_fallback_deterministic";
+        }
+
         break;
       }
 
@@ -3292,25 +3950,37 @@ export const POST: APIRoute = async ({ request, locals }) => {
           (internal_context as any)?.row?.city_id ??
           null;
 
-        const q_lookup_raw = String(qRaw ?? "").toLowerCase();
+        const q_lookup_raw = String(qRaw ?? "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+        const q_lookup_accented = String(qRaw ?? "")
+          .toLowerCase()
+          .replace(/^(quand a lieu|à quelle date|c'est quand|dates de|date de)\s+/i, "")
+          .replace(/^(le|la|les|un|une|des|l'|d'|du|de la|des|de)\s*/i, "")
+          .replace(/[?!.,;:]+$/g, "")
+          .trim();
 
         const q_entity = q_lookup_raw
-          // remove common question shells
+          .replace(/^y['']a(-t-il)?\s+(quoi comme|des|un|une)?\s*/i, "")
+          .replace(/^qu['']est-ce qu['']il y a\s+(comme)?\s*/i, "")
+          .replace(/^c['']est quoi\s+(comme)?\s*/i, "")
+          .replace(/^quels?\s+(sont les|evenements|événements|concerts?)?\s*/i, "")
           .replace(/^a quelle date a lieu\s+/i, "")
           .replace(/^à quelle date a lieu\s+/i, "")
           .replace(/^quand a lieu\s+/i, "")
-          .replace(/^c['’]est quand\s+/i, "")
+          .replace(/^c['']est quand\s+/i, "")
           .replace(/^dates de\s+/i, "")
           .replace(/^date de\s+/i, "")
-          // remove leading french determiners / contractions that break LIKE
           .replace(/^(le|la|les|un|une|des)\s+/i, "")
-          .replace(/^l['’]\s*/i, "")
-          .replace(/^d['’]\s*/i, "")
+          .replace(/^l['']\s*/i, "")
+          .replace(/^d['']\s*/i, "")
           .replace(/^du\s+/i, "")
           .replace(/^de\s+/i, "")
           .replace(/^de la\s+/i, "")
           .replace(/^des\s+/i, "")
-          // strip trailing punctuation
+          .replace(/\s+(en|au|a|à)\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(\s+\d{4})?$/i, "")
           .replace(/[?!.,;:]+$/g, "")
           .trim();
 
@@ -3318,38 +3988,103 @@ export const POST: APIRoute = async ({ request, locals }) => {
           SELECT
             event_name,
             event_start_date,
-            event_end_date
+            event_end_date,
+            scope_type,
+            city_id,
+            location_id,
+            city_name,
+            region_insee,
+            source_system,
+            industry_code,
+            description,
+            longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE location_id = @location_id
+          WHERE
+            (
+              location_id = @location_id
+              OR city_id = @city_id
+              OR region_insee = @region_insee
+            )
             AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
-          LIMIT 1
+          ORDER BY
+            -- Prefer most specific scope first
+            CASE scope_type
+              WHEN 'location' THEN 1
+              WHEN 'city' THEN 2
+              WHEN 'region' THEN 3
+              WHEN 'national' THEN 4
+              ELSE 5
+            END
+          LIMIT 10
         `;
 
-        const lookupSqlGlobal = `
+        const lookupSqlFallback = `
           SELECT
             event_name,
             event_start_date,
-            event_end_date
+            event_end_date,
+            scope_type,
+            city_id,
+            location_id,
+            city_name,
+            region_insee,
+            source_system,
+            industry_code,
+            description,
+            longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
-          WHERE location_id IS NULL
-            AND LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
-          LIMIT 1
+          WHERE
+            LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
+            OR LOWER(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(
+                  REGEXP_REPLACE(
+                    REGEXP_REPLACE(event_name, r'[éèêë]', 'e'),
+                  r'[àâä]', 'a'),
+                r'[îï]', 'i'),
+              r'[ôö]', 'o')
+            ) LIKE CONCAT('%', @q_entity, '%')
+            OR (
+              @q_token1 != '' AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token1, '%')
+              AND (@q_token2 = '' OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token2, '%'))
+            )
+          ORDER BY
+            CASE scope_type
+              WHEN 'location' THEN 1
+              WHEN 'city' THEN 2
+              WHEN 'region' THEN 3
+              WHEN 'national' THEN 4
+              ELSE 5
+            END
+          LIMIT 10
         `;
+
+        console.log("[lookup] q_entity:", q_entity);
+        const q_tokens = q_entity.split(/\s+/).filter((w: string) => w.length >= 4);
+        const q_token1 = q_tokens[0] ?? "";
+        const q_token2 = q_tokens[1] ?? "";
 
         const rows_scoped = await bqAll(
           lookupSqlScoped,
-          bqParams({ q_entity, location_id })
+          bqParams({
+            q_entity,
+            location_id,
+            city_id,
+            region_insee
+          })
         );
 
-        let rows = rows_scoped;
+        const rows_global = await bqAll(
+          lookupSqlFallback,
+          bqParams({ q_entity, q_token1, q_token2 })
+        );
 
-        if (!Array.isArray(rows_scoped) || rows_scoped.length === 0) {
-          const rows_global = await bqAll(
-            lookupSqlGlobal,
-            bqParams({ q_entity })
-          );
-          rows = rows_global;
-        }
+        const rows_accented = q_lookup_accented !== q_entity
+          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2 }))
+          : [];
+
+        let rows = [...(rows_scoped ?? []), ...(rows_global ?? []), ...(rows_accented ?? [])];
+        console.log("[lookup] raw rows count:", rows.length, "unique names:", [...new Set(rows.map((r: any) => r?.event_name))]);
 
         lookup_mode = Array.isArray(rows_scoped) && rows_scoped.length ? "scoped" : "fallback_global";
         lookup_sql_used = lookup_mode;
@@ -3363,30 +4098,67 @@ export const POST: APIRoute = async ({ request, locals }) => {
         lookup_hit = lookup_result;
 
         // --- V3: Shared Lookup IR builder ---
-        const ir = buildLookupIRV1FromRow(hit);
-
-        // Render via shared deterministic renderer
-        const render_lines = renderLineItemsFrV1({
-          line_items: ir.line_items,
-          facts_by_date: ir.facts_by_date,
+        const allHitsRaw = Array.isArray(rows) && rows.length ? rows : (hit ? [hit] : []);
+        const seen = new Set<string>();
+        const allHits = allHitsRaw.filter((r: any) => {
+          const key = `${r?.event_name ?? ""}__${r?.event_start_date?.value ?? r?.event_start_date ?? ""}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
         });
 
         const headline =
-          render_lines.find((l) => l.kind === "headline")?.text_fr ??
-          "Résultat événement";
+          allHits.length === 0
+            ? "Aucun événement trouvé"
+            : allHits.length === 1
+              ? `${allHits[0]?.event_name ?? "Événement trouvé"}`
+              : `${allHits.length} événements trouvés`;
 
-        const key_facts =
-          render_lines
-            .filter((l) => l.kind !== "headline")
-            .map((l) => l.text_fr);
+        const key_facts = allHits
+          .sort((a: any, b: any) => {
+            const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+            const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+            return da.localeCompare(db);
+          })
+          .map((r: any) => {
+            try {
+              const name = r?.event_name ?? "Événement";
+              const desc = typeof r?.longDescription === "string" && r.longDescription.trim()
+                ? r.longDescription.trim().slice(0, 500)
+                : null;
+              if (desc) return `${name}\n${desc}`;
+              return name;
+            } catch (e) {
+              return r?.event_name ?? "Événement";
+            }
+          });
+
+        const answer = allHits.length === 0
+          ? "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation."
+          : allHits
+              .sort((a: any, b: any) => {
+                const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+                const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+                return da.localeCompare(db);
+              })
+              .map((r: any) => {
+                const raw = r?.event_name ?? "";
+                const desc = typeof r?.longDescription === "string" && r.longDescription.trim()
+                  ? r.longDescription.trim().slice(0, 300)
+                  : "";
+                return desc ? `${raw}||${desc}` : raw;
+              })
+              .join("\n");
+        
+        console.log("[lookup] answer:", JSON.stringify(answer));
 
         ai = {
           ok: true,
           mode: "deterministic_lookup_event_ir_v1",
           output: {
             headline,
-            answer: "",
-            key_facts,
+            answer,
+            key_facts: [],
             reasons: [],
             caveats: [],
           },
@@ -3403,8 +4175,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         throw new Error(`Unsupported resolved_horizon: ${String(resolved_horizon)}`);
       }
     }
-  
-    const top_dates = shortlist_rows.slice(0, top_k).map((r: any) => {
+
+    const top_dates = (
+      resolved_intent === "WINDOW_WORST_DAYS"
+        ? worstlist_rows
+        : shortlist_rows
+    ).slice(0, top_k).map((r: any) => {  
       const toFiniteNumOrNull = (v: any) => {
         const n = typeof v === "number" ? v : Number(v);
         return Number.isFinite(n) ? n : null;
@@ -3414,16 +4190,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
         date: ymdFromAnyDate(r?.date),
         regime: typeof r?.opportunity_regime === "string" ? r.opportunity_regime : null,
         score: (() => {
-          const n = toFiniteNumOrNull(r?.opportunity_score_final_local);
-          return n === null ? null : Math.round(n);
+          const n = toFiniteNumOrNull(r?.opportunity_score_final_local ?? r?.opportunity_score);
+          return n === null ? null : parseFloat(n.toFixed(1));
         })(),
 
         weather_alert_level: toFiniteNumOrNull(r?.weather_alert_level),
-        precip_probability_max_pct: toFiniteNumOrNull(r?.precip_probability_max_pct),
+        precipitation_probability_max_pct: toFiniteNumOrNull(r?.precipitation_probability_max_pct),
         wind_speed_10m_max: toFiniteNumOrNull(r?.wind_speed_10m_max),
 
+        events_within_500m_count: toFiniteNumOrNull(r?.events_within_500m_count),
         events_within_5km_count: toFiniteNumOrNull(r?.events_within_5km_count),
         events_within_10km_count: toFiniteNumOrNull(r?.events_within_10km_count),
+        events_within_50km_count: toFiniteNumOrNull(r?.events_within_50km_count),
+        events_within_500m_same_bucket_count: toFiniteNumOrNull(r?.events_within_500m_same_bucket_count),
+        events_within_5km_same_bucket_count: toFiniteNumOrNull(r?.events_within_5km_same_bucket_count),
+        events_within_10km_same_bucket_count: toFiniteNumOrNull(r?.events_within_10km_same_bucket_count),
+        events_within_50km_same_bucket_count: toFiniteNumOrNull(r?.events_within_50km_same_bucket_count),
+        pct_same_bucket_5km: toFiniteNumOrNull(r?.pct_same_bucket_5km),
+        competition_index_local: toFiniteNumOrNull(r?.competition_index_local),
+        baseline_comp_avg: toFiniteNumOrNull(r?.baseline_comp_avg),
+        competition_pressure_ratio: toFiniteNumOrNull(r?.competition_pressure_ratio),
 
         // useful for UI decisions without inventing routes
         available_next_views: r?.available_next_views ?? null,
@@ -3451,8 +4237,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           type: "redirect",
           url: month_redirect_url,
           label: resolved_intent === "WINDOW_WORST_DAYS"
-            ? "Ouvrir le mois (jours à éviter)"
-            : "Ouvrir le mois (shortlist)",
+            ? "Ouvrir le mois"
+            : "Ouvrir le mois",
         };
       }
     } else if (resolved_horizon === "day") {
@@ -3462,7 +4248,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         focus: "shortlist",
         from_prompt: true,
       });
-      primary = { type: "redirect", url, label: "Ouvrir le mois (ancré sur ce jour)" };
+      primary = { type: "redirect", url, label: "Ouvrir le mois" };
     } else if (resolved_horizon === "selected_days") {
       // No route guessing. Fallback = month anchored on first selected date.
       if (first_selected_date) {
@@ -3471,7 +4257,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           focus: "shortlist",
           from_prompt: true,
         });
-        primary = { type: "redirect", url, label: "Ouvrir le mois (ancré sur la 1ère date)" };
+        primary = { type: "redirect", url, label: "Ouvrir le mois" };
       }
     }
 
@@ -3621,8 +4407,49 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const winner = rows.length ? rows[0] : null;
+    const avg_same_bucket_5km_window = (() => {
+      const vals = (Array.isArray(month_days) ? month_days : [])
+        .map((r: any) => {
+          const n = typeof r?.events_within_5km_same_bucket_count === "number"
+            ? r.events_within_5km_same_bucket_count
+            : Number(r?.events_within_5km_same_bucket_count);
+          return Number.isFinite(n) ? n : null;
+        })
+        .filter((n): n is number => n !== null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    })();
+    console.log("[V3] rows count:", rows.length, "winner:", winner ? ymdFromAnyDate(winner?.date) : "null");
     if (!winner) {
-      throw new Error("No ranked rows available for month narrative V3");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data" },
+          ai: {
+            headline: "Aucune donnée disponible",
+            verdict: "",
+            answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+            key_facts: [],
+            reasons: [],
+            caveats: [],
+            output: {
+              headline: "Aucune donnée disponible",
+              verdict: "",
+              answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+              key_facts: [],
+              reasons: [],
+              caveats: [],
+            },
+            meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+            actions: { month_redirect_url: null, primary: null, secondary: [] },
+          },
+          actions: { month_redirect_url: null, primary: null, secondary: [] },
+          top_dates: [],
+          decision_payload: { kind: "scoring", horizon: "month", intent: resolved_intent, used_dates: [], signals: {} },
+          window_aggregates_v3: null,
+          ui_packaging_v3: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
     }
 
     // ------------------------------------
@@ -3680,6 +4507,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       horizon: resolved_horizon,
       intent: resolved_intent,
 
+      top_days: rows.slice(0, top_k).map((r: any) => ({
+        date: ymdFromAnyDate(r?.date),
+        regime: r?.opportunity_regime ?? null,
+        score: (() => {
+          const n = typeof r?.opportunity_score_final_local === "number"
+            ? r.opportunity_score_final_local
+            : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
+          return Number.isFinite(n) ? parseFloat(n.toFixed(1)) : null;
+        })(),
+        is_weekend: r?.is_weekend ?? null,
+        weather_alert_level: r?.weather_alert_level ?? null,
+        precipitation_probability_max_pct: r?.precipitation_probability_max_pct ?? null,
+        events_within_5km_same_bucket_count: r?.events_within_5km_same_bucket_count ?? null,
+        pct_same_bucket_5km: r?.pct_same_bucket_5km ?? null,
+        avg_same_bucket_5km_window,
+        has_valid_baseline: avg_same_bucket_5km_window !== null,
+      })),
+
       used_period: {
         month: window_start.slice(0, 7),
         total_days: Array.isArray(month_days) ? month_days.length : 30,
@@ -3690,10 +4535,35 @@ export const POST: APIRoute = async ({ request, locals }) => {
         impact: dominant?.signal.impact ?? "neutral",
         confidence,
         structural_reason: dominant?.signal.primary_drivers?.[0] ?? null,
-        signal_summary: dominant?.signal.facts ?? {},
+        signal_summary: Object.fromEntries(
+          Object.entries(dominant?.signal.facts ?? {}).filter(
+            ([k]) => k !== "venue_exposure" && k !== "venue_exposure_basis"
+          )
+        ),
       },
 
       secondary_drivers: secondary,
+
+      competition_context: {
+        // Total event density (all industries)
+        events_within_500m_count: winner?.events_within_500m_count ?? null,
+        events_within_1km_count: winner?.events_within_1km_count ?? null,
+        events_within_5km_count: winner?.events_within_5km_count ?? null,
+        events_within_10km_count: winner?.events_within_10km_count ?? null,
+        events_within_50km_count: winner?.events_within_50km_count ?? null,
+        // Same-industry-bucket density (direct competitors)
+        events_within_500m_same_bucket_count: winner?.events_within_500m_same_bucket_count ?? null,
+        events_within_1km_same_bucket_count: winner?.events_within_1km_same_bucket_count ?? null,
+        events_within_5km_same_bucket_count: winner?.events_within_5km_same_bucket_count ?? null,
+        events_within_10km_same_bucket_count: winner?.events_within_10km_same_bucket_count ?? null,
+        events_within_50km_same_bucket_count: winner?.events_within_50km_same_bucket_count ?? null,
+        // Directness ratio and relative pressure
+        pct_same_bucket_5km: winner?.pct_same_bucket_5km ?? null,
+        competition_index_local: winner?.competition_index_local ?? null,
+        baseline_comp_avg: winner?.baseline_comp_avg ?? null,
+        has_valid_baseline_flag: winner?.has_valid_baseline_flag ?? null,
+        competition_pressure_ratio: winner?.competition_pressure_ratio ?? null,
+      },
 
       business_profile: {
         location_type: internal_context?.location_type ?? null,
@@ -3701,7 +4571,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
         primary_audience_1: internal_context?.primary_audience_1 ?? null,
         primary_audience_2: internal_context?.primary_audience_2 ?? null,
       },
+
+      venue_exposure_override: detectVenueExposureOverride(qRaw),
+
+      forecast_reliability: rows.slice(0, top_k).map((r: any) => {
+        const dateYmd = ymdFromAnyDate(r?.date);
+        const today = new Date().toISOString().slice(0, 10);
+        const daysUntil = Math.round((new Date(dateYmd).getTime() - new Date(today).getTime()) / 86400000);
+        return {
+          date: dateYmd,
+          days_until: daysUntil,
+          reliability: daysUntil <= 10 ? "confirmed" : "indicative",
+        };
+      }),
     };
+
+    console.log("TOP_DAYS_PAYLOAD:", JSON.stringify(narrative_input_v3.top_days, null, 2));
 
     // ------------------------------------
     // 3️⃣ Claude Call (safe wrapper)
@@ -3710,29 +4595,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
     try {
       ai = await runAIPackagerClaude({
         mode: "v3_narrative",
-        row: narrative_input_v3,
+        row: { ...narrative_input_v3, _conversation_history: conversation_history },
       });
 
       producer = "v3_claude";
 
     } catch (e) {
 
-      // Hard fallback: minimal deterministic winner IR (no rewrite)
-      const winner_date = ymdFromAnyDate(winner.date);
+      const fallbackRows =
+        resolved_intent === "WINDOW_WORST_DAYS"
+          ? (Array.isArray(worstlist_rows) ? worstlist_rows : [])
+          : (Array.isArray(shortlist_rows) ? shortlist_rows : []);
+
+      const fallbackOut =
+        resolved_intent === "WINDOW_WORST_DAYS"
+          ? windowWorstDaysDeterministic({ rows: fallbackRows })
+          : windowTopDaysDeterministic({ rows: fallbackRows });
 
       ai = {
         ok: true,
         mode: "v3_fallback_deterministic",
         output: {
-          headline: resolved_intent === "WINDOW_WORST_DAYS"
-            ? "Date la moins favorable"
-            : "Fenêtre favorable détectée",
-          answer: "",
-          key_facts: [
-            `Régime ${winner.opportunity_regime ?? "ND"}`,
-          ],
+          headline: fallbackOut.headline,
+          answer: fallbackOut.summary,
+          key_facts: fallbackOut.key_facts,
           reasons: [],
-          caveats: [],
+          caveats: fallbackOut.caveat ? [fallbackOut.caveat] : [],
         },
         raw_text: "",
         errors: [],
@@ -3740,6 +4628,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       };
 
       producer = "v3_fallback_deterministic";
+    }
+  }
+
+    
+  // ---- UI PACKAGING V3 (month shortlist / worstlist only) ----
+  if (
+    resolved_horizon === "month" &&
+    (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS")
+  ) {
+    const used = decision_used_dates.length > 0 ? decision_used_dates : [];
+    if (used.length > 0) {
+      ui_packaging_v3 = buildUiPackagingV3Month({
+        intent: resolved_intent as "WINDOW_TOP_DAYS" | "WINDOW_WORST_DAYS",
+        used_dates: used,
+        month_window,
+        month_days,
+      });
     }
   }
 
@@ -3781,9 +4686,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // ---- normalized_ai (stable contract for UI) ----
-    const normalized_ai: AiResponseV1 = {
+        const normalized_ai: AiResponseV1 = {
       ...normalized_ai_base,
-
+      verdict: typeof (normalized_ai_base as any).verdict === "string" ? (normalized_ai_base as any).verdict : "",
       caveats: asStringArray(normalized_ai_base.caveats),
 
       // Reasons: only for day / selected_days (fallback to deterministic if AI has none)
@@ -3817,7 +4722,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           // Legacy UI readers often detect "displayable content" via ai.output.summary/headline
           output: {
             headline: normalized_ai.headline,
-            answer: (typeof normalized_ai.answer === "string" ? normalized_ai.answer : ""),
+            verdict: normalized_ai.verdict,
+            answer: (typeof normalized_ai.answer === "string" ? normalized_ai.answer : (normalized_ai.answer && typeof normalized_ai.answer === "object" ? normalized_ai.answer : "")),
             key_facts: Array.isArray(normalized_ai.key_facts) ? normalized_ai.key_facts : [],
             reasons: Array.isArray(normalized_ai.reasons) ? normalized_ai.reasons : [],
             caveats: Array.isArray(normalized_ai.caveats) ? normalized_ai.caveats.filter(Boolean) : [],
@@ -3883,7 +4789,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
                 const n =
                   typeof r?.opportunity_score_final_local === "number"
                     ? r.opportunity_score_final_local
-                    : Number(r?.opportunity_score_final_local);
+                    : typeof r?.opportunity_score === "number"
+                    ? r.opportunity_score
+                    : Number(r?.opportunity_score_final_local ?? r?.opportunity_score);
                 return Number.isFinite(n) ? n : null;
               })
               .filter((x: any) => x !== null) as number[];

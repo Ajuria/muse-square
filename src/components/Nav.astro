@@ -1,5 +1,5 @@
 ---
-import { SignedOut, SignedIn } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 
 const items = [
   { href: "/offres", label: "Solutions" },
@@ -15,9 +15,33 @@ const isActive = (href: string) => {
   return currentPath === h || (h !== "/" && currentPath.startsWith(h + "/"));
 };
 
-const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname === "/profile";
-const isInsightEvent = currentPath.startsWith("/app/insightevent");
-const isProfile = currentPath === "/profile" || currentPath.startsWith("/profile/");
+const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
+let dbSavedItemId = "";
+let dbDate = "";
+
+if (isApp) {
+  try {
+    const origin = Astro.url.origin;
+    const res = await fetch(`${origin}/api/saved-items/list`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: Astro.request.headers.get("cookie") ?? "",
+      },
+      body: JSON.stringify({ limit: 1, offset: 0 }),
+    });
+    const json = await res.json().catch(() => null);
+    const first = json?.items?.[0];
+    if (first?.saved_item_id) {
+      dbSavedItemId = String(first.saved_item_id);
+      if (first.selected_date) dbDate = String(first.selected_date);
+    }
+  } catch (_) {}
+}
+const isMonitor = currentPath.startsWith("/app/insightevent/monitor") || currentPath.startsWith("/app/insightevent/events");
+const isPulse = currentPath === "/app/insightevent/pulse";
+const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse && !currentPath.startsWith("/app/insightevent/suivis");
+const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
 const isAppShell = isApp;
@@ -62,79 +86,78 @@ const isAppShell = isApp;
               <a
                 href={i.href}
                 aria-current={isActive(i.href) ? "page" : undefined}
-                class="ms-nav-link"
+                class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isActive(i.href) ? "after:bg-primary" : "after:bg-transparent"}`}
               >
                 {i.label}
               </a>
             </li>
           ))}
-          {/* Signed-in on marketing site: show Insight only (no logout) */}
-          {!isApp && (
-            <SignedIn>
-              <li>
-                <a href="/app/insightevent/prompt" class="ms-nav-link">
-                  Insight
-                </a>
-              </li>
-            </SignedIn>
-          )}
-
+   
           {/* App-only menu + logout */}
           {isApp && (
             <>
               <li>
                 <a
-                  href="/app/insightevent/prompt"
+                  href={Astro.url.searchParams.get("saved_item_id") ? `/app/insightevent/days?saved_item_id=${encodeURIComponent(Astro.url.searchParams.get("saved_item_id")!)}&selected_date=__comparison__` : "/app/insightevent/prompt"}
                   aria-current={isInsightEvent ? "page" : undefined}
-                  class={`ms-nav-link relative inline-block pb-1
-                    after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
-                    ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
                 >
-                  Event
+                  Planifier
                 </a>
               </li>
               
               <li>
-                <span class="ms-nav-link opacity-40 cursor-not-allowed" aria-disabled="true">
-                  Marketing
-                </span>
+                <a href="/app/insightevent/pulse" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isMonitor || isPulse ? "after:bg-primary" : "after:bg-transparent"}`}>PILOTER</a>
               </li>
 
-              <li>
-                <a
-                  href="/profile"
-                  aria-current={isProfile ? "page" : undefined}
-                  class={`ms-nav-link italic normal-case relative inline-block pb-1
+              <li class="relative" id="compte-nav-item">
+                <button
+                  type="button"
+                  id="compte-nav-btn"
+                  class={`ms-nav-link italic normal-case relative flex items-center gap-1
                     after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px]
                     ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
                 >
-                  Profil
-                </a>
+                  Compte
+                  <svg id="compte-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="transition:transform 0.15s;flex-shrink:0;">
+                    <polyline points="2,3 5,7 8,3"/>
+                  </svg>
+                </button>
+                <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
+                  <a href="/profile" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Sites</a>
+                  <a href="/app/insightevent/suivis" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Suivis</a>
+                  <a href="/notifications" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Alertes</a>
+                  <Show when="signed-in" client:load>
+                    <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Me déconnecter</button>
+                  </Show>
+                </div>
               </li>
-
-              <SignedIn>
-                <li>
-                  <button type="button" class="logoutBtn ms-nav-link italic normal-case">
-                    Log out
-                  </button>
-                </li>
-              </SignedIn>
             </>
           )}
         </ul>
 
         {/* Auth actions: only when signed out */}
-        <SignedOut>
+        <Show when="signed-out" client:load>
           <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
-            <a href="/sign-in" class="ms-nav-link">
+            <a href="/sign-in" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isSignIn || isSignUp ? "after:bg-primary" : "after:bg-transparent"}`}>
               Se connecter
             </a>
 
             <a href="/sign-up" class="ms-btn">
-              S’inscrire
+              Nous contacter
             </a>
           </div>
-        </SignedOut>
+        </Show>
+
+        {!isApp && (
+          <Show when="signed-in" client:load>
+            <div class="flex items-center font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
+              <a href="/app/insightevent/prompt" class="ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] after:bg-transparent">
+                Insight
+              </a>
+            </div>
+          </Show>
+        )}
       </div>
       
   <!-- Mobile nav -->
@@ -151,44 +174,51 @@ const isAppShell = isApp;
                 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
                 ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
             >
-              Event
+              Planifier
             </a>
           </li>
 
           <li>
-            <span
-              class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none"
-              aria-disabled="true"
-              title="Bientôt disponible"
-            >
-              Marketing
-            </span>
+            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Veille</a>
+          </li>
+          <li>
+            {(() => {
+              const savedItemId = Astro.url.searchParams.get("saved_item_id") || dbSavedItemId;
+              const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
+              const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || dbDate;
+              const monitorHref = savedItemId
+                ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
+                : null;
+
+              return monitorHref ? (
+                <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Événements</a>
+              ) : (
+                <span class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none" aria-disabled="true">Piloter — Événements</span>
+              );
+            })()}
           </li>
 
           <li>
-            <a
-              href="/profile"
-              aria-current={isProfile ? "page" : undefined}
-              class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity
-                hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                ${isProfile ? "after:bg-primary" : "after:bg-transparent"}`}
-            >
-              Profil
-            </a>
+            <a href="/profile" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${isProfile && !Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Mes sites</a>
+          </li>
+          <li>
+            <a href="/app/insightevent/suivis" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Mes suivis</a>
+          </li>
+          <li>
+            <a href="/profile/notifications" class={`font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px] ${Astro.url.pathname.startsWith("/profile/notifications") ? "after:bg-primary" : "after:bg-transparent"}`}>Compte — Alertes</a>
           </li>
 
-          <SignedIn>
+          <Show when="signed-in" client:load>
             <li>
               <button
                 type="button"
                 class="logoutBtn font-heading relative inline-block pb-2 italic normal-case transition-opacity
                       hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
-                Log out
+                Se déconnecter
               </button>
             </li>
-          </SignedIn>
+          </Show>
         </>
       ) : (
         items.map((i) => (
@@ -196,7 +226,7 @@ const isAppShell = isApp;
             <a
               href={i.href}
               aria-current={isActive(i.href) ? "page" : undefined}
-              class={`font-heading relative inline-block pb-2 transition-opacity
+              class={`ms-nav-link relative inline-block pb-2 transition-opacity
                 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
                 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
                 ${isActive(i.href) ? "after:bg-primary" : "after:bg-transparent"}`}
@@ -244,6 +274,47 @@ const isAppShell = isApp;
       }
     });
     }
+
+  </script>
+
+  <script is:inline>
+    (function () {
+      var btn = document.getElementById('compte-nav-btn');
+      var dropdown = document.getElementById('compte-dropdown');
+      var chevron = document.getElementById('compte-chevron');
+      if (!btn || !dropdown) return;
+
+      var open = false;
+
+      function show() {
+        dropdown.style.display = 'block';
+        chevron && (chevron.style.transform = 'rotate(180deg)');
+        open = true;
+      }
+      function hide() {
+        dropdown.style.display = 'none';
+        chevron && (chevron.style.transform = 'rotate(0deg)');
+        open = false;
+      }
+
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (open) { hide(); } else {
+          var pd = document.getElementById('piloter-dropdown'); var pc = document.getElementById('piloter-chevron');
+          if (pd) pd.style.display = 'none'; if (pc) pc.style.transform = 'rotate(0deg)';
+          show();
+        }
+      });
+
+      document.addEventListener('click', function (e) {
+        var item = document.getElementById('compte-nav-item');
+        if (item && !item.contains(e.target)) hide();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hide();
+      });
+    })();
   </script>
 
 </header>

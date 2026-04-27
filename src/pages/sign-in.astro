@@ -4,7 +4,11 @@ import { SignIn as ClerkSignIn } from '@clerk/astro/components';
 ---
 
 <BaseLayout title="Sign In - Muse Square" hideSurveyCta={true}>
-  <div class="flex items-center justify-center min-h-[60vh]">
-    <ClerkSignIn afterSignInUrl="/app/insightevent/prompt" />
-  </div>
+  <div class="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+  <ClerkSignIn forceRedirectUrl="/app/insightevent/prompt" appearance={{ elements: { headerSubtitle: { display: "none" }, logoBox: { height: "48px", width: "auto", justifyContent: "center" }, logoImage: { height: "48px", width: "auto", maxWidth: "180px", objectFit: "contain" } } }} />
+  <p style="font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(156,163,175,0.85);">
+    Pas encore de compte ?
+    <a href="/sign-up" style="color: #1D3BB3; text-decoration: underline;">Demander une démo</a>
+  </p>
+</div>
 </BaseLayout>

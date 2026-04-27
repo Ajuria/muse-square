@@ -10,6 +10,7 @@ export async function callClaudeMessagesAPI(args: {
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{ ok: boolean; rawText: string; errors: string[] }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -17,7 +18,7 @@ export async function callClaudeMessagesAPI(args: {
   }
 
   const model = args.model ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5-20250929";
-  const max_tokens = args.maxTokens ?? Number(process.env.AI_MAX_TOKENS ?? 500);
+  const max_tokens = args.maxTokens ?? Number(process.env.AI_MAX_TOKENS ?? 3000);
   const temperature = args.temperature ?? 0;
 
   const body = {
@@ -25,7 +26,20 @@ export async function callClaudeMessagesAPI(args: {
     max_tokens,
     temperature,
     system: args.system.trim(),
-    messages: [{ role: "user", content: JSON.stringify(args.userPayload) }],
+    messages: [
+      ...((args.userPayload as any)?._conversation_history ?? []).map((m: any) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+      {
+        role: "user" as const,
+        content: JSON.stringify(
+          Object.fromEntries(
+            Object.entries(args.userPayload).filter(([k]) => k !== "_conversation_history")
+          )
+        ),
+      },
+    ],
   };
 
   const controller = new AbortController();
@@ -45,7 +59,7 @@ export async function callClaudeMessagesAPI(args: {
 
     const text = await r.text();
     if (r.status >= 400) {
-      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 500)}`] };
+      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 3000)}`] };
     }
 
     const data = JSON.parse(text) as ClaudeResponse;

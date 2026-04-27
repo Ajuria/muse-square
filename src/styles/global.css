@@ -101,26 +101,13 @@
   .ms-bottombar-btn--primary:hover{ background: #111827; border-color: #111827; }
 
   .ms-bottombar-nav{
-    max-width: 64rem;
+    max-width: 620px;
     margin: 0 auto;
     padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
     min-height: var(--ms-bottombar-nav-h);
-  }
-
-  .ms-bottombar-item{
-    flex: 1 1 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    text-decoration: none;
-    color: rgba(17,24,39,0.55);
-    padding: 8px 10px;
-    border-radius: 12px;
-    line-height: 1;
   }
 
   .ms-bottombar-ico{
@@ -138,18 +125,13 @@
     font-weight: 500;
   }
 
-  .ms-bottombar-item.is-active{
-    color: #111827;
-    background: rgba(17,24,39,0.06);
-  }
-  .ms-bottombar-item:focus-visible{
-    outline: 2px solid #111827;
-    outline-offset: 2px;
-  }
-
   /* Nav links (Avenir 400, 15px, slight tracking) */
-  .ms-nav-link { @apply font-body text-[15px] font-normal tracking-[0.2px] text-primary; }
+  .ms-nav-link { @apply font-body text-[15px] font-normal tracking-[0.2px] text-primary; vertical-align: baseline; transition: opacity 150ms ease; }
 
+  .ms-nav-link:hover { opacity: 0.6; }
+  
+  button.ms-nav-link { padding: 0; background: none; border: none; cursor: pointer; position: relative; top: -2px; }
+  
   /* Footer (Avenir) — readable, still discreet */
   .ms-footer{
     @apply font-body italic text-[13px] leading-[1.55];
@@ -173,6 +155,7 @@
   .msq-btn-ghost { @apply ms-btn h-[44px]; }
 
   /* Layout tokens */
+  .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
   .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
   .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
   .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
@@ -346,7 +329,6 @@
   margin-right: auto !important;
 }
 
-/* ensure wrapper doesn’t re-expand */
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInputWrapper,
 .cl-formField:has(input[name="identifier"]) .cl-formFieldInput {
   width: 100% !important;
@@ -521,4 +503,23 @@ footer.ms-footer a {
 
 footer.ms-footer a:hover {
   text-decoration: none !important;
+}
+
+.cl-formField {
+  max-width: 320px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+
+.cl-formField .cl-formFieldInputWrapper,
+.cl-formField .cl-formFieldInput {
+  width: 100% !important;
+  max-width: 320px !important;
+  box-sizing: border-box !important;
+}
+
+/* Fix Insight nav link vertical alignment */
+nav .ms-nav-link {
+  vertical-align: middle !important;
 }

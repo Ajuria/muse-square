@@ -2,11 +2,11 @@
   --color-bg-page: #f5f6f8;
   --color-bg-card: #ffffff;
   --color-border: rgba(0,0,0,0.08);
-  --color-border-hover: #1D3BB3;
+  --color-border-hover: #0b37e5;
   --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
   --color-text-muted: rgba(17,24,39,0.45);
-  --color-brand-blue: #1D3BB3;
+  --color-brand-blue:#0b37e5;
 
   --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-size-hero: 56px;
@@ -42,4 +42,28 @@
   --card-padding-sm: 24px;
   --icon-size-md: 24px;
   --btn-size-md: 44px;
-}
+
+  /* ---- Status pill colors ---- */
+  
+  --color-pill-safe-text: #ffffff;
+  --color-pill-safe-bg: #0b37e5;
+  --color-pill-warn-bg: #FDE8D8;
+  --color-pill-warn-text: #C2410C;
+  --color-pill-warn-border: #F9B999;
+
+  --color-pill-risk-bg: #FCEBEB;
+  --color-pill-risk-text: #b91c1c;
+  --color-pill-risk-border: #F7C1C1;
+
+  --color-pill-green-bg: #E6F6F0;
+  --color-pill-green-text: #059669;
+  /* ---- Source trust pill colors ---- */
+  --color-pill-source-ms-bg: #0b37e5;
+  --color-pill-source-ms-text: #ffffff;
+  --color-pill-source-verified-bg: #E6F6F0;
+  --color-pill-source-verified-text: #059669;
+  --color-pill-source-mid-bg: #FDE8D8;
+  --color-pill-source-mid-text: #C2410C;
+  --color-pill-source-low-bg: #F3F4F6;
+  --color-pill-source-low-text: #6b7280;
+  }

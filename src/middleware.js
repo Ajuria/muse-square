@@ -41,9 +41,10 @@ const isProtectedRoute = createRouteMatcher([
   "/app(.*)",
   "/profile",
   "/profile(.*)",
+  "/suivis",
   "/api/profile(.*)",
   "/api/saved-items(.*)",
-  "/api/insight(.*)",
+  "/api/competitive(.*)",
 ]);
 
 const isAppRoute = createRouteMatcher([
@@ -56,8 +57,11 @@ const isLocalsRoute = createRouteMatcher([
   "/app(.*)",
   "/profile",
   "/profile(.*)",
+  "/suivis",
   "/api/saved-items(.*)",
   "/api/insight(.*)",
+  "/api/profile(.*)",
+  "/api/competitive(.*)",
 ]);
 
 const DEV_BYPASS_PROMPT =
@@ -87,7 +91,7 @@ async function getProfileContext(clerk_user_id) {
       first_name
     FROM \`${projectId}.${dataset}.${table}\`
     WHERE clerk_user_id = @clerk_user_id
-    ORDER BY updated_at DESC
+      AND (is_primary = TRUE OR is_primary IS NULL)
     LIMIT 1
   `;
 
@@ -195,7 +199,8 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       userId &&
       !context.locals.profileRowExists &&
       !isOnboardingRoute(context.request) &&
-      !path.startsWith("/profile")
+      !path.startsWith("/profile") &&
+      !path.startsWith("/api/profile")
     ) {
       console.log("[MW] -> force onboarding: /onboarding");
       return context.redirect("/onboarding", 302);

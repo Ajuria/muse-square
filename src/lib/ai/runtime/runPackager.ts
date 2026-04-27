@@ -1,4 +1,4 @@
-import { pickAllowedPayload } from "./allowlist";
+import { pickAllowedPayload, assertPayloadCoverage } from "./allowlist";
 import { callClaudeMessagesAPI } from "./claude";
 import { parseJsonObjectStrict } from "./json";
 import { PACKAGER_PROMPT_V3_NARRATIVE_FR } from "../contracts/packagePromptV3";
@@ -45,6 +45,7 @@ export async function runAIPackagerClaude(args: {
   row: Record<string, any>;
   aiLocationContextRow?: Record<string, any>;
   submode?: MonthSubMode; // required iff mode === "month"
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{
   ok: boolean;
   mode: Mode;
@@ -82,7 +83,7 @@ export async function runAIPackagerClaude(args: {
     };
   }
 
-  if (mode !== "month" && submode) {
+  if (mode !== "month" && mode !== "v3_narrative" && submode) {
     // ignore; do not fail
     // (caller may accidentally pass it; we treat it as noop)
   }
@@ -91,6 +92,7 @@ export async function runAIPackagerClaude(args: {
   /* 1) Enrich row first, then allowlist payload only               */
   /* -------------------------------------------------------------- */
 
+  console.log("[packager][entry] mode:", mode, "submode:", submode, "row keys:", Object.keys(row ?? {}).slice(0, 10));
   const row_enriched: Record<string, any> = { ...(row ?? {}) };
 
   if (args.aiLocationContextRow && typeof args.aiLocationContextRow === "object") {
@@ -99,8 +101,20 @@ export async function runAIPackagerClaude(args: {
     }
   }
 
+  // Extract conversation history before allowlisting (not a semantic field)
+  const extracted_history: Array<{ role: "user" | "assistant"; content: string }> =
+    Array.isArray(row_enriched._conversation_history)
+      ? row_enriched._conversation_history
+      : (Array.isArray(args.conversationHistory) ? args.conversationHistory : []);
+
+  // Remove _conversation_history from row before allowlist check
+  const row_for_allowlist = Object.fromEntries(
+    Object.entries(row_enriched).filter(([k]) => k !== "_conversation_history")
+  );
+
   // ✅ Claude only sees allowlisted fields (plus jsonable coercion)
-  const payload: Record<string, any> = pickAllowedPayload(row_enriched);
+  assertPayloadCoverage(row_for_allowlist);
+  const payload: Record<string, any> = pickAllowedPayload(row_for_allowlist);
 
   /* -------------------------------------------------------------- */
   /* 2) Prompt + validator selection (authoritative) */
@@ -118,13 +132,41 @@ export async function runAIPackagerClaude(args: {
   if (mode === "ui_packaging_v2") {
     system_prompt = PACKAGER_PROMPT_UI_V2_FR;
     validatorFn = validate_packager_output_ui_v2;
-  }
 
-  if (mode === "v3_narrative") {
-    system_prompt = PACKAGER_PROMPT_V3_NARRATIVE_FR;
-  }
-
-  else if (mode === "month") {
+  } else if (mode === "v3_narrative") {
+    system_prompt = submode
+      ? `INTENT OVERRIDE — PRIORITÉ ABSOLUE : Le intent de cette requête est "${submode}". Applique UNIQUEMENT le bloc de logique correspondant à cet intent dans le prompt. Ignore tout autre bloc.\n\n${PACKAGER_PROMPT_V3_NARRATIVE_FR}`
+      : PACKAGER_PROMPT_V3_NARRATIVE_FR;
+    validatorFn = (output: any) => {
+      const errors: string[] = [];
+      if (!output || typeof output !== "object") {
+        return [false, ["v3_narrative: output is not an object"]];
+      }
+      if (typeof output.headline !== "string" || !output.headline.trim()) {
+        errors.push("v3_narrative: missing headline");
+      }
+      if (
+        (typeof output.answer !== "string" || !output.answer.trim()) &&
+        (!Array.isArray(output.answer) || output.answer.length === 0) &&
+        (typeof output.answer !== "object" || output.answer === null)
+      ) {
+        errors.push("v3_narrative: missing answer");
+      }
+      if (typeof output.verdict !== "string") {
+        errors.push("v3_narrative: verdict must be a string");
+      }
+      if (!Array.isArray(output.key_facts)) {
+        errors.push("v3_narrative: key_facts must be an array");
+      }
+      if (!Array.isArray(output.reasons)) {
+        errors.push("v3_narrative: reasons must be an array");
+      }
+      if (!Array.isArray(output.caveats)) {
+        errors.push("v3_narrative: caveats must be an array");
+      }
+      return errors.length ? [false, errors] : [true, []];
+    };
+  } else if (mode === "month") {
     switch (submode) {
       case "orchestrator":
         system_prompt = PACKAGER_PROMPT_MONTH_MODE;
@@ -178,8 +220,9 @@ export async function runAIPackagerClaude(args: {
     system: system_prompt,
     userPayload: payload,
     temperature: 0,
-    maxTokens: 600,
+    maxTokens: 2048,
     timeoutMs: 30_000,
+    conversationHistory: extracted_history.length > 0 ? extracted_history : args.conversationHistory,
   });
 
   if (!call.ok) {
@@ -218,7 +261,43 @@ export async function runAIPackagerClaude(args: {
     return lines.join("\n").trim();
   }
 
-  const normalized = stripCodeFence(call.rawText);
+  const normalized = (() => {
+    const stripped = stripCodeFence(call.rawText);
+    // Fix literal newlines inside JSON string values only
+    // Parse character by character: inside strings, escape control chars; outside strings, leave as-is
+    let result = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < stripped.length; i++) {
+      const c = stripped[i];
+      if (escaped) {
+        result += c;
+        escaped = false;
+        continue;
+      }
+      if (c === '\\' && inString) {
+        result += c;
+        escaped = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = !inString;
+        result += c;
+        continue;
+      }
+      if (inString) {
+        if (c === '\n') { result += '\\n'; continue; }
+        if (c === '\r') { result += '\\r'; continue; }
+        if (c === '\t') { result += '\\t'; continue; }
+      }
+      result += c;
+    }
+    return result;
+  })();
+
+  console.log("[packager][debug] normalized head:", normalized.slice(0, 200));
+  console.log("[packager][debug] normalized tail:", normalized.slice(-100));
+
 
   if (!normalized.startsWith("{") || !normalized.endsWith("}")) {
     return {
@@ -234,6 +313,7 @@ export async function runAIPackagerClaude(args: {
   const parsed = parseJsonObjectStrict(normalized);
 
   if (!parsed.ok) {
+    console.error("[packager] JSON parse failed:", parsed.error);
     return {
       ok: false,
       mode,
@@ -243,6 +323,7 @@ export async function runAIPackagerClaude(args: {
       raw_text: normalized,
     };
   }
+  console.log("[packager] JSON parsed ok, keys:", Object.keys(parsed.value));
 
   /* -------------------------------------------------------------- */
   /* 5) Validation */

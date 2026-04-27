@@ -83,6 +83,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.title,
         i.description,
         i.stage,
+        i.decision_date,
+        i.event_end_date,
         i.created_at,
         i.updated_at,
         ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date ASC) AS dates
@@ -102,6 +104,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.title,
         i.description,
         i.stage,
+        i.decision_date,
+        i.event_end_date,
         i.created_at,
         i.updated_at
       LIMIT 1

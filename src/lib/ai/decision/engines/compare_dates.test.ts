@@ -1,9 +1,7 @@
-// src/lib/ai/decision/engines/compare_dates.test.ts
-
 import { describe, it, expect } from "vitest";
-import { compareDatesDeterministic } from "./compare_dates";
+import { compareDatesDeterministicV1 } from "./compare_dates";
 
-describe("compareDatesDeterministic", () => {
+describe("compareDatesDeterministicV1", () => {
   it("chooses the best date based on regime then score", () => {
     const rows = [
       {
@@ -21,12 +19,9 @@ describe("compareDatesDeterministic", () => {
         events_within_10km_count: 5,
       },
     ];
-
-    const out = compareDatesDeterministic({ rows });
-
+    const out = compareDatesDeterministicV1({ rows });
     expect(out.ok).toBe(true);
-    expect(out.headline).toContain("2026-01-18");
-    expect(out.key_facts[0]).toContain("2026-01-18");
+    expect(out.winner_date).toBe("2026-01-18");
   });
 
   it("prefers lower weather risk when regime and score are equal", () => {
@@ -46,13 +41,11 @@ describe("compareDatesDeterministic", () => {
         events_within_10km_count: 2,
       },
     ];
-
-    const out = compareDatesDeterministic({ rows });
-
-    expect(out.headline).toContain("2026-01-22");
+    const out = compareDatesDeterministicV1({ rows });
+    expect(out.winner_date).toBe("2026-01-22");
   });
 
-  it("returns a graceful message when fewer than 2 dates are provided", () => {
+  it("returns a graceful result when fewer than 2 dates are provided", () => {
     const rows = [
       {
         date: "2026-01-25",
@@ -60,9 +53,9 @@ describe("compareDatesDeterministic", () => {
         opportunity_score_final_local: 90,
       },
     ];
-
-    const out = compareDatesDeterministic({ rows });
-
-    expect(out.headline).toBe("Comparaison impossible");
+    const out = compareDatesDeterministicV1({ rows });
+    expect(out.ok).toBe(true);
+    expect(out.winner_date).toBeNull();
+    expect(out.line_items[0].params?.mode).toBe("missing_dates");
   });
 });

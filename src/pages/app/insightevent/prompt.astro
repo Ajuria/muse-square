@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { SignedIn, SignedOut } from "@clerk/astro/components";
+import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 
@@ -16,6 +16,11 @@ const location_id =
     ? (Astro.locals as any).location_id.trim()
     : null;
 
+const first_name =
+  (Astro.locals && typeof (Astro.locals as any).first_name === "string")
+    ? (Astro.locals as any).first_name.trim()
+    : null;
+
 const IS_DEV = import.meta.env.DEV;
 
 // Option A (hard stop): no location_id => redirect (404 template later)
@@ -24,11 +29,11 @@ if (!location_id) {
 }
 ---
 
-<SignedOut>
+<Show when="signed-out" client:load>
   <meta http-equiv="refresh" content="0; url=/sign-in" />
-</SignedOut>
+</Show>
 
-<SignedIn>
+<Show when="signed-in" client:load>
   <BaseLayout
     title="Insight Event — Prompt"
     hideSurveyCta={true}
@@ -47,21 +52,18 @@ if (!location_id) {
         <!-- EMPTY STATE (shown before first submit) -->
         <section id="ie-prompt-empty">
           <div id="ie-prompt-hero">
-            <h1 id="ie-prompt-title">Bonjour.</h1>
-            <p id="ie-prompt-subtitle">Je suis votre outil d’aide à la décision opérationnelle. Que souhaitez-vous planifier aujourd’hui ?</p>
+            <p id="ie-prompt-greeting" style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9CA3AF;margin:0 0 10px 0;"></p>
+            <h1 id="ie-prompt-title" data-firstname={first_name ?? ""}></h1>
           </div>
 
           <div id="ie-prompt-suggestions-label">SUGGESTIONS</div>
 
           <a href="#" class="ie-prompt-card" data-suggestion-idx="0">
             <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-                <path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path>
-              </svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm7 4h4v4h-4z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Quels sont les 3 meilleurs jours pour organiser un événement au mois de juin ?</p>
+              <p class="ie-prompt-card-text">En juin, quel est le meilleur moment pour lancer mon produit ?</p>
             </div>
             <div class="ie-prompt-card-arrow">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -72,12 +74,10 @@ if (!location_id) {
 
           <a href="#" class="ie-prompt-card" data-suggestion-idx="1">
             <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 22h18"></path><path d="M6 18V9"></path><path d="M10 18V9"></path><path d="M14 18V9"></path><path d="M18 18V9"></path><path d="M4 9l8-4 8 4"></path>
-              </svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Quels week-ends sont les plus favorables pour un happening en extérieur au mois de mars ?</p>
+              <p class="ie-prompt-card-text">Quel week-end de septembre concentre le moins de concurrence ?</p>
             </div>
             <div class="ie-prompt-card-arrow">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -86,21 +86,181 @@ if (!location_id) {
             </div>
           </a>
 
-          <a href="#" class="ie-prompt-card" data-suggestion-idx="2">
+          <div id="ie-prompt-actions-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:24px 0 16px 0;">ACTIONS</div>
+          <a href="#" class="ie-prompt-card" id="ie-finder-card" data-suggestion-idx="2">
             <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 3v18h18"></path><path d="M7 16v-6"></path><path d="M12 16V8"></path><path d="M17 16v-10"></path>
-              </svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:white;"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
             </div>
             <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Quelle est la probabilité d'une forte affluence pour une inauguration ce vendredi ?</p>
+              <p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">Trouver une date</p>
+              <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">Jusqu'à 7 meilleures dates sur une fenêtre choisie</p>
             </div>
-            <div class="ie-prompt-card-arrow">
+            <div class="ie-prompt-card-arrow" id="ie-finder-chevron">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </div>
           </a>
+
+          <div id="ie-finder-form" style="display:none;background:#f8f9fa;border:1px solid rgba(0,0,0,0.08);padding:20px;margin-top:-10px;">
+            <div style="margin-bottom:16px;">
+              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Fenêtre</div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input type="date" id="ie-finder-date-start" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
+                <span style="font-size:13px;color:#9ca3af;">→</span>
+                <input type="date" id="ie-finder-date-end" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+              <div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Jours</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekday" checked style="width:16px;height:16px;cursor:pointer;"> Semaine</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekend" checked style="width:16px;height:16px;cursor:pointer;"> Week-end</label>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Exclusions</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-school" style="width:16px;height:16px;cursor:pointer;"> Vacances scolaires</label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-holidays" style="width:16px;height:16px;cursor:pointer;"> Jours fériés</label>
+                </div>
+              </div>
+            </div>
+            <div id="ie-finder-error" style="display:none;font-size:13px;color:#b91c1c;margin-bottom:12px;padding:8px 12px;background:#fef2f2;border-radius:6px;"></div>
+            <button id="ie-finder-submit" type="button" style="width:100%;background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">
+              Trouver les meilleures dates →
+            </button>
+          </div>
+
+          <!-- CONCURRENCE SECTION (hidden by default) -->
+          <div id="ie-concurrence-section" style="display:none;">
+            <div id="ie-conc-empty-state">
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Recherchez un concurrent, un événement ou un mot-clé dans votre zone.</p>
+              </div>
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><path d="M12 5v14M5 12h14"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Ajoutez les résultats à votre veille concurrentielle, actualisée chaque nuit.</p>
+              </div>
+              <div style="border:1px solid rgba(0,0,0,0.12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:18px;">
+                <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="fill:none;stroke:white;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:22px;height:22px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></div>
+                <p style="font-size:16px;line-height:1.5;color:#111827;margin:0;">Complétez avec une recherche web si la base de données ne suffit pas.</p>
+              </div>
+            </div>
+
+            <div id="ie-conc-loading" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Recherche en cours...</div>
+            <div id="ie-conc-empty" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:14px;">Aucun résultat. Essayez un autre mot-clé.</div>
+
+            <div id="ie-conc-db-results" style="display:none;"></div>
+
+            <div id="ie-conc-web-cta" style="display:none;border:0.5px dashed rgba(0,0,0,0.12);border-radius:0;padding:14px 16px;text-align:center;margin:16px 0;cursor:pointer;transition:background 120ms;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+              <span style="font-size:13px;color:#1D3BB3;font-weight:500;">Rechercher aussi sur le web →</span>
+            </div>
+            <div id="ie-conc-web-loading" style="display:none;text-align:center;padding:16px 0;color:#9CA3AF;font-size:13px;">Recherche web en cours...</div>
+            <div id="ie-conc-web-results" style="display:none;"></div>
+
+            <div id="ie-conc-manual-section" style="display:none;margin-top:20px;">
+              <a href="#" id="ie-conc-manual-link" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Saisie manuelle d'un événement ou concurrent</a>
+            </div>
+
+            <div id="ie-conc-manual-forms" style="display:none;margin-top:16px;">
+              <button class="ie-conc-card" id="ie-conc-event" data-path="event">
+                <div class="ie-prompt-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </div>
+                <div class="ie-prompt-card-content">
+                  <p class="ie-conc-card-title">Événement concurrent</p>
+                  <p class="ie-conc-card-sub">Salon, festival, lancement, exposition, conférence de presse…</p>
+                </div>
+                <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-event">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </button>
+              <div class="ie-conc-form" id="ie-form-event" style="display:none;">
+                <div class="ie-conc-form-inner">
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Lancement Taycan" id="ie-evt-name" /></div>
+                    <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-evt-city" /></div>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Date début <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" id="ie-evt-date-start" placeholder="JJ/MM/AAAA" readonly /></div>
+                    <div><div class="ie-fl">Date fin</div><input type="text" class="ie-conc-input" id="ie-evt-date-end" placeholder="JJ/MM/AAAA" readonly /></div>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Organisateur</div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-evt-organizer" /></div>
+                    <div><div class="ie-fl">Nom du lieu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-evt-venue" /></div>
+                  </div>
+                  <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-evt-url" /><div class="ie-hint">Sans lien, l'IA recherche automatiquement.</div></div>
+                  <div class="ie-conc-actions">
+                    <button class="ie-conc-btn-ghost" data-close-path="event">Annuler</button>
+                    <button class="ie-conc-btn-primary" id="ie-evt-submit">Continuer →</button>
+                  </div>
+                </div>
+              </div>
+
+              <button class="ie-conc-card" id="ie-conc-competitor" data-path="competitor">
+                <div class="ie-prompt-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div class="ie-prompt-card-content">
+                  <p class="ie-conc-card-title">Marque ou lieu</p>
+                  <p class="ie-conc-card-sub">Hôtel, musée, organisateur, enseigne, salle de spectacle…</p>
+                </div>
+                <div class="ie-prompt-card-arrow ie-conc-chev" id="ie-chev-competitor">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+              </button>
+              <div class="ie-conc-form" id="ie-form-competitor" style="display:none;">
+                <div class="ie-conc-form-inner">
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom du concurrent <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. GL Events" id="ie-comp-name" /><div class="ie-hint">L'IA corrigera l'orthographe.</div></div>
+                    <div><div class="ie-fl">Ville <span class="ie-req">*</span></div><input type="text" class="ie-conc-input" placeholder="ex. Nîmes" id="ie-comp-city" /></div>
+                  </div>
+                  <div><div class="ie-fl">Secteur d'activité</div>
+                    <select class="ie-conc-input" id="ie-comp-sector">
+                      <option value="">Sélectionner…</option>
+                      <option value="non_profit">Associatif & Non lucratif</option>
+                      <option value="wellness">Bien-être & Fitness</option>
+                      <option value="cinema_theatre">Cinéma & Théâtre</option>
+                      <option value="commercial">Commerce & Retail</option>
+                      <option value="institutional">Collectivités & Secteur public</option>
+                      <option value="culture">Culture & Patrimoine</option>
+                      <option value="family">Éducation & Enseignement</option>
+                      <option value="live_event">Événementiel</option>
+                      <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+                      <option value="food_nightlife">Restauration & Bars</option>
+                      <option value="science_innovation">Sciences & Innovation</option>
+                      <option value="pro_event">Salons & Événements professionnels</option>
+                      <option value="sport">Sports & Loisirs actifs</option>
+                      <option value="transport_mobility">Transport & Mobilité locale</option>
+                      <option value="outdoor_leisure">Tourisme & Loisirs</option>
+                      <option value="nightlife">Vie nocturne</option>
+                      <option value="unknown">Autre activité accueillant du public</option>
+                    </select>
+                  </div>
+                  <div class="ie-conc-grid-2">
+                    <div><div class="ie-fl">Nom d'un lieu connu</div><input type="text" class="ie-conc-input" placeholder="ex. Palais des Congrès" id="ie-comp-venue" /></div>
+                    <div><div class="ie-fl">Lien source</div><input type="url" class="ie-conc-input" placeholder="https://…" id="ie-comp-url" /></div>
+                  </div>
+                  <div class="ie-conc-actions">
+                    <button class="ie-conc-btn-ghost" data-close-path="competitor">Annuler</button>
+                    <button class="ie-conc-btn-primary" id="ie-comp-submit">Continuer →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MARKETING SECTION (hidden by default) -->
+          <div id="ie-marketing-section" style="display:none;">
+            <div id="ie-concurrence-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:0 0 16px 0;">MARKETING</div>
+            <div style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:12px;padding:24px;text-align:center;color:#6b7280;font-size:15px;line-height:1.6;">
+              Bientôt disponible — cadence concurrentielle, audience overlap, timing de communication.
+            </div>
+          </div>
+
         </section>
 
         <section id="ie-thread" aria-live="polite" hidden>
@@ -126,7 +286,23 @@ if (!location_id) {
             </svg>
           </button>
         </div>
+        <div id="ie-mode-switcher">
+          <button class="ie-mode-btn active" data-mode="planning" id="ie-mode-btn-planning">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2v4M8 2v4M3 10h18" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Planning
+          </button>
+          <button class="ie-mode-btn" data-mode="concurrence" id="ie-mode-btn-concurrence">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12h6v10" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Concurrence
+          </button>
+          <button class="ie-mode-btn" data-mode="marketing" id="ie-mode-btn-marketing">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Marketing
+          </button>
+        </div>
+        <div id="ie-prompt-chips"></div>
       </div>
+    </div>
 
       <!-- Shared bottom navigation -->
       <InsightBottomBar active="prompt" showActions={false} disableDays={true} />
@@ -139,7 +315,7 @@ if (!location_id) {
 
       #ie-prompt-root { background: #ffffff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
       #ie-prompt-main{
-        max-width: 620px;
+        max-width: 720px;
         margin: 0 auto;
         padding-bottom: calc(var(--ie-bottom-nav-h, 74px) + var(--ie-input-wrap-h, 96px) + 24px);
       }
@@ -168,14 +344,15 @@ if (!location_id) {
       #ie-prompt-user-btn{ width:40px; height:40px; border-radius:50%; border:1px solid rgba(0,0,0,0.12); background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
       #ie-prompt-hero{ margin-bottom: 48px; }
-      #ie-prompt-title{ font-size: 40px; font-weight: 300; line-height: 1.1; color: #111827; margin: 0 0 20px 0; }
+      #ie-prompt-title{ font-size: 28px; font-weight: 300; line-height: 1.3; color: #111827; margin: 0; }
       #ie-prompt-subtitle{ font-size:18px; line-height: 1.5; color: #6b7280; margin:0; }
 
       #ie-prompt-suggestions-label{ font-size: 12px; letter-spacing: 0.08em; color: #9ca3af; font-weight: 600; text-transform: uppercase; margin: 0 0 16px 0; }
 
-      .ie-prompt-card{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 16px; padding: 16px; margin-bottom:16px; display:flex; align-items:flex-start; gap:18px; cursor:pointer; transition: all 200ms ease; text-decoration:none; color:inherit; }
+      .ie-prompt-card{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 0; padding: 16px; margin-bottom:16px; display:flex; align-items:center; gap:18px; cursor:pointer; transition: all 200ms ease; text-decoration:none; color:inherit; }
       .ie-prompt-card:hover{ border-color: rgba(0,0,0,0.2); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-      .ie-prompt-card-icon svg{ width:24px; height:24px; stroke: #6b7280; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .ie-prompt-card-icon{ width:40px; height:40px; border-radius:10px; background:#1D3BB3; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .ie-prompt-card-icon svg{ width:22px; height:22px; fill:white; stroke:none; }
       .ie-prompt-card-content{ flex:1; min-width:0; }
       .ie-prompt-card-text{ font-size:16px; line-height:1.5; color: #111827; margin:0; }
       .ie-prompt-card-arrow{ width:24px; height:24px; flex-shrink:0; opacity:0.3; }
@@ -194,7 +371,7 @@ if (!location_id) {
 
       /* center the input bar when fixed */
       #ie-prompt-input-bar{
-        max-width: 620px;
+        max-width: 720px;
         margin: 0 auto;
       }
 
@@ -220,16 +397,16 @@ if (!location_id) {
         box-sizing:border-box;
       }
       #ie-prompt-input::placeholder{ color:#9ca3af; }
-      #ie-prompt-submit-btn{ width:44px; height:44px; border-radius:50%; background: #111827; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: all 200ms ease; flex-shrink:0; }
+      #ie-prompt-submit-btn{ width:44px; height:44px; border-radius:50%; background:#1D3BB3; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: all 200ms ease; flex-shrink:0; }
       #ie-prompt-submit-btn[disabled]{ opacity:0.55; cursor:not-allowed; transform:none; }
-      #ie-prompt-submit-btn[disabled]:hover{ background:#111827; transform:none; }
+      #ie-prompt-submit-btn[disabled]:hover{ background:#1D3BB3; transform:none; }
+      #ie-prompt-submit-btn:hover{ background:#1630a0; transform: scale(1.05); }
       #ie-prompt-result-body.is-error{ color:#b91c1c; }
-      #ie-prompt-submit-btn:hover{ background: rgba(0,0,0,0.7); transform: scale(1.05); }
       #ie-prompt-submit-btn svg{ width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
 
       /* Thread */
       #ie-thread{ margin-top: 8px; }
-      .ie-msg{ display:flex; margin: 10px 0; }
+      .ie-msg{ display:flex; margin: 32px 0; }
       .ie-msg .ie-bubble{
         max-width: 92%;
         padding: 12px 14px;
@@ -244,25 +421,26 @@ if (!location_id) {
       /* ChatGPT-like separation: user darker bubble on right, assistant lighter on left */
       .ie-msg-user{ justify-content: flex-end; }
       .ie-msg-user .ie-bubble{
-        background: #f3f4f6;
-        color: #111827;
-        border-color: rgba(0,0,0,0.08);
+        background: #E6F1FB;
+        color: #0C447C;
+        border-color: #B5D4F4;
       }
 
       .ie-msg-ai{ justify-content: flex-start; }
 
       /* ChatGPT-like assistant output: no bubble, full width */
       .ie-msg-ai .ie-bubble{
-        /* remove bubble visuals */
-        background: transparent;
-        border: 0;
-        border-radius: 0;
+      /* remove bubble visuals */
+      background: transparent;
+      border: 0;
+      border-radius: 0;
 
-        /* remove bubble padding so text aligns like ChatGPT */
-        padding: 0;
+      /* remove bubble padding so text aligns like ChatGPT */
+      padding: 0;
 
-        /* allow full width within the 620px column */
-        max-width: 100%;
+      /* allow full width within the 620px column */
+      max-width: 100%;
+      width: 100%;
 
         /* readable typography */
         font-size: 17px;
@@ -369,9 +547,1380 @@ if (!location_id) {
         pointer-events: none !important;
       }
 
+      /* Key facts / reasons list */
+      .ie-msg-ai .ie-bubble ul {
+        list-style: none;
+        margin: 12px 0 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ie-msg-ai .ie-bubble li {
+        padding-left: 16px;
+        position: relative;
+        font-size: 15px;
+        line-height: 1.55;
+        color: #111827;
+      }
+      .ie-msg-ai .ie-bubble li::before {
+        content: "·";
+        position: absolute;
+        left: 0;
+        color: #6b7280;
+        font-weight: 700;
+      }
+
+      /* Caveat block */
+      .ie-ai-caveats {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-left: 3px solid #e5e7eb;
+        background: #f9fafb;
+        border-radius: 0 8px 8px 0;
+      }
+      .ie-ai-cv {
+        font-size: 13px;
+        line-height: 1.55;
+        color: #6b7280;
+      }
+
+      /* CTA link */
+      .ie-inline-cta {
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-brand-blue);
+        text-decoration: none;
+        margin-top: 12px;
+      }
+      .ie-inline-cta:hover {
+        text-decoration: underline;
+      }
+
+      /* Section headers (operational impacts etc) */
+      .ie-ai-sec { margin-top: 16px; }
+      .ie-ai-sec-h {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9ca3af;
+        margin-bottom: 6px;
+      }
+
+      /* Headline spacing when following v3 block */
+      .ie-ai-h.mt-4 { margin-top: 20px; }
+
+      .ie-ai-date-block {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-left: 3px solid var(--color-accent, #6366f1);
+        background: var(--color-surface-2, #f8f9fa);
+        border-radius: 0 0.5rem 0.5rem 0;
+      }
+      .ie-ai-date-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+      }
+      .ie-ai-date-row {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ie-ai-date-c {
+        font-weight: 600;
+        min-width: 2rem;
+        color: var(--color-accent, #6366f1);
+        flex-shrink: 0;
+      }
+
+      .ie-ai-verdict {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background: #f0f4ff;
+        border-radius: 0.375rem;
+        color: #3730a3;
+      }
+
+      .ie-lookup-headline { font-size: 15px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-primary); }
+      .ie-lookup-item { padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+      .ie-lookup-item:last-child { border-bottom: none; }
+      .ie-lookup-name { font-size: 15px; font-weight: 500; margin-bottom: 3px; color: var(--color-text-primary); }
+      .ie-lookup-date { font-size: 13px; color: var(--color-brand-blue); margin-bottom: 3px; }
+      .ie-lookup-desc { font-size: 13px; color: var(--color-text-primary); }
+      .ie-lookup-notfound { font-size: 15px; color: var(--color-text-secondary); }
+      .ie-pill-blue { display: inline-block; background: #E6F1FB; color: #0C447C; font-size: 14px; font-weight: 500; padding: 4px 10px; border-radius: var(--border-radius-md); margin-bottom: 12px; }
+      .ie-pill-amber { display: inline-block; background: #FAEEDA; color: #633806; font-size: 14px; font-weight: 500; padding: 4px 10px; border-radius: var(--border-radius-md); margin-bottom: 12px; }
+      .ie-verdict-blue { border-left: 3px solid #378ADD; background: #E6F1FB; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; padding: 8px 12px; font-size: 14px; color: #0C447C; font-weight: 500; margin-bottom: 1rem; }
+      .ie-verdict-amber { border-left: 3px solid #BA7517; background: #FAEEDA; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; padding: 8px 12px; font-size: 14px; color: #633806; font-weight: 500; margin-bottom: 1rem; }
+      .ie-section-h { font-size: 15px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-primary); }
+      .ie-card-blue { border: 0.5px solid #B5D4F4; border-left: 3px solid #378ADD; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; padding: 10px 12px; margin-bottom: 8px; background: var(--color-background-primary); }
+      .ie-card-amber { border: 0.5px solid #FAC775; border-left: 3px solid #BA7517; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; padding: 10px 12px; margin-bottom: 8px; background: var(--color-background-primary); }
+      .ie-card-label { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: var(--color-text-primary); }
+      .ie-card-row { font-size: 13px; color: var(--color-text-primary); margin-bottom: 3px; }
+      .ie-card-row strong { color: var(--color-text-primary); font-weight: 500; }
+      .ie-why-headline { font-size: 15px; font-weight: 500; margin-bottom: 10px; color: var(--color-text-primary); }
+      .ie-why-intro { font-size: 15px; color: var(--color-text-primary); margin-bottom: 12px; line-height: 1.6; }
+      .ie-why-row { font-size: 15px; margin-bottom: 6px; line-height: 1.5; color: var(--color-text-primary); }
+      .ie-why-row strong { font-weight: 500; }
+
+      .ie-competitor-density {
+        color: var(--color-text-primary);
+        font-size: 0.875rem;
+        margin-bottom: 8px;
+      }
+      .ie-competitor-list {
+        margin: 8px 0 12px 0;
+      }
+      .ie-competitor-row {
+        color: var(--color-text-primary);
+        font-size: 15px;
+        line-height: 1.5;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--color-border, #e5e7eb);
+      }
+      .ie-competitor-row:last-child {
+        border-bottom: none;
+      }
+      .ie-competitor-analysis {
+        color: var(--color-text-primary);
+        font-size: 15px;
+        line-height: 1.6;
+        margin-top: 14px;
+      }
+      .ie-competitor-recommendation {
+        color: var(--color-text-primary);
+        font-size: 15px;
+        line-height: 1.5;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--color-border, #e5e7eb);
+        font-style: italic;
+      }
+
+      .ie-bubble-none {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .ie-lookup-item {
+        padding: 8px 0;
+        border-bottom: 0.5px solid var(--color-border-tertiary);
+      }
+      .ie-lookup-item:last-child {
+        border-bottom: none;
+      }
+
+      .ie-verdict-plain { font-size: 13px; color: var(--color-text-primary); margin-bottom: 10px; line-height: 1.6; }
+
+      .ie-confirm-block { border: 1px solid #B5D4F4; border-radius: 8px; padding: 14px 16px; background: #F4F8FE; margin-bottom: 4px; }
+      .ie-confirm-msg { font-size: 15px; color: #111827; margin-bottom: 10px; line-height: 1.5; }
+      .ie-confirm-params { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+      .ie-confirm-param { display: flex; gap: 8px; font-size: 13px; }
+      .ie-confirm-key { color: #6b7280; font-weight: 500; min-width: 140px; }
+      .ie-confirm-val { color: #111827; font-weight: 600; }
+      .ie-confirm-actions { display: flex; gap: 10px; }
+      .ie-confirm-yes { background: #1D3BB3; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; }
+      .ie-confirm-no { background: transparent; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+      
+      #ie-prompt-chips button:hover,
+      #ie-prompt-chips a:hover {
+        border-color: rgba(0,0,0,0.2);
+        background: #f9fafb;
+      }
+
+      /* ---- MODE SWITCHER ---- */
+      #ie-mode-switcher {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 24px;
+      }
+      .ie-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: none;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        color: #9ca3af;
+        cursor: pointer;
+        transition: color 120ms, background 120ms;
+      }
+      .ie-mode-btn svg {
+        width: 15px;
+        height: 15px;
+        stroke: #9ca3af;
+        flex-shrink: 0;
+        transition: stroke 120ms;
+      }
+      .ie-mode-btn:hover {
+        background: #f9fafb;
+        color: #6b7280;
+      }
+      .ie-mode-btn.active {
+        color: #1D3BB3;
+        background: #EEF2FF;
+      }
+      .ie-mode-btn.active svg {
+        stroke: #1D3BB3;
+      }
+
+      /* ---- CONCURRENCE SECTION ---- */
+      #ie-concurrence-label {
+        font-size: 12px;
+        letter-spacing: .08em;
+        color: #9ca3af;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin: 0 0 16px 0;
+      }
+      .ie-conc-card {
+        width: 100%;
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 0;
+        padding: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        transition: border-color 200ms;
+      }
+      .ie-conc-card:hover { border-color: rgba(0,0,0,0.2); }
+      .ie-conc-card.active {
+        border-color: #1D3BB3;
+        margin-bottom: 0;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .ie-conc-card-title {
+        font-size: 16px;
+        color: #111827;
+        margin: 0 0 3px 0;
+        font-weight: 500;
+      }
+      .ie-conc-card-sub {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.4;
+      }
+      .ie-conc-chev svg {
+        width: 24px;
+        height: 24px;
+        stroke: #9ca3af;
+        transition: transform 200ms;
+      }
+      .ie-conc-chev.open svg { transform: rotate(180deg); }
+
+      .ie-conc-form {
+        margin-bottom: 16px;
+      }
+      .ie-conc-form-inner {
+        background: #f8f9fa;
+        border: 1px solid #1D3BB3;
+        border-top: none;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .ie-conc-grid-2 {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 10px;
+      }
+      .ie-fl {
+        font-size: 11px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+      .ie-req { color: #E24B4A; }
+      .ie-hint {
+        font-size: 11px;
+        color: #9CA3AF;
+        margin-top: 3px;
+        line-height: 1.5;
+      }
+      .ie-conc-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #111827;
+        background: #fff;
+        appearance: none;
+      }
+      .ie-conc-input:focus { outline: none; border-color: #1D3BB3; }
+      .ie-conc-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+        justify-content: flex-end;
+      }
+      .ie-conc-btn-primary {
+        background: none;
+        color: #1D3BB3;
+        border: none;
+        padding: 0;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .ie-conc-btn-ghost {
+        background: none;
+        color: #9ca3af;
+        border: none;
+        padding: 0;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
     </style>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.min.js"></script>
+
+    <script is:inline>
+      (function() {
+        const greetEl = document.getElementById('ie-prompt-greeting');
+        const titleEl = document.getElementById('ie-prompt-title');
+        if (!greetEl || !titleEl) return;
+
+        const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+        const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+        const now = new Date();
+        greetEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+
+        const name = (titleEl.getAttribute('data-firstname') || '').trim();
+        const greeting = name ? `Bonjour ${name}.` : 'Bonjour.';
+
+        const hour = now.getHours();
+        const morning = ['Que souhaitez-vous explorer ?','Par où commençons-nous ?','Quelle date souhaitez-vous évaluer ?','Quelle est votre prochaine décision ?'];
+        const afternoon = ['Sur quoi travaillez-vous aujourd\'hui ?','Quelle décision préparez-vous ?','Quel événement planifiez-vous ?','Où en êtes-vous dans votre planification ?'];
+        const evening = ['Quels risques souhaitez-vous anticiper ?','Que souhaitez-vous préparer pour demain ?','Quelle date souhaitez-vous sécuriser ?','Quel est votre prochain défi ?'];
+        const pool = hour < 12 ? morning : hour < 18 ? afternoon : evening;
+        const questions = pool[now.getDate() % pool.length];
+
+        titleEl.innerHTML = `${greeting}<br>${questions}`;
+      })();
+    </script>
+
+    <script is:inline>
+    (function() {
+      const CITIES = [
+        {name:'Nîmes',id:'30189',dept:'30 – Occitanie'},
+        {name:'Montpellier',id:'34172',dept:'34 – Occitanie'},
+        {name:'Marseille',id:'13055',dept:'13 – PACA'},
+        {name:'Paris',id:'75056',dept:'75 – Île-de-France'},
+        {name:'Lyon',id:'69123',dept:'69 – Auvergne-Rhône-Alpes'},
+        {name:'Toulouse',id:'31555',dept:'31 – Occitanie'},
+        {name:'Bordeaux',id:'33063',dept:'33 – Nouvelle-Aquitaine'},
+        {name:'Nice',id:'06088',dept:'06 – PACA'},
+        {name:'Narbonne',id:'11262',dept:'11 – Occitanie'},
+        {name:'Perpignan',id:'66136',dept:'66 – Occitanie'},
+      ];
+
+      let currentMode = 'planning';
+      let openPath = null;
+
+      const suggestionsEl = document.getElementById('ie-prompt-suggestions-label');
+      const concurrenceEl = document.getElementById('ie-concurrence-section');
+      const marketingEl   = document.getElementById('ie-marketing-section');
+      const inputEl       = document.getElementById('ie-prompt-input');
+
+      // Cards to show/hide per mode
+      const planningCards = document.querySelectorAll('.ie-prompt-card');
+      const finderForm    = document.getElementById('ie-finder-form');
+
+      function setMode(m) {
+        currentMode = m;
+        closeAllPaths();
+
+        // Toggle thread visibility based on mode
+        const thread = document.getElementById('ie-thread');
+        const empty = document.getElementById('ie-prompt-empty');
+        const hasThreadContent = thread && !thread.hasAttribute('hidden') && thread.innerHTML.trim();
+
+        if (m === 'planning' && hasThreadContent) {
+          // Returning to planning with existing results — show thread, hide empty
+          if (thread) thread.removeAttribute('hidden');
+          if (empty) empty.setAttribute('hidden', 'true');
+        } else if (m !== 'planning') {
+          // Leaving planning — hide thread but don't clear it
+          if (thread) thread.setAttribute('hidden', 'true');
+          if (empty) empty.removeAttribute('hidden');
+        }
+
+        // Planning cards + suggestions label
+        const showPlanning = m === 'planning';
+        if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
+        planningCards.forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
+        if (finderForm) finderForm.style.display = 'none';
+        const actionsLabel = document.getElementById('ie-prompt-actions-label');
+        if (actionsLabel) actionsLabel.style.display = showPlanning ? '' : 'none';
+
+        // Concurrence section
+        if (concurrenceEl) concurrenceEl.style.display = m === 'concurrence' ? 'block' : 'none';
+
+        // Marketing section
+        if (marketingEl) marketingEl.style.display = m === 'marketing' ? 'block' : 'none';
+
+        // Mode buttons
+        document.querySelectorAll('.ie-mode-btn').forEach(btn => {
+          const active = btn.dataset.mode === m;
+          btn.classList.toggle('active', active);
+        });
+
+        // Update greeting for mode
+        const titleEl = document.getElementById('ie-prompt-title');
+        if (titleEl) {
+          const name = (titleEl.getAttribute('data-firstname') || '').trim();
+          const greetName = name ? `Bonjour ${name}.` : 'Bonjour.';
+          if (m === 'concurrence') {
+            var cMorning = ['Quel concurrent souhaitez-vous surveiller ?','Quels événements se préparent dans votre zone ?','Qui souhaitez-vous ajouter à votre veille ?'];
+            var cAfternoon = ['Quel événement concurrent avez-vous repéré ?','Quelle marque souhaitez-vous suivre ?','Quels salons approchent dans votre secteur ?'];
+            var cEvening = ['Quel concurrent souhaitez-vous anticiper ?','Quels événements méritent votre attention ?','Quelle veille souhaitez-vous renforcer ?'];
+            var cHour = new Date().getHours();
+            var cPool = cHour < 12 ? cMorning : cHour < 18 ? cAfternoon : cEvening;
+            var cQ = cPool[new Date().getDate() % cPool.length];
+            titleEl.innerHTML = greetName + '<br>' + cQ;
+          } else if (m === 'planning') {
+            const hour = new Date().getHours();
+            const morning = ['Que souhaitez-vous explorer ?','Par où commençons-nous ?','Quelle date souhaitez-vous évaluer ?','Quelle est votre prochaine décision ?'];
+            const afternoon = ['Sur quoi travaillez-vous aujourd\'hui ?','Quelle décision préparez-vous ?','Quel événement planifiez-vous ?','Où en êtes-vous dans votre planification ?'];
+            const evening = ['Quels risques souhaitez-vous anticiper ?','Que souhaitez-vous préparer pour demain ?','Quelle date souhaitez-vous sécuriser ?','Quel est votre prochain défi ?'];
+            const pool = hour < 12 ? morning : hour < 18 ? afternoon : evening;
+            const q = pool[new Date().getDate() % pool.length];
+            titleEl.innerHTML = greetName + '<br>' + q;
+          } else {
+            titleEl.innerHTML = greetName;
+          }
+        }
+
+        // Input placeholder
+        const ph = {
+          planning: 'Posez votre question…',
+          concurrence: 'Rechercher un événement, un concurrent, ou par mot-clé…',
+          marketing: 'Bientôt disponible…',
+        };
+        if (inputEl) inputEl.placeholder = ph[m] || 'Posez votre question…';
+
+        // Input wrap stays visible in all modes — only placeholder, icon, and handler change
+        const submitBtn = document.getElementById('ie-prompt-submit-btn');
+        if (m === 'concurrence') {
+          if (submitBtn) submitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke-width="2.5" stroke-linecap="round"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2.5" stroke-linecap="round"/></svg>';
+        } else {
+          if (submitBtn) submitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+        }
+      }
+      window.__ieSetMode = setMode;
+
+      function closeAllPaths() {
+        ['event','competitor','search'].forEach(p => {
+          const form = document.getElementById('ie-form-' + p);
+          const card = document.getElementById('ie-conc-' + p);
+          const chev = document.getElementById('ie-chev-' + p);
+          if (form) form.style.display = 'none';
+          if (card) card.classList.remove('active');
+          if (chev) chev.classList.remove('open');
+        });
+        openPath = null;
+        const inputBar = document.getElementById('ie-prompt-input-bar');
+        if (inputBar) inputBar.style.display = '';
+      }
+
+      function togglePath(p) {
+        if (openPath === p) { closeAllPaths(); return; }
+        closeAllPaths();
+        openPath = p;
+        const form = document.getElementById('ie-form-' + p);
+        const card = document.getElementById('ie-conc-' + p);
+        const chev = document.getElementById('ie-chev-' + p);
+        if (form) form.style.display = 'block';
+        if (p === 'event') initFlatpickrOnce();
+        if (card) card.classList.add('active');
+        if (chev) chev.classList.add('open');
+        const inputBar = document.getElementById('ie-prompt-input-bar');
+        if (inputBar) inputBar.style.display = 'none';
+      }
+
+      // Mode switcher clicks
+      document.querySelectorAll('.ie-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => setMode(btn.dataset.mode));
+      });
+
+      // Concurrence card clicks
+      document.querySelectorAll('.ie-conc-card').forEach(card => {
+        card.addEventListener('click', () => togglePath(card.dataset.path));
+      });
+
+      // Cancel buttons
+      document.querySelectorAll('[data-close-path]').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); closeAllPaths(); });
+      });
+
+      // City autocomplete
+      const zoneInput = document.getElementById('ie-search-zone');
+      const cityDd    = document.getElementById('ie-search-city-dd');
+      const zoneIdEl  = document.getElementById('ie-search-zone-id');
+
+      if (zoneInput && cityDd) {
+        zoneInput.addEventListener('input', () => filterCities(zoneInput.value));
+        zoneInput.addEventListener('focus', () => filterCities(zoneInput.value));
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#ie-search-zone') && !e.target.closest('#ie-search-city-dd'))
+            cityDd.style.display = 'none';
+        });
+      }
+
+      function filterCities(val) {
+        if (!cityDd) return;
+        if (!val || val.length < 1) { cityDd.style.display = 'none'; return; }
+        const f = CITIES.filter(c => c.name.toLowerCase().startsWith(val.toLowerCase())).slice(0,5);
+        if (!f.length) { cityDd.style.display = 'none'; return; }
+        cityDd.innerHTML = f.map(c =>
+          `<div data-city-name="${c.name}" data-city-id="${c.id}" style="padding:9px 12px;font-size:14px;cursor:pointer;color:#111827;">${c.name} <span style="color:#9CA3AF;font-size:12px;">· ${c.dept}</span></div>`
+        ).join('');
+        cityDd.querySelectorAll('[data-city-name]').forEach(opt => {
+          opt.addEventListener('click', () => {
+            if (zoneInput) zoneInput.value = opt.dataset.cityName;
+            if (zoneIdEl)  zoneIdEl.value  = opt.dataset.cityId;
+            cityDd.style.display = 'none';
+          });
+        });
+        cityDd.style.display = 'block';
+      }
+
+      // Submit handlers — call existing API endpoints
+      function escapeHtmlConc(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function fmtDateFr(iso) {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        const months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+        return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+      }
+
+      function sourceStyle(sourceType, sourceSystem) {
+        if (sourceSystem === 'user_confirmed' || sourceSystem === 'ms_database')
+          return { label: 'Muse Square', bg: 'var(--color-pill-safe-bg)', color: 'var(--color-pill-safe-text)' };
+        if (sourceType === 'Site officiel' || sourceType === 'Eventbrite' || sourceType === 'OpenAgenda')
+          return { label: sourceType, bg: 'var(--color-pill-source-verified-bg)', color: 'var(--color-pill-source-verified-text)' };
+        if (sourceType === 'LinkedIn' || sourceType === 'Annuaire pro')
+          return { label: sourceType, bg: 'var(--color-pill-source-mid-bg)', color: 'var(--color-pill-source-mid-text)' };
+        return { label: sourceType || 'Web', bg: 'var(--color-pill-source-low-bg)', color: 'var(--color-pill-source-low-text)' };
+      }
+
+      function renderCandidateCards(candidates, submittedLabel, noResultMsg, source) {
+        const thread = document.getElementById('ie-thread');
+        if (!thread) return;
+
+        const existingLoader = document.getElementById('ie-evt-loading');
+        if (existingLoader) existingLoader.remove();
+
+        const aiRow = document.createElement('div');
+        aiRow.className = 'ie-msg ie-msg-ai';
+
+        if (!candidates.length) {
+          aiRow.innerHTML = `<div class="ie-bubble-none" style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">
+            ${escapeHtmlConc(noResultMsg || 'Aucun résultat trouvé pour cet événement. Vérifiez le nom et la ville, ou ajoutez-le manuellement via le lien source.')}
+          </div>`;
+          thread.appendChild(aiRow);
+          aiRow.scrollIntoView({ block: 'end' });
+          return;
+        }
+
+        const confLabel = (c) => {
+          if (c === 'high')   return { text: 'Haute confiance',   cls: 'conf-high-pill' };
+          if (c === 'medium') return { text: 'Confiance moyenne', cls: 'conf-med-pill' };
+          return                     { text: 'Faible confiance',  cls: 'conf-low-pill' };
+        };
+
+        const cardsHtml = candidates.map((c, i) => {
+          const cf = confLabel(c.confidence);
+          const meta = [
+            c.event_date_start ? `${fmtDateFr(c.event_date_start)}${c.event_date_end ? ' → ' + fmtDateFr(c.event_date_end) : ''}` : null,
+            c.event_city || null,
+            c.organizer_name || null,
+            c.venue_name || null,
+            c.estimated_attendance ? `~${c.estimated_attendance.toLocaleString('fr-FR')} visiteurs` : null,
+          ].filter(Boolean).join(' · ');
+
+          return `
+            <div class="ie-card-blue" style="margin-bottom:10px;" id="ie-cand-${i}">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="ie-card-label" style="flex:1;min-width:0;">${escapeHtmlConc(c.event_name || 'Événement')}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;">
+                  ${(() => { const s = sourceStyle(c.source_type, c.source_system || (source === 'database' ? 'ms_database' : null)); return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${s.color};">${escapeHtmlConc(s.label)}</span>`; })()}
+                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;${cf.cls === 'conf-high-pill' ? 'background:var(--color-pill-source-verified-bg);color:var(--color-pill-source-verified-text);' : cf.cls === 'conf-med-pill' ? 'background:var(--color-pill-source-mid-bg);color:var(--color-pill-source-mid-text);' : 'background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);'}">${escapeHtmlConc(cf.text)}</span>
+                </div>
+              </div>
+              ${meta ? `<div class="ie-card-row" style="margin-bottom:10px;">${escapeHtmlConc(meta)}</div>` : ''}
+              ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;">${escapeHtmlConc(c.description)}</div>` : ''}
+              <div id="ie-cand-actions-${i}" style="padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
+                ${c.source_url ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc(new URL(c.source_url).hostname.replace('www.',''))}</span>
+                  <a href="${escapeHtmlConc(c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-src-idx="${i}">Vérifier la source →</a>
+                </div>
+                <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Vérifiez que cette source correspond bien à l'événement avant d'ajouter à votre veille.</div>
+                ` : `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-cand-reject="${i}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-cand-confirm="${i}">Ajouter à ma veille →</button>
+                </div>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        aiRow.innerHTML = `<div class="ie-bubble-none">
+          <div class="ie-cand-header" style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
+            ${candidates.length} résultat${candidates.length > 1 ? 's' : ''} trouvé${candidates.length > 1 ? 's' : ''}. Confirmez l'événement à ajouter à votre veille.
+          </div>
+          ${cardsHtml}
+        </div>`;
+
+        thread.appendChild(aiRow);
+        aiRow.scrollIntoView({ block: 'end' });
+
+        aiRow.querySelectorAll('a[data-src-idx]').forEach(link => {
+          link.addEventListener('click', () => {
+            const idx = link.getAttribute('data-src-idx');
+            const actionsEl = aiRow.querySelector(`#ie-cand-actions-${idx}`);
+            if (actionsEl) {
+              actionsEl.innerHTML = `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-cand-reject="${idx}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-cand-confirm="${idx}">Ajouter à ma veille →</button>
+                </div>
+              `;
+              actionsEl.querySelector(`[data-cand-confirm="${idx}"]`)?.addEventListener('click', async () => {
+                const candidate = candidates[parseInt(idx)];
+                const btn = actionsEl.querySelector(`[data-cand-confirm="${idx}"]`);
+                btn.disabled = true;
+                btn.textContent = '…';
+                try {
+                  await fetch('/api/competitive/add-event', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ ...candidate, source_system: 'agent_auto' }),
+                  }).then(r => r.json());
+                  const card = document.getElementById(`ie-cand-${idx}`);
+                  if (card) { card.style.opacity = '0.4'; card.querySelectorAll('button, a').forEach(b => b.disabled = true); }
+                  const successRow = document.createElement('div');
+                  successRow.className = 'ie-msg ie-msg-ai';
+                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.event_name || 'Événement')} ajouté à votre veille. Gérez vos suivis dans Compte → Suivis.</div>`;
+                  thread.appendChild(successRow);
+                  successRow.scrollIntoView({ block: 'end' });
+                } catch(e) {
+                  btn.disabled = false;
+                  btn.textContent = 'Ajouter à ma veille →';
+                }
+              });
+              actionsEl.querySelector(`[data-cand-reject="${idx}"]`)?.addEventListener('click', () => {
+                const card = document.getElementById(`ie-cand-${idx}`);
+                if (card) card.remove();
+                const remaining = aiRow.querySelectorAll('[id^="ie-cand-"]');
+                const headerEl = aiRow.querySelector('.ie-cand-header');
+                if (remaining.length === 0 && headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+              });
+            }
+          });
+        });
+      }
+
+      const evtSubmit = document.getElementById('ie-evt-submit');
+      if (evtSubmit) {
+        evtSubmit.addEventListener('click', async () => {
+          const name      = document.getElementById('ie-evt-name')?.value.trim();
+          const city      = document.getElementById('ie-evt-city')?.value.trim();
+          const dateStartRaw = document.getElementById('ie-evt-date-start')?.value.trim();
+          const dateStart = (() => {
+            const m = (dateStartRaw || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            return m ? `${m[3]}-${m[2]}-${m[1]}` : dateStartRaw;
+          })();
+          if (!name || !city || !dateStart) {
+            document.getElementById('ie-evt-name')?.closest('.ie-conc-form-inner')
+              ?.querySelectorAll('input')[0]?.focus();
+            return;
+          }
+
+          const body = {
+            event_name:     name,
+            event_city:     city,
+            date_start:     dateStart,
+            date_end: (() => {
+              const v = document.getElementById('ie-evt-date-end')?.value.trim() || '';
+              const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+              return m ? `${m[3]}-${m[2]}-${m[1]}` : (v || null);
+            })(),
+            organizer_name: document.getElementById('ie-evt-organizer')?.value.trim() || null,
+            venue_name:     document.getElementById('ie-evt-venue')?.value.trim() || null,
+            source_url:     document.getElementById('ie-evt-url')?.value.trim() || null,
+          };
+
+          const submittedLabel = [name, city, dateStart].filter(Boolean).join(' — ');
+
+          evtSubmit.disabled = true;
+          evtSubmit.textContent = 'Analyse en cours…';
+
+          closeAllPaths();
+
+          const thread = document.getElementById('ie-thread');
+          const empty  = document.getElementById('ie-prompt-empty');
+          if (empty) empty.setAttribute('hidden', 'true');
+          if (thread) thread.removeAttribute('hidden');
+          const evtLoadingRow = document.createElement('div');
+          evtLoadingRow.className = 'ie-msg ie-msg-user';
+          evtLoadingRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+          if (thread) thread.appendChild(evtLoadingRow);
+          const evtLoadingAiRow = document.createElement('div');
+          evtLoadingAiRow.id = 'ie-evt-loading';
+          evtLoadingAiRow.className = 'ie-msg ie-msg-ai';
+          evtLoadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;justify-content:center;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`;
+          if (thread) { thread.appendChild(evtLoadingAiRow); evtLoadingAiRow.scrollIntoView({ block: 'end' }); }
+
+          try {
+            const check = await fetch('/api/competitive/check-event', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+            }).then(r => r.json());
+
+            if (check.ok && check.found_wrong_dates) {
+              const knownCandidates = (check.known_editions || []).map((e) => ({
+                event_name: e.event_name,
+                event_date_start: e.event_start_date,
+                event_date_end: e.event_end_date,
+                date_start: e.event_start_date,
+                date_end: e.event_end_date,
+                event_city: e.city_name || body.event_city,
+                organizer_name: null,
+                venue_name: null,
+                estimated_attendance: null,
+                description: `Information disponible, mais dates non concordantes.`,
+                confidence: 'medium',
+                confidence_score: 0.7,
+                source_url: null,
+                _source: 'database',
+              }));
+              const search = await fetch('/api/competitive/search-event', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json()).catch(() => ({ candidates: [] }));
+              const webCandidates = (search.candidates || []).map((c) => ({ ...c, _source: 'web' }));
+              const allCandidates = [...knownCandidates, ...webCandidates];
+              renderCandidateCards(allCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'mixed');
+            } else if (check.ok && check.exists && check.matches?.length > 0) {
+              renderCandidateCards(check.matches, submittedLabel, null, 'database');
+            } else {
+              const search = await fetch('/api/competitive/search-event', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json());
+              renderCandidateCards(search.candidates || [], submittedLabel, null, 'web');
+            }
+
+          } catch(e) {
+            renderCandidateCards([], submittedLabel);
+          } finally {
+            evtSubmit.disabled = false;
+            evtSubmit.textContent = 'Continuer →';
+          }
+        });
+      }
+
+      const compSubmit = document.getElementById('ie-comp-submit');
+      if (compSubmit) {
+        compSubmit.addEventListener('click', async () => {
+          const name   = document.getElementById('ie-comp-name')?.value.trim();
+          const city   = document.getElementById('ie-comp-city')?.value.trim();
+          const sector = document.getElementById('ie-comp-sector')?.value || null;
+          const venue  = document.getElementById('ie-comp-venue')?.value.trim() || null;
+          const url    = document.getElementById('ie-comp-url')?.value.trim() || null;
+
+          if (!name || !city) {
+            document.getElementById('ie-comp-name')?.focus();
+            return;
+          }
+
+          const submittedLabel = [name, city].filter(Boolean).join(' — ');
+
+          compSubmit.disabled = true;
+          compSubmit.textContent = 'Analyse en cours…';
+          closeAllPaths();
+
+          const thread = document.getElementById('ie-thread');
+          const empty  = document.getElementById('ie-prompt-empty');
+          if (empty) empty.setAttribute('hidden', 'true');
+          if (thread) thread.removeAttribute('hidden');
+          const loadingRow = document.createElement('div');
+          loadingRow.className = 'ie-msg ie-msg-user';
+          loadingRow.innerHTML = `<div class="ie-bubble">${escapeHtmlConc(submittedLabel)}</div>`;
+          if (thread) thread.appendChild(loadingRow);
+          const loadingAiRow = document.createElement('div');
+          loadingAiRow.id = 'ie-comp-loading';
+          loadingAiRow.className = 'ie-msg ie-msg-ai';
+          loadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;justify-content:center;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`;
+          if (thread) { thread.appendChild(loadingAiRow); loadingAiRow.scrollIntoView({ block: 'end' }); }
+
+          const body = {
+            competitor_name: name,
+            competitor_city: city,
+            industry_code:   sector || null,
+            venue_name:      venue || null,
+            source_url:      url || null,
+          };
+
+          try {
+            // Step 1 — database lookup
+            const check = await fetch('/api/competitive/check-competitor', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+            }).then(r => r.json());
+
+            if (check.ok && check.exists && check.matches?.length > 0) {
+              // Found in DB — map to candidate card shape
+              const dbCandidates = check.matches.map(m => ({
+                competitor_name:      m.competitor_name,
+                city:                 m.city,
+                industry_code:        m.industry_code,
+                industry_bucket:      m.industry_bucket,
+                primary_audience:     m.primary_audience,
+                secondary_audience:   m.secondary_audience,
+                address:              m.address,
+                description:          m.description,
+                source_url:           m.source_url,
+                google_rating:        m.google_rating,
+                google_rating_count:  m.google_rating_count,
+                google_photos:        m.google_photos,
+                confidence:           m.confidence_score >= 0.9 ? 'high' : m.confidence_score >= 0.7 ? 'medium' : 'low',
+                confidence_score:     m.confidence_score,
+                is_user_vetted:       m.is_user_vetted,
+                source_system:        m.source_system,
+                _source:              'database',
+              }));
+              renderCompetitorCards(dbCandidates, submittedLabel, null, 'database', url);
+            } else {
+              // Step 2 — web search fallback
+              const search = await fetch('/api/competitive/search-competitor', {
+                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+              }).then(r => r.json()).catch(() => ({ candidates: [] }));
+
+              const webCandidates = (search.candidates || []).map(c => ({ ...c, _source: 'web' }));
+              renderCompetitorCards(webCandidates, submittedLabel, 'Aucun résultat trouvé. Vérifiez le nom et la ville.', 'web', url);
+            }
+
+          } catch(e) {
+            console.error('[comp-submit]', e);
+            renderCompetitorCards([], submittedLabel, 'Erreur réseau. Veuillez réessayer.', null);
+          } finally {
+            compSubmit.disabled = false;
+            compSubmit.textContent = 'Continuer →';
+          }
+        });
+      }
+
+      function renderCompetitorCards(candidates, submittedLabel, noResultMsg, source, userUrl) {
+        const thread = document.getElementById('ie-thread');
+        if (!thread) return;
+
+        const existingLoader = document.getElementById('ie-comp-loading');
+        if (existingLoader) existingLoader.remove();
+
+        const aiRow = document.createElement('div');
+        aiRow.className = 'ie-msg ie-msg-ai';
+
+        if (!candidates.length) {
+          aiRow.innerHTML = `<div class="ie-bubble-none" style="font-size:15px;color:var(--color-text-secondary);line-height:1.6;">
+            ${escapeHtmlConc(noResultMsg || 'Aucun résultat trouvé. Vérifiez le nom et la ville.')}
+          </div>`;
+          thread.appendChild(aiRow);
+          aiRow.scrollIntoView({ block: 'end' });
+          return;
+        }
+
+        const confLabel = (c) => {
+          if (c === 'high')   return { text: 'Haute confiance',   cls: 'conf-high-pill' };
+          if (c === 'medium') return { text: 'Confiance moyenne', cls: 'conf-med-pill' };
+          return                     { text: 'Faible confiance',  cls: 'conf-low-pill' };
+        };
+
+        const cardsHtml = candidates.map((c, i) => {
+          const cf = confLabel(c.confidence);
+          const meta = [
+            c.city || null,
+            c.industry_code || null,
+            c.address || null,
+            c.google_rating ? `★ ${c.google_rating}${c.google_rating_count ? ` (${c.google_rating_count.toLocaleString('fr-FR')} avis)` : ''}` : null,
+          ].filter(Boolean).join(' · ');
+
+          return `
+            <div class="ie-card-blue" style="margin-bottom:10px;" id="ie-comp-cand-${i}">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="ie-card-label" style="flex:1;min-width:0;">${escapeHtmlConc(c.competitor_name || 'Concurrent')}</div>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px;">
+                  ${(() => { const s = sourceStyle(c.source_type, c.source_system); return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:${s.bg};color:${s.color};">${escapeHtmlConc(s.label)}</span>`; })()}
+                  <span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;${cf.cls === 'conf-high-pill' ? 'background:var(--color-pill-source-verified-bg);color:var(--color-pill-source-verified-text);' : cf.cls === 'conf-med-pill' ? 'background:var(--color-pill-source-mid-bg);color:var(--color-pill-source-mid-text);' : 'background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);'}">${escapeHtmlConc(cf.text)}</span>
+                </div>
+              </div>
+              ${meta ? `<div class="ie-card-row" style="margin-bottom:6px;">${escapeHtmlConc(meta)}</div>` : ''}
+              ${c.description ? `<div class="ie-card-row" style="color:var(--color-text-secondary);margin-bottom:8px;line-height:1.5;">${escapeHtmlConc(c.description)}</div>` : ''}
+              ${c.source_sentence ? `<div class="ie-card-row" style="font-size:12px;color:#9CA3AF;margin-bottom:8px;font-style:italic;line-height:1.4;">"${escapeHtmlConc(c.source_sentence)}"</div>` : ''}
+              <div id="ie-comp-actions-${i}" style="padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06);margin-top:8px;">
+                ${(userUrl || c.source_url) ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:11px;color:#9CA3AF;">${escapeHtmlConc((userUrl || c.source_url).replace(/^https?:\/\/(www\.)?/, ''))}</span>
+                  <a href="${escapeHtmlConc(userUrl || c.source_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;" data-comp-src-idx="${i}">Vérifier la source →</a>
+                </div>
+                <div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Vérifiez que cette source correspond bien au concurrent avant d'ajouter à votre veille.</div>
+                ` : `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-comp-reject="${i}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-comp-confirm="${i}">Ajouter à ma veille →</button>
+                </div>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        aiRow.innerHTML = `<div class="ie-bubble-none">
+          <div class="ie-cand-header" style="font-size:14px;color:var(--color-text-secondary);margin-bottom:12px;">
+            ${candidates.length} résultat${candidates.length > 1 ? 's' : ''} trouvé${candidates.length > 1 ? 's' : ''}. Confirmez le concurrent à ajouter à votre veille.
+          </div>
+          ${cardsHtml}
+        </div>`;
+
+        thread.appendChild(aiRow);
+        aiRow.scrollIntoView({ block: 'end' });
+
+        aiRow.querySelectorAll('a[data-comp-src-idx]').forEach(link => {
+          link.addEventListener('click', () => {
+            const idx = link.getAttribute('data-comp-src-idx');
+            const actionsEl = aiRow.querySelector(`#ie-comp-actions-${idx}`);
+            if (actionsEl) {
+              actionsEl.innerHTML = `
+                <div style="display:flex;gap:20px;justify-content:flex-end;align-items:center;">
+                  <button class="ie-conc-btn-ghost" data-comp-reject="${idx}">Ce n'est pas ça</button>
+                  <button class="ie-conc-btn-primary" data-comp-confirm="${idx}">Ajouter à ma veille →</button>
+                </div>
+              `;
+              actionsEl.querySelector(`[data-comp-confirm="${idx}"]`)?.addEventListener('click', async () => {
+                const candidate = candidates[parseInt(idx)];
+                const btn = actionsEl.querySelector(`[data-comp-confirm="${idx}"]`);
+                btn.disabled = true;
+                btn.textContent = '…';
+                try {
+                  const addResult = await fetch('/api/competitive/add-competitor', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ ...candidate, source_system: 'user_confirmed', source_url: userUrl || candidate.source_url || null }),
+                  }).then(r => r.json());
+                  const card = document.getElementById(`ie-comp-cand-${idx}`);
+                  if (card) { card.style.opacity = '0.4'; card.querySelectorAll('button, a').forEach(b => b.disabled = true); }
+                  const successRow = document.createElement('div');
+                  successRow.className = 'ie-msg ie-msg-ai';
+                  const crawlMsg = (() => {
+                    const cs = addResult?.crawl_status;
+                    const es = addResult?.extraction_status;
+                    const ds = addResult?.discovery_status;
+                    if (!candidate.source_url && !userUrl) return ' \u2014 ajoutez une URL dans Mes suivis pour d\u00e9marrer la veille.';
+                    if (ds === 'found') return ' \u2014 URL agenda trouv\u00e9e automatiquement \u2014 premi\u00e8re extraction cette nuit.';
+                    if (cs === 'accessible') return ' \u2014 URL accessible, premi\u00e8re extraction cette nuit.';
+                    const usedUrl = userUrl || candidate.source_url || '';
+                    const path = (() => { try { return new URL(usedUrl).pathname.toLowerCase(); } catch { return ''; } })();
+                    const isHomepage = !path || path === '/' || /^\/(fr|en|de|es)\/?$/.test(path);
+                    const isAgenda = /agenda|programme|events?|calendar|kalend|manifestation/.test(path);
+                    if (cs === 'blocked' || es === 'fetch_error' || es === 'timeout') {
+                      if (isHomepage) return ' \u2014 page d\u2019accueil prot\u00e9g\u00e9e. Essayez l\u2019URL de la page agenda ou programme dans Mes suivis.';
+                      if (isAgenda) return ' \u2014 page agenda inaccessible aux robots. La veille tentera quand m\u00eame cette nuit.';
+                      return ' \u2014 page inaccessible. Essayez une URL pointant directement vers les \u00e9v\u00e9nements ou le programme.';
+                    }
+                    return ' \u2014 premi\u00e8re analyse cette nuit \u00e0 03h00.';
+                  })();
+                  successRow.innerHTML = `<div class="ie-bubble-none" style="font-size:14px;color:#1D3BB3;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline;vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtmlConc(candidate.competitor_name || 'Concurrent')} ajouté à votre veille${escapeHtmlConc(crawlMsg)}</div>`;
+                  thread.appendChild(successRow);
+                  successRow.scrollIntoView({ block: 'end' });
+                } catch(e) {
+                  btn.disabled = false;
+                  btn.textContent = 'Ajouter à ma veille →';
+                }
+              });
+              actionsEl.querySelector(`[data-comp-reject="${idx}"]`)?.addEventListener('click', () => {
+                const card = document.getElementById(`ie-comp-cand-${idx}`);
+                if (card) card.remove();
+                const remaining = aiRow.querySelectorAll('[id^="ie-comp-cand-"]');
+                const headerEl = aiRow.querySelector('.ie-cand-header');
+                if (remaining.length === 0 && headerEl) headerEl.textContent = 'Aucun résultat retenu.';
+              });
+            }
+          });
+        });
+      }
+
+      // ---- Concurrence search ----
+      const concSearchInput = null; // Now uses shared #ie-prompt-input
+      const concSearchBtn = null;   // Now uses shared #ie-prompt-submit-btn
+      const concManualLink = document.getElementById('ie-conc-manual-link');
+
+      if (concManualLink) {
+        concManualLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          const forms = document.getElementById('ie-conc-manual-forms');
+          if (forms) forms.style.display = forms.style.display === 'none' ? 'block' : 'none';
+          concManualLink.textContent = forms && forms.style.display !== 'none' ? 'Masquer la saisie manuelle' : 'Saisie manuelle d\'un événement ou concurrent';
+        });
+      }
+
+      function escapeHtmlSearch(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      async function runConcSearch() {
+        const q = (document.getElementById('ie-prompt-input')?.value || '').trim();
+        if (!q) {
+          const es = document.getElementById('ie-conc-empty-state');
+          if (es) es.style.display = '';
+          const dbR = document.getElementById('ie-conc-db-results');
+          if (dbR) { dbR.style.display = 'none'; dbR.innerHTML = ''; }
+          const wR = document.getElementById('ie-conc-web-results');
+          if (wR) { wR.style.display = 'none'; wR.innerHTML = ''; }
+          const wC = document.getElementById('ie-conc-web-cta');
+          if (wC) wC.style.display = 'none';
+          const eE = document.getElementById('ie-conc-empty');
+          if (eE) eE.style.display = 'none';
+          return;
+        }
+
+        const dbResultsEl = document.getElementById('ie-conc-db-results');
+        const webCtaEl = document.getElementById('ie-conc-web-cta');
+        const webResultsEl = document.getElementById('ie-conc-web-results');
+        const loadingEl = document.getElementById('ie-conc-loading');
+        const emptyEl = document.getElementById('ie-conc-empty');
+        const webLoadingEl = document.getElementById('ie-conc-web-loading');
+
+        if (dbResultsEl) { dbResultsEl.style.display = 'none'; dbResultsEl.innerHTML = ''; }
+        if (webCtaEl) webCtaEl.style.display = 'none';
+        if (webResultsEl) { webResultsEl.style.display = 'none'; webResultsEl.innerHTML = ''; }
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'block';
+        const emptyStateEl = document.getElementById('ie-conc-empty-state');
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+
+        try {
+          const res = await fetch('/api/competitive/search-db', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ query: q }),
+          });
+          const json = await res.json().catch(() => null);
+          const results = Array.isArray(json?.results) ? json.results : [];
+
+          if (loadingEl) loadingEl.style.display = 'none';
+
+          if (results.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'block';
+          } else {
+            renderDbResults(results, dbResultsEl);
+          }
+
+          if (webCtaEl) {
+            webCtaEl.style.display = 'flex';
+            webCtaEl.onclick = async () => {
+              webCtaEl.style.display = 'none';
+              if (webLoadingEl) webLoadingEl.style.display = 'block';
+              try {
+                const wRes = await fetch('/api/competitive/search-web', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ query: q }),
+                });
+                const wJson = await wRes.json().catch(() => null);
+                const wResults = Array.isArray(wJson?.results) ? wJson.results : [];
+                if (webLoadingEl) webLoadingEl.style.display = 'none';
+                if (wResults.length > 0) {
+                  renderWebResults(wResults, webResultsEl);
+                }
+              } catch {
+                if (webLoadingEl) webLoadingEl.style.display = 'none';
+              }
+            };
+          }
+
+        } catch {
+          if (loadingEl) loadingEl.style.display = 'none';
+          if (emptyEl) emptyEl.style.display = 'block';
+        }
+      }
+
+      function renderDbResults(results, container) {
+        if (!container) return;
+        const html = `
+          <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Dans votre zone</div>
+          ${results.map((r, i) => {
+            const isEvent = r.type === 'event';
+            const iconBg = isEvent ? '#E6F1FB' : '#EEEDFE';
+            const iconStroke = isEvent ? '#185FA5' : '#534AB7';
+            const badgeBg = isEvent ? '#E6F1FB' : '#EEEDFE';
+            const badgeColor = isEvent ? '#0C447C' : '#3C3489';
+            const badgeLabel = isEvent ? 'Événement' : 'Lieu';
+            const isFollowed = r.is_followed === true;
+            const iconSvg = isEvent
+              ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + iconStroke + '" stroke-width="1.6"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>'
+              : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + iconStroke + '" stroke-width="1.6"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+            const meta = [r.distance_km ? r.distance_km.toFixed(1) + ' km' : null, r.date_label, r.source_system].filter(Boolean).join(' · ');
+
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-db-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (isEvent ? 'event' : 'competitor') + '" data-industry="' + escapeHtmlSearch(r.industry_code || '') + '">' +
+              '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-db-detail-' + i + '\').style.display=document.getElementById(\'ie-db-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
+                '<div style="width:36px;height:36px;border-radius:8px;background:' + iconBg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + iconSvg + '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-size:15px;font-weight:500;color:#111827;margin-bottom:3px;">' + escapeHtmlSearch(r.name) + '</div>' +
+                  '<div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                    '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + badgeBg + ';color:' + badgeColor + ';">' + badgeLabel + '</span>' +
+                    '<span>' + escapeHtmlSearch(meta) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="flex-shrink:0;margin-top:2px;">' +
+                  (isFollowed
+                    ? '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>'
+                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-db-confirm-' + i + '\').style.display=document.getElementById(\'ie-db-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">Suivre</button>') +
+                '</div>' +
+              '</div>' +
+              '<div id="ie-db-detail-' + i + '" style="display:none;padding:0 16px 14px 64px;">' +
+                (r.description ? '<div style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:10px;">' + escapeHtmlSearch(r.description) + '</div>' : '') +
+                (r.industry_code ? '<div style="font-size:12px;color:#9CA3AF;margin-bottom:6px;">Secteur : ' + escapeHtmlSearch(r.industry_code) + '</div>' : '') +
+                '<div id="ie-db-confirm-' + i + '" style="display:none;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9fafb;">' +
+                  '<div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Ajouter à votre veille</div>' +
+                  '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Secteur d\'activité</div>' +
+                    '<select style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;">' +
+                      '<option value="">-- Sélectionner --</option>' +
+                      '<option' + (r.industry_code === 'Culture & Patrimoine' ? ' selected' : '') + '>Culture & Patrimoine</option>' +
+                      '<option' + (r.industry_code === 'Événementiel' ? ' selected' : '') + '>Événementiel</option>' +
+                      '<option' + (r.industry_code === 'Salons & Événements professionnels' ? ' selected' : '') + '>Salons & Événements professionnels</option>' +
+                      '<option' + (r.industry_code === 'Commerce & Retail' ? ' selected' : '') + '>Commerce & Retail</option>' +
+                      '<option' + (r.industry_code === 'Tourisme & Loisirs' ? ' selected' : '') + '>Tourisme & Loisirs</option>' +
+                      '<option' + (r.industry_code === 'Restauration & Bars' ? ' selected' : '') + '>Restauration & Bars</option>' +
+                      '<option' + (r.industry_code === 'Sports & Loisirs actifs' ? ' selected' : '') + '>Sports & Loisirs actifs</option>' +
+                    '</select>' +
+                  '</div>' +
+                  '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
+                    '<button style="padding:6px 12px;background:none;color:#9CA3AF;border:none;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'ie-db-confirm-' + i + '\').style.display=\'none\'">Annuler</button>' +
+                    '<button style="padding:6px 16px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;" onclick="ieDbFollow(this,' + i + ')">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('')}
+        `;
+        container.innerHTML = html;
+        container.style.display = 'block';
+      }
+
+      window.ieDbFollow = async function(btn, idx) {
+        var card = document.getElementById('ie-db-card-' + idx);
+        if (!card) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var name = card.getAttribute('data-name') || '';
+        var type = card.getAttribute('data-type') || 'competitor';
+        var selectEl = document.getElementById('ie-db-confirm-' + idx)?.querySelector('select');
+        var industry = selectEl ? selectEl.value : (card.getAttribute('data-industry') || '');
+
+        try {
+          var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
+          var body = type === 'event'
+            ? { event_name: name, source_system: 'user_confirmed' }
+            : { competitor_name: name, industry_code: industry || null, source_system: 'user_confirmed' };
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          await res.json();
+          card.style.opacity = '0.4';
+          card.querySelectorAll('button, a').forEach(function(b) { b.disabled = true; });
+          var confirmEl = document.getElementById('ie-db-confirm-' + idx);
+          if (confirmEl) confirmEl.style.display = 'none';
+          var actionArea = card.querySelector('[style*="flex-shrink:0;margin-top:2px"]');
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+        } catch(e) {
+          btn.disabled = false;
+          btn.textContent = 'Suivre';
+        }
+      };
+
+      function renderWebResults(results, container) {
+        if (!container) return;
+        const html = `
+          <div style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            Résultats web
+            <span style="font-size:10px;font-weight:500;padding:1px 8px;border-radius:20px;background:#f3f4f6;color:#9CA3AF;">Non vérifié</span>
+          </div>
+          ${results.map((r, i) => {
+            const domain = r.source_url ? (() => { try { return new URL(r.source_url).hostname.replace('www.',''); } catch { return ''; } })() : '';
+
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-web-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (r.type || 'competitor') + '">' +
+              '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-web-detail-' + i + '\').style.display=document.getElementById(\'ie-web-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
+                '<div style="width:36px;height:36px;border-radius:8px;background:#FAEEDA;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
+                '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                  '<div style="font-size:15px;font-weight:500;color:#111827;margin-bottom:3px;">' + escapeHtmlSearch(r.name) + '</div>' +
+                  '<div style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                    '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:#FAEEDA;color:#633806;">Web</span>' +
+                    '<span>' + escapeHtmlSearch([r.location, domain].filter(Boolean).join(' · ')) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div id="ie-web-actions-' + i + '" style="flex-shrink:0;margin-top:2px;">' +
+                  (r.source_url
+                    ? '<a href="' + escapeHtmlSearch(r.source_url) + '" target="_blank" rel="noopener" style="font-size:13px;color:#1D3BB3;text-decoration:none;white-space:nowrap;" onclick="event.stopPropagation();markWebVerified(' + i + ')">Vérifier la source →</a>'
+                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-web-confirm-' + i + '\').style.display=\'block\'">Suivre</button>') +
+                '</div>' +
+              '</div>' +
+              '<div id="ie-web-detail-' + i + '" style="display:none;padding:0 16px 14px 64px;">' +
+                (r.description ? '<div style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:10px;">' + escapeHtmlSearch(r.description) + '</div>' : '') +
+                (r.confidence ? '<div style="font-size:12px;color:#9CA3AF;margin-bottom:6px;">Confiance : <span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + (r.confidence === 'high' ? '#E1F5EE' : '#FAEEDA') + ';color:' + (r.confidence === 'high' ? '#0F6E56' : '#854F0B') + ';">' + (r.confidence === 'high' ? 'Source pré-validée' : 'À confirmer') + '</span></div>' : '') +
+                '<div id="ie-web-post-verify-' + i + '" style="display:none;padding-top:10px;border-top:0.5px solid rgba(0,0,0,0.06);">' +
+                  '<div style="display:flex;align-items:center;gap:12px;justify-content:flex-end;">' +
+                    '<button style="font-size:13px;color:#9CA3AF;background:none;border:none;cursor:pointer;padding:0;" onclick="document.getElementById(\'ie-web-card-' + i + '\').remove()">Ce n\'est pas ça</button>' +
+                    '<span style="font-size:12px;color:rgba(0,0,0,0.12);">|</span>' +
+                    '<button style="font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="document.getElementById(\'ie-web-confirm-' + i + '\').style.display=document.getElementById(\'ie-web-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div id="ie-web-confirm-' + i + '" style="display:none;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:14px 16px;margin-top:10px;background:#f9fafb;">' +
+                  '<div style="font-size:13px;font-weight:500;color:#111827;margin-bottom:10px;">Ajouter à votre veille</div>' +
+                  '<div style="display:flex;gap:12px;margin-bottom:10px;">' +
+                    '<div style="flex:1;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Secteur d\'activité</div>' +
+                      '<select style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;">' +
+                        '<option value="">-- Sélectionner --</option>' +
+                        '<option>Culture & Patrimoine</option><option>Événementiel</option><option>Salons & Événements professionnels</option><option>Commerce & Retail</option><option>Tourisme & Loisirs</option>' +
+                      '</select>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div style="margin-bottom:10px;"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Page agenda / programme</div>' +
+                    '<input type="text" value="' + escapeHtmlSearch(r.source_url || '') + '" placeholder="https://... /agenda ou /programme" style="font-size:13px;padding:6px 8px;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;width:100%;background:#fff;color:#111827;font-family:inherit;" />' +
+                    '<div style="font-size:11px;color:#9CA3AF;font-style:italic;margin-top:4px;">Indiquer la page agenda ou actualités permet de mieux détecter les futurs événements.</div>' +
+                  '</div>' +
+                  '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
+                    '<button style="padding:6px 12px;background:none;color:#9CA3AF;border:none;font-size:13px;cursor:pointer;" onclick="document.getElementById(\'ie-web-confirm-' + i + '\').style.display=\'none\'">Annuler</button>' +
+                    '<button style="padding:6px 16px;background:#0F1F3D;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;" onclick="ieWebFollow(this,' + i + ')">Suivre</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('')}
+        `;
+        container.innerHTML = html;
+        container.style.display = 'block';
+      }
+
+      window.ieWebFollow = async function(btn, idx) {
+        var card = document.getElementById('ie-web-card-' + idx);
+        if (!card) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        var name = card.getAttribute('data-name') || '';
+        var type = card.getAttribute('data-type') || 'competitor';
+        var confirmEl = document.getElementById('ie-web-confirm-' + idx);
+        var selectEl = confirmEl ? confirmEl.querySelector('select') : null;
+        var industry = selectEl ? selectEl.value : '';
+        var urlInput = confirmEl ? confirmEl.querySelector('input[type="text"]') : null;
+        var agendaUrl = urlInput ? urlInput.value.trim() : '';
+
+        try {
+          var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
+          var body = type === 'event'
+            ? { event_name: name, source_system: 'user_confirmed', source_url: agendaUrl || null }
+            : { competitor_name: name, industry_code: industry || null, source_url: agendaUrl || null, source_system: 'user_confirmed' };
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          await res.json();
+          card.style.opacity = '0.4';
+          card.querySelectorAll('button, a, input, select').forEach(function(b) { b.disabled = true; });
+          if (confirmEl) confirmEl.style.display = 'none';
+          var actionArea = document.getElementById('ie-web-actions-' + idx);
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+        } catch(e) {
+          btn.disabled = false;
+          btn.textContent = 'Suivre';
+        }
+      };
+
+      window.markWebVerified = function(idx) {
+        const actionsEl = document.getElementById('ie-web-actions-' + idx);
+        const detailEl = document.getElementById('ie-web-detail-' + idx);
+        const postVerifyEl = document.getElementById('ie-web-post-verify-' + idx);
+        if (actionsEl) actionsEl.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Source pré-validée</span>';
+        if (detailEl) detailEl.style.display = 'block';
+        if (postVerifyEl) postVerifyEl.style.display = 'flex';
+      };
+
+      document.querySelectorAll('.ie-conc-pill[data-pill-q]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var q = btn.getAttribute('data-pill-q') || '';
+          var inp = document.getElementById('ie-prompt-input');
+          if (inp) inp.value = q;
+          runConcSearch();
+        });
+      });
+
+      window.__ieRunConcSearch = runConcSearch;
+
+      // Initialize
+      setMode('planning');
+
+      // Flatpickr date pickers — init lazily on first open
+      let _fpInitDone = false;
+      function initFlatpickrOnce() {
+        if (_fpInitDone) return;
+        if (!window.flatpickr) return;
+        const locale = window.flatpickr.l10ns?.fr ? 'fr' : 'default';
+        window.flatpickr('#ie-evt-date-start', {
+          locale,
+          dateFormat: 'd/m/Y',
+          disableMobile: true,
+        });
+        window.flatpickr('#ie-evt-date-end', {
+          locale,
+          dateFormat: 'd/m/Y',
+          disableMobile: true,
+        });
+        _fpInitDone = true;
+      }
+    })();
+    </script>
 
     <script type="module" src="/scripts/ie-prompt.js" defer></script>
 
   </BaseLayout>
-</SignedIn>
+</Show>

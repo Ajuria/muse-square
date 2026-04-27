@@ -1,0 +1,308 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const clerk_user_id_raw = (Astro.locals as any)?.clerk_user_id;
+if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
+  return Astro.redirect("/sign-in");
+}
+
+const location_id_raw = (Astro.locals as any)?.location_id;
+const location_id =
+  typeof location_id_raw === "string" && location_id_raw.trim() !== ""
+    ? location_id_raw.trim()
+    : null;
+---
+
+<BaseLayout title="Alertes - Muse Square" hideSurveyCta={true}>
+  <div class="min-h-screen bg-white pt-26 pb-20 px-4">
+    <div class="max-w-2xl mx-auto mt-10">
+
+      <div class="mb-8">
+        <h1 class="text-3xl font-semibold">Alertes</h1>
+        <p class="text-sm text-gray-500 mt-2">Choisissez quand et comment vous souhaitez être alerté sur vos dates.</p>
+      </div>
+
+      <form id="notifForm">
+        <div class="space-y-[15px]">
+
+          <div class="space-y-[15px]">
+
+          <!-- 1. ALERTES QUOTIDIENNES -->
+          <section class="space-y-6">
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes quotidiennes</h2>
+
+            <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Résumé de la semaine</p>
+                <p class="text-sm text-gray-500">Un email chaque semaine avec l'état de vos dates : scores, alertes, météo à 7 jours.</p>
+                <div id="weekly-options" class="mt-4 hidden space-y-4">
+                  <div>
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Jour d'envoi</p>
+                    <div class="flex gap-2">
+                      <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly" data-value="1">Lundi</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="3">Mercredi</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="5">Vendredi</button>
+                    </div>
+                    <input type="hidden" name="digest_weekly_day" id="digest_weekly_day" value="1" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Heure d'envoi</p>
+                    <div class="flex gap-2">
+                      <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly-hour" data-value="7">7h00</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="8">8h00</button>
+                      <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="9">9h00</button>
+                    </div>
+                    <input type="hidden" name="digest_weekly_hour" id="digest_weekly_hour" value="7" />
+                  </div>
+                </div>
+              </div>
+              <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+                <input type="checkbox" name="digest_weekly" id="tog-weekly" class="sr-only" />
+                <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+                <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+              </label>
+            </div>
+          </section>
+
+          <!-- 2. ALERTES ÉVÉNEMENTS -->
+          <section class="space-y-6">
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes événements</h2>
+
+            <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Alerte niveau 3 ou 4</p>
+                <p class="text-sm text-gray-500">Email immédiat dès qu'une alerte forte est détectée sur vos dates enregistrées — concurrence directe, météo sévère, mobilité bloquée.</p>
+                <div class="mt-4 bg-gray-50 border border-gray-200 px-4 py-3 space-y-2">
+                  <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Niveaux déclencheurs</p>
+                  <div class="flex items-center gap-2 text-xs text-gray-600">
+                    <span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></span>
+                    Niveau 4 — impact majeur
+                  </div>
+                  <div class="flex items-center gap-2 text-xs text-gray-600">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                    Niveau 3 — impact fort
+                  </div>
+                  <div class="flex items-center gap-2 text-xs text-gray-300">
+                    <span class="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0"></span>
+                    Niveaux 1–2 — ignorés
+                  </div>
+                </div>
+              </div>
+              <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+                <input type="checkbox" name="alerts_critical" id="tog-alerts" class="sr-only" checked />
+                <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+                <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+              </label>
+            </div>
+
+            <div class="flex items-start justify-between gap-6 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Email quotidien avant votre date</p>
+                <p class="text-sm text-gray-500">À partir de 7 jours avant votre date choisie, un email quotidien avec les prévisions météo, mobilité et concurrence en temps réel.</p>
+                <div class="mt-3 bg-gray-50 border border-gray-200 px-4 py-3">
+                  <p class="text-xs font-medium text-gray-700">Les 3 derniers jours (J-3 à J-0) sont toujours activés.</p>
+                  <p class="text-xs text-gray-400 mt-1">Ces alertes sont obligatoires et ne peuvent pas être désactivées.</p>
+                </div>
+                <div id="daily-options" class="mt-4 hidden">
+                  <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Heure d'envoi</p>
+                  <div class="flex gap-2">
+                    <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="daily" data-value="7">7h00</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="daily" data-value="8">8h00</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="daily" data-value="9">9h00</button>
+                  </div>
+                  <input type="hidden" name="daily_j7_hour" id="daily_j7_hour" value="7" />
+                </div>
+                {!location_id && (
+                  <div id="daily-note" class="mt-4 text-xs text-gray-400 bg-gray-50 border border-gray-200 px-4 py-3">
+                    Disponible une fois une date choisie dans Planifier.
+                  </div>
+                )}
+              </div>
+              <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+                <input type="checkbox" name="daily_j7" id="tog-daily" class="sr-only" />
+                <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+                <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+              </label>
+            </div>
+          </section>
+
+          <!-- 3. EMAIL SETTINGS -->
+          <section class="space-y-6">
+            <h2 class="text-base font-medium text-black uppercase tracking-wider">Destinataires supplémentaires</h2>
+            <div class="flex items-start justify-between gap-6 pb-6">
+              <div class="flex-1">
+                <p class="text-sm text-gray-800 font-medium mb-1">Inclure d'autres personnes</p>
+                <p class="text-sm text-gray-500">Ces adresses recevront les mêmes alertes que vous.</p>
+                <div class="mt-4 space-y-3">
+                  <input type="email" name="additional_email_1" id="additional_email_1" placeholder="colleague@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                  <input type="email" name="additional_email_2" id="additional_email_2" placeholder="manager@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                  <input type="email" name="additional_email_3" id="additional_email_3" placeholder="director@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- FOOTER -->
+        <div class="pt-8 flex items-center justify-between gap-4">
+          <p class="text-xs text-gray-400">Chaque email contient un lien de désinscription conforme RGPD.</p>
+          <button type="submit" class="ms-btn h-[40px] px-8 text-sm font-normal">Enregistrer</button>
+        </div>
+
+        <div id="notifStatus" class="mt-4 text-sm" role="status" aria-live="polite"></div>
+      </form>
+
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  input[type="checkbox"]:checked ~ .tog-track {
+    background: #111827;
+    border-color: #111827;
+  }
+  input[type="checkbox"]:checked ~ .tog-thumb {
+    transform: translateX(18px);
+  }
+</style>
+
+<script is:inline>
+  (async function () {
+
+    // ---- Load saved preferences ----
+    try {
+      const res = await fetch('/api/notifications/get', { headers: { 'Accept': 'application/json' } });
+      const out = await res.json().catch(() => null);
+      if (res.ok && out?.ok && out?.prefs) {
+        const p = out.prefs;
+        const togAlerts = document.getElementById('tog-alerts');
+        const togWeekly = document.getElementById('tog-weekly');
+        const togDaily  = document.getElementById('tog-daily');
+        const weeklyDay = document.getElementById('digest_weekly_day');
+        const dailyHour = document.getElementById('daily_j7_hour');
+
+        if (togAlerts) togAlerts.checked = p.alerts_critical;
+        if (togWeekly) { togWeekly.checked = p.digest_weekly; if (p.digest_weekly) document.getElementById('weekly-options')?.classList.remove('hidden'); }
+        if (togDaily)  { togDaily.checked  = p.daily_j7;      if (p.daily_j7)      { document.getElementById('daily-options')?.classList.remove('hidden'); document.getElementById('daily-note')?.classList.add('hidden'); } }
+        if (weeklyDay) weeklyDay.value = String(p.digest_weekly_day);
+        if (dailyHour) dailyHour.value = String(p.daily_j7_hour);
+
+        if (Array.isArray(p.additional_emails)) {
+          ['additional_email_1','additional_email_2','additional_email_3'].forEach(function(id, i) {
+            var el = document.getElementById(id);
+            if (el) el.value = p.additional_emails[i] || '';
+          });
+        }
+
+        // Sync chip active states to loaded values
+        document.querySelectorAll('.day-chip[data-group="weekly"]').forEach(function(b) {
+          const active = b.getAttribute('data-value') === String(p.digest_weekly_day);
+          b.classList.toggle('active', active);
+          b.classList.toggle('border-black', active);
+          b.classList.toggle('bg-black', active);
+          b.classList.toggle('text-white', active);
+          b.classList.toggle('border-gray-300', !active);
+          b.classList.toggle('text-gray-500', !active);
+        });
+        document.querySelectorAll('.day-chip[data-group="daily"]').forEach(function(b) {
+          const active = b.getAttribute('data-value') === String(p.daily_j7_hour);
+          b.classList.toggle('active', active);
+          b.classList.toggle('border-black', active);
+          b.classList.toggle('bg-black', active);
+          b.classList.toggle('text-white', active);
+          b.classList.toggle('border-gray-300', !active);
+          b.classList.toggle('text-gray-500', !active);
+        });
+      }
+    } catch (_) {}
+
+    function syncToggle(checkboxId, optionsId) {
+      var cb = document.getElementById(checkboxId);
+      var opts = document.getElementById(optionsId);
+      if (!cb || !opts) return;
+      cb.addEventListener('change', function () {
+        opts.classList.toggle('hidden', !cb.checked);
+      });
+    }
+
+    syncToggle('tog-weekly', 'weekly-options');
+    syncToggle('tog-daily', 'daily-options');
+
+    document.querySelectorAll('.day-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var group = btn.getAttribute('data-group');
+        var val = btn.getAttribute('data-value');
+        document.querySelectorAll('.day-chip[data-group="' + group + '"]').forEach(function (b) {
+          b.classList.remove('active', 'border-black', 'bg-black', 'text-white');
+          b.classList.add('border-gray-300', 'text-gray-500');
+        });
+        btn.classList.add('active', 'border-black', 'bg-black', 'text-white');
+        btn.classList.remove('border-gray-300', 'text-gray-500');
+        var hidden = document.getElementById(group === 'weekly' ? 'digest_weekly_day' : 'daily_j7_hour');
+        if (hidden) hidden.value = val;
+      });
+    });
+
+    var form = document.getElementById('notifForm');
+    var status = document.getElementById('notifStatus');
+
+    form && form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (form.dataset.saving === '1') return;
+      form.dataset.saving = '1';
+
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
+      if (status) { status.textContent = ''; status.className = 'mt-4 text-sm'; }
+
+      var additionalEmails = [
+        document.getElementById('additional_email_1')?.value.trim() || '',
+        document.getElementById('additional_email_2')?.value.trim() || '',
+        document.getElementById('additional_email_3')?.value.trim() || '',
+      ].filter(function(e) { return e.length > 0; });
+
+      var payload = {
+        alerts_critical: document.getElementById('tog-alerts').checked,
+        digest_weekly:   document.getElementById('tog-weekly').checked,
+        digest_weekly_day: parseInt(document.getElementById('digest_weekly_day').value, 10),
+        digest_weekly_hour: parseInt(document.getElementById('digest_weekly_hour').value, 10),
+        daily_j7:        document.getElementById('tog-daily').checked,
+        daily_j7_hour:   parseInt(document.getElementById('daily_j7_hour').value, 10),
+        additional_emails: additionalEmails,
+      };
+
+      try {
+        var res = await fetch('/api/notifications/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        var out = null;
+        try { out = await res.json(); } catch (_) {}
+
+        if (!res.ok || !out?.ok) {
+          status.textContent = (out && out.error) ? out.error : 'Erreur lors de l\'enregistrement.';
+          status.className = 'mt-4 text-sm text-red-600';
+          if (btn) { btn.disabled = false; btn.textContent = 'Réessayer'; }
+        } else {
+          status.textContent = 'Préférences enregistrées.';
+          status.className = 'mt-4 text-sm text-emerald-600';
+          if (btn) {
+            btn.textContent = '✓ Enregistré';
+            setTimeout(function () { btn.disabled = false; btn.textContent = 'Enregistrer'; }, 2000);
+          }
+        }
+      } catch (_) {
+        status.textContent = 'Erreur réseau. Veuillez réessayer.';
+        status.className = 'mt-4 text-sm text-red-600';
+        if (btn) { btn.disabled = false; btn.textContent = 'Réessayer'; }
+      } finally {
+        form.dataset.saving = '0';
+      }
+    });
+
+  })();
+</script>

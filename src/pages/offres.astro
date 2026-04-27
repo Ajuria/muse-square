@@ -1,274 +1,341 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
-<BaseLayout title="Solutions — Muse Square">
-  <!-- Full-bleed hero with overlay title (streamlined with Références) -->
+<BaseLayout title="Insight Event — Muse Square">
+
+  <!-- Hero banner — existing image kept -->
   <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]">
-    <!-- Background image -->
     <picture class="absolute inset-0 block" aria-hidden="true">
       <source srcset="/images/banner-services-300k.png" type="image/png" />
-      <img
-        src="/images/banner-services-300k.png"
-        alt=""
-        class="w-full h-full object-cover"
-        sizes="100vw"
-        loading="eager"
-        decoding="async"
-      />
+      <img src="/images/banner-services-300k.png" alt="" class="w-full h-full object-cover object-top" loading="eager" decoding="async" />
     </picture>
-
-    <!-- (optional) subtle legibility overlay; keep or remove -->
-    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
-
-    <!-- Overlay content: title only, aligned to the rail -->
+    <div class="absolute inset-0 bg-white/20" aria-hidden="true"></div>
     <div class="absolute inset-0">
       <div class="ms-container h-full flex items-center">
-        <h1 class="ms-h1 text-white">Nos solutions d'intelligence contextuelle</h1>
+        <div>
+          <img src="/images/logo_ms_insight.svg" alt="Muse Square Insight" class="h-[80px] w-auto mb-[24px] block" loading="eager" decoding="async" />
+          <h1 class="ms-h1 text-[#111827]">Votre environnement change. Gardez un temps d'avance</h1>
+          <p class="mt-[16px] ms-lead text-[#111827]/70 text-[20px]">Concurrence, calendrier, mobilité, météo: quatre signaux agrégés pour piloter vos opérations</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Intro block (below the banner) -->
+  <!-- Intro -->
   <section class="ms-section">
-    <div class="max-w-[800px] space-y-[12px]">
+    <h2 class="ms-h2 uppercase tracking-[0.5px] text-center text-primary mb-[20px]">Qu'est-ce que Muse Square Insight ?</h2>
+    <div class="space-y-[12px]">
       <p class="ms-lead text-[22px] sm:text-[24px] md:text-[26px] leading-[32px] sm:leading-[36px]">
-        Muse Square est le spécialiste de l’intelligence contextuelle, notamment sur les territoires d’Île-de-France, d’Occitanie et de Provence-Alpes-Côte d’Azur.        
+        Muse Square Insight agrège les données externes qui pèsent sur vos opérations et vous aide à maximiser l'affluence, ajuster vos ressources et prendre de meilleures décisions.
       </p>
-
-      <p class="ms-lead">
-        Nous transformons la complexité des dynamiques territoriales en leviers opérationnels fiables, simples et actionnables :        
-      </p>
-
-      <p class="ms-lead">
-        <strong>Muse Square insight</strong>: analyse et croise les signaux externes — météo, tourisme, mobilité, événements, saisonnalité — afin de vous aider à programmer vos événements et planifier vos campagnes marketing de manière optimale.
-      </p>
-
-      <p class="ms-lead">
-        <strong>L'Agence Muse Square</strong>: conçoit des solutions data + IA sur mesure, pour aller au-delà des signaux externes et construire une intelligence de pilotage unique à votre organisation.
+      <p class="font-body text-[18px] leading-[28px] text-secondary">
+        Construite autour de deux modules complémentaires — Planifier et Piloter — la plateforme couvre l'intégralité du cycle de décision et vous permet de répondre à vos questions business via un assistant IA connecté à une base de plus de 2 millions de signaux actualisés quotidiennement.
       </p>
     </div>
   </section>
 
   <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- Offer 1: insight events -->
-  <section id="feuille-de-route-data" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px] items-start">
-    <div class="relative z-10">
-    <h2 class="ms-h2">
-      insight event
-      <span class="block font-normal italic">Votre solution pour identifier les dates optimales pour vos événements
-</span>
-    </h2>
-
-    <!-- Short service description (no bullets) -->
-    <p class="mt-[16px] ms-body text-secondary">
-      <strong>Objectifs&nbsp;:</strong> 
-      identifier les jours à risque et les jours porteurs pour organiser vos événements. L’assistant IA vous propose des dates pertinentes en fonction de votre activité et de votre territoire, tandis que votre tableau de bord vous permet d'évaluer les propositions avant de prendre votre décision.
-
+  <!-- ── PLANIFIER ── -->
+  <section class="ms-section pb-[48px]">
+    <div class="flex items-center gap-[16px] mb-[20px]">
+      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Planifier</span>
+      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Anticipez avant de vous engager</h2>
+    </div>
+    <p class="ms-body text-secondary">
+      Avant de bloquer un budget, réserver un lieu ou envoyer des invitations, identifiez les risques contextuels qui impacteront votre activité sur les 30 prochains jours.
     </p>
+  </section>
 
-    <!-- Expand/collapse long description -->
-    <details class="mt-4 group">
-      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_blueprint" aria-controls="blueprint-more">
-        <span class="group-open:hidden">Lire plus</span>
-        <span class="hidden group-open:inline">Lire moins</span>
-      </summary>
+  <!-- Steps grid -->
+  <section class="mx-auto max-w-[1140px] px-[24px] pb-[80px]">
+    <div class="grid grid-cols-1 md:grid-cols-3 border border-border rounded-[10px] overflow-hidden items-start">
 
-      <div id="feuille-de-route-data-more" class="mt-3 space-y-[16px] ms-body text-secondary">
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Des recommandations générées par l’IA grâce à notre base de données contextuelles</li>
-            <li>Un tableau d’opportunités sur 30 jours</li>
-            <li>Une analyse détaillée des facteurs contextuels porteurs / à risque: pression touristique, concurrence événementielle, météo, mobilité</li>
-          </ul>
-        </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Des décisions plus rapides et mieux informées</li>
-            <li>Une programmations mieux positionnées</li>
-            <li>Moins d’erreur de plannification</li>
-            <li>Une meilleure exploitation des jours porteurs</li>
-            <li>De nombreuses journées de travail économisées chaque année</li>
-          </ul>
-        </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
-          <p>Directions culturelles et touristiques, chefs de projets, responsables de l'événementiel, chargés de l’accueil des publics.</p>
+      <!-- Explorer -->
+      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">01</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Explorer</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Posez votre question en langage naturel</h3>
+        <p class="ms-body text-secondary">L'IA puise dans notre base de données contextuelle pour vous proposer des réponses fondées sur des données réelles, pas sur des hallucinations</p>
+        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
+          <img src="/images/insight_app/explorer.png" alt="Explorer — assistant IA" class="w-full block" loading="lazy" decoding="async" />
         </div>
       </div>
-    </details>
 
-    <!-- Primary CTA -->
-    <div class="mt-6 flex gap-4">
-      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_blueprint_contact">Contactez-nous</a>
+      <!-- Sélectionner -->
+      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">02</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Sélectionner</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Identifiez les bonnes fenêtres d'opportunité</h3>
+        <p class="ms-body text-secondary">En un coup d'œil, visualisez les jours à risque, les vacances, les jours fériés et les événements régionaux avant de vous engager sur une date ou un budget</p>
+        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
+          <img src="/images/insight_app/selectioner.png" alt="Sélectionner — calendrier 30 jours" class="w-full block" loading="lazy" decoding="async" />
+        </div>
+      </div>
+
+      <!-- Comparer -->
+      <div class="p-[32px]">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">03</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Comparer</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Comparez jusqu'à 7 dates côte à côte</h3>
+        <p class="ms-body text-secondary">Analysez chaque date en détail — indice de faisabilité, signaux clés, disponibilité de votre audience — et choisissez celle qui concentre le moins de risques</p>
+        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
+          <img src="/images/insight_app/comparer.png" alt="Comparer — analyse détaillée des dates" class="w-full block" loading="lazy" decoding="async" />
+        </div>
+      </div>
+
     </div>
-  </div>
-
-  <!-- Image de l'Offre 1 -->
-    <img
-      src="/images/ms_insight_ui_2.png"
-      alt="Illustration de insight events"
-      class="w-full h-[300px] object-cover bg-muted/20"
-      loading="lazy"
-      decoding="async"
-    />
-  </div>
   </section>
 
   <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- Offer 2: insight marketing -->
-  <section id="activation-fidelisation" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
-    <!-- Colonne texte (1/2) -->
-    <div class="relative z-10">
-      <h2 class="ms-h2">
-        insight marketing
-        <span class="block font-normal italic">Votre solution pour calibrer vos campagnes marketing</span>
-      </h2>
+  <!-- ── PILOTER ── -->
+  <section class="ms-section pb-[48px]">
+    <div class="flex items-center gap-[16px] mb-[20px]">
+      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Piloter</span>
+      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Suivez vos risques chaque jour</h2>
+    </div>
+    <p class="ms-body text-secondary">
+      Une fois votre date choisie, vous êtes informé  des nouveaux risques apparus depuis votre décision sur l'ensemble de vos sites. Soyez prêt le jour J pour faire face aux impondérables!
+    </p>
+  </section>
 
-      <p class="mt-[16px] ms-body text-secondary"></p>
-        <strong>Objectifs&nbsp;:</strong> améliorer l’impact de vos communications en les ajustant aux conditions dans lesquelles elles seront reçues. Marketing Insight analyse les facteurs qui modifient la disponibilité, l’attention et la sensibilité de vos publics pour anticiper la pertinence potentielle de vos messages.
-      </p>
+  <!-- Piloter grid -->
+  <section class="mx-auto max-w-[1140px] px-[24px] pb-[64px]">
+    <div class="grid md:grid-cols-2 gap-[56px] items-start mb-[64px]">
+      <div class="self-start pt-[8px]">
+        <h3 class="font-heading font-semibold text-[22px] md:text-[26px] leading-[1.25] text-primary mb-[16px]">
+          Chaque matin, soyez informé des signaux qui ont changé autour de vos sites
+        </h3>
+        <p class="ms-body text-secondary">
+          Tableau de bord quotidien par site: points de vigilance, signaux critiques, évolution de votre contexte opérationnel
+        </p>
+        <p class="mt-[12px] ms-body text-secondary">
+          Gérez plusieurs sites depuis une interface unique. Chaque site a son propre niveau de risque journalier, visible en un coup d'œil
+        </p>
+      </div>
+      <img src="/images/insight_app/piloter.png" alt="Piloter — tableau de bord quotidien" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
+    </div>
 
-      <!-- Lire plus (reste bien DANS la colonne texte) -->
-      <details class="mt-4 group">
-        <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_activation" aria-controls="activation-fidelisation-more">
-          <span class="group-open:hidden">Lire plus</span>
-          <span class="hidden group-open:inline">Lire moins</span>
-        </summary>
+    <!-- Map row — reversed -->
+    <div class="grid md:grid-cols-2 gap-[40px] items-start">
+      <img src="/images/insight_app/map.png" alt="Carte — pression concurrentielle" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
+      <div class="self-start pt-[8px]">
+        <h3 class="font-heading font-semibold text-[22px] md:text-[26px] leading-[1.25] text-primary mb-[16px]">
+          Visualisez la pression concurrentielle autour de votre site
+        </h3>
+        <p class="ms-body text-secondary">
+          Cartographiez les événements concurrents dans un rayon de 500m à 10km. Filtrez par type d'événement et évaluez l'impact sur votre fréquentation
+        </p>
+      </div>
+    </div>
+  </section>
 
-        <div id="activation-fidelisation-more" class="mt-3 space-y-[16px] ms-body text-secondary">
-          <div>
-            <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
-            <ul class="list-disc pl-5 space-y-1">
-              <li>Conseils éditoriaux actionnables</li>
-              <li>Courbe des opportunités marketing (14 ou 30 jours)</li>
-              <li>Fenêtres favorables, neutres et défavorables</li>
-              <li>Analyse du contexte jour par jour</li>
-              <li>Tableau de validation pour comparer plusieurs options et scénarios de communication</li>
-            </ul>
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- ── ALERTES ── -->
+  <section class="ms-section pb-[48px]">
+    <div class="flex items-center gap-[16px] mb-[20px]">
+      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Alertes</span>
+      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Restez informé sans ouvrir l'application</h2>
+    </div>
+    <p class="ms-body text-secondary">
+      Recevez vos alertes contextuelles par email — à la fréquence de votre choix et jusqu'à 3 destinataires.
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-[1140px] px-[24px] pb-[80px]">
+    <div class="grid md:grid-cols-2 gap-[40px] items-start">
+      <div class="self-start space-y-[12px]">
+        <div class="rounded-[8px] border border-border p-[18px]">
+          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Résumé hebdomadaire</p>
+          <p class="ms-body text-secondary text-[13px]">Un email par semaine avec l'état de vos dates — scores, alertes, météo à 7 jours. Jour et heure configurables.</p>
+        </div>
+        <div class="rounded-[8px] border border-border p-[18px]">
+          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Alerte immédiate niveau 3–4</p>
+          <p class="ms-body text-secondary text-[13px]">Notification immédiate dès qu'un risque fort est détecté — concurrence directe, météo sévère, mobilité bloquée.</p>
+        </div>
+        <div class="rounded-[8px] border border-border p-[18px]">
+          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Email quotidien J–7</p>
+          <p class="ms-body text-secondary text-[13px]">À partir de 7 jours avant votre date, un email quotidien avec les prévisions météo, mobilité et concurrence en temps réel.</p>
+        </div>
+      </div>
+      <img src="/images/insight_app/alertes.png" alt="Alertes — configuration des notifications" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- ── NOTRE APPROCHE DE L'IA ── -->
+  <section class="ms-section pb-[48px]">
+    <div class="flex items-center gap-[16px] mb-[20px]">
+      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Intelligence artificielle</span>
+      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Notre approche de l'IA</h2>
+    </div>
+    <p class="ms-body text-secondary">
+      L'IA de Muse Square insight est directement connectiée à la base de données et ses raisonnememnts se limitent à ce qui est sourcé et vérifiable par vous! Moins d'inférences, moins d'hallucinations pour plus de fiablité!
+    </p>
+  </section>
+
+  <section class="mx-auto max-w-[1140px] px-[24px] pb-[40px]">
+    <div class="grid grid-cols-1 md:grid-cols-3 border border-border rounded-[10px] overflow-hidden">
+
+      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">01</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Data-driven</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Une IA basée sur des données sourcées</h3>
+        <p class="ms-body text-secondary">L'IA interroge notre base de données contextuelle et vous les restitue fidèlement. Elle ne génère pas de réponses ou de recommendations ad-hoc</p>
+      </div>
+
+      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">02</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Vérifiable</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Recoupez vous-même les données utilisées par l'IA</h3>
+        <p class="ms-body text-secondary">Chaque recommandation s'appuie sur des données que vous pouvez consulter directement. Aucune boîte noire. Les données sources sont accessibles. Vous vérifiez, vous décidez.</p>
+      </div>
+
+      <div class="p-[40px]">
+        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">03</p>
+        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Rigoureuse</p>
+        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">La fiabilité avant l'exhaustivité</h3>
+        <p class="ms-body text-secondary">Les décisions qui engagent un budget n'ont pas droit à l'approximation. C'est pourquoi nous avons développé une IA spécialisée sur un nombre limité de régions — Île-de-France, Occitanie, PACA — avant d'élargir sa couverture territoriale</p>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+  <!-- ── 4 SIGNAUX ── -->
+  <section class="ms-section">
+    <h2 class="ms-h2 mb-[32px]">Les 4 signaux de risque</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 border border-border rounded-[8px] overflow-hidden">
+
+      <div class="p-[28px] border-b border-r border-border">
+        <div class="flex items-start gap-[12px] mb-[16px]">
+          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v2M16 2v2"/></svg>
           </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Communications plus pertinentes et mieux synchronisées avec le contexte</li>
-            <li>Moins de contenus “perdus” dans le bruit</li>
-            <li>Meilleure exploitation des flux touristiques et des moments porteurs</li>
-            <li>Un plan éditorial plus cohérent, plus lisible et plus efficace</li>
-            <li>Plusieurs heures de recherche et de comparaison économisées chaque semaine</li>
-          </ul>
+          <div>
+            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Concurrence événementielle</h3>
+            <p class="ms-body text-secondary">Densité d'activations concurrentes de 500m à 50km autour de votre site. Saturation de l'attention locale et impact estimé sur votre fréquentation.</p>
+          </div>
         </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
-          <p>Directions communication et marketing, chefs de projets, community managers, copywriters.</p>
+        <div class="flex flex-col gap-[6px]">
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">87 événements ce week-end — dans la moyenne</span>
+          </div>
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">1 nouvel événement détecté à moins de 500m</span>
+          </div>
         </div>
       </div>
-    </details>
 
-      <!-- CTA -->
-      <div class="mt-6 flex gap-4">
-        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_engagement_contact">Contactez-nous</a>
+      <div class="p-[28px] border-b border-border">
+        <div class="flex items-start gap-[12px] mb-[16px]">
+          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div>
+            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Mobilité</h3>
+            <p class="ms-body text-secondary">Perturbations RATP/SNCF, grèves, travaux, préavis déposés. Impact attendu sur les flux entrants vers vos sites le jour J.</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-[6px]">
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Accès au site fluide par la route</span>
+          </div>
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Travaux sur la ligne 4 du métro</span>
+          </div>
+        </div>
       </div>
+
+      <div class="p-[28px] border-r border-border">
+        <div class="flex items-start gap-[12px] mb-[16px]">
+          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v2M16 2v2M8 14h2M12 14h2M16 14h2M8 18h2M12 18h2"/></svg>
+          </div>
+          <div>
+            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Calendrier contextuel</h3>
+            <p class="ms-body text-secondary">Jours fériés, vacances scolaires par académie, soldes nationaux, événements à fort impact. Disponibilité réelle de votre audience cible.</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-[6px]">
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Fashion week — pas d'impact sur clientèle professionnelle</span>
+          </div>
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Jour férié — résidents locaux peu disponibles</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-[28px]">
+        <div class="flex items-start gap-[12px] mb-[16px]">
+          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </div>
+          <div>
+            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Météo</h3>
+            <p class="ms-body text-secondary">Précipitations horaires, température, vent, alertes Météo-France. Impact sur la faisabilité outdoor/indoor et sur la décision de déplacement de votre audience.</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-[6px]">
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Pluie faible — sans impact sur la fréquentation</span>
+          </div>
+          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
+            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
+            <span class="text-[12px] text-[#0b37e5] font-medium">Vent fort — impact sur les conditions d'exploitation</span>
+          </div>
+        </div>
+      </div>
+
     </div>
-
-    <!-- Colonne image (2/2) -->
-    <img
-      src="/images/services.png"
-      alt="Illustration des services d’activation et de fidélisation"
-      class="w-full h-[300px] object-cover rounded-[8px] bg-muted/20"
-      loading="lazy"
-      decoding="async"
-    />
   </section>
 
   <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- Offer 3: L’Agence Muse Square -->
-  <section id="fractional-analytics" class="scroll-mt-[84px] mx-auto max-w-[1140px] px-[24px] py-[100px] grid md:grid-cols-2 gap-[40px]">
-  <!-- Colonne texte (1/2) -->
-  <div class="relative z-10">
-    <h2 class="ms-h2">
-      L'Agence Muse Square
-      <span class="block font-normal italic">Votre partenaire data + IA spécialiste de votre territoire</span>
-    </h2>
-
-      <p class="mt-[16px] ms-body text-secondary"></p>
-        <strong>Objectifs&nbsp;:</strong> développer des outils de pilotage sur mesure en intégrant Muse Squre insights dans votre data stack — billetterie, fréquentation, CRM, contenus, ventes — selon les meilleurs standards de sécurité, de confidentialité et de gouvernance des données.
-      </p>
-
-    <!-- Lire plus -->
-    <details class="mt-4 group">
-      <summary class="msq-link font-heading cursor-pointer" data-kpi="offer_expand_fractional" aria-controls="fractional-analytics-more">
-        <span class="group-open:hidden">Lire plus</span>
-        <span class="hidden group-open:inline">Lire moins</span>
-      </summary>
-
-      <div id="fractional-analytics-more" class="mt-3 space-y-[16px] ms-body text-secondary">
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Livrables</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Architecture data claire et adaptée à vos ressources</li>
-            <li>Connecteurs vers vos sources internes: billetterie, CRM, visites, ventes, GA4…</li>
-            <li>Assistants et tableaux de bord sur mesure basés sur MS Insight</li>
-            <li>Modules personnalisés: prévision, analyse d’impact, segmentation, reporting</li>
-            <li>Documentation opérationnelle + transfert de compétences</li>
-            <li>Ateliers décisionnels : interprétation, scénarios, stratégie d’action</li>
-          </p>
-        </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Valeur ajoutée</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Une intelligence décisionnelle sur mesure et adaptée à votre territoire</li>
-            <li>Une exploitation optimale de vos données internes + des signaux externes</li>
-            <li>Un "time to value" court avec des jalons clairs</li>
-            <li>Une méthode de travail fiable, sécurisée et conforme au RGPD</li>
-            <li>Une montée en compétences progressive de vos équipes sur les usages data</li>
-          </ul>
-        </div>
-
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Méthode</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li>Cadrage des besoins et des priorités opérationnelles à suivre</li>
-            <li>Audit de vos flux, besoins et règles métier</li>
-            <li>Mise en place d’une gouvernance des données et de protocoles de sécurités</li>
-            <li>Intégration sélective de vos données internes</li>
-            <li>Nettoyage, structuration, normalisation des données</li>
-            <li>Construction de modules personnalisés : prévisions, analyse d’impact, segmentation, reporting, suivi public, cohérence éditoriale</li>
-            <li>R&D collaborative</li>
-            <li>Accompagnement continu : interprétation des résultats, ateliers d’aide à la décision, optimisation continue des modèles</li>
-          </ul>
-        </div>
-      
-      
-        <div>
-          <h3 class="font-heading font-semibold text-[18px] text-primary">Parties prenantes</h3>
-          <p>Directions générale, direction marketing, direction du digital, Chief Data Officer.</p>
-        </div>
+  <!-- ── CTA ── -->
+  <section class="ms-section" aria-labelledby="cta-title">
+    <div class="max-w-[980px] mx-auto">
+      <div class="flex justify-center">
+        <img
+          src="/images/quote-icon.png"
+          alt=""
+          width="84"
+          height="84"
+          class="w-[84px] h-[84px] object-contain opacity-90"
+          loading="lazy"
+          decoding="async"
+          aria-hidden="true"
+        />
       </div>
-    </details>
-
-    <!-- CTA -->
-    <div class="mt-6 flex gap-4">
-      <a href="/contact" class="msq-btn-ghost" data-kpi="cta_fractional_contact">Contactez-nous</a>
+      <div class="mt-8 text-center px-8 md:px-16">
+        <h2 id="cta-title" class="ms-quote not-italic font-heading font-semibold text-primary mb-[16px]">
+          Vous avez des besoins spécifiques ?
+        </h2>
+        <p class="ms-body text-secondary max-w-[520px] mx-auto mb-[8px]">
+          Nous travaillons avec un nombre limité d'organisations pour affiner la plateforme. Si la gestion des risques contextuels est un enjeu pour vous, parlons-en.
+        </p>
+        <p class="ms-eyebrow text-muted mb-[32px]">
+          Couverture beta : Île-de-France, Occitanie, Provence-Alpes-Côte d'Azur.
+        </p>
+        <a href="/contact" class="msq-btn-ghost" data-kpi="cta_solutions_contact">
+          Nous contacter
+        </a>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Colonne image (2/2) -->
-  <img
-    src="/images/part-time.png"
-    alt="Illustration de l’analyste data à temps partiel"
-    class="w-full h-[300px] object-cover bg-muted/20"
-    loading="lazy"
-    decoding="async"
-  />
-</section>
+  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
 </BaseLayout>

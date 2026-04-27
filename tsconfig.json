@@ -1,9 +1,10 @@
 {
   "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "moduleResolution": "Bundler",
-    "verbatimModuleSyntax": true
-  },
+  "moduleResolution": "Bundler",
+  "verbatimModuleSyntax": true,
+  "skipLibCheck": true
+    },
   "include": [".astro/types.d.ts", "src"],
   "exclude": ["node_modules", "dist", ".astro"]
 }

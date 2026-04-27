@@ -98,8 +98,8 @@ const isApp = Astro.url.pathname.startsWith("/app");
       class={`ms-container ms-first-tight ${isApp ? "pb-0" : "pb-20"}`}
       style={
         isApp
-          ? "padding-bottom: calc(var(--ms-bottombar-total-h, 0px) + env(safe-area-inset-bottom, 0px));"
-          : undefined
+          ? "padding-bottom: calc(var(--ms-bottombar-total-h, 0px) + env(safe-area-inset-bottom, 0px)); overflow: visible;"
+          : "overflow: visible;"
       }
     >
       <slot />

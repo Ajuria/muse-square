@@ -156,19 +156,21 @@ export const GET: APIRoute = async ({ request, locals }) => {
     requireString((locals as any).clerk_user_id, "locals.clerk_user_id");
 
     const location_id = requireString(
-      (locals as any).location_id,
+      new URL(request.url).searchParams.get("location_id") || (locals as any).location_id,
       "locals.location_id"
     );
 
     // ---- QUERY PARAMS ----
     const url = new URL(request.url);
-    const anchor_date = url.searchParams.get("anchor_date") || "";
-    const selected_date = url.searchParams.get("selected_date") || "";
+    const _raw_anchor = url.searchParams.get("anchor_date") || "";
+    const _raw_selected = url.searchParams.get("selected_date") || "";
+    const anchor_date = _raw_anchor === "__comparison__" ? "" : _raw_anchor;
+    const selected_date = _raw_selected === "__comparison__" ? "" : _raw_selected;
     const today_str = ymdUtcToday();
 
+    const _raw_window_start = url.searchParams.get("window_start_date") ?? "";
     const window_start_date = requireString(
-      url.searchParams.get("window_start_date") ??
-        url.searchParams.get("window_start_date"),
+      _raw_window_start === "__comparison__" ? ymdUtcToday() : _raw_window_start,
       "window_start_date"
     );
 
@@ -261,7 +263,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
         .map((d) => ({ ...d, date_ymd: asYmd(d?.date) }))
         .filter((d) => d.date_ymd && Number.isFinite(Number(d?.events_within_10km_count)));
 
-      xs.sort((a, b) => Number(b.events_within_10km_count) - Number(a.events_within_10km_count));
+      xs.sort((a, b) => {
+        // Primary: same-bucket competition (direct competitors)
+        const sbA = Number(a?.events_within_5km_same_bucket_count ?? 0);
+        const sbB = Number(b?.events_within_5km_same_bucket_count ?? 0);
+        if (Number.isFinite(sbB) && Number.isFinite(sbA) && sbB !== sbA) return sbB - sbA;
+
+        // Secondary: pressure ratio vs baseline
+        const ratioA = Number(a?.competition_pressure_ratio ?? 0);
+        const ratioB = Number(b?.competition_pressure_ratio ?? 0);
+        if (Number.isFinite(ratioB) && Number.isFinite(ratioA) && ratioB !== ratioA) return ratioB - ratioA;
+
+        // Tiebreaker: total events at 10km
+        return Number(b.events_within_10km_count) - Number(a.events_within_10km_count);
+      });
       return xs.slice(0, n);
     }
 
@@ -321,7 +336,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
         semantic_contract_version,
         display_horizon,
         display_label,
-        window_summary_label,
         ai_analysis_scope_guard,
         key_takeaway,
 
@@ -337,7 +351,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
         precip_probability_max_pct,
         wind_speed_10m_max,
 
+        events_within_500m_count,
+        events_within_5km_count,
         events_within_10km_count,
+        events_within_50km_count,
+        events_within_500m_same_bucket_count,
+        events_within_5km_same_bucket_count,
+        events_within_10km_same_bucket_count,
+        events_within_50km_same_bucket_count,
+        pct_same_bucket_5km,
+        competition_index_local,
+        baseline_comp_avg,
+        has_valid_baseline_flag,
+        competition_pressure_ratio,
 
         is_public_holiday_fr_flag,
         is_school_holiday_flag,
@@ -408,10 +434,34 @@ export const GET: APIRoute = async ({ request, locals }) => {
       ORDER BY date ASC
     `;
 
-    const [windowRows, daysRows, ctxRows] = await Promise.all([
+    const sqlRegionViaLocation = `
+      SELECT
+        r.date,
+        r.region_code_insee,
+        r.event_count_region,
+        r.is_public_holiday_flag,
+        r.public_holiday_name_fr,
+        r.is_school_holiday_flag,
+        r.school_holiday_name,
+        r.is_commercial_event_flag_region,
+        r.commercial_event_names_region
+      FROM ${T_REGCTX} r
+      WHERE r.region_code_insee = (
+        SELECT region_code_insee
+        FROM ${T_LOCCTX}
+        WHERE location_id = @location_id
+        LIMIT 1
+      )
+      AND r.date BETWEEN DATE(@window_start_date)
+          AND DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY)
+      ORDER BY r.date ASC
+    `;
+
+    const [windowRows, daysRows, ctxRows, regionRows] = await Promise.all([
       runBQ_timed("fetch_window", sqlWindow, { location_id, window_start_date }),
       runBQ_timed("fetch_days", sqlDays, { location_id, window_start_date }),
-      runBQ_timed("fetch_location_context", sqlCtx, { location_id, window_start_date })
+      runBQ_timed("fetch_location_context", sqlCtx, { location_id, window_start_date }),
+      runBQ_timed("fetch_region_ai_context_daily", sqlRegionViaLocation, { location_id, window_start_date }),
     ]);
 
     const window =
@@ -474,14 +524,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
       raw_type: typeof region_code_insee_raw,
       raw_value: region_code_insee_raw,
     });
-
-    // --- fetch region daily context (date × region_code_insee) ---
-    const regionRows = region_code_insee
-      ? await runBQ_timed("fetch_region_ai_context_daily", sqlRegion, {
-          region_code_insee,
-          window_start_date,
-        })
-      : [];
 
     // --- enrich days with region context (same date) ---
     const regionByDate = new Map<string, any>();
@@ -617,9 +659,24 @@ export const GET: APIRoute = async ({ request, locals }) => {
       if (!v) return s;
 
       const dict: Record<string, string> = {
-        "French Winter Sales": "Soldes d’hiver",
-        "French Summer Sales": "Soldes d’été",
+        "French Winter Sales": "Soldes d'hiver",
+        "French Summer Sales": "Soldes d'été",
         "Valentine's Day": "Saint-Valentin",
+        "Back to School": "Rentrée scolaire",
+        "Black Friday": "Black Friday",
+        "Boxing Day": "Lendemain de Noël",
+        "Christmas Sales": "Soldes de Noël",
+        "Cyber Monday": "Cyber Monday",
+        "Easter": "Pâques",
+        "New Year Sales": "Soldes du Nouvel An",
+        "Halloween Promotions": "Halloween",
+        "Independence Day Sales": "Fête nationale américaine",
+        "Labor Day Sales": "Fête du Travail américaine",
+        "Martin Luther King Jr. Day Sales": "MLK Day",
+        "Memorial Day Sales": "Memorial Day",
+        "Presidents' Day Sales": "Presidents' Day",
+        "Small Business Saturday": "Small Business Saturday",
+        "Thanksgiving Promotions": "Thanksgiving",
       };
 
       return dict[v] ?? v;
@@ -725,7 +782,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
       (
         computed_window.days_risk > 0 ||
         hasMeaningfulMeteoSignal(days_deduped) ||
-        worst_competition_days.some(d => Number(d?.events_within_10km_count ?? 0) > 0)
+        worst_competition_days.some(d =>
+          Number(d?.events_within_5km_same_bucket_count ?? 0) > 0 ||
+          Number(d?.events_within_10km_count ?? 0) > 0
+        )
       );
 
     // HARD GUARD — if BQ is already slow, skip AI to protect UX
@@ -1097,53 +1157,112 @@ export const GET: APIRoute = async ({ request, locals }) => {
               }
 
               function deterministicText(): string | null {
-                // Enforce the single-source-of-truth counts (computed_window)
-                if (!computed_window || computed_window.days_count < 1) {
-                  console.warn("[MONTH][TEXT] computed_window invalid; refusing to render");
-                  return null;
-                }
-
+                if (!computed_window || computed_window.days_count < 1) return null;
                 const lines: string[] = [];
 
-                // Intro (operational, FR)
-                lines.push(
-                  "La période présente beaucoup d’opportunités et peu de contraintes d’organisation, avec les particularités suivantes :"
-                );
-
-                // Jours spéciaux (only if exists)
-                const sdBullets = renderSpecialDaysRanges();
-                if (sdBullets.length) {
-                  lines.push("");
-                  lines.push("Jours spéciaux");
-                  lines.push(...sdBullets);
-                }
-
-                // Score d’opportunité (always)
-                lines.push("");
-                lines.push("Score d’opportunité");
-                lines.push(`- Répartition sur 30 jours : ${computed_window.days_a} jour(s) A, ${computed_window.days_b} jour(s) B, ${computed_window.days_c} jour(s) C`);
-                lines.push(`- ${computed_window.days_risk} jour(s) à risque`);
-
-                if (typeof computed_window.score_min === "number" && typeof computed_window.score_max === "number") {
-                  lines.push(`- Scores observés entre ${computed_window.score_min} et ${computed_window.score_max}`);
-                }
-
+                // TOP 3
+                lines.push("Top 3");
                 if (Array.isArray(best_score_days) && best_score_days.length > 0) {
-                  const topDates = best_score_days
-                    .map((d: any) => bqDateToYmd(d?.date) ?? d?.date_ymd ?? null)
-                    .filter((x: any) => typeof x === "string" && x.trim())
-                    .slice(0, 3) as string[];
-                  if (topDates.length) lines.push(`- Top 3 dates : ${topDates.map(ymdToFrShort).join(", ")}`);
+                  best_score_days.slice(0, 3).forEach((d: any, idx: number) => {
+                    const dd = bqDateToYmd(d?.date) ?? d?.date_ymd ?? null;
+                    const medal = String(d?.opportunity_medal ?? "").trim();
+                    if (dd) lines.push(`${idx + 1}. ${ymdToFrShort(dd)}${medal ? ` — ${medal}` : ""}`);
+                  });
+                } else {
+                  lines.push("Aucune date disponible");
                 }
 
-                // Météo (ONLY if meaningful)
-                if (hasMeaningfulMeteoSignal(days_deduped)) {
-                  const meteo = renderMeteoBullets();
-                  if (meteo.length) {
-                    lines.push("");
-                    lines.push("Météo");
-                    lines.push(...meteo);
+                // VACANCES
+                const vacances = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("school_holiday"));
+                lines.push("");
+                lines.push("Vacances");
+                if (vacances.length) {
+                  let i = 0;
+                  while (i < vacances.length) {
+                    const start = vacances[i];
+                    const label = Array.isArray(start.labels) ? start.labels.join(", ") : "";
+                    let end = start;
+                    let j = i;
+                    while (j + 1 < vacances.length) {
+                      const next = vacances[j + 1];
+                      const nextLabel = Array.isArray(next.labels) ? next.labels.join(", ") : "";
+                      const expectedNext = ymdPlusOne(end.date);
+                      if (nextLabel === label && next.date === expectedNext) {
+                        end = next; j++;
+                      } else break;
+                    }
+                    if (start.date === end.date) {
+                      lines.push(`${ymdToFrShort(start.date)} : ${label}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(start.date)}–${ymdToFrShort(end.date)} : ${label}`);
+                    }
+                    i = j + 1;
                   }
+                } else {
+                  lines.push("Aucune vacance scolaire");
+                }
+
+                // FÉRIÉ
+                const feries = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("public_holiday"));
+                lines.push("");
+                lines.push("Férié");
+                if (feries.length) {
+                  let i = 0;
+                  while (i < feries.length) {
+                    const start = feries[i];
+                    const label = Array.isArray(start.labels) ? start.labels.join(", ") : "";
+                    let end = start;
+                    let j = i;
+                    while (j + 1 < feries.length) {
+                      const next = feries[j + 1];
+                      const nextLabel = Array.isArray(next.labels) ? next.labels.join(", ") : "";
+                      const expectedNext = ymdPlusOne(end.date);
+                      if (nextLabel === label && next.date === expectedNext) {
+                        end = next; j++;
+                      } else break;
+                    }
+                    if (start.date === end.date) {
+                      lines.push(`${ymdToFrShort(start.date)} : ${label}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(start.date)}–${ymdToFrShort(end.date)} : ${label}`);
+                    }
+                    i = j + 1;
+                  }
+                } else {
+                  lines.push("Aucun jour férié");
+                }
+
+                // TEMPS FORTS
+                const tempsForts = (Array.isArray(special_days) ? special_days : [])
+                  .filter((sd0: any) => sd0?.types?.includes("commercial_event"));
+                lines.push("");
+                lines.push("Temps forts");
+                if (tempsForts.length) {
+                  // Group by commercial_event_names_region independently
+                  const ceGroups = new Map<string, { dates: string[] }>();
+                  for (const sd0 of tempsForts) {
+                    const ces = Array.isArray(sd0.commercial_event_names_region) && sd0.commercial_event_names_region.length
+                      ? sd0.commercial_event_names_region
+                      : (Array.isArray(sd0.labels) ? sd0.labels : []);
+                    for (const ce of ces) {
+                      if (!ceGroups.has(ce)) ceGroups.set(ce, { dates: [] });
+                      ceGroups.get(ce)!.dates.push(sd0.date);
+                    }
+                  }
+                  for (const [name, { dates }] of ceGroups) {
+                    dates.sort();
+                    const first = dates[0];
+                    const last = dates[dates.length - 1];
+                    if (first === last) {
+                      lines.push(`${ymdToFrShort(first)} : ${name}`);
+                    } else {
+                      lines.push(`${ymdToFrShort(first)}–${ymdToFrShort(last)} : ${name}`);
+                    }
+                  }
+                } else {
+                  lines.push("Aucun temps fort");
                 }
 
                 return lines.join("\n");
