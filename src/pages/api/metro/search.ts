@@ -41,10 +41,28 @@ export const GET: APIRoute = async ({ url }) => {
     WHERE LOWER(
       REGEXP_REPLACE(
         REGEXP_REPLACE(
-          REGEXP_REPLACE(stop_name, r'[éèêë]', 'e'),
-        r'[àâä]', 'a'),
-      r'[îï]', 'i')
-    ) LIKE CONCAT('%', LOWER(@prefix), '%')
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(stop_name, r'[éèêë]', 'e'),
+              r'[àâä]', 'a'),
+            r'[îï]', 'i'),
+          r'[ôö]', 'o'),
+        r'[ùûü]', 'u'),
+      r'[ç]', 'c')
+    ) LIKE CONCAT('%', LOWER(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(
+              REGEXP_REPLACE(
+                REGEXP_REPLACE(@prefix, r'[éèêë]', 'e'),
+              r'[àâä]', 'a'),
+            r'[îï]', 'i'),
+          r'[ôö]', 'o'),
+        r'[ùûü]', 'u'),
+      r'[ç]', 'c')
+    ), '%')
     GROUP BY stop_name
     ORDER BY
       CASE mode
