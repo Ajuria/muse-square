@@ -40,7 +40,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const city                = String(body?.city                || "").trim();
 
     if (!competitor_name || !city) {
-      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city" }), {
+      console.warn("[add-competitor] 400 — received body:", JSON.stringify(body));
+      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city", received: { competitor_name: competitor_name || null, city: city || null } }), {
         status: 400, headers: { "content-type": "application/json" }
       });
     }
