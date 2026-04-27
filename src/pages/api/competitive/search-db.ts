@@ -32,7 +32,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const [locRows] = await bq.query({
       query: `
         SELECT city_id, latitude, longitude
-        FROM \`${projectId}.mart.dim_client_location\`
+        FROM \`${projectId}.dims.dim_client_location\`
         WHERE location_id = @location_id
         LIMIT 1
       `,

@@ -83,8 +83,6 @@ export async function findDates(params: FindDatesParams): Promise<FindDatesResul
     LIMIT 7
   `;
 
-  console.log("[find-dates] params:", JSON.stringify({ location_id: params.location_id, date_start: params.date_start, date_end: params.date_end, allow_weekday: params.allow_weekday, allow_weekend: params.allow_weekend }));
-
   let rows: any[];
   try {
     [rows] = await bq.query({
@@ -107,7 +105,6 @@ export async function findDates(params: FindDatesParams): Promise<FindDatesResul
     location: "EU",
   });
 
-    console.log("[find-dates] rows count:", rows?.length);
   } catch (bqErr: any) {
     console.error("[find-dates] BQ ERROR:", bqErr?.message);
     return { dates: [], narrative: "Erreur lors de la recherche de dates.", is_least_worst: false };
