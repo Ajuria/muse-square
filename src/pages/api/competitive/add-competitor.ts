@@ -81,7 +81,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         SELECT competitor_id, confidence_score
         FROM \`${projectId}.raw.competitor_directory\`
         WHERE LOWER(competitor_name) = LOWER(@competitor_name)
-          AND LOWER(city) = LOWER(@city)
+          AND (
+            LOWER(city) = LOWER(@city)
+            OR LOWER(@city) LIKE CONCAT(LOWER(city), '%')
+            OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
+          )
           AND deleted_at IS NULL
         LIMIT 1
       `,
@@ -178,7 +182,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         FROM \`${projectId}.raw.watched_competitors\`
         WHERE clerk_user_id = @clerk_user_id
           AND LOWER(competitor_name) = LOWER(@competitor_name)
-          AND LOWER(city) = LOWER(@city)
+          AND (
+            LOWER(city) = LOWER(@city)
+            OR LOWER(@city) LIKE CONCAT(LOWER(city), '%')
+            OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
+          )
           AND deleted_at IS NULL
         LIMIT 1
       `,
