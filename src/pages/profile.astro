@@ -1419,6 +1419,26 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
   if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
   if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
 
+  // ── Validate autocomplete fields before submit ──
+  const primaryCard = document.querySelector('.loc-card[data-location-id]');
+  const primaryCardIdx = primaryCard?.id.replace('loc-card-', '');
+  if (primaryCardIdx != null) {
+    const addrInp = document.querySelector(`.addr-autocomplete[data-idx="${primaryCardIdx}"]`);
+    if (addrInp && addrInp.value.trim() && !_addrConfirmed[primaryCardIdx]) {
+      if (statusEl) { statusEl.textContent = 'Sélectionnez une adresse depuis la liste.'; statusEl.className = 'save-status status-err'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+      addrInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    const metroInp = document.querySelector(`.metro-autocomplete[data-idx="${primaryCardIdx}"]`);
+    if (metroInp && metroInp.value.trim() && !_metroConfirmed[primaryCardIdx]) {
+      if (statusEl) { statusEl.textContent = 'Sélectionnez une station depuis la liste.'; statusEl.className = 'save-status status-err'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+      metroInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+  }
+
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
   const primaryCard = document.querySelector('.loc-card[data-location-id]');
