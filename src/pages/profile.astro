@@ -1441,8 +1441,6 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
 
   const fd = new FormData(form);
   const data = Object.fromEntries(fd.entries());
-  const primaryCard = document.querySelector('.loc-card[data-location-id]');
-  const primaryCardIdx = primaryCard?.id.replace('loc-card-', '');
   const primaryBody = primaryCardIdx ? document.getElementById(`loc-body-${primaryCardIdx}`) : null;
   const existingLocationId = primaryBody?.querySelector('[name="location_id"]')?.value || '';
   data.mode = existingLocationId ? 'update' : 'create';
