@@ -153,7 +153,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Watched events (to set is_followed flag)
       bq.query({
         query: `
-          SELECT watched_event_name
+          SELECT event_name AS watched_event_name
           FROM \`${projectId}.raw.watched_events\`
           WHERE location_id = @location_id
             AND deleted_at IS NULL
