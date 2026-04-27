@@ -92,6 +92,7 @@ async function getProfileContext(clerk_user_id) {
     FROM \`${projectId}.${dataset}.${table}\`
     WHERE clerk_user_id = @clerk_user_id
       AND (is_primary = TRUE OR is_primary IS NULL)
+    ORDER BY is_primary DESC, company_geocode_status = 'geocoded_ok' DESC, created_at DESC
     LIMIT 1
   `;
 
