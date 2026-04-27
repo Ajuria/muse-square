@@ -1697,7 +1697,7 @@ if (!location_id) {
               : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + iconStroke + '" stroke-width="1.6"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
             const meta = [r.distance_km ? r.distance_km.toFixed(1) + ' km' : null, r.date_label, r.source_system].filter(Boolean).join(' · ');
 
-            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-db-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (isEvent ? 'event' : 'competitor') + '" data-industry="' + escapeHtmlSearch(r.industry_code || '') + '">' +
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-db-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (isEvent ? 'event' : 'competitor') + '" data-industry="' + escapeHtmlSearch(r.industry_code || '') + '" data-city="' + escapeHtmlSearch(r.city || r.location || '') + '">' +
               '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-db-detail-' + i + '\').style.display=document.getElementById(\'ie-db-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
                 '<div style="width:36px;height:36px;border-radius:8px;background:' + iconBg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + iconSvg + '</div>' +
                 '<div style="flex:1;min-width:0;">' +
@@ -1755,9 +1755,10 @@ if (!location_id) {
 
         try {
           var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
-          var body = type === 'event'
-            ? { event_name: name, source_system: 'user_confirmed' }
-            : { competitor_name: name, industry_code: industry || null, source_system: 'user_confirmed' };
+          var city = card.getAttribute('data-city') || '';
+        var body = type === 'event'
+            ? { event_name: name, event_city: city, source_system: 'user_confirmed' }
+            : { competitor_name: name, city: city, industry_code: industry || null, source_system: 'user_confirmed' };
           var res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
@@ -1786,7 +1787,7 @@ if (!location_id) {
           ${results.map((r, i) => {
             const domain = r.source_url ? (() => { try { return new URL(r.source_url).hostname.replace('www.',''); } catch { return ''; } })() : '';
 
-            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-web-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (r.type || 'competitor') + '">' +
+            return '<div style="border:0.5px solid rgba(0,0,0,0.1);margin-bottom:10px;overflow:hidden;" id="ie-web-card-' + i + '" data-name="' + escapeHtmlSearch(r.name) + '" data-type="' + (r.type || 'competitor') + '" data-city="' + escapeHtmlSearch(r.city || r.location || '') + '">' +
               '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer;" onclick="document.getElementById(\'ie-web-detail-' + i + '\').style.display=document.getElementById(\'ie-web-detail-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' +
                 '<div style="width:36px;height:36px;border-radius:8px;background:#FAEEDA;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
                   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
@@ -1856,9 +1857,10 @@ if (!location_id) {
 
         try {
           var endpoint = type === 'event' ? '/api/competitive/add-event' : '/api/competitive/add-competitor';
+          var city = card.getAttribute('data-city') || '';
           var body = type === 'event'
-            ? { event_name: name, source_system: 'user_confirmed', source_url: agendaUrl || null }
-            : { competitor_name: name, industry_code: industry || null, source_url: agendaUrl || null, source_system: 'user_confirmed' };
+            ? { event_name: name, event_city: city, source_system: 'user_confirmed', source_url: agendaUrl || null }
+            : { competitor_name: name, city: city, industry_code: industry || null, source_url: agendaUrl || null, source_system: 'user_confirmed' };
           var res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
