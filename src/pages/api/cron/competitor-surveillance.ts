@@ -393,6 +393,8 @@ export const GET: APIRoute = async ({ request }) => {
           cd.source_url,
           cd.vetted_by,
           cd.industry_code                    AS competitor_industry_code,
+          cd.lat                              AS competitor_lat,
+          cd.lon                              AS competitor_lon,
           lp.company_lat                      AS location_lat,
           lp.company_lon                      AS location_lon,
           lc.last_crawled
@@ -450,7 +452,7 @@ export const GET: APIRoute = async ({ request }) => {
       let rawExtractionJson: string | null = null;
 
       // ── Geocode backfill if lat/lon missing ──
-      if (comp.location_lat === null || comp.location_lon === null) {
+      if ((comp as any).competitor_lat === null || (comp as any).competitor_lon === null) {
         try {
           const [dirRow] = await bq.query({
             query: `
