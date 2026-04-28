@@ -439,6 +439,44 @@ export const GET: APIRoute = async ({ request }) => {
         headers: { "content-type": "application/json" },
       });
     }
+    // ── Geocode backfill — fill lat/lon for all vetted competitors missing coordinates ──
+    try {
+      const [missingGeo] = await bq.query({
+        query: `
+          SELECT competitor_id, competitor_name, city, address
+          FROM \`${projectId}.raw.competitor_directory\`
+          WHERE is_user_vetted = TRUE AND deleted_at IS NULL AND (lat IS NULL OR lon IS NULL)
+          LIMIT 5
+        `,
+        location: BQ_LOCATION,
+      });
+      for (const dir of (missingGeo as any[])) {
+        try {
+          const geo = await geocodeCompetitor(
+            String(dir.competitor_name ?? ""),
+            String(dir.city ?? ""),
+            dir.address ? String(dir.address) : null
+          );
+          if (geo) {
+            await bq.query({
+              query: `
+                UPDATE \`${projectId}.raw.competitor_directory\`
+                SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
+                WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+              `,
+              params: { lat: geo.lat, lon: geo.lon, competitor_id: String(dir.competitor_id) },
+              types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
+              location: BQ_LOCATION,
+            });
+          }
+        } catch (geoErr: any) {
+          console.error("[competitor-surveillance] geocode failed for", dir.competitor_name, geoErr?.message);
+        }
+      }
+    } catch (geoErr: any) {
+      console.error("[competitor-surveillance] geocode backfill query failed:", geoErr?.message);
+    }
+
     if (comp) {
       // Timeout guard — break loop before Vercel kills the function
       // (timeout guard removed — single competitor mode, no loop)
@@ -450,45 +488,6 @@ export const GET: APIRoute = async ({ request }) => {
       let extractionStatus: "success" | "partial" | "failed" | "fetch_error" = "failed";
       let extraction: ExtractionResult | null = null;
       let rawExtractionJson: string | null = null;
-
-      // ── Geocode backfill if lat/lon missing ──
-      if ((comp as any).competitor_lat === null || (comp as any).competitor_lon === null) {
-        try {
-          const [dirRow] = await bq.query({
-            query: `
-              SELECT competitor_name, city, address, lat, lon
-              FROM \`${projectId}.raw.competitor_directory\`
-              WHERE competitor_id = @competitor_id AND deleted_at IS NULL
-              LIMIT 1
-            `,
-            params: { competitor_id: comp.competitor_id },
-            types: { competitor_id: "STRING" },
-            location: BQ_LOCATION,
-          });
-          const dir = (dirRow as any[])[0];
-          if (dir && (dir.lat === null || dir.lon === null)) {
-            const geo = await geocodeCompetitor(
-              String(dir.competitor_name ?? ""),
-              String(dir.city ?? ""),
-              dir.address ? String(dir.address) : null
-            );
-            if (geo) {
-              await bq.query({
-                query: `
-                  UPDATE \`${projectId}.raw.competitor_directory\`
-                  SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
-                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
-                `,
-                params: { lat: geo.lat, lon: geo.lon, competitor_id: comp.competitor_id },
-                types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
-                location: BQ_LOCATION,
-              });
-            }
-          }
-        } catch (geoErr: any) {
-          console.error("[competitor-surveillance] geocode backfill failed:", geoErr?.message);
-        }
-      }
 
       // Get current max crawl_version for this competitor
       const [versionRows] = await bq.query({
