@@ -42,9 +42,24 @@ export async function geocodeCompetitor(
   if (competitorName && cleanedCity) queries.push(`${competitorName} ${cleanedCity}`);
   else if (competitorName) queries.push(competitorName);
 
+  // Get city reference point for validation
+  let cityRef: { lat: number; lon: number } | null = null;
+  if (cleanedCity) {
+    cityRef = await callBanApi(cleanedCity);
+  }
+
   for (const q of queries) {
     const result = await callBanApi(q);
-    if (result) return result;
+    if (result) {
+      // Validate: if we have a city reference, reject results >30km away
+      if (cityRef) {
+        const dLat = result.lat - cityRef.lat;
+        const dLon = result.lon - cityRef.lon;
+        const approxKm = Math.sqrt(dLat * dLat + dLon * dLon) * 111;
+        if (approxKm > 30) continue;
+      }
+      return result;
+    }
   }
 
   return null;
