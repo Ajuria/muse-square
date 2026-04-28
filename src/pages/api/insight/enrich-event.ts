@@ -39,7 +39,8 @@ export async function POST({ request }: { request: Request }) {
     const cacheQuery = event_uid
       ? `
         SELECT confirmed_dates, venue_name, venue_address, venue_capacity,
-               organizer, estimated_attendance, audience_profile, source_url,
+               organizer, estimated_attendance, audience_profile,
+               primary_audience, secondary_audience, source_url,
                business_takeaway
         FROM \`muse-square-open-data.dims.dim_event_enrichment\`
         WHERE event_uid = @event_uid
@@ -49,7 +50,8 @@ export async function POST({ request }: { request: Request }) {
       `
       : `
         SELECT confirmed_dates, venue_name, venue_address, venue_capacity,
-               organizer, estimated_attendance, audience_profile, source_url,
+               organizer, estimated_attendance, audience_profile,
+               primary_audience, secondary_audience, source_url,
                business_takeaway
         FROM \`muse-square-open-data.dims.dim_event_enrichment\`
         WHERE event_label = @event_label
@@ -112,7 +114,8 @@ export async function POST({ request }: { request: Request }) {
       venue_capacity: "capacité d'accueil du lieu ou null",
       organizer: "nom de l'organisateur ou null",
       estimated_attendance: "fréquentation estimée ou null",
-      audience_profile: "profil du public en 10 mots max ou null",
+      primary_audience: "public principal ciblé en 5 mots max ou null",
+      secondary_audience: "public secondaire ciblé en 5 mots max ou null",
       source_url: "URL officielle de l'événement ou null",
       business_takeaway: `1 phrase maximum en français depuis le point de vue d'un opérateur de type '${company_activity_type ?? "événementiel"}' situé à ${distance_m ? Math.round(Number(distance_m)) + "m" : "proximité"}. Utilise la description fournie et ce que tu as trouvé en ligne. Ne pas évaluer la pression concurrentielle globale du jour. Si informations insuffisantes, retourne null.`,
     }
@@ -174,7 +177,8 @@ export async function POST({ request }: { request: Request }) {
       venue_capacity:       parsed.venue_capacity ?? null,
       organizer:            parsed.organizer ?? null,
       estimated_attendance: parsed.estimated_attendance ?? null,
-      audience_profile:     parsed.audience_profile ?? null,
+      primary_audience:     parsed.primary_audience ?? null,
+      secondary_audience:   parsed.secondary_audience ?? null,
       source_url:           parsed.source_url ?? null,
       business_takeaway:    parsed.business_takeaway ?? null,
     };
