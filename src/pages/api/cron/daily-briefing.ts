@@ -163,11 +163,13 @@ export const GET: APIRoute = async ({ request }) => {
           p.primary_audience_1,
           p.primary_audience_2,
           p.company_name,
-          p.city_name,
-          p.region_name,
-          p.client_industry_code,
+          d.city_name,
+          d.region_name,
+          d.client_industry_code,
           n.last_daily_email_sent_at
         FROM \`${projectId}.raw.insight_event_user_location_profile\` p
+        LEFT JOIN \`${projectId}.dims.dim_client_location\` d
+          ON p.location_id = d.location_id
         LEFT JOIN \`${projectId}.raw.notification_preferences\` n
           ON p.clerk_user_id = n.clerk_user_id
         WHERE p.email IS NOT NULL
