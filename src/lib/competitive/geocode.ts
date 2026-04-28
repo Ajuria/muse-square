@@ -15,15 +15,31 @@ export interface GeocodeResult {
 /**
  * Geocode using BAN API. Tries address+city first, then name+city as fallback.
  */
+function cleanCity(raw: string): string {
+  let c = raw
+    .replace(/\(.*?\)/g, "")
+    .replace(/Île-de-France|Occitanie|PACA|Provence-Alpes-Côte d'Azur|Auvergne-Rhône-Alpes|Nouvelle-Aquitaine|Bretagne|Normandie|Grand Est|Hauts-de-France|Pays de la Loire|Centre-Val de Loire|Bourgogne-Franche-Comté|Corse/gi, "")
+    .replace(/\d+(st|nd|rd|th)\s+arrondissement/gi, "")
+    .replace(/\d+e(me|ème)?\s+arrondissement/gi, "")
+    .replace(/\d+e\s+/g, "")
+    .replace(/arrondissement/gi, "")
+    .replace(/[,·]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (/paris/i.test(c)) c = "Paris";
+  return c || raw;
+}
+
 export async function geocodeCompetitor(
   competitorName: string,
   city: string | null,
   address: string | null
 ): Promise<GeocodeResult | null> {
+  const cleanedCity = city ? cleanCity(city) : null;
   const queries: string[] = [];
-  if (address && city) queries.push(`${address}, ${city}`);
+  if (address && cleanedCity) queries.push(`${address}, ${cleanedCity}`);
   else if (address) queries.push(address);
-  if (competitorName && city) queries.push(`${competitorName} ${city}`);
+  if (competitorName && cleanedCity) queries.push(`${competitorName} ${cleanedCity}`);
   else if (competitorName) queries.push(competitorName);
 
   for (const q of queries) {
