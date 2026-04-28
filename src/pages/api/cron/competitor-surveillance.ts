@@ -742,6 +742,68 @@ export const GET: APIRoute = async ({ request }) => {
           location: BQ_LOCATION,
         });
 
+        // ── Backfill competitor address if missing ──
+          if (extraction.venue_address || extraction.event_city) {
+            try {
+              const [addrRow] = await bq.query({
+                query: `
+                  SELECT address, city
+                  FROM \`${projectId}.raw.competitor_directory\`
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                  LIMIT 1
+                `,
+                params: { competitor_id: comp.competitor_id },
+                types: { competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              const addrDir = (addrRow as any[])[0];
+              const needsAddress = addrDir && !addrDir.address && extraction.venue_address;
+              const needsCity = addrDir && (!addrDir.city || addrDir.city.length > 30) && extraction.event_city;
+              if (needsAddress || needsCity) {
+                const updates: string[] = [];
+                const params: Record<string, any> = { competitor_id: comp.competitor_id };
+                const types: Record<string, string> = { competitor_id: "STRING" };
+                if (needsAddress) {
+                  updates.push("address = @address");
+                  params.address = extraction.venue_address;
+                  types.address = "STRING";
+                }
+                if (needsCity) {
+                  updates.push("city = @clean_city");
+                  params.clean_city = extraction.event_city;
+                  types.clean_city = "STRING";
+                }
+                updates.push("updated_at = CURRENT_TIMESTAMP()");
+                await bq.query({
+                  query: `
+                    UPDATE \`${projectId}.raw.competitor_directory\`
+                    SET ${updates.join(", ")}
+                    WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                  `,
+                  params,
+                  types,
+                  location: BQ_LOCATION,
+                });
+                // Reset lat/lon so geocode backfill picks up the new address
+                if (needsAddress) {
+                  await bq.query({
+                    query: `
+                      UPDATE \`${projectId}.raw.competitor_directory\`
+                      SET lat = NULL, lon = NULL, updated_at = CURRENT_TIMESTAMP()
+                      WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                        AND lat IS NULL
+                    `,
+                    params: { competitor_id: comp.competitor_id },
+                    types: { competitor_id: "STRING" },
+                    location: BQ_LOCATION,
+                  });
+                }
+              }
+            } catch (addrErr: any) {
+              console.error("[competitor-surveillance] address backfill failed:", addrErr?.message);
+            }
+          }
+
         } // close for (const extraction of extractionArray)
 
         extractionStatus = anySuccess ? "success" : anyPartial ? "partial" : "failed";
