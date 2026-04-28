@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
+import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
 
 export const prerender = false;
 
@@ -247,32 +248,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let discovered_url: string | null = null;
     let discovery_status: "found" | "not_found" | "skipped" = "skipped";
 
-    const AGENDA_PATTERNS = [
-      "agenda", "programme", "events", "calendar", "manifestation",
-      "what-s-on", "au-programme", "expositions", "spectacles",
-    ];
-
-    function isHomepagePath(url: string): boolean {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return !path || path === "/" || /^\/(fr|en|de|es|it)\/?$/.test(path);
-      } catch { return false; }
-    }
-
-    function isAgendaPath(url: string): boolean {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return AGENDA_PATTERNS.some(p => path.includes(p));
-      } catch { return false; }
-    }
-
-    function scoreUrl(url: string): number {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return AGENDA_PATTERNS.filter(p => path.includes(p)).length;
-      } catch { return 0; }
-    }
-
     if (source_url) {
       const browserless_token = process.env.BROWSERLESS_TOKEN ?? "";
 
@@ -311,81 +286,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         crawl_status = "blocked";
       }
 
-      // URL discovery — always when source is a homepage, regardless of accessibility
-      if (
-        isHomepagePath(source_url) &&
-        !isAgendaPath(source_url)
-      ) {
-        try {
-          const discoverBql = `mutation DiscoverLinks {
-            goto(url: "${source_url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
-            verify(type: cloudflare) { found solved }
-            evaluate(content: "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => a.href).filter(h => h.startsWith('http')).slice(0, 100))") { value }
-          }`;
+      // URL discovery — find agenda/programme URL if source is a homepage
+      if (isHomepagePath(source_url) && !isAgendaPath(source_url)) {
+        const discovery = await discoverAgendaUrl(
+          source_url,
+          browserless_token,
+          10_000
+        );
+        discovered_url = discovery.discovered_url;
+        discovery_status = discovery.discovery_status === "found" ? "found" : "not_found";
 
-          const discoverRes = await fetch(
-            `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
-            {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ query: discoverBql }),
-              signal: AbortSignal.timeout(15000),
-            }
-          );
-
-          if (discoverRes.ok) {
-            const discoverResult = await discoverRes.json();
-            const raw = discoverResult?.data?.evaluate?.value || "[]";
-            const allLinks: string[] = JSON.parse(raw);
-
-            // Filter to same origin, score, take top 3
-            const origin = new URL(source_url).origin;
-            const candidates = allLinks
-              .filter(h => {
-                try { return new URL(h).origin === origin && isAgendaPath(h); } catch { return false; }
-              })
-              .map(h => ({ url: h, score: scoreUrl(h) }))
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 3);
-
-            // Test each candidate with a lightweight check
-            for (const candidate of candidates) {
-              try {
-                const testBql = `mutation CheckPage {
-                  goto(url: "${candidate.url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
-                  text { text }
-                }`;
-                const testRes = await fetch(
-                  `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
-                  {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ query: testBql }),
-                    signal: AbortSignal.timeout(10000),
-                  }
-                );
-                if (testRes.ok) {
-                  const testResult = await testRes.json();
-                  const text = testResult?.data?.text?.text || "";
-                  if (text.length > 100) {
-                    discovered_url = candidate.url;
-                    discovery_status = "found";
-                    break;
-                  }
-                }
-              } catch { /* try next */ }
-            }
-
-            if (discovery_status !== "found") {
-              discovery_status = "not_found";
-            }
-          }
-        } catch (discoverErr: any) {
-          console.error("[add-competitor] url discovery failed:", discoverErr?.message);
-          discovery_status = "not_found";
-        }
-
-        // If a better URL was found, update both watched_competitors and competitor_directory
         if (discovered_url) {
           await bq.query({
             query: `

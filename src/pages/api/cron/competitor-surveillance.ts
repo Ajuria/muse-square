@@ -22,6 +22,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
+import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
 
 export const prerender = false;
 
@@ -760,6 +761,46 @@ export const GET: APIRoute = async ({ request }) => {
           },
           location: BQ_LOCATION,
         });
+
+        // ── URL discovery on failure — find a better URL if current one fails ──
+        if (
+          (extractionStatus === "fetch_error" || extractionStatus === "failed") &&
+          comp.source_url &&
+          process.env.BROWSERLESS_TOKEN
+        ) {
+          try {
+            const discovery = await discoverAgendaUrl(
+              comp.source_url,
+              process.env.BROWSERLESS_TOKEN,
+              10_000
+            );
+            if (discovery.discovered_url && discovery.discovered_url !== comp.source_url) {
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET source_url = @discovered_url, updated_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.watched_competitors\`
+                  SET source_url = @discovered_url
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              results.errors.push(`${comp.competitor_id}: url_discovery=${discovery.discovery_status}, new_url=${discovery.discovered_url}`);
+            }
+          } catch (discErr: any) {
+            console.error("[competitor-surveillance] url discovery failed:", discErr?.message);
+          }
+        }
       }
     }
 
