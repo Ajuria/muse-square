@@ -23,6 +23,7 @@ import { makeBQClient } from "../../../lib/bq";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
+import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 
 export const prerender = false;
 
@@ -446,6 +447,45 @@ export const GET: APIRoute = async ({ request }) => {
       let extractionStatus: "success" | "partial" | "failed" | "fetch_error" = "failed";
       let extraction: ExtractionResult | null = null;
       let rawExtractionJson: string | null = null;
+
+      // ── Geocode backfill if lat/lon missing ──
+      if (comp.location_lat === null || comp.location_lon === null) {
+        try {
+          const [dirRow] = await bq.query({
+            query: `
+              SELECT competitor_name, city, address, lat, lon
+              FROM \`${projectId}.raw.competitor_directory\`
+              WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+              LIMIT 1
+            `,
+            params: { competitor_id: comp.competitor_id },
+            types: { competitor_id: "STRING" },
+            location: BQ_LOCATION,
+          });
+          const dir = (dirRow as any[])[0];
+          if (dir && (dir.lat === null || dir.lon === null)) {
+            const geo = await geocodeCompetitor(
+              String(dir.competitor_name ?? ""),
+              String(dir.city ?? ""),
+              dir.address ? String(dir.address) : null
+            );
+            if (geo) {
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { lat: geo.lat, lon: geo.lon, competitor_id: comp.competitor_id },
+                types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+            }
+          }
+        } catch (geoErr: any) {
+          console.error("[competitor-surveillance] geocode backfill failed:", geoErr?.message);
+        }
+      }
 
       // Get current max crawl_version for this competitor
       const [versionRows] = await bq.query({

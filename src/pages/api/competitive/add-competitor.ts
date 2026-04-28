@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
+import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 
 export const prerender = false;
 
@@ -174,6 +175,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
         },
         location: BQ_LOCATION,
       });
+    }
+
+    // ── 1b. Geocode if lat/lon missing ──
+    if (lat === null || lon === null) {
+      try {
+        const geo = await geocodeCompetitor(competitor_name, city, address);
+        if (geo) {
+          await bq.query({
+            query: `
+              UPDATE \`${projectId}.raw.competitor_directory\`
+              SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
+              WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+            `,
+            params: { lat: geo.lat, lon: geo.lon, competitor_id },
+            types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
+            location: BQ_LOCATION,
+          });
+        }
+      } catch (geoErr: any) {
+        console.error("[add-competitor] geocode failed:", geoErr?.message);
+      }
     }
 
     // ── 2. Upsert watched_competitors ──
