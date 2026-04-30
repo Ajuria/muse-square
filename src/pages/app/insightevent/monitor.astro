@@ -545,9 +545,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     if (sub === "event_new") {
-      const name = a?.event_label || "";
-      const distPart = km ? ` — à ${km}` : "";
-      return name ? `Concurrent : ${name}${distPart}.` : "";
+      const venue = a?.event_venue_name || "";
+      const city  = a?.city_name || "";
+      const locPart = [venue, city].filter(Boolean).join(", ");
+      return locPart || "Événement détecté à proximité.";
     }
 
     if (sub === "event_removed") return "";
@@ -589,7 +590,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (isOutdoorClient) return "Impact direct sur vos installations et la fr\u00e9quentation.";
       return "Impact probable sur la fr\u00e9quentation.";
     }
-    if (sub === "calendar_audience_shift") return nv || "";
+    if (sub === "calendar_audience_shift") return "";
     if (sub === "mobility_disruption_planned") return "Acc\u00e8s au site potentiellement impact\u00e9";
     if (sub === "mobility_disruption_resolved") return "Acc\u00e8s normalis\u00e9";
     if (sub === "regime_change") return "";
@@ -1279,7 +1280,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (sub === "mobility_disruption_resolved") return P("Mobilit\u00e9 \u2713", GREEN, GREEN_T);
       if (sub === "calendar_audience_shift") return P("Audience", INFO, INFO_T);
       if (sub === "regime_change") return P("Contexte", WARN, WARN_T);
-      if (sub === "event_new") return P("Nouveau concurrent", LOW, LOW_T);
+      if (sub === "event_new") return P("Nouvel événement", LOW, LOW_T);
       if (sub === "score_up") return P("Score \u2191", GREEN, GREEN_T);
       if (sub === "score_down") return P("Score \u2193", RISK, RISK_T);
       if (sub === "ranking_up") return P("Classement \u2191", LOW, LOW_T);
@@ -1372,7 +1373,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       <div style="margin-top:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;">Fil d'activité</span>
-          <span style="font-size:11px;color:#9ca3af;">${totalCount} signal${totalCount > 1 ? "aux" : ""}</span>
+          <span style="font-size:11px;color:#9ca3af;">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;">
           ${groupsHtml}

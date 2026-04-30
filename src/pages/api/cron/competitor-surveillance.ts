@@ -431,9 +431,9 @@ export const GET: APIRoute = async ({ request }) => {
     const comp = competitors[0];
     // Skip if this competitor was already crawled in the last 12 hours
     const lastCrawledRaw = (comp as any)?.last_crawled;
-    const lastCrawledStr = lastCrawledRaw?.value ?? String(lastCrawledRaw ?? "");
+    const lastCrawledStr = lastCrawledRaw?.value ?? (lastCrawledRaw != null ? String(lastCrawledRaw) : "");
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    if (comp && lastCrawledStr && lastCrawledStr > twelveHoursAgo) {
+    if (comp && lastCrawledStr && lastCrawledStr !== "" && lastCrawledStr > twelveHoursAgo) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "all_competitors_crawled_recently", ...results }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -868,7 +868,7 @@ export const GET: APIRoute = async ({ request }) => {
 
         // ── URL discovery on failure — find a better URL if current one fails ──
         if (
-          (extractionStatus === "fetch_error" || extractionStatus === "failed") &&
+          (extractionStatus === "fetch_error" || extractionStatus === "failed" || extractionStatus === "partial") &&
           comp.source_url &&
           process.env.BROWSERLESS_TOKEN
         ) {
