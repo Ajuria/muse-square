@@ -66,4 +66,14 @@
   --color-pill-source-mid-text: #C2410C;
   --color-pill-source-low-bg: #F3F4F6;
   --color-pill-source-low-text: #6b7280;
+
+  /* ---- Competitor event dot colors ---- */
+--color-dot-audience: #dc2626;
+--color-dot-industry: #C2410C;
+--color-dot-proximity: #0b37e5;
+--color-dot-neutral: #9ca3af;
+
+/* ---- Info pill (seasonality, etc.) ---- */
+--color-pill-info-bg: #faf5ff;
+--color-pill-info-text: #6b21a8;
   }

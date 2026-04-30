@@ -39,6 +39,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
           event_city,
           distance_from_location_m,
           conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
           industry_overlap,
           audience_overlap,
           distance_flag,
@@ -111,6 +117,53 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
     const followed_count = Number((countRows as any[])[0]?.cnt ?? 0);
 
+    // ---- Query 3: Top unfollowed threats (entity-level discovery) ----
+    const [threatRows] = await bq.query({
+      query: `
+        SELECT
+          competitor_id,
+          competitor_name,
+          is_followed,
+          threat_score,
+          threat_level,
+          audience_overlap_pct,
+          industry_match_tier,
+          distance_km,
+          location_primary_audience_1,
+          location_primary_audience_2,
+          competitor_primary_audience,
+          competitor_secondary_audience,
+          competitor_industry_code,
+          competitor_google_rating,
+          competitor_google_rating_count
+        FROM \`${projectId}.mart.fct_competitor_threat_profile\`
+        WHERE location_id = @location_id
+          AND is_followed = false
+        ORDER BY threat_score DESC
+        LIMIT 10
+      `,
+      params: { location_id },
+      types: { location_id: "STRING" },
+      location: BQ_LOCATION,
+    });
+
+    const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({
+      competitor_id:              r.competitor_id,
+      competitor_name:            r.competitor_name ?? null,
+      threat_score:               r.threat_score ?? 0,
+      threat_level:               r.threat_level ?? null,
+      audience_overlap_pct:       r.audience_overlap_pct ?? 0,
+      industry_match_tier:        r.industry_match_tier ?? null,
+      distance_km:                r.distance_km ?? null,
+      location_primary_audience_1: r.location_primary_audience_1 ?? null,
+      location_primary_audience_2: r.location_primary_audience_2 ?? null,
+      competitor_primary_audience: r.competitor_primary_audience ?? null,
+      competitor_secondary_audience: r.competitor_secondary_audience ?? null,
+      competitor_industry_code:   r.competitor_industry_code ?? null,
+      competitor_google_rating:   r.competitor_google_rating ?? null,
+      competitor_google_rating_count: r.competitor_google_rating_count ?? null,
+    }));
+
     const signals = (Array.isArray(rows) ? rows : []).map((r: any) => ({
       competitor_event_id:      r.competitor_event_id,
       competitor_id:            r.competitor_id,
@@ -123,6 +176,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       event_city:               r.event_city ?? null,
       distance_from_location_m: r.distance_from_location_m ?? null,
       conflict_score:           r.conflict_score ?? 0,
+      entity_threat_score:          r.entity_threat_score ?? null,
+      entity_threat_level:          r.entity_threat_level ?? null,
+      entity_threat_audience_pct:   r.entity_threat_audience_pct ?? null,
+      entity_threat_industry_tier:  r.entity_threat_industry_tier ?? null,
+      entity_threat_seasonality_flag: r.entity_threat_seasonality_flag ?? null,
+      entity_threat_distance_km:    r.entity_threat_distance_km ?? null,
       industry_overlap:         r.industry_overlap ?? false,
       audience_overlap:         r.audience_overlap ?? false,
       distance_flag:            r.distance_flag ?? false,
@@ -142,7 +201,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       event_type:                 r.event_type ?? null,
     }));
 
-    return new Response(JSON.stringify({ ok: true, signals, followed_count }), {
+    return new Response(JSON.stringify({ ok: true, signals, followed_count, top_threats }), {
       status: 200, headers: { "content-type": "application/json" },
     });
 

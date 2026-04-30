@@ -91,6 +91,12 @@ export const GET: APIRoute = async ({ request }) => {
           ca.new_value,
           ca.distance_m,
           ca.conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
           ca.watched_event_name         AS title,
           p.email,
           p.first_name,
@@ -98,7 +104,7 @@ export const GET: APIRoute = async ({ request }) => {
           p.location_type,
           p.primary_audience_1,
           p.main_event_objective
-        FROM \`${projectId}.raw.competitor_alerts\` ca
+        FROM \`${projectId}.semantic.vw_insight_event_competitor_alerts\` ca
         JOIN \`${projectId}.raw.insight_event_user_location_profile\` p
           ON ca.clerk_user_id = p.clerk_user_id
           AND ca.location_id = p.location_id

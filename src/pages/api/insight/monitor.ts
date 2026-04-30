@@ -264,10 +264,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
             direction,
             distance_m,
             conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
             watched_event_id,
             watched_event_name,
             created_at
-          FROM \`muse-square-open-data.raw.competitor_alerts\`
+          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_alerts\`
           WHERE location_id = @location_id
             AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
           ORDER BY alert_level DESC, created_at DESC
