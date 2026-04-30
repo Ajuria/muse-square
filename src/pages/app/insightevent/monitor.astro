@@ -307,7 +307,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const feedDate = normalizeYmd(a?.feed_date);
       if (!affected) return false;
 
-      const isMobility = String(a?.change_category || "").toLowerCase() === "mobility";
+      const isMobility = String(a?.change_category || "").toLowerCase() === "mobility"
+        || String(a?.change_subtype || "").toLowerCase().startsWith("mobility_");
       const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
                         String(a?.change_subtype  || "").toLowerCase() === "weather_change";
 
@@ -320,6 +321,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         const fd = feedDate ? new Date(feedDate).getTime() : 0;
         if (fd > 0 && fd <= lastVisitTs) return false;
       }
+
+      // Skip mobility items with no mode (unmatched road incidents)
+      if (isMobility && !a?.mobility_mode) return false;
 
       return true;
     });
@@ -391,6 +395,36 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // Feed rendering (identical to monitor.astro)
   // ----------------------------------------------------------------
+  function feedModeIcon(mode) {
+    const m = String(mode || "").toLowerCase();
+    if (m === "metro" || m === "métro") return '<span style="width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#EDE9FE;color:#5B21B6;">M</span>';
+    if (m === "bus") return '<span style="width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#DBEAFE;color:#1E40AF;">B</span>';
+    if (m === "rer") return '<span style="width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#FEF3C7;color:#92400E;">R</span>';
+    if (m === "tram") return '<span style="width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#D1FAE5;color:#065F46;">T</span>';
+    if (m === "road") return '<span style="width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#FEE2E2;color:#991B1B;">R</span>';
+    return '';
+  }
+
+  function feedDistancePill(distM) {
+    if (distM == null || !Number.isFinite(Number(distM))) return '';
+    const d = Number(distM);
+    const label = d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km';
+    const cls = d < 500 ? 'background:#FEF2F2;color:#991B1B;' : d < 3000 ? 'background:#FFFBEB;color:#92400E;' : 'background:#F3F4F6;color:#6B7280;';
+    return '<span style="display:inline-flex;align-items:center;font-size:10px;padding:1px 7px;border-radius:3px;font-weight:600;' + cls + '">' + label + '</span>';
+  }
+
+  function feedMobilityImpact(distM, mode) {
+    const d = Number(distM || 0);
+    const m = String(mode || "").toLowerCase();
+    if (!d || !Number.isFinite(d)) return '';
+    if (m === "road") {
+      if (d < 2000) return 'Acc\u00e8s v\u00e9hicules impact\u00e9';
+      return 'Impact livraisons / prestataires';
+    }
+    if (d < 500) return 'Impact acc\u00e8s clients';
+    return 'Transport en commun';
+  }
+  
   function feedLine1(a) {
     const sub  = String(a?.change_subtype || "").toLowerCase();
     const d    = fmtDateShort(normalizeYmd(a?.affected_date));
@@ -399,6 +433,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const delta = a?.score_delta != null ? Math.round(Number(a.score_delta)) : null;
     const name  = a?.event_label || "";
     const km    = a?.distance_m != null ? `${(Number(a.distance_m)/1000).toFixed(1)} km` : null;
+    const mode  = String(a?.mobility_mode || "").toLowerCase();
     const lvlRain = Number(a?.lvl_rain || 0);
     const lvlWind = Number(a?.lvl_wind || 0);
     const lvlSnow = Number(a?.lvl_snow || 0);
@@ -466,11 +501,20 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return `Conditions normalis\u00e9es${ov && nv ? ` (niv. ${ov} \u2192 ${nv})` : ""}`;
     }
     if (sub === "mobility_disruption") {
-      const count = ov || "1";
-      return `${count} incident(s) d\u00e9tect\u00e9(s)`;
+      if (name && name !== "Signal d\u00e9tect\u00e9" && name !== "Perturbation mobilit\u00e9") return name;
+      const cat = a?.mobility_disruption_category || "";
+      if (mode === "road") return cat || "Incident routier";
+      return cat || "Perturbation mobilit\u00e9";
     }
-    if (sub === "mobility_disruption_planned") return `Perturbation planifi\u00e9e \u00b7 ${d}`;
-    if (sub === "mobility_disruption_resolved") return "Perturbation r\u00e9solue";
+    if (sub === "mobility_disruption_planned") {
+      if (name && name !== "Signal d\u00e9tect\u00e9") return name;
+      return "Travaux pr\u00e9vus";
+    }
+    if (sub === "mobility_disruption_resolved") {
+      if (mode === "road") return "Circulation r\u00e9tablie";
+      if (name && name !== "Signal d\u00e9tect\u00e9") return name.replace(/Travaux.*/, "Trafic r\u00e9tabli");
+      return "Trafic r\u00e9tabli";
+    }
     if (sub === "calendar_audience_shift") return nv || "Changement d\u2019audience";
     if (sub === "regime_change") return `Contexte : ${ov || "?"} \u2192 ${nv || "?"}`;
     if (sub === "ranking_up") return `${ov}e \u2192 ${nv}e position`;
@@ -566,9 +610,17 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     if (sub === "weather_improved") return "Risque météo réduit sur cette date.";
 
     if (sub === "mobility_disruption") {
-      if (hasActiveEvent && activeTitle) return `Accès au site potentiellement impacté pendant votre événement "${activeTitle}".`;
-      if (capSens === "high" || capSens === "élevée") return "Accès perturbé — votre activité dépend d'une fréquentation élevée.";
-      return "Accès au site potentiellement impacté.";
+      const mode = String(a?.mobility_mode || "").toLowerCase();
+      const distM = Number(a?.distance_m || 0);
+      if (hasActiveEvent && activeTitle) return `Acc\u00e8s impact\u00e9 pendant votre \u00e9v\u00e9nement \u201c${activeTitle}\u201d`;
+      if (mode === "road") {
+        if (distM > 0 && distM < 2000) return "Incident \u00e0 proximit\u00e9 \u2014 acc\u00e8s v\u00e9hicules perturb\u00e9";
+        if (distM > 0) return "Incident routier \u2014 impact potentiel sur les livraisons";
+        return "Incident routier d\u00e9tect\u00e9";
+      }
+      if (distM > 0 && distM < 500) return "Acc\u00e8s visiteurs impact\u00e9 \u2014 station la plus proche \u00e0 " + Math.round(distM) + " m";
+      if (distM > 0) return "Ligne desservant votre zone \u2014 arr\u00eat le plus proche \u00e0 " + Math.round(distM) + " m";
+      return "Acc\u00e8s au site potentiellement impact\u00e9";
     }
 
     if (sub === "ranking_up")   return "Cette date gagne en attractivit\u00e9 relative dans votre r\u00e9gion.";
@@ -591,8 +643,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return "Impact probable sur la fr\u00e9quentation.";
     }
     if (sub === "calendar_audience_shift") return "";
-    if (sub === "mobility_disruption_planned") return "Acc\u00e8s au site potentiellement impact\u00e9";
-    if (sub === "mobility_disruption_resolved") return "Acc\u00e8s normalis\u00e9";
+    if (sub === "mobility_disruption_planned") return "Perturbation programm\u00e9e \u2014 anticiper un plan d\u2019acc\u00e8s alternatif";
+    if (sub === "mobility_disruption_resolved") {
+      const mode = String(a?.mobility_mode || "").toLowerCase();
+      if (mode === "road") return "Axe routier de nouveau accessible";
+      return "Acc\u00e8s normalis\u00e9 \u2014 la ligne dessert \u00e0 nouveau votre zone";
+    }
     if (sub === "regime_change") return "";
     if (sub === "baseline_validity_change") return "";
     if (sub === "medal_change") return "";
@@ -630,6 +686,15 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
     if (sub === "competitor_event_launch" || sub === "competitor_event_ending") return "Concurrent suivi";
     if (sub === "competitor_audience_conflict") return "Conflit : audience + date + proximit\u00e9";
+    if (sub === "mobility_disruption" || sub === "mobility_disruption_planned" || sub === "mobility_disruption_resolved") {
+      const distM = Number(a?.distance_m || 0);
+      const mode = String(a?.mobility_mode || "").toLowerCase();
+      const parts = [];
+      if (distM > 0) parts.push(feedDistancePill(distM));
+      const impact = feedMobilityImpact(distM, mode);
+      if (impact) parts.push(impact);
+      return parts.join(' \u00b7 ');
+    }
     return "";
   }
 
@@ -1276,8 +1341,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (sub === "mega_event_end") return P("Fin m\u00e9ga-\u00e9v\u00e9n.", GREEN, GREEN_T);
       if (sub === "weather_hazard_onset" || sub === "weather_worsened") return P("M\u00e9t\u00e9o", WARN, WARN_T);
       if (sub === "weather_improved") return P("M\u00e9t\u00e9o \u2713", GREEN, GREEN_T);
-      if (sub === "mobility_disruption" || sub === "mobility_disruption_planned") return P("Mobilit\u00e9", WARN, WARN_T);
-      if (sub === "mobility_disruption_resolved") return P("Mobilit\u00e9 \u2713", GREEN, GREEN_T);
+      if (sub === "mobility_disruption" || sub === "mobility_disruption_planned") {
+        const mode = String(a?.mobility_mode || "").toLowerCase();
+        const label = mode === "road" ? "Mobilit\u00e9" : "Mobilit\u00e9";
+        return P(label, WARN, WARN_T) + ' ' + feedModeIcon(a?.mobility_mode);
+      }
+      if (sub === "mobility_disruption_resolved") return P("Mobilit\u00e9 \u2713", GREEN, GREEN_T) + ' ' + feedModeIcon(a?.mobility_mode);
       if (sub === "calendar_audience_shift") return P("Audience", INFO, INFO_T);
       if (sub === "regime_change") return P("Contexte", WARN, WARN_T);
       if (sub === "event_new") return P("Nouvel événement", LOW, LOW_T);
@@ -1330,7 +1399,24 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const locLabels = new Set(dayItems.map(a => a?.location_label).filter(Boolean));
       const showLocPill = isMultisite && locLabels.size > 1;
 
-      const itemsHtml = dayItems.map((a, idx) => {
+      // Interleave by type within each date: round-robin by change_subtype, highest alert first
+      const byType = new Map();
+      for (const a of dayItems) {
+        const t = a?.change_subtype || "other";
+        if (!byType.has(t)) byType.set(t, []);
+        byType.get(t).push(a);
+      }
+      const typeQueues = [...byType.values()].sort((a, b) => (Number(b[0]?.alert_level)||0) - (Number(a[0]?.alert_level)||0));
+      const interleaved = [];
+      let hasMore = true;
+      while (hasMore) {
+        hasMore = false;
+        for (const q of typeQueues) {
+          if (q.length) { interleaved.push(q.shift()); hasMore = true; }
+        }
+      }
+
+      const itemsHtml = interleaved.map((a, idx) => {
         const line1 = feedLine1(a);
         if (!line1) return "";
         const line2 = feedLine2(a);
@@ -1340,7 +1426,18 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         const typePill = feedTypePill(a);
         const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
 
-        const ctaHtml = cta ? `<button type="button" data-feed-cta="${escapeHtml(cta.action)}" data-feed-idx="${idx}" style="flex-shrink:0;align-self:center;padding:5px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">${escapeHtml(cta.label)} \u2192</button>` : "";
+        const ctaHtml = (() => {
+          if (!cta) return "";
+          const sub = String(a?.change_subtype || "").toLowerCase();
+          if (sub === "event_new") {
+            const uid = escapeHtml(String(a?.entity_id || idx));
+            return '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;align-self:center;">'
+              + '<button type="button" data-feed-follow="' + uid + '" data-follow-label="' + escapeHtml(a?.event_label || '') + '" data-follow-venue="' + escapeHtml(a?.event_venue_name || '') + '" data-follow-city="' + escapeHtml(a?.city_name || '') + '" data-follow-date="' + escapeHtml(normalizeYmd(a?.affected_date) || '') + '" data-follow-industry="' + escapeHtml(a?.industry_code || '') + '" style="padding:5px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">Suivre \u2192</button>'
+              + '<button type="button" data-feed-enrich="' + uid + '" data-enrich-label="' + escapeHtml(a?.event_label || '') + '" data-enrich-venue="' + escapeHtml(a?.event_venue_name || '') + '" data-enrich-city="' + escapeHtml(a?.city_name || '') + '" data-enrich-distance="' + (a?.distance_m != null ? Math.round(Number(a.distance_m)) : '') + '" data-enrich-industry="' + escapeHtml(a?.industry_code || '') + '" data-enrich-uid="' + escapeHtml(a?.entity_id || '') + '" style="font-size:10px;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;">Voir plus \u2192</button>'
+            + '</div>';
+          }
+          return '<button type="button" data-feed-cta="' + escapeHtml(cta.action) + '" data-feed-idx="' + idx + '" style="flex-shrink:0;align-self:center;padding:5px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">' + escapeHtml(cta.label) + ' \u2192</button>';
+        })();
 
         return `
           <div style="padding:10px 14px;${idx > 0 ? "border-top:1px solid #f3f4f6;" : ""}border-left:3px solid ${borderCol};margin-left:-1px;">
@@ -1349,7 +1446,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
                 <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${locPill}${typePill}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px;">${escapeHtml(line1)}</div>
                 ${line2 ? `<div style="font-size:11.5px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
-                ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:2px;">${escapeHtml(line4)}</div>` : ""}
+                ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
+                <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
               </div>
               ${ctaHtml}
             </div>
@@ -1923,6 +2021,126 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       });
     }
 
+    // Feed "Suivre" handlers (event_new)
+    root.querySelectorAll("[data-feed-follow]").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        btn.disabled = true;
+        btn.textContent = "...";
+        const label = btn.getAttribute("data-follow-label") || "";
+        const venue = btn.getAttribute("data-follow-venue") || "";
+        const city = btn.getAttribute("data-follow-city") || "";
+        const date = btn.getAttribute("data-follow-date") || "";
+        const industry = btn.getAttribute("data-follow-industry") || "";
+        try {
+          const [compRes, evRes] = await Promise.all([
+            venue && city ? fetch("/api/competitive/add-competitor", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ competitor_name: venue, city: city, industry_code: industry || null }),
+            }) : Promise.resolve(null),
+            label && city && date ? fetch("/api/competitive/add-event", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ event_name: label, event_city: city, date_start: date }),
+            }) : Promise.resolve(null),
+          ]);
+          const compOk = !compRes || (await compRes.json().catch(() => null))?.ok;
+          const evOk = !evRes || (await evRes.json().catch(() => null))?.ok;
+          if (compOk || evOk) {
+            btn.textContent = "Suivi \u2713";
+            btn.style.background = "#dcfce7";
+            btn.style.borderColor = "#bbf7d0";
+            btn.style.color = "#166534";
+          } else {
+            btn.textContent = "Erreur";
+            btn.style.background = "#fef2f2";
+            btn.style.borderColor = "#fecaca";
+            btn.style.color = "#991b1b";
+            btn.disabled = false;
+          }
+        } catch {
+          btn.textContent = "Erreur";
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // Feed "Voir plus" enrich handlers (event_new)
+    root.querySelectorAll("[data-feed-enrich]").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const idx = btn.getAttribute("data-feed-enrich");
+        const panel = root.querySelector('[data-feed-enrich-panel="' + idx + '"]');
+        if (!panel) return;
+
+        if (panel.style.display !== "none" && panel.innerHTML.trim()) {
+          panel.style.display = "none";
+          btn.textContent = "Voir plus \u2192";
+          return;
+        }
+
+        panel.style.display = "block";
+        panel.innerHTML = '<div style="font-size:12px;color:#9CA3AF;padding:8px 0;display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border:1.5px solid #E5E7EB;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Recherche en cours\u2026</div>';
+        btn.textContent = "R\u00e9duire \u2191";
+
+        try {
+          const res = await fetch("/api/insight/enrich-event", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              event_label: btn.getAttribute("data-enrich-label") || "",
+              description: "",
+              city_name: btn.getAttribute("data-enrich-city") || "",
+              event_venue_name: btn.getAttribute("data-enrich-venue") || "",
+              event_uid: btn.getAttribute("data-enrich-uid") || null,
+              city_id: null,
+              distance_m: btn.getAttribute("data-enrich-distance") ? Number(btn.getAttribute("data-enrich-distance")) : null,
+              radius_bucket: null,
+              industry_code: btn.getAttribute("data-enrich-industry") || null,
+            }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!json?.ok || !json?.data) throw new Error("R\u00e9ponse invalide");
+          const d = json.data;
+          const rows = [
+            d.confirmed_dates      ? ["Dates",        d.confirmed_dates]      : null,
+            d.venue_name           ? ["Lieu",          d.venue_name]           : null,
+            d.venue_capacity       ? ["Capacit\u00e9", d.venue_capacity]       : null,
+            d.organizer            ? ["Organisateur",  d.organizer]            : null,
+            d.estimated_attendance ? ["Fr\u00e9quentation", d.estimated_attendance] : null,
+          ].filter(Boolean);
+          const tags = d.audience_profile ? d.audience_profile.split(/[,;]/).map(t => t.trim()).filter(Boolean) : [];
+          panel.innerHTML = '<div style="background:#F9FAFB;border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;margin-top:4px;">'
+            + (rows.length ? '<div style="display:grid;grid-template-columns:1fr 1fr;">' + rows.map((r, i) =>
+              '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;' + (i % 2 === 0 && i < rows.length - 1 ? 'border-right:0.5px solid #F3F4F6;' : '') + '">'
+              + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">' + escapeHtml(r[0]) + '</div>'
+              + '<div style="font-size:13px;color:#111827;line-height:1.4;">' + escapeHtml(String(r[1])) + '</div>'
+              + '</div>'
+            ).join('') + '</div>' : '')
+            + (tags.length ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+              + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;">Audience</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(t => '<span style="font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;">' + escapeHtml(t) + '</span>').join('') + '</div>'
+              + '</div>' : '')
+            + (d.business_takeaway ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+              + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:5px;">Impact pour votre activit\u00e9</div>'
+              + '<div style="font-size:12px;color:#111827;line-height:1.55;">' + escapeHtml(d.business_takeaway) + '</div>'
+              + '</div>' : '')
+            + '<div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">'
+              + '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:flex;align-items:center;gap:5px;">'
+                + '<span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;flex-shrink:0;"></span>'
+                + 'Agent IA \u00b7 web'
+              + '</div>'
+              + (d.source_url ? '<a href="' + escapeHtml(d.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Source officielle \u2192</a>' : '')
+            + '</div>'
+          + '</div>';
+        } catch {
+          panel.innerHTML = '<div style="font-size:12px;color:#B91C1C;padding:4px 0;">Donn\u00e9es non disponibles.</div>';
+          btn.textContent = "Voir plus \u2192";
+        }
+      });
+    });
+
     // Feed CTA handlers
     root.querySelectorAll("[data-feed-cta]").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -1938,15 +2156,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             if (strip2Chevron) strip2Chevron.style.transform = "rotate(180deg)";
             strip2Body.scrollIntoView({ behavior: "smooth", block: "start" });
           }
-        } else if (action === "follow") {
-          // POST to add-competitor not yet wired — mark as added visually
-          btn.textContent = "Ajouté ✓";
-          btn.style.background = "#dcfce7";
-          btn.style.borderColor = "#bbf7d0";
-          btn.style.color = "#166534";
-          btn.disabled = true;
         }
-        // weather and mobility CTAs: no-op for now (could scroll to strip 1 or open detail)
+        if (action === "mobility") {
+          renderMonitor(data, item, selectedDate, "carte", monitorDates);
+        }
       });
     });
   }

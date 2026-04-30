@@ -180,6 +180,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // ----------------------------------------------------------------
     const feedQuery = `
       SELECT
+        entity_id,
         feed_date,
         affected_date,
         change_category,
@@ -204,6 +205,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         mobility_disruption_flag_region,
         nearest_transit_line_name,
         transit_network,
+        mobility_mode,
+        mobility_disruption_category,
         summary
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
@@ -297,6 +300,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const profile = profileRows?.[0] ?? null;
 
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
+      entity_id:                     r?.competitor_event_id                              ?? null,
       feed_date:                     r?.created_at?.value        ?? r?.created_at        ?? null,
       affected_date:                 r?.affected_date?.value     ?? r?.affected_date     ?? null,
       change_category:               r?.change_category                                  ?? "competition",
@@ -320,9 +324,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       mobility_status_region:        null,
       mobility_disruption_flag_region: null,
       nearest_transit_line_name:     null,
-      transit_network:               null,
+      transit_network:               r?.transit_network                                 ?? null,
+      mobility_mode:                 r?.mobility_mode                                   ?? null,
+      mobility_disruption_category:  r?.mobility_disruption_category                    ?? null,
       summary:                       null,
-      active_event_title:            r?.watched_event_name                               ?? null,
+      active_event_title:            r?.watched_event_name                              ?? null,
       active_event_type:             null,
       has_active_event:              Boolean(r?.watched_event_id),
       primary_audience_1:            profile?.primary_audience_1                        ?? null,
@@ -345,6 +351,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
+      entity_id:                     r?.entity_id                     ?? null,
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
       affected_date:                 r?.affected_date?.value ?? r?.affected_date ?? null,
       change_category:               r?.change_category               ?? null,
@@ -369,6 +376,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       mobility_disruption_flag_region: r?.mobility_disruption_flag_region ?? null,
       nearest_transit_line_name:     r?.nearest_transit_line_name     ?? null,
       transit_network:               r?.transit_network               ?? null,
+      mobility_mode:                 r?.mobility_mode                 ?? null,
+      mobility_disruption_category:  r?.mobility_disruption_category  ?? null,
       summary:                       r?.summary                       ?? null,
       active_event_title:            (() => {
         const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
