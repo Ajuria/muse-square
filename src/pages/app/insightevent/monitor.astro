@@ -1311,18 +1311,27 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         </div>`;
     }
 
-    // Group by affected_date DESC
-    const byDate = new Map();
+    // Group by category (4 buckets)
+    const CATEGORY_ORDER = [
+      { key: "mobility", label: "Mobilit\u00e9", match: (a) => String(a?.change_subtype||"").startsWith("mobility_") },
+      { key: "competition", label: "Concurrence", match: (a) => { const s = String(a?.change_subtype||""); return s === "event_new" || s === "competitor_event_launch" || s === "competitor_event_ending" || s === "competitor_audience_conflict" || s === "competition_pressure_spike" || s === "mega_event_activation" || s === "mega_event_end"; } },
+      { key: "weather", label: "M\u00e9t\u00e9o", match: (a) => { const s = String(a?.change_subtype||""); return s === "weather_worsened" || s === "weather_improved" || s === "weather_hazard_onset"; } },
+      { key: "context", label: "Contexte", match: (a) => true },
+    ];
+
+    const categoryBuckets = new Map();
+    for (const cat of CATEGORY_ORDER) categoryBuckets.set(cat.key, []);
     for (const a of allFeed) {
-      const d = normalizeYmd(a?.affected_date);
-      if (!d) continue;
-      if (!byDate.has(d)) byDate.set(d, []);
-      byDate.get(d).push(a);
+      for (const cat of CATEGORY_ORDER) {
+        if (cat.match(a)) { categoryBuckets.get(cat.key).push(a); break; }
+      }
     }
 
     const showAll = window.__plsV4FeedShowAll === true;
-    const dateEntries = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-    const displayed = showAll ? dateEntries : dateEntries.slice(0, 3);``
+    const categoryEntries = CATEGORY_ORDER
+      .map(cat => [cat, categoryBuckets.get(cat.key)])
+      .filter(([, items]) => items.length > 0);
+    const displayed = categoryEntries;
 
     function feedTypePill(a) {
       const sub = String(a?.change_subtype || "").toLowerCase();
@@ -1382,41 +1391,22 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return "var(--color-dot-neutral)";
     }
 
-    const groupsHtml = displayed.map(([d, dayItems]) => {
-      const dateLabel = (() => {
-        const today = todayYmd();
-        if (d === today) return "Aujourd'hui";
-        const dt = parseYmdToDate(d);
-        if (!dt) return d;
-        const currentYear = new Date().getFullYear();
-        const opts = dt.getUTCFullYear() !== currentYear
-          ? { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-          : { weekday: "long", day: "numeric", month: "long" };
-        const raw = new Intl.DateTimeFormat("fr-FR", opts).format(dt);
-        return raw.charAt(0).toUpperCase() + raw.slice(1);
-      })();
+    const groupsHtml = displayed.map(([cat, catItems]) => {
+      const groupLabel = cat.label + " (" + catItems.length + ")";
 
-      const locLabels = new Set(dayItems.map(a => a?.location_label).filter(Boolean));
+      const locLabels = new Set(catItems.map(a => a?.location_label).filter(Boolean));
       const showLocPill = isMultisite && locLabels.size > 1;
 
-      // Interleave by type within each date: round-robin by change_subtype, highest alert first
-      const byType = new Map();
-      for (const a of dayItems) {
-        const t = a?.change_subtype || "other";
-        if (!byType.has(t)) byType.set(t, []);
-        byType.get(t).push(a);
-      }
-      const typeQueues = [...byType.values()].sort((a, b) => (Number(b[0]?.alert_level)||0) - (Number(a[0]?.alert_level)||0));
-      const interleaved = [];
-      let hasMore = true;
-      while (hasMore) {
-        hasMore = false;
-        for (const q of typeQueues) {
-          if (q.length) { interleaved.push(q.shift()); hasMore = true; }
-        }
-      }
+      // Sort by alert_level DESC, then date DESC within category
+      const sorted = [...catItems].sort((a, b) => {
+        const lvlDiff = (Number(b?.alert_level)||0) - (Number(a?.alert_level)||0);
+        if (lvlDiff !== 0) return lvlDiff;
+        return String(b?.affected_date||"").localeCompare(String(a?.affected_date||""));
+      });
+      const maxVisible = showAll ? sorted.length : 5;
+      const visible = sorted.slice(0, maxVisible);
 
-      const itemsHtml = interleaved.map((a, idx) => {
+      const itemsHtml = visible.map((a, idx) => {
         const line1 = feedLine1(a);
         if (!line1) return "";
         const line2 = feedLine2(a);
@@ -1458,12 +1448,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
       return `
         <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:6px;">
-          <div style="padding:5px 14px;background:#f9fafb;font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(dateLabel)}</div>
+          <div style="padding:5px 14px;background:#f9fafb;font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(groupLabel)}</div>
           ${itemsHtml}
         </div>`;
     }).filter(Boolean).join("");
 
-    const showAllBtn = !showAll && dateEntries.length > 3
+    const hasHidden = !showAll && categoryEntries.some(([, items]) => items.length > 5);
+    const showAllBtn = hasHidden
       ? `<button type="button" id="pls-v4-feed-show-all" style="display:block;width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:500;color:#3b82f6;cursor:pointer;font-family:inherit;">Voir tout (${totalCount})</button>`
       : "";
 
