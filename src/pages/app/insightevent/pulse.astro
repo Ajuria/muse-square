@@ -178,6 +178,60 @@ if (!location_id) {
         text-transform: uppercase; cursor: pointer;
       }
       .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
+
+      /* ---- Daily Action Brief ---- */
+      .ab-card { background:#fff; border:1px solid #E8EDF5; border-radius:0; overflow:hidden; margin-bottom:8px; }
+      .ab-card-row { display:flex; }
+      .ab-bar { width:3px; flex-shrink:0; }
+      .ab-bar.ab-threat { background:#e24b4a; }
+      .ab-bar.ab-warning { background:#ef9f27; }
+      .ab-bar.ab-opportunity { background:#059669; }
+      .ab-inner { flex:1; min-width:0; }
+      .ab-summary { padding:14px 16px; cursor:pointer; }
+      .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+      .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:0; text-transform:uppercase; letter-spacing:0.03em; }
+      .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+      .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+      .ab-toggle { display:flex; align-items:center; padding:0 16px 12px; }
+      .ab-toggle-btn { font-size:12px; font-weight:700; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; display:flex; align-items:center; gap:5px; }
+      .ab-actions { display:none; padding:0 16px 14px; border-top:1px solid #F3F4F6; }
+      .ab-actions.is-open { display:block; }
+      .ab-action-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #F9FAFB; }
+      .ab-action-item:last-of-type { border-bottom:none; }
+      .ab-check { width:18px; height:18px; border:1.5px solid #d1d5db; border-radius:0; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; transition:all 0.1s; }
+      .ab-check.is-checked { background:#059669; border-color:#059669; }
+      .ab-action-text { font-size:12.5px; color:#111827; line-height:1.4; }
+      .ab-action-text.is-done { text-decoration:line-through; color:#6B7280; }
+      .ab-action-meta { font-size:10px; color:#6B7280; margin-top:2px; }
+      .ab-action-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; margin-left:auto; padding-top:2px; }
+      .ab-copy { font-size:10px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; white-space:nowrap; }
+      .ab-copy.is-copied { color:#059669; }
+      .ab-progress { display:flex; align-items:center; gap:8px; margin-top:8px; }
+      .ab-progress-bar { flex:1; height:3px; background:#E5E7EB; overflow:hidden; }
+      .ab-progress-fill { height:100%; background:#059669; transition:width 0.3s; }
+      .ab-progress-label { font-size:10px; color:#6B7280; white-space:nowrap; }
+      .ab-help-link { display:block; margin-top:10px; padding-top:10px; border-top:1px solid #F3F4F6; font-size:11px; color:#1D3BB3; text-decoration:none; font-weight:500; }
+      .ab-zero { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.15); border-radius:0; padding:16px 18px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:#059669; }
+      .ab-gen { font-size:10px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; white-space:nowrap; }
+      .ab-gen.is-loading { color:#9CA3AF; pointer-events:none; }
+      .ab-draft-panel { display:none; margin-top:8px; padding:10px 12px; background:#f8fafc; border:1px solid #E8EDF5; border-radius:8px; font-size:12px; color:#111827; line-height:1.5; }
+      .ab-draft-panel.is-open { display:block; }
+      .ab-draft-panel pre { white-space:pre-wrap; word-break:break-word; margin:0 0 8px; font-family:inherit; font-size:12px; }
+      .ab-draft-actions { display:flex; gap:12px; align-items:center; margin-top:6px; }
+      .ab-draft-copy { font-size:11px; font-weight:600; color:#059669; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
+      .ab-draft-regen { font-size:11px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
+      .ab-draft-dismiss { font-size:11px; color:#9CA3AF; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
+      .ab-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9999; align-items:flex-end; justify-content:center; }
+      .ab-overlay.is-open { display:flex; }
+      .ab-form-panel { background:#fff; width:100%; max-width:720px; border-top:3px solid #1D3BB3; padding:20px 20px 32px; animation:abSlideUp 0.2s ease-out; }
+      @keyframes abSlideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+      .ab-form-title { font-size:14px; font-weight:700; color:#111827; margin-bottom:14px; }
+      .ab-form-ctx { background:#f9fafb; border:1px solid #E8EDF5; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#6B7280; line-height:1.4; }
+      .ab-form-label { font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#6B7280; margin-bottom:6px; }
+      .ab-form-textarea { width:100%; padding:10px 12px; border:1px solid #E5E7EB; font-size:13px; color:#111827; background:#f9fafb; resize:vertical; min-height:80px; font-family:inherit; margin-bottom:14px; }
+      .ab-form-submit { width:100%; padding:12px; background:#1D3BB3; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+      .ab-form-cancel { width:100%; padding:10px; background:none; color:#6B7280; border:none; font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; margin-top:6px; }
+
     </style>
 
     <div class="mon-wrap">
@@ -197,6 +251,18 @@ if (!location_id) {
         <div style="display:flex;align-items:center;justify-content:center;padding:24px 0;">
           <img src="/icons/load/ms_load_icon.gif" alt="" style="height:120px;width:auto;" loading="lazy" />
         </div>
+      </div>
+    </div>
+
+    <!-- Action Brief — concierge help overlay -->
+    <div class="ab-overlay" id="ab-help-overlay">
+      <div class="ab-form-panel">
+        <div class="ab-form-title">Besoin d'aide pour agir ?</div>
+        <div class="ab-form-ctx" id="ab-help-ctx">Décrivez ce dont vous avez besoin. Notre équipe vous répond sous 2 heures.</div>
+        <div class="ab-form-label">Votre demande</div>
+        <textarea class="ab-form-textarea" id="ab-help-note" placeholder="Ex : aidez-moi à créer un post Instagram avec l'itinéraire alternatif."></textarea>
+        <button class="ab-form-submit" id="ab-help-submit">Envoyer — réponse sous 2h</button>
+        <button class="ab-form-cancel" id="ab-help-cancel">Annuler</button>
       </div>
     </div>
 
@@ -279,17 +345,23 @@ if (!location_id) {
     const windowEnd   = ymdFromUTC(addDays(today, 6));
     const mobilityEnd = ymdFromUTC(addDays(today, 14));
 
+    const competitionEnd = ymdFromUTC(addDays(today, 14));
+
     return allFeed.filter(a => {
       const affected = normalizeYmd(a?.affected_date);
       const feedDate = normalizeYmd(a?.feed_date);
       if (!affected) return false;
 
+      const sub = String(a?.change_subtype || "").toLowerCase();
       const isMobility = String(a?.change_category || "").toLowerCase() === "mobility"
-        || String(a?.change_subtype || "").toLowerCase().startsWith("mobility_");
+        || sub.startsWith("mobility_");
       const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
-                        String(a?.change_subtype  || "").toLowerCase() === "weather_change";
+                        sub === "weather_change";
+      const isCompetition = sub === "competitor_event_launch" || sub === "competitor_audience_conflict"
+        || sub === "competition_pressure_spike" || sub === "mega_event_activation"
+        || sub === "competitor_event_ending" || sub === "mega_event_end";
 
-      const maxDate = (isMobility) ? mobilityEnd : windowEnd;
+      const maxDate = isMobility ? mobilityEnd : isCompetition ? competitionEnd : windowEnd;
 
       if (affected < windowStart || affected > maxDate) return false;
       if (isWeather && affected > windowEnd) return false;
@@ -1045,6 +1117,701 @@ if (!location_id) {
     </div>`;
   }
 
+  // ================================================================
+  // DAILY ACTION BRIEF — V0 (Beta)
+  // Threats + Opportunities, inline action checklists, localStorage,
+  // channel routing, clipboard copy
+  // ================================================================
+
+  // Channel constants — used for future agent routing + clipboard context
+  var CH_GBP = "gbp";           // Google Business Profile
+  var CH_INSTAGRAM = "instagram";
+  var CH_EMAIL = "email";
+  var CH_SMS = "sms";
+  var CH_INTERNAL = "internal";  // On-site / team operations (no external channel)
+  var CH_PHONE = "phone";        // Phone/WhatsApp to suppliers, partners
+
+  // ---- Clipboard text generator ----
+  // Produces a ready-to-paste message from the card context + action text
+  function briefClipboardText(cardWhat, cardSowhat, actionText) {
+    // Strip HTML tags from what
+    var cleanWhat = String(cardWhat||"").replace(/<[^>]+>/g,"");
+    return cleanWhat + "\n" + actionText;
+  }
+
+  // ---- Action catalog: change_subtype → card config + action list ----
+  // actions[]: { text, meta, key, channel }
+  // channel: one of CH_* constants — where this action would execute
+  // Returns null if not actionable for this signal.
+
+  var BRIEF_TEMPLATES = {
+    // ---- THREATS ----
+    mobility_disruption: function(a, prof) {
+      var mode = String(a.mobility_mode||"").toLowerCase();
+      var distM = Number(a.distance_m||0);
+      var modeName = mode==="bus"?"Bus":mode==="metro"||mode==="métro"?"Métro":mode==="rer"?"RER":mode==="tram"?"Tram":mode==="road"?"Route":"Transport";
+      var line = a.event_label||a.mobility_disruption_category||"";
+      var distLabel = distM>0?(distM<1000?Math.round(distM)+" m":(distM/1000).toFixed(1)+" km"):"";
+      var isRoad = mode==="road";
+      return {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"Mobilit\u00e9",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: line ? escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 acc\u00e8s visiteurs impact\u00e9" : "Perturbation "+modeName+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 acc\u00e8s impact\u00e9",
+        sowhat: distM<500
+          ? "Vos clients arrivent par cet arr\u00eat. D\u00e9tour probable de 10-15 min \u2014 impact direct sur la fr\u00e9quentation."
+          : isRoad ? "Axe routier perturb\u00e9 \u2014 impact potentiel sur les livraisons et prestataires."
+          : "Ligne desservant votre zone perturb\u00e9e \u2014 acc\u00e8s visiteurs ralenti.",
+        actions: [
+          {text:"Publier l\u2019itin\u00e9raire alternatif sur Google Business Profile et vos r\u00e9seaux",meta:"Communication \u00b7 Urgent",key:"access_comm",channel:CH_GBP},
+          {text:"Mettre \u00e0 jour la signal\u00e9tique d\u2019acc\u00e8s sur place (panneau, fl\u00e9chage)",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
+          isRoad
+            ? {text:"Pr\u00e9venir vos prestataires / livreurs \u2014 acc\u00e8s v\u00e9hicules impact\u00e9",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE}
+            : {text:"Pr\u00e9voir un accueil renforc\u00e9 pour orienter les visiteurs",meta:"Exploitation \u00b7 Accueil",key:"staff_adjust",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    mobility_disruption_planned: function(a, prof) {
+      var line = a.event_label||"Travaux pr\u00e9vus";
+      var distLabel = Number(a.distance_m||0)>0?(Number(a.distance_m)<1000?Math.round(Number(a.distance_m))+" m":(Number(a.distance_m)/1000).toFixed(1)+" km"):"";
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Mobilit\u00e9",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 perturbation programm\u00e9e",
+        sowhat: "Perturbation pr\u00e9visible \u2014 anticipez un plan d\u2019acc\u00e8s alternatif pour vos visiteurs et livraisons.",
+        actions: [
+          {text:"Pr\u00e9parer un plan d\u2019acc\u00e8s alternatif et l\u2019afficher",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
+          {text:"Informer votre \u00e9quipe et vos prestataires",meta:"Coordination \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venir vos visiteurs par email / r\u00e9seaux",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+        ],
+      };
+    },
+    competitor_event_launch: function(a, prof) {
+      var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
+      var compName = parts[0]||a.event_label||"Concurrent";
+      var evName = parts[1]||"";
+      var km = Number(a.distance_m||0)>0?(Number(a.distance_m)/1000).toFixed(1)+" km":"";
+      var aud1 = String(prof.primary_audience_1||"").toLowerCase();
+      var AUD_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
+      var audLabel = AUD_FR[aud1]||"";
+      return {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"Concurrence",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: escapeHtml(compName)+(evName?" lance \u201c"+escapeHtml(evName)+"\u201d":"")+(audLabel?" \u2014 m\u00eame audience ("+audLabel+")":"")+(km?", \u00e0 "+km:""),
+        sowhat: audLabel
+          ? "Risque de captation directe de votre public "+audLabel+". Agissez avant l\u2019ouverture."
+          : "Concurrent \u00e0 proximit\u00e9 lan\u00e7ant un \u00e9v\u00e9nement \u2014 captation de trafic probable.",
+        actions: [
+          {text:"Lancer une offre "+(audLabel||"sp\u00e9ciale")+" ce week-end (r\u00e9duction, animation, avantage exclu)",meta:"Marketing \u00b7 Impact \u00e9lev\u00e9",key:"marketing_push",channel:CH_INSTAGRAM},
+          {text:"Publier un post mettant en avant votre diff\u00e9renciant (ce que vous avez et qu\u2019ils n\u2019ont pas)",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Prolonger vos horaires vendredi et samedi pour capter le trafic r\u00e9siduel",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Activer une campagne g\u00e9olocalis\u00e9e ciblant "+(audLabel||"votre audience")+" dans un rayon de 2 km",meta:"Marketing \u00b7 Publicit\u00e9 locale",key:"marketing_push",channel:CH_INSTAGRAM},
+        ],
+      };
+    },
+    competitor_audience_conflict: function(a, prof) {
+      var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
+      var compName = parts[0]||"Concurrent";
+      var km = Number(a.distance_m||0)>0?(Number(a.distance_m)/1000).toFixed(1)+" km":"";
+      return {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"Conflit audience",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: escapeHtml(compName)+" \u2014 m\u00eame public, m\u00eame date"+(km?", \u00e0 "+km:""),
+        sowhat: "Conflit direct : audience + date + proximit\u00e9. Risque \u00e9lev\u00e9 de captation.",
+        actions: [
+          {text:"Lancer une offre flash diff\u00e9renciante (ce que le concurrent ne propose pas)",meta:"Marketing \u00b7 Offre",key:"marketing_push",channel:CH_INSTAGRAM},
+          {text:"Renforcer votre visibilit\u00e9 avec un post cibl\u00e9 sur les r\u00e9seaux",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Adapter votre programmation pour vous d\u00e9marquer (animation exclusive, th\u00e9matique unique)",meta:"Programmation \u00b7 Diff\u00e9renciation",key:"programming",channel:CH_INTERNAL},
+          {text:"Contacter un partenaire local pour une offre crois\u00e9e",meta:"Partenariat \u00b7 Co-marketing",key:"partnership",channel:CH_PHONE},
+        ],
+      };
+    },
+    competition_pressure_spike: function(a, prof) {
+      var oldN = Number(a.old_value||0); var newN = Number(a.new_value||0);
+      if (newN<=oldN) return null;
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Pression \u2191",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: "Pression concurrentielle en hausse : "+newN+" \u00e9v\u00e9nements \u00e0 5 km (+"+(newN-oldN)+")",
+        sowhat: "Densit\u00e9 d\u2019\u00e9v\u00e9nements anormalement \u00e9lev\u00e9e \u2014 votre visibilit\u00e9 est dilu\u00e9e.",
+        actions: [
+          {text:"Publier du contenu r\u00e9gulier cette semaine pour rester visible",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Activer une offre pour fid\u00e9liser votre base (avantage abonn\u00e9s, carte de fid\u00e9lit\u00e9)",meta:"Marketing \u00b7 Fid\u00e9lisation",key:"marketing_push",channel:CH_EMAIL},
+          {text:"Prolonger vos horaires pour capter le trafic r\u00e9siduel en soir\u00e9e",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    weather_worsened: function(a, prof) {
+      var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+      var lvlRain=Number(a.lvl_rain||0); var lvlWind=Number(a.lvl_wind||0); var lvlSnow=Number(a.lvl_snow||0);
+      var type = lvlRain>=lvlWind&&lvlRain>=lvlSnow?"pluie":lvlWind>=lvlSnow?"vent":"neige";
+      var ov=a.old_value; var nv=a.new_value;
+      return {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: "Alerte "+type+" renforc\u00e9e"+(ov&&nv?" : niveau "+ov+" \u2192 "+nv:""),
+        sowhat: isOutdoor
+          ? "Impact direct sur vos installations et la fr\u00e9quentation. Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e."
+          : "Impact probable sur la fr\u00e9quentation \u2014 friction \u00e0 l\u2019entr\u00e9e du site.",
+        actions: isOutdoor ? [
+          {text:"S\u00e9curiser vos installations ext\u00e9rieures (tentes, signal\u00e9tique, mobilier)",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
+          {text:"Adapter l\u2019\u00e9quipe : renforcer accueil int\u00e9rieur, r\u00e9duire postes ext\u00e9rieurs",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venir vos visiteurs par email / r\u00e9seaux (conditions, plan B)",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+          {text:"Pr\u00e9parer un plan B int\u00e9rieur (repli des animations)",meta:"Programmation \u00b7 Plan B",key:"programming",channel:CH_INTERNAL},
+        ] : [
+          {text:"Adapter l\u2019\u00e9quipe (r\u00e9duire si baisse fr\u00e9quentation attendue)",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venir vos visiteurs des conditions d\u2019acc\u00e8s",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+        ],
+      };
+    },
+    weather_hazard_onset: function(a, prof) {
+      var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+      return {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: "Nouvelle alerte m\u00e9t\u00e9o : niveau "+(a.old_value||"?")+" \u2192 "+(a.new_value||"?"),
+        sowhat: isOutdoor ? "Impact direct sur vos installations ext\u00e9rieures et la fr\u00e9quentation." : "Impact probable sur la fr\u00e9quentation.",
+        actions: [
+          {text:"S\u00e9curiser installations et pr\u00e9voir plan B",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
+          {text:"Adapter l\u2019\u00e9quipe au sc\u00e9nario m\u00e9t\u00e9o",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venir visiteurs et prestataires",meta:"Communication \u00b7 Tous",key:"visitor_comm",channel:CH_EMAIL},
+        ],
+      };
+    },
+    mega_event_activation: function(a, prof) {
+      var name = a.event_label||"M\u00e9ga-\u00e9v\u00e9nement";
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"M\u00e9ga-\u00e9v\u00e9n.",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: escapeHtml(name)+" \u2014 impact mobilit\u00e9 et fr\u00e9quentation",
+        sowhat: "Afflux de visiteurs et perturbations de transport probables. Opportunit\u00e9 et risque simultan\u00e9s.",
+        actions: [
+          {text:"Adapter votre \u00e9quipe (renforcer accueil et s\u00e9curit\u00e9)",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Prolonger vos horaires pour capter le trafic suppl\u00e9mentaire",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Publier du contenu li\u00e9 \u00e0 l\u2019\u00e9v\u00e9nement pour capter son audience",meta:"Marketing \u00b7 Co-trafic",key:"marketing_push",channel:CH_INSTAGRAM},
+          {text:"Pr\u00e9venir prestataires / livraisons des perturbations transport",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE},
+        ],
+      };
+    },
+
+    // ---- OPPORTUNITIES ----
+    weather_improved: function(a, prof) {
+      var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+      if (!isOutdoor) return null;
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Demain",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"M\u00e9t\u00e9o \u2713",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Conditions normalis\u00e9es"+(a.old_value&&a.new_value?" (niveau "+a.old_value+" \u2192 "+a.new_value+")":""),
+        sowhat: "La m\u00e9t\u00e9o redevient favorable. Vos installations ext\u00e9rieures sont de nouveau exploitables.",
+        actions: [
+          {text:"Relancer votre communication ext\u00e9rieure (terrasse, \u00e9v\u00e9nement plein air)",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"R\u00e9installer le mobilier et la signal\u00e9tique ext\u00e9rieurs",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    competitor_event_ending: function(a, prof) {
+      var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
+      var compName = parts[0]||"Concurrent";
+      var aud1 = String(prof.primary_audience_1||"").toLowerCase();
+      var AUD_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
+      var audLabel = AUD_FR[aud1]||"";
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Fin concurrent",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: escapeHtml(compName)+" \u2014 fin de programmation prochaine"+(audLabel?" \u2014 "+audLabel+" de retour sur le march\u00e9":""),
+        sowhat: audLabel ? "Public "+audLabel+" lib\u00e9r\u00e9. Fen\u00eatre de captation ouverte." : "Public du concurrent lib\u00e9r\u00e9. Fen\u00eatre de captation ouverte.",
+        actions: [
+          {text:"Lancer une offre de bienvenue ciblant "+(audLabel||"ce public")+" d\u00e8s la fin de l\u2019\u00e9v\u00e9nement",meta:"Marketing \u00b7 Captation post-concurrent",key:"marketing_push",channel:CH_INSTAGRAM},
+          {text:"Publier du contenu "+(audLabel||"cibl\u00e9")+" pour occuper l\u2019espace lib\u00e9r\u00e9",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+        ],
+      };
+    },
+    mega_event_end: function(a, prof) {
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Retour normal",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: (a.event_label||"M\u00e9ga-\u00e9v\u00e9nement")+" \u2014 retour \u00e0 la normale",
+        sowhat: "Le public local est de retour. Mobilit\u00e9 normalis\u00e9e, fen\u00eatre favorable.",
+        actions: [
+          {text:"Relancer votre communication locale pour r\u00e9cup\u00e9rer le public r\u00e9sident",meta:"Communication \u00b7 Local",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Adapter vos horaires au rythme normal",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    score_up: function(a, prof) {
+      var delta = a.score_delta!=null?Math.round(Number(a.score_delta)):null;
+      if (delta===null||delta<3) return null;
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:fmtDateShort(normalizeYmd(a.affected_date)),style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Score \u2191",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Score en forte hausse : "+(a.old_value||"?")+" \u2192 "+(a.new_value||"?")+" (+"+delta+" pts)",
+        sowhat: "Cette date gagne en attractivit\u00e9. Conditions favorables pour maximiser.",
+        actions: [
+          {text:"Publier un post pour capter le trafic spontan\u00e9 sur cette date",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Activer une offre premium (marges plus \u00e9lev\u00e9es quand la demande est forte)",meta:"Marketing \u00b7 Pricing",key:"pricing",channel:CH_GBP},
+        ],
+      };
+    },
+  };
+
+  // ---- Opportunity from day context (regime A + favorable signals) ----
+  function briefOpportunityFromDay(currentDay, prof) {
+    var regime = String(currentDay.opportunity_regime||"B").toUpperCase();
+    var score = Number(currentDay.opportunity_score||0);
+    if (regime!=="A"||score<7) return null;
+    var holiday = currentDay.holiday_name||null;
+    var vacation = currentDay.vacation_name||null;
+    var contextParts = [];
+    if (holiday) contextParts.push(holiday);
+    if (vacation) contextParts.push(vacation);
+    var envCount5km = Number(currentDay.events_within_5km_count||0);
+    var lowComp = envCount5km <= 3;
+    if (lowComp) contextParts.push("faible concurrence");
+    if (!contextParts.length && score < 8) return null;
+    return {
+      type:"opportunity", barClass:"ab-opportunity",
+      urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+      typePill:{label:"Opportunit\u00e9",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+      what: "Journ\u00e9e exceptionnelle : score "+score+(contextParts.length?", "+contextParts.join(", "):""),
+      sowhat: "Conditions id\u00e9ales pour maximiser votre fr\u00e9quentation et votre chiffre d\u2019affaires.",
+      actions: [
+        {text:"Publier un post \u00ab \u00e9v\u00e9nement du jour \u00bb pour capter le trafic spontan\u00e9",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+        {text:"Activer une offre premium \u2014 marges plus \u00e9lev\u00e9es quand la demande est forte",meta:"Marketing \u00b7 Pricing",key:"pricing",channel:CH_GBP},
+        {text:"Prolonger vos horaires pour maximiser le chiffre d\u2019affaires",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+      ],
+    };
+  }
+
+  // ---- Actionability scoring ----
+  function briefScore(a, prof, today) {
+    var s = 0;
+    var sub = String(a.change_subtype||"").toLowerCase();
+    var lvl = Number(a.alert_level||0);
+    var affected = normalizeYmd(a.affected_date);
+    var distM = Number(a.distance_m||0);
+    s += lvl * 10;
+    if (affected===today) s += 30;
+    else {
+      var ad = parseYmdToDate(affected); var td = parseYmdToDate(today);
+      if (ad&&td) { var diff = Math.round((ad.getTime()-td.getTime())/86400000); if(diff===1)s+=20;else if(diff<=3)s+=10;else if(diff<=7)s+=5; }
+    }
+    if (distM>0) { if(distM<500)s+=20;else if(distM<1000)s+=10;else if(distM<3000)s+=5; }
+    var REVENUE = ["competitor_audience_conflict","competitor_event_launch","competition_pressure_spike","mega_event_activation","weather_worsened","weather_hazard_onset","mobility_disruption"];
+    if (REVENUE.indexOf(sub)>=0) s += 15;
+    if (a.has_active_event) s += 10;
+    var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+    if ((sub==="weather_worsened"||sub==="weather_hazard_onset")&&isOutdoor) s += 10;
+    var OPP = ["weather_improved","competitor_event_ending","mega_event_end","score_up"];
+    if (OPP.indexOf(sub)>=0) s += 25;
+    return s;
+  }
+
+  // ---- localStorage persistence ----
+  function briefStorageKey(locationId, date) { return "ab_"+locationId+"_"+date; }
+  function briefLoadChecked(locationId, date) {
+    try { var raw = localStorage.getItem(briefStorageKey(locationId,date)); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  }
+  function briefSaveChecked(locationId, date, checked) {
+    try { localStorage.setItem(briefStorageKey(locationId,date), JSON.stringify(checked)); } catch {}
+  }
+
+  // ---- Render ----
+  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId) {
+    var today = todayYmd();
+    var prof = profile || {};
+
+    var ACTIONABLE = Object.keys(BRIEF_TEMPLATES);
+    var candidates = [];
+    for (var i = 0; i < allFeed.length; i++) {
+      var a = allFeed[i];
+      var sub = String(a.change_subtype||"").toLowerCase();
+      if (ACTIONABLE.indexOf(sub) < 0) continue;
+      var affected = normalizeYmd(a.affected_date);
+      if (affected < today) continue;
+      var HORIZON = {mobility_disruption:7,mobility_disruption_planned:14,weather_worsened:7,weather_hazard_onset:7,weather_improved:7,competitor_event_launch:10,competitor_audience_conflict:10,competition_pressure_spike:10,mega_event_activation:14,score_up:7,competitor_event_ending:14,mega_event_end:14};
+      var maxDays = HORIZON[sub] != null ? HORIZON[sub] : 7;
+      var ad = parseYmdToDate(affected); var td = parseYmdToDate(today);
+      if (ad && td && (ad.getTime() - td.getTime()) / 86400000 > maxDays) continue;
+      if (Number(a.alert_level||0) < 2 && sub !== "weather_improved" && sub !== "competitor_event_ending" && sub !== "mega_event_end" && sub !== "score_up") continue;
+      var tmplFn = BRIEF_TEMPLATES[sub];
+      if (!tmplFn) continue;
+      var tmpl = tmplFn(a, prof);
+      if (!tmpl) continue;
+      candidates.push({ item: a, tmpl: tmpl, score: briefScore(a, prof, today) });
+    }
+
+    var dayOpp = briefOpportunityFromDay(currentDay, prof);
+    if (dayOpp) {
+      candidates.push({ item: { change_subtype:"_day_opportunity", affected_date:currentDay.date, alert_level:0 }, tmpl: dayOpp, score: 80 });
+    }
+
+    candidates.sort(function(a,b) { return b.score - a.score; });
+    var seen = {};
+    var top = [];
+    for (var j = 0; j < candidates.length && top.length < 5; j++) {
+      var c = candidates[j];
+      var sub2 = String(c.item.change_subtype||"").toLowerCase();
+      var dedup = sub2 + "|" + normalizeYmd(c.item.affected_date);
+      if (seen[dedup]) continue;
+      seen[dedup] = true;
+      top.push(c);
+    }
+
+    if (top.length === 0) {
+      return '<div style="margin-bottom:20px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+          + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+        + '</div>'
+        + '<div class="ab-zero"><span style="font-size:18px;">\u2713</span><span>Aucune action requise \u2014 votre journ\u00e9e est sous contr\u00f4le</span></div>'
+      + '</div>';
+    }
+
+    var checked = briefLoadChecked(locationId, selectedDate);
+
+    var totalActions = 0;
+    var totalChecked = 0;
+    var cardsHtml = top.map(function(entry, cardIdx) {
+      var t = entry.tmpl;
+      var cardId = "ab-card-" + cardIdx;
+      var cardWhat = t.what;
+      var cardSowhat = t.sowhat;
+      var actionsHtml = t.actions.map(function(act, actIdx) {
+        var actKey = cardIdx + "-" + actIdx;
+        var isDone = checked[actKey] ? true : false;
+        totalActions++;
+        if (isDone) totalChecked++;
+        var ts = checked[actKey] || "";
+        var showCopy = act.channel !== CH_INTERNAL;
+        var showGen = act.channel !== CH_INTERNAL && act.channel !== CH_PHONE;
+        var genData = showGen ? ' data-ab-gen="' + actKey + '" data-ab-gen-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-gen-actkey="' + escapeHtml(act.key) + '" data-ab-gen-acttext="' + escapeHtml(act.text) + '" data-ab-gen-channel="' + escapeHtml(act.channel||"") + '" data-ab-gen-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-gen-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-gen-sowhat="' + escapeHtml(String(cardSowhat||"")) + '"' : '';
+        var itemSignalJson = showGen ? ' data-ab-gen-signal=\'' + escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null})) + '\'' : '';
+        return '<div class="ab-action-item">'
+          + '<div class="ab-check' + (isDone ? " is-checked" : "") + '" data-ab-check="' + actKey + '" data-ab-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-actkey="' + escapeHtml(act.key) + '" data-ab-acttext="' + escapeHtml(act.text) + '" data-ab-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-channel="' + escapeHtml(act.channel||"") + '">'
+            + (isDone ? "\u2713" : "")
+          + '</div>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div class="ab-action-text' + (isDone ? " is-done" : "") + '">' + escapeHtml(act.text) + '</div>'
+            + '<div class="ab-action-meta"' + (isDone ? ' style="color:#059669;"' : '') + '>' + (isDone ? "\u2713 Fait \u00e0 " + ts : escapeHtml(act.meta)) + '</div>'
+            + '<div class="ab-draft-panel" id="ab-draft-' + actKey + '"></div>'
+          + '</div>'
+          + (showCopy || showGen ? '<div class="ab-action-right">'
+            + (showGen ? '<button type="button" class="ab-gen"' + genData + itemSignalJson + '>G\u00e9n\u00e9rer \u2192</button>' : '')
+            + (showCopy ? '<button type="button" class="ab-copy" data-ab-copy data-ab-copy-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-copy-text="' + escapeHtml(act.text) + '">Copier</button>' : '')
+          + '</div>' : '')
+        + '</div>';
+      }).join("");
+      var doneCount = t.actions.reduce(function(sum, _, ai) { return sum + (checked[cardIdx+"-"+ai] ? 1 : 0); }, 0);
+      var pct = Math.round(doneCount / t.actions.length * 100);
+      return '<div class="ab-card" id="' + cardId + '">'
+        + '<div class="ab-card-row">'
+          + '<div class="ab-bar ' + t.barClass + '"></div>'
+          + '<div class="ab-inner">'
+            + '<div class="ab-summary" data-ab-toggle="' + cardId + '">'
+              + '<div class="ab-pills">'
+                + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
+                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
+              + '</div>'
+              + '<div class="ab-what">' + t.what + '</div>'
+              + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
+            + '</div>'
+            + '<div class="ab-toggle">'
+              + '<button type="button" class="ab-toggle-btn" data-ab-toggle="' + cardId + '">'
+                + '<span data-ab-chevron="' + cardId + '">\u25be</span> '
+                + 'Agir \u2014 ' + t.actions.length + ' actions recommand\u00e9es'
+              + '</button>'
+            + '</div>'
+            + '<div class="ab-actions" id="' + cardId + '-actions" data-ab-card-idx="' + cardIdx + '">'
+              + actionsHtml
+              + '<div class="ab-progress">'
+                + '<div class="ab-progress-bar"><div class="ab-progress-fill" style="width:' + pct + '%;"></div></div>'
+                + '<span class="ab-progress-label">' + doneCount + '/' + t.actions.length + '</span>'
+              + '</div>'
+              + '<a href="#" class="ab-help-link" data-ab-help="' + cardIdx + '" data-ab-help-what="' + escapeHtml(t.what.replace(/<[^>]+>/g,"")) + '" data-ab-help-sowhat="' + escapeHtml(t.sowhat) + '">Besoin d\u2019aide pour agir ? \u2192</a>'
+            + '</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join("");
+
+    var countLabel = totalChecked > 0 ? totalChecked + "/" + totalActions + " trait\u00e9es" : top.length + " action" + (top.length>1?"s":"");
+
+    return '<div style="margin-bottom:20px;" id="daily-brief-section">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+        + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
+      + '</div>'
+      + cardsHtml
+    + '</div>';
+  }
+
+  // ---- Wire handlers ----
+  function wireBriefHandlers(root, locationId, selectedDate) {
+    // Toggle cards
+    root.querySelectorAll("[data-ab-toggle]").forEach(function(el) {
+      el.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardId = el.getAttribute("data-ab-toggle");
+        var actions = document.getElementById(cardId + "-actions");
+        var chevron = root.querySelector('[data-ab-chevron="'+cardId+'"]');
+        if (!actions) return;
+        var open = actions.classList.toggle("is-open");
+        if (chevron) chevron.textContent = open ? "\u25b4" : "\u25be";
+      });
+    });
+
+    // Checkboxes
+    root.querySelectorAll("[data-ab-check]").forEach(function(el) {
+      el.addEventListener("click", function() {
+        var key = el.getAttribute("data-ab-check");
+        var checked = briefLoadChecked(locationId, selectedDate);
+        var isDone = el.classList.contains("is-checked");
+        var textEl = el.parentElement.querySelector(".ab-action-text");
+        var metaEl = el.parentElement.querySelector(".ab-action-meta");
+
+        if (isDone) {
+          el.classList.remove("is-checked");
+          el.textContent = "";
+          if (textEl) textEl.classList.remove("is-done");
+          if (metaEl && metaEl.dataset.original) { metaEl.textContent = metaEl.dataset.original; metaEl.style.color = ""; }
+          delete checked[key];
+        } else {
+          var now = new Date();
+          var ts = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+          el.classList.add("is-checked");
+          el.textContent = "\u2713";
+          if (textEl) textEl.classList.add("is-done");
+          if (metaEl) { metaEl.dataset.original = metaEl.dataset.original || metaEl.textContent; metaEl.textContent = "\u2713 Fait \u00e0 " + ts; metaEl.style.color = "#059669"; }
+          checked[key] = ts;
+        }
+
+        briefSaveChecked(locationId, selectedDate, checked);
+
+        var card = el.closest(".ab-card");
+        if (card) {
+          var total = card.querySelectorAll("[data-ab-check]").length;
+          var done = card.querySelectorAll("[data-ab-check].is-checked").length;
+          var fill = card.querySelector(".ab-progress-fill");
+          var label = card.querySelector(".ab-progress-label");
+          if (fill) fill.style.width = Math.round(done/total*100) + "%";
+          if (label) label.textContent = done + "/" + total;
+        }
+
+        // Analytics (fire-and-forget)
+        fetch("/api/insight/action-log", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            location_id: locationId,
+            affected_date: el.getAttribute("data-ab-affected") || null,
+            change_subtype: el.getAttribute("data-ab-sub") || null,
+            action_key: el.getAttribute("data-ab-actkey") || null,
+            action_text: el.getAttribute("data-ab-acttext") || null,
+            action_category: el.getAttribute("data-ab-actkey") || null,
+            channel: el.getAttribute("data-ab-channel") || null,
+            event: isDone ? "uncheck" : "check",
+          }),
+        }).catch(function(){});
+      });
+    });
+
+    // Clipboard copy buttons
+    root.querySelectorAll("[data-ab-copy]").forEach(function(el) {
+      el.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var what = el.getAttribute("data-ab-copy-what") || "";
+        var text = el.getAttribute("data-ab-copy-text") || "";
+        var clipText = briefClipboardText(what, "", text);
+        navigator.clipboard.writeText(clipText).then(function() {
+          el.textContent = "Copi\u00e9 \u2713";
+          el.classList.add("is-copied");
+          setTimeout(function() { el.textContent = "Copier"; el.classList.remove("is-copied"); }, 2000);
+        }).catch(function() {
+          // Fallback for older browsers
+          var ta = document.createElement("textarea");
+          ta.value = clipText;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          el.textContent = "Copi\u00e9 \u2713";
+          el.classList.add("is-copied");
+          setTimeout(function() { el.textContent = "Copier"; el.classList.remove("is-copied"); }, 2000);
+        });
+      });
+    });
+
+    // "Générer →" draft buttons
+    root.querySelectorAll("[data-ab-gen]").forEach(function(el) {
+      el.addEventListener("click", async function(e) {
+        e.stopPropagation();
+        var actKey = el.getAttribute("data-ab-gen");
+        var panel = document.getElementById("ab-draft-" + actKey);
+        if (!panel) return;
+
+        // Toggle off if already open
+        if (panel.classList.contains("is-open") && panel.innerHTML.trim()) {
+          panel.classList.remove("is-open");
+          el.textContent = "G\u00e9n\u00e9rer \u2192";
+          return;
+        }
+
+        // Loading state
+        el.textContent = "\u2026";
+        el.classList.add("is-loading");
+        panel.classList.add("is-open");
+        panel.innerHTML = '<div style="color:#9CA3AF;font-size:11px;display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border:1.5px solid #E5E7EB;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>G\u00e9n\u00e9ration en cours\u2026</div>';
+
+        var signalJson = {};
+        try { signalJson = JSON.parse(el.getAttribute("data-ab-gen-signal") || "{}"); } catch {}
+
+        var payload = {
+          action_key: el.getAttribute("data-ab-gen-actkey") || "",
+          channel: el.getAttribute("data-ab-gen-channel") || "",
+          change_subtype: el.getAttribute("data-ab-gen-sub") || "",
+          signal: signalJson,
+          card_what: el.getAttribute("data-ab-gen-what") || "",
+          card_sowhat: el.getAttribute("data-ab-gen-sowhat") || "",
+        };
+
+        try {
+          var res = await fetch("/api/insight/generate-action-draft", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          var json = await res.json().catch(function() { return null; });
+          if (!json?.ok || !json?.draft?.full_text) throw new Error(json?.error || "Draft vide");
+
+          var draft = json.draft;
+          var channelLabel = draft.channel === "gbp" ? "Google Business Profile" : draft.channel === "instagram" ? "Instagram" : draft.channel === "email" ? "Email" : draft.channel === "sms" ? "SMS" : draft.channel;
+          var titleLine = draft.title ? '<div style="font-size:11px;font-weight:700;color:#1D3BB3;margin-bottom:4px;">' + escapeHtml(draft.title) + '</div>' : '';
+          var subjectLine = draft.subject ? '<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">Objet : ' + escapeHtml(draft.subject) + '</div>' : '';
+
+          panel.innerHTML = '<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">'
+            + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(channelLabel) + '</span>'
+            + '<span style="font-size:10px;color:#9CA3AF;">' + (draft.char_count || 0) + ' car.</span>'
+          + '</div>'
+          + titleLine + subjectLine
+          + '<pre>' + escapeHtml(draft.body || draft.full_text) + '</pre>'
+          + (draft.hashtags ? '<div style="font-size:11px;color:#6366f1;margin-bottom:6px;">' + escapeHtml(draft.hashtags) + '</div>' : '')
+          + '<div class="ab-draft-actions">'
+            + '<button type="button" class="ab-draft-copy" data-draft-text="' + escapeHtml(draft.full_text) + '">Copier le texte</button>'
+            + '<button type="button" class="ab-draft-regen" data-draft-regen="' + escapeHtml(actKey) + '">R\u00e9g\u00e9n\u00e9rer</button>'
+            + '<button type="button" class="ab-draft-dismiss" data-draft-dismiss="' + escapeHtml(actKey) + '">Fermer</button>'
+          + '</div>';
+
+          el.textContent = "G\u00e9n\u00e9r\u00e9 \u2713";
+          el.classList.remove("is-loading");
+
+          // Wire draft panel buttons
+          panel.querySelector(".ab-draft-copy")?.addEventListener("click", function() {
+            var text = this.getAttribute("data-draft-text") || "";
+            navigator.clipboard.writeText(text).then(function() {
+              panel.querySelector(".ab-draft-copy").textContent = "Copi\u00e9 \u2713";
+              setTimeout(function() { panel.querySelector(".ab-draft-copy").textContent = "Copier le texte"; }, 2000);
+            }).catch(function() {});
+          });
+
+          panel.querySelector(".ab-draft-regen")?.addEventListener("click", function() {
+            panel.classList.remove("is-open");
+            panel.innerHTML = "";
+            el.textContent = "G\u00e9n\u00e9rer \u2192";
+            el.classList.remove("is-loading");
+            el.click();
+          });
+
+          panel.querySelector(".ab-draft-dismiss")?.addEventListener("click", function() {
+            panel.classList.remove("is-open");
+            panel.innerHTML = "";
+            el.textContent = "G\u00e9n\u00e9rer \u2192";
+            el.classList.remove("is-loading");
+          });
+
+        } catch(err) {
+          panel.innerHTML = '<div style="font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+          el.textContent = "G\u00e9n\u00e9rer \u2192";
+          el.classList.remove("is-loading");
+        }
+      });
+    });
+
+    // Help links → concierge overlay
+    root.querySelectorAll("[data-ab-help]").forEach(function(el) {
+      el.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var overlay = document.getElementById("ab-help-overlay");
+        var ctx = document.getElementById("ab-help-ctx");
+        if (!overlay) return;
+        var what = el.getAttribute("data-ab-help-what") || "";
+        var sowhat = el.getAttribute("data-ab-help-sowhat") || "";
+        if (ctx) ctx.innerHTML = "<strong>Signal :</strong> " + escapeHtml(what) + "<br><strong>Impact :</strong> " + escapeHtml(sowhat) + "<br><br>D\u00e9crivez ce dont vous avez besoin. Notre \u00e9quipe vous r\u00e9pond sous 2 heures.";
+        overlay.__abWhat = what;
+        overlay.__abSowhat = sowhat;
+        overlay.__abSub = el.closest("[data-ab-card-idx]")?.getAttribute("data-ab-card-idx") || "";
+        overlay.classList.add("is-open");
+      });
+    });
+
+    // Concierge form cancel / submit
+    var cancelBtn = document.getElementById("ab-help-cancel");
+    if (cancelBtn) cancelBtn.onclick = function() {
+      var ov = document.getElementById("ab-help-overlay");
+      if (ov) ov.classList.remove("is-open");
+      var n = document.getElementById("ab-help-note"); if (n) n.value = "";
+    };
+    var submitBtn = document.getElementById("ab-help-submit");
+    if (submitBtn) submitBtn.onclick = async function() {
+      var ov = document.getElementById("ab-help-overlay");
+      var noteEl = document.getElementById("ab-help-note");
+      var note = noteEl ? noteEl.value : "";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Envoi en cours\u2026";
+      try {
+        await fetch("/api/insight/action-request", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action_type: "aide_concierge",
+            note: note,
+            change_subtype: "_help_request",
+            signal_summary: ov?.__abWhat || "",
+            impact_summary: ov?.__abSowhat || "",
+            recommended_action: null,
+            affected_date: selectedDate || null,
+            location_id: locationId,
+            entity_id: null,
+            alert_level: 0,
+            urgency_label: null,
+          }),
+        });
+        submitBtn.textContent = "\u2713 Demande envoy\u00e9e";
+        setTimeout(function() {
+          if (ov) ov.classList.remove("is-open");
+          submitBtn.textContent = "Envoyer \u2014 r\u00e9ponse sous 2h";
+          submitBtn.disabled = false;
+          if (noteEl) noteEl.value = "";
+        }, 1500);
+      } catch {
+        submitBtn.textContent = "Erreur r\u00e9seau";
+        submitBtn.disabled = false;
+      }
+    };
+  }
+
   // ----------------------------------------------------------------
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
@@ -1551,7 +2318,7 @@ if (!location_id) {
       const backBtn = `<button type="button" id="pls-back-radar" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:6px 0;background:none;border:none;font-size:13px;font-weight:600;color:#1D3BB3;cursor:pointer;font-family:inherit;">← Retour au radar</button>`;
 
       root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + backBtn + mapSwitcher +
-        `<iframe id="pls-map-iframe" src="/app/insightevent/map?location_id=${encodeURIComponent(defaultLocId)}&date=${encodeURIComponent(selectedDate)}&embed=1" style="width:100%;height:600px;border:none;border-radius:14px;display:block;"></iframe>`;
+        `<iframe id="pls-map-iframe" src="/app/insightevent/map?location_id=${encodeURIComponent(defaultLocId)}&date=${encodeURIComponent(selectedDate)}&embed=1${data._mapMode ? '&mode=' + encodeURIComponent(data._mapMode) : ''}" style="width:100%;height:600px;border:none;border-radius:14px;display:block;"></iframe>`;
 
       // Wire pills
       root.querySelectorAll("[data-pill-date]").forEach(btn => {
@@ -1806,6 +2573,9 @@ if (!location_id) {
 
     // ---- RADAR VIEW (default) ----
 
+    // Daily Action Brief
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId);
+
     // Strip 1: Score
     const score = currentDay.opportunity_score;
     const regime = String(currentDay.opportunity_regime || "B").toUpperCase();
@@ -1900,7 +2670,7 @@ if (!location_id) {
     const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
 
     // Assemble
-    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + alertsHtml +
+    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + briefHtml + alertsHtml +
       `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + feedHtml;
 
     // ---- Wire event handlers ----
@@ -1934,7 +2704,8 @@ if (!location_id) {
     root.querySelectorAll("[data-radar-carte]").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        renderPulse(data, selectedDate, "carte");
+        data._mapMode = null;
+        renderPulse(data, item, selectedDate, "carte", monitorDates);
       });
     });
 
@@ -2075,12 +2846,16 @@ if (!location_id) {
       });
     });
 
+    // Daily Brief handlers
+    wireBriefHandlers(root, currentLocationId, selectedDate);
+
     // Feed CTA handlers
     root.querySelectorAll("[data-feed-cta]").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const action = btn.getAttribute("data-feed-cta");
         if (action === "map") {
+          data._mapMode = null;
           renderPulse(data, selectedDate, "carte");
         } else if (action === "threats") {
           const strip2Body = root.querySelector('[data-radar-body="threats"]');
@@ -2092,6 +2867,7 @@ if (!location_id) {
           }
         }
         if (action === "mobility") {
+          data._mapMode = null;
           renderPulse(data, selectedDate, "carte");
         }
       });
