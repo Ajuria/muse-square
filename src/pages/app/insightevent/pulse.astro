@@ -1626,6 +1626,7 @@ if (!location_id) {
               + '<div class="ab-pills">'
                 + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
                 + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
+                + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
               + '</div>'
               + '<div class="ab-what">' + t.what + '</div>'
               + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
@@ -3118,9 +3119,25 @@ if (!location_id) {
         const valid = results.filter(Boolean);
         if (!valid.length) throw new Error("Aucune donnée disponible.");
 
-        const mergedFeed = valid.flatMap(({ data, loc }) =>
+        const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
           (data.all_feed || []).map(a => ({ ...a, location_label: loc.company_name || loc.location_id }))
         );
+        // Dedup regional signals that are identical within the same region
+        const REGIONAL_SUBTYPES = new Set([
+          "weather_hazard_onset", "weather_worsened", "weather_improved",
+          "calendar_audience_shift", "regime_change",
+          "mega_event_activation", "mega_event_end",
+        ]);
+        const seenRegional = new Set();
+        const mergedFeed = mergedFeedRaw.filter(a => {
+          const sub = String(a?.change_subtype || "").toLowerCase();
+          if (!REGIONAL_SUBTYPES.has(sub)) return true;
+          const region = String(a?.mobility_status_region || a?.region_id || a?.location_id || "");
+          const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "") + "|" + region;
+          if (seenRegional.has(key)) return false;
+          seenRegional.add(key);
+          return true;
+        });
 
         const dateMap = new Map();
         for (const { data } of valid) {
