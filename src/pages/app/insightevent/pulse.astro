@@ -1326,6 +1326,12 @@ if (!location_id) {
       var lvlHeat=Number(a.lvl_heat||0); var lvlCold=Number(a.lvl_cold||0);
       var maxLvl = Math.max(lvlRain, lvlWind, lvlSnow, lvlHeat, lvlCold);
       var type = lvlRain===maxLvl?"pluie":lvlSnow===maxLvl?"neige":lvlWind===maxLvl?"vent":lvlHeat===maxLvl?"chaleur":"froid";
+      var allTypes = [];
+      if (lvlRain > 0) allTypes.push("pluie (niv. " + lvlRain + ")");
+      if (lvlWind > 0) allTypes.push("vent (niv. " + lvlWind + ")");
+      if (lvlSnow > 0) allTypes.push("neige (niv. " + lvlSnow + ")");
+      if (lvlHeat > 0) allTypes.push("chaleur (niv. " + lvlHeat + ")");
+      if (lvlCold > 0) allTypes.push("froid (niv. " + lvlCold + ")");
       var ov=a.old_value; var nv=a.new_value;
       var nvNum = Number(nv||0);
       var isSevere = nvNum >= 3;
@@ -1335,7 +1341,7 @@ if (!location_id) {
         type:"threat", barClass:barClass,
         urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: "Alerte "+type+(ov&&nv?" : niveau "+ov+" \u2192 "+nv:""),
+        what: allTypes.length > 1 ? "Alerte m\u00e9t\u00e9o : " + allTypes.join(", ") : "Alerte " + type + (ov && nv ? " : niveau " + ov + " \u2192 " + nv : ""),
         sowhat: isSevere
           ? (isOutdoor
             ? "Alerte s\u00e9v\u00e8re. Impact direct sur vos installations et la fr\u00e9quentation."
@@ -1358,6 +1364,14 @@ if (!location_id) {
     },
     weather_hazard_onset: function(a, prof) {
       var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+      var lvlRain=Number(a.lvl_rain||0); var lvlWind=Number(a.lvl_wind||0); var lvlSnow=Number(a.lvl_snow||0);
+      var lvlHeat=Number(a.lvl_heat||0); var lvlCold=Number(a.lvl_cold||0);
+      var allTypes = [];
+      if (lvlRain > 0) allTypes.push("pluie (niv. " + lvlRain + ")");
+      if (lvlWind > 0) allTypes.push("vent (niv. " + lvlWind + ")");
+      if (lvlSnow > 0) allTypes.push("neige (niv. " + lvlSnow + ")");
+      if (lvlHeat > 0) allTypes.push("chaleur (niv. " + lvlHeat + ")");
+      if (lvlCold > 0) allTypes.push("froid (niv. " + lvlCold + ")");
       var nvStr = String(a.new_value||"");
       var nvNum = 0;
       var hazMatch = nvStr.match(/\d+/);
@@ -1369,7 +1383,7 @@ if (!location_id) {
         type:"threat", barClass:barClass,
         urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: "Nouvelle alerte m\u00e9t\u00e9o : niveau "+(a.old_value||"0")+" \u2192 "+(a.new_value||"?"),
+        what: allTypes.length > 1 ? "Nouvelle alerte m\u00e9t\u00e9o : " + allTypes.join(", ") : "Nouvelle alerte m\u00e9t\u00e9o : niveau " + (a.old_value || "0") + " \u2192 " + (a.new_value || "?"),
         sowhat: isSevere
           ? (isOutdoor ? "Alerte s\u00e9v\u00e8re. Impact direct sur vos installations et la fr\u00e9quentation." : "Alerte s\u00e9v\u00e8re. Impact probable sur la fr\u00e9quentation.")
           : (isOutdoor ? "Nouvelle alerte. Surveillez l\u2019impact sur vos installations." : "Nouvelle alerte. Impact mod\u00e9r\u00e9."),
