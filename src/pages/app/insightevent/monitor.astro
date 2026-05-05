@@ -1495,6 +1495,59 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         ],
       };
     },
+    calendar_audience_shift: function(a, prof) {
+      var nv = String(a.new_value || "");
+      var ov = String(a.old_value || "");
+      if (!nv || nv === ov) return null;
+      var isHoliday = nv.toLowerCase().indexOf("férié") >= 0;
+      var isVacation = nv.toLowerCase().indexOf("vacances") >= 0;
+      var isTourist = nv.toLowerCase().indexOf("touris") >= 0;
+      var isFamily = nv.toLowerCase().indexOf("famille") >= 0 || nv.toLowerCase().indexOf("résidents") >= 0;
+      var isPro = nv.toLowerCase().indexOf("professionnel") >= 0;
+      var isSoldes = nv.toLowerCase().indexOf("soldes") >= 0 || nv.toLowerCase().indexOf("commercia") >= 0;
+      var myAud = String(prof.primary_audience_1 || "").toLowerCase();
+      var AUD_FR = {local:"résidents locaux",professionals:"professionnels",tourists:"touristes",students:"étudiants",families:"familles",seniors:"seniors"};
+      var myAudLabel = AUD_FR[myAud] || "";
+      var isMismatch = false;
+      if (myAud === "professionals" && (isHoliday || isVacation || isFamily)) isMismatch = true;
+      if (myAud === "tourists" && !isTourist && !isHoliday && !isVacation) isMismatch = true;
+      if ((myAud === "local" || myAud === "families") && isPro) isMismatch = true;
+      var barClass = isMismatch ? "ab-warning" : "ab-opportunity";
+      var urgStyle = isMismatch
+        ? "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"
+        : "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
+      var typeStyle = "background:#EFF6FF;color:#1e40af;";
+      var audToday = isTourist ? "touristes" : isFamily ? "familles et r\u00e9sidents" : isPro ? "professionnels" : isSoldes ? "acheteurs" : "public mixte";
+      var what = isMismatch
+        ? "Changement d\u2019audience : " + audToday + " aujourd\u2019hui \u2014 votre cible (" + myAudLabel + ") est moins disponible"
+        : isHoliday ? "Jour f\u00e9ri\u00e9 : affluence " + audToday + " attendue"
+        : isVacation ? "Vacances scolaires : affluence " + audToday + " attendue"
+        : isSoldes ? "P\u00e9riode commerciale : flux " + audToday + " en hausse"
+        : "Public du jour : " + audToday;
+      var sowhat = isMismatch
+        ? "Le public disponible ne correspond pas \u00e0 votre cible habituelle. Adaptez votre offre du jour ou r\u00e9duisez vos effectifs."
+        : isHoliday || isVacation
+          ? "Affluence diff\u00e9rente de vos jours habituels. Adaptez votre accueil et votre communication au public pr\u00e9sent."
+          : "Le profil de votre audience change aujourd\u2019hui. Opportunit\u00e9 d\u2019adapter votre message.";
+      var actions = isMismatch ? [
+        {text:"Adaptez votre \u00e9quipe \u00e0 une fr\u00e9quentation diff\u00e9rente de l\u2019habituel",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+        {text:"Publiez un post adapt\u00e9 au public du jour (" + audToday + ")",meta:"Communication \u00b7 Ciblage",key:"visitor_comm",channel:CH_GBP},
+      ] : [
+        {text:"Publiez un post adapt\u00e9 au public du jour (" + audToday + ")",meta:"Communication \u00b7 Ciblage",key:"visitor_comm",channel:CH_GBP},
+        isHoliday || isVacation
+          ? {text:"Adaptez vos horaires au rythme " + (isHoliday ? "jour f\u00e9ri\u00e9" : "vacances"),meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL}
+          : {text:"Mettez en avant votre offre adapt\u00e9e " + audToday,meta:"Marketing \u00b7 Ciblage",key:"marketing_push",channel:CH_GBP},
+      ];
+      return {
+        type: isMismatch ? "threat" : "opportunity",
+        barClass: barClass,
+        urgencyPill: {label: "Aujourd\u2019hui", style: urgStyle},
+        typePill: {label: "Audience", style: typeStyle},
+        what: what,
+        sowhat: sowhat,
+        actions: actions,
+      };
+    },
   };
 
   // ---- Opportunity from day context (regime A + favorable signals) ----
@@ -1586,6 +1639,77 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     var dayOpp = briefOpportunityFromDay(currentDay, prof);
     if (dayOpp) {
       candidates.push({ item: { change_subtype:"_day_opportunity", affected_date:currentDay.date, alert_level:0 }, tmpl: dayOpp, score: 80 });
+    }
+
+    // ---- Computed: Low competition window ----
+    var compRatio = Number(currentDay.competition_pressure_ratio || 0);
+    var hasBaselineComp = Boolean(currentDay.has_valid_baseline_flag);
+    var alertMaxComp = Number(currentDay.alert_level_max || 0);
+    var evCount5km = Number(currentDay.events_within_5km_count || 0);
+    if (hasBaselineComp && compRatio > 0 && compRatio < 0.7 && alertMaxComp <= 1) {
+      var avgEvents = Math.round(evCount5km / compRatio);
+      candidates.push({ item: { change_subtype:"_low_competition", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Fen\u00eatre",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Concurrence inhabituellement faible : " + evCount5km + " \u00e9v\u00e9nements \u00e0 5 km (moyenne : ~" + avgEvents + ")",
+        sowhat: "Journ\u00e9e rare avec peu de concurrence et conditions favorables. Si vous avez une op\u00e9ration en attente, c\u2019est le jour.",
+        actions: [
+          {text:"Lancez l\u2019op\u00e9ration que vous repoussez depuis la semaine derni\u00e8re",meta:"Strat\u00e9gie \u00b7 Timing",key:"marketing_push",channel:CH_INTERNAL},
+          {text:"Publiez un post \u00ab journ\u00e9e sp\u00e9ciale \u00bb pour capter le trafic disponible",meta:"Communication \u00b7 Opportunit\u00e9",key:"visitor_comm",channel:CH_GBP},
+        ],
+      }, score: 75 });
+    }
+
+    // ---- Computed: Audience mismatch ----
+    var audLabel = String(currentDay.audience_availability_label || "").toLowerCase();
+    var myAudComp = String(prof.primary_audience_1 || "").toLowerCase();
+    var AUD_FR_COMP = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
+    var myAudLabelComp = AUD_FR_COMP[myAudComp] || "";
+    var audMismatch = false;
+    if (myAudComp === "professionals" && (audLabel.indexOf("vacances") >= 0 || audLabel.indexOf("f\u00e9ri\u00e9") >= 0 || audLabel.indexOf("famille") >= 0)) audMismatch = true;
+    if (myAudComp === "tourists" && audLabel.indexOf("touris") < 0 && audLabel.indexOf("f\u00e9ri\u00e9") < 0 && audLabel.indexOf("vacances") < 0) audMismatch = true;
+    if ((myAudComp === "local" || myAudComp === "families") && audLabel.indexOf("professionnel") >= 0 && audLabel.indexOf("vacances") < 0) audMismatch = true;
+    if (audMismatch && myAudLabelComp) {
+      var audAvailable = audLabel.indexOf("touris") >= 0 ? "touristes" : audLabel.indexOf("famille") >= 0 ? "familles" : audLabel.indexOf("f\u00e9ri\u00e9") >= 0 ? "public jour f\u00e9ri\u00e9" : audLabel.indexOf("vacances") >= 0 ? "vacanciers" : audLabel.indexOf("soldes") >= 0 || audLabel.indexOf("commercia") >= 0 ? "acheteurs" : "public diff\u00e9rent";
+      candidates.push({ item: { change_subtype:"_audience_mismatch", affected_date:currentDay.date, alert_level:2, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Audience",style:"background:#EFF6FF;color:#1e40af;"},
+        what: "Public du jour : " + audAvailable + " \u2014 votre cible (" + myAudLabelComp + ") est moins disponible",
+        sowhat: "Le public pr\u00e9sent aujourd\u2019hui ne correspond pas \u00e0 votre audience habituelle. R\u00e9duisez vos effectifs ou adaptez votre offre.",
+        actions: [
+          {text:"R\u00e9duisez votre \u00e9quipe si la fr\u00e9quentation cible sera faible",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Publiez un post adapt\u00e9 au public disponible (" + audAvailable + ")",meta:"Communication \u00b7 Adaptation",key:"visitor_comm",channel:CH_GBP},
+        ],
+      }, score: 65 });
+    }
+
+    // ---- Computed: Weather window after bad spell ----
+    var sortedByDate = [...days].sort(function(a,b) { return String(a.date||"").localeCompare(String(b.date||"")); });
+    var todayIdx = sortedByDate.findIndex(function(d) { return normalizeYmd(d.date) === today; });
+    if (todayIdx >= 2 && Number(currentDay.alert_level_max || 0) <= 1) {
+      var prevBadDays = 0;
+      for (var pi = todayIdx - 1; pi >= Math.max(0, todayIdx - 3); pi--) {
+        if (Number(sortedByDate[pi].alert_level_max || 0) >= 2) prevBadDays++;
+      }
+      if (prevBadDays >= 2) {
+        var tMinW = currentDay.temperature_2m_min != null ? Math.round(Number(currentDay.temperature_2m_min)) : null;
+        var tMaxW = currentDay.temperature_2m_max != null ? Math.round(Number(currentDay.temperature_2m_max)) : null;
+        var tempStrW = tMinW != null && tMaxW != null ? tMinW + "\u00b0\u2013" + tMaxW + "\u00b0" : "";
+        candidates.push({ item: { change_subtype:"_weather_window", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+          type:"opportunity", barClass:"ab-opportunity",
+          urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+          typePill:{label:"M\u00e9t\u00e9o \u2713",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+          what: "Premi\u00e8re belle journ\u00e9e apr\u00e8s " + prevBadDays + " jours de mauvais temps" + (tempStrW ? " \u2014 " + tempStrW : ""),
+          sowhat: "Afflux de visiteurs probable \u2014 demande accumul\u00e9e apr\u00e8s " + prevBadDays + " jours d\u00e9favorables. Renforcez votre pr\u00e9sence.",
+          actions: [
+            {text:"Renforcez votre \u00e9quipe pour absorber l\u2019affluence",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+            {text:"Publiez un post \u00ab le soleil revient \u00bb avec votre programmation du jour",meta:"Communication \u00b7 Opportunit\u00e9",key:"visitor_comm",channel:CH_GBP},
+            {text:"R\u00e9installez votre mobilier et signal\u00e9tique ext\u00e9rieurs",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
+          ],
+        }, score: 85 });
+      }
     }
 
     candidates.sort(function(a,b) { return b.score - a.score; });
