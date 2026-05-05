@@ -1,14 +1,12 @@
 import type { APIRoute } from "astro";
-import { BigQuery } from "@google-cloud/bigquery";
+import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const userId =
-      (locals as any)?.auth?.()?.userId ??
-      (locals as any)?.userId ??
-      null;
+      String((locals as any)?.clerk_user_id || "").trim() || null;
     if (!userId) {
       return new Response(JSON.stringify({ ok: false }), {
         status: 401,
@@ -24,10 +22,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const bq = new BigQuery({ projectId: "ms-database-472505" });
-    const table = bq
-      .dataset("insight_event", { projectId: "muse-square-open-data" })
-      .table("action_log");
+    const projectId = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+    const bq = makeBQClient(projectId);
+    const table = bq.dataset("analytics").table("action_log");
 
     const row = {
       log_id: crypto.randomUUID(),
@@ -38,8 +35,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       action_key: body.action_key || null,
       action_text: body.action_text || null,
       action_category: body.action_category || null,
-      channel: body.channel || null,    // gbp | instagram | email | sms | internal | phone
-      event: body.event || "check", // "check" | "uncheck"
+      channel: body.channel || null,
+      event: body.event || "check",
       created_at: new Date().toISOString(),
     };
 
@@ -58,9 +55,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           { name: "event", type: "STRING" },
           { name: "created_at", type: "TIMESTAMP" },
         ];
-        await bq
-          .dataset("insight_event", { projectId: "muse-square-open-data" })
-          .createTable("action_log", { schema: { fields: schema } });
+        await bq.dataset("analytics").createTable("action_log", { schema: { fields: schema } });
         await table.insert([row]);
       } else {
         throw err;
