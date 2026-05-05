@@ -1784,13 +1784,28 @@ if (!location_id) {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body),
           });
-          await res.json();
-          card.style.opacity = '0.4';
-          card.querySelectorAll('button, a').forEach(function(b) { b.disabled = true; });
+          var json = await res.json();
           var confirmEl = document.getElementById('ie-db-confirm-' + idx);
           if (confirmEl) confirmEl.style.display = 'none';
           var actionArea = card.querySelector('[style*="flex-shrink:0;margin-top:2px"]');
-          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#059669;font-weight:600;">Ajouté ✓</span>';
+          // Replace card content with confirmation message
+          var detailEl = document.getElementById('ie-db-detail-' + idx);
+          if (detailEl) {
+            detailEl.style.display = 'block';
+            var nextMsg = type === 'event'
+              ? 'Cet événement est maintenant surveillé. Vous recevrez des alertes si les conditions changent.'
+              : json?.discovered_url
+                ? 'URL agenda détectée — première extraction cette nuit à 03h00.'
+                : json?.source_url
+                  ? 'Première extraction cette nuit à 03h00.'
+                  : 'Ajoutez une URL agenda dans <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;font-weight:500;">Mes suivis</a> pour démarrer la veille.';
+            detailEl.innerHTML = '<div style="padding:12px 0;display:flex;flex-direction:column;gap:8px;">'
+              + '<div style="font-size:13px;color:#059669;line-height:1.5;">' + nextMsg + '</div>'
+              + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">Voir mes suivis →</a>'
+            + '</div>';
+          }
+          card.style.opacity = '1';
         } catch(e) {
           btn.disabled = false;
           btn.textContent = 'Suivre';
