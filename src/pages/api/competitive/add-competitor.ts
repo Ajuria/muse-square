@@ -49,7 +49,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           query: `
             SELECT company_address
             FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.raw.insight_event_user_location_profile\`
-            WHERE location_id = @location_id AND deleted_at IS NULL
+            WHERE location_id = @location_id
             QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY updated_at DESC) = 1
           `,
           params: { location_id },
