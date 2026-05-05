@@ -41,9 +41,39 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const competitor_name     = String(body?.competitor_name     || "").trim();
     const city                = String(body?.city                || "").trim();
 
-    if (!competitor_name || !city) {
+    let resolvedCity = city;
+    if (!resolvedCity) {
+      try {
+        const bqTmp = makeBQClient(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+        const [locRows] = await bqTmp.query({
+          query: `
+            SELECT company_address
+            FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.raw.insight_event_user_location_profile\`
+            WHERE location_id = @location_id AND deleted_at IS NULL
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY updated_at DESC) = 1
+          `,
+          params: { location_id },
+          types: { location_id: "STRING" },
+          location: (process.env.BQ_LOCATION || "EU").trim(),
+        });
+        if (Array.isArray(locRows) && locRows.length > 0 && locRows[0].company_address) {
+          const addr = String(locRows[0].company_address).trim();
+          const cityMatch = addr.match(/\d{5}\s+(.+)$/);
+          if (cityMatch) {
+            resolvedCity = cityMatch[1].trim();
+          } else {
+            resolvedCity = addr.split(",").pop()?.trim() || "";
+          }
+          if (resolvedCity) console.info(`[add-competitor] city resolved from address: ${resolvedCity}`);
+        }
+      } catch (e: any) {
+        console.warn("[add-competitor] city fallback query failed:", e?.message);
+      }
+    }
+
+    if (!competitor_name || !resolvedCity) {
       console.warn("[add-competitor] 400 — received body:", JSON.stringify(body));
-      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city", received: { competitor_name: competitor_name || null, city: city || null } }), {
+      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city", received: { competitor_name: competitor_name || null, city: resolvedCity || null } }), {
         status: 400, headers: { "content-type": "application/json" }
       });
     }
@@ -91,7 +121,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           AND deleted_at IS NULL
         LIMIT 1
       `,
-      params: { competitor_name, city },
+      params: { competitor_name, city: resolvedCity },
       types:  { competitor_name: "STRING", city: "STRING" },
       location: BQ_LOCATION,
     });
@@ -145,7 +175,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           )
         `,
         params: {
-          competitor_id, competitor_name, city,
+          competitor_id, competitor_name, city: resolvedCity,
           address:              address              ?? null,
           industry_code:        industry_code        ?? null,
           industry_bucket:      industry_bucket      ?? null,
@@ -180,7 +210,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ── 1b. Geocode if lat/lon missing ──
     if (lat === null || lon === null) {
       try {
-        const geo = await geocodeCompetitor(competitor_name, city, address);
+        const geo = await geocodeCompetitor(competitor_name, resolvedCity, address);
         if (geo) {
           await bq.query({
             query: `
@@ -213,7 +243,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           AND deleted_at IS NULL
         LIMIT 1
       `,
-      params: { clerk_user_id, competitor_name, city },
+      params: { clerk_user_id, competitor_name, city: resolvedCity },
       types: { clerk_user_id: "STRING", competitor_name: "STRING", city: "STRING" },
       location: BQ_LOCATION,
     });
@@ -248,7 +278,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           watched_competitor_id, clerk_user_id, location_id,
           competitor_id, competitor_name,
           industry_code: industry_code ?? null,
-          city,
+          city: resolvedCity,
           source_url: source_url ?? null,
           confidence_score,
         },
