@@ -419,7 +419,7 @@ export const GET: APIRoute = async ({ request }) => {
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
         ORDER BY lc.last_crawled ASC NULLS FIRST
-        LIMIT 1
+        LIMIT 10
       `,
       location: BQ_LOCATION,
     });
@@ -427,13 +427,15 @@ export const GET: APIRoute = async ({ request }) => {
     const competitors = sources as CompetitorSource[];
 
     // ── Step 2-5: Fetch → Extract → Write per competitor ─────────────────────
-    // Pick ONE competitor — oldest crawled first
-    const comp = competitors[0];
-    // Skip if this competitor was already crawled in the last 12 hours
-    const lastCrawledRaw = (comp as any)?.last_crawled;
-    const lastCrawledStr = lastCrawledRaw?.value ?? (lastCrawledRaw != null ? String(lastCrawledRaw) : "");
+    // Filter out competitors crawled in the last 12 hours
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    if (comp && lastCrawledStr && lastCrawledStr !== "" && lastCrawledStr > twelveHoursAgo) {
+    const toCrawl = competitors.filter((c: any) => {
+      const raw = c.last_crawled;
+      const str = raw?.value ?? (raw != null ? String(raw) : "");
+      return !str || str === "" || str <= twelveHoursAgo;
+    });
+
+    if (toCrawl.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "all_competitors_crawled_recently", ...results }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -477,7 +479,9 @@ export const GET: APIRoute = async ({ request }) => {
       console.error("[competitor-surveillance] geocode backfill query failed:", geoErr?.message);
     }
 
-    if (comp) {
+    for (const comp of toCrawl) {
+      // Timeout guard — break before Vercel kills the function
+      if (Date.now() - startTime > TIMEOUT_MS) break;
       // Timeout guard — break loop before Vercel kills the function
       // (timeout guard removed — single competitor mode, no loop)
 
