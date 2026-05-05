@@ -11,6 +11,10 @@ const AGENDA_PATTERNS = [
   "agenda", "programme", "events", "calendar", "manifestation",
   "what-s-on", "au-programme", "expositions", "spectacles",
   "calendrier", "evenements", "événements", "saison",
+  "programmation", "exhibitions", "what-to-see", "a-voir",
+  "nos-expositions", "visiter", "billetterie", "tickets",
+  "coming-up", "on-view", "en-ce-moment", "prochainement",
+  "actualites", "actualités", "news", "whats-on",
 ];
 
 export function isHomepagePath(url: string): boolean {
@@ -56,7 +60,7 @@ export async function discoverAgendaUrl(
 
   try {
     const discoverBql = `mutation DiscoverLinks {
-      goto(url: "${sourceUrl.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
+      goto(url: "${sourceUrl.replace(/"/g, '\\"')}", waitUntil: networkIdle) { status }
       verify(type: cloudflare) { found solved }
       evaluate(content: "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => a.href).filter(h => h.startsWith('http')).slice(0, 100))") { value }
     }`;
