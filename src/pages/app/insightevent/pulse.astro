@@ -1568,7 +1568,9 @@ if (!location_id) {
     for (var j = 0; j < candidates.length && top.length < 5; j++) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
-      var dedup = sub2 + "|" + normalizeYmd(c.item.affected_date);
+      var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : sub2;
+      var dedupLoc = String(c.item.location_label || "");
+      var dedup = dedupSub + "|" + normalizeYmd(c.item.affected_date) + "|" + dedupLoc;
       if (seen[dedup]) continue;
       seen[dedup] = true;
       top.push(c);
