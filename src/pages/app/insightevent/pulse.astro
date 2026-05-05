@@ -1153,134 +1153,232 @@ if (!location_id) {
       var line = a.event_label||a.mobility_disruption_category||"";
       var distLabel = distM>0?(distM<1000?Math.round(distM)+" m":(distM/1000).toFixed(1)+" km"):"";
       var isRoad = mode==="road";
+      var isClose = distM > 0 && distM < 500;
+      var isMid = distM >= 500 && distM < 2000;
+      var barClass = isClose ? "ab-threat" : "ab-warning";
+      var urgStyle = isClose ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
       return {
-        type:"threat", barClass:"ab-threat",
-        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        type:"threat", barClass:barClass,
+        urgencyPill:{label:isClose?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"Mobilit\u00e9",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: line ? escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 acc\u00e8s visiteurs impact\u00e9" : "Perturbation "+modeName+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 acc\u00e8s impact\u00e9",
-        sowhat: distM<500
-          ? "Vos clients arrivent par cet arr\u00eat. D\u00e9tour probable de 10-15 min \u2014 impact direct sur la fr\u00e9quentation."
-          : isRoad ? "Axe routier perturb\u00e9 \u2014 impact potentiel sur les livraisons et prestataires."
-          : "Ligne desservant votre zone perturb\u00e9e \u2014 acc\u00e8s visiteurs ralenti.",
-        actions: [
-          {text:"Publier l\u2019itin\u00e9raire alternatif sur Google Business Profile et vos r\u00e9seaux",meta:"Communication \u00b7 Urgent",key:"access_comm",channel:CH_GBP},
-          {text:"Mettre \u00e0 jour la signal\u00e9tique d\u2019acc\u00e8s sur place (panneau, fl\u00e9chage)",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
+        what: line ? escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"") : "Perturbation "+modeName+(distLabel?" \u00e0 "+distLabel:""),
+        sowhat: isClose
+          ? "Arr\u00eat desservant votre site perturb\u00e9. D\u00e9tour probable pour vos visiteurs."
+          : isRoad ? "Axe routier perturb\u00e9 \u2014 impact potentiel sur les livraisons."
+          : isMid ? "Ligne desservant votre zone perturb\u00e9e. Acc\u00e8s visiteurs ralenti."
+          : "Perturbation d\u00e9tect\u00e9e dans votre secteur. Impact limit\u00e9.",
+        actions: isClose ? [
+          {text:"Publier l\u2019itin\u00e9raire alternatif sur Google Business Profile",meta:"Communication \u00b7 Urgent",key:"access_comm",channel:CH_GBP},
+          {text:"Mettre \u00e0 jour la signal\u00e9tique d\u2019acc\u00e8s sur place",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
           isRoad
-            ? {text:"Pr\u00e9venir vos prestataires / livreurs \u2014 acc\u00e8s v\u00e9hicules impact\u00e9",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE}
+            ? {text:"Pr\u00e9venir vos prestataires / livreurs",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE}
             : {text:"Pr\u00e9voir un accueil renforc\u00e9 pour orienter les visiteurs",meta:"Exploitation \u00b7 Accueil",key:"staff_adjust",channel:CH_INTERNAL},
+        ] : [
+          {text:"Surveiller l\u2019\u00e9volution de la perturbation",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
+          isRoad
+            ? {text:"Pr\u00e9venir vos prestataires si livraisons pr\u00e9vues",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE}
+            : {text:"Informer votre \u00e9quipe de la perturbation",meta:"Coordination \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
         ],
       };
     },
     mobility_disruption_planned: function(a, prof) {
       var line = a.event_label||"Travaux pr\u00e9vus";
-      var distLabel = Number(a.distance_m||0)>0?(Number(a.distance_m)<1000?Math.round(Number(a.distance_m))+" m":(Number(a.distance_m)/1000).toFixed(1)+" km"):"";
+      var distM = Number(a.distance_m||0);
+      var distLabel = distM>0?(distM<1000?Math.round(distM)+" m":(distM/1000).toFixed(1)+" km"):"";
+      var isClose = distM > 0 && distM < 1000;
       return {
         type:"threat", barClass:"ab-warning",
         urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
         typePill:{label:"Mobilit\u00e9",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
         what: escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"")+" \u2014 perturbation programm\u00e9e",
-        sowhat: "Perturbation pr\u00e9visible \u2014 anticipez un plan d\u2019acc\u00e8s alternatif pour vos visiteurs et livraisons.",
-        actions: [
+        sowhat: isClose
+          ? "Travaux pr\u00e9vus \u00e0 proximit\u00e9 imm\u00e9diate. Pr\u00e9parez un plan d\u2019acc\u00e8s alternatif."
+          : "Perturbation programm\u00e9e dans votre secteur. Impact limit\u00e9 mais \u00e0 anticiper.",
+        actions: isClose ? [
           {text:"Pr\u00e9parer un plan d\u2019acc\u00e8s alternatif et l\u2019afficher",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
           {text:"Informer votre \u00e9quipe et vos prestataires",meta:"Coordination \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
-          {text:"Pr\u00e9venir vos visiteurs par email / r\u00e9seaux",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+          {text:"Pr\u00e9venir vos visiteurs par email",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+        ] : [
+          {text:"Surveiller l\u2019\u00e9volution des travaux",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
         ],
       };
     },
     competitor_event_launch: function(a, prof) {
       var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
-      var compName = parts[0]||a.event_label||"Concurrent";
-      var evName = parts[1]||"";
-      var km = Number(a.distance_m||0)>0?(Number(a.distance_m)/1000).toFixed(1)+" km":"";
-      var aud1 = String(prof.primary_audience_1||"").toLowerCase();
+      var compName = a._comp_name || parts[0] || a.event_label || "Concurrent";
+      var evName = a._comp_event_name || parts[1] || "";
+      var distM = a._comp_distance_m || Number(a.distance_m||0);
+      var km = distM > 0 ? (distM/1000).toFixed(1)+" km" : "";
+      var threatLevel = a._threat_level || null;
+      var audOverlap = a._audience_overlap === true;
+      var indOverlap = a._industry_overlap === true;
+      var indTier = a._industry_tier || null;
+      var compAud = a._comp_audience || null;
       var AUD_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
-      var audLabel = AUD_FR[aud1]||"";
+      var compAudLabel = compAud ? (AUD_FR[compAud]||compAud) : null;
+      var myAud = String(prof.primary_audience_1||"").toLowerCase();
+      var myAudLabel = AUD_FR[myAud]||"";
+      var isHigh = threatLevel === "high" || (audOverlap && indOverlap && distM < 3000);
+      var isModerate = !isHigh && (threatLevel === "moderate" || audOverlap || (indOverlap && distM < 5000));
+      var isLow = !isHigh && !isModerate;
+      if (isLow) return null;
+      var urgStyle = isHigh ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
+      var barClass = isHigh ? "ab-threat" : "ab-warning";
+      var whatParts = [escapeHtml(compName)];
+      if (evName) whatParts.push("lance \u201c"+escapeHtml(evName)+"\u201d");
+      if (km) whatParts.push("\u00e0 "+km);
+      var overlapParts = [];
+      if (audOverlap && compAudLabel) overlapParts.push("m\u00eame audience ("+compAudLabel+")");
+      else if (audOverlap && myAudLabel) overlapParts.push("m\u00eame audience ("+myAudLabel+")");
+      if (indOverlap) overlapParts.push(indTier === "direct" ? "m\u00eame secteur" : "secteur proche");
+      var whatLine = whatParts.join(" ")+(overlapParts.length ? " \u2014 "+overlapParts.join(", ") : "");
+      var sowhat = isHigh
+        ? (audOverlap && indOverlap
+          ? "Concurrence directe : m\u00eame public, m\u00eame secteur, \u00e0 proximit\u00e9. Impact \u00e9lev\u00e9 sur votre fr\u00e9quentation."
+          : audOverlap
+            ? "Ce concurrent cible votre public"+(myAudLabel?" ("+myAudLabel+")":"")+". Risque de captation \u00e9lev\u00e9."
+            : "Concurrent direct dans votre secteur \u00e0 proximit\u00e9. Surveillez l\u2019impact sur votre trafic.")
+        : (audOverlap
+          ? "Public similaire, mais impact mod\u00e9r\u00e9"+(distM > 5000 ? " (distance "+km+")" : "")+". Restez visible."
+          : indOverlap
+            ? "M\u00eame secteur mais public diff\u00e9rent. Impact indirect possible."
+            : "\u00c9v\u00e9nement concurrent d\u00e9tect\u00e9. Impact limit\u00e9 mais \u00e0 surveiller.");
+      var actions = isHigh ? [
+        {text:"Publier un post mettant en avant votre diff\u00e9renciant",meta:"Communication \u00b7 Urgent",key:"visitor_comm",channel:CH_GBP},
+        {text:"Lancer une offre cibl\u00e9e "+(myAudLabel||"")+" ce week-end",meta:"Marketing \u00b7 Offre",key:"marketing_push",channel:CH_GBP},
+        {text:"Adapter votre programmation pour vous d\u00e9marquer",meta:"Programmation \u00b7 Diff\u00e9renciation",key:"programming",channel:CH_INTERNAL},
+      ] : [
+        {text:"Publier du contenu r\u00e9gulier pour rester visible",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+        {text:"Surveiller la fr\u00e9quentation cette semaine",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
+      ];
       return {
-        type:"threat", barClass:"ab-threat",
-        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
-        typePill:{label:"Concurrence",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
-        what: escapeHtml(compName)+(evName?" lance \u201c"+escapeHtml(evName)+"\u201d":"")+(audLabel?" \u2014 m\u00eame audience ("+audLabel+")":"")+(km?", \u00e0 "+km:""),
-        sowhat: audLabel
-          ? "Risque de captation directe de votre public "+audLabel+". Agissez avant l\u2019ouverture."
-          : "Concurrent \u00e0 proximit\u00e9 lan\u00e7ant un \u00e9v\u00e9nement \u2014 captation de trafic probable.",
-        actions: [
-          {text:"Lancer une offre "+(audLabel||"sp\u00e9ciale")+" ce week-end (r\u00e9duction, animation, avantage exclu)",meta:"Marketing \u00b7 Impact \u00e9lev\u00e9",key:"marketing_push",channel:CH_INSTAGRAM},
-          {text:"Publier un post mettant en avant votre diff\u00e9renciant (ce que vous avez et qu\u2019ils n\u2019ont pas)",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
-          {text:"Prolonger vos horaires vendredi et samedi pour capter le trafic r\u00e9siduel",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
-          {text:"Activer une campagne g\u00e9olocalis\u00e9e ciblant "+(audLabel||"votre audience")+" dans un rayon de 2 km",meta:"Marketing \u00b7 Publicit\u00e9 locale",key:"marketing_push",channel:CH_INSTAGRAM},
-        ],
+        type:"threat", barClass:barClass,
+        urgencyPill:{label:isHigh?"Urgent":"Cette semaine",style:urgStyle},
+        typePill:{label:"Concurrence",style:urgStyle},
+        what: whatLine,
+        sowhat: sowhat,
+        actions: actions,
       };
     },
     competitor_audience_conflict: function(a, prof) {
       var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
-      var compName = parts[0]||"Concurrent";
-      var km = Number(a.distance_m||0)>0?(Number(a.distance_m)/1000).toFixed(1)+" km":"";
+      var compName = a._comp_name || parts[0] || "Concurrent";
+      var distM = a._comp_distance_m || Number(a.distance_m||0);
+      var km = distM > 0 ? (distM/1000).toFixed(1)+" km" : "";
+      var audScore = Number(a._audience_overlap_score||0);
+      var indOverlap = a._industry_overlap === true;
+      var indTier = a._industry_tier || null;
+      var AUD_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
+      var myAud = String(prof.primary_audience_1||"").toLowerCase();
+      var myAudLabel = AUD_FR[myAud]||"";
+      var isCritical = audScore >= 8 && indOverlap && distM < 3000;
+      var barClass = isCritical ? "ab-threat" : "ab-warning";
+      var urgStyle = isCritical ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
+      var overlapDetail = [];
+      if (myAudLabel) overlapDetail.push("audience : "+myAudLabel);
+      if (indOverlap) overlapDetail.push(indTier === "direct" ? "m\u00eame secteur" : "secteur proche");
+      if (km) overlapDetail.push(km);
+      var whatLine = escapeHtml(compName)+(overlapDetail.length?" \u2014 "+overlapDetail.join(", "):"");
+      var sowhat = isCritical
+        ? "Conflit direct : m\u00eame public, m\u00eame secteur, tr\u00e8s proche. Priorit\u00e9 haute."
+        : "Chevauchement d\u2019audience d\u00e9tect\u00e9"+(distM > 5000 ? " \u00e0 distance" : "")+". Impact mod\u00e9r\u00e9 mais \u00e0 surveiller.";
+      var actions = isCritical ? [
+        {text:"Publier un post mettant en avant votre diff\u00e9renciant",meta:"Communication \u00b7 Urgent",key:"visitor_comm",channel:CH_GBP},
+        {text:"Lancer une offre exclusive pour fid\u00e9liser votre base",meta:"Marketing \u00b7 Fid\u00e9lisation",key:"marketing_push",channel:CH_GBP},
+        {text:"Adapter votre programmation pour vous d\u00e9marquer",meta:"Programmation \u00b7 Diff\u00e9renciation",key:"programming",channel:CH_INTERNAL},
+      ] : [
+        {text:"Publier du contenu r\u00e9gulier pour rester visible",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+        {text:"Surveiller la fr\u00e9quentation cette semaine",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
+      ];
       return {
-        type:"threat", barClass:"ab-threat",
-        urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
-        typePill:{label:"Conflit audience",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
-        what: escapeHtml(compName)+" \u2014 m\u00eame public, m\u00eame date"+(km?", \u00e0 "+km:""),
-        sowhat: "Conflit direct : audience + date + proximit\u00e9. Risque \u00e9lev\u00e9 de captation.",
-        actions: [
-          {text:"Lancer une offre flash diff\u00e9renciante (ce que le concurrent ne propose pas)",meta:"Marketing \u00b7 Offre",key:"marketing_push",channel:CH_INSTAGRAM},
-          {text:"Renforcer votre visibilit\u00e9 avec un post cibl\u00e9 sur les r\u00e9seaux",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
-          {text:"Adapter votre programmation pour vous d\u00e9marquer (animation exclusive, th\u00e9matique unique)",meta:"Programmation \u00b7 Diff\u00e9renciation",key:"programming",channel:CH_INTERNAL},
-          {text:"Contacter un partenaire local pour une offre crois\u00e9e",meta:"Partenariat \u00b7 Co-marketing",key:"partnership",channel:CH_PHONE},
-        ],
+        type:"threat", barClass:barClass,
+        urgencyPill:{label:isCritical?"Urgent":"Cette semaine",style:urgStyle},
+        typePill:{label:"Conflit audience",style:urgStyle},
+        what: whatLine,
+        sowhat: sowhat,
+        actions: actions,
       };
     },
     competition_pressure_spike: function(a, prof) {
       var oldN = Number(a.old_value||0); var newN = Number(a.new_value||0);
       if (newN<=oldN) return null;
+      var delta = newN - oldN;
+      var isSharp = delta >= 5 || newN >= 20;
       return {
-        type:"threat", barClass:"ab-warning",
-        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        typePill:{label:"Pression \u2191",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
-        what: "Pression concurrentielle en hausse : "+newN+" \u00e9v\u00e9nements \u00e0 5 km (+"+(newN-oldN)+")",
-        sowhat: "Densit\u00e9 d\u2019\u00e9v\u00e9nements anormalement \u00e9lev\u00e9e \u2014 votre visibilit\u00e9 est dilu\u00e9e.",
-        actions: [
-          {text:"Publier du contenu r\u00e9gulier cette semaine pour rester visible",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
-          {text:"Activer une offre pour fid\u00e9liser votre base (avantage abonn\u00e9s, carte de fid\u00e9lit\u00e9)",meta:"Marketing \u00b7 Fid\u00e9lisation",key:"marketing_push",channel:CH_EMAIL},
-          {text:"Prolonger vos horaires pour capter le trafic r\u00e9siduel en soir\u00e9e",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+        type:"threat", barClass:isSharp?"ab-threat":"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:isSharp?"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);":"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Pression \u2191",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: "Pression concurrentielle en hausse : "+newN+" \u00e9v\u00e9nements \u00e0 5 km (+"+delta+")",
+        sowhat: isSharp
+          ? "Hausse significative de la densit\u00e9 d\u2019\u00e9v\u00e9nements. Votre visibilit\u00e9 peut \u00eatre impact\u00e9e."
+          : "L\u00e9g\u00e8re hausse de la densit\u00e9 concurrentielle. Restez visible.",
+        actions: isSharp ? [
+          {text:"Publier du contenu r\u00e9gulier cette semaine",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+          {text:"Activer une offre pour fid\u00e9liser votre base",meta:"Marketing \u00b7 Fid\u00e9lisation",key:"marketing_push",channel:CH_EMAIL},
+        ] : [
+          {text:"Publier du contenu pour rester visible",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
         ],
       };
     },
     weather_worsened: function(a, prof) {
       var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
       var lvlRain=Number(a.lvl_rain||0); var lvlWind=Number(a.lvl_wind||0); var lvlSnow=Number(a.lvl_snow||0);
-      var type = lvlRain>=lvlWind&&lvlRain>=lvlSnow?"pluie":lvlWind>=lvlSnow?"vent":"neige";
+      var lvlHeat=Number(a.lvl_heat||0); var lvlCold=Number(a.lvl_cold||0);
+      var maxLvl = Math.max(lvlRain, lvlWind, lvlSnow, lvlHeat, lvlCold);
+      var type = lvlRain===maxLvl?"pluie":lvlSnow===maxLvl?"neige":lvlWind===maxLvl?"vent":lvlHeat===maxLvl?"chaleur":"froid";
       var ov=a.old_value; var nv=a.new_value;
+      var nvNum = Number(nv||0);
+      var isSevere = nvNum >= 3;
+      var barClass = isSevere ? "ab-threat" : "ab-warning";
+      var urgStyle = isSevere ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
       return {
-        type:"threat", barClass:"ab-threat",
-        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        type:"threat", barClass:barClass,
+        urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: "Alerte "+type+" renforc\u00e9e"+(ov&&nv?" : niveau "+ov+" \u2192 "+nv:""),
-        sowhat: isOutdoor
-          ? "Impact direct sur vos installations et la fr\u00e9quentation. Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e."
-          : "Impact probable sur la fr\u00e9quentation \u2014 friction \u00e0 l\u2019entr\u00e9e du site.",
-        actions: isOutdoor ? [
-          {text:"S\u00e9curiser vos installations ext\u00e9rieures (tentes, signal\u00e9tique, mobilier)",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
-          {text:"Adapter l\u2019\u00e9quipe : renforcer accueil int\u00e9rieur, r\u00e9duire postes ext\u00e9rieurs",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
-          {text:"Pr\u00e9venir vos visiteurs par email / r\u00e9seaux (conditions, plan B)",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
-          {text:"Pr\u00e9parer un plan B int\u00e9rieur (repli des animations)",meta:"Programmation \u00b7 Plan B",key:"programming",channel:CH_INTERNAL},
+        what: "Alerte "+type+(ov&&nv?" : niveau "+ov+" \u2192 "+nv:""),
+        sowhat: isSevere
+          ? (isOutdoor
+            ? "Alerte s\u00e9v\u00e8re. Impact direct sur vos installations et la fr\u00e9quentation."
+            : "Alerte s\u00e9v\u00e8re. Impact probable sur la fr\u00e9quentation.")
+          : (isOutdoor
+            ? "D\u00e9gradation m\u00e9t\u00e9o. Surveillez l\u2019impact sur vos installations ext\u00e9rieures."
+            : "D\u00e9gradation m\u00e9t\u00e9o mod\u00e9r\u00e9e. L\u00e9g\u00e8re friction possible."),
+        actions: isSevere ? (isOutdoor ? [
+          {text:"S\u00e9curiser vos installations ext\u00e9rieures",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
+          {text:"Adapter l\u2019\u00e9quipe : renforcer accueil int\u00e9rieur",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venir vos visiteurs des conditions",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+          {text:"Pr\u00e9parer un plan B int\u00e9rieur",meta:"Programmation \u00b7 Plan B",key:"programming",channel:CH_INTERNAL},
         ] : [
-          {text:"Adapter l\u2019\u00e9quipe (r\u00e9duire si baisse fr\u00e9quentation attendue)",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Adapter l\u2019\u00e9quipe si baisse fr\u00e9quentation attendue",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
           {text:"Pr\u00e9venir vos visiteurs des conditions d\u2019acc\u00e8s",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+        ]) : [
+          {text:"Surveiller l\u2019\u00e9volution de la m\u00e9t\u00e9o",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
         ],
       };
     },
     weather_hazard_onset: function(a, prof) {
       var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
+      var nvStr = String(a.new_value||"");
+      var nvNum = 0;
+      var hazMatch = nvStr.match(/\d+/);
+      if (hazMatch) nvNum = Number(hazMatch[0]);
+      var isSevere = nvNum >= 3;
+      var barClass = isSevere ? "ab-threat" : "ab-warning";
+      var urgStyle = isSevere ? "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);";
       return {
-        type:"threat", barClass:"ab-threat",
-        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        type:"threat", barClass:barClass,
+        urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: "Nouvelle alerte m\u00e9t\u00e9o : niveau "+(a.old_value||"?")+" \u2192 "+(a.new_value||"?"),
-        sowhat: isOutdoor ? "Impact direct sur vos installations ext\u00e9rieures et la fr\u00e9quentation." : "Impact probable sur la fr\u00e9quentation.",
-        actions: [
+        what: "Nouvelle alerte m\u00e9t\u00e9o : niveau "+(a.old_value||"0")+" \u2192 "+(a.new_value||"?"),
+        sowhat: isSevere
+          ? (isOutdoor ? "Alerte s\u00e9v\u00e8re. Impact direct sur vos installations et la fr\u00e9quentation." : "Alerte s\u00e9v\u00e8re. Impact probable sur la fr\u00e9quentation.")
+          : (isOutdoor ? "Nouvelle alerte. Surveillez l\u2019impact sur vos installations." : "Nouvelle alerte. Impact mod\u00e9r\u00e9."),
+        actions: isSevere ? [
           {text:"S\u00e9curiser installations et pr\u00e9voir plan B",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
           {text:"Adapter l\u2019\u00e9quipe au sc\u00e9nario m\u00e9t\u00e9o",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
           {text:"Pr\u00e9venir visiteurs et prestataires",meta:"Communication \u00b7 Tous",key:"visitor_comm",channel:CH_EMAIL},
+        ] : [
+          {text:"Surveiller l\u2019\u00e9volution de la m\u00e9t\u00e9o",meta:"Exploitation \u00b7 Veille",key:"onsite_ops",channel:CH_INTERNAL},
         ],
       };
     },
@@ -1289,14 +1387,13 @@ if (!location_id) {
       return {
         type:"threat", barClass:"ab-warning",
         urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        typePill:{label:"M\u00e9ga-\u00e9v\u00e9n.",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"M\u00e9ga-\u00e9v\u00e9n.",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
         what: escapeHtml(name)+" \u2014 impact mobilit\u00e9 et fr\u00e9quentation",
         sowhat: "Afflux de visiteurs et perturbations de transport probables. Opportunit\u00e9 et risque simultan\u00e9s.",
         actions: [
           {text:"Adapter votre \u00e9quipe (renforcer accueil et s\u00e9curit\u00e9)",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
-          {text:"Prolonger vos horaires pour capter le trafic suppl\u00e9mentaire",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
-          {text:"Publier du contenu li\u00e9 \u00e0 l\u2019\u00e9v\u00e9nement pour capter son audience",meta:"Marketing \u00b7 Co-trafic",key:"marketing_push",channel:CH_INSTAGRAM},
-          {text:"Pr\u00e9venir prestataires / livraisons des perturbations transport",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE},
+          {text:"Publier du contenu li\u00e9 \u00e0 l\u2019\u00e9v\u00e9nement pour capter son audience",meta:"Marketing \u00b7 Co-trafic",key:"marketing_push",channel:CH_GBP},
+          {text:"Pr\u00e9venir prestataires des perturbations transport",meta:"Coordination \u00b7 Fournisseurs",key:"supplier_coord",channel:CH_PHONE},
         ],
       };
     },
@@ -1312,26 +1409,35 @@ if (!location_id) {
         what: "Conditions normalis\u00e9es"+(a.old_value&&a.new_value?" (niveau "+a.old_value+" \u2192 "+a.new_value+")":""),
         sowhat: "La m\u00e9t\u00e9o redevient favorable. Vos installations ext\u00e9rieures sont de nouveau exploitables.",
         actions: [
-          {text:"Relancer votre communication ext\u00e9rieure (terrasse, \u00e9v\u00e9nement plein air)",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Relancer votre communication ext\u00e9rieure",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_GBP},
           {text:"R\u00e9installer le mobilier et la signal\u00e9tique ext\u00e9rieurs",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
         ],
       };
     },
     competitor_event_ending: function(a, prof) {
       var nv = String(a.new_value||""); var parts = nv.split(" \u2014 ");
-      var compName = parts[0]||"Concurrent";
-      var aud1 = String(prof.primary_audience_1||"").toLowerCase();
+      var compName = a._comp_name || parts[0] || "Concurrent";
+      var audOverlap = a._audience_overlap === true;
+      var indOverlap = a._industry_overlap === true;
       var AUD_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors"};
-      var audLabel = AUD_FR[aud1]||"";
+      var myAud = String(prof.primary_audience_1||"").toLowerCase();
+      var myAudLabel = AUD_FR[myAud]||"";
+      var compAud = a._comp_audience || null;
+      var compAudLabel = compAud ? (AUD_FR[compAud]||compAud) : null;
+      var isRelevant = audOverlap || indOverlap;
+      if (!isRelevant) return null;
+      var sharedAudLabel = audOverlap ? (compAudLabel || myAudLabel) : null;
       return {
         type:"opportunity", barClass:"ab-opportunity",
         urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
         typePill:{label:"Fin concurrent",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
-        what: escapeHtml(compName)+" \u2014 fin de programmation prochaine"+(audLabel?" \u2014 "+audLabel+" de retour sur le march\u00e9":""),
-        sowhat: audLabel ? "Public "+audLabel+" lib\u00e9r\u00e9. Fen\u00eatre de captation ouverte." : "Public du concurrent lib\u00e9r\u00e9. Fen\u00eatre de captation ouverte.",
+        what: escapeHtml(compName)+" \u2014 fin de programmation"+(sharedAudLabel?" \u2014 "+sharedAudLabel+" lib\u00e9r\u00e9":""),
+        sowhat: sharedAudLabel
+          ? "Public "+sharedAudLabel+" lib\u00e9r\u00e9. Fen\u00eatre de captation ouverte."
+          : "Concurrent m\u00eame secteur en fin de cycle. Opportunit\u00e9 de visibilit\u00e9.",
         actions: [
-          {text:"Lancer une offre de bienvenue ciblant "+(audLabel||"ce public")+" d\u00e8s la fin de l\u2019\u00e9v\u00e9nement",meta:"Marketing \u00b7 Captation post-concurrent",key:"marketing_push",channel:CH_INSTAGRAM},
-          {text:"Publier du contenu "+(audLabel||"cibl\u00e9")+" pour occuper l\u2019espace lib\u00e9r\u00e9",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Publier du contenu pour capter le public lib\u00e9r\u00e9",meta:"Communication \u00b7 Captation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Lancer une offre de bienvenue ciblant "+(sharedAudLabel||"ce public"),meta:"Marketing \u00b7 Captation",key:"marketing_push",channel:CH_GBP},
         ],
       };
     },
@@ -1343,7 +1449,7 @@ if (!location_id) {
         what: (a.event_label||"M\u00e9ga-\u00e9v\u00e9nement")+" \u2014 retour \u00e0 la normale",
         sowhat: "Le public local est de retour. Mobilit\u00e9 normalis\u00e9e, fen\u00eatre favorable.",
         actions: [
-          {text:"Relancer votre communication locale pour r\u00e9cup\u00e9rer le public r\u00e9sident",meta:"Communication \u00b7 Local",key:"visitor_comm",channel:CH_INSTAGRAM},
+          {text:"Relancer votre communication locale",meta:"Communication \u00b7 Local",key:"visitor_comm",channel:CH_GBP},
           {text:"Adapter vos horaires au rythme normal",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
         ],
       };
@@ -1358,8 +1464,8 @@ if (!location_id) {
         what: "Score en forte hausse : "+(a.old_value||"?")+" \u2192 "+(a.new_value||"?")+" (+"+delta+" pts)",
         sowhat: "Cette date gagne en attractivit\u00e9. Conditions favorables pour maximiser.",
         actions: [
-          {text:"Publier un post pour capter le trafic spontan\u00e9 sur cette date",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_INSTAGRAM},
-          {text:"Activer une offre premium (marges plus \u00e9lev\u00e9es quand la demande est forte)",meta:"Marketing \u00b7 Pricing",key:"pricing",channel:CH_GBP},
+          {text:"Publier un post pour capter le trafic spontan\u00e9",meta:"Communication \u00b7 R\u00e9seaux sociaux",key:"visitor_comm",channel:CH_GBP},
+          {text:"Activer une offre premium",meta:"Marketing \u00b7 Pricing",key:"pricing",channel:CH_GBP},
         ],
       };
     },
@@ -1507,7 +1613,6 @@ if (!location_id) {
           + '</div>'
           + (showCopy || showGen ? '<div class="ab-action-right">'
             + (showGen ? '<button type="button" class="ab-gen"' + genData + itemSignalJson + '>G\u00e9n\u00e9rer \u2192</button>' : '')
-            + (showCopy ? '<button type="button" class="ab-copy" data-ab-copy data-ab-copy-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-copy-text="' + escapeHtml(act.text) + '">Copier</button>' : '')
           + '</div>' : '')
         + '</div>';
       }).join("");
@@ -2573,6 +2678,74 @@ if (!location_id) {
 
     // ---- RADAR VIEW (default) ----
 
+    // Enrich competition feed items with threat data from competitor signals
+    var compSigs = Array.isArray(data._competitor_signals) ? data._competitor_signals : [];
+    for (var fi = 0; fi < allFeed.length; fi++) {
+      var feedItem = allFeed[fi];
+      var fSub = String(feedItem.change_subtype || "").toLowerCase();
+      if (fSub !== "competitor_event_launch" && fSub !== "competitor_audience_conflict" && fSub !== "competitor_event_ending" && fSub !== "competition_pressure_spike") continue;
+      var fEntityId = feedItem.entity_id || null;
+      var fNewValue = String(feedItem.new_value || "");
+      var fCompName = fNewValue.split(" \u2014 ")[0] || "";
+      // Match by entity_id first, then by competitor name
+      var matched = null;
+      for (var ci = 0; ci < compSigs.length; ci++) {
+        if (fEntityId && compSigs[ci].competitor_event_id === fEntityId) { matched = compSigs[ci]; break; }
+      }
+      if (!matched && fCompName) {
+        for (var ci = 0; ci < compSigs.length; ci++) {
+          if (String(compSigs[ci].competitor_name || "").toLowerCase() === fCompName.toLowerCase()) { matched = compSigs[ci]; break; }
+        }
+      }
+      if (matched) {
+        feedItem._threat_level = matched.entity_threat_level || null;
+        feedItem._threat_score = Number(matched.entity_threat_score || 0);
+        feedItem._audience_overlap = Boolean(matched.audience_overlap);
+        feedItem._audience_overlap_score = Number(matched.audience_overlap_score || 0);
+        feedItem._industry_overlap = Boolean(matched.industry_overlap);
+        feedItem._distance_flag = Boolean(matched.distance_flag);
+        feedItem._conflict_score = Number(matched.conflict_score || 0);
+        feedItem._industry_tier = matched.entity_threat_industry_tier || null;
+        feedItem._comp_name = matched.competitor_name || fCompName;
+        feedItem._comp_event_name = matched.event_name || "";
+        feedItem._comp_audience = matched.event_primary_audience || matched.competitor_primary_audience || null;
+        feedItem._comp_distance_m = Number(matched.distance_from_location_m || feedItem.distance_m || 0);
+      }
+    }
+
+    var compSigs = Array.isArray(data._competitor_signals) ? data._competitor_signals : [];
+    for (var fi = 0; fi < allFeed.length; fi++) {
+      var feedItem = allFeed[fi];
+      var fSub = String(feedItem.change_subtype || "").toLowerCase();
+      if (fSub !== "competitor_event_launch" && fSub !== "competitor_audience_conflict" && fSub !== "competitor_event_ending" && fSub !== "competition_pressure_spike") continue;
+      var fEntityId = feedItem.entity_id || null;
+      var fNewValue = String(feedItem.new_value || "");
+      var fCompName = fNewValue.split(" \u2014 ")[0] || "";
+      var matched = null;
+      for (var ci = 0; ci < compSigs.length; ci++) {
+        if (fEntityId && compSigs[ci].competitor_event_id === fEntityId) { matched = compSigs[ci]; break; }
+      }
+      if (!matched && fCompName) {
+        for (var ci2 = 0; ci2 < compSigs.length; ci2++) {
+          if (String(compSigs[ci2].competitor_name || "").toLowerCase() === fCompName.toLowerCase()) { matched = compSigs[ci2]; break; }
+        }
+      }
+      if (matched) {
+        feedItem._threat_level = matched.entity_threat_level || null;
+        feedItem._threat_score = Number(matched.entity_threat_score || 0);
+        feedItem._audience_overlap = Boolean(matched.audience_overlap);
+        feedItem._audience_overlap_score = Number(matched.audience_overlap_score || 0);
+        feedItem._industry_overlap = Boolean(matched.industry_overlap);
+        feedItem._distance_flag = Boolean(matched.distance_flag);
+        feedItem._conflict_score = Number(matched.conflict_score || 0);
+        feedItem._industry_tier = matched.entity_threat_industry_tier || null;
+        feedItem._comp_name = matched.competitor_name || fCompName;
+        feedItem._comp_event_name = matched.event_name || "";
+        feedItem._comp_audience = matched.event_primary_audience || matched.competitor_primary_audience || null;
+        feedItem._comp_distance_m = Number(matched.distance_from_location_m || feedItem.distance_m || 0);
+      }
+    }
+
     // Daily Action Brief
     var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId);
 
@@ -2670,8 +2843,8 @@ if (!location_id) {
     const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
 
     // Assemble
-    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + briefHtml + alertsHtml +
-      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + feedHtml;
+    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + alertsHtml +
+      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + briefHtml + feedHtml;
 
     // ---- Wire event handlers ----
 
