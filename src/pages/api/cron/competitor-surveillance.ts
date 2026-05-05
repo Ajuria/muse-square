@@ -412,7 +412,6 @@ export const GET: APIRoute = async ({ request }) => {
         LEFT JOIN (
           SELECT competitor_id, MAX(crawled_at) AS last_crawled
           FROM \`${projectId}.raw.competitor_events\`
-          WHERE extraction_status IN ('success', 'partial')
           GROUP BY competitor_id
         ) lc ON cd.competitor_id = lc.competitor_id
         WHERE cd.source_url IS NOT NULL
