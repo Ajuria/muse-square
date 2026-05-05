@@ -1646,13 +1646,32 @@ if (!location_id) {
           if (loadingEl) loadingEl.style.display = 'none';
 
           if (results.length === 0) {
-            if (emptyEl) emptyEl.style.display = 'block';
+            // Auto-fallback to web search when DB has no results
+            if (webLoadingEl) webLoadingEl.style.display = 'block';
+            try {
+              const wRes = await fetch('/api/competitive/search-web', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ query: q }),
+              });
+              const wJson = await wRes.json().catch(() => null);
+              if (webLoadingEl) webLoadingEl.style.display = 'none';
+              const wResults = Array.isArray(wJson?.results) ? wJson.results : [];
+              if (wResults.length > 0 && webResultsEl) {
+                renderWebResults(wResults, webResultsEl);
+              } else {
+                if (emptyEl) emptyEl.style.display = 'block';
+              }
+            } catch {
+              if (webLoadingEl) webLoadingEl.style.display = 'none';
+              if (emptyEl) emptyEl.style.display = 'block';
+            }
           } else {
             renderDbResults(results, dbResultsEl);
           }
 
           if (webCtaEl) {
-            webCtaEl.style.display = 'flex';
+            webCtaEl.style.display = results.length > 0 ? 'flex' : 'none';
             webCtaEl.onclick = async () => {
               webCtaEl.style.display = 'none';
               if (webLoadingEl) webLoadingEl.style.display = 'block';
@@ -1710,7 +1729,7 @@ if (!location_id) {
                 '<div style="flex-shrink:0;margin-top:2px;">' +
                   (isFollowed
                     ? '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>'
-                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-db-confirm-' + i + '\').style.display=document.getElementById(\'ie-db-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">Suivre</button>') +
+                    : '<button style="font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;" onclick="event.stopPropagation();document.getElementById(\'ie-db-confirm-' + i + '\').style.display=document.getElementById(\'ie-db-confirm-' + i + '\').style.display===\'none\'?\'block\':\'none\'">' + (isEvent ? 'Surveiller' : 'Suivre') + '</button>') +
                 '</div>' +
               '</div>' +
               '<div id="ie-db-detail-' + i + '" style="display:none;padding:0 16px 14px 64px;">' +
@@ -1759,7 +1778,7 @@ if (!location_id) {
           var dateStart = card.getAttribute('data-date-start') || '';
           var body = type === 'event'
             ? { event_name: name, event_city: card.getAttribute('data-city') || '', date_start: card.getAttribute('data-date-start') || '', source_system: 'user_confirmed' }
-            : { competitor_name: name, industry_code: industry || null, source_system: 'user_confirmed' };
+            : { competitor_name: name, city: city, industry_code: industry || null, source_system: 'user_confirmed' };
           var res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
