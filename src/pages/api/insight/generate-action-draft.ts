@@ -11,7 +11,7 @@ const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const ANTHROPIC_MAX_TOKENS = 500;
 const ANTHROPIC_TEMPERATURE = 0.7;
 
-const BQ_PROJECT_ID = "ms-database-472505";
+const BQ_PROJECT_ID = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
 const BQ_SEMANTIC_PROJECT = "muse-square-open-data";
 
 type Channel = "gbp" | "instagram" | "email" | "sms" | "internal" | "phone";
@@ -71,6 +71,16 @@ function safeNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function effectiveActivity(p: any): string {
+  const desc = safeStr(p?.business_short_description);
+  if (desc) return desc;
+  try {
+    const auto = JSON.parse(safeStr(p?.auto_enriched_description) || "{}");
+    if (auto?.business_description) return String(auto.business_description).trim();
+  } catch {}
+  return safeStr(p?.company_activity_type);
+}
+
 function distLabel(m: unknown): string {
   const d = safeNum(m);
   if (d === null || d <= 0) return "";
@@ -116,6 +126,14 @@ function buildSystemPrompt(
   const cfg = CHANNEL_CONFIG[channel] || CHANNEL_CONFIG.gbp;
   const siteName = safeStr(profile?.site_name) || safeStr(profile?.location_label) || "notre établissement";
   const desc = safeStr(profile?.business_short_description);
+  let autoEnriched: Record<string, string | null> = {};
+  try { autoEnriched = JSON.parse(safeStr(profile?.auto_enriched_description) || "{}"); } catch {}
+  const autoDesc = safeStr(autoEnriched?.business_description);
+  const autoServices = safeStr(autoEnriched?.services);
+  const autoTone = safeStr(autoEnriched?.tone_of_voice);
+  const autoDiff = safeStr(autoEnriched?.key_differentiators);
+  const autoProgramming = safeStr(autoEnriched?.current_programming);
+  const effectiveDesc = desc || autoDesc;
   const aud1 = AUD_FR[safeStr(profile?.primary_audience_1)] || safeStr(profile?.primary_audience_1) || "";
   const aud2 = AUD_FR[safeStr(profile?.primary_audience_2)] || safeStr(profile?.primary_audience_2) || "";
   const audLine = [aud1, aud2].filter(Boolean).join(" et ");
@@ -133,7 +151,11 @@ function buildSystemPrompt(
 
   const identityLines: string[] = [];
   identityLines.push(`Établissement : ${siteName}${city ? ", " + city : ""}`);
-  if (desc) identityLines.push(`Description : ${desc}`);
+  if (effectiveDesc) identityLines.push(`Description : ${effectiveDesc}`);
+  if (autoServices && !desc) identityLines.push(`Services : ${autoServices}`);
+  if (autoProgramming) identityLines.push(`Programmation actuelle : ${autoProgramming}`);
+  if (autoDiff && !desc) identityLines.push(`Différenciants : ${autoDiff}`);
+  if (autoTone) identityLines.push(`Ton de la marque : ${autoTone}`);
   if (activity) identityLines.push(`Activité : ${activity}`);
   if (eventTypes.length) identityLines.push(`Types d'événements : ${eventTypes.join(", ")}`);
   if (audLine) identityLines.push(`Public cible : ${audLine}`);
@@ -251,7 +273,7 @@ function competitorLaunchPrompt(ctx: PromptContext): string {
 
   return `Contexte interne (NE PAS MENTIONNER dans le post) : le concurrent ${compName}${evName ? ' lance "' + evName + '"' : " lance un événement"}${compAud ? " ciblant " + compAud : ""}${dist ? " à " + dist : ""}.
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre public : ${aud || "notre clientèle habituelle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} qui met en avant NOTRE offre de manière positive pour ce week-end. Le post doit donner envie à notre public de venir chez nous. Ne mentionne jamais le concurrent, ne critique jamais. Mets en avant ce qui nous rend unique.
@@ -275,7 +297,7 @@ function competitorConflictPrompt(ctx: PromptContext): string {
 
   return `Contexte interne (NE PAS MENTIONNER) : conflit direct avec ${compName} — même public (${sharedAud}), même date${dist ? ", à " + dist : ""}.
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre public : ${sharedAud}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de type "offre flash" ou "événement exclusif" qui donne une raison urgente de venir chez nous. Sans jamais mentionner le concurrent. Ton dynamique et exclusif.
@@ -298,7 +320,7 @@ function pressureSpikePrompt(ctx: PromptContext): string {
 
   return `Contexte interne : pression concurrentielle en hausse (${newN} événements à 5 km, +${delta} vs avant).
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre public : ${AUD_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de fidélisation — rappeler à nos clients existants pourquoi revenir cette semaine. Ton personnel, pas marketing. Mentionner un avantage concret (exclusivité, nouveauté, ou simplement "on vous attend").
@@ -380,7 +402,7 @@ function opportunityPrompt(ctx: PromptContext): string {
 ${score !== null ? "- Score : " + score + "/10" : ""}
 ${contextParts.length ? "- Contexte : " + contextParts.join(", ") : ""}
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre public : ${AUD_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} ${ctx.channel === "instagram" ? '"événement du jour" / "bon plan"' : "annonçant une offre ou un moment fort"} qui capte le trafic spontané. Mentionne un avantage concret de venir aujourd'hui. Ton enthousiaste mais pas forcé.
@@ -405,7 +427,7 @@ function competitorEndingPrompt(ctx: PromptContext): string {
 
   return `Contexte interne (NE PAS MENTIONNER) : le concurrent ${compName} termine sa programmation.${compAud ? " Son public (" + compAud + ") est libéré." : ""}
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre public : ${aud || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de type "bienvenue" ou "offre de rentrée" ciblant ce public qui cherche une nouvelle activité. Sans mentionner le concurrent. Ton accueillant.
@@ -426,7 +448,7 @@ function megaEventPrompt(ctx: PromptContext): string {
   return `Un méga-événement (${evName}) commence cette semaine dans la zone.
 Impact attendu : afflux de visiteurs + perturbations mobilité.
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 Notre lieu : ${safeStr(p.site_name) || safeStr(p.location_label)}, ${safeStr(p.city_name)}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} qui surfe sur l'événement pour capter son audience. Exemple de ton : "Vous êtes en ville pour ${evName} ? Passez nous voir !" Ton opportuniste mais authentique.
@@ -445,7 +467,7 @@ function megaEventEndPrompt(ctx: PromptContext): string {
 
   return `Le méga-événement "${safeStr(s.event_label) || "événement"}" se termine. Le public local revient, la mobilité se normalise.
 
-Notre activité : ${safeStr(p.business_short_description) || safeStr(p.company_activity_type)}
+Notre activité : ${effectiveActivity(p)}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} invitant le public local à revenir. Ton "retour à la normale", chaleureux.
 ${ctx.channel === "instagram" ? "Hashtags locaux (" + safeStr(p.city_name) + ")." : ""}
