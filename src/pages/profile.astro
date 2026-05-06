@@ -177,6 +177,7 @@ type LocationRow = {
   venue_capacity: string;
   location_description: string;
   operating_hours: string;
+  website_url: string;
 };
 
 let all_locations: LocationRow[] = [];
@@ -207,7 +208,8 @@ try {
         nearest_transit_lines,
         CAST(venue_capacity AS STRING) AS venue_capacity,
         location_description,
-        operating_hours
+        operating_hours,
+        COALESCE(website_url, '') AS website_url,
       FROM ${fullTable}
       WHERE clerk_user_id = @clerk_user_id
       ORDER BY is_primary DESC, created_at ASC
@@ -247,6 +249,7 @@ try {
         venue_capacity: String(r.venue_capacity || ""),
         location_description: String(r.location_description || ""),
         operating_hours: String(r.operating_hours || ""),
+        website_url: String(r.website_url || ""),
       }))
     : [];
 } catch (_) {}
@@ -664,6 +667,12 @@ function isIncomplete(loc: LocationRow): boolean {
               <label class="field-label">Description du site</label>
               <textarea name="location_description" rows={2} placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea">{loc.location_description}</textarea>
               <p class="field-hint">Facultatif. Aide l'IA à contextualiser les recommandations.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Site web</label>
+              <input type="url" name="website_url" value={loc.website_url || ""} placeholder="https://www.monsite.fr" class="field-input" />
+              <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
             </div>
 
             <div class="field-group">
@@ -1603,7 +1612,7 @@ window.saveLocation = async function(idx) {
   });
 
   // Named inputs/selects/textareas
-  ['site_name','venue_capacity','location_description','company_address',
+  ['site_name','venue_capacity','location_description','website_url','company_address',
    'company_activity_type','location_type','weather_sensitivity','seasonality',
    'location_access_pattern','nearest_transit_stop'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
@@ -1734,6 +1743,11 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
         <label class="field-label">Description du site</label>
         <textarea name="location_description" rows="2" placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea"></textarea>
         <p class="field-hint">Facultatif.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Site web</label>
+        <input type="url" name="website_url" placeholder="https://www.monsite.fr" class="field-input" />
+        <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
       </div>
       <div class="field-group" style="position:relative">
         <label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>

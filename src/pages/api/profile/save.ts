@@ -226,6 +226,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const seasonality = getOptionalString(fd, "seasonality");
     const main_event_objective = getOptionalString(fd, "main_event_objective");
     const operating_hours = getOptionalString(fd, "operating_hours");
+    const website_url = getOptionalString(fd, "website_url");
 
     // --- Multi-selects (limits enforced; preserve all slots in schema) ---
     const audiences = getAllStrings(fd, "primary_audience_1");
@@ -448,6 +449,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         weather_sensitivity = @weather_sensitivity,
         seasonality = @seasonality,
         operating_hours = @operating_hours,
+        website_url = @website_url,
         main_event_objective = @main_event_objective,
         updated_at = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
@@ -493,6 +495,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         weather_sensitivity,
         seasonality,
         operating_hours,
+        website_url,
         main_event_objective,
         created_at,
         updated_at
@@ -539,6 +542,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @weather_sensitivity,
         @seasonality,
         @operating_hours,
+        @website_url,
         @main_event_objective,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
@@ -590,6 +594,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality,
         main_event_objective,
         operating_hours,
+        website_url,
     };
 
     // BigQuery needs explicit param types when any value is null
@@ -636,6 +641,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       seasonality: "STRING",
       main_event_objective: "STRING",
       operating_hours: "STRING",
+      website_url: "STRING",
       hasAudiences: "BOOL",
       hasOriginCities: "BOOL",
     };
@@ -748,6 +754,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
     });
 
+    // ── Fire-and-forget: crawl website if URL is new/changed ──
+    if (website_url) {
+      const baseUrl = import.meta.env.DEV
+        ? "http://localhost:4321"
+        : (process.env.SITE_URL || "https://app.musesquare.com");
+      fetch(`${baseUrl}/api/profile/crawl-website`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: request.headers.get("cookie") || "",
+        },
+        body: JSON.stringify({ location_id, website_url }),
+      }).catch((e) => {
+        console.error("[save.ts] crawl-website fire-and-forget failed (non-fatal):", e?.message);
+      });
+    }
+
     // Read-back proof: return the row as stored in BigQuery after MERGE
     const readBackQuery = `
       SELECT
@@ -789,7 +812,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality,
         main_event_objective,
         operating_hours,
-        main_event_objective,
+        website_url,
         created_at,
         updated_at
       FROM ${fullTable}

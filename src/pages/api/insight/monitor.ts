@@ -151,6 +151,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         has_valid_baseline_flag,
         competition_pressure_ratio,
 
+        tourism_index_region,
+        tourism_peak_flag_region,
+        tourism_status_region,
+        has_tourism_signal_region,
+
         -- Context
         holiday_name,
         vacation_name,
@@ -686,6 +691,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         baseline_comp_avg:          r.baseline_comp_avg          ?? null,
         has_valid_baseline_flag:    r.has_valid_baseline_flag    ?? null,
         competition_pressure_ratio: r.competition_pressure_ratio ?? null,
+
+        tourism_index_region:      r.tourism_index_region      ?? null,
+        tourism_peak_flag_region:  r.tourism_peak_flag_region  ?? false,
+        tourism_status_region:     r.tourism_status_region     ?? null,
+        has_tourism_signal_region:  r.has_tourism_signal_region  ?? false,
 
         // Delta fields
         delta_att_events_pct:       r.delta_att_events_pct       ?? 0,

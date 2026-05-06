@@ -1641,26 +1641,6 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       candidates.push({ item: { change_subtype:"_day_opportunity", affected_date:currentDay.date, alert_level:0 }, tmpl: dayOpp, score: 80 });
     }
 
-    // ---- Computed: Low competition window ----
-    var compRatio = Number(currentDay.competition_pressure_ratio || 0);
-    var hasBaselineComp = Boolean(currentDay.has_valid_baseline_flag);
-    var alertMaxComp = Number(currentDay.alert_level_max || 0);
-    var evCount5km = Number(currentDay.events_within_5km_count || 0);
-    if (hasBaselineComp && compRatio > 0 && compRatio < 0.7 && alertMaxComp <= 1) {
-      var avgEvents = Math.round(evCount5km / compRatio);
-      candidates.push({ item: { change_subtype:"_low_competition", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
-        type:"opportunity", barClass:"ab-opportunity",
-        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
-        typePill:{label:"Fen\u00eatre",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
-        what: "Concurrence inhabituellement faible : " + evCount5km + " \u00e9v\u00e9nements \u00e0 5 km (moyenne : ~" + avgEvents + ")",
-        sowhat: "Journ\u00e9e rare avec peu de concurrence et conditions favorables. Si vous avez une op\u00e9ration en attente, c\u2019est le jour.",
-        actions: [
-          {text:"Lancez l\u2019op\u00e9ration que vous repoussez depuis la semaine derni\u00e8re",meta:"Strat\u00e9gie \u00b7 Timing",key:"marketing_push",channel:CH_INTERNAL},
-          {text:"Publiez un post \u00ab journ\u00e9e sp\u00e9ciale \u00bb pour capter le trafic disponible",meta:"Communication \u00b7 Opportunit\u00e9",key:"visitor_comm",channel:CH_GBP},
-        ],
-      }, score: 75 });
-    }
-
     // ---- Computed: Audience mismatch ----
     var audLabel = String(currentDay.audience_availability_label || "").toLowerCase();
     var myAudComp = String(prof.primary_audience_1 || "").toLowerCase();
@@ -1848,27 +1828,101 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       }
     }
 
-    // ---- F3: Best day of the week ----
-    var f3Score = Number(currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
-    if (f3Score >= 7 && sortedByDate.length >= 4) {
-      var f3IsMax = true;
-      for (var f3i = 0; f3i < sortedByDate.length; f3i++) {
-        var f3Other = Number(sortedByDate[f3i].opportunity_score_final_local || sortedByDate[f3i].opportunity_score || 0);
-        if (f3Other > f3Score) { f3IsMax = false; break; }
+    // ---- A3: Tourist surge + vacation ----
+    var a3VacationName = currentDay.vacation_name || null;
+    if (a1HasSignal && a1TourismIdx > 75 && a3VacationName) {
+      candidates.push({ item: { change_subtype:"_tourist_surge_vacation", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Tourisme + Vacances",style:"background:#EFF6FF;color:#1e40af;"},
+        what: "Saison haute touristique (" + Math.round(a1TourismIdx) + "%) + " + escapeHtml(a3VacationName),
+        sowhat: "Double effet : touristes ET vacanciers pr\u00e9sents simultan\u00e9ment. P\u00e9riode de pointe confirm\u00e9e.",
+        actions: [
+          {text:"Lancez votre offre haute saison \u2014 conditions optimales cette semaine",meta:"Marketing \u00b7 Pricing",key:"pricing",channel:CH_GBP},
+          {text:"Prolongez vos horaires pour maximiser la p\u00e9riode",meta:"Exploitation \u00b7 Horaires",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Publiez du contenu ciblant touristes et familles en vacances",meta:"Communication \u00b7 Ciblage",key:"visitor_comm",channel:CH_GBP},
+        ],
+      }, score: 82 });
+    }
+
+    // ---- S3: Saturated + bad weather = write-off day ----
+    var c2PctSameBucketM = Number(currentDay.pct_same_bucket_5km || 0);
+    var c2SameBucketCountM = Number(currentDay.events_within_5km_same_bucket_count || 0);
+    if (Number(currentDay.alert_level_max || 0) >= 2 && c2PctSameBucketM > 25 && c2SameBucketCountM > 5) {
+      candidates.push({ item: { change_subtype:"_saturated_bad_weather", affected_date:currentDay.date, alert_level:3, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"threat", barClass:"ab-threat",
+        urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"Double n\u00e9gatif",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: "Mauvais temps + " + c2SameBucketCountM + " concurrents m\u00eame secteur \u00e0 5 km",
+        sowhat: "Votre \u00e9v\u00e9nement fait face \u00e0 une m\u00e9t\u00e9o d\u00e9grad\u00e9e ET une saturation de votre cat\u00e9gorie. Pr\u00e9parez un plan B.",
+        actions: [
+          {text:"Activez votre plan B int\u00e9rieur / format r\u00e9duit",meta:"Exploitation \u00b7 Plan B",key:"programming",channel:CH_INTERNAL},
+          {text:"Pr\u00e9venez vos inscrits / visiteurs attendus des conditions",meta:"Communication \u00b7 Visiteurs",key:"visitor_comm",channel:CH_EMAIL},
+        ],
+      }, score: 88 });
+    }
+
+    // ---- S5: Mobility disruption + competition spike ----
+    if (hasBaselineComp && compRatio > 1.2) {
+      var s5HasMob = false;
+      for (var s5i = 0; s5i < allFeed.length; s5i++) {
+        var s5sub = String(allFeed[s5i].change_subtype || "").toLowerCase();
+        var s5aff = normalizeYmd(allFeed[s5i].affected_date);
+        if (s5aff === today && (s5sub === "mobility_disruption" || s5sub === "mobility_disruption_planned")) { s5HasMob = true; break; }
       }
-      if (f3IsMax && normalizeYmd(currentDay.date) === today) {
-        candidates.push({ item: { change_subtype:"_best_day", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
-          type:"opportunity", barClass:"ab-opportunity",
-          urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
-          typePill:{label:"Score \u2191",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
-          what: "Meilleur jour de la semaine (score " + f3Score + "/10)",
-          sowhat: "Aucun autre jour de votre horizon n\u2019est aussi favorable. Si vous avez une action \u00e0 lancer, c\u2019est maintenant.",
+      if (s5HasMob) {
+        candidates.push({ item: { change_subtype:"_mobility_comp_squeeze", affected_date:currentDay.date, alert_level:3, location_label: currentDay.location_label || "" }, tmpl: {
+          type:"threat", barClass:"ab-threat",
+          urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          typePill:{label:"Double pression",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          what: "Acc\u00e8s perturb\u00e9 + concurrence sup\u00e9rieure \u00e0 la moyenne (\u00d7" + compRatio.toFixed(1) + ")",
+          sowhat: "Vos visiteurs ont du mal \u00e0 venir ET d\u2019autres \u00e9v\u00e9nements captent l\u2019attention. Communiquez sur l\u2019acc\u00e8s.",
           actions: [
-            {text:"Lancez l\u2019action que vous repoussez \u2014 les conditions ne seront pas meilleures",meta:"Strat\u00e9gie \u00b7 Timing",key:"marketing_push",channel:CH_INTERNAL},
-            {text:"Communiquez aujourd\u2019hui pour maximiser l\u2019impact",meta:"Communication \u00b7 Timing",key:"visitor_comm",channel:CH_GBP},
+            {text:"Envoyez l\u2019itin\u00e9raire alternatif \u00e0 vos inscrits / visiteurs attendus",meta:"Communication \u00b7 Acc\u00e8s",key:"visitor_comm",channel:CH_EMAIL},
+            {text:"Publiez l\u2019itin\u00e9raire sur vos r\u00e9seaux et Google",meta:"Communication \u00b7 Acc\u00e8s",key:"access_comm",channel:CH_GBP},
+            {text:"Pr\u00e9voyez un accueil renforc\u00e9 pour orienter les visiteurs",meta:"Exploitation \u00b7 Accueil",key:"staff_adjust",channel:CH_INTERNAL},
           ],
-        }, score: 78 });
+        }, score: 87 });
       }
+    }
+
+    // ---- T5: Tourism peak + mobility disruption ----
+    if (a1HasSignal && a1TourismStatus === "high") {
+      var t5HasMob = false;
+      for (var t5i = 0; t5i < allFeed.length; t5i++) {
+        var t5sub = String(allFeed[t5i].change_subtype || "").toLowerCase();
+        var t5aff = normalizeYmd(allFeed[t5i].affected_date);
+        if (t5aff === today && (t5sub === "mobility_disruption" || t5sub === "mobility_disruption_planned")) { t5HasMob = true; break; }
+      }
+      if (t5HasMob) {
+        candidates.push({ item: { change_subtype:"_tourism_mobility_hit", affected_date:currentDay.date, alert_level:3, location_label: currentDay.location_label || "" }, tmpl: {
+          type:"threat", barClass:"ab-threat",
+          urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          typePill:{label:"Tourisme + Mobilit\u00e9",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          what: "Pic touristique r\u00e9gional + perturbation mobilit\u00e9 active",
+          sowhat: "Les touristes d\u00e9pendent davantage des transports. Votre \u00e9v\u00e9nement risque de perdre une partie de son public international.",
+          actions: [
+            {text:"Publiez l\u2019itin\u00e9raire alternatif en fran\u00e7ais ET en anglais",meta:"Communication \u00b7 Acc\u00e8s",key:"visitor_comm",channel:CH_GBP},
+            {text:"Envoyez un email / SMS \u00e0 vos inscrits avec les conditions d\u2019acc\u00e8s",meta:"Communication \u00b7 Inscrits",key:"visitor_comm",channel:CH_EMAIL},
+            {text:"Renforcez l\u2019accueil pour orienter les visiteurs perdus",meta:"Exploitation \u00b7 Accueil",key:"staff_adjust",channel:CH_INTERNAL},
+          ],
+        }, score: 85 });
+      }
+    }
+
+    // ---- S4: Holiday + high competition = differentiation urgency ----
+    if (currentDay.holiday_name && hasBaselineComp && compRatio > 1.3) {
+      candidates.push({ item: { change_subtype:"_holiday_high_comp", affected_date:currentDay.date, alert_level:2, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Jour J",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Diff\u00e9renciation",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(currentDay.holiday_name) + " \u2014 pression concurrentielle \u00e9lev\u00e9e (\u00d7" + compRatio.toFixed(1) + " vs moyenne)",
+        sowhat: "Votre \u00e9v\u00e9nement tombe un jour f\u00e9ri\u00e9 avec forte concurrence. Communiquez sur ce qui vous rend unique.",
+        actions: [
+          {text:"Publiez ce qui diff\u00e9rencie votre \u00e9v\u00e9nement de l\u2019offre environnante",meta:"Communication \u00b7 Diff\u00e9renciation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Relancez vos inscrits avec un rappel + argument cl\u00e9",meta:"Communication \u00b7 Relance",key:"visitor_comm",channel:CH_EMAIL},
+        ],
+      }, score: 72 });
     }
 
     candidates.sort(function(a,b) { return b.score - a.score; });
@@ -1908,6 +1962,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         if (isDone) totalChecked++;
         var ts = checked[actKey] || "";
         var showCopy = act.channel !== CH_INTERNAL;
+        var hasProfile = Boolean(prof.business_short_description);
         var showGen = act.channel !== CH_INTERNAL && act.channel !== CH_PHONE;
         var genData = showGen ? ' data-ab-gen="' + actKey + '" data-ab-gen-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-gen-actkey="' + escapeHtml(act.key) + '" data-ab-gen-acttext="' + escapeHtml(act.text) + '" data-ab-gen-channel="' + escapeHtml(act.channel||"") + '" data-ab-gen-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-gen-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-gen-sowhat="' + escapeHtml(String(cardSowhat||"")) + '"' : '';
         var itemSignalJson = showGen ? ' data-ab-gen-signal=\'' + escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null})) + '\'' : '';
@@ -1921,7 +1976,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             + '<div class="ab-draft-panel" id="ab-draft-' + actKey + '"></div>'
           + '</div>'
           + (showCopy || showGen ? '<div class="ab-action-right">'
-            + (showGen ? '<button type="button" class="ab-gen"' + genData + itemSignalJson + '>G\u00e9n\u00e9rer \u2192</button>' : '')
+            + (showGen ? (hasProfile ? '<button type="button" class="ab-gen"' + genData + itemSignalJson + '>G\u00e9n\u00e9rer \u2192</button>' : '<a href="/profile" style="font-size:10px;color:#9CA3AF;text-decoration:none;">Compl\u00e9tez votre profil \u2192</a>') : '')
           + '</div>' : '')
         + '</div>';
       }).join("");

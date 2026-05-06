@@ -23,6 +23,7 @@ const url_location_id = Astro.url?.searchParams?.get("location_id") ?? "";
 const location_id = (is_embed && url_location_id) ? url_location_id : locals_location_id;
 const date = Astro.url?.searchParams?.get("date") ?? "";
 const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
+const mode = Astro.url?.searchParams?.get("mode") ?? "concurrence";
 ---
 
 <Show when="signed-out" client:load>
@@ -223,7 +224,7 @@ html { padding-bottom: 0 !important; margin-bottom: 0 !important; }
 @keyframes ms-spin { to { transform: rotate(360deg); } }
 </style>
 
-<script is:inline define:vars={{ location_id, date }}>
+<script is:inline define:vars={{ location_id, date, mode }}>
 
 if (new URLSearchParams(window.location.search).get("embed") === "1") {
   document.documentElement.setAttribute("data-embed", "1");
@@ -233,6 +234,8 @@ let map
 let eventsLayer500m, eventsLayer1km, eventsLayer5km, eventsLayer10km, eventsLayer50km
 let roadLayer
 let subwayLayer
+let _rawRoadDisruptions = []
+let _rawSubwayDisruptions = []
 
 document.getElementById('breadcrumb-back').addEventListener('click', function(e) {
   e.preventDefault();
@@ -275,8 +278,10 @@ console.log('API response:', JSON.stringify(data, null, 2))
 
 renderVenue(data.meta || {})
 renderEvents(data.events || [], data.meta || {})
-renderRoad(data.road_disruptions || [])
-renderSubway(data.subway_disruptions || [])
+_rawRoadDisruptions = data.road_disruptions || []
+_rawSubwayDisruptions = data.subway_disruptions || []
+renderRoad(_rawRoadDisruptions)
+renderSubway(_rawSubwayDisruptions)
 
 if ((data.road_disruptions || []).length || (data.subway_disruptions || []).length) {
   const _bounds = []
@@ -327,6 +332,37 @@ function bucketColor(bucket) {
 
 function escapeHtml(v) {
   return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function renderMobilityList() {
+  const container = document.getElementById('map-list-events');
+  if (!container) return;
+  const items = [..._rawRoadDisruptions.map(r => ({...r, _mode:'road'})), ..._rawSubwayDisruptions.map(s => ({...s, _mode:'subway'}))];
+  if (items.length === 0) {
+    container.innerHTML = '<div style="padding:20px 12px;font-size:14px;color:#9CA3AF;text-align:center;">Aucune perturbation détectée.</div>';
+    return;
+  }
+  container.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;padding:14px 12px 6px 12px;">Perturbations · ' + items.length + '</div>' +
+    items.map(function(r) {
+      var label = r.title || r.route_long_name || r.short_name || 'Perturbation';
+      var cat = r.disruption_category || r.category || '';
+      var dist = r.distance_m ? (Number(r.distance_m)/1000).toFixed(1) + ' km' : '';
+      var lvl = r.perturbation_lvl || r.alert_level || 1;
+      var accent = r._mode === 'road' ? '#E24B4A' : '#EF9F27';
+      var modeLabel = r._mode === 'road' ? 'Route' : (r.route_long_name || r.short_name || 'Transport');
+      var isPlanned = r.is_planned === true;
+      return '<div style="border-left:3px solid ' + accent + ';border-bottom:1px solid rgba(17,24,39,0.07);padding:14px 12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px;">' +
+          '<span style="font-size:14px;font-weight:500;color:#0F1F3D;">' + escapeHtml(label) + '</span>' +
+          '<span style="font-size:11px;color:#9CA3AF;white-space:nowrap;">' + escapeHtml(dist) + '</span>' +
+        '</div>' +
+        (cat ? '<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">' + escapeHtml(cat) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;align-items:center;">' +
+          '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + (r._mode === 'road' ? '#FEE2E2' : '#FEF3C7') + ';color:' + (r._mode === 'road' ? '#991B1B' : '#92400E') + ';">' + escapeHtml(modeLabel) + '</span>' +
+          '<span style="font-size:11px;font-weight:500;padding:1px 8px;border-radius:20px;background:' + (isPlanned ? '#EFF6FF;color:#1D4ED8' : accent + '20;color:' + accent) + ';">' + (isPlanned ? 'Prévu' : 'Niv. ' + lvl) + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
 }
 
 function renderEventList(items) {
@@ -885,13 +921,18 @@ window.addEventListener("load", () => {
     subwayLayer.eachLayer(l => { if (l.getLatLng) _bounds.push([l.getLatLng().lat, l.getLatLng().lng]) })
     if (_bounds.length > 1) map.fitBounds(_bounds, { padding: [60, 60], maxZoom: 14 })
     else if (_bounds.length === 1) map.setView(_bounds[0], 14)
+    renderMobilityList()
   })
 
-  // ---- Initial state: concurrence, layers pre-hidden ----
+  // ---- Initial state: respect mode param ----
   eventsLayer50km.remove()
-  roadLayer.remove()
-  setActive(modeConcurrence)
-  setInactive(modeMobilite)
+  if (mode === 'mobilite') {
+    modeMobilite.click()
+  } else {
+    roadLayer.remove()
+    setActive(modeConcurrence)
+    setInactive(modeMobilite)
+  }
 })
 
 </script>
