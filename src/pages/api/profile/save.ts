@@ -122,6 +122,39 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
   }
 }
 
+// ------------------------
+// BestTime venue registration
+// ------------------------
+async function registerBestTimeVenue(
+  venueName: string,
+  venueAddress: string
+): Promise<string | null> {
+  const apiKey = process.env.BESTTIME_API_KEY_PRIVATE;
+  if (!apiKey) return null;
+
+  const url = new URL("https://besttime.app/api/v1/forecasts");
+  url.searchParams.set("api_key_private", apiKey);
+  url.searchParams.set("venue_name", venueName);
+  url.searchParams.set("venue_address", venueAddress);
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15000); // 15s — forecasts take a few seconds
+  try {
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json().catch(() => null);
+    const vid = data?.venue_info?.venue_id;
+    return typeof vid === "string" && vid.trim() ? vid.trim() : null;
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
     try {
     if (import.meta.env.DEV) {
@@ -387,6 +420,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
         city_id = r.citycode;
       }
     }
+
+    // --- BestTime venue registration (fire once, skip if already registered) ---
+    let besttime_venue_id: string | null = null;
+
+    if (company_name && company_address) {
+      // Check if already registered
+      try {
+        const [btRows] = await bigquery.query({
+          query: `
+            SELECT besttime_venue_id
+            FROM ${fullTable}
+            WHERE clerk_user_id = @clerk_user_id
+              AND location_id = @location_id
+              AND besttime_venue_id IS NOT NULL
+            LIMIT 1
+          `,
+          location: BQ_LOCATION,
+          params: { clerk_user_id, location_id },
+          types: { clerk_user_id: "STRING", location_id: "STRING" },
+        });
+        const existing = Array.isArray(btRows) && btRows.length > 0
+          ? btRows[0]?.besttime_venue_id
+          : null;
+
+        if (typeof existing === "string" && existing.trim()) {
+          besttime_venue_id = existing.trim();
+        } else {
+          besttime_venue_id = await registerBestTimeVenue(company_name, company_address);
+        }
+      } catch (_) {
+        // Non-fatal — try registration anyway
+        besttime_venue_id = await registerBestTimeVenue(company_name, company_address);
+      }
+    }
     
     // Default location = earliest created_at for this user, else generate one.
     const mergeQuery = `
@@ -450,6 +517,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality = @seasonality,
         operating_hours = @operating_hours,
         website_url = @website_url,
+        besttime_venue_id =
+          IF(@besttime_venue_id IS NULL, besttime_venue_id, @besttime_venue_id),
         main_event_objective = @main_event_objective,
         updated_at = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
@@ -496,6 +565,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality,
         operating_hours,
         website_url,
+        besttime_venue_id,
         main_event_objective,
         created_at,
         updated_at
@@ -543,6 +613,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @seasonality,
         @operating_hours,
         @website_url,
+        @besttime_venue_id,
         @main_event_objective,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
@@ -595,6 +666,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         main_event_objective,
         operating_hours,
         website_url,
+        besttime_venue_id
     };
 
     // BigQuery needs explicit param types when any value is null
@@ -642,6 +714,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       main_event_objective: "STRING",
       operating_hours: "STRING",
       website_url: "STRING",
+      besttime_venue_id: "STRING",
       hasAudiences: "BOOL",
       hasOriginCities: "BOOL",
     };
@@ -813,6 +886,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         main_event_objective,
         operating_hours,
         website_url,
+        besttime_venue_id,
         created_at,
         updated_at
       FROM ${fullTable}

@@ -1139,6 +1139,32 @@ if (!location_id) {
     return cleanWhat + "\n" + actionText;
   }
 
+  // ---- AI sowhat generator ----
+  var _sowhatCache = {};
+  async function fetchSowhat(signals, profile, day) {
+    var cacheKey = signals.map(function(s) { return s.signal_id; }).sort().join("|") + "|" + normalizeYmd(day.date);
+    if (_sowhatCache[cacheKey]) return _sowhatCache[cacheKey];
+    try {
+      var res = await fetch("/api/insight/generate-sowhat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ signals: signals, profile: profile, day: day }),
+      });
+      var json = await res.json().catch(function() { return null; });
+      if (json?.ok && Array.isArray(json.results)) {
+        var map = {};
+        for (var i = 0; i < json.results.length; i++) {
+          if (json.results[i].signal_id && json.results[i].sowhat) {
+            map[json.results[i].signal_id] = json.results[i].sowhat;
+          }
+        }
+        _sowhatCache[cacheKey] = map;
+        return map;
+      }
+    } catch {}
+    return {};
+  }
+
   // ---- Action catalog: change_subtype → card config + action list ----
   // actions[]: { text, meta, key, channel }
   // channel: one of CH_* constants — where this action would execute
@@ -2065,6 +2091,145 @@ if (!location_id) {
       }
     }
 
+  // ---- FOOT TRAFFIC COMPOUND SIGNALS ----
+    var ftRank = Number(currentDay.ft_day_rank_max || 0);
+    var ftMean = Number(currentDay.ft_day_mean || 0);
+    var ftPeak = currentDay.ft_peak_hour;
+    var ftHasFT = ftRank > 0;
+
+    // FT×W1: Peak day + bad weather
+    if (ftHasFT && ftRank <= 2 && Number(currentDay.alert_level_max || 0) >= 2) {
+      var ftw1WeatherTypes = [];
+      if (Number(currentDay.lvl_rain || 0) > 0) ftw1WeatherTypes.push("pluie");
+      if (Number(currentDay.lvl_wind || 0) > 0) ftw1WeatherTypes.push("vent");
+      if (Number(currentDay.lvl_snow || 0) > 0) ftw1WeatherTypes.push("neige");
+      var ftw1Weather = ftw1WeatherTypes.join(" + ") || "météo dégradée";
+      candidates.push({ item: { change_subtype:"_ft_peak_bad_weather", affected_date:currentDay.date, alert_level:2, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Affluence \u00d7 M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: "Jour normalement charg\u00e9 mais " + ftw1Weather + " pr\u00e9vue",
+        sowhat: "_AI_SOWHAT_",
+        _sowhat_fallback: "Votre fr\u00e9quentation habituelle du " + (currentDay.day_text || "jour") + " risque d\u2019\u00eatre impact\u00e9e par les conditions m\u00e9t\u00e9o.",
+        _signal_id: "FT_W1",
+        _trigger_data: { ft_day_rank: ftRank, ft_day_mean: ftMean, alert_level: Number(currentDay.alert_level_max), weather: ftw1Weather },
+        actions: [
+          {text:"Publiez un contenu \u00ab on vous attend malgr\u00e9 la " + ftw1Weather + " \u00bb avec votre offre int\u00e9rieure",meta:"Communication \u00b7 GBP",key:"visitor_comm",channel:CH_GBP},
+          {text:"Contactez vos r\u00e9servations du jour pour confirmer leur venue",meta:"Coordination \u00b7 Clients",key:"visitor_comm",channel:CH_PHONE},
+          {text:"Reportez votre budget communication sur la prochaine fen\u00eatre favorable",meta:"Strat\u00e9gie \u00b7 Timing",key:"marketing_push",channel:CH_INTERNAL},
+        ],
+      }, score: 75 });
+    }
+
+    // FT×W2: Quiet day + good weather + low competition
+    if (ftHasFT && ftRank >= 5 && Number(currentDay.alert_level_max || 0) === 0 && hasBaselineComp && compRatio > 0 && compRatio < 0.8) {
+      candidates.push({ item: { change_subtype:"_ft_quiet_good_weather", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Affluence \u00d7 M\u00e9t\u00e9o",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Jour calme + beau temps + peu de concurrence (" + evCount5km + " \u00e0 5 km)",
+        sowhat: "_AI_SOWHAT_",
+        _sowhat_fallback: "Fen\u00eatre rare pour attirer du trafic spontan\u00e9 sans pression concurrentielle.",
+        _signal_id: "FT_W2",
+        _trigger_data: { ft_day_rank: ftRank, ft_day_mean: ftMean, alert_level: 0, competition_ratio: compRatio, events_5km: evCount5km },
+        actions: [
+          {text:"Lancez une offre flash \u00ab aujourd\u2019hui seulement \u00bb sur Instagram et GBP",meta:"Marketing \u00b7 Offre flash",key:"marketing_push",channel:CH_GBP},
+          {text:"Installez votre signal\u00e9tique ext\u00e9rieure \u2014 le trafic pi\u00e9ton est disponible",meta:"Exploitation \u00b7 Ext\u00e9rieur",key:"onsite_ops",channel:CH_INTERNAL},
+          {text:"Proposez une animation improvis\u00e9e (d\u00e9gustation, d\u00e9mo, visite flash)",meta:"Programmation \u00b7 Animation",key:"programming",channel:CH_INTERNAL},
+        ],
+      }, score: 78 });
+    }
+
+    // FT×C1: Peak day + high competition + saturation
+    if (ftHasFT && ftRank <= 2 && hasBaselineComp && compRatio > 1.3 && c2PctSameBucket > 25) {
+      candidates.push({ item: { change_subtype:"_ft_peak_saturated", affected_date:currentDay.date, alert_level:2, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Affluence \u00d7 Concurrence",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: "Jour fort mais secteur satur\u00e9 : " + c2SameBucketCount + " concurrents m\u00eame cat\u00e9gorie \u00e0 5 km",
+        sowhat: "_AI_SOWHAT_",
+        _sowhat_fallback: "Vos concurrents directs sont aussi en pointe. Sans diff\u00e9renciation, votre trafic sera dilu\u00e9.",
+        _signal_id: "FT_C1",
+        _trigger_data: { ft_day_rank: ftRank, competition_ratio: compRatio, same_bucket_count: c2SameBucketCount, same_bucket_pct: c2PctSameBucket },
+        actions: [
+          {text:"Publiez ce qui vous rend unique \u2014 pas une promo g\u00e9n\u00e9rique",meta:"Communication \u00b7 Diff\u00e9renciation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Communiquez \u00e0 l\u2019heure de VOTRE pic (" + (ftPeak != null ? ftPeak + "h" : "votre heure de pointe") + "), pas aux heures standard",meta:"Communication \u00b7 Timing",key:"visitor_comm",channel:CH_GBP},
+          {text:"Activez un avantage exclusif pour vos clients existants",meta:"Marketing \u00b7 Fid\u00e9lisation",key:"marketing_push",channel:CH_EMAIL},
+        ],
+      }, score: 72 });
+    }
+
+    // FT×C2: Peak day + low competition
+    if (ftHasFT && ftRank <= 2 && hasBaselineComp && compRatio > 0 && compRatio < 0.7) {
+      candidates.push({ item: { change_subtype:"_ft_peak_low_comp", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Affluence \u00d7 Concurrence",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Jour fort + concurrence faible (" + evCount5km + " \u00e9v\u00e9nements \u00e0 5 km, moyenne ~" + Math.round(evCount5km / compRatio) + ")",
+        sowhat: "_AI_SOWHAT_",
+        _sowhat_fallback: "Vos concurrents habituels sont absents. Votre part de voix est maximale aujourd\u2019hui.",
+        _signal_id: "FT_C2",
+        _trigger_data: { ft_day_rank: ftRank, competition_ratio: compRatio, events_5km: evCount5km },
+        actions: [
+          {text:"Testez un nouveau format (atelier, visite, offre premium) \u2014 le risque est minimal",meta:"Programmation \u00b7 Exp\u00e9rimentation",key:"programming",channel:CH_INTERNAL},
+          {text:"Captez des donn\u00e9es : proposez l\u2019inscription newsletter en \u00e9change d\u2019un avantage",meta:"Marketing \u00b7 Acquisition",key:"marketing_push",channel:CH_INTERNAL},
+          {text:"Publiez aujourd\u2019hui \u2014 votre contenu aura moins de bruit concurrent",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+        ],
+      }, score: 80 });
+    }
+
+    // FT×T1: Peak day + tourism high + vacation
+    if (ftHasFT && ftRank <= 2 && a1HasSignal && a1TourismIdx > 75 && currentDay.vacation_name) {
+      candidates.push({ item: { change_subtype:"_ft_peak_tourism_vacation", affected_date:currentDay.date, alert_level:0, location_label: currentDay.location_label || "" }, tmpl: {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Affluence \u00d7 Tourisme",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: "Jour fort + tourisme haut (" + Math.round(a1TourismIdx) + "%) + " + escapeHtml(currentDay.vacation_name),
+        sowhat: "_AI_SOWHAT_",
+        _sowhat_fallback: "Triple alignement : votre rythme naturel + afflux touristique + vacanciers.",
+        _signal_id: "FT_T1",
+        _trigger_data: { ft_day_rank: ftRank, tourism_index: a1TourismIdx, vacation: currentDay.vacation_name },
+        actions: [
+          {text:"\u00c9quipe renforc\u00e9e, horaires \u00e9tendus \u2014 cette journ\u00e9e repr\u00e9sente ~5% de votre ann\u00e9e",meta:"Exploitation \u00b7 Haute saison",key:"staff_adjust",channel:CH_INTERNAL},
+          {text:"Affichez vos horaires \u00e9tendus sur GBP \u2014 les touristes cherchent le soir",meta:"Communication \u00b7 GBP",key:"visitor_comm",channel:CH_GBP},
+          {text:"Publiez en anglais + fran\u00e7ais \u2014 les internationaux d\u00e9cident sur place",meta:"Communication \u00b7 International",key:"visitor_comm",channel:CH_GBP},
+        ],
+      }, score: 85 });
+    }
+
+    // FT×M1: Peak day + mobility disruption close
+    if (ftHasFT && ftRank <= 2) {
+      var ftm1HasMob = false;
+      var ftm1MobLine = "";
+      for (var ftm1i = 0; ftm1i < allFeed.length; ftm1i++) {
+        var ftm1f = allFeed[ftm1i];
+        var ftm1sub = String(ftm1f.change_subtype || "").toLowerCase();
+        var ftm1aff = normalizeYmd(ftm1f.affected_date);
+        var ftm1dist = Number(ftm1f.distance_m || 0);
+        if (ftm1aff === today && (ftm1sub === "mobility_disruption" || ftm1sub === "mobility_disruption_planned") && ftm1dist > 0 && ftm1dist < 500) {
+          ftm1HasMob = true;
+          if (!ftm1MobLine && ftm1f.event_label) ftm1MobLine = String(ftm1f.event_label);
+        }
+      }
+      if (ftm1HasMob) {
+        candidates.push({ item: { change_subtype:"_ft_peak_mobility", affected_date:currentDay.date, alert_level:3, location_label: currentDay.location_label || "" }, tmpl: {
+          type:"threat", barClass:"ab-threat",
+          urgencyPill:{label:"Urgent",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          typePill:{label:"Affluence \u00d7 Mobilit\u00e9",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+          what: "Jour charg\u00e9 mais acc\u00e8s direct perturb\u00e9" + (ftm1MobLine ? " (" + escapeHtml(ftm1MobLine) + ")" : ""),
+          sowhat: "_AI_SOWHAT_",
+          _sowhat_fallback: "Vos visiteurs habituels du " + (currentDay.day_text || "jour") + " vont chercher un itin\u00e9raire alternatif. Ceux qui ne le trouvent pas iront ailleurs.",
+          _signal_id: "FT_M1",
+          _trigger_data: { ft_day_rank: ftRank, mobility_line: ftm1MobLine },
+          actions: [
+            {text:"Publiez l\u2019itin\u00e9raire alternatif MAINTENANT sur GBP + Instagram story",meta:"Communication \u00b7 Urgent",key:"visitor_comm",channel:CH_GBP},
+            {text:"Panneau physique au carrefour le plus proche avec fl\u00e8che directionnelle",meta:"Exploitation \u00b7 Signal\u00e9tique",key:"onsite_ops",channel:CH_INTERNAL},
+            {text:"Pr\u00e9venez vos r\u00e9servations/prestataires du jour par SMS",meta:"Coordination \u00b7 Clients",key:"visitor_comm",channel:CH_SMS},
+          ],
+        }, score: 88 });
+      }
+    }
+
     candidates.sort(function(a,b) { return b.score - a.score; });
     var seen = {};
     var top = [];
@@ -2078,6 +2243,16 @@ if (!location_id) {
       seen[dedup] = true;
       top.push(c);
     }
+
+    // ---- Resolve sowhat: render fallback now, store payload for async replacement ----
+    var _aiSowhatPayload = [];
+    for (var si = 0; si < top.length; si++) {
+      if (top[si].tmpl.sowhat === "_AI_SOWHAT_") {
+        top[si].tmpl.sowhat = top[si].tmpl._sowhat_fallback || "";
+        _aiSowhatPayload.push({ signal_id: top[si].tmpl._signal_id, trigger_data: top[si].tmpl._trigger_data || {} });
+      }
+    }
+    window.__pendingAiSowhat = _aiSowhatPayload.length > 0 ? { payload: _aiSowhatPayload, profile: prof, day: currentDay } : null;
 
     if (top.length === 0) {
       return '<div style="margin-bottom:20px;">'
@@ -2124,7 +2299,8 @@ if (!location_id) {
       }).join("");
       var doneCount = t.actions.reduce(function(sum, _, ai) { return sum + (checked[cardIdx+"-"+ai] ? 1 : 0); }, 0);
       var pct = Math.round(doneCount / t.actions.length * 100);
-      return '<div class="ab-card" id="' + cardId + '">'
+      var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
+      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + '>'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
@@ -2513,6 +2689,104 @@ if (!location_id) {
         </div>`;
     }
 
+    // Foot traffic card — Google Places style, 2h slots
+    let ftHtml = "";
+    const ftRank = Number(day.ft_day_rank_max || 0);
+    const ftMax = Number(day.ft_day_max || 0);
+    const ftMean = Number(day.ft_day_mean || 0);
+    const ftPeak = day.ft_peak_hour;
+    const ftQuiet = day.ft_quiet_hour;
+    const ftBusyH = Number(day.ft_busy_hours_count || 0);
+    const ftHourly = Array.isArray(day.ft_hourly_raw) ? day.ft_hourly_raw : null;
+    if (ftRank > 0) {
+      const rankLabel = ftRank === 1 ? "1er sur 7"
+        : ftRank === 2 ? "2e sur 7"
+        : ftRank === 3 ? "3e sur 7"
+        : ftRank + "e sur 7";
+      const rankBg = ftRank <= 2 ? "#E1F5EE" : ftRank >= 6 ? "#FCEBEB" : "var(--color-background-secondary)";
+      const rankColor = ftRank <= 2 ? "#0F6E56" : ftRank >= 6 ? "#A32D2D" : "var(--color-text-secondary)";
+
+      const isToday = normalizeYmd(day.date) === todayYmd();
+      const currentHour = isToday ? new Date().getHours() : -1;
+
+      // Current busyness KPI
+      let nowPct = null;
+      if (isToday && ftHourly && currentHour >= 6 && currentHour <= 23) {
+        nowPct = Number(ftHourly[currentHour - 6] || 0);
+      }
+      const kpiValue = nowPct != null ? nowPct : ftMax;
+      const kpiLabel = nowPct != null ? "en ce moment" : "pic estim\u00e9";
+
+      // 2h slots: 6h-8h, 8h-10h, ... 20h-22h
+      let dayBarsHtml = "";
+      if (ftHourly && ftHourly.length >= 18) {
+        for (let s = 6; s <= 20; s += 2) {
+          const v1 = Number(ftHourly[s - 6] || 0);
+          const v2 = Number(ftHourly[s - 6 + 1] || 0);
+          const mx = Math.max(v1, v2);
+          const barH = Math.max(3, Math.round((mx / 100) * 76));
+          const containsCurrent = currentHour >= s && currentHour < s + 2;
+          const barColor = containsCurrent ? "#EF9F27" : "rgba(24,95,165," + (0.2 + (mx / 100) * 0.8).toFixed(2) + ")";
+          dayBarsHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
+            + '<div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;min-height:15px;">' + mx + '%</div>'
+            + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + barH + 'px;background:' + barColor + ';"></div>'
+            + '<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px;">' + s + 'h</div>'
+          + '</div>';
+        }
+      }
+
+      // Weekly bars
+      const DOW_FR = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"];
+      const weekBarsHtml = [...days].sort((a, b) => {
+        const da = parseYmdToDate(normalizeYmd(a.date));
+        const db = parseYmdToDate(normalizeYmd(b.date));
+        return da - db;
+      }).map(d => {
+        const dMax = Number(d.ft_day_max || 0);
+        if (!dMax) return "";
+        const dt = parseYmdToDate(normalizeYmd(d.date));
+        const dowIdx = dt ? (dt.getUTCDay() + 6) % 7 : 0;
+        const isCurrent = normalizeYmd(d.date) === normalizeYmd(day.date);
+        const wBarH = Math.max(16, Math.round((dMax / 100) * 56));
+        return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
+          + '<div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">' + dMax + '%</div>'
+          + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + wBarH + 'px;background:' + (isCurrent ? '#185FA5' : '#cbd5e1') + ';"></div>'
+          + '<div style="font-size:10px;margin-top:4px;font-weight:' + (isCurrent ? '500' : '400') + ';color:' + (isCurrent ? '#185FA5' : 'var(--color-text-tertiary)') + ';">' + DOW_FR[dowIdx] + '</div>'
+        + '</div>';
+      }).filter(Boolean).join("");
+
+      const peakLabel = ftPeak != null ? ftPeak + "h \u2013 " + ((ftPeak + 1) % 24) + "h" : null;
+
+      ftHtml = `
+        <div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">\ud83d\udeb6 Fr\u00e9quentation</span>
+            <span style="display:inline-flex;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${rankBg};color:${rankColor};">${escapeHtml(rankLabel)}</span>
+          </div>
+          <div style="padding:8px 16px 0;display:flex;align-items:baseline;gap:8px;">
+            <span style="font-size:28px;font-weight:500;color:var(--color-text-primary);">${kpiValue}</span>
+            <span style="font-size:14px;color:var(--color-text-secondary);">%</span>
+            <span style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(kpiLabel)}</span>
+          </div>
+          <div style="padding:2px 16px 12px;font-size:12px;color:var(--color-text-tertiary);">Moyenne : ${ftMean}% \u00b7 Pic estim\u00e9 : ${ftMax}%</div>
+          <div id="ft-view-day" style="display:block;">
+            ${dayBarsHtml ? '<div style="display:flex;align-items:flex-end;gap:6px;padding:0 16px;height:90px;">' + dayBarsHtml + '</div>' : '<div style="padding:8px 16px;font-size:12px;color:var(--color-text-tertiary);">Donn\u00e9es horaires indisponibles</div>'}
+          </div>
+          <div id="ft-view-week" style="display:none;">
+            <div style="display:flex;align-items:flex-end;gap:6px;padding:8px 16px 4px;height:70px;">${weekBarsHtml}</div>
+          </div>
+          <div style="display:flex;border-top:0.5px solid var(--color-border-tertiary);margin-top:14px;">
+            <button type="button" data-ft-tab="day" style="flex:1;padding:10px;font-size:12px;font-weight:500;color:#185FA5;background:none;border:none;border-bottom:2px solid #185FA5;cursor:pointer;font-family:inherit;text-align:center;">Aujourd\u2019hui</button>
+            <button type="button" data-ft-tab="week" style="flex:1;padding:10px;font-size:12px;font-weight:500;color:var(--color-text-secondary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;text-align:center;">Semaine</button>
+          </div>
+          <div style="display:flex;border-top:0.5px solid var(--color-border-tertiary);">
+            ${peakLabel ? '<div style="flex:1;padding:10px 16px;"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Pic habituel</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">' + escapeHtml(peakLabel) + '</div></div>' : ''}
+            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border-tertiary);"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Heure creuse</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${ftQuiet != null ? ftQuiet + 'h' : '\u2014'}</div></div>
+            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border-tertiary);"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Heures charg\u00e9es</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${ftBusyH}h</div></div>
+          </div>
+        </div>`;
+    }
+
     return `
       <div style="padding-top:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -2529,6 +2803,7 @@ if (!location_id) {
         </div>
         ${tagsHtml}
         ${weatherHtml}
+        ${ftHtml}
       </div>`;
   }
 
@@ -3220,39 +3495,6 @@ if (!location_id) {
       }
     }
 
-    var compSigs = Array.isArray(data._competitor_signals) ? data._competitor_signals : [];
-    for (var fi = 0; fi < allFeed.length; fi++) {
-      var feedItem = allFeed[fi];
-      var fSub = String(feedItem.change_subtype || "").toLowerCase();
-      if (fSub !== "competitor_event_launch" && fSub !== "competitor_audience_conflict" && fSub !== "competitor_event_ending" && fSub !== "competition_pressure_spike") continue;
-      var fEntityId = feedItem.entity_id || null;
-      var fNewValue = String(feedItem.new_value || "");
-      var fCompName = fNewValue.split(" \u2014 ")[0] || "";
-      var matched = null;
-      for (var ci = 0; ci < compSigs.length; ci++) {
-        if (fEntityId && compSigs[ci].competitor_event_id === fEntityId) { matched = compSigs[ci]; break; }
-      }
-      if (!matched && fCompName) {
-        for (var ci2 = 0; ci2 < compSigs.length; ci2++) {
-          if (String(compSigs[ci2].competitor_name || "").toLowerCase() === fCompName.toLowerCase()) { matched = compSigs[ci2]; break; }
-        }
-      }
-      if (matched) {
-        feedItem._threat_level = matched.entity_threat_level || null;
-        feedItem._threat_score = Number(matched.entity_threat_score || 0);
-        feedItem._audience_overlap = Boolean(matched.audience_overlap);
-        feedItem._audience_overlap_score = Number(matched.audience_overlap_score || 0);
-        feedItem._industry_overlap = Boolean(matched.industry_overlap);
-        feedItem._distance_flag = Boolean(matched.distance_flag);
-        feedItem._conflict_score = Number(matched.conflict_score || 0);
-        feedItem._industry_tier = matched.entity_threat_industry_tier || null;
-        feedItem._comp_name = matched.competitor_name || fCompName;
-        feedItem._comp_event_name = matched.event_name || "";
-        feedItem._comp_audience = matched.event_primary_audience || matched.competitor_primary_audience || null;
-        feedItem._comp_distance_m = Number(matched.distance_from_location_m || feedItem.distance_m || 0);
-      }
-    }
-
     // Daily Action Brief
     var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days);
 
@@ -3377,6 +3619,42 @@ if (!location_id) {
         const isOpen = body.style.display !== "none";
         body.style.display = isOpen ? "none" : "block";
         if (chevron) chevron.style.transform = isOpen ? "none" : "rotate(180deg)";
+      });
+    });
+
+    // Foot traffic day/week tabs
+    root.querySelectorAll("[data-ft-tab]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-ft-tab");
+        const dayView = root.querySelector("#ft-view-day");
+        const weekView = root.querySelector("#ft-view-week");
+        if (!dayView || !weekView) return;
+        dayView.style.display = tab === "day" ? "block" : "none";
+        weekView.style.display = tab === "week" ? "block" : "none";
+        root.querySelectorAll("[data-ft-tab]").forEach(b => {
+          const isActive = b.getAttribute("data-ft-tab") === tab;
+          b.style.color = isActive ? "#185FA5" : "var(--color-text-secondary)";
+          b.style.fontWeight = isActive ? "500" : "500";
+          b.style.borderBottom = isActive ? "2px solid #185FA5" : "2px solid transparent";
+        });
+      });
+    });
+
+    // Foot traffic day/week tabs
+    root.querySelectorAll("[data-ft-tab]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-ft-tab");
+        const dayView = root.querySelector("#ft-view-day");
+        const weekView = root.querySelector("#ft-view-week");
+        if (!dayView || !weekView) return;
+        dayView.style.display = tab === "day" ? "block" : "none";
+        weekView.style.display = tab === "week" ? "block" : "none";
+        root.querySelectorAll("[data-ft-tab]").forEach(b => {
+          const isActive = b.getAttribute("data-ft-tab") === tab;
+          b.style.color = isActive ? "#1D3BB3" : "#9ca3af";
+          b.style.fontWeight = isActive ? "600" : "500";
+          b.style.borderBottom = isActive ? "2px solid #1D3BB3" : "2px solid transparent";
+        });
       });
     });
 
@@ -3528,6 +3806,22 @@ if (!location_id) {
 
     // Daily Brief handlers
     wireBriefHandlers(root, currentLocationId, selectedDate);
+
+    // ---- Async AI sowhat replacement ----
+    if (window.__pendingAiSowhat) {
+      var _sowhatCtx = window.__pendingAiSowhat;
+      window.__pendingAiSowhat = null;
+      fetchSowhat(_sowhatCtx.payload, _sowhatCtx.profile, _sowhatCtx.day).then(function(sowhatMap) {
+        if (!sowhatMap) return;
+        for (var sigId in sowhatMap) {
+          var card = root.querySelector('.ab-card[data-signal-id="' + sigId + '"]');
+          if (card) {
+            var sowhatEl = card.querySelector(".ab-sowhat");
+            if (sowhatEl) sowhatEl.textContent = sowhatMap[sigId];
+          }
+        }
+      }).catch(function() {});
+    }
 
     // Feed CTA handlers
     root.querySelectorAll("[data-feed-cta]").forEach(btn => {
