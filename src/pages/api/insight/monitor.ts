@@ -797,7 +797,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             ft_quiet_hours_count: bt?.ft_quiet_hours_count ?? r.ft_quiet_hours_count ?? null,
             ft_venue_open_hour:   bt?.ft_venue_open_hour   ?? r.ft_venue_open_hour   ?? null,
             ft_venue_closed_hour: bt?.ft_venue_closed_hour ?? r.ft_venue_closed_hour ?? null,
-            ft_hourly_raw:        bt?.ft_hourly_raw ??                                         null,
+            ft_hourly_raw:        bt?.ft_hourly_raw ??                                  null,
           };
         })(),
 

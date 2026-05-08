@@ -2141,7 +2141,7 @@ if (!location_id) {
     }
 
     // FT×C1: Peak day + high competition + saturation
-    if (ftHasFT && ftRank <= 2 && hasBaselineComp && compRatio > 1.3 && c2PctSameBucket > 25) {
+    if (ftHasFT && ftRank <= 2 && hasBaselineComp && compRatio > 1.3 && c2PctSameBucket > 25 && c2SameBucketCount > 0) {
       candidates.push({ item: { change_subtype:"_ft_peak_saturated", affected_date:currentDay.date, alert_level:2, location_label: currentDay.location_label || "" }, tmpl: {
         type:"threat", barClass:"ab-warning",
         urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
@@ -3565,7 +3565,7 @@ if (!location_id) {
     let envSummary = "";
     let envAlert = null;
     if (hasBaseline && pressureRatio > 1.2) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
+      envSummary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
       envAlert = "warning";
     } else if (hasBaseline && pressureRatio < 0.8) {
       envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Inf\u00e9rieur \u00e0 la moyenne`;
@@ -3579,11 +3579,11 @@ if (!location_id) {
     const strip1 = renderRadarStrip("score", "📈", scoreSummary, scoreAlert,
       renderScoreDetail(currentDay, days));
 
-    const strip2 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount));
-
-    const strip3 = renderRadarStrip("changes", "📡", envSummary, envAlert,
+    const strip2 = renderRadarStrip("changes", "📡", envSummary, envAlert,
       renderChangeDetail(currentDay, data._top_threats || []));
+
+    const strip3 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
+      renderThreatSummary(competitorSignals, selectedDate, followedCount));
 
     // Feed
     const feedHtml = renderFeed(allFeed, isMultisite);

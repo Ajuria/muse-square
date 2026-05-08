@@ -3199,7 +3199,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     let envSummary = "";
     let envAlert = null;
     if (hasBaseline && pressureRatio > 1.2) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
+      envSummary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
       envAlert = "warning";
     } else if (hasBaseline && pressureRatio < 0.8) {
       envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Inf\u00e9rieur \u00e0 la moyenne`;
@@ -3213,11 +3213,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const strip1 = renderRadarStrip("score", "📈", scoreSummary, scoreAlert,
       renderScoreDetail(currentDay, days));
 
-    const strip2 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount));
-
-    const strip3 = renderRadarStrip("changes", "📡", envSummary, envAlert,
+    const strip2 = renderRadarStrip("changes", "📡", envSummary, envAlert,
       renderChangeDetail(currentDay, data._top_threats || []));
+
+    const strip3 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
+      renderThreatSummary(competitorSignals, selectedDate, followedCount));
 
     // Feed
     const feedHtml = renderFeed(allFeed, isMultisite);

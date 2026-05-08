@@ -783,17 +783,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
           client_industry_code  = @client_industry_code,
           location_access_pattern = @location_access_pattern,
           origin_city_ids       = @origin_city_ids,
+          site_name             = @site_name,
+          weather_sensitivity   = @weather_sensitivity,
+          seasonality           = @seasonality,
+          event_type_1          = @event_type_1,
+          event_type_2          = @event_type_2,
+          event_type_3          = @event_type_3,
+          main_event_objective  = @main_event_objective,
+          operating_hours       = @operating_hours,
+          is_primary            = @is_primary,
           geo_point             = IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
         WHEN NOT MATCHED THEN INSERT (
           location_id, location_label, location_type, active_flag,
           city_id_granular, city_id_commune, location_source,
           latitude, longitude, client_industry_code,
-          location_access_pattern, origin_city_ids, geo_point
+          location_access_pattern, origin_city_ids,
+          site_name, weather_sensitivity, seasonality,
+          event_type_1, event_type_2, event_type_3,
+          main_event_objective, operating_hours, is_primary, geo_point
         ) VALUES (
           @location_id, @location_label, @location_type, TRUE,
           @city_id, @city_id, 'website',
           @latitude, @longitude, @client_industry_code,
           @location_access_pattern, @origin_city_ids,
+          @site_name, @weather_sensitivity, @seasonality,
+          @event_type_1, @event_type_2, @event_type_3,
+          @main_event_objective, @operating_hours, @is_primary,
           IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
         )
       `,
@@ -810,6 +825,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
                                   .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
                                   .join(','),
         city_id:                city_id ?? null,
+        site_name:              site_name ?? null,
+        weather_sensitivity:    weather_sensitivity ?? null,
+        seasonality:            seasonality ?? null,
+        event_type_1:           event_type_1 ?? null,
+        event_type_2:           event_type_2 ?? null,
+        event_type_3:           event_type_3 ?? null,
+        main_event_objective:   main_event_objective ?? null,
+        operating_hours:        operating_hours ?? null,
+        is_primary:             mode === 'create' ? true : null,
       },
       types: {
         location_id: 'STRING',
@@ -821,11 +845,45 @@ export const POST: APIRoute = async ({ request, locals }) => {
         location_access_pattern: 'STRING',
         origin_city_ids: 'STRING',
         city_id: 'STRING',
+        site_name: 'STRING',
+        weather_sensitivity: 'INT64',
+        seasonality: 'STRING',
+        event_type_1: 'STRING',
+        event_type_2: 'STRING',
+        event_type_3: 'STRING',
+        main_event_objective: 'STRING',
+        operating_hours: 'STRING',
+        is_primary: 'BOOL',
       },
     }).catch((e) => {
       // Non-fatal — dbt nightly job is the fallback
       console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
     });
+
+    // ── Trigger dbt Cloud job on geo change (address changed or new location) ──
+    const shouldTriggerDbt =
+      (addressChanged && company_geocode_status === 'geocoded_ok') || mode === 'create';
+
+    if (shouldTriggerDbt) {
+      const dbtAccountId = process.env.DBT_ACCOUNT_ID;
+      const dbtJobId = process.env.DBT_JOB_PROFILE_REFRESH_ID;
+      const dbtToken = process.env.DBT_API_TOKEN;
+
+      if (dbtAccountId && dbtJobId && dbtToken) {
+        fetch(`https://cloud.getdbt.com/api/v2/accounts/${dbtAccountId}/jobs/${dbtJobId}/run/`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${dbtToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cause: `profile_save:${mode}:${location_id}`,
+          }),
+        }).catch((e) => {
+          console.error('[save.ts] dbt Cloud trigger failed (non-fatal):', e?.message);
+        });
+      }
+    }
 
     // ── Fire-and-forget: crawl website if URL is new/changed ──
     if (website_url) {
