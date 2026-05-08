@@ -2502,6 +2502,13 @@ if (!location_id) {
           + '</div>';
 
           el.textContent = "G\u00e9n\u00e9r\u00e9 \u2713";
+
+          // Track draft generated
+          fetch("/api/analytics/track", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel }),
+          }).catch(function(){});
           el.classList.remove("is-loading");
 
           // Wire draft panel buttons
@@ -2512,6 +2519,13 @@ if (!location_id) {
               setTimeout(function() { panel.querySelector(".ab-draft-copy").textContent = "Copier le texte"; }, 2000);
             }).catch(function() {});
           });
+
+          // Track draft copied
+              fetch("/api/analytics/track", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: actKey }),
+              }).catch(function(){});
 
           panel.querySelector(".ab-draft-regen")?.addEventListener("click", function() {
             panel.classList.remove("is-open");
@@ -3917,7 +3931,20 @@ if (!location_id) {
           locs.map(l => fetchPulse(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
         const valid = results.filter(Boolean);
+        // Track page view (fire-and-forget)
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "page_view", location_id: locs[0]?.location_id || null, action_key: "pulse" }),
+        }).catch(function(){});
         if (!valid.length) throw new Error("Aucune donnée disponible.");
+
+        // Track page view (fire-and-forget)
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "page_view", location_id: locs[0]?.location_id || null, action_key: "pulse" }),
+        }).catch(function(){});
 
         const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
           (data.all_feed || []).map(a => ({ ...a, location_label: loc.company_name || loc.location_id }))
