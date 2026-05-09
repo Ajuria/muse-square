@@ -1624,6 +1624,24 @@ if (!location_id) {
   function briefSaveChecked(locationId, date, checked) {
     try { localStorage.setItem(briefStorageKey(locationId,date), JSON.stringify(checked)); } catch {}
   }
+  // ---- Pending feedback fetch ----
+  var _pendingFeedbackCache = null;
+  async function fetchPendingFeedback(locationId) {
+    if (_pendingFeedbackCache !== null) return _pendingFeedbackCache;
+    try {
+      var res = await fetch("/api/analytics/pending-feedback?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        var lsKey = "ms_feedback_dismissed_" + locationId;
+        var dismissed = {};
+        try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
+        _pendingFeedbackCache = json.items.filter(function(item) { return !dismissed[item.log_id]; });
+        return _pendingFeedbackCache;
+      }
+    } catch(e) {}
+    _pendingFeedbackCache = [];
+    return [];
+  }
 
   // ---- Render ----
   function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days) {
@@ -2279,7 +2297,7 @@ if (!location_id) {
         if (isDone) totalChecked++;
         var ts = checked[actKey] || "";
         var showCopy = act.channel !== CH_INTERNAL;
-        var hasProfile = Boolean(prof.business_short_description);
+        var hasProfile = Boolean(prof.business_short_description || prof.company_activity_type || prof.client_industry_code);
         var showGen = act.channel !== CH_INTERNAL && act.channel !== CH_PHONE;
         var genData = showGen ? ' data-ab-gen="' + actKey + '" data-ab-gen-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-gen-actkey="' + escapeHtml(act.key) + '" data-ab-gen-acttext="' + escapeHtml(act.text) + '" data-ab-gen-channel="' + escapeHtml(act.channel||"") + '" data-ab-gen-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-gen-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-gen-sowhat="' + escapeHtml(String(cardSowhat||"")) + '"' : '';
         var itemSignalJson = showGen ? ' data-ab-gen-signal=\'' + escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null})) + '\'' : '';
@@ -2332,6 +2350,40 @@ if (!location_id) {
       + '</div>';
     }).join("");
 
+    // ---- Pending feedback cards (Layer A) ----
+    var feedbackCardsHtml = "";
+    var pendingFb = _pendingFeedbackCache || [];
+    var CHANNEL_LABELS = {gbp:"Google Business Profile",instagram:"Instagram",email:"Email",sms:"SMS",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
+    for (var fbi = 0; fbi < pendingFb.length; fbi++) {
+      var fb = pendingFb[fbi];
+      var fbId = fb.log_id;
+      var fbChannel = CHANNEL_LABELS[fb.channel] || fb.channel || "";
+      var fbDate = fb.affected_date ? fmtDateShort(normalizeYmd(fb.affected_date)) : "";
+      var fbAction = fb.action_text || fb.action_key || "Action";
+      var fbSignal = fb.change_subtype || "";
+      feedbackCardsHtml += '<div class="ab-card" id="fb-card-' + escapeHtml(fbId) + '" data-fb-id="' + escapeHtml(fbId) + '">'
+        + '<div class="ab-card-row">'
+          + '<div class="ab-bar" style="background:#1D3BB3;"></div>'
+          + '<div class="ab-inner" style="padding:14px 16px;">'
+            + '<div class="ab-pills" style="margin-bottom:6px;">'
+              + '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">Retour</span>'
+              + (fbChannel ? '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(fbChannel) + '</span>' : '')
+              + (fbDate ? '<span style="font-size:11px;color:#9ca3af;"> \u00b7 ' + escapeHtml(fbDate) + '</span>' : '')
+            + '</div>'
+            + '<div class="ab-what" style="margin-bottom:3px;">' + escapeHtml(fbAction) + '</div>'
+            + (fbSignal ? '<div class="ab-sowhat" style="margin-bottom:12px;">' + escapeHtml(fbSignal) + '</div>' : '')
+            + '<div style="display:flex;align-items:center;justify-content:space-between;">'
+              + '<span style="font-size:12px;color:#374151;">Ce brouillon vous a-t-il \u00e9t\u00e9 utile ?</span>'
+              + '<div style="display:flex;gap:8px;">'
+                + '<button type="button" data-fb-vote="positive" data-fb-log-id="' + escapeHtml(fbId) + '" data-fb-signal-type="' + escapeHtml(fbSignal) + '" data-fb-date="' + escapeHtml(fb.affected_date || "") + '" style="padding:5px 14px;border-radius:6px;border:1px solid #bbf7d0;background:#f0fdf4;font-size:12px;font-weight:600;color:#166534;cursor:pointer;font-family:inherit;">Oui</button>'
+                + '<button type="button" data-fb-vote="negative" data-fb-log-id="' + escapeHtml(fbId) + '" data-fb-signal-type="' + escapeHtml(fbSignal) + '" data-fb-date="' + escapeHtml(fb.affected_date || "") + '" style="padding:5px 14px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;font-family:inherit;">Pas vraiment</button>'
+              + '</div>'
+            + '</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+    }
+
     var countLabel = totalChecked > 0 ? totalChecked + "/" + totalActions + " trait\u00e9es" : top.length + " action" + (top.length>1?"s":"");
 
     return '<div style="margin-bottom:20px;" id="daily-brief-section">'
@@ -2339,6 +2391,7 @@ if (!location_id) {
         + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
         + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
       + '</div>'
+      + feedbackCardsHtml
       + cardsHtml
     + '</div>';
   }
@@ -2507,7 +2560,7 @@ if (!location_id) {
           fetch("/api/analytics/track", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel }),
+            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel, affected_date: el.getAttribute("data-ab-gen-affected") || null, action_text: el.getAttribute("data-ab-gen-acttext") || null }),
           }).catch(function(){});
           el.classList.remove("is-loading");
 
@@ -2524,7 +2577,7 @@ if (!location_id) {
               fetch("/api/analytics/track", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: actKey }),
+                body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: actKey, affected_date: el.getAttribute("data-ab-gen-affected") || null }),
               }).catch(function(){});
 
           panel.querySelector(".ab-draft-regen")?.addEventListener("click", function() {
@@ -2612,6 +2665,42 @@ if (!location_id) {
         submitBtn.disabled = false;
       }
     };
+
+    // Feedback vote handlers (Layer A)
+    root.querySelectorAll("[data-fb-vote]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var vote = btn.getAttribute("data-fb-vote");
+        var logId = btn.getAttribute("data-fb-log-id");
+        var signalType = btn.getAttribute("data-fb-signal-type") || "outcome";
+        var signalDate = btn.getAttribute("data-fb-date") || null;
+        var card = document.getElementById("fb-card-" + logId);
+        // POST to confirm endpoint
+        fetch("/api/analytics/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            signal_type: "outcome",
+            confirmation: vote,
+            signal_ref_id: logId,
+            signal_date: signalDate,
+            location_id: locationId,
+          }),
+        }).catch(function() {});
+        // Store in localStorage to prevent re-showing
+        var lsKey = "ms_feedback_dismissed_" + locationId;
+        var dismissed = {};
+        try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
+        dismissed[logId] = vote;
+        try { localStorage.setItem(lsKey, JSON.stringify(dismissed)); } catch(e) {}
+        // Replace card with confirmation
+        if (card) {
+          card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0;">'
+            + '<span style="color:#166534;">\u2713</span>'
+            + '<span style="font-size:12px;color:#166534;font-weight:500;">Merci \u2014 votre retour am\u00e9liore vos prochaines recommandations</span>'
+          + '</div>';
+        }
+      });
+    });
   }
 
   // ----------------------------------------------------------------
@@ -2653,7 +2742,7 @@ if (!location_id) {
     else if (rank === total) weekRankLabel = "Jour le moins favorable";
     else if (rank != null) weekRankLabel = `${rank}e sur ${total} jours`;
 
-    const scoreColor = score >= 7.5 ? "#059669" : score >= 5.5 ? "#d97706" : "#dc2626";
+    const scoreColor = "#1D3BB3";
 
     // Context tags from daily_signal_summary_fr — filter to user-facing only
     const rawTags = Array.isArray(day.daily_signal_summary_fr) ? day.daily_signal_summary_fr : [];
@@ -2802,22 +2891,43 @@ if (!location_id) {
     }
 
     return `
-      <div style="padding-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div>
-            ${score != null ? `<div style="display:flex;align-items:baseline;gap:6px;">
-              <span style="font-size:36px;font-weight:800;color:${scoreColor};">${escapeHtml(String(score))}</span>
-              <span style="font-size:14px;color:#9ca3af;">/10</span>
-            </div>` : ""}
-            ${weekRankLabel ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(weekRankLabel)}</div>` : ""}
+      <div style="padding-top:0;">
+        <div style="display:flex;gap:0;padding:0;border-bottom:1px solid #f3f4f6;margin-bottom:0;">
+          <button type="button" data-score-tab="score" style="padding:10px 0;margin-right:22px;font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;margin-bottom:-1px;font-family:inherit;">Score</button>
+          <button type="button" data-score-tab="fiabilite" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;display:flex;align-items:center;gap:6px;">Fiabilit\u00e9<span data-fiabilite-badge style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#f3f4f6;color:#9ca3af;"></span></button>
+        </div>
+        <div data-score-panel="score" style="display:block;padding-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div>
+              ${score != null ? `<div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:36px;font-weight:800;color:${scoreColor};">${escapeHtml(String(score))}</span>
+                <span style="font-size:14px;color:#9ca3af;">/10</span>
+              </div>` : ""}
+              ${weekRankLabel ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(weekRankLabel)}</div>` : ""}
+            </div>
+            <div style="text-align:right;">
+              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};">${escapeHtml(rd.t)}</span>
+            </div>
           </div>
-          <div style="text-align:right;">
-            <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};">${escapeHtml(rd.t)}</span>
+          ${tagsHtml}
+          ${weatherHtml}
+          ${ftHtml}
+        </div>
+        <div data-score-panel="fiabilite" style="display:none;padding-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div>
+              <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">Pr\u00e9cision globale</div>
+              <div data-fiabilite-global style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-size:14px;color:#9ca3af;font-style:italic;">Chargement...</span>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#9ca3af;text-align:right;line-height:1.5;" data-fiabilite-meta>30 derniers jours</div>
+          </div>
+          <div data-fiabilite-bars></div>
+          <div style="margin-top:14px;padding:10px 12px;background:#f8fafc;border-radius:8px;font-size:11px;color:#6b7280;line-height:1.5;">
+            Nos alertes sont compar\u00e9es automatiquement aux conditions r\u00e9elles observ\u00e9es. Plus la pr\u00e9cision est \u00e9lev\u00e9e, plus vos recommandations sont fiables.
           </div>
         </div>
-        ${tagsHtml}
-        ${weatherHtml}
-        ${ftHtml}
       </div>`;
   }
 
@@ -3636,6 +3746,90 @@ if (!location_id) {
       });
     });
 
+    // Score / Fiabilité tab switching
+    root.querySelectorAll("[data-score-tab]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var tab = btn.getAttribute("data-score-tab");
+        var scorePanel = root.querySelector('[data-score-panel="score"]');
+        var fiabPanel = root.querySelector('[data-score-panel="fiabilite"]');
+        if (!scorePanel || !fiabPanel) return;
+        scorePanel.style.display = tab === "score" ? "block" : "none";
+        fiabPanel.style.display = tab === "fiabilite" ? "block" : "none";
+        root.querySelectorAll("[data-score-tab]").forEach(function(b) {
+          var isActive = b.getAttribute("data-score-tab") === tab;
+          b.style.color = isActive ? "#1D3BB3" : "#94A3B8";
+          b.style.borderBottom = isActive ? "2px solid #1D3BB3" : "2px solid transparent";
+        });
+        // Lazy-load accuracy data on first fiabilité click
+        if (tab === "fiabilite" && !root._fiabiliteLoaded) {
+          root._fiabiliteLoaded = true;
+          var barsEl = root.querySelector("[data-fiabilite-bars]");
+          var globalEl = root.querySelector("[data-fiabilite-global]");
+          var metaEl = root.querySelector("[data-fiabilite-meta]");
+          var badgeEl = root.querySelector("[data-fiabilite-badge]");
+          fetch("/api/analytics/signal-accuracy?location_id=" + encodeURIComponent(location_id))
+            .then(function(r) { return r.json(); })
+            .then(function(json) {
+              if (!json.ok || !json.signals) throw new Error("No data");
+              var SIGNAL_DEFS = [
+                { key: "competition", label: "Concurrence", icon: "\ud83d\udcca" },
+                { key: "mobility", label: "Mobilit\u00e9", icon: "\ud83d\ude87" },
+                { key: "weather", label: "M\u00e9t\u00e9o", icon: "\ud83c\udf26" },
+              ];
+              var available = SIGNAL_DEFS.filter(function(s) { return json.signals[s.key]; });
+              var pending = SIGNAL_DEFS.filter(function(s) { return !json.signals[s.key]; });
+              var totalSamples = 0;
+              var globalAvg = 0;
+              if (available.length) {
+                globalAvg = Math.round(available.reduce(function(sum, s) { return sum + json.signals[s.key].accuracy_pct; }, 0) / available.length);
+                totalSamples = available.reduce(function(sum, s) { return sum + json.signals[s.key].sample_size; }, 0);
+              }
+              var gc = "#1D3BB3";
+              if (globalEl) {
+                globalEl.innerHTML = available.length
+                  ? '<span style="font-size:32px;font-weight:800;color:' + gc + ';line-height:1;">' + globalAvg + '</span><span style="font-size:14px;color:#9ca3af;">%</span>'
+                  : '<span style="font-size:14px;color:#9ca3af;font-style:italic;">Donn\u00e9es insuffisantes</span>';
+              }
+              if (metaEl) metaEl.innerHTML = "30 derniers jours<br>" + totalSamples + " signaux";
+              if (badgeEl) {
+                if (available.length) {
+                  badgeEl.style.background = "#EFF6FF";
+                  badgeEl.style.color = "#1D3BB3";
+                  badgeEl.textContent = globalAvg + "%";
+                }
+              }
+              var barsHtml = "";
+              available.forEach(function(s) {
+                var d = json.signals[s.key];
+                var pct = d.accuracy_pct;
+                var bc = "#1D3BB3";
+                var bbg = "#DBEAFE";
+                barsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:0.5px solid #f3f4f6;">'
+                  + '<span style="font-size:14px;flex-shrink:0;">' + s.icon + '</span>'
+                  + '<span style="font-size:12px;color:#374151;font-weight:500;min-width:85px;">' + s.label + '</span>'
+                  + '<div style="flex:1;height:6px;background:' + bbg + ';border-radius:3px;overflow:hidden;">'
+                    + '<div style="width:' + pct + '%;height:100%;background:' + bc + ';border-radius:3px;"></div>'
+                  + '</div>'
+                  + '<span style="font-size:13px;font-weight:700;color:' + bc + ';min-width:36px;text-align:right;">' + pct + '%</span>'
+                + '</div>';
+              });
+              pending.forEach(function(s) {
+                barsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:0.5px solid #f3f4f6;opacity:0.45;">'
+                  + '<span style="font-size:14px;flex-shrink:0;">' + s.icon + '</span>'
+                  + '<span style="font-size:12px;color:#9ca3af;font-weight:500;min-width:85px;">' + s.label + '</span>'
+                  + '<span style="font-size:11px;color:#9ca3af;font-style:italic;">En cours de collecte</span>'
+                + '</div>';
+              });
+              if (barsEl) barsEl.innerHTML = barsHtml;
+            })
+            .catch(function() {
+              if (barsEl) barsEl.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Donn\u00e9es de fiabilit\u00e9 indisponibles.</div>';
+              if (globalEl) globalEl.innerHTML = '<span style="font-size:14px;color:#9ca3af;font-style:italic;">Indisponible</span>';
+            });
+        }
+      });
+    });
+
     // Foot traffic day/week tabs
     root.querySelectorAll("[data-ft-tab]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -3939,13 +4133,6 @@ if (!location_id) {
         }).catch(function(){});
         if (!valid.length) throw new Error("Aucune donnée disponible.");
 
-        // Track page view (fire-and-forget)
-        fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ event: "page_view", location_id: locs[0]?.location_id || null, action_key: "pulse" }),
-        }).catch(function(){});
-
         const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
           (data.all_feed || []).map(a => ({ ...a, location_label: loc.company_name || loc.location_id }))
         );
@@ -4016,6 +4203,7 @@ if (!location_id) {
         mergedData._competitor_signals = csResult.signals;
         mergedData._competitor_followed_count = csResult.followed_count;
         mergedData._top_threats = csResult.top_threats;
+        await fetchPendingFeedback(locs[0]?.location_id || currentLocationId);
         renderPulse(mergedData, todayYmd(), "radar");
 
       } else {
@@ -4031,6 +4219,7 @@ if (!location_id) {
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;
         data._top_threats = csResult.top_threats;
+        await fetchPendingFeedback(currentLocationId);
         renderPulse(data, todayYmd(), "radar");
       }
 

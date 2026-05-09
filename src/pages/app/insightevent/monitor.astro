@@ -1962,7 +1962,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         if (isDone) totalChecked++;
         var ts = checked[actKey] || "";
         var showCopy = act.channel !== CH_INTERNAL;
-        var hasProfile = Boolean(prof.business_short_description);
+        var hasProfile = Boolean(prof.business_short_description || prof.company_activity_type || prof.client_industry_code);
         var showGen = act.channel !== CH_INTERNAL && act.channel !== CH_PHONE;
         var genData = showGen ? ' data-ab-gen="' + actKey + '" data-ab-gen-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-gen-actkey="' + escapeHtml(act.key) + '" data-ab-gen-acttext="' + escapeHtml(act.text) + '" data-ab-gen-channel="' + escapeHtml(act.channel||"") + '" data-ab-gen-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-gen-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-gen-sowhat="' + escapeHtml(String(cardSowhat||"")) + '"' : '';
         var itemSignalJson = showGen ? ' data-ab-gen-signal=\'' + escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null})) + '\'' : '';
@@ -2188,7 +2188,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           fetch("/api/analytics/track", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel }),
+            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel, affected_date: el.getAttribute("data-ab-gen-affected") || null, action_text: el.getAttribute("data-ab-gen-acttext") || null }),
           }).catch(function(){});
 
           el.classList.remove("is-loading");
@@ -2206,7 +2206,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               fetch("/api/analytics/track", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: actKey }),
+                body: JSON.stringify({ event: "draft_copied", location_id: location_id, action_key: actKey, affected_date: el.getAttribute("data-ab-gen-affected") || null }),
               }).catch(function(){});
 
           panel.querySelector(".ab-draft-regen")?.addEventListener("click", function() {
@@ -2335,7 +2335,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     else if (rank === total) weekRankLabel = "Jour le moins favorable";
     else if (rank != null) weekRankLabel = `${rank}e sur ${total} jours`;
 
-    const scoreColor = score >= 7.5 ? "#059669" : score >= 5.5 ? "#d97706" : "#dc2626";
+    const scoreColor = "#1D3BB3";
 
     // Context tags from daily_signal_summary_fr — filter to user-facing only
     const rawTags = Array.isArray(day.daily_signal_summary_fr) ? day.daily_signal_summary_fr : [];
