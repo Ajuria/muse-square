@@ -534,6 +534,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const cardWhat = safeStr(body.card_what);
     const cardSowhat = safeStr(body.card_sowhat);
     const userInstruction = safeStr(body.user_instruction);
+    const bodyStyleReference = safeStr(body.style_reference);
 
     if (!actionKey || !channel || !changeSubtype) {
       return new Response(
@@ -567,6 +568,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
         JSON.stringify({ ok: false, error: "Profil introuvable" }),
         { status: 200, headers: { "content-type": "application/json" } }
       );
+    }
+
+    // ── Fetch saved draft as style reference ──
+    let styleReference: string | null = null;
+    let isStyled = false;
+    if (bodyStyleReference) {
+      // Explicit style reference from library picker
+      isStyled = true;
+      styleReference = bodyStyleReference;
+    } else if (!userInstruction) {
+      // Auto-detect most recent saved draft
+      const savedDraft = await bqOne(
+        `SELECT body, title, tone, key_phrases
+         FROM \`muse-square-open-data.analytics.saved_drafts\`
+         WHERE location_id = @location_id
+           AND signal_type = @signal_type
+           AND channel = @channel
+           AND status = 'active'
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+        { location_id: locationId, signal_type: changeSubtype, channel }
+      );
+      if (savedDraft && safeStr(savedDraft.body)) {
+        isStyled = true;
+        styleReference = safeStr(savedDraft.body);
+      }
     }
 
     // ── Conditional data fetches ──
@@ -626,7 +653,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // ── Build prompts ──
-    const systemPrompt = buildSystemPrompt(profile, channel);
+    let systemPrompt = buildSystemPrompt(profile, channel);
+    if (styleReference) {
+      systemPrompt += "\n\n---\nR\u00c9F\u00c9RENCE DE STYLE (brouillon pr\u00e9c\u00e9dent de l'utilisateur) :\n\"\"\"\n" + styleReference + "\n\"\"\"\nReprends le ton, la structure et le style de ce brouillon. Adapte le contenu aux nouvelles donn\u00e9es fournies dans le message utilisateur. Ne copie pas le texte mot pour mot \u2014 r\u00e9\u00e9cris avec les informations actuelles tout en conservant la voix de l'utilisateur.";
+    }
 
     const promptCtx: PromptContext = {
       profile,
@@ -771,6 +801,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(
       JSON.stringify({
         ok: true,
+        is_styled: isStyled,
         draft: {
           channel,
           title,

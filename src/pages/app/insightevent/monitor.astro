@@ -1681,6 +1681,20 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
   // ---- Render ----
   var _pendingFeedbackCache = [];
+  var _savedDraftsCache = null;
+  async function fetchSavedDrafts(locationId) {
+    if (_savedDraftsCache !== null) return _savedDraftsCache;
+    try {
+      var res = await fetch("/api/analytics/list-drafts?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        _savedDraftsCache = json.items;
+        return _savedDraftsCache;
+      }
+    } catch(e) {}
+    _savedDraftsCache = [];
+    return [];
+  }
   function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, monitorItem) {
     var today = todayYmd();
     var prof = profile || {};
@@ -2060,7 +2074,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       var defaultCh = (t.actions && t.actions.length > 0) ? (t.actions[0].channel || "gbp") : "gbp";
       if (defaultCh === "internal" || defaultCh === "phone") defaultCh = defaultCh;
       var status = briefStatuses[cardIdx] || null;
-      var statusLabel = status === "copied" ? "Trait\u00e9 \u2713" : status === "saved" ? "Trait\u00e9 \u2713" : null;
+      var statusLabel = status === "copied" ? "Brouillon \u270e" : status === "saved" ? "Brouillon \u270e" : null;
       var signalJson = escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null}));
       var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
  
@@ -2078,7 +2092,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;">'
-              + '<button type="button" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" data-ab-draft-channel="' + escapeHtml(defaultCh) + '" data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '" data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '" data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-draft-signal=\'' + signalJson + '\' style="font-size:12px;font-weight:700;color:' + (statusLabel ? '#059669' : '#1D3BB3') + ';background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
+              + '<button type="button" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" data-ab-draft-channel="' + escapeHtml(defaultCh) + '" data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '" data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '" data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-draft-signal=\'' + signalJson + '\' style="font-size:12px;font-weight:700;color:' + '#1D3BB3' + ';background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
                 + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u2192')
               + '</button>'
               + (statusLabel ? '<span style="font-size:10px;color:#9ca3af;">' + escapeHtml(CHANNEL_DEFS[defaultCh]?.label || defaultCh) + '</span>' : '')
@@ -2128,7 +2142,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // ============================
  
     var completedCount = Object.values(briefStatuses).filter(function(s) { return s === "copied" || s === "saved"; }).length;
-    var countLabel = completedCount > 0 ? completedCount + "/" + top.length + " trait\u00e9es" : top.length + " action" + (top.length>1?"s":"");
+    var countLabel = completedCount > 0 ? completedCount + "/" + top.length + " en cours" : top.length + " action" + (top.length>1?"s":"");
  
     var progressPct = Math.round((completedCount / top.length) * 100);
  
@@ -2180,7 +2194,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       + '</div>';
     }
  
-    function buildWorkspaceHtml(cardIdx, channel, draft) {
+    function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType) {
       var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
       var showTitle = channel === "gbp" || channel === "email";
       var showHashtags = channel === "instagram" || channel === "gbp";
@@ -2193,9 +2207,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
       return '<div style="background:#fff;border:1px solid #E8EDF5;border-top:3px solid #1D3BB3;overflow:hidden;margin-top:10px;">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;">'
-          + buildChannelDropdown(channel, cardIdx)
-          + '<button type="button" data-ws-close="' + cardIdx + '" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;font-family:inherit;">\u00d7</button>'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+            + buildChannelDropdown(channel, cardIdx)
+            + '<button type="button" data-ws-close="' + cardIdx + '" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;font-family:inherit;">\u00d7</button>'
+          + '</div>'
+          + ((_savedDraftsCache && _savedDraftsCache.length > 0) ? '<button type="button" data-ws-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
         + '</div>'
+        + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
         + (showRecipient ? '<div style="padding:8px 14px 0;"><input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
         + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + cardIdx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
         + '<div style="padding:10px 14px;"><textarea data-ws-body="' + cardIdx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
@@ -2250,8 +2268,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       // Update trigger button
       var trigger = root.querySelector('[data-ab-draft-card="' + cardIdx + '"]');
       if (trigger) {
-        trigger.style.color = "#059669";
-        trigger.textContent = status === "copied" ? "Trait\u00e9 \u2713" : "Trait\u00e9 \u2713";
+        trigger.style.color = "#1D3BB3";
+        trigger.textContent = "Brouillon \u270e";
       }
       // Update progress bar
       var allStatuses = {};
@@ -2281,8 +2299,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         // Update header count
         var headerSpans = section.querySelectorAll("span");
         for (var hi = 0; hi < headerSpans.length; hi++) {
-          if (headerSpans[hi].textContent.match(/trait|action/)) {
-            headerSpans[hi].textContent = completed > 0 ? completed + "/" + totalCards + " trait\u00e9es" : totalCards + " action" + (totalCards > 1 ? "s" : "");
+          if (headerSpans[hi].textContent.match(/trait|en cours|action/)) {
+            headerSpans[hi].textContent = completed > 0 ? completed + "/" + totalCards + " en cours" : totalCards + " action" + (totalCards > 1 ? "s" : "");
             break;
           }
         }
@@ -2347,10 +2365,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: channel, affected_date: btn.getAttribute("data-ab-draft-affected") || null }),
           }).catch(function(){});
  
-          btn.style.color = "#059669";
-          btn.textContent = "Trait\u00e9 \u2713";
- 
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+          btn.style.color = "#1D3BB3";
+          btn.textContent = "Brouillon \u270e";
+
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype);
  
           wireWorkspaceButtons(cardIdx, channel, draft, payload, btn);
  
@@ -2385,7 +2403,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           ev.stopPropagation();
           var newCh = chBtn.getAttribute("data-ch-select");
           channel = newCh;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft, false, payload.change_subtype);
           wireWorkspaceButtons(cardIdx, newCh, draft, payload, triggerBtn);
         });
       });
@@ -2450,7 +2468,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             original_ai_text: draft ? (draft.full_text || draft.body || "") : "",
             user_instruction: "",
           }),
-        }).catch(function(){});
+        }).then(function() { _savedDraftsCache = null; }).catch(function(){});
         // Track event
         fetch("/api/analytics/track", {
           method: "POST",
@@ -2470,7 +2488,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         }).then(function(res) { return res.json(); }).then(function(json) {
           if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
           draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype);
           wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
         }).catch(function(err) {
           workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
@@ -2494,7 +2512,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         }).then(function(res) { return res.json(); }).then(function(json) {
           if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
           draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype);
           wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
         }).catch(function(err) {
           workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
@@ -2502,6 +2520,83 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       }
       if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
       if (adjustInput) adjustInput.addEventListener("keydown", function(ev) { if (ev.key === "Enter") { ev.preventDefault(); submitAdjust(); } });
+
+      // Library drawer
+      var libBtn = workspace.querySelector('[data-ws-library="' + cardIdx + '"]');
+      if (libBtn) libBtn.addEventListener("click", function() {
+        var existing = document.getElementById("ms-draft-library");
+        if (existing) { existing.remove(); return; }
+        var drafts = _savedDraftsCache || [];
+        var overlay = document.createElement("div");
+        overlay.id = "ms-draft-library";
+        overlay.style.cssText = "position:fixed;top:0;right:0;bottom:0;width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:9999;display:flex;flex-direction:column;font-family:inherit;";
+        var header = '<div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">'
+          + '<div><div style="font-weight:700;font-size:15px;color:#111827;">Mes brouillons</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + '</div></div>'
+          + '<button type="button" id="ms-lib-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;">\u00d7</button>'
+        + '</div>';
+        var SIGNAL_LABELS = {weather_worsened:"M\u00e9t\u00e9o d\u00e9grad\u00e9e",weather_improved:"M\u00e9t\u00e9o am\u00e9lior\u00e9e",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilit\u00e9",score_up:"Score en hausse",_day_opportunity:"Opportunit\u00e9 jour",_best_day:"Meilleur jour"};
+        var cards = '';
+        for (var di = 0; di < drafts.length; di++) {
+          var d = drafts[di];
+          var dCh = CHANNEL_DEFS[d.channel] || CHANNEL_DEFS.gbp;
+          var sigLbl = SIGNAL_LABELS[d.signal_type] || d.signal_type || "";
+          var isMatch = d.signal_type === payload.change_subtype && d.channel === channel;
+          var preview = (d.body || "").substring(0, 120) + ((d.body || "").length > 120 ? "\u2026" : "");
+          var dateLbl = d.created_at ? d.created_at.substring(0, 10) : "";
+          cards += '<div style="padding:12px 14px;border-radius:8px;margin-bottom:8px;border:' + (isMatch ? '1.5px solid #1D3BB3' : '1px solid #e5e7eb') + ';background:' + (isMatch ? '#F5F7FF' : '#fff') + ';cursor:pointer;">'
+            + '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'
+              + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;">' + escapeHtml(sigLbl) + '</span>'
+              + '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:' + dCh.color + '18;color:' + dCh.color + ';">' + escapeHtml(dCh.icon + ' ' + dCh.label) + '</span>'
+              + (isMatch ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Correspondance</span>' : '')
+              + '<span style="font-size:10px;color:#9ca3af;margin-left:auto;">' + escapeHtml(dateLbl) + '</span>'
+            + '</div>'
+            + (d.title ? '<div style="font-weight:600;font-size:12px;color:#111827;margin-bottom:3px;">' + escapeHtml(d.title) + '</div>' : '')
+            + '<div style="font-size:11px;color:#6b7280;line-height:1.4;">' + escapeHtml(preview) + '</div>'
+            + (d.tone ? '<div style="font-size:10px;color:#9ca3af;margin-top:6px;font-style:italic;">Ton : ' + escapeHtml(d.tone) + '</div>' : '')
+            + '<div style="display:flex;gap:6px;margin-top:8px;">'
+              + '<button type="button" data-lib-style="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Adapter au signal</button>'
+              + '<button type="button" data-lib-raw="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Utiliser tel quel</button>'
+            + '</div>'
+          + '</div>';
+        }
+        overlay.innerHTML = header + '<div style="flex:1;overflow-y:auto;padding:12px 16px;">' + cards + '</div>';
+        document.body.appendChild(overlay);
+        document.getElementById("ms-lib-close").addEventListener("click", function() { overlay.remove(); });
+        overlay.querySelectorAll("[data-lib-raw]").forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            var idx = parseInt(btn.getAttribute("data-lib-raw"), 10);
+            var picked = drafts[idx];
+            if (!picked) return;
+            draft = { title: picked.title || null, body: picked.body || "", hashtags: picked.hashtags || null, full_text: picked.body || "" };
+            workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype);
+            wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
+            overlay.remove();
+          });
+        });
+        overlay.querySelectorAll("[data-lib-style]").forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            var idx = parseInt(btn.getAttribute("data-lib-style"), 10);
+            var picked = drafts[idx];
+            if (!picked) return;
+            overlay.remove();
+            workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Adaptation en cours\u2026</div>';
+            var styledPayload = JSON.parse(JSON.stringify(payload));
+            styledPayload.style_reference = picked.body;
+            fetch("/api/insight/generate-action-draft", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(styledPayload),
+            }).then(function(res) { return res.json(); }).then(function(json) {
+              if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
+              draft = json.draft;
+              workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, true, payload.change_subtype);
+              wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
+            }).catch(function(err) {
+              workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+            });
+          });
+        });
+      });
     }
 
     // ---- Help link → concierge overlay ----
@@ -4331,8 +4426,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ event: "page_view", location_id: location_id, action_key: "monitor" }),
       }).catch(function(){});
+      await fetchSavedDrafts(location_id);
       renderMonitor(data, item, firstDate, "radar", monitorDates);
-
     } catch (e) {
       if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message || "Erreur de chargement.")}</div>`;
       console.error(e);

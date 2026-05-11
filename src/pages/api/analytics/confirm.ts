@@ -36,7 +36,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_id: body.location_id || null,
       signal_type: body.signal_type,
       signal_ref_id: body.signal_ref_id || null,
-      signal_date: body.signal_date || null,
+      signal_date: body.signal_date ? { v: body.signal_date } : null,
       confirmation: body.confirmation,
       created_at: new Date().toISOString(),
     };
@@ -81,8 +81,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 200,
       headers: { "content-type": "application/json" },
     });
-  } catch {
-    return new Response(JSON.stringify({ ok: false }), {
+  } catch (err: any) {
+    console.error("confirm error:", err?.message, err?.errors ? JSON.stringify(err.errors) : "");
+    return new Response(JSON.stringify({ ok: false, error: err?.message || "Unknown" }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });
