@@ -1680,7 +1680,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   }
 
   // ---- Render ----
-  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days) {
+  var _pendingFeedbackCache = [];
+  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, monitorItem) {
     var today = todayYmd();
     var prof = profile || {};
 
@@ -1692,15 +1693,38 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (ACTIONABLE.indexOf(sub) < 0) continue;
       var affected = normalizeYmd(a.affected_date);
       if (affected < today) continue;
-      var HORIZON = {mobility_disruption:7,mobility_disruption_planned:14,weather_worsened:7,weather_hazard_onset:7,weather_improved:7,competitor_event_launch:10,competitor_audience_conflict:10,competition_pressure_spike:10,mega_event_activation:14,score_up:7,competitor_event_ending:14,mega_event_end:14};
-      var maxDays = HORIZON[sub] != null ? HORIZON[sub] : 7;
-      var ad = parseYmdToDate(affected); var td = parseYmdToDate(today);
-      if (ad && td && (ad.getTime() - td.getTime()) / 86400000 > maxDays) continue;
-      if (Number(a.alert_level||0) < 2 && sub !== "weather_improved" && sub !== "competitor_event_ending" && sub !== "mega_event_end" && sub !== "score_up") continue;
+      var eventStart = normalizeYmd(selectedDate);
+      var eventEnd = monitorItem ? normalizeYmd(monitorItem.event_end_date?.value ?? monitorItem.event_end_date ?? "") : "";
+      if (!eventEnd) eventEnd = eventStart;
+      var ad = parseYmdToDate(affected);
+      var evStart = parseYmdToDate(eventStart);
+      var evEnd = parseYmdToDate(eventEnd);
+      if (ad && evStart && evEnd) {
+        var buffer = 3 * 86400000;
+        if (ad.getTime() < evStart.getTime() - buffer || ad.getTime() > evEnd.getTime() + buffer) continue;
+      }
+      if (Number(a.alert_level||0) < 1 && sub !== "weather_improved" && sub !== "competitor_event_ending" && sub !== "mega_event_end" && sub !== "score_up" && sub !== "competitor_event_launch" && sub !== "competitor_audience_conflict" && sub !== "competition_pressure_spike" && sub !== "calendar_audience_shift") continue;
       var tmplFn = BRIEF_TEMPLATES[sub];
       if (!tmplFn) continue;
-      var tmpl = tmplFn(a, prof);
+      var tmpl = tmplFn(a, prof, currentDay, "monitor");
       if (!tmpl) continue;
+      // Event-aware sowhat: prepend countdown + event framing
+      var eventDateStr = normalizeYmd(selectedDate);
+      var affectedStr = normalizeYmd(a.affected_date);
+      if (eventDateStr && affectedStr) {
+        var evtD = parseYmdToDate(eventDateStr);
+        var todD = parseYmdToDate(today);
+        if (evtD && todD) {
+          var daysUntil = Math.round((evtD.getTime() - todD.getTime()) / 86400000);
+          var countdown = daysUntil <= 0 ? "Jour J" : daysUntil === 1 ? "J-1" : "J-" + daysUntil;
+          // Only prepend if signal affects the event date or is close to it
+          var signalD = parseYmdToDate(affectedStr);
+          var signalDaysFromEvent = signalD && evtD ? Math.abs(Math.round((evtD.getTime() - signalD.getTime()) / 86400000)) : 99;
+          if (signalDaysFromEvent <= 3) {
+            tmpl.sowhat = countdown + " \u2014 " + tmpl.sowhat;
+          }
+        }
+      }
       candidates.push({ item: a, tmpl: tmpl, score: briefScore(a, prof, today) });
     }
 
@@ -3417,7 +3441,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     // Selected day's Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, location_id, days);
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, location_id, days, item);
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
