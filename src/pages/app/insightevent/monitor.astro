@@ -2398,6 +2398,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
         var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
         var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+        var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
         var draftData = { title: tEl ? tEl.value : "", body: bEl ? bEl.value : "", hashtags: hEl ? hEl.value : "", channel: channel };
         try { localStorage.setItem("ms_draft_" + locationId + "_" + cardIdx, JSON.stringify(draftData)); } catch(e) {}
         saveBtn.textContent = "\u2713 Enregistr\u00e9";
@@ -2406,6 +2407,27 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         saveBtn.style.borderColor = "#bbf7d0";
         setTimeout(function() { saveBtn.textContent = "Enregistrer"; saveBtn.style.background = "#f9fafb"; saveBtn.style.color = "#374151"; saveBtn.style.borderColor = "#e5e7eb"; }, 2000);
         updateBriefStatus(cardIdx, "saved");
+        // Save to BigQuery
+        fetch("/api/analytics/save-draft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            location_id: locationId,
+            signal_type: payload.change_subtype || "",
+            channel: channel,
+            card_what: payload.card_what || "",
+            card_sowhat: payload.card_sowhat || "",
+            affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null,
+            severity: triggerBtn.closest(".ab-card")?.querySelector(".ab-pill")?.textContent || "",
+            title: tEl ? tEl.value : "",
+            body: bEl ? bEl.value : "",
+            hashtags: hEl ? hEl.value : "",
+            recipient: rEl ? rEl.value : "",
+            original_ai_text: draft ? (draft.full_text || draft.body || "") : "",
+            user_instruction: "",
+          }),
+        }).catch(function(){});
+        // Track event
         fetch("/api/analytics/track", {
           method: "POST",
           headers: { "content-type": "application/json" },
