@@ -3920,9 +3920,6 @@ if (!location_id) {
       }
     }
 
-    window.__debugProfile = data.profile;
-    window.__debugCurrentDay = currentDay;
-    window.__debugFeed = allFeed;
 
     // Daily Action Brief
     var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days);
