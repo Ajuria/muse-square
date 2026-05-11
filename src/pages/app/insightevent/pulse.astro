@@ -1714,6 +1714,22 @@ if (!location_id) {
     return [];
   }
 
+  var _channelConfigsCache = null;
+  async function fetchChannelConfigs(locationId) {
+    if (_channelConfigsCache !== null) return _channelConfigsCache;
+    try {
+      var res = await fetch("/api/channels/config?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        _channelConfigsCache = {};
+        json.items.forEach(function(item) { if (item.enabled) _channelConfigsCache[item.channel] = item.config; });
+        return _channelConfigsCache;
+      }
+    } catch(e) {}
+    _channelConfigsCache = {};
+    return {};
+  }
+
   var _savedDraftsCache = null;
   async function fetchSavedDrafts(locationId) {
     if (_savedDraftsCache !== null) return _savedDraftsCache;
@@ -2665,7 +2681,7 @@ if (!location_id) {
           + '<button type="button" data-ws-copy="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Copier</button>'
           + '<button type="button" data-ws-save="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
           + '<div style="flex:1;"></div>'
-          + '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Bient\u00f4t disponible" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'
+          + (function() { var hasConfig = _channelConfigsCache && _channelConfigsCache[channel]; return hasConfig ? '<button type="button" data-ws-publish="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' : '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Configurez ce canal dans vos param\u00e8tres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'; })()
           + '<button type="button" disabled data-ws-automate="' + cardIdx + '" title="Bient\u00f4t disponible" style="padding:7px 10px;border-radius:6px;background:none;color:#d1d5db;border:1px dashed #e5e7eb;font-size:10px;font-weight:500;cursor:not-allowed;font-family:inherit;opacity:0.4;">Automatiser</button>'
         + '</div>'
       + '</div>';
@@ -2954,6 +2970,54 @@ if (!location_id) {
       }
       if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
       if (adjustInput) adjustInput.addEventListener("keydown", function(ev) { if (ev.key === "Enter") { ev.preventDefault(); submitAdjust(); } });
+
+      // Publish
+      var pubBtn = workspace.querySelector('[data-ws-publish="' + cardIdx + '"]');
+      if (pubBtn && !pubBtn.disabled) pubBtn.addEventListener("click", function() {
+        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
+        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
+        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+        var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
+        pubBtn.textContent = "Publication\u2026";
+        pubBtn.style.opacity = "0.6";
+        pubBtn.disabled = true;
+        fetch("/api/channels/publish", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            channel: channel,
+            location_id: locationId,
+            title: tEl ? tEl.value : "",
+            body: bEl ? bEl.value : "",
+            hashtags: hEl ? hEl.value : "",
+            recipient: rEl ? rEl.value : "",
+            signal_type: payload.change_subtype || "",
+            affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || "",
+          }),
+        }).then(function(res) { return res.json(); }).then(function(json) {
+          if (json && json.ok) {
+            pubBtn.textContent = "Publi\u00e9 \u2713";
+            pubBtn.style.background = "#f0fdf4";
+            pubBtn.style.color = "#166534";
+            pubBtn.style.borderColor = "#bbf7d0";
+            pubBtn.style.opacity = "1";
+            // Update trigger to Traité
+            triggerBtn.style.color = "#059669";
+            triggerBtn.textContent = "Trait\u00e9 \u2713";
+            updateBriefStatus(cardIdx, "published");
+          } else {
+            pubBtn.textContent = "Erreur";
+            pubBtn.style.color = "#B91C1C";
+            pubBtn.style.opacity = "1";
+            pubBtn.disabled = false;
+            setTimeout(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.color = "#1D3BB3"; pubBtn.style.borderColor = "#1D3BB3"; }, 2500);
+          }
+        }).catch(function() {
+          pubBtn.textContent = "Publier \u2192";
+          pubBtn.style.opacity = "1";
+          pubBtn.disabled = false;
+        });
+      });
 
       // Library drawer
       var libBtn = workspace.querySelector('[data-ws-library="' + cardIdx + '"]');
@@ -4626,6 +4690,7 @@ if (!location_id) {
         mergedData._top_threats = csResult.top_threats;
         await fetchPendingFeedback(locs[0]?.location_id || currentLocationId);
         await fetchSavedDrafts(locs[0]?.location_id || currentLocationId);
+        await fetchChannelConfigs(locs[0]?.location_id || currentLocationId);
         renderPulse(mergedData, todayYmd(), "radar");
 
       } else {
@@ -4643,6 +4708,7 @@ if (!location_id) {
         data._top_threats = csResult.top_threats;
         await fetchPendingFeedback(currentLocationId);
         await fetchSavedDrafts(currentLocationId);
+        await fetchChannelConfigs(currentLocationId);
         renderPulse(data, todayYmd(), "radar");
       }
 
