@@ -6,6 +6,7 @@ const VALID_EVENTS = [
   "page_view",
   "draft_generated",
   "draft_copied",
+  "draft_saved",
   "signal_confirmed",
   "signal_dismissed",
   "competitor_followed",

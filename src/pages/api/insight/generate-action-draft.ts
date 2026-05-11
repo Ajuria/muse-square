@@ -201,19 +201,20 @@ type PromptContext = {
   competitor_context: any[] | null;
   day_context: any | null;
   mobility_context: any[] | null;
+  user_instruction: string;
 };
 
 function buildUserPrompt(ctx: PromptContext): string {
   const sub = safeStr(ctx.signal?.change_subtype).toLowerCase();
   const ch = ctx.channel;
-
   // Try specific template first
   const key = `${sub}__${ch}`;
   const tmpl = TEMPLATES[key];
-  if (tmpl) return tmpl(ctx);
-
-  // Fallback: generic per channel
-  return buildGenericPrompt(ctx);
+  let prompt = tmpl ? tmpl(ctx) : buildGenericPrompt(ctx);
+  if (ctx.user_instruction) {
+    prompt += "\n\n---\nInstruction utilisateur : " + ctx.user_instruction;
+  }
+  return prompt;
 }
 
 // ── Template registry ──
@@ -532,17 +533,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const signal = body.signal || {};
     const cardWhat = safeStr(body.card_what);
     const cardSowhat = safeStr(body.card_sowhat);
+    const userInstruction = safeStr(body.user_instruction);
 
     if (!actionKey || !channel || !changeSubtype) {
       return new Response(
         JSON.stringify({ ok: false, error: "Champs requis : action_key, channel, change_subtype" }),
-        { status: 400, headers: { "content-type": "application/json" } }
-      );
-    }
-
-    if (channel === "internal" || channel === "phone") {
-      return new Response(
-        JSON.stringify({ ok: false, error: "Pas de draft pour le canal " + channel }),
         { status: 400, headers: { "content-type": "application/json" } }
       );
     }
@@ -642,6 +637,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       competitor_context: competitorContext,
       day_context: dayContext,
       mobility_context: mobilityContext,
+      user_instruction: userInstruction,
     };
 
     const userPrompt = buildUserPrompt(promptCtx);

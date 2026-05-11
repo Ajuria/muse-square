@@ -1188,11 +1188,23 @@ if (!location_id) {
         urgencyPill:{label:isClose?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"Mobilit\u00e9",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
         what: line ? escapeHtml(line)+(distLabel?" \u00e0 "+distLabel:"") : "Perturbation "+modeName+(distLabel?" \u00e0 "+distLabel:""),
-        sowhat: isClose
-          ? "Arr\u00eat desservant votre site perturb\u00e9. D\u00e9tour probable pour vos visiteurs."
-          : isRoad ? "Axe routier perturb\u00e9 \u2014 impact potentiel sur les livraisons."
-          : isMid ? "Ligne desservant votre zone perturb\u00e9e. Acc\u00e8s visiteurs ralenti."
-          : "Perturbation d\u00e9tect\u00e9e dans votre secteur. Impact limit\u00e9.",
+        sowhat: (function() {
+          var transit = String(prof.nearest_transit_line_name || "").trim();
+          var stopDist = Number(prof.nearest_transit_stop_distance_m || 0);
+          var peak = currentDay ? Number(currentDay.ft_peak_hour || 0) : 0;
+          var peakStr = peak > 0 ? peak + "h" : "";
+          var hours = String(prof.operating_hours || "").trim();
+          if (isClose && !isRoad) {
+            return (transit ? transit + " perturb\u00e9e" : "Arr\u00eat desservant votre site perturb\u00e9") + " \u00e0 " + distLabel + "." + (peakStr ? " Votre pic est \u00e0 " + peakStr + " \u2014 vos visiteurs chercheront un itin\u00e9raire alternatif." : " D\u00e9tour probable pour vos visiteurs.");
+          }
+          if (isRoad) {
+            return "Axe routier perturb\u00e9 \u00e0 " + distLabel + "." + (distM < 2000 ? " Impact direct sur les livraisons et l\u2019acc\u00e8s v\u00e9hicules." : " V\u00e9rifiez vos livraisons pr\u00e9vues aujourd\u2019hui.");
+          }
+          if (isMid) {
+            return (transit ? transit : "Ligne desservant votre zone") + " perturb\u00e9e \u00e0 " + distLabel + "." + (peakStr ? " Ralentissement probable avant votre pic de " + peakStr + "." : " Acc\u00e8s visiteurs ralenti.");
+          }
+          return "Perturbation d\u00e9tect\u00e9e \u00e0 " + distLabel + ". Impact limit\u00e9 sur votre zone.";
+        })(),
         actions: isClose ? [
           {text:"Publier l\u2019itin\u00e9raire alternatif sur Google Business Profile",meta:"Communication \u00b7 Urgent",key:"access_comm",channel:CH_GBP},
           {text:"Mettre \u00e0 jour la signal\u00e9tique d\u2019acc\u00e8s sur place",meta:"Exploitation \u00b7 Acc\u00e8s",key:"onsite_ops",channel:CH_INTERNAL},
@@ -1258,17 +1270,29 @@ if (!location_id) {
       else if (audOverlap && myAudLabel) overlapParts.push("m\u00eame audience ("+myAudLabel+")");
       if (indOverlap) overlapParts.push(indTier === "direct" ? "m\u00eame secteur" : "secteur proche");
       var whatLine = whatParts.join(" ")+(overlapParts.length ? " \u2014 "+overlapParts.join(", ") : "");
-      var sowhat = isHigh
-        ? (audOverlap && indOverlap
-          ? "Concurrence directe : m\u00eame public, m\u00eame secteur, \u00e0 proximit\u00e9. Impact \u00e9lev\u00e9 sur votre fr\u00e9quentation."
-          : audOverlap
-            ? "Ce concurrent cible votre public"+(myAudLabel?" ("+myAudLabel+")":"")+". Risque de captation \u00e9lev\u00e9."
-            : "Concurrent direct dans votre secteur \u00e0 proximit\u00e9. Surveillez l\u2019impact sur votre trafic.")
-        : (audOverlap
-          ? "Public similaire, mais impact mod\u00e9r\u00e9"+(distM > 5000 ? " (distance "+km+")" : "")+". Restez visible."
-          : indOverlap
-            ? "M\u00eame secteur mais public diff\u00e9rent. Impact indirect possible."
-            : "\u00c9v\u00e9nement concurrent d\u00e9tect\u00e9. Impact limit\u00e9 mais \u00e0 surveiller.");
+      var sowhat = (function() {
+        var evCount = currentDay ? Number(currentDay.events_within_5km_count || 0) : 0;
+        var pressure = currentDay ? Number(currentDay.competition_pressure_ratio || 0) : 0;
+        var pressureLabel = pressure > 1.2 ? " dans un contexte d\u00e9j\u00e0 charg\u00e9 (\u00d7" + pressure.toFixed(1) + " vs moyenne)" : "";
+        var desc = String(prof.business_short_description || "").trim();
+        var diffLabel = desc ? " Votre diff\u00e9renciant : " + desc.substring(0, 80) + (desc.length > 80 ? "\u2026" : "") + "." : "";
+        if (isHigh && audOverlap && indOverlap) {
+          return escapeHtml(compName) + " cible " + (myAudLabel || "votre public") + ", m\u00eame secteur, \u00e0 " + km + pressureLabel + "." + diffLabel;
+        }
+        if (isHigh && audOverlap) {
+          return escapeHtml(compName) + " cible " + (compAudLabel || myAudLabel || "votre audience") + " \u00e0 " + km + ". Risque de captation directe" + pressureLabel + "." + diffLabel;
+        }
+        if (isHigh) {
+          return "Concurrent direct \u00e0 " + km + pressureLabel + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km aujourd\u2019hui." + diffLabel;
+        }
+        if (audOverlap) {
+          return "Public similaire (" + (compAudLabel || myAudLabel || "") + ") mais \u00e0 " + km + " \u2014 impact mod\u00e9r\u00e9. Restez visible.";
+        }
+        if (indOverlap) {
+          return "M\u00eame secteur, public diff\u00e9rent, \u00e0 " + km + ". Impact indirect.";
+        }
+        return "\u00c9v\u00e9nement concurrent \u00e0 " + km + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km aujourd\u2019hui.";
+      })();
       var actions = isHigh ? [
         {text:"Publier un post mettant en avant votre diff\u00e9renciant",meta:"Communication \u00b7 Urgent",key:"visitor_comm",channel:CH_GBP},
         {text:"Lancer une offre cibl\u00e9e "+(myAudLabel||"")+" ce week-end",meta:"Marketing \u00b7 Offre",key:"marketing_push",channel:CH_GBP},
@@ -1368,13 +1392,23 @@ if (!location_id) {
         urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
         what: allTypes.length > 1 ? "Alerte m\u00e9t\u00e9o : " + allTypes.join(", ") : "Alerte " + type + (ov && nv ? " : niveau " + ov + " \u2192 " + nv : ""),
-        sowhat: isSevere
-          ? (isOutdoor
-            ? "Alerte s\u00e9v\u00e8re. Impact direct sur vos installations et la fr\u00e9quentation."
-            : "Alerte s\u00e9v\u00e8re. Impact probable sur la fr\u00e9quentation.")
-          : (isOutdoor
-            ? "D\u00e9gradation m\u00e9t\u00e9o. Surveillez l\u2019impact sur vos installations ext\u00e9rieures."
-            : "D\u00e9gradation m\u00e9t\u00e9o mod\u00e9r\u00e9e. L\u00e9g\u00e8re friction possible."),
+        sowhat: (function() {
+          var peak = currentDay ? Number(currentDay.ft_peak_hour || 0) : 0;
+          var peakStr = peak > 0 ? peak + "h" : "";
+          var tMax = currentDay ? Number(currentDay.temperature_2m_max || 0) : 0;
+          var hours = String(prof.operating_hours || "").trim();
+          var cap = Number(prof.venue_capacity || 0);
+          if (isSevere && isOutdoor) {
+            return type + " niveau " + nvNum + " pr\u00e9vue." + (peakStr ? " Votre pic est \u00e0 " + peakStr + " \u2014 vos installations ext\u00e9rieures seront expos\u00e9es." : " Impact direct sur vos installations et la fr\u00e9quentation.") + (cap > 0 ? " Capacit\u00e9 int\u00e9rieure : " + cap + " places." : "");
+          }
+          if (isSevere) {
+            return type + " niveau " + nvNum + " pr\u00e9vue." + (peakStr ? " Votre pic de fr\u00e9quentation est \u00e0 " + peakStr + " \u2014 baisse de trafic probable \u00e0 l\u2019entr\u00e9e." : " Impact probable sur la fr\u00e9quentation.");
+          }
+          if (isOutdoor) {
+            return "D\u00e9gradation " + type + " mod\u00e9r\u00e9e." + (peakStr ? " Surveillez les conditions avant votre pic de " + peakStr + "." : " Surveillez l\u2019impact sur vos installations ext\u00e9rieures.");
+          }
+          return "D\u00e9gradation " + type + " mod\u00e9r\u00e9e." + (peakStr ? " Votre pic est \u00e0 " + peakStr + " \u2014 l\u00e9g\u00e8re friction possible \u00e0 l\u2019entr\u00e9e." : " L\u00e9g\u00e8re friction possible.");
+        })(),
         actions: isSevere ? (isOutdoor ? [
           {text:"S\u00e9curiser vos installations ext\u00e9rieures",meta:"Exploitation \u00b7 Installations",key:"onsite_ops",channel:CH_INTERNAL},
           {text:"Adapter l\u2019\u00e9quipe : renforcer accueil int\u00e9rieur",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
@@ -1616,14 +1650,6 @@ if (!location_id) {
     return s;
   }
 
-  // ---- localStorage persistence ----
-  function briefStorageKey(locationId, date) { return "ab_"+locationId+"_"+date; }
-  function briefLoadChecked(locationId, date) {
-    try { var raw = localStorage.getItem(briefStorageKey(locationId,date)); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-  }
-  function briefSaveChecked(locationId, date, checked) {
-    try { localStorage.setItem(briefStorageKey(locationId,date), JSON.stringify(checked)); } catch {}
-  }
   // ---- Pending feedback fetch ----
   var _pendingFeedbackCache = null;
   async function fetchPendingFeedback(locationId) {
@@ -1663,7 +1689,7 @@ if (!location_id) {
       if (Number(a.alert_level||0) < 2 && sub !== "weather_improved" && sub !== "competitor_event_ending" && sub !== "mega_event_end" && sub !== "score_up") continue;
       var tmplFn = BRIEF_TEMPLATES[sub];
       if (!tmplFn) continue;
-      var tmpl = tmplFn(a, prof);
+      var tmpl = tmplFn(a, prof, currentDay);
       if (!tmpl) continue;
       candidates.push({ item: a, tmpl: tmpl, score: briefScore(a, prof, today) });
     }
@@ -1734,7 +1760,20 @@ if (!location_id) {
           urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
           typePill:{label:"M\u00e9t\u00e9o \u2713",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
           what: "Premi\u00e8re belle journ\u00e9e apr\u00e8s " + prevBadDays + " jours de mauvais temps" + (tempStrW ? " \u2014 " + tempStrW : ""),
-          sowhat: "Afflux de visiteurs probable \u2014 demande accumul\u00e9e apr\u00e8s " + prevBadDays + " jours d\u00e9favorables. Renforcez votre pr\u00e9sence.",
+          sowhat: (function() {
+            var peak = Number(currentDay.ft_peak_hour || 0);
+            var peakStr = peak > 0 ? peak + "h" : "";
+            var evCount = Number(currentDay.events_within_5km_count || 0);
+            var pressure = Number(currentDay.competition_pressure_ratio || 0);
+            var isOutdoorW = String(prof.location_type_client || prof.is_outdoor || "").toLowerCase() === "outdoor" || String(prof.location_type_client || "").toLowerCase() === "mixed" || prof.is_outdoor === true;
+            var parts = [];
+            parts.push(prevBadDays + " jours de mauvais temps accumul\u00e9s \u2014 demande refoul\u00e9e");
+            if (tempStrW) parts.push(tempStrW + " aujourd\u2019hui");
+            if (peakStr) parts.push("pic attendu \u00e0 " + peakStr);
+            if (pressure > 0 && pressure < 0.8) parts.push("concurrence faible (" + evCount + " \u00e9v\u00e9n. \u00e0 5 km)");
+            if (isOutdoorW) parts.push("r\u00e9installez vos ext\u00e9rieurs");
+            return parts.join(" \u00b7 ") + ".";
+          })(),
           actions: [
             {text:"Renforcez votre \u00e9quipe pour absorber l\u2019affluence",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
             {text:"Publiez un post \u00ab le soleil revient \u00bb avec votre programmation du jour",meta:"Communication \u00b7 Opportunit\u00e9",key:"visitor_comm",channel:CH_GBP},
@@ -1894,7 +1933,20 @@ if (!location_id) {
           urgencyPill:{label:"Aujourd\u2019hui",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
           typePill:{label:"Score \u2191",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
           what: "Meilleur jour de la semaine (score " + f3Score + "/10)",
-          sowhat: "Aucun autre jour de votre horizon n\u2019est aussi favorable. Si vous avez une action \u00e0 lancer, c\u2019est maintenant.",
+          sowhat: (function() {
+            var peak = Number(currentDay.ft_peak_hour || 0);
+            var peakStr = peak > 0 ? peak + "h" : "";
+            var evCount = Number(currentDay.events_within_5km_count || 0);
+            var pressure = Number(currentDay.competition_pressure_ratio || 0);
+            var lowComp = pressure > 0 && pressure < 0.8;
+            var parts = [];
+            parts.push("Score " + f3Score + "/10 \u2014 meilleur jour de votre semaine");
+            if (peakStr) parts.push("pic \u00e0 " + peakStr);
+            if (lowComp) parts.push("concurrence faible (" + evCount + " \u00e9v\u00e9n. \u00e0 5 km)");
+            else if (evCount > 0) parts.push(evCount + " \u00e9v\u00e9n. \u00e0 5 km");
+            if (Number(currentDay.alert_level_max || 0) === 0) parts.push("m\u00e9t\u00e9o favorable");
+            return parts.join(" \u00b7 ") + ". Si vous avez une op\u00e9ration en attente, c\u2019est maintenant.";
+          })(),
           actions: [
             {text:"Lancez l\u2019action que vous repoussez \u2014 les conditions ne seront pas meilleures",meta:"Strat\u00e9gie \u00b7 Timing",key:"marketing_push",channel:CH_INTERNAL},
             {text:"Communiquez aujourd\u2019hui pour maximiser l\u2019impact",meta:"Communication \u00b7 Timing",key:"visitor_comm",channel:CH_GBP},
@@ -2281,48 +2333,33 @@ if (!location_id) {
       + '</div>';
     }
 
-    var checked = briefLoadChecked(locationId, selectedDate);
+    // ============================
+    // BLOCK 1 — cardsHtml builder
+    // ============================
 
-    var totalActions = 0;
-    var totalChecked = 0;
+    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
+    var CHANNEL_PUB = ["gbp","instagram"];
+    var CHANNEL_SEND = ["email","sms","whatsapp","slack","internal","phone"];
+    var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
+ 
+    var briefStatuses = {};
+    try { briefStatuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
+ 
     var cardsHtml = top.map(function(entry, cardIdx) {
       var t = entry.tmpl;
       var cardId = "ab-card-" + cardIdx;
-      var cardWhat = t.what;
-      var cardSowhat = t.sowhat;
-      var actionsHtml = t.actions.map(function(act, actIdx) {
-        var actKey = cardIdx + "-" + actIdx;
-        var isDone = checked[actKey] ? true : false;
-        totalActions++;
-        if (isDone) totalChecked++;
-        var ts = checked[actKey] || "";
-        var showCopy = act.channel !== CH_INTERNAL;
-        var hasProfile = Boolean(prof.business_short_description || prof.company_activity_type || prof.client_industry_code);
-        var showGen = act.channel !== CH_INTERNAL && act.channel !== CH_PHONE;
-        var genData = showGen ? ' data-ab-gen="' + actKey + '" data-ab-gen-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-gen-actkey="' + escapeHtml(act.key) + '" data-ab-gen-acttext="' + escapeHtml(act.text) + '" data-ab-gen-channel="' + escapeHtml(act.channel||"") + '" data-ab-gen-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-gen-what="' + escapeHtml(String(cardWhat).replace(/<[^>]+>/g,"")) + '" data-ab-gen-sowhat="' + escapeHtml(String(cardSowhat||"")) + '"' : '';
-        var itemSignalJson = showGen ? ' data-ab-gen-signal=\'' + escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null})) + '\'' : '';
-        return '<div class="ab-action-item">'
-          + '<div class="ab-check' + (isDone ? " is-checked" : "") + '" data-ab-check="' + actKey + '" data-ab-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-actkey="' + escapeHtml(act.key) + '" data-ab-acttext="' + escapeHtml(act.text) + '" data-ab-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-channel="' + escapeHtml(act.channel||"") + '">'
-            + (isDone ? "\u2713" : "")
-          + '</div>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<div class="ab-action-text' + (isDone ? " is-done" : "") + '">' + escapeHtml(act.text) + '</div>'
-            + '<div class="ab-action-meta"' + (isDone ? ' style="color:#059669;"' : '') + '>' + (isDone ? "\u2713 Fait \u00e0 " + ts : escapeHtml(act.meta)) + '</div>'
-            + '<div class="ab-draft-panel" id="ab-draft-' + actKey + '"></div>'
-          + '</div>'
-          + (showCopy || showGen ? '<div class="ab-action-right">'
-            + (showGen ? (hasProfile ? '<button type="button" class="ab-gen"' + genData + itemSignalJson + '>G\u00e9n\u00e9rer \u2192</button>' : '<a href="/profile" style="font-size:10px;color:#9CA3AF;text-decoration:none;">Compl\u00e9tez votre profil \u2192</a>') : '')
-          + '</div>' : '')
-        + '</div>';
-      }).join("");
-      var doneCount = t.actions.reduce(function(sum, _, ai) { return sum + (checked[cardIdx+"-"+ai] ? 1 : 0); }, 0);
-      var pct = Math.round(doneCount / t.actions.length * 100);
+      var defaultCh = (t.actions && t.actions.length > 0) ? (t.actions[0].channel || "gbp") : "gbp";
+      if (defaultCh === "internal" || defaultCh === "phone") defaultCh = defaultCh;
+      var status = briefStatuses[cardIdx] || null;
+      var statusLabel = status === "copied" ? "Trait\u00e9 \u2713" : status === "saved" ? "Trait\u00e9 \u2713" : null;
+      var signalJson = escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null}));
       var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
-      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + '>'
+ 
+      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
-            + '<div class="ab-summary" data-ab-toggle="' + cardId + '">'
+            + '<div class="ab-summary">'
               + '<div class="ab-pills">'
                 + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
                 + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
@@ -2331,25 +2368,18 @@ if (!location_id) {
               + '<div class="ab-what">' + t.what + '</div>'
               + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
             + '</div>'
-            + '<div class="ab-toggle">'
-              + '<button type="button" class="ab-toggle-btn" data-ab-toggle="' + cardId + '">'
-                + '<span data-ab-chevron="' + cardId + '">\u25be</span> '
-                + 'Agir \u2014 ' + t.actions.length + ' actions recommand\u00e9es'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;">'
+              + '<button type="button" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" data-ab-draft-channel="' + escapeHtml(defaultCh) + '" data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '" data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '" data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-draft-signal=\'' + signalJson + '\' style="font-size:12px;font-weight:700;color:' + (statusLabel ? '#059669' : '#1D3BB3') + ';background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
+                + (statusLabel ? escapeHtml(statusLabel) : 'R\u00e9diger \u2192')
               + '</button>'
+              + (statusLabel ? '<span style="font-size:10px;color:#9ca3af;">' + escapeHtml(CHANNEL_DEFS[defaultCh]?.label || defaultCh) + '</span>' : '')
             + '</div>'
-            + '<div class="ab-actions" id="' + cardId + '-actions" data-ab-card-idx="' + cardIdx + '">'
-              + actionsHtml
-              + '<div class="ab-progress">'
-                + '<div class="ab-progress-bar"><div class="ab-progress-fill" style="width:' + pct + '%;"></div></div>'
-                + '<span class="ab-progress-label">' + doneCount + '/' + t.actions.length + '</span>'
-              + '</div>'
-              + '<a href="#" class="ab-help-link" data-ab-help="' + cardIdx + '" data-ab-help-what="' + escapeHtml(t.what.replace(/<[^>]+>/g,"")) + '" data-ab-help-sowhat="' + escapeHtml(t.sowhat) + '">Besoin d\u2019aide pour agir ? \u2192</a>'
-            + '</div>'
+            + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
         + '</div>'
       + '</div>';
     }).join("");
-
+ 
     // ---- Pending feedback cards (Layer A) ----
     var feedbackCardsHtml = "";
     var pendingFb = _pendingFeedbackCache || [];
@@ -2384,8 +2414,15 @@ if (!location_id) {
       + '</div>';
     }
 
-    var countLabel = totalChecked > 0 ? totalChecked + "/" + totalActions + " trait\u00e9es" : top.length + " action" + (top.length>1?"s":"");
-
+    // ============================
+    // BLOCK 2 — countLabel + return
+    // ============================
+ 
+    var completedCount = Object.values(briefStatuses).filter(function(s) { return s === "copied" || s === "saved"; }).length;
+    var countLabel = completedCount > 0 ? completedCount + "/" + top.length + " trait\u00e9es" : top.length + " action" + (top.length>1?"s":"");
+ 
+    var progressPct = Math.round((completedCount / top.length) * 100);
+ 
     return '<div style="margin-bottom:20px;" id="daily-brief-section">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
         + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
@@ -2393,234 +2430,368 @@ if (!location_id) {
       + '</div>'
       + feedbackCardsHtml
       + cardsHtml
+      + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
+        + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;">'
+          + '<div style="height:100%;background:#059669;width:' + progressPct + '%;border-radius:2px;transition:width 0.3s;"></div>'
+        + '</div>'
+        + '<span style="font-size:10px;color:#6B7280;">' + completedCount + '/' + top.length + '</span>'
+      + '</div>'
+      + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
     + '</div>';
   }
 
-  // ---- Wire handlers ----
+  
+// ============================
+// BLOCK 3 — wireBriefHandlers (complete replacement)
+// ============================
+// Replace from "function wireBriefHandlers(root, locationId, selectedDate) {"
+// through the closing "}" before "// V4 NEW — Radar strip"
+// Paste this instead:
+ 
   function wireBriefHandlers(root, locationId, selectedDate) {
-    // Toggle cards
-    root.querySelectorAll("[data-ab-toggle]").forEach(function(el) {
-      el.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var cardId = el.getAttribute("data-ab-toggle");
-        var actions = document.getElementById(cardId + "-actions");
-        var chevron = root.querySelector('[data-ab-chevron="'+cardId+'"]');
-        if (!actions) return;
-        var open = actions.classList.toggle("is-open");
-        if (chevron) chevron.textContent = open ? "\u25b4" : "\u25be";
-      });
-    });
+    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
+    var CHANNEL_PUB = ["gbp","instagram"];
+    var CHANNEL_SEND = ["email","sms","whatsapp","slack","internal","phone"];
+    var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
+ 
+    function buildChannelDropdown(currentCh, cardIdx) {
+      var ch = CHANNEL_DEFS[currentCh] || CHANNEL_DEFS.gbp;
+      function chItems(list, heading) {
+        return '<div style="padding:6px 14px 2px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;">' + heading + '</div>'
+          + list.map(function(cId) {
+            var c = CHANNEL_DEFS[cId];
+            return '<button type="button" data-ch-select="' + cId + '" data-ch-card="' + cardIdx + '" style="display:flex;align-items:center;gap:10px;padding:8px 14px;width:100%;border:none;background:' + (cId === currentCh ? '#EFF6FF' : '#fff') + ';cursor:pointer;font-size:12px;color:#374151;font-family:inherit;text-align:left;border-bottom:0.5px solid #f3f4f6;">'
+              + '<span style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;background:' + c.color + ';flex-shrink:0;">' + c.icon + '</span>'
+              + '<span style="flex:1;">' + escapeHtml(c.label) + '</span>'
+              + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '')
+            + '</button>';
+          }).join("");
+      }
+      return '<div style="position:relative;display:inline-block;" data-ch-dropdown="' + cardIdx + '">'
+        + '<button type="button" data-ch-toggle="' + cardIdx + '" style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;cursor:pointer;font-size:11px;font-weight:600;color:#374151;font-family:inherit;">'
+          + '<span style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;background:' + ch.color + ';flex-shrink:0;">' + ch.icon + '</span>'
+          + escapeHtml(ch.label)
+          + ' <span style="font-size:9px;color:#9ca3af;">\u25be</span>'
+        + '</button>'
+        + '<div data-ch-menu="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:10;min-width:240px;overflow:hidden;">'
+          + chItems(CHANNEL_PUB, "Publier sur")
+          + chItems(CHANNEL_SEND, "Envoyer \u00e0")
+        + '</div>'
+      + '</div>';
+    }
+ 
+    function buildWorkspaceHtml(cardIdx, channel, draft) {
+      var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
+      var showTitle = channel === "gbp" || channel === "email";
+      var showHashtags = channel === "instagram" || channel === "gbp";
+      var showRecipient = ch.cat === "send" && channel !== "internal";
+      var bodyText = draft ? (draft.body || draft.full_text || "") : "";
+      var titleText = draft ? (draft.title || "") : "";
+      var hashText = draft ? (draft.hashtags || "") : "";
+      var charCount = bodyText.length + (titleText ? titleText.length + 1 : 0) + (hashText ? hashText.length + 1 : 0);
+      var recipientPlaceholder = channel === "email" ? "destinataire@email.com" : channel === "sms" ? "+33 6 12 34 56 78" : channel === "whatsapp" ? "+33 6 12 34 56 78" : channel === "slack" ? "#canal ou @nom" : channel === "phone" ? "+33 6 12 34 56 78" : "";
 
-    // Checkboxes
-    root.querySelectorAll("[data-ab-check]").forEach(function(el) {
-      el.addEventListener("click", function() {
-        var key = el.getAttribute("data-ab-check");
-        var checked = briefLoadChecked(locationId, selectedDate);
-        var isDone = el.classList.contains("is-checked");
-        var textEl = el.parentElement.querySelector(".ab-action-text");
-        var metaEl = el.parentElement.querySelector(".ab-action-meta");
-
-        if (isDone) {
-          el.classList.remove("is-checked");
-          el.textContent = "";
-          if (textEl) textEl.classList.remove("is-done");
-          if (metaEl && metaEl.dataset.original) { metaEl.textContent = metaEl.dataset.original; metaEl.style.color = ""; }
-          delete checked[key];
-        } else {
-          var now = new Date();
-          var ts = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
-          el.classList.add("is-checked");
-          el.textContent = "\u2713";
-          if (textEl) textEl.classList.add("is-done");
-          if (metaEl) { metaEl.dataset.original = metaEl.dataset.original || metaEl.textContent; metaEl.textContent = "\u2713 Fait \u00e0 " + ts; metaEl.style.color = "#059669"; }
-          checked[key] = ts;
+      return '<div style="background:#fff;border:1px solid #E8EDF5;border-top:3px solid #1D3BB3;overflow:hidden;margin-top:10px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;">'
+          + buildChannelDropdown(channel, cardIdx)
+          + '<button type="button" data-ws-close="' + cardIdx + '" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;font-family:inherit;">\u00d7</button>'
+        + '</div>'
+        + (showRecipient ? '<div style="padding:8px 14px 0;"><input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
+        + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + cardIdx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
+        + '<div style="padding:10px 14px;"><textarea data-ws-body="' + cardIdx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
+        + (showHashtags ? '<div style="padding:0 14px 10px;"><input data-ws-hashtags="' + cardIdx + '" value="' + escapeHtml(hashText) + '" placeholder="#hashtags" style="width:100%;border:none;border-top:1px solid #f3f4f6;padding:6px 0;font-size:11px;color:#6366f1;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
+        + '<div style="padding:0 14px 10px;display:flex;align-items:center;gap:10px;" data-ws-charcount="' + cardIdx + '">'
+          + (ch.max
+            ? '<div style="flex:1;height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;"><div data-ws-charbar="' + cardIdx + '" style="width:' + Math.min(100, Math.round(charCount / ch.max * 100)) + '%;height:100%;background:#1D3BB3;border-radius:2px;transition:width 0.2s;"></div></div><span data-ws-charnum="' + cardIdx + '" style="font-size:10px;font-weight:500;white-space:nowrap;color:#9ca3af;">' + charCount + ' / ' + ch.max + '</span>'
+            : '<span data-ws-charnum="' + cardIdx + '" style="font-size:10px;color:#9ca3af;">' + charCount + ' caract\u00e8res</span>')
+        + '</div>'
+        + '<div style="padding:6px 14px 10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;">'
+          + '<input data-ws-adjust="' + cardIdx + '" placeholder="Ajuster : plus court, ajouter les horaires\u2026" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;" />'
+          + '<button type="button" data-ws-adjust-submit="' + cardIdx + '" style="padding:6px 12px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">\u2192</button>'
+        + '</div>'
+        + '<div style="padding:10px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+          + '<button type="button" data-ws-copy="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Copier</button>'
+          + '<button type="button" data-ws-save="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+          + '<div style="flex:1;"></div>'
+          + '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Bient\u00f4t disponible" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'
+          + '<button type="button" disabled data-ws-automate="' + cardIdx + '" title="Bient\u00f4t disponible" style="padding:7px 10px;border-radius:6px;background:none;color:#d1d5db;border:1px dashed #e5e7eb;font-size:10px;font-weight:500;cursor:not-allowed;font-family:inherit;opacity:0.4;">Automatiser</button>'
+        + '</div>'
+      + '</div>';
+    }
+ 
+    function updateCharCount(cardIdx, channel) {
+      var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
+      var bodyEl = root.querySelector('[data-ws-body="' + cardIdx + '"]');
+      var titleEl = root.querySelector('[data-ws-title="' + cardIdx + '"]');
+      var hashEl = root.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+      var barEl = root.querySelector('[data-ws-charbar="' + cardIdx + '"]');
+      var numEl = root.querySelector('[data-ws-charnum="' + cardIdx + '"]');
+      var count = (bodyEl ? bodyEl.value.length : 0) + (titleEl ? titleEl.value.length + 1 : 0) + (hashEl ? hashEl.value.length + 1 : 0);
+      if (ch.max) {
+        var pct = Math.min(100, Math.round(count / ch.max * 100));
+        var over = count > ch.max;
+        if (barEl) { barEl.style.width = pct + "%"; barEl.style.background = over ? "#dc2626" : "#1D3BB3"; }
+        if (numEl) { numEl.textContent = count + " / " + ch.max; numEl.style.color = over ? "#dc2626" : "#9ca3af"; }
+      } else {
+        if (numEl) numEl.textContent = count + " caract\u00e8res";
+      }
+    }
+ 
+    function autoResizeTextarea(el) {
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    }
+ 
+    function updateBriefStatus(cardIdx, status) {
+      var statuses = {};
+      try { statuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
+      statuses[cardIdx] = status;
+      try { localStorage.setItem("ms_brief_status_" + locationId + "_" + selectedDate, JSON.stringify(statuses)); } catch(e) {}
+      // Update trigger button
+      var trigger = root.querySelector('[data-ab-draft-card="' + cardIdx + '"]');
+      if (trigger) {
+        trigger.style.color = "#059669";
+        trigger.textContent = status === "copied" ? "Trait\u00e9 \u2713" : "Trait\u00e9 \u2713";
+      }
+      // Update progress bar
+      var allStatuses = {};
+      try { allStatuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
+      var completed = Object.values(allStatuses).filter(function(s) { return s === "copied" || s === "saved"; }).length;
+      var totalCards = root.querySelectorAll(".ab-card[data-ab-card-idx]").length;
+      var fill = root.querySelector("#daily-brief-section .ab-progress-fill, #daily-brief-section [style*='background:#059669']");
+      // Update via DOM
+      var section = document.getElementById("daily-brief-section");
+      if (section) {
+        var progressBar = section.querySelector("div > div > div[style]");
+        // Simpler: find by structure
+        var allDivs = section.querySelectorAll("div");
+        for (var pi = 0; pi < allDivs.length; pi++) {
+          if (allDivs[pi].style.background === "rgb(5, 150, 105)" || allDivs[pi].style.background === "#059669") {
+            allDivs[pi].style.width = (totalCards > 0 ? Math.round(completed / totalCards * 100) : 0) + "%";
+            break;
+          }
         }
-
-        briefSaveChecked(locationId, selectedDate, checked);
-
-        var card = el.closest(".ab-card");
-        if (card) {
-          var total = card.querySelectorAll("[data-ab-check]").length;
-          var done = card.querySelectorAll("[data-ab-check].is-checked").length;
-          var fill = card.querySelector(".ab-progress-fill");
-          var label = card.querySelector(".ab-progress-label");
-          if (fill) fill.style.width = Math.round(done/total*100) + "%";
-          if (label) label.textContent = done + "/" + total;
+        var spans = section.querySelectorAll("span");
+        for (var si = spans.length - 1; si >= 0; si--) {
+          if (spans[si].textContent.match(/^\d+\/\d+$/)) {
+            spans[si].textContent = completed + "/" + totalCards;
+            break;
+          }
         }
-
-        // Analytics (fire-and-forget)
-        fetch("/api/insight/action-log", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            location_id: locationId,
-            affected_date: el.getAttribute("data-ab-affected") || null,
-            change_subtype: el.getAttribute("data-ab-sub") || null,
-            action_key: el.getAttribute("data-ab-actkey") || null,
-            action_text: el.getAttribute("data-ab-acttext") || null,
-            action_category: el.getAttribute("data-ab-actkey") || null,
-            channel: el.getAttribute("data-ab-channel") || null,
-            event: isDone ? "uncheck" : "check",
-          }),
-        }).catch(function(){});
-      });
-    });
-
-    // Clipboard copy buttons
-    root.querySelectorAll("[data-ab-copy]").forEach(function(el) {
-      el.addEventListener("click", function(e) {
+        // Update header count
+        var headerSpans = section.querySelectorAll("span");
+        for (var hi = 0; hi < headerSpans.length; hi++) {
+          if (headerSpans[hi].textContent.match(/trait|action/)) {
+            headerSpans[hi].textContent = completed > 0 ? completed + "/" + totalCards + " trait\u00e9es" : totalCards + " action" + (totalCards > 1 ? "s" : "");
+            break;
+          }
+        }
+      }
+    }
+ 
+    // ---- Rédiger triggers ----
+    root.querySelectorAll(".ab-draft-trigger").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
         e.stopPropagation();
-        var what = el.getAttribute("data-ab-copy-what") || "";
-        var text = el.getAttribute("data-ab-copy-text") || "";
-        var clipText = briefClipboardText(what, "", text);
-        navigator.clipboard.writeText(clipText).then(function() {
-          el.textContent = "Copi\u00e9 \u2713";
-          el.classList.add("is-copied");
-          setTimeout(function() { el.textContent = "Copier"; el.classList.remove("is-copied"); }, 2000);
-        }).catch(function() {
-          // Fallback for older browsers
-          var ta = document.createElement("textarea");
-          ta.value = clipText;
-          ta.style.position = "fixed";
-          ta.style.opacity = "0";
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          document.body.removeChild(ta);
-          el.textContent = "Copi\u00e9 \u2713";
-          el.classList.add("is-copied");
-          setTimeout(function() { el.textContent = "Copier"; el.classList.remove("is-copied"); }, 2000);
-        });
-      });
-    });
-
-    // "Générer →" draft buttons
-    root.querySelectorAll("[data-ab-gen]").forEach(function(el) {
-      el.addEventListener("click", async function(e) {
-        e.stopPropagation();
-        var actKey = el.getAttribute("data-ab-gen");
-        var panel = document.getElementById("ab-draft-" + actKey);
-        if (!panel) return;
-
+        var cardIdx = btn.getAttribute("data-ab-draft-card");
+        var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
+        if (!workspace) return;
+ 
         // Toggle off if already open
-        if (panel.classList.contains("is-open") && panel.innerHTML.trim()) {
-          panel.classList.remove("is-open");
-          el.textContent = "G\u00e9n\u00e9rer \u2192";
+        if (workspace.style.display !== "none" && workspace.innerHTML.trim()) {
+          workspace.style.display = "none";
+          workspace.innerHTML = "";
+          var currentStatus = null;
+          try { currentStatus = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}")[cardIdx]; } catch(e) {}
+          if (!currentStatus) { btn.style.color = "#1D3BB3"; btn.textContent = "R\u00e9diger \u2192"; }
           return;
         }
-
-        // Loading state
-        el.textContent = "\u2026";
-        el.classList.add("is-loading");
-        panel.classList.add("is-open");
-        panel.innerHTML = '<div style="color:#9CA3AF;font-size:11px;display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border:1.5px solid #E5E7EB;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>G\u00e9n\u00e9ration en cours\u2026</div>';
-
+ 
+        // Close any other open workspace
+        root.querySelectorAll(".ab-workspace").forEach(function(ws) {
+          if (ws.id !== "ab-card-" + cardIdx + "-workspace") {
+            ws.style.display = "none";
+            ws.innerHTML = "";
+          }
+        });
+ 
+        // Show loading
+        workspace.style.display = "block";
+        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
+ 
+        var channel = btn.getAttribute("data-ab-draft-channel") || "gbp";
         var signalJson = {};
-        try { signalJson = JSON.parse(el.getAttribute("data-ab-gen-signal") || "{}"); } catch {}
-
+        try { signalJson = JSON.parse(btn.getAttribute("data-ab-draft-signal") || "{}"); } catch(e) {}
+ 
         var payload = {
-          action_key: el.getAttribute("data-ab-gen-actkey") || "",
-          channel: el.getAttribute("data-ab-gen-channel") || "",
-          change_subtype: el.getAttribute("data-ab-gen-sub") || "",
+          action_key: "draft",
+          channel: channel,
+          change_subtype: btn.getAttribute("data-ab-draft-sub") || "",
           signal: signalJson,
-          card_what: el.getAttribute("data-ab-gen-what") || "",
-          card_sowhat: el.getAttribute("data-ab-gen-sowhat") || "",
+          card_what: btn.getAttribute("data-ab-draft-what") || "",
+          card_sowhat: btn.getAttribute("data-ab-draft-sowhat") || "",
         };
-
-        try {
-          var res = await fetch("/api/insight/generate-action-draft", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          var json = await res.json().catch(function() { return null; });
-          if (!json?.ok || !json?.draft?.full_text) throw new Error(json?.error || "Draft vide");
-
+ 
+        fetch("/api/insight/generate-action-draft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then(function(res) { return res.json(); }).then(function(json) {
+          if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
           var draft = json.draft;
-          var channelLabel = draft.channel === "gbp" ? "Google Business Profile" : draft.channel === "instagram" ? "Instagram" : draft.channel === "email" ? "Email" : draft.channel === "sms" ? "SMS" : draft.channel;
-          var titleLine = draft.title ? '<div style="font-size:11px;font-weight:700;color:#1D3BB3;margin-bottom:4px;">' + escapeHtml(draft.title) + '</div>' : '';
-          var subjectLine = draft.subject ? '<div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">Objet : ' + escapeHtml(draft.subject) + '</div>' : '';
-
-          panel.innerHTML = '<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">'
-            + '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(channelLabel) + '</span>'
-            + '<span style="font-size:10px;color:#9CA3AF;">' + (draft.char_count || 0) + ' car.</span>'
-          + '</div>'
-          + titleLine + subjectLine
-          + '<pre>' + escapeHtml(draft.body || draft.full_text) + '</pre>'
-          + (draft.hashtags ? '<div style="font-size:11px;color:#6366f1;margin-bottom:6px;">' + escapeHtml(draft.hashtags) + '</div>' : '')
-          + '<div class="ab-draft-actions">'
-            + '<button type="button" class="ab-draft-copy" data-draft-text="' + escapeHtml(draft.full_text) + '">Copier le texte</button>'
-            + '<button type="button" class="ab-draft-regen" data-draft-regen="' + escapeHtml(actKey) + '">R\u00e9g\u00e9n\u00e9rer</button>'
-            + '<button type="button" class="ab-draft-dismiss" data-draft-dismiss="' + escapeHtml(actKey) + '">Fermer</button>'
-          + '</div>';
-
-          el.textContent = "G\u00e9n\u00e9r\u00e9 \u2713";
-
-          // Track draft generated
+ 
+          // Track
           fetch("/api/analytics/track", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: payload.channel, affected_date: el.getAttribute("data-ab-gen-affected") || null, action_text: el.getAttribute("data-ab-gen-acttext") || null }),
+            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: channel, affected_date: btn.getAttribute("data-ab-draft-affected") || null }),
           }).catch(function(){});
-          el.classList.remove("is-loading");
-
-          // Wire draft panel buttons
-          panel.querySelector(".ab-draft-copy")?.addEventListener("click", function() {
-            var text = this.getAttribute("data-draft-text") || "";
-            navigator.clipboard.writeText(text).then(function() {
-              panel.querySelector(".ab-draft-copy").textContent = "Copi\u00e9 \u2713";
-              setTimeout(function() { panel.querySelector(".ab-draft-copy").textContent = "Copier le texte"; }, 2000);
-            }).catch(function() {});
-          });
-
-          // Track draft copied
-              fetch("/api/analytics/track", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: actKey, affected_date: el.getAttribute("data-ab-gen-affected") || null }),
-              }).catch(function(){});
-
-          panel.querySelector(".ab-draft-regen")?.addEventListener("click", function() {
-            panel.classList.remove("is-open");
-            panel.innerHTML = "";
-            el.textContent = "G\u00e9n\u00e9rer \u2192";
-            el.classList.remove("is-loading");
-            el.click();
-          });
-
-          panel.querySelector(".ab-draft-dismiss")?.addEventListener("click", function() {
-            panel.classList.remove("is-open");
-            panel.innerHTML = "";
-            el.textContent = "G\u00e9n\u00e9rer \u2192";
-            el.classList.remove("is-loading");
-          });
-
-        } catch(err) {
-          panel.innerHTML = '<div style="font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-          el.textContent = "G\u00e9n\u00e9rer \u2192";
-          el.classList.remove("is-loading");
-        }
+ 
+          btn.style.color = "#059669";
+          btn.textContent = "Trait\u00e9 \u2713";
+ 
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+ 
+          wireWorkspaceButtons(cardIdx, channel, draft, payload, btn);
+ 
+        }).catch(function(err) {
+          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+          btn.style.color = "#1D3BB3";
+          btn.textContent = "R\u00e9diger \u2192";
+        });
       });
     });
+ 
+    function wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn) {
+      var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
+      if (!workspace) return;
+ 
+      // Auto-resize + char count
+      var bodyEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
+      if (bodyEl) { autoResizeTextarea(bodyEl); bodyEl.addEventListener("input", function() { autoResizeTextarea(bodyEl); updateCharCount(cardIdx, channel); }); }
+      var titleEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
+      if (titleEl) titleEl.addEventListener("input", function() { updateCharCount(cardIdx, channel); });
+      var hashEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+      if (hashEl) hashEl.addEventListener("input", function() { updateCharCount(cardIdx, channel); });
+ 
+      // Channel dropdown
+      var chToggle = workspace.querySelector('[data-ch-toggle="' + cardIdx + '"]');
+      var chMenu = workspace.querySelector('[data-ch-menu="' + cardIdx + '"]');
+      if (chToggle && chMenu) {
+        chToggle.addEventListener("click", function(ev) { ev.stopPropagation(); chMenu.style.display = chMenu.style.display === "none" ? "block" : "none"; });
+      }
+      workspace.querySelectorAll('[data-ch-select]').forEach(function(chBtn) {
+        chBtn.addEventListener("click", function(ev) {
+          ev.stopPropagation();
+          var newCh = chBtn.getAttribute("data-ch-select");
+          channel = newCh;
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft);
+          wireWorkspaceButtons(cardIdx, newCh, draft, payload, triggerBtn);
+        });
+      });
+ 
+      // Close
+      var closeBtn = workspace.querySelector('[data-ws-close="' + cardIdx + '"]');
+      if (closeBtn) closeBtn.addEventListener("click", function() {
+        workspace.style.display = "none";
+        workspace.innerHTML = "";
+      });
+ 
+      // Copy
+      var copyBtn = workspace.querySelector('[data-ws-copy="' + cardIdx + '"]');
+      if (copyBtn) copyBtn.addEventListener("click", function() {
+        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
+        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
+        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+        var fullText = [tEl ? tEl.value : "", bEl ? bEl.value : "", hEl ? hEl.value : ""].filter(Boolean).join("\n\n");
+        navigator.clipboard.writeText(fullText).then(function() {
+          copyBtn.textContent = "Copi\u00e9 \u2713";
+          setTimeout(function() { copyBtn.textContent = "Copier"; }, 2000);
+        }).catch(function() {});
+        updateBriefStatus(cardIdx, "copied");
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: "draft", channel: channel, affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null }),
+        }).catch(function(){});
+      });
+ 
+      // Save
+      var saveBtn = workspace.querySelector('[data-ws-save="' + cardIdx + '"]');
+      if (saveBtn) saveBtn.addEventListener("click", function() {
+        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
+        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
+        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
+        var draftData = { title: tEl ? tEl.value : "", body: bEl ? bEl.value : "", hashtags: hEl ? hEl.value : "", channel: channel };
+        try { localStorage.setItem("ms_draft_" + locationId + "_" + cardIdx, JSON.stringify(draftData)); } catch(e) {}
+        saveBtn.textContent = "\u2713 Enregistr\u00e9";
+        saveBtn.style.background = "#f0fdf4";
+        saveBtn.style.color = "#166534";
+        saveBtn.style.borderColor = "#bbf7d0";
+        setTimeout(function() { saveBtn.textContent = "Enregistrer"; saveBtn.style.background = "#f9fafb"; saveBtn.style.color = "#374151"; saveBtn.style.borderColor = "#e5e7eb"; }, 2000);
+        updateBriefStatus(cardIdx, "saved");
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "draft_saved", location_id: locationId, action_key: "draft", channel: channel, affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null }),
+        }).catch(function(){});
+      });
+ 
+      // Regenerate
+      var regenBtn = workspace.querySelector('[data-ws-regen="' + cardIdx + '"]');
+      if (regenBtn) regenBtn.addEventListener("click", function() {
+        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
+        fetch("/api/insight/generate-action-draft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then(function(res) { return res.json(); }).then(function(json) {
+          if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
+          draft = json.draft;
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
+        }).catch(function(err) {
+          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+        });
+      });
 
-    // Help links → concierge overlay
-    root.querySelectorAll("[data-ab-help]").forEach(function(el) {
-      el.addEventListener("click", function(e) {
+      // Ajuster (inline refinement)
+      var adjustInput = workspace.querySelector('[data-ws-adjust="' + cardIdx + '"]');
+      var adjustBtn = workspace.querySelector('[data-ws-adjust-submit="' + cardIdx + '"]');
+      function submitAdjust() {
+        if (!adjustInput || !adjustInput.value.trim()) return;
+        var instruction = adjustInput.value.trim();
+        adjustInput.value = "";
+        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Ajustement en cours\u2026</div>';
+        var adjustedPayload = JSON.parse(JSON.stringify(payload));
+        adjustedPayload.user_instruction = instruction;
+        fetch("/api/insight/generate-action-draft", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(adjustedPayload),
+        }).then(function(res) { return res.json(); }).then(function(json) {
+          if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
+          draft = json.draft;
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft);
+          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
+        }).catch(function(err) {
+          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+        });
+      }
+      if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
+      if (adjustInput) adjustInput.addEventListener("keydown", function(ev) { if (ev.key === "Enter") { ev.preventDefault(); submitAdjust(); } });
+    }
+
+    // ---- Help link → concierge overlay ----
+    var helpLink = document.getElementById("ab-help-global");
+    if (helpLink) {
+      helpLink.addEventListener("click", function(e) {
         e.preventDefault();
-        e.stopPropagation();
         var overlay = document.getElementById("ab-help-overlay");
-        var ctx = document.getElementById("ab-help-ctx");
-        if (!overlay) return;
-        var what = el.getAttribute("data-ab-help-what") || "";
-        var sowhat = el.getAttribute("data-ab-help-sowhat") || "";
-        if (ctx) ctx.innerHTML = "<strong>Signal :</strong> " + escapeHtml(what) + "<br><strong>Impact :</strong> " + escapeHtml(sowhat) + "<br><br>D\u00e9crivez ce dont vous avez besoin. Notre \u00e9quipe vous r\u00e9pond sous 2 heures.";
-        overlay.__abWhat = what;
-        overlay.__abSowhat = sowhat;
-        overlay.__abSub = el.closest("[data-ab-card-idx]")?.getAttribute("data-ab-card-idx") || "";
-        overlay.classList.add("is-open");
+        if (overlay) overlay.classList.add("is-open");
       });
-    });
-
+    }
+ 
     // Concierge form cancel / submit
     var cancelBtn = document.getElementById("ab-help-cancel");
     if (cancelBtn) cancelBtn.onclick = function() {
@@ -2643,8 +2814,8 @@ if (!location_id) {
             action_type: "aide_concierge",
             note: note,
             change_subtype: "_help_request",
-            signal_summary: ov?.__abWhat || "",
-            impact_summary: ov?.__abSowhat || "",
+            signal_summary: "",
+            impact_summary: "",
             recommended_action: null,
             affected_date: selectedDate || null,
             location_id: locationId,
@@ -2665,7 +2836,7 @@ if (!location_id) {
         submitBtn.disabled = false;
       }
     };
-
+ 
     // Feedback vote handlers (Layer A)
     root.querySelectorAll("[data-fb-vote]").forEach(function(btn) {
       btn.addEventListener("click", function() {
@@ -2674,7 +2845,6 @@ if (!location_id) {
         var signalType = btn.getAttribute("data-fb-signal-type") || "outcome";
         var signalDate = btn.getAttribute("data-fb-date") || null;
         var card = document.getElementById("fb-card-" + logId);
-        // POST to confirm endpoint
         fetch("/api/analytics/confirm", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -2686,13 +2856,11 @@ if (!location_id) {
             location_id: locationId,
           }),
         }).catch(function() {});
-        // Store in localStorage to prevent re-showing
         var lsKey = "ms_feedback_dismissed_" + locationId;
         var dismissed = {};
         try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
         dismissed[logId] = vote;
         try { localStorage.setItem(lsKey, JSON.stringify(dismissed)); } catch(e) {}
-        // Replace card with confirmation
         if (card) {
           card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0;">'
             + '<span style="color:#166534;">\u2713</span>'
@@ -3618,6 +3786,10 @@ if (!location_id) {
         feedItem._comp_distance_m = Number(matched.distance_from_location_m || feedItem.distance_m || 0);
       }
     }
+
+    window.__debugProfile = data.profile;
+    window.__debugCurrentDay = currentDay;
+    window.__debugFeed = allFeed;
 
     // Daily Action Brief
     var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days);
