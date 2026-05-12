@@ -2287,7 +2287,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
           var html = '<div style="padding:8px 14px 0;position:relative;" data-ws-recipient-wrap="' + cardIdx + '">'
             + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Destinataire</div>'
-            + '<input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" value="' + (suggested ? escapeHtml(suggested.channels_contact[channel]) : '') + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" autocomplete="off" />';
+            + '<input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" value="' + (suggested ? escapeHtml(suggested.channels_contact[channel]) : '') + '" data-display-name="' + (suggested ? escapeHtml(suggested.first_name + (suggested.last_name ? ' ' + suggested.last_name : '') + ' \u00b7 ' + suggested.channels_contact[channel]) : '') + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" autocomplete="off" />';
           if (members.length > 0) {
             html += '<div data-ws-recipient-dd="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:14px;right:14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.06);z-index:100;margin-top:4px;overflow:hidden;">';
             if (suggested) {
@@ -2622,17 +2622,34 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       var recipInput = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
       var recipDd = workspace.querySelector('[data-ws-recipient-dd="' + cardIdx + '"]');
       if (recipInput && recipDd) {
+        // Add display label element
+        var recipWrap = recipInput.closest('[data-ws-recipient-wrap]');
+        var recipLabel = document.createElement('div');
+        recipLabel.setAttribute('data-ws-recipient-label', cardIdx);
+        recipLabel.style.cssText = 'font-size:12px;font-weight:500;color:#1D3BB3;margin-bottom:2px;display:none;cursor:pointer;';
+        recipInput.parentNode.insertBefore(recipLabel, recipInput);
+        // If suggested member pre-filled, show label
+        if (recipInput.getAttribute('data-display-name')) {
+          recipLabel.textContent = recipInput.getAttribute('data-display-name');
+          recipLabel.style.display = 'block';
+        }
+        recipLabel.addEventListener('click', function() { recipLabel.style.display = 'none'; recipInput.value = ''; recipInput.focus(); });
         recipInput.addEventListener('focus', function() { recipDd.style.display = 'block'; });
-        recipInput.addEventListener('input', function() { recipDd.style.display = 'block'; });
+        recipInput.addEventListener('input', function() { recipDd.style.display = 'block'; recipLabel.style.display = 'none'; });
         recipDd.querySelectorAll('[data-ws-pick-member]').forEach(function(opt) {
           opt.addEventListener('click', function() {
-            recipInput.value = opt.getAttribute('data-ws-pick-member');
+            var channelVal = opt.getAttribute('data-ws-pick-member');
+            var nameSpan = opt.querySelector('span');
+            var displayName = nameSpan ? nameSpan.textContent : '';
+            recipInput.value = channelVal;
+            recipLabel.textContent = displayName + ' \u00b7 ' + channelVal;
+            recipLabel.style.display = 'block';
             recipDd.style.display = 'none';
           });
           opt.addEventListener('mouseenter', function() { opt.style.background = opt.style.background === 'rgb(245, 247, 255)' ? '#EBF0FF' : '#f9fafb'; });
-          opt.addEventListener('mouseleave', function() { opt.style.background = opt.getAttribute('data-ws-pick-member') === (recipInput.value || '') ? '#F5F7FF' : ''; });
+          opt.addEventListener('mouseleave', function() { opt.style.background = ''; });
         });
-        document.addEventListener('click', function(ev) { if (!recipInput.contains(ev.target) && !recipDd.contains(ev.target)) recipDd.style.display = 'none'; });
+        document.addEventListener('click', function(ev) { if (!recipInput.contains(ev.target) && !recipDd.contains(ev.target) && !recipLabel.contains(ev.target)) recipDd.style.display = 'none'; });
       }
 
       // Publish
