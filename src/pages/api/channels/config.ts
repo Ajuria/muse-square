@@ -26,9 +26,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const [rows] = await bq.query({
       query: `
         SELECT config_id, channel, config_json, enabled, created_at, updated_at
-        FROM \`${BQ_PROJECT}.analytics.channel_configs\`
-        WHERE user_id = @userId
-          AND location_id = @locationId
+        FROM (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY channel ORDER BY updated_at DESC) AS rn
+          FROM \`${BQ_PROJECT}.analytics.channel_configs\`
+          WHERE user_id = @userId
+            AND location_id = @locationId
+        )
+        WHERE rn = 1
         ORDER BY channel ASC
       `,
       params: { userId, locationId },

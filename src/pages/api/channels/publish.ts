@@ -21,18 +21,30 @@ interface PublishPayload {
 // ── Slack ──
 
 const handleSlack: ChannelHandler = async (config, payload) => {
-  const webhookUrl = config?.webhook_url;
-  if (!webhookUrl || !webhookUrl.startsWith("https://hooks.slack.com/")) {
-    return { ok: false, error: "Webhook Slack invalide ou manquant" };
+  const token = config?.bot_token;
+  if (!token || !token.startsWith("xoxb-")) {
+    return { ok: false, error: "Token Slack bot invalide ou manquant. Reconnectez Slack dans vos param\u00e8tres." };
+  }
+  const channel = payload.recipient || config?.default_channel;
+  if (!channel) {
+    return { ok: false, error: "Canal Slack non sp\u00e9cifi\u00e9" };
   }
   const text = [payload.title, payload.body].filter(Boolean).join("\n\n");
-  const res = await fetch(webhookUrl, {
+  const res = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text }),
+    headers: {
+      "content-type": "application/json",
+      "authorization": "Bearer " + token,
+    },
+    body: JSON.stringify({ channel: channel, text: text }),
   });
-  if (!res.ok) {
-    return { ok: false, error: "Slack a retourn\u00e9 " + res.status };
+  const json = await res.json().catch(function() { return null; });
+  if (!json || !json.ok) {
+    var err = json?.error || "Erreur Slack " + res.status;
+    if (err === "not_in_channel" || err === "channel_not_found") {
+      return { ok: false, error: "Le bot Muse Square n'a pas acc\u00e8s \u00e0 ce canal. Tapez /invite @Muse Square Insight dans le canal Slack concern\u00e9, puis r\u00e9essayez." };
+    }
+    return { ok: false, error: err };
   }
   return { ok: true };
 };

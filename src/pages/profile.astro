@@ -904,14 +904,16 @@ function isIncomplete(loc: LocationRow): boolean {
           <span style="width:28px;height:28px;border-radius:6px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">SL</span>
           <div>
             <div style="font-weight:600;font-size:13px;color:#111827;">Slack</div>
-            <div style="font-size:11px;color:#9ca3af;">Webhook URL de votre canal</div>
+            <div style="font-size:11px;color:#9ca3af;" id="comms-slack-desc">Connectez votre workspace Slack</div>
           </div>
         </div>
         <span id="comms-slack-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="comms-slack-url" type="text" placeholder="https://hooks.slack.com/services/..." style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
-        <button type="button" id="comms-slack-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+      <div id="comms-slack-actions">
+        <a id="comms-slack-connect" href="#" style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:6px;background:#4A154B;color:#fff;font-size:12px;font-weight:600;text-decoration:none;font-family:inherit;cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
+          Connecter Slack
+        </a>
       </div>
       <div id="comms-slack-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
     </div>
@@ -2154,13 +2156,14 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
       var json = await res.json();
       if (json && json.ok && Array.isArray(json.items)) {
         json.items.forEach(function(item) {
-          if (item.channel === 'slack' && item.config && item.config.webhook_url) {
-            var inp = document.getElementById('comms-slack-url');
+          if (item.channel === 'slack' && item.config && (item.config.bot_token || item.config.webhook_url)) {
             var st = document.getElementById('comms-slack-status');
-            var btn = document.getElementById('comms-slack-save');
-            if (inp) inp.value = item.config.webhook_url;
+            var desc = document.getElementById('comms-slack-desc');
+            var actions = document.getElementById('comms-slack-actions');
+            var teamName = item.config.team_name || 'Workspace';
             if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
-            if (btn) btn.textContent = 'Mettre \u00e0 jour';
+            if (desc) desc.textContent = teamName + (item.config.default_channel ? ' \u00b7 ' + item.config.default_channel : '');
+            if (actions) actions.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#059669;font-weight:600;">\u2713 ' + teamName + '</span><a href="/api/channels/slack-connect?location_id=' + encodeURIComponent(locId) + '" style="font-size:11px;color:#6b7280;text-decoration:underline;cursor:pointer;">Reconnecter</a></div>';
           }
           if (item.channel === 'email' && item.config && item.config.from_email) {
             var inp = document.getElementById('comms-email-from');
@@ -2179,40 +2182,25 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
         }
       }
     } catch(e) {}
-    // Slack save
-    document.getElementById('comms-slack-save')?.addEventListener('click', async function() {
-      var inp = document.getElementById('comms-slack-url');
-      var msg = document.getElementById('comms-slack-msg');
+    // Slack connect (OAuth)
+    var slackConnectBtn = document.getElementById('comms-slack-connect');
+    if (slackConnectBtn) {
+      slackConnectBtn.href = '/api/channels/slack-connect?location_id=' + encodeURIComponent(locId);
+    }
+    // Handle ?slack= query params (redirect back from OAuth)
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('slack') === 'success') {
       var st = document.getElementById('comms-slack-status');
-      var btn = this;
-      var url = inp ? inp.value.trim() : '';
-      if (!url || !url.startsWith('https://hooks.slack.com/')) {
-        if (msg) { msg.textContent = 'URL de webhook Slack invalide.'; msg.style.color = '#B91C1C'; }
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = 'Connexion\u2026';
-      try {
-        var res = await fetch('/api/channels/config', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ location_id: locId, channel: 'slack', config: { webhook_url: url } }),
-        });
-        var json = await res.json();
-        if (json && json.ok) {
-          if (msg) { msg.textContent = 'Slack connect\u00e9.'; msg.style.color = '#059669'; }
-          if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
-          btn.textContent = 'Mettre \u00e0 jour';
-        } else {
-          if (msg) { msg.textContent = json.error || 'Erreur.'; msg.style.color = '#B91C1C'; }
-          btn.textContent = 'Connecter';
-        }
-      } catch(e) {
-        if (msg) { msg.textContent = 'Erreur r\u00e9seau.'; msg.style.color = '#B91C1C'; }
-        btn.textContent = 'Connecter';
-      }
-      btn.disabled = false;
-    });
+      var msg = document.getElementById('comms-slack-msg');
+      var teamParam = urlParams.get('team') || 'Workspace';
+      if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+      if (msg) { msg.textContent = 'Slack connect\u00e9 \u00e0 ' + teamParam + '.'; msg.style.color = '#059669'; }
+      window.history.replaceState({}, '', '/profile');
+    } else if (urlParams.get('slack') === 'error') {
+      var msg = document.getElementById('comms-slack-msg');
+      if (msg) { msg.textContent = 'Erreur Slack : ' + (urlParams.get('reason') || 'inconnue'); msg.style.color = '#B91C1C'; }
+      window.history.replaceState({}, '', '/profile');
+    }
 
     // Email save
     document.getElementById('comms-email-save')?.addEventListener('click', async function() {
@@ -2372,7 +2360,7 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
           if (!confirm('Supprimer ce membre ?')) return;
           btn.textContent = '...';
           try {
-            var res = await fetch('/api/channels/team', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ member_id: mid }) });
+            var res = await fetch('/api/channels/team', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ member_id: mid, location_id: locId }) });
             var json = await res.json();
             if (json && json.ok) {
               _teamCache = _teamCache.filter(function(m) { return m.member_id !== mid; });
