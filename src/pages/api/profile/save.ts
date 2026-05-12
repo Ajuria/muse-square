@@ -465,9 +465,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       ON T.clerk_user_id = S.clerk_user_id AND T.location_id = S.location_id
       WHEN MATCHED THEN UPDATE SET
         email = @email,
-        first_name = @first_name,
-        last_name = @last_name,
-        position = @position,
+        first_name = IF(@first_name IS NULL, first_name, @first_name),
+        last_name = IF(@last_name IS NULL, last_name, @last_name),
+        position = IF(@position IS NULL, position, @position),
         company_name = IF(@company_name IS NULL, company_name, @company_name),
         company_address = @company_address,
         company_address_key = @company_address_key,
@@ -519,7 +519,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         website_url = @website_url,
         besttime_venue_id =
           IF(@besttime_venue_id IS NULL, besttime_venue_id, @besttime_venue_id),
-        main_event_objective = @main_event_objective,
+        main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
         updated_at = CURRENT_TIMESTAMP()
       WHEN NOT MATCHED THEN INSERT (
         clerk_user_id,
