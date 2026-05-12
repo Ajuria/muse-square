@@ -2685,6 +2685,61 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             triggerBtn.style.color = "#059669";
             triggerBtn.textContent = "Trait\u00e9 \u2713";
             updateBriefStatus(cardIdx, "published");
+            // Post-publish: save unknown recipient
+            var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
+            var recipVal = rEl ? rEl.value.trim() : "";
+            if (recipVal && channel !== "internal") {
+              var isKnown = (_teamMembersCache || []).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
+              if (!isKnown) {
+                var savePrompt = document.createElement("div");
+                savePrompt.style.cssText = "margin:10px 0 0;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;";
+                savePrompt.innerHTML = '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Enregistrer ce destinataire ?</div>'
+                  + '<div style="font-size:11px;color:#6b7280;margin-bottom:12px;">' + escapeHtml(recipVal) + ' sera disponible pour vos prochaines publications.</div>'
+                  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+                    + '<input data-save-recip-fn placeholder="Pr\u00e9nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+                    + '<input data-save-recip-ln placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+                  + '</div>'
+                  + '<input data-save-recip-role placeholder="R\u00f4le (optionnel)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-bottom:10px;box-sizing:border-box;" />'
+                  + '<div style="display:flex;gap:8px;">'
+                    + '<button type="button" data-save-recip-ok style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+                    + '<button type="button" data-save-recip-skip style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Pas maintenant</button>'
+                  + '</div>';
+                workspace.appendChild(savePrompt);
+                savePrompt.querySelector("[data-save-recip-skip]").addEventListener("click", function() { savePrompt.remove(); });
+                savePrompt.querySelector("[data-save-recip-ok]").addEventListener("click", async function() {
+                  var fnEl = savePrompt.querySelector("[data-save-recip-fn]");
+                  var lnEl = savePrompt.querySelector("[data-save-recip-ln]");
+                  var roleEl = savePrompt.querySelector("[data-save-recip-role]");
+                  var fn = fnEl ? fnEl.value.trim() : "";
+                  if (!fn) { fnEl.style.borderColor = "#ef4444"; return; }
+                  var chContact = {};
+                  chContact[channel] = recipVal;
+                  this.disabled = true;
+                  this.textContent = "...";
+                  try {
+                    var res = await fetch("/api/channels/team", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({
+                        location_id: locationId,
+                        first_name: fn,
+                        last_name: lnEl ? lnEl.value.trim() : "",
+                        role: roleEl ? roleEl.value.trim() : "",
+                        channels_contact: chContact,
+                        signal_routing: {},
+                      }),
+                    });
+                    var json2 = await res.json();
+                    if (json2 && json2.ok) {
+                      _teamMembersCache = null;
+                      await fetchTeamMembers(locationId);
+                      savePrompt.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#166534;">\u2713</span><span style="font-size:12px;color:#166534;font-weight:500;">Destinataire enregistr\u00e9</span></div>';
+                      setTimeout(function() { savePrompt.remove(); }, 2000);
+                    }
+                  } catch(e) { this.textContent = "Erreur"; this.disabled = false; }
+                });
+              }
+            }
           } else {
             pubBtn.textContent = "Erreur";
             pubBtn.style.color = "#B91C1C";
