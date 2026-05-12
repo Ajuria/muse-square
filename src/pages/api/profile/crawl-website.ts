@@ -8,6 +8,7 @@
  */
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { logCrawl, logApiError } from "../../../lib/error-logger";
 
 export const prerender = false;
 
@@ -133,8 +134,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // 1. Crawl
+    const crawlStart = Date.now();
     const pageText = await fetchPageText(website_url);
+    const crawlDuration = Date.now() - crawlStart;
+
     if (!pageText) {
+      logCrawl({
+        clerk_user_id, location_id, website_url,
+        status: "crawl_failed", duration_ms: crawlDuration,
+        error_message: "Could not extract text from website",
+      });
       return new Response(JSON.stringify({ ok: false, error: "crawl_failed", detail: "Could not extract text from website" }), {
         status: 200, headers: { "content-type": "application/json" },
       });
@@ -143,6 +152,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 2. Extract with Claude
     const extracted = await extractWithClaude(pageText, website_url);
     if (!extracted) {
+      logCrawl({
+        clerk_user_id, location_id, website_url,
+        status: "extraction_failed", duration_ms: Date.now() - crawlStart,
+        error_message: "Claude extraction returned null",
+        extraction_model: "claude-sonnet-4-20250514",
+      });
       return new Response(JSON.stringify({ ok: false, error: "extraction_failed", detail: "Claude extraction returned null" }), {
         status: 200, headers: { "content-type": "application/json" },
       });
@@ -175,12 +190,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
       types: { clerk_user_id: "STRING", location_id: "STRING", auto_enriched_description: "STRING" },
     });
 
+    logCrawl({
+      clerk_user_id, location_id, website_url,
+      status: "success", duration_ms: Date.now() - crawlStart,
+      pages_extracted: 1, extraction_model: "claude-sonnet-4-20250514",
+    });
+
     return new Response(JSON.stringify({ ok: true, enriched: extracted }), {
       status: 200, headers: { "content-type": "application/json" },
     });
 
   } catch (err: any) {
     console.error("[crawl-website]", err?.message);
+    logApiError({
+      clerk_user_id: null, location_id: null,
+      endpoint: "/api/profile/crawl-website",
+      error_type: "unhandled_exception",
+      error_message: err?.message || "Unknown error",
+      http_status_code: 500,
+    });
     return new Response(JSON.stringify({ ok: false, error: err?.message || "Unknown error" }), {
       status: 500, headers: { "content-type": "application/json" },
     });

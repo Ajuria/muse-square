@@ -5,6 +5,7 @@ import { createClerkClient } from "@clerk/clerk-sdk-node";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
 import { triggerDbtJobs } from "../../../lib/dbt-trigger";
+import { logApiError } from "../../../lib/error-logger";
 
 export const prerender = false;
 
@@ -418,6 +419,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
       if (!r) {
         company_geocode_status = "geocode_failed";
+        logApiError({
+          clerk_user_id, location_id,
+          endpoint: "/api/profile/save",
+          error_type: "geocode_failed",
+          error_message: "BAN geocode returned null",
+          request_metadata: { company_address },
+        });
 
       } else if (r.score < MIN_BAN_SCORE) {
         company_geocode_status = "geocode_low_score";
@@ -869,8 +877,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
         is_primary: 'BOOL',
       },
     }).catch((e) => {
-      // Non-fatal — dbt nightly job is the fallback
       console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
+      logApiError({
+        clerk_user_id, location_id,
+        endpoint: "/api/profile/save",
+        error_type: "dim_sync_failed",
+        error_message: e?.message || "dim_client_location MERGE failed",
+        request_metadata: { mode },
+      });
     });
 
     // ── Trigger dbt Cloud jobs based on what changed ──

@@ -7,6 +7,8 @@ const items = [
   { href: "/contact", label: "Contact" },
 ];
 
+const isAdmin = Astro.locals.clerk_user_id === "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo";
+
 // normalize paths and detect "active" for child routes too
 const normalize = (p: string) => (p.replace(/\/+$/, "") || "/");
 const currentPath = normalize(Astro.url.pathname);
@@ -127,6 +129,7 @@ const isAppShell = isApp;
                   <a href="/profile" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Sites</a>
                   <a href="/app/insightevent/suivis" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Suivis</a>
                   <a href="/notifications" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500">Alertes</a>
+                  {isAdmin && <a href="/app/admin/admin" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-[#1D3BB3]">Admin</a>}
                   <Show when="signed-in" client:load>
                     <button type="button" class="logoutBtn block w-full text-left px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Me déconnecter</button>
                   </Show>
