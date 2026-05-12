@@ -79,40 +79,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
 
-    // Check if config exists
-    const [existing] = await bq.query({
-      query: `
-        SELECT config_id
-        FROM \`${BQ_PROJECT}.analytics.channel_configs\`
-        WHERE user_id = @userId
-          AND location_id = @locationId
-          AND channel = @channel
-        LIMIT 1
-      `,
-      params: { userId, locationId, channel },
-      location: "EU",
-    });
-
-    if (existing?.[0]?.config_id) {
-      // Update
-      await bq.query({
-        query: `
-          UPDATE \`${BQ_PROJECT}.analytics.channel_configs\`
-          SET config_json = @configJson, enabled = @enabled, updated_at = @now
-          WHERE config_id = @configId
-        `,
-        params: {
-          configJson,
-          enabled,
-          now,
-          configId: existing[0].config_id,
-        },
-        location: "EU",
-      });
-    } else {
-      // Insert
-      const table = bq.dataset("analytics").table("channel_configs");
-      await table.insert([{
+    // Always insert — BQ streaming buffer prevents UPDATE on recent rows
+    // GET query uses ORDER BY updated_at DESC LIMIT 1, so latest wins
+    const table = bq.dataset("analytics").table("channel_configs");
+    await table.insert([{
         config_id: crypto.randomUUID(),
         user_id: userId,
         location_id: locationId,
@@ -122,7 +92,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
         created_at: now,
         updated_at: now,
       }]);
-    }
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
