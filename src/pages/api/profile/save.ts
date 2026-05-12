@@ -4,6 +4,7 @@ import { BigQuery } from "@google-cloud/bigquery";
 import { createClerkClient } from "@clerk/clerk-sdk-node";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
+import { triggerDbtJobs } from "../../../lib/dbt-trigger";
 
 export const prerender = false;
 
@@ -315,7 +316,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // --- Load prior stored address_key to avoid re-geocoding if unchanged ---
     const priorKeyQuery = `
-      SELECT company_address_key, company_geocoded_at
+      SELECT company_address_key, company_geocoded_at, company_activity_type, nearest_transit_stop
       FROM ${fullTable}
       WHERE clerk_user_id = @clerk_user_id
         AND location_id = @location_id
@@ -327,6 +328,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let prior_company_geocoded_at_ms: number | null = null;
 
     let prior_city_id: string | null = null;
+    let prior_company_activity_type: string | null = null;
+    let prior_nearest_transit_stop: string | null = null;
 
     try {
       const [rows] = await bigquery.query({
@@ -345,6 +348,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       prior_city_id =
         r0 && typeof r0.city_id === "string" && r0.city_id.trim()
           ? r0.city_id.trim()
+          : null;
+
+      prior_company_activity_type =
+        r0 && typeof r0.company_activity_type === "string" && r0.company_activity_type.trim()
+          ? r0.company_activity_type.trim()
+          : null;
+
+      prior_nearest_transit_stop =
+        r0 && typeof r0.nearest_transit_stop === "string" && r0.nearest_transit_stop.trim()
+          ? r0.nearest_transit_stop.trim()
           : null;
 
       const rawGeoAt = r0 ? (r0.company_geocoded_at ?? null) : null;
@@ -860,30 +873,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
     });
 
-    // ── Trigger dbt Cloud job on geo change (address changed or new location) ──
-    const shouldTriggerDbt =
-      (addressChanged && company_geocode_status === 'geocoded_ok') || mode === 'create';
+    // ── Trigger dbt Cloud jobs based on what changed ──
+    const industryChanged =
+      company_activity_type !== null &&
+      company_activity_type !== prior_company_activity_type;
 
-    if (shouldTriggerDbt) {
-      const dbtAccountId = process.env.DBT_ACCOUNT_ID;
-      const dbtJobId = process.env.DBT_JOB_PROFILE_REFRESH_ID;
-      const dbtToken = process.env.DBT_API_TOKEN;
+    const transitChanged =
+      (nearest_transit_stop !== null && nearest_transit_stop !== prior_nearest_transit_stop);
 
-      if (dbtAccountId && dbtJobId && dbtToken) {
-        fetch(`https://cloud.getdbt.com/api/v2/accounts/${dbtAccountId}/jobs/${dbtJobId}/run/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${dbtToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cause: `profile_save:${mode}:${location_id}`,
-          }),
-        }).catch((e) => {
-          console.error('[save.ts] dbt Cloud trigger failed (non-fatal):', e?.message);
-        });
-      }
-    }
+    triggerDbtJobs(
+      {
+        isNewAccount: mode === 'create',
+        addressChanged: addressChanged && company_geocode_status === 'geocoded_ok',
+        industryChanged,
+        transitChanged,
+      },
+      location_id,
+      mode
+    );
 
     // ── Fire-and-forget: crawl website if URL is new/changed ──
     if (website_url) {
