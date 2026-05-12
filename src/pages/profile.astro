@@ -545,6 +545,75 @@ function isIncomplete(loc: LocationRow): boolean {
     </div>
   </div>
 
+  <!-- ===== COMMUNICATIONS ===== -->
+  <div class="loc-card" id="comms-card" style="margin-top:10px;">
+    <div class="loc-header" onclick="toggleCommsCard()">
+      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="loc-meta">
+        <div class="loc-name-row">
+          <span class="loc-name">Communications</span>
+          <span class="loc-status" id="comms-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Configurez vos canaux</span>
+        </div>
+      </div>
+    </div>
+    <div class="loc-body" id="comms-body" style="display:none;padding:20px;">
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:28px;height:28px;border-radius:6px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">SL</span>
+            <div>
+              <div style="font-weight:600;font-size:13px;color:#111827;">Slack</div>
+              <div style="font-size:11px;color:#9ca3af;">Webhook URL de votre canal</div>
+            </div>
+          </div>
+          <span id="comms-slack-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="comms-slack-url" type="text" placeholder="https://hooks.slack.com/services/..." style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
+          <button type="button" id="comms-slack-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+        </div>
+        <div id="comms-slack-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:28px;height:28px;border-radius:6px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">@</span>
+            <div>
+              <div style="font-weight:600;font-size:13px;color:#111827;">Email</div>
+              <div style="font-size:11px;color:#9ca3af;">Adresse d'exp&#xE9;diteur</div>
+            </div>
+          </div>
+          <span id="comms-email-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="comms-email-from" type="text" placeholder="Nom &lt;email@domaine.com&gt;" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
+          <button type="button" id="comms-email-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+        </div>
+        <div id="comms-email-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+      </div>
+      <div style="margin-bottom:20px;opacity:0.5;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#4285F4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">G</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Google Business Profile</div>
+            <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
+          </div>
+        </div>
+      </div>
+      <div style="opacity:0.5;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">WA</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">WhatsApp Business</div>
+            <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="section-divider"></div>
 
   <!-- ===== SITES SECTION ===== -->
@@ -880,7 +949,6 @@ function isIncomplete(loc: LocationRow): boolean {
     <span class="add-plus">+</span>
     Ajouter un site physique
   </button>
-
 </div>
 
 <!-- PASSWORD MODAL -->
@@ -941,6 +1009,15 @@ window.toggleLocCard = function(cardId, bodyId) {
     card.classList.add('loc-expanded');
     body.style.display = 'block';
   }
+};
+
+window.toggleCommsCard = function() {
+  const card = document.getElementById('comms-card');
+  const body = document.getElementById('comms-body');
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
 };
 
 window.toggleUserProfileCard = function() {
@@ -1980,6 +2057,110 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
     if(btn){btn.disabled=false;btn.textContent='Enregistrer';}
   }
 });
+
+// ── Communications channel config ──
+  (async function() {
+    var locCard = document.querySelector('.loc-card[data-location-id]');
+    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    if (!locId) return;
+
+    // Load existing configs
+    try {
+      var res = await fetch('/api/channels/config?location_id=' + encodeURIComponent(locId));
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.items)) {
+        json.items.forEach(function(item) {
+          if (item.channel === 'slack' && item.config && item.config.webhook_url) {
+            var inp = document.getElementById('comms-slack-url');
+            var st = document.getElementById('comms-slack-status');
+            var btn = document.getElementById('comms-slack-save');
+            if (inp) inp.value = item.config.webhook_url;
+            if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+            if (btn) btn.textContent = 'Mettre \u00e0 jour';
+          }
+          if (item.channel === 'email' && item.config && item.config.from_email) {
+            var inp = document.getElementById('comms-email-from');
+            var st = document.getElementById('comms-email-status');
+            var btn = document.getElementById('comms-email-save');
+            if (inp) inp.value = item.config.from_email;
+            if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+            if (btn) btn.textContent = 'Mettre \u00e0 jour';
+          }
+        });
+      }
+    } catch(e) {}
+
+    // Slack save
+    document.getElementById('comms-slack-save')?.addEventListener('click', async function() {
+      var inp = document.getElementById('comms-slack-url');
+      var msg = document.getElementById('comms-slack-msg');
+      var st = document.getElementById('comms-slack-status');
+      var btn = this;
+      var url = inp ? inp.value.trim() : '';
+      if (!url || !url.startsWith('https://hooks.slack.com/')) {
+        if (msg) { msg.textContent = 'URL de webhook Slack invalide.'; msg.style.color = '#B91C1C'; }
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Connexion\u2026';
+      try {
+        var res = await fetch('/api/channels/config', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ location_id: locId, channel: 'slack', config: { webhook_url: url } }),
+        });
+        var json = await res.json();
+        if (json && json.ok) {
+          if (msg) { msg.textContent = 'Slack connect\u00e9.'; msg.style.color = '#059669'; }
+          if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+          btn.textContent = 'Mettre \u00e0 jour';
+        } else {
+          if (msg) { msg.textContent = json.error || 'Erreur.'; msg.style.color = '#B91C1C'; }
+          btn.textContent = 'Connecter';
+        }
+      } catch(e) {
+        if (msg) { msg.textContent = 'Erreur r\u00e9seau.'; msg.style.color = '#B91C1C'; }
+        btn.textContent = 'Connecter';
+      }
+      btn.disabled = false;
+    });
+
+    // Email save
+    document.getElementById('comms-email-save')?.addEventListener('click', async function() {
+      var inp = document.getElementById('comms-email-from');
+      var msg = document.getElementById('comms-email-msg');
+      var st = document.getElementById('comms-email-status');
+      var btn = this;
+      var from = inp ? inp.value.trim() : '';
+      if (!from) {
+        if (msg) { msg.textContent = 'Adresse d\u2019exp\u00e9diteur requise.'; msg.style.color = '#B91C1C'; }
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Connexion\u2026';
+      try {
+        var res = await fetch('/api/channels/config', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ location_id: locId, channel: 'email', config: { from_email: from } }),
+        });
+        var json = await res.json();
+        if (json && json.ok) {
+          if (msg) { msg.textContent = 'Email connect\u00e9.'; msg.style.color = '#059669'; }
+          if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+          btn.textContent = 'Mettre \u00e0 jour';
+        } else {
+          if (msg) { msg.textContent = json.error || 'Erreur.'; msg.style.color = '#B91C1C'; }
+          btn.textContent = 'Connecter';
+        }
+      } catch(e) {
+        if (msg) { msg.textContent = 'Erreur r\u00e9seau.'; msg.style.color = '#B91C1C'; }
+        btn.textContent = 'Connecter';
+      }
+      btn.disabled = false;
+    });
+  })();
+
 </script>
 
 </BaseLayout>
