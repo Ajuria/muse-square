@@ -1714,6 +1714,21 @@ if (!location_id) {
     return [];
   }
 
+  var _teamMembersCache = null;
+  async function fetchTeamMembers(locationId) {
+    if (_teamMembersCache !== null) return _teamMembersCache;
+    try {
+      var res = await fetch("/api/channels/team?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        _teamMembersCache = json.items;
+        return _teamMembersCache;
+      }
+    } catch(e) {}
+    _teamMembersCache = [];
+    return [];
+  }
+
   var _channelConfigsCache = null;
   async function fetchChannelConfigs(locationId) {
     if (_channelConfigsCache !== null) return _channelConfigsCache;
@@ -2664,7 +2679,38 @@ if (!location_id) {
           + ((_savedDraftsCache && _savedDraftsCache.length > 0) ? '<button type="button" data-ws-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
         + '</div>'
         + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
-        + (showRecipient ? '<div style="padding:8px 14px 0;"><input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
+        + (showRecipient ? (function() {
+          var members = (_teamMembersCache || []).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+          var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather'};
+          var sigCat = ROUTING_MAP[signalType] || '';
+          var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
+          var html = '<div style="padding:8px 14px 0;position:relative;" data-ws-recipient-wrap="' + cardIdx + '">'
+            + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Destinataire</div>'
+            + '<input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" value="' + (suggested ? escapeHtml(suggested.channels_contact[channel]) : '') + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" autocomplete="off" />';
+          if (members.length > 0) {
+            html += '<div data-ws-recipient-dd="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:14px;right:14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.06);z-index:100;margin-top:4px;overflow:hidden;">';
+            if (suggested) {
+              html += '<div data-ws-pick-member="' + escapeHtml(suggested.channels_contact[channel]) + '" style="padding:10px 12px;cursor:pointer;background:#F5F7FF;border-bottom:1px solid #e5e7eb;">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;">'
+                  + '<div><span style="font-size:13px;font-weight:600;color:#111827;">' + escapeHtml(suggested.first_name + (suggested.last_name ? ' ' + suggested.last_name : '')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + escapeHtml(suggested.role || '') + '</span></div>'
+                  + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Sugg\u00e9r\u00e9</span>'
+                + '</div>'
+                + '<div style="font-size:11px;color:#6b7280;margin-top:2px;">' + escapeHtml(suggested.channels_contact[channel]) + '</div>'
+              + '</div>';
+            }
+            members.filter(function(m) { return !suggested || m.member_id !== suggested.member_id; }).forEach(function(m) {
+              html += '<div data-ws-pick-member="' + escapeHtml(m.channels_contact[channel]) + '" style="padding:10px 12px;cursor:pointer;">'
+                + '<span style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(m.first_name + (m.last_name ? ' ' + m.last_name : '')) + '</span>'
+                + '<span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + escapeHtml(m.role || '') + '</span>'
+                + '<div style="font-size:11px;color:#6b7280;margin-top:1px;">' + escapeHtml(m.channels_contact[channel]) + '</div>'
+              + '</div>';
+            });
+            html += '<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;">Ou saisissez directement</div>';
+            html += '</div>';
+          }
+          html += '</div>';
+          return html;
+        })() : '')
         + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + cardIdx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
         + '<div style="padding:10px 14px;"><textarea data-ws-body="' + cardIdx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
         + (showHashtags ? '<div style="padding:0 14px 10px;"><input data-ws-hashtags="' + cardIdx + '" value="' + escapeHtml(hashText) + '" placeholder="#hashtags" style="width:100%;border:none;border-top:1px solid #f3f4f6;padding:6px 0;font-size:11px;color:#6366f1;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
@@ -2970,6 +3016,23 @@ if (!location_id) {
       }
       if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
       if (adjustInput) adjustInput.addEventListener("keydown", function(ev) { if (ev.key === "Enter") { ev.preventDefault(); submitAdjust(); } });
+
+      // Recipient dropdown
+      var recipInput = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
+      var recipDd = workspace.querySelector('[data-ws-recipient-dd="' + cardIdx + '"]');
+      if (recipInput && recipDd) {
+        recipInput.addEventListener('focus', function() { recipDd.style.display = 'block'; });
+        recipInput.addEventListener('input', function() { recipDd.style.display = 'block'; });
+        recipDd.querySelectorAll('[data-ws-pick-member]').forEach(function(opt) {
+          opt.addEventListener('click', function() {
+            recipInput.value = opt.getAttribute('data-ws-pick-member');
+            recipDd.style.display = 'none';
+          });
+          opt.addEventListener('mouseenter', function() { opt.style.background = opt.style.background === 'rgb(245, 247, 255)' ? '#EBF0FF' : '#f9fafb'; });
+          opt.addEventListener('mouseleave', function() { opt.style.background = opt.getAttribute('data-ws-pick-member') === (recipInput.value || '') ? '#F5F7FF' : ''; });
+        });
+        document.addEventListener('click', function(ev) { if (!recipInput.contains(ev.target) && !recipDd.contains(ev.target)) recipDd.style.display = 'none'; });
+      }
 
       // Publish
       var pubBtn = workspace.querySelector('[data-ws-publish="' + cardIdx + '"]');
@@ -4691,6 +4754,7 @@ if (!location_id) {
         await fetchPendingFeedback(locs[0]?.location_id || currentLocationId);
         await fetchSavedDrafts(locs[0]?.location_id || currentLocationId);
         await fetchChannelConfigs(locs[0]?.location_id || currentLocationId);
+        await fetchTeamMembers(locs[0]?.location_id || currentLocationId);
         renderPulse(mergedData, todayYmd(), "radar");
 
       } else {
@@ -4709,6 +4773,7 @@ if (!location_id) {
         await fetchPendingFeedback(currentLocationId);
         await fetchSavedDrafts(currentLocationId);
         await fetchChannelConfigs(currentLocationId);
+        await fetchTeamMembers(currentLocationId);
         renderPulse(data, todayYmd(), "radar");
       }
 

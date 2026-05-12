@@ -477,7 +477,7 @@ function isIncomplete(loc: LocationRow): boolean {
             {[saved_safe?.first_name, saved_safe?.last_name].filter(Boolean).join(" ") || "Profil utilisateur"}
             {saved_safe?.position ? ` · ${saved_safe.position}` : ""}
           </span>
-          <span class="loc-status" id="user-profile-section-title" style="margin-left:auto;font-size:11px;color:#6b7280;">Profil d'utilisateur</span>
+          <span class="loc-status" id="user-profile-section-title" style={`margin-left:auto;font-size:11px;color:${saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? '#059669' : '#6b7280'};`}>{saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? 'Profil complet' : "Profil d'utilisateur"}</span>
         </div>
         <div class="loc-address" id="user-profile-objective" style={`margin-top:2px;${!saved_safe?.main_event_objective ? 'display:none;' : ''}`}>
           {saved_safe?.main_event_objective && (`Objectif : ${
@@ -545,77 +545,7 @@ function isIncomplete(loc: LocationRow): boolean {
     </div>
   </div>
 
-  <!-- ===== COMMUNICATIONS ===== -->
-  <div class="loc-card" id="comms-card" style="margin-top:10px;">
-    <div class="loc-header" onclick="toggleCommsCard()">
-      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="loc-meta">
-        <div class="loc-name-row">
-          <span class="loc-name">Communications</span>
-          <span class="loc-status" id="comms-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Configurez vos canaux</span>
-        </div>
-      </div>
-    </div>
-    <div class="loc-body" id="comms-body" style="display:none;padding:20px;">
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="width:28px;height:28px;border-radius:6px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">SL</span>
-            <div>
-              <div style="font-weight:600;font-size:13px;color:#111827;">Slack</div>
-              <div style="font-size:11px;color:#9ca3af;">Webhook URL de votre canal</div>
-            </div>
-          </div>
-          <span id="comms-slack-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="comms-slack-url" type="text" placeholder="https://hooks.slack.com/services/..." style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
-          <button type="button" id="comms-slack-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
-        </div>
-        <div id="comms-slack-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
-      </div>
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="width:28px;height:28px;border-radius:6px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">@</span>
-            <div>
-              <div style="font-weight:600;font-size:13px;color:#111827;">Email</div>
-              <div style="font-size:11px;color:#9ca3af;">Adresse d'exp&#xE9;diteur</div>
-            </div>
-          </div>
-          <span id="comms-email-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="comms-email-from" type="text" placeholder="Nom &lt;email@domaine.com&gt;" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
-          <button type="button" id="comms-email-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
-        </div>
-        <div id="comms-email-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
-      </div>
-      <div style="margin-bottom:20px;opacity:0.5;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="width:28px;height:28px;border-radius:6px;background:#4285F4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">G</span>
-          <div>
-            <div style="font-weight:600;font-size:13px;color:#111827;">Google Business Profile</div>
-            <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
-          </div>
-        </div>
-      </div>
-      <div style="opacity:0.5;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="width:28px;height:28px;border-radius:6px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">WA</span>
-          <div>
-            <div style="font-weight:600;font-size:13px;color:#111827;">WhatsApp Business</div>
-            <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="section-divider"></div>
-
   <!-- ===== SITES SECTION ===== -->
   <div class="section-title" style="margin-bottom:4px;">Mes sites</div>
   <p class="section-desc">Chaque lieu dispose de son propre profil d'analyse IA.</p>
@@ -949,6 +879,151 @@ function isIncomplete(loc: LocationRow): boolean {
     <span class="add-plus">+</span>
     Ajouter un site physique
   </button>
+
+<!-- ===== COMMUNICATIONS ===== -->
+<div class="section-divider"></div>
+<div class="section-title" style="margin-bottom:4px;">Communications</div>
+<p class="section-desc">Canaux de publication et membres de votre &#xE9;quipe.</p>
+
+<div class="loc-card" id="comms-card">
+  <div class="loc-header" onclick="toggleCommsCard()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Canaux</span>
+        <span class="loc-status" id="comms-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Configurez vos canaux</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="comms-body" style="display:none;padding:20px;">
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">SL</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Slack</div>
+            <div style="font-size:11px;color:#9ca3af;">Webhook URL de votre canal</div>
+          </div>
+        </div>
+        <span id="comms-slack-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="comms-slack-url" type="text" placeholder="https://hooks.slack.com/services/..." style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
+        <button type="button" id="comms-slack-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+      </div>
+      <div id="comms-slack-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">@</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Email</div>
+            <div style="font-size:11px;color:#9ca3af;">Adresse d'exp&#xE9;diteur</div>
+          </div>
+        </div>
+        <span id="comms-email-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="comms-email-from" type="text" placeholder="Nom &lt;email@domaine.com&gt;" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
+        <button type="button" id="comms-email-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+      </div>
+      <div id="comms-email-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
+    <div style="margin-bottom:20px;opacity:0.5;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:28px;height:28px;border-radius:6px;background:#4285F4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">G</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;color:#111827;">Google Business Profile</div>
+          <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
+        </div>
+      </div>
+    </div>
+    <div style="opacity:0.5;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:28px;height:28px;border-radius:6px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">WA</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;color:#111827;">WhatsApp Business</div>
+          <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="loc-card" id="team-card" style="margin-top:10px;">
+  <div class="loc-header" onclick="toggleTeamCard()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Mon &#xE9;quipe</span>
+        <span class="loc-status" id="team-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Aucun membre</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="team-body" style="display:none;padding:20px;">
+    <div id="team-members-list"></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f3f4f6;">
+      <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:12px;">Ajouter un membre</div>
+      <div class="field-row">
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Pr&#xE9;nom <span class="field-req">*</span></label>
+          <input type="text" id="team-new-firstname" class="field-input" placeholder="Marie" />
+        </div>
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Nom</label>
+          <input type="text" id="team-new-lastname" class="field-input" placeholder="Dupont" />
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">R&#xF4;le</label>
+          <input type="text" id="team-new-role" class="field-input" placeholder="Community Manager, Exploitation..." />
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <label class="field-label">Canaux de contact</label>
+        <p class="field-hint" style="margin-top:2px;margin-bottom:8px;">Renseignez les canaux sur lesquels ce membre peut recevoir des messages.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="team-channel-inputs">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SL</span>
+            <input type="text" id="team-new-ch-slack" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="#canal ou @nom" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">@</span>
+            <input type="text" id="team-new-ch-email" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="email@domaine.com" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#059669;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SM</span>
+            <input type="text" id="team-new-ch-sms" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="+33 6 12 34 56 78" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">WA</span>
+            <input type="text" id="team-new-ch-whatsapp" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="+33 6 12 34 56 78" />
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <label class="field-label">Signaux re&#xE7;us</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;" data-pill-group="team-routing" data-pill-max="5">
+          <span class="pill pill-active" data-group="team-routing" data-value="competition">Concurrence</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="weather">M&#xE9;t&#xE9;o</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="mobility">Mobilit&#xE9;</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="calendar">Calendrier</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="opportunity">Opportunit&#xE9;s</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+        <button type="button" id="team-add-btn" class="loc-btn-save" style="padding:8px 18px;">Ajouter</button>
+        <span id="team-add-msg" style="font-size:11px;min-height:16px;"></span>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- PASSWORD MODAL -->
@@ -1009,6 +1084,15 @@ window.toggleLocCard = function(cardId, bodyId) {
     card.classList.add('loc-expanded');
     body.style.display = 'block';
   }
+};
+
+window.toggleTeamCard = function() {
+  const card = document.getElementById('team-card');
+  const body = document.getElementById('team-body');
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
 };
 
 window.toggleCommsCard = function() {
@@ -2087,9 +2171,14 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
             if (btn) btn.textContent = 'Mettre \u00e0 jour';
           }
         });
+        var connectedCount = json.items.filter(function(i) { return i.enabled; }).length;
+        var commsSummary = document.getElementById('comms-header-summary');
+        if (commsSummary) {
+          commsSummary.textContent = connectedCount > 0 ? connectedCount + (connectedCount > 1 ? ' canaux connect\u00e9s' : ' canal connect\u00e9') : 'Configurez vos canaux';
+          commsSummary.style.color = connectedCount > 0 ? '#059669' : '#9ca3af';
+        }
       }
     } catch(e) {}
-
     // Slack save
     document.getElementById('comms-slack-save')?.addEventListener('click', async function() {
       var inp = document.getElementById('comms-slack-url');
@@ -2158,6 +2247,209 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
         btn.textContent = 'Connecter';
       }
       btn.disabled = false;
+    });
+  })();
+
+  // ── Team members ──
+  (async function() {
+    var locCard = document.querySelector('.loc-card[data-location-id]');
+    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    if (!locId) return;
+
+    var SIGNAL_LABELS = {competition:"Concurrence",weather:"M\u00e9t\u00e9o",mobility:"Mobilit\u00e9",calendar:"Calendrier",opportunity:"Opportunit\u00e9s"};
+    var CHANNEL_LABELS = {slack:"Slack",email:"Email",sms:"SMS",whatsapp:"WhatsApp",phone:"T\u00e9l\u00e9phone"};
+
+    function renderTeamList(items) {
+      var list = document.getElementById('team-members-list');
+      var summary = document.getElementById('team-header-summary');
+      if (summary) { summary.textContent = items.length > 0 ? items.length + ' membre' + (items.length > 1 ? 's' : '') : 'Aucun membre'; summary.style.color = items.length > 0 ? '#059669' : '#9ca3af'; }
+      if (!list) return;
+      if (items.length === 0) { list.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Aucun membre ajout\u00e9.</div>'; return; }
+      list.innerHTML = items.map(function(m) {
+        var fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || 'Sans nom';
+        var chContacts = m.channels_contact || {};
+        var chBadges = Object.keys(chContacts).filter(function(k) { return chContacts[k]; });
+        var CH_BADGE_COLORS = {slack:'#4A154B',email:'#6B7280',sms:'#059669',whatsapp:'#25D366',phone:'#0ea5e9'};
+        var CH_BADGE_ICONS = {slack:'SL',email:'@',sms:'SM',whatsapp:'WA',phone:'T'};
+        var routingTags = Object.keys(m.signal_routing || {}).filter(function(k) { return m.signal_routing[k] === true || m.signal_routing[k] === 'true'; }).map(function(k) { return SIGNAL_LABELS[k] || k; });
+        return '<div data-member-row="' + m.member_id + '" style="padding:12px 0;border-bottom:1px solid #f3f4f6;">'
+          + '<div data-member-view="' + m.member_id + '" style="display:flex;align-items:center;justify-content:space-between;">'
+            + '<div style="cursor:pointer;" data-edit-member="' + m.member_id + '">'
+              + '<div style="font-weight:600;font-size:13px;color:#111827;">' + fullName + (m.role ? ' <span style="font-weight:400;color:#9ca3af;">\u00b7 ' + m.role + '</span>' : '') + '</div>'
+              + (chBadges.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;">' + chBadges.map(function(k) { return '<span style="width:20px;height:20px;border-radius:4px;background:' + (CH_BADGE_COLORS[k] || '#9ca3af') + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">' + (CH_BADGE_ICONS[k] || k[0].toUpperCase()) + '</span>'; }).join('') + '</div>' : '')
+              + (routingTags.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">' + routingTags.map(function(t) { return '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + t + '</span>'; }).join('') + '</div>' : '')
+            + '</div>'
+            + '<div style="display:flex;gap:8px;align-items:center;">'
+              + '<button type="button" data-edit-member="' + m.member_id + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;">Modifier</button>'
+              + '<button type="button" data-delete-member="' + m.member_id + '" style="background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;">Supprimer</button>'
+            + '</div>'
+          + '</div>'
+          + '<div data-member-edit="' + m.member_id + '" style="display:none;margin-top:10px;">'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+              + '<input data-ed-fn="' + m.member_id + '" value="' + (m.first_name || '') + '" placeholder="Pr\u00e9nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+              + '<input data-ed-ln="' + m.member_id + '" value="' + (m.last_name || '') + '" placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+            + '</div>'
+            + '<input data-ed-role="' + m.member_id + '" value="' + (m.role || '') + '" placeholder="R\u00f4le" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-top:8px;box-sizing:border-box;" />'
+            + '<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SL</span><input data-ed-ch-slack="' + m.member_id + '" value="' + (chContacts.slack || '') + '" placeholder="#canal ou @nom" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">@</span><input data-ed-ch-email="' + m.member_id + '" value="' + (chContacts.email || '') + '" placeholder="email@domaine.com" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#059669;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SM</span><input data-ed-ch-sms="' + m.member_id + '" value="' + (chContacts.sms || '') + '" placeholder="+33 6 12 34 56 78" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">WA</span><input data-ed-ch-whatsapp="' + m.member_id + '" value="' + (chContacts.whatsapp || '') + '" placeholder="+33 6 12 34 56 78" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+            + '</div>'
+            + '<div style="display:flex;gap:8px;margin-top:10px;">'
+              + '<button type="button" data-save-member="' + m.member_id + '" style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+              + '<button type="button" data-cancel-edit="' + m.member_id + '" style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Annuler</button>'
+            + '</div>'
+          + '</div>'
+        + '</div>';
+      }).join('');
+      // Wire edit toggle
+      list.querySelectorAll('[data-edit-member]').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var mid = el.getAttribute('data-edit-member');
+          var viewEl = list.querySelector('[data-member-view="' + mid + '"]');
+          var editEl = list.querySelector('[data-member-edit="' + mid + '"]');
+          if (viewEl) viewEl.style.display = 'none';
+          if (editEl) editEl.style.display = 'block';
+        });
+      });
+      // Wire cancel
+      list.querySelectorAll('[data-cancel-edit]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var mid = btn.getAttribute('data-cancel-edit');
+          var viewEl = list.querySelector('[data-member-view="' + mid + '"]');
+          var editEl = list.querySelector('[data-member-edit="' + mid + '"]');
+          if (viewEl) viewEl.style.display = 'flex';
+          if (editEl) editEl.style.display = 'none';
+        });
+      });
+      // Wire save edit
+      list.querySelectorAll('[data-save-member]').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var mid = btn.getAttribute('data-save-member');
+          var fnEl = list.querySelector('[data-ed-fn="' + mid + '"]');
+          var lnEl = list.querySelector('[data-ed-ln="' + mid + '"]');
+          var roleEl = list.querySelector('[data-ed-role="' + mid + '"]');
+          var slEl = list.querySelector('[data-ed-ch-slack="' + mid + '"]');
+          var emEl = list.querySelector('[data-ed-ch-email="' + mid + '"]');
+          var smEl = list.querySelector('[data-ed-ch-sms="' + mid + '"]');
+          var waEl = list.querySelector('[data-ed-ch-whatsapp="' + mid + '"]');
+          var oldMember = _teamCache.find(function(m) { return m.member_id === mid; });
+          var ch = {};
+          if (slEl && slEl.value.trim()) ch.slack = slEl.value.trim();
+          if (emEl && emEl.value.trim()) ch.email = emEl.value.trim();
+          if (smEl && smEl.value.trim()) ch.sms = smEl.value.trim();
+          if (waEl && waEl.value.trim()) ch.whatsapp = waEl.value.trim();
+          btn.textContent = '...';
+          btn.disabled = true;
+          try {
+            var res = await fetch('/api/channels/team', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                member_id: mid,
+                location_id: locId,
+                first_name: fnEl ? fnEl.value.trim() : '',
+                last_name: lnEl ? lnEl.value.trim() : '',
+                role: roleEl ? roleEl.value.trim() : '',
+                channels_contact: ch,
+                signal_routing: oldMember ? oldMember.signal_routing : {},
+              }),
+            });
+            var json = await res.json();
+            if (json && json.ok) {
+              var res2 = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+              var json2 = await res2.json();
+              if (json2 && json2.ok) { _teamCache = json2.items; renderTeamList(_teamCache); }
+            }
+          } catch(e) {}
+        });
+      });
+      // Wire delete
+      list.querySelectorAll('[data-delete-member]').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var mid = btn.getAttribute('data-delete-member');
+          if (!confirm('Supprimer ce membre ?')) return;
+          btn.textContent = '...';
+          try {
+            var res = await fetch('/api/channels/team', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ member_id: mid }) });
+            var json = await res.json();
+            if (json && json.ok) {
+              _teamCache = _teamCache.filter(function(m) { return m.member_id !== mid; });
+              renderTeamList(_teamCache);
+            }
+          } catch(e) {}
+        });
+      });
+    }
+
+    var _teamCache = [];
+    try {
+      var res = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.items)) {
+        _teamCache = json.items;
+        renderTeamList(_teamCache);
+      }
+    } catch(e) {}
+
+    document.getElementById('team-add-btn')?.addEventListener('click', async function() {
+      var fnEl = document.getElementById('team-new-firstname');
+      var lnEl = document.getElementById('team-new-lastname');
+      var roleEl = document.getElementById('team-new-role');
+      var msgEl = document.getElementById('team-add-msg');
+      var btn = this;
+      var firstName = fnEl ? fnEl.value.trim() : '';
+      if (!firstName) { if (msgEl) { msgEl.textContent = 'Pr\u00e9nom requis.'; msgEl.style.color = '#B91C1C'; } return; }
+      var channels_contact = {};
+      var slackEl = document.getElementById('team-new-ch-slack');
+      var emailEl = document.getElementById('team-new-ch-email');
+      var smsEl = document.getElementById('team-new-ch-sms');
+      var waEl = document.getElementById('team-new-ch-whatsapp');
+      if (slackEl && slackEl.value.trim()) channels_contact.slack = slackEl.value.trim();
+      if (emailEl && emailEl.value.trim()) channels_contact.email = emailEl.value.trim();
+      if (smsEl && smsEl.value.trim()) channels_contact.sms = smsEl.value.trim();
+      if (waEl && waEl.value.trim()) channels_contact.whatsapp = waEl.value.trim();
+      var routing = {};
+      document.querySelectorAll('[data-group="team-routing"].pill-active').forEach(function(p) { routing[p.dataset.value] = true; });
+      document.querySelectorAll('[data-group="team-routing"]:not(.pill-active)').forEach(function(p) { routing[p.dataset.value] = false; });
+      btn.disabled = true;
+      btn.textContent = 'Ajout...';
+      try {
+        var res = await fetch('/api/channels/team', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            location_id: locId,
+            first_name: firstName,
+            last_name: lnEl ? lnEl.value.trim() : '',
+            role: roleEl ? roleEl.value.trim() : '',
+            channels_contact: channels_contact,
+            signal_routing: routing,
+          }),
+        });
+        var json = await res.json();
+        if (json && json.ok) {
+          if (msgEl) { msgEl.textContent = 'Membre ajout\u00e9.'; msgEl.style.color = '#059669'; }
+          if (fnEl) fnEl.value = '';
+          if (lnEl) lnEl.value = '';
+          if (roleEl) roleEl.value = '';
+          if (slackEl) slackEl.value = '';
+          if (emailEl) emailEl.value = '';
+          if (smsEl) smsEl.value = '';
+          if (waEl) waEl.value = '';
+          var res2 = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+          var json2 = await res2.json();
+          if (json2 && json2.ok) { _teamCache = json2.items; renderTeamList(_teamCache); }
+          setTimeout(function() { if (msgEl) msgEl.textContent = ''; }, 2000);
+        } else {
+          if (msgEl) { msgEl.textContent = json.error || 'Erreur.'; msgEl.style.color = '#B91C1C'; }
+        }
+      } catch(e) {
+        if (msgEl) { msgEl.textContent = 'Erreur r\u00e9seau.'; msgEl.style.color = '#B91C1C'; }
+      }
+      btn.disabled = false;
+      btn.textContent = 'Ajouter';
     });
   })();
 
