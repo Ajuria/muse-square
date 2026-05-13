@@ -62,7 +62,14 @@ async function fetchPlaceDetails(
   }
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401, headers: { "content-type": "application/json" },
+    });
+  }
+
   try {
     const apiKey = (process.env.GOOGLE_PLACES_API_KEY || "").trim();
     if (!apiKey) {
