@@ -41,7 +41,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           AND affected_date < CURRENT_DATE()
           AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
         ORDER BY affected_date DESC
-        LIMIT 5
+        LIMIT 1
       `,
       params: { userId, location_id },
       location: "EU",

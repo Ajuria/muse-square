@@ -85,6 +85,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const address             = String(body?.address             || "").trim() || null;
     const source_url          = String(body?.source_url          || "").trim() || null;
     const description         = String(body?.description         || "").trim() || null;
+
+    const VALID_ENTITY_TYPE = new Set(["competitor", "institution", "media", "aggregator"]);
+    const entity_type         = VALID_ENTITY_TYPE.has(body?.entity_type) ? body.entity_type : "competitor";
+
     const google_place_id     = String(body?.google_place_id     || "").trim() || null;
     const photos              = String(body?.photos              || "").trim() || null;
     const google_rating       = typeof body?.google_rating === "number" ? body.google_rating : null;
@@ -154,6 +158,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         query: `
           INSERT INTO \`${projectId}.raw.competitor_directory\` (
             competitor_id, competitor_name, address, city,
+            entity_type,
             industry_code, industry_bucket,
             primary_audience, secondary_audience,
             lat, lon,
@@ -164,6 +169,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             created_at, updated_at, deleted_at
           ) VALUES (
             @competitor_id, @competitor_name, @address, @city,
+            @entity_type,
             @industry_code, @industry_bucket,
             @primary_audience, @secondary_audience,
             @lat, @lon,
@@ -176,6 +182,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         `,
         params: {
           competitor_id, competitor_name, city: resolvedCity,
+          entity_type,
           address:              address              ?? null,
           industry_code:        industry_code        ?? null,
           industry_bucket:      industry_bucket      ?? null,
@@ -195,6 +202,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         },
         types: {
           competitor_id: "STRING", competitor_name: "STRING", city: "STRING",
+          entity_type: "STRING",
           address: "STRING", industry_code: "STRING", industry_bucket: "STRING",
           primary_audience: "STRING", secondary_audience: "STRING",
           lat: "FLOAT64", lon: "FLOAT64",
@@ -267,10 +275,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
           INSERT INTO \`${projectId}.raw.watched_competitors\` (
             watched_competitor_id, clerk_user_id, location_id,
             competitor_id, competitor_name, industry_code, city,
+            entity_type,
             source_url, confidence_score, created_at, deleted_at
           ) VALUES (
             @watched_competitor_id, @clerk_user_id, @location_id,
             @competitor_id, @competitor_name, @industry_code, @city,
+            @entity_type,
             @source_url, @confidence_score, CURRENT_TIMESTAMP(), NULL
           )
         `,
@@ -278,6 +288,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           watched_competitor_id, clerk_user_id, location_id,
           competitor_id, competitor_name,
           industry_code: industry_code ?? null,
+          entity_type,
           city: resolvedCity,
           source_url: source_url ?? null,
           confidence_score,
@@ -285,7 +296,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         types: {
           watched_competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING",
           competitor_id: "STRING", competitor_name: "STRING",
-          industry_code: "STRING", city: "STRING",
+          industry_code: "STRING", entity_type: "STRING", city: "STRING",
           source_url: "STRING", confidence_score: "FLOAT64",
         },
         location: BQ_LOCATION,

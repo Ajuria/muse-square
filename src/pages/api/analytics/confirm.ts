@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 export const prerender = false;
 
-const VALID_SIGNAL_TYPES = ["competitor", "weather", "mobility", "outcome"];
+const VALID_SIGNAL_TYPES = ["competitor", "weather", "mobility", "outcome", "draft_feedback"];
 const VALID_CONFIRMATIONS = ["confirmed", "dismissed", "positive", "neutral", "negative"];
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -31,14 +31,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const bq = makeBQClient(projectId);
 
     const row = {
-      confirmation_id: crypto.randomUUID(),
-      clerk_user_id: userId,
-      location_id: body.location_id || null,
-      signal_type: body.signal_type,
-      signal_ref_id: body.signal_ref_id || null,
-      signal_date: body.signal_date ? { v: body.signal_date } : null,
-      confirmation: body.confirmation,
-      created_at: new Date().toISOString(),
+        confirmation_id: crypto.randomUUID(),
+        clerk_user_id: userId,
+        location_id: body.location_id || null,
+        signal_type: body.signal_type,
+        signal_ref_id: body.signal_ref_id || null,
+        signal_date: body.signal_date ? { v: body.signal_date } : null,
+        confirmation: body.confirmation,
+        feedback_text: typeof body.feedback_text === "string" ? body.feedback_text.slice(0, 2000) : null,
+        created_at: new Date().toISOString(),
     };
 
     const table = bq.dataset("analytics").table("signal_confirmations");
@@ -52,6 +53,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           { name: "signal_ref_id", type: "STRING" },
           { name: "signal_date", type: "DATE" },
           { name: "confirmation", type: "STRING", mode: "REQUIRED" },
+          { name: "feedback_text", type: "STRING" },
           { name: "created_at", type: "TIMESTAMP", mode: "REQUIRED" },
         ];
         await bq.dataset("analytics").createTable("signal_confirmations", { schema: { fields: schema } });
@@ -70,7 +72,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       affected_date: body.signal_date || null,
       change_subtype: body.signal_type,
       action_key: body.signal_ref_id || null,
-      action_text: null,
+      action_text: typeof body.feedback_text === "string" ? body.feedback_text.slice(0, 2000) : null,
       action_category: "signal_confirmation",
       channel: null,
       event: body.confirmation === "dismissed" ? "signal_dismissed" : "signal_confirmed",

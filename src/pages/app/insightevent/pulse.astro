@@ -1451,7 +1451,7 @@ if (!location_id) {
         type:"threat", barClass:barClass,
         urgencyPill:{label:isSevere?"Urgent":"Cette semaine",style:urgStyle},
         typePill:{label:"M\u00e9t\u00e9o",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
-        what: allTypes.length > 1 ? "Nouvelle alerte m\u00e9t\u00e9o : " + allTypes.join(", ") : "Nouvelle alerte m\u00e9t\u00e9o : niveau " + (a.old_value || "0") + " \u2192 " + (a.new_value || "?"),
+        what: allTypes.length > 0 ? "Nouvelle alerte m\u00e9t\u00e9o : " + allTypes.join(", ") : "Nouvelle alerte m\u00e9t\u00e9o : niveau " + (a.old_value || "0") + " \u2192 " + String(a.new_value || "?").replace(/^[a-z]+:/i, ""),
         sowhat: (function() {
           var peak = currentDay ? Number(currentDay.ft_peak_hour || 0) : 0;
           var peakStr = peak > 0 ? peak + "h" : "";
@@ -2486,10 +2486,20 @@ if (!location_id) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
       var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : sub2;
-      var dedupLoc = String(c.item.location_label || "");
-      var dedup = dedupSub + "|" + normalizeYmd(c.item.affected_date) + "|" + dedupLoc;
-      if (seen[dedup]) continue;
+      var dedup = dedupSub + "|" + normalizeYmd(c.item.affected_date);
+      if (seen[dedup]) {
+        var existingIdx = top.findIndex(function(t) { return (String(t.item.change_subtype||"").toLowerCase() === dedupSub || ((dedupSub === "weather_alert") && (String(t.item.change_subtype||"").toLowerCase() === "weather_hazard_onset" || String(t.item.change_subtype||"").toLowerCase() === "weather_worsened"))) && normalizeYmd(t.item.affected_date) === normalizeYmd(c.item.affected_date); });
+        if (existingIdx >= 0 && c.item.location_label && top[existingIdx].item.location_label && top[existingIdx].item.location_label.indexOf(c.item.location_label) < 0) {
+          top[existingIdx].item.location_label += " \u00b7 " + c.item.location_label;
+        }
+        continue;
+      }
       seen[dedup] = true;
+      var catKey = dedupSub.startsWith("weather") || dedupSub === "_extended_bad_weather" || dedupSub === "_saturated_bad_weather" || dedupSub === "_ft_peak_bad_weather" || dedupSub === "_weather_window" || dedupSub === "_weather_mobility_double" ? "_weather" : dedupSub.startsWith("calendar_") || dedupSub === "_audience_mismatch" ? "_audience" : null;
+      if (catKey) {
+        var catCount = top.filter(function(t) { var s2 = String(t.item.change_subtype||"").toLowerCase(); return catKey === "_weather" ? (s2.startsWith("weather") || s2 === "_extended_bad_weather" || s2 === "_saturated_bad_weather" || s2 === "_ft_peak_bad_weather" || s2 === "_weather_window" || s2 === "_weather_mobility_double" || s2 === "_weather_hazard_onset") : (s2.startsWith("calendar_") || s2 === "_audience_mismatch"); }).length;
+        if (catCount >= 1) continue;
+      }
       top.push(c);
     }
 
@@ -2568,8 +2578,9 @@ if (!location_id) {
       var fbId = fb.log_id;
       var fbChannel = CHANNEL_LABELS[fb.channel] || fb.channel || "";
       var fbDate = fb.affected_date ? fmtDateShort(normalizeYmd(fb.affected_date)) : "";
-      var fbAction = fb.action_text || "Brouillon g\u00e9n\u00e9r\u00e9";
-      var fbSignal = "";
+      var FB_SIGNAL_LABELS = {weather_worsened:"Alerte m\u00e9t\u00e9o",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",weather_improved:"Am\u00e9lioration m\u00e9t\u00e9o",mobility_disruption:"Perturbation mobilit\u00e9",mobility_disruption_planned:"Perturbation mobilit\u00e9 pr\u00e9vue",competitor_event_launch:"Concurrent d\u00e9tect\u00e9",competitor_audience_conflict:"Conflit d\u2019audience",competition_pressure_spike:"Pic de concurrence",mega_event_activation:"M\u00e9ga-\u00e9v\u00e9nement",score_up:"Opportunit\u00e9 en hausse",competitor_event_ending:"Concurrent termin\u00e9",mega_event_end:"Fin m\u00e9ga-\u00e9v\u00e9nement",calendar_audience_shift:"Changement d\u2019audience",_saturated_bad_weather:"Saturation + m\u00e9t\u00e9o",_mobility_comp_squeeze:"Mobilit\u00e9 + concurrence",_holiday_high_comp:"F\u00e9ri\u00e9 + concurrence"};
+      var fbAction = fb.action_text || FB_SIGNAL_LABELS[fb.change_subtype] || "Signal trait\u00e9";
+      var fbSignal = fb.change_subtype ? (FB_SIGNAL_LABELS[fb.change_subtype] || "") : "";
       feedbackCardsHtml += '<div class="ab-card" id="fb-card-' + escapeHtml(fbId) + '" data-fb-id="' + escapeHtml(fbId) + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar" style="background:#1D3BB3;"></div>'
@@ -3292,30 +3303,56 @@ if (!location_id) {
       btn.addEventListener("click", function() {
         var vote = btn.getAttribute("data-fb-vote");
         var logId = btn.getAttribute("data-fb-log-id");
-        var signalType = btn.getAttribute("data-fb-signal-type") || "outcome";
         var signalDate = btn.getAttribute("data-fb-date") || null;
         var card = document.getElementById("fb-card-" + logId);
-        fetch("/api/analytics/confirm", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            signal_type: "outcome",
-            confirmation: vote,
-            signal_ref_id: logId,
-            signal_date: signalDate,
-            location_id: locationId,
-          }),
-        }).catch(function() {});
-        var lsKey = "ms_feedback_dismissed_" + locationId;
-        var dismissed = {};
-        try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
-        dismissed[logId] = vote;
-        try { localStorage.setItem(lsKey, JSON.stringify(dismissed)); } catch(e) {}
-        if (card) {
-          card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0;">'
-            + '<span style="color:#166534;">\u2713</span>'
-            + '<span style="font-size:12px;color:#166534;font-weight:500;">Merci \u2014 votre retour am\u00e9liore vos prochaines recommandations</span>'
+        function dismissFeedback(feedbackText) {
+          fetch("/api/analytics/confirm", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              signal_type: "draft_feedback",
+              confirmation: vote,
+              signal_ref_id: logId,
+              signal_date: signalDate,
+              location_id: locationId,
+              feedback_text: feedbackText || null,
+            }),
+          }).catch(function() {});
+          var lsKey = "ms_feedback_dismissed_" + locationId;
+          var dismissed = {};
+          try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
+          dismissed[logId] = vote;
+          try { localStorage.setItem(lsKey, JSON.stringify(dismissed)); } catch(e) {}
+          if (card) {
+            card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0;">'
+              + '<span style="color:#166534;">\u2713</span>'
+              + '<span style="font-size:12px;color:#166534;font-weight:500;">Merci \u2014 votre retour am\u00e9liore vos prochaines recommandations</span>'
+            + '</div>';
+          }
+        }
+        if (vote === "positive") {
+          dismissFeedback(null);
+        } else {
+          if (!card) return;
+          var inner = card.querySelector(".ab-inner");
+          if (!inner) return;
+          inner.innerHTML = '<div style="padding:14px 16px;">'
+            + '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:8px;">Qu\u2019est-ce qui pourrait \u00eatre am\u00e9lior\u00e9 ?</div>'
+            + '<textarea id="fb-text-' + escapeHtml(logId) + '" placeholder="Ex : le ton n\u2019\u00e9tait pas adapt\u00e9, trop long, manque de donn\u00e9es\u2026" style="width:100%;min-height:60px;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:12px;color:#111827;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box;"></textarea>'
+            + '<div style="display:flex;gap:8px;margin-top:8px;">'
+              + '<button type="button" data-fb-send="' + escapeHtml(logId) + '" style="padding:7px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Envoyer</button>'
+              + '<button type="button" data-fb-skip="' + escapeHtml(logId) + '" style="padding:7px 16px;border-radius:6px;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Passer</button>'
+            + '</div>'
           + '</div>';
+          var sendBtn = inner.querySelector('[data-fb-send="' + logId + '"]');
+          var skipBtn = inner.querySelector('[data-fb-skip="' + logId + '"]');
+          if (sendBtn) sendBtn.addEventListener("click", function() {
+            var ta = document.getElementById("fb-text-" + logId);
+            dismissFeedback(ta ? ta.value.trim() : null);
+          });
+          if (skipBtn) skipBtn.addEventListener("click", function() {
+            dismissFeedback(null);
+          });
         }
       });
     });
@@ -3682,6 +3719,13 @@ if (!location_id) {
   // V4 NEW — Feed with CTAs
   // ----------------------------------------------------------------
   function renderFeed(allFeed, isMultisite) {
+    var _seenFeedKeys = {};
+    allFeed = allFeed.filter(function(f) {
+      var k = String(f.change_subtype||"") + "|" + normalizeYmd(f.affected_date) + "|" + String(f.location_label||"") + "|" + String(f.new_value||"");
+      if (_seenFeedKeys[k]) return false;
+      _seenFeedKeys[k] = true;
+      return true;
+    });
     const totalCount = allFeed.length;
     if (!totalCount) {
       return `
@@ -3898,12 +3942,21 @@ if (!location_id) {
     </div>`;
 
     // ---- Alerts (severity != A, shown as strips before radar) ----
-    const dayAlerts = [
+    const dayAlertsRaw = [
       ...(currentDay.attendance || []),
       ...(currentDay.operations || []),
       ...(currentDay.installation || []),
       ...(currentDay.context || []),
     ].filter(r => r.severity !== "A");
+    var _seenAlerts = {};
+    const dayAlerts = [];
+    for (var ai = 0; ai < dayAlertsRaw.length; ai++) {
+      var ar = dayAlertsRaw[ai];
+      var ak = String(ar.block||"") + "|" + String(ar.sentence||"");
+      if (_seenAlerts[ak]) continue;
+      _seenAlerts[ak] = true;
+      dayAlerts.push(ar);
+    }
 
     let alertsHtml = "";
     if (dayAlerts.length > 0) {
@@ -4765,8 +4818,7 @@ if (!location_id) {
         const mergedFeed = mergedFeedRaw.filter(a => {
           const sub = String(a?.change_subtype || "").toLowerCase();
           if (!REGIONAL_SUBTYPES.has(sub)) return true;
-          const region = String(a?.mobility_status_region || a?.region_id || a?.location_id || "");
-          const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "") + "|" + region;
+          const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "");
           if (seenRegional.has(key)) return false;
           seenRegional.add(key);
           return true;

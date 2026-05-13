@@ -44,6 +44,7 @@ export const GET: APIRoute = async ({ locals }) => {
           wc.industry_code,
           wc.city,
           wc.competitor_id,
+          wc.entity_type,
           wc.source_url                         AS wc_source_url,
           wc.confidence_score                   AS wc_confidence_score,
           cd.source_url                         AS cd_source_url,
@@ -124,6 +125,7 @@ export const GET: APIRoute = async ({ locals }) => {
       industry_code:        r.industry_code ?? null,
       city:                 r.city ?? null,
       competitor_id:        r.competitor_id ?? null,
+      entity_type:          r.entity_type ?? 'competitor',
       // source_url: prefer watched_competitors (user-set), fall back to directory
       source_url:           r.wc_source_url ?? r.cd_source_url ?? null,
       confidence_score:     r.wc_confidence_score ?? r.cd_confidence_score ?? null,
