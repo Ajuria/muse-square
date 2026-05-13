@@ -90,10 +90,72 @@ const handleWhatsapp: ChannelHandler = async (_config, _payload) => {
   return { ok: false, error: "Canal WhatsApp pas encore disponible" };
 };
 
-// ── GBP (placeholder) ──
+// ── GBP (Google Business Profile) ──
+const handleGbp: ChannelHandler = async (config, payload) => {
+  let accessToken = config?.access_token;
+  const refreshToken = config?.refresh_token;
+  const expiresAt = config?.expires_at;
+  const accountName = config?.account_name;
+  const gbpLocationName = config?.gbp_location_name;
 
-const handleGbp: ChannelHandler = async (_config, _payload) => {
-  return { ok: false, error: "Canal Google Business Profile pas encore disponible" };
+  if (!refreshToken || !accountName || !gbpLocationName) {
+    return { ok: false, error: "Google Business Profile non connect\u00e9. Connectez-le dans vos param\u00e8tres." };
+  }
+
+  // Refresh token if expired
+  if (!accessToken || !expiresAt || new Date(expiresAt) <= new Date()) {
+    const clientId = process.env.GOOGLE_GBP_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_GBP_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return { ok: false, error: "Configuration GBP manquante c\u00f4t\u00e9 serveur" };
+    }
+    const refreshRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }).toString(),
+    });
+    const refreshJson = await refreshRes.json().catch(() => null);
+    if (!refreshJson || refreshJson.error) {
+      return { ok: false, error: "Token GBP expir\u00e9 \u2014 reconnectez Google Business Profile. " + (refreshJson?.error || "") };
+    }
+    accessToken = refreshJson.access_token;
+    // Note: could update stored token here, but keeping it simple for now
+  }
+
+  const summary = [payload.title, payload.body].filter(Boolean).join("\n\n");
+  if (!summary.trim()) {
+    return { ok: false, error: "Contenu du post vide" };
+  }
+
+  // Create LocalPost
+  const postUrl = "https://mybusiness.googleapis.com/v4/" + accountName + "/" + gbpLocationName + "/localPosts";
+  const postBody: any = {
+    languageCode: "fr",
+    topicType: "STANDARD",
+    summary: summary.substring(0, 1500),
+  };
+
+  const postRes = await fetch(postUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "authorization": "Bearer " + accessToken,
+    },
+    body: JSON.stringify(postBody),
+  });
+
+  const postJson = await postRes.json().catch(() => null);
+  if (!postRes.ok || !postJson?.name) {
+    const errMsg = postJson?.error?.message || "Erreur GBP " + postRes.status;
+    return { ok: false, error: errMsg };
+  }
+
+  return { ok: true };
 };
 
 // ── Router ──

@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request, url }) => {
           SELECT change_subtype, change_category, alert_level, affected_date,
                  old_value, new_value, event_label, distance_m, mobility_mode,
                  lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold, score_delta
-          FROM \`${BQ_PROJECT}.marts.fct_location_change_feed\`
+          FROM \`${BQ_PROJECT}.semantic.vw_insight_event_change_feed\`
           WHERE location_id = @locationId
             AND affected_date = DATE(@today)
             AND alert_level >= 2
@@ -74,8 +74,13 @@ export const GET: APIRoute = async ({ request, url }) => {
         competitor_event_launch: "competition", competitor_audience_conflict: "competition",
         competition_pressure_spike: "competition", competitor_event_ending: "competition",
         mobility_disruption: "mobility", mobility_disruption_planned: "mobility",
-        score_up: "opportunity", calendar_audience_shift: "calendar",
+        score_up: "opportunity", score_down: "opportunity", calendar_audience_shift: "calendar",
         mega_event_activation: "competition", mega_event_end: "competition",
+        competitor_review_surge: "competition", competitor_review_drop: "competition",
+        competitor_hours_change: "competition", competitor_new_offering: "competition",
+        competitor_sold_out: "competition", competitor_content_spike: "competition",
+        competitor_content_silent: "competition", institution_campaign_detected: "competition",
+        media_mention_detected: "competition",
       };
 
       // 5. Match signals to rules
@@ -214,7 +219,9 @@ export const GET: APIRoute = async ({ request, url }) => {
             user_id: userId,
             location_id: locationId,
             action_key: "auto_dispatch",
+            event: "auto_dispatch",
             channel: rule.channel,
+            change_subtype: topSignal.change_subtype,
             signal_type: topSignal.change_subtype,
             affected_date: todayYmd,
             metadata: JSON.stringify({ rule_id: rule.rule_id, recipient: rule.recipient, require_approval: rule.require_approval }),

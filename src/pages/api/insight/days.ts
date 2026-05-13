@@ -456,7 +456,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       mobility_status_region,
       mobility_disruption_flag_region,
       nearest_transit_line_name,
-      transit_network
+      transit_network,
+      score_driver_label
     FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
     WHERE location_id = @location_id
       AND affected_date IN UNNEST(ARRAY(
@@ -521,6 +522,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       mobility_disruption_flag_region: r?.mobility_disruption_flag_region ?? null,
       nearest_transit_line_name:       r?.nearest_transit_line_name ?? null,
       transit_network:                 r?.transit_network  ?? null,
+      score_driver_label:              r?.score_driver_label ?? null,
       // Profile-injected fields (same pattern as monitor.ts)
       primary_audience_1:              location_context_for_feed?.primary_audience_1   ?? null,
       primary_audience_2:              location_context_for_feed?.primary_audience_2   ?? null,

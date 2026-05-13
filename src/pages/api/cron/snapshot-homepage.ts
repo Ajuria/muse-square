@@ -9,6 +9,96 @@ export const prerender = false;
 const EXTRACTION_MODEL = "claude-haiku-4-5-20251001";
 const TIMEOUT_MS = 55_000;
 
+const INSTITUTION_PROMPT = `You are a strict public sector intelligence extractor. You read the homepage of a local institution (office de tourisme, mairie, CCI, pr\u00e9fecture) and extract structured signals relevant to nearby businesses.
+
+Extract the following fields. If a field is not explicitly visible on the page, return null. Never infer, never guess.
+
+Return ONLY valid JSON. No preamble, no markdown, no explanation.
+
+{
+  "has_promo": false,
+  "promo_summary": null,
+  "has_sold_out": false,
+  "sold_out_summary": null,
+  "featured_offer": null,
+  "blog_post_count": null,
+  "blog_latest_title": null,
+  "blog_latest_date": null
+}
+
+RULES:
+- has_promo: true if any upcoming campaign, promoted theme/season, grant announcement, call for applications, subsidized event program, or infrastructure project affecting local businesses is visible. Otherwise false.
+- promo_summary: one-sentence French summary of the campaign, grant, or promoted theme. Null if has_promo is false.
+- has_sold_out: true if any registration closed, capacity reached, deadline passed, or program discontinued mention is visible. Otherwise false.
+- sold_out_summary: one-sentence French summary. Null if has_sold_out is false.
+- featured_offer: the main highlighted initiative, infrastructure project, tourism campaign, or public event promoted by the institution. One sentence, French. Null if nothing prominent.
+- blog_post_count: number of visible actualit\u00e9s/news/communiqu\u00e9s posts on the page. Null if no news section visible.
+- blog_latest_title: title of the most recent news post. Null if no news section.
+- blog_latest_date: date of the most recent news post in YYYY-MM-DD format. Null if not visible.`;
+
+const MEDIA_PROMPT = `You are a strict local media intelligence extractor. You read the homepage of a local media outlet (blog, journal, magazine, guide sortir) and extract structured signals about local venue, event, and business coverage.
+
+Extract the following fields. If a field is not explicitly visible on the page, return null. Never infer, never guess.
+
+Return ONLY valid JSON. No preamble, no markdown, no explanation.
+
+{
+  "has_promo": false,
+  "promo_summary": null,
+  "has_sold_out": false,
+  "sold_out_summary": null,
+  "featured_offer": null,
+  "blog_post_count": null,
+  "blog_latest_title": null,
+  "blog_latest_date": null
+}
+
+RULES:
+- has_promo: true if any sponsored content, advertising partnership, promoted event listing, or editorial selection ("coups de coeur", "s\u00e9lection de la r\u00e9daction") is visible. Otherwise false.
+- promo_summary: one-sentence French summary. Null if has_promo is false.
+- has_sold_out: false. Always false for media.
+- sold_out_summary: null. Always null for media.
+- featured_offer: the main headline article or featured event/venue/business review on the homepage. One sentence, French. Null if nothing prominent.
+- blog_post_count: number of visible articles on the homepage. Null if unclear.
+- blog_latest_title: title of the most recent article. Null if unclear.
+- blog_latest_date: date of the most recent article in YYYY-MM-DD format. Null if not visible.`;
+
+const AGGREGATOR_PROMPT = `You are a strict listing platform intelligence extractor. You read the homepage of an event/venue aggregator (Sortir \u00e0 Paris, TripAdvisor, L'Officiel des Spectacles, Fnac Spectacles) and extract structured signals about trending events and featured listings.
+
+Extract the following fields. If a field is not explicitly visible on the page, return null. Never infer, never guess.
+
+Return ONLY valid JSON. No preamble, no markdown, no explanation.
+
+{
+  "has_promo": false,
+  "promo_summary": null,
+  "has_sold_out": false,
+  "sold_out_summary": null,
+  "featured_offer": null,
+  "blog_post_count": null,
+  "blog_latest_title": null,
+  "blog_latest_date": null
+}
+
+RULES:
+- has_promo: true if any promoted listing, sponsored event, featured partner, or editorial pick is visible on the homepage. Otherwise false.
+- promo_summary: one-sentence French summary of the promoted listing or partner. Null if has_promo is false.
+- has_sold_out: true if any "complet", "sold out", "plus de places", "\u00e9puis\u00e9", "guichet ferm\u00e9" mention is visible for a trending event. Otherwise false.
+- sold_out_summary: one-sentence French summary of what is sold out. Null if has_sold_out is false.
+- featured_offer: the main highlighted event, experience, or trending listing on the homepage with price if visible. One sentence, French. Null if nothing prominent.
+- blog_post_count: number of visible editorial articles or guides on the page. Null if no editorial section.
+- blog_latest_title: title of the most recent editorial article or guide. Null if none.
+- blog_latest_date: date of the most recent article in YYYY-MM-DD format. Null if not visible.`;
+
+function getPromptForEntityType(entityType: string): string {
+  switch (entityType) {
+    case "institution": return INSTITUTION_PROMPT;
+    case "media": return MEDIA_PROMPT;
+    case "aggregator": return AGGREGATOR_PROMPT;
+    default: return HOMEPAGE_PROMPT;
+  }
+}
+
 const HOMEPAGE_PROMPT = `You are a strict business intelligence extractor. You read the homepage content of a competitor website and extract structured marketing signals.
 
 Extract the following fields. If a field is not explicitly visible on the page, return null. Never infer, never guess.
@@ -201,7 +291,7 @@ export const GET: APIRoute = async ({ request }) => {
           model: EXTRACTION_MODEL,
           max_tokens: 1024,
           messages: [
-            { role: "user", content: `${HOMEPAGE_PROMPT}\n\nHOMEPAGE CONTENT:\n${content}` },
+            { role: "user", content: `${getPromptForEntityType(entityType)}\n\nHOMEPAGE CONTENT:\n${content}` },
           ],
         });
 

@@ -1273,7 +1273,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           return escapeHtml(compName) + " cible " + (compAudLabel || myAudLabel || "votre audience") + " \u00e0 " + km + ". Risque de captation directe" + pressureLabel + "." + diffLabel;
         }
         if (isHigh) {
-          return "Concurrent direct \u00e0 " + km + pressureLabel + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km aujourd\u2019hui." + diffLabel;
+          var sectorPct2 = currentDay ? Number(currentDay.pct_same_bucket_5km || 0) : 0;
+          var sectorStr2 = sectorPct2 > 0 ? " dont " + Math.round(sectorPct2) + "% m\u00eame secteur" : "";
+          return "Concurrent direct \u00e0 " + km + pressureLabel + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km" + sectorStr2 + " aujourd\u2019hui." + diffLabel;
         }
         if (audOverlap) {
           return "Public similaire (" + (compAudLabel || myAudLabel || "") + ") mais \u00e0 " + km + " \u2014 impact mod\u00e9r\u00e9. Restez visible.";
@@ -1281,7 +1283,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         if (indOverlap) {
           return "M\u00eame secteur, public diff\u00e9rent, \u00e0 " + km + ". Impact indirect.";
         }
-        return "\u00c9v\u00e9nement concurrent \u00e0 " + km + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km aujourd\u2019hui.";
+        var sectorPct3 = currentDay ? Number(currentDay.pct_same_bucket_5km || 0) : 0;
+        var sectorStr3 = sectorPct3 > 0 ? " dont " + Math.round(sectorPct3) + "% m\u00eame secteur" : "";
+        return "\u00c9v\u00e9nement concurrent \u00e0 " + km + ". " + evCount + " \u00e9v\u00e9nements \u00e0 5 km" + sectorStr3 + " aujourd\u2019hui.";
       })();
       var actions = isHigh ? [
         {text:"Publier un post mettant en avant votre diff\u00e9renciant",meta:"Communication \u00b7 Urgent",key:"visitor_comm",channel:CH_GBP},
@@ -1352,8 +1356,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         sowhat: (function() {
           var desc = String(prof.business_short_description || "").trim();
           var diffHint = desc ? " Votre diff\u00e9renciant : " + desc.substring(0, 60) + (desc.length > 60 ? "\u2026" : "") + "." : "";
-          if (isSharp) return newN + " \u00e9v\u00e9nements \u00e0 5 km (+" + delta + " cette semaine). Votre visibilit\u00e9 est dilu\u00e9e." + diffHint;
-          return newN + " \u00e9v\u00e9nements \u00e0 5 km (+" + delta + "). Hausse mod\u00e9r\u00e9e \u2014 restez visible.";
+          var sectorPct = currentDay ? Number(currentDay.pct_same_bucket_5km || 0) : 0;
+          var sectorStr = sectorPct > 0 ? " dont " + Math.round(sectorPct) + "% m\u00eame secteur" : "";
+          if (isSharp) return newN + " \u00e9v\u00e9nements \u00e0 5 km (+" + delta + " cette semaine)" + sectorStr + ". Votre visibilit\u00e9 est dilu\u00e9e." + diffHint;
+          return newN + " \u00e9v\u00e9nements \u00e0 5 km (+" + delta + ")" + sectorStr + ". Hausse mod\u00e9r\u00e9e \u2014 restez visible.";
         })(),
 
         actions: isSharp ? [
@@ -1617,6 +1623,170 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         actions: actions,
       };
     },
+    score_down: function(a, prof, currentDay) {
+      var delta = a.score_delta!=null?Math.round(Number(a.score_delta)):null;
+      if (delta===null||delta>-3) return null;
+      var driverLabel = a.score_driver_label || null;
+      var DRIVER_FR = {concurrence:"la concurrence","\u006d\u00e9t\u00e9o":"la m\u00e9t\u00e9o","mobilit\u00e9":"la mobilit\u00e9",calendrier:"le calendrier"};
+      var driverText = driverLabel ? (DRIVER_FR[driverLabel]||driverLabel) : null;
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:fmtDateShort(normalizeYmd(a.affected_date)),style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        typePill:{label:"Score \u2193",style:"background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);"},
+        what: "Score en baisse : "+(a.old_value||"?")+" \u2192 "+(a.new_value||"?")+" ("+delta+" pts)"+(driverText?" \u2014 "+driverText:""),
+        sowhat: (function() {
+          var peak = currentDay ? Number(currentDay.ft_peak_hour || 0) : 0;
+          var peakStr = peak > 0 ? peak + "h" : "";
+          var evCount = currentDay ? Number(currentDay.events_within_5km_count || 0) : 0;
+          if (driverText) return "Baisse de "+Math.abs(delta)+" pts caus\u00e9e par "+driverText+"."+(peakStr?" Pic \u00e0 "+peakStr+".":"")+" Adaptez votre communication.";
+          return "Score en baisse de "+Math.abs(delta)+" pts."+(peakStr?" Pic \u00e0 "+peakStr+".":"")+(evCount>0?" "+evCount+" \u00e9v\u00e9n. \u00e0 5 km.":"")+" Conditions d\u00e9grad\u00e9es.";
+        })(),
+        actions: [
+          {text:"Publiez du contenu pour maintenir votre visibilit\u00e9",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+          {text:"Adaptez vos effectifs \u00e0 une fr\u00e9quentation potentiellement r\u00e9duite",meta:"Exploitation \u00b7 \u00c9quipe",key:"staff_adjust",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    competitor_review_surge: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      var deltaCount = a.score_delta != null ? Number(a.score_delta) : 0;
+      var rating = a.new_value || "?";
+      var userRating = prof.google_rating || null;
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Avis",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(compName)+" : +"+deltaCount+" avis cette semaine (\u2605"+rating+")",
+        sowhat: escapeHtml(compName)+" accumule les avis."+(userRating?" Votre note : \u2605"+userRating+" \u2014 r\u00e9pondez \u00e0 vos avis r\u00e9cents.":" R\u00e9pondez \u00e0 vos avis r\u00e9cents pour rester comp\u00e9titif."),
+        actions: [
+          {text:"R\u00e9pondez \u00e0 vos 3 derniers avis Google",meta:"Communication \u00b7 R\u00e9putation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Demandez un avis \u00e0 vos clients satisfaits cette semaine",meta:"Marketing \u00b7 Avis",key:"marketing_push",channel:CH_EMAIL},
+        ],
+      };
+    },
+    competitor_review_drop: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      var oldRating = a.old_value || "?";
+      var newRating = a.new_value || "?";
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Avis",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: escapeHtml(compName)+" : note en baisse (\u2605"+oldRating+" \u2192 \u2605"+newRating+")",
+        sowhat: escapeHtml(compName)+" perd en r\u00e9putation. Fen\u00eatre pour capter les clients d\u00e9\u00e7us.",
+        actions: [
+          {text:"Publiez vos points forts sur Google Business Profile",meta:"Communication \u00b7 Diff\u00e9renciation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Activez une offre de bienvenue pour les nouveaux visiteurs",meta:"Marketing \u00b7 Captation",key:"marketing_push",channel:CH_GBP},
+        ],
+      };
+    },
+    competitor_hours_change: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Horaires",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(compName)+" a modifi\u00e9 ses horaires d\u2019ouverture",
+        sowhat: "Changement d\u2019horaires d\u00e9tect\u00e9 chez "+escapeHtml(compName)+". V\u00e9rifiez si cela cr\u00e9e un cr\u00e9neau o\u00f9 vous \u00eates le seul ouvert.",
+        actions: [
+          {text:"V\u00e9rifiez vos propres horaires sur Google",meta:"Communication \u00b7 Fiche",key:"visitor_comm",channel:CH_GBP},
+          {text:"Communiquez sur vos horaires \u00e9largis si applicable",meta:"Communication \u00b7 Diff\u00e9renciation",key:"visitor_comm",channel:CH_GBP},
+        ],
+      };
+    },
+    competitor_new_offering: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      var promo = a.new_value || "Nouvelle offre";
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Offre",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(compName)+" lance une nouvelle offre"+(promo!==" Nouvelle offre d\u00e9tect\u00e9e"?" : "+escapeHtml(promo):""),
+        sowhat: (function() {
+          var desc = String(prof.business_short_description || "").trim();
+          var diffHint = desc ? " Votre diff\u00e9renciant : " + desc.substring(0, 60) + (desc.length > 60 ? "\u2026" : "") + "." : "";
+          return escapeHtml(compName)+" pousse une offre promotionnelle. Risque de captation."+ diffHint;
+        })(),
+        actions: [
+          {text:"Publiez votre propre offre diff\u00e9renciante",meta:"Marketing \u00b7 Offre",key:"marketing_push",channel:CH_GBP},
+          {text:"Mettez en avant vos avantages uniques",meta:"Communication \u00b7 Diff\u00e9renciation",key:"visitor_comm",channel:CH_GBP},
+        ],
+      };
+    },
+    competitor_sold_out: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Urgent",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Complet",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: escapeHtml(compName)+" affiche complet",
+        sowhat: escapeHtml(compName)+" est complet \u2014 leur audience d\u00e9borde. Captez le surplus avec une offre imm\u00e9diate.",
+        actions: [
+          {text:"Publiez \u00ab Places disponibles chez nous \u00bb sur Google et Instagram",meta:"Communication \u00b7 Captation",key:"visitor_comm",channel:CH_GBP},
+          {text:"Activez une offre flash pour le public redirig\u00e9",meta:"Marketing \u00b7 Captation",key:"marketing_push",channel:CH_GBP},
+        ],
+      };
+    },
+    competitor_content_spike: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      var blogDelta = a.score_delta != null ? Number(a.score_delta) : 0;
+      return {
+        type:"threat", barClass:"ab-warning",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        typePill:{label:"Contenu",style:"background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);"},
+        what: escapeHtml(compName)+" a publi\u00e9 "+blogDelta+" nouveaux contenus cette semaine",
+        sowhat: escapeHtml(compName)+" intensifie sa communication. Votre visibilit\u00e9 en ligne risque d\u2019\u00eatre dilu\u00e9e.",
+        actions: [
+          {text:"Publiez du contenu r\u00e9gulier cette semaine",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+          {text:"Planifiez 2-3 posts pour la semaine prochaine",meta:"Communication \u00b7 Planning",key:"visitor_comm",channel:CH_INSTAGRAM},
+        ],
+      };
+    },
+    competitor_content_silent: function(a, prof, currentDay) {
+      var compName = a._comp_name || a.entity_id || "Concurrent";
+      var ageDays = a.new_value ? Number(a.new_value) : 14;
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Fen\u00eatre",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        what: escapeHtml(compName)+" silencieux depuis "+ageDays+" jours",
+        sowhat: escapeHtml(compName)+" ne publie plus depuis "+ageDays+" jours. Fen\u00eatre de visibilit\u00e9 ouverte \u2014 occupez l\u2019espace.",
+        actions: [
+          {text:"Publiez du contenu pour occuper l\u2019espace laiss\u00e9 vacant",meta:"Communication \u00b7 Visibilit\u00e9",key:"visitor_comm",channel:CH_GBP},
+          {text:"Lancez une campagne cibl\u00e9e cette semaine",meta:"Marketing \u00b7 Timing",key:"marketing_push",channel:CH_EMAIL},
+        ],
+      };
+    },
+    institution_campaign_detected: function(a, prof, currentDay) {
+      var instName = a._comp_name || a.entity_id || "Institution";
+      var campaign = a.new_value || "Campagne d\u00e9tect\u00e9e";
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"Institution",style:"background:#EFF6FF;color:#1e40af;"},
+        what: escapeHtml(instName)+" lance campagne"+(campaign!=="Campagne institutionnelle d\u00e9tect\u00e9e"?" : "+escapeHtml(campaign):""),
+        sowhat: escapeHtml(instName)+" lance une campagne \u2014 votre activit\u00e9 est concern\u00e9e. Surfez sur le trafic g\u00e9n\u00e9r\u00e9.",
+        actions: [
+          {text:"Publiez du contenu li\u00e9 \u00e0 la campagne",meta:"Communication \u00b7 Co-trafic",key:"visitor_comm",channel:CH_GBP},
+          {text:"Adaptez votre vitrine / signal\u00e9tique au th\u00e8me",meta:"Exploitation \u00b7 Merchandising",key:"onsite_ops",channel:CH_INTERNAL},
+        ],
+      };
+    },
+    media_mention_detected: function(a, prof, currentDay) {
+      var mediaName = a._comp_name || a.entity_id || "M\u00e9dia";
+      var articleTitle = a.new_value || "Nouvel article";
+      return {
+        type:"opportunity", barClass:"ab-opportunity",
+        urgencyPill:{label:"Cette semaine",style:"background:var(--color-pill-green-bg);color:var(--color-pill-green-text);"},
+        typePill:{label:"M\u00e9dia",style:"background:#EFF6FF;color:#1e40af;"},
+        what: escapeHtml(mediaName)+" a publi\u00e9"+(articleTitle!=="Nouvel article d\u00e9tect\u00e9"?" : "+escapeHtml(articleTitle):""),
+        sowhat: escapeHtml(mediaName)+" parle de votre zone. Restez dans la conversation \u2014 partagez et r\u00e9agissez.",
+        actions: [
+          {text:"Partagez l\u2019article en mentionnant votre lieu",meta:"Communication \u00b7 RP",key:"visitor_comm",channel:CH_GBP},
+          {text:"Contactez le m\u00e9dia pour proposer un partenariat",meta:"RP \u00b7 M\u00e9dias",key:"marketing_push",channel:CH_EMAIL},
+        ],
+      };
+    },
   };
   // ---- Opportunity from day context (regime A + favorable signals) ----
   function briefOpportunityFromDay(currentDay, prof) {
@@ -1660,12 +1830,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (ad&&td) { var diff = Math.round((ad.getTime()-td.getTime())/86400000); if(diff===1)s+=20;else if(diff<=3)s+=10;else if(diff<=7)s+=5; }
     }
     if (distM>0) { if(distM<500)s+=20;else if(distM<1000)s+=10;else if(distM<3000)s+=5; }
-    var REVENUE = ["competitor_audience_conflict","competitor_event_launch","competition_pressure_spike","mega_event_activation","weather_worsened","weather_hazard_onset","mobility_disruption"];
+    var REVENUE = ["competitor_audience_conflict","competitor_event_launch","competition_pressure_spike","mega_event_activation","weather_worsened","weather_hazard_onset","mobility_disruption","score_down","competitor_review_surge","competitor_new_offering","competitor_content_spike"];
     if (REVENUE.indexOf(sub)>=0) s += 15;
     if (a.has_active_event) s += 10;
     var isOutdoor = String(prof.location_type_client||"").toLowerCase()==="outdoor"||String(prof.location_type_client||"").toLowerCase()==="mixed";
     if ((sub==="weather_worsened"||sub==="weather_hazard_onset")&&isOutdoor) s += 10;
-    var OPP = ["weather_improved","competitor_event_ending","mega_event_end","score_up"];
+    var OPP = ["weather_improved","competitor_event_ending","mega_event_end","score_up","competitor_review_drop","competitor_sold_out","competitor_content_silent","institution_campaign_detected","media_mention_detected"];
     if (OPP.indexOf(sub)>=0) s += 25;
     return s;
   }
@@ -2105,6 +2275,56 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       }
     }
 
+    // ---- Weekly briefing compound signal ----
+    if (selectedDate === today && Array.isArray(days) && days.length >= 5) {
+      var wbFavorable = 0; var wbUnfavorable = 0; var wbAlertDays = 0;
+      var wbBestStreak = 0; var wbCurStreak = 0; var wbScoreSum = 0; var wbScoreCount = 0;
+      var wbCompEvents = 0; var wbDominantHazard = null; var wbHazardCounts = {};
+      var wbSorted = days.slice().sort(function(x,y) { return String(x.date||"").localeCompare(String(y.date||"")); });
+      for (var wi = 0; wi < wbSorted.length; wi++) {
+        var wd = wbSorted[wi];
+        var wScore = Number(wd.opportunity_score_final_local || wd.opportunity_score || 0);
+        var wAlert = Number(wd.alert_level_max || 0);
+        wbScoreSum += wScore; wbScoreCount++;
+        if (wScore >= 60 && wAlert <= 1) { wbFavorable++; wbCurStreak++; if (wbCurStreak > wbBestStreak) wbBestStreak = wbCurStreak; }
+        else { wbUnfavorable++; wbCurStreak = 0; }
+        if (wAlert >= 2) {
+          wbAlertDays++;
+          var hazards = ["rain","wind","snow","heat","cold"];
+          var lvls = [Number(wd.lvl_rain||0),Number(wd.lvl_wind||0),Number(wd.lvl_snow||0),Number(wd.lvl_heat||0),Number(wd.lvl_cold||0)];
+          for (var hi = 0; hi < hazards.length; hi++) { if (lvls[hi] >= 2) { wbHazardCounts[hazards[hi]] = (wbHazardCounts[hazards[hi]]||0) + 1; } }
+        }
+      }
+      var wbAvgScore = wbScoreCount > 0 ? Math.round(wbScoreSum / wbScoreCount) : 0;
+      var wbMaxHaz = 0;
+      var HAZ_FR = {rain:"pluie",wind:"vent",snow:"neige",heat:"chaleur",cold:"froid"};
+      for (var hk in wbHazardCounts) { if (wbHazardCounts[hk] > wbMaxHaz) { wbMaxHaz = wbHazardCounts[hk]; wbDominantHazard = HAZ_FR[hk] || hk; } }
+      var wbCompTotal = 0;
+      if (currentDay._competitor_signals && Array.isArray(currentDay._competitor_signals)) wbCompTotal = currentDay._competitor_signals.length;
+      var wbParts = [];
+      wbParts.push(wbFavorable + " jour" + (wbFavorable > 1 ? "s" : "") + " favorable" + (wbFavorable > 1 ? "s" : ""));
+      if (wbBestStreak >= 2) wbParts.push("meilleure fen\u00eatre : " + wbBestStreak + " jours cons\u00e9cutifs");
+      if (wbAlertDays > 0) wbParts.push(wbAlertDays + " jour" + (wbAlertDays > 1 ? "s" : "") + " d\u2019alerte" + (wbDominantHazard ? " (" + wbDominantHazard + ")" : ""));
+      if (wbCompTotal > 0) wbParts.push(wbCompTotal + " concurrent" + (wbCompTotal > 1 ? "s" : "") + " actif" + (wbCompTotal > 1 ? "s" : ""));
+      wbParts.push("score moyen : " + wbAvgScore);
+      var wbIsGood = wbFavorable >= wbUnfavorable && wbAlertDays <= 2;
+      candidates.push({ item: { change_subtype: "_weekly_briefing", affected_date: currentDay.date, alert_level: 0, location_label: currentDay.location_label || "" }, tmpl: {
+        type: wbIsGood ? "opportunity" : "threat",
+        barClass: wbIsGood ? "ab-opportunity" : "ab-warning",
+        urgencyPill: { label: "Semaine", style: wbIsGood ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" },
+        typePill: { label: "Bilan", style: "background:#EFF6FF;color:#1e40af;" },
+        what: "Bilan de la semaine : " + wbFavorable + "/" + wbSorted.length + " jours favorables" + (wbBestStreak >= 2 ? ", fen\u00eatre de " + wbBestStreak + "j" : ""),
+        sowhat: wbParts.join(" \u00b7 ") + "." + (wbIsGood ? " Semaine globalement favorable \u2014 maximisez les cr\u00e9neaux." : " Semaine contrast\u00e9e \u2014 concentrez vos efforts sur les fen\u00eatres favorables."),
+        actions: wbIsGood ? [
+          { text: "Planifiez vos publications sur les " + wbBestStreak + " meilleurs jours", meta: "Communication \u00b7 Planning", key: "visitor_comm", channel: CH_GBP },
+          { text: "Activez une offre sur votre meilleure fen\u00eatre", meta: "Marketing \u00b7 Timing", key: "marketing_push", channel: CH_GBP },
+        ] : [
+          { text: "Concentrez votre budget comm sur les " + wbFavorable + " jour" + (wbFavorable > 1 ? "s" : "") + " favorable" + (wbFavorable > 1 ? "s" : ""), meta: "Strat\u00e9gie \u00b7 Priorisation", key: "marketing_push", channel: CH_INTERNAL },
+          { text: "Adaptez vos effectifs aux jours d\u00e9favorables", meta: "Exploitation \u00b7 \u00c9quipe", key: "staff_adjust", channel: CH_INTERNAL },
+        ],
+      }, score: 90 });
+    }
+
     candidates.sort(function(a,b) { return b.score - a.score; });
     var seen = {};
     var top = [];
@@ -2183,7 +2403,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       var fbId = fb.log_id;
       var fbChannel = CHANNEL_LABELS[fb.channel] || fb.channel || "";
       var fbDate = fb.affected_date ? fmtDateShort(normalizeYmd(fb.affected_date)) : "";
-      var FB_SIGNAL_LABELS = {weather_worsened:"Alerte m\u00e9t\u00e9o",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",weather_improved:"Am\u00e9lioration m\u00e9t\u00e9o",mobility_disruption:"Perturbation mobilit\u00e9",mobility_disruption_planned:"Perturbation mobilit\u00e9 pr\u00e9vue",competitor_event_launch:"Concurrent d\u00e9tect\u00e9",competitor_audience_conflict:"Conflit d\u2019audience",competition_pressure_spike:"Pic de concurrence",mega_event_activation:"M\u00e9ga-\u00e9v\u00e9nement",score_up:"Opportunit\u00e9 en hausse",competitor_event_ending:"Concurrent termin\u00e9",mega_event_end:"Fin m\u00e9ga-\u00e9v\u00e9nement",calendar_audience_shift:"Changement d\u2019audience",_saturated_bad_weather:"Saturation + m\u00e9t\u00e9o",_mobility_comp_squeeze:"Mobilit\u00e9 + concurrence",_holiday_high_comp:"F\u00e9ri\u00e9 + concurrence"};
+      var FB_SIGNAL_LABELS = {weather_worsened:"Alerte m\u00e9t\u00e9o",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",weather_improved:"Am\u00e9lioration m\u00e9t\u00e9o",mobility_disruption:"Perturbation mobilit\u00e9",mobility_disruption_planned:"Perturbation mobilit\u00e9 pr\u00e9vue",competitor_event_launch:"Concurrent d\u00e9tect\u00e9",competitor_audience_conflict:"Conflit d\u2019audience",competition_pressure_spike:"Pic de concurrence",mega_event_activation:"M\u00e9ga-\u00e9v\u00e9nement",score_up:"Opportunit\u00e9 en hausse",competitor_event_ending:"Concurrent termin\u00e9",mega_event_end:"Fin m\u00e9ga-\u00e9v\u00e9nement",calendar_audience_shift:"Changement d\u2019audience",_saturated_bad_weather:"Saturation + m\u00e9t\u00e9o",_mobility_comp_squeeze:"Mobilit\u00e9 + concurrence",_holiday_high_comp:"F\u00e9ri\u00e9 + concurrence",score_down:"Score en baisse",competitor_review_surge:"Avis concurrent en hausse",competitor_review_drop:"Note concurrent en baisse",competitor_hours_change:"Horaires concurrent modifi\u00e9s",competitor_new_offering:"Offre concurrent",competitor_sold_out:"Concurrent complet",competitor_content_spike:"Contenu concurrent en hausse",competitor_content_silent:"Concurrent silencieux",institution_campaign_detected:"Campagne institutionnelle",media_mention_detected:"Mention m\u00e9dia"};
       var fbAction = fb.action_text || FB_SIGNAL_LABELS[fb.change_subtype] || "Signal trait\u00e9";
       var fbSignal = fb.change_subtype ? (FB_SIGNAL_LABELS[fb.change_subtype] || "") : "";
       feedbackCardsHtml += '<div class="ab-card" id="fb-card-' + escapeHtml(fbId) + '" data-fb-id="' + escapeHtml(fbId) + '">'
@@ -2288,7 +2508,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
         + (showRecipient ? (function() {
           var members = (_teamMembersCache || []).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
-          var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather'};
+          var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',score_down:'opportunity',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition'};
           var sigCat = ROUTING_MAP[signalType] || '';
           var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
           var html = '<div style="padding:8px 14px 0;position:relative;" data-ws-recipient-wrap="' + cardIdx + '">'
@@ -2335,7 +2555,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           + '<button type="button" data-ws-save="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
           + '<div style="flex:1;"></div>'
           + (function() { var hasConfig = _channelConfigsCache && _channelConfigsCache[channel]; return hasConfig ? '<button type="button" data-ws-publish="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' : '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Configurez ce canal dans vos param\u00e8tres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'; })()
-          + '<button type="button" disabled data-ws-automate="' + cardIdx + '" title="Bient\u00f4t disponible" style="padding:7px 10px;border-radius:6px;background:none;color:#d1d5db;border:1px dashed #e5e7eb;font-size:10px;font-weight:500;cursor:not-allowed;font-family:inherit;opacity:0.4;">Automatiser</button>'
+          + '<button type="button" data-ws-automate="' + cardIdx + '" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">&#9889; Automatiser</button>'
+        + '<div data-ws-auto-prompt="' + cardIdx + '" style="display:none;"></div>'
         + '</div>'
       + '</div>';
     }
@@ -2691,6 +2912,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             triggerBtn.style.color = "#059669";
             triggerBtn.textContent = "Trait\u00e9 \u2713";
             updateBriefStatus(cardIdx, "published");
+            
             // Post-publish: save unknown recipient
             var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
             var recipVal = rEl ? rEl.value.trim() : "";
@@ -2773,7 +2995,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           + '<div><div style="font-weight:700;font-size:15px;color:#111827;">Mes brouillons</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + '</div></div>'
           + '<button type="button" id="ms-lib-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;">\u00d7</button>'
         + '</div>';
-        var SIGNAL_LABELS = {weather_worsened:"M\u00e9t\u00e9o d\u00e9grad\u00e9e",weather_improved:"M\u00e9t\u00e9o am\u00e9lior\u00e9e",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilit\u00e9",score_up:"Score en hausse",_day_opportunity:"Opportunit\u00e9 jour",_best_day:"Meilleur jour"};
+        var SIGNAL_LABELS = {weather_worsened:"M\u00e9t\u00e9o d\u00e9grad\u00e9e",weather_improved:"M\u00e9t\u00e9o am\u00e9lior\u00e9e",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilit\u00e9",score_up:"Score en hausse",_day_opportunity:"Opportunit\u00e9 jour",_best_day:"Meilleur jour",score_down:"Score en baisse",competitor_review_surge:"Avis en hausse",competitor_review_drop:"Note en baisse",competitor_hours_change:"Horaires modifi\u00e9s",competitor_new_offering:"Nouvelle offre",competitor_sold_out:"Complet",competitor_content_spike:"Contenu en hausse",competitor_content_silent:"Concurrent silencieux",institution_campaign_detected:"Campagne",media_mention_detected:"Mention m\u00e9dia"};
         var cards = '';
         for (var di = 0; di < drafts.length; di++) {
           var d = drafts[di];
@@ -2835,6 +3057,200 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             });
           });
         });
+      });
+
+      // Automate button
+      var autoBtn = workspace.querySelector('[data-ws-automate="' + cardIdx + '"]');
+      var autoPromptEl = workspace.querySelector('[data-ws-auto-prompt="' + cardIdx + '"]');
+      if (autoBtn && autoPromptEl) autoBtn.addEventListener("click", function() {
+        showAutoPrompt(autoPromptEl, cardIdx, channel, payload, triggerBtn);
+      });
+    }
+
+    function showAutoPrompt(container, cardIdx, channel, payload, triggerBtn) {
+      var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
+      var CAT_LABELS = {weather:"M\u00e9t\u00e9o",competition:"Concurrence",mobility:"Mobilit\u00e9",opportunity:"Opportunit\u00e9",calendar:"Calendrier"};
+      var sigCat = ROUTING_MAP[payload.change_subtype] || "competition";
+      var catLabel = CAT_LABELS[sigCat] || sigCat;
+      var chDef = {gbp:"GBP",instagram:"Instagram",email:"Email",sms:"SMS",whatsapp:"WhatsApp",slack:"Slack",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
+      var chLabel = chDef[channel] || channel;
+      var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
+      var rEl = workspace ? workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]') : null;
+      var recipVal = rEl ? rEl.value.trim() : "";
+      var hasChannelConfig = _channelConfigsCache && _channelConfigsCache[channel];
+      var canPublish = hasChannelConfig && (channel === "gbp" || channel === "instagram" || channel === "internal" || recipVal);
+
+      container.style.display = "block";
+      container.innerHTML = '<div style="padding:12px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+          + '<span style="width:22px;height:22px;border-radius:5px;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">\u26A1</span>'
+          + '<span style="font-size:12px;font-weight:600;color:#1D3BB3;">Publier + automatiser</span>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#4B5563;margin-bottom:8px;line-height:1.4;">'
+          + (canPublish
+            ? 'Publie ce brouillon sur <strong style="color:#1F2937;">' + escapeHtml(chLabel) + '</strong>' + (recipVal ? ' pour <strong style="color:#1F2937;">' + escapeHtml(recipVal) + '</strong>' : '') + ' maintenant, et automatise pour les prochains signaux <strong style="color:#1F2937;">' + escapeHtml(catLabel) + '</strong>.'
+            : 'Copie ce brouillon et automatise pour les prochains signaux <strong style="color:#1F2937;">' + escapeHtml(catLabel) + '</strong> sur <strong style="color:#1F2937;">' + escapeHtml(chLabel) + '</strong>' + (recipVal ? ' pour <strong style="color:#1F2937;">' + escapeHtml(recipVal) + '</strong>' : '') + '.')
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+          + '<button type="button" data-auto-confirm="validation" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:5px;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">' + (canPublish ? 'Publier + validation' : 'Copier + validation') + '</button>'
+          + '<button type="button" data-auto-confirm="auto" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:5px;background:#fff;color:#1D3BB3;border:1px solid #C7D2FE;cursor:pointer;font-family:inherit;">' + (canPublish ? 'Publier + auto' : 'Copier + auto') + '</button>'
+          + '<button type="button" data-auto-confirm="dismiss" style="font-size:10px;font-weight:500;padding:5px 6px;background:none;border:none;color:#9CA3AF;cursor:pointer;font-family:inherit;">Non merci</button>'
+        + '</div>'
+      + '</div>';
+
+      container.querySelectorAll("[data-auto-confirm]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var mode = btn.getAttribute("data-auto-confirm");
+          if (mode === "dismiss") { container.style.display = "none"; container.innerHTML = ""; return; }
+          btn.disabled = true;
+          btn.textContent = "...";
+          var locId = typeof locationId !== "undefined" ? locationId : "";
+
+          // Read draft content from workspace
+          var bEl = workspace ? workspace.querySelector('[data-ws-body="' + cardIdx + '"]') : null;
+          var tEl = workspace ? workspace.querySelector('[data-ws-title="' + cardIdx + '"]') : null;
+          var hEl = workspace ? workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]') : null;
+          var bodyText = bEl ? bEl.value : "";
+          var titleText = tEl ? tEl.value : "";
+          var hashText = hEl ? hEl.value : "";
+          var affectedDate = triggerBtn ? (triggerBtn.getAttribute("data-ab-draft-affected") || "") : "";
+
+          // Step 1: Create the automation rule
+          fetch("/api/channels/automation", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              location_id: locId,
+              signal_category: sigCat,
+              channel: channel,
+              recipient: recipVal,
+              require_approval: mode === "validation",
+              frequency: "first_occurrence",
+            }),
+          }).then(function(ruleRes) { return ruleRes.json(); }).then(function(ruleJson) {
+            if (!ruleJson || !ruleJson.ok) throw new Error(ruleJson?.error || "Erreur r\u00e8gle");
+
+            // Step 2: Publish or copy
+            if (canPublish) {
+              return fetch("/api/channels/publish", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  channel: channel,
+                  location_id: locId,
+                  title: titleText,
+                  body: bodyText,
+                  hashtags: hashText,
+                  recipient: recipVal,
+                  signal_type: payload.change_subtype || "",
+                  affected_date: affectedDate,
+                }),
+              }).then(function(pubRes) { return pubRes.json(); }).then(function(pubJson) {
+                if (pubJson && pubJson.ok) {
+                  // Track publish
+                  fetch("/api/analytics/track", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ event: "auto_publish", location_id: locId, change_subtype: payload.change_subtype, action_key: "auto_publish", channel: channel, affected_date: affectedDate }),
+                  }).catch(function(){});
+                  // Update card status
+                  if (triggerBtn) { triggerBtn.style.color = "#059669"; triggerBtn.textContent = "Trait\u00e9 \u2713"; }
+                  updateBriefStatus(cardIdx, "published");
+                  // Show confirmation
+                  container.innerHTML = '<div style="padding:10px 14px;margin:8px 0 4px;background:#ECFDF5;border-radius:8px;border:1px solid #D1FAE5;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                      + '<span style="width:18px;height:18px;border-radius:50%;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u2713</span>'
+                      + '<span style="font-size:11px;color:#065F46;font-weight:600;">Publi\u00e9 sur ' + escapeHtml(chLabel) + '</span>'
+                    + '</div>'
+                    + '<div style="display:flex;align-items:center;gap:8px;">'
+                      + '<span style="width:18px;height:18px;border-radius:50%;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u26A1</span>'
+                      + '<span style="font-size:11px;color:#1D3BB3;font-weight:500;">R\u00e8gle cr\u00e9\u00e9e : ' + escapeHtml(catLabel) + ' \u2192 ' + escapeHtml(chLabel) + ' (' + (mode === "auto" ? "auto" : "validation") + ')</span>'
+                    + '</div>'
+                  + '</div>';
+                  // Check for unknown recipient → save prompt
+                  showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal);
+                } else {
+                  throw new Error(pubJson?.error || "Erreur publication");
+                }
+              });
+            } else {
+              // No channel config → copy to clipboard
+              var fullText = [titleText, bodyText, hashText].filter(Boolean).join("\n\n");
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(fullText).catch(function(){});
+              }
+              // Track copy
+              fetch("/api/analytics/track", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ event: "draft_copied", location_id: locId, change_subtype: payload.change_subtype, action_key: "draft", channel: channel, affected_date: affectedDate }),
+              }).catch(function(){});
+              if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Copi\u00e9 \u270e"; }
+              updateBriefStatus(cardIdx, "copied");
+              container.innerHTML = '<div style="padding:10px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
+                + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+                  + '<span style="width:18px;height:18px;border-radius:50%;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u2713</span>'
+                  + '<span style="font-size:11px;color:#1D3BB3;font-weight:500;">Texte copi\u00e9 + R\u00e8gle cr\u00e9\u00e9e : ' + escapeHtml(catLabel) + ' \u2192 ' + escapeHtml(chLabel) + ' (' + (mode === "auto" ? "auto" : "validation") + ')</span>'
+                + '</div>'
+              + '</div>';
+            }
+          }).catch(function(err) {
+            container.innerHTML = '<div style="padding:10px 14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
+          });
+        });
+      });
+    }
+
+    function showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal) {
+      if (!recipVal || channel === "internal" || channel === "gbp" || channel === "instagram") return;
+      var isKnown = (_teamMembersCache || []).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
+      if (isKnown) return;
+      var savePrompt = document.createElement("div");
+      savePrompt.style.cssText = "margin:10px 0 0;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;";
+      savePrompt.innerHTML = '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Enregistrer ce destinataire ?</div>'
+        + '<div style="font-size:11px;color:#6b7280;margin-bottom:12px;">' + escapeHtml(recipVal) + ' sera disponible pour vos prochaines publications.</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+          + '<input data-save-recip-fn placeholder="Pr\u00e9nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+          + '<input data-save-recip-ln placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+        + '</div>'
+        + '<input data-save-recip-role placeholder="R\u00f4le (optionnel)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-bottom:10px;box-sizing:border-box;" />'
+        + '<div style="display:flex;gap:8px;">'
+          + '<button type="button" data-save-recip-ok style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+          + '<button type="button" data-save-recip-skip style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Pas maintenant</button>'
+        + '</div>';
+      workspace.appendChild(savePrompt);
+      savePrompt.querySelector("[data-save-recip-skip]").addEventListener("click", function() { savePrompt.remove(); });
+      savePrompt.querySelector("[data-save-recip-ok]").addEventListener("click", async function() {
+        var fnEl = savePrompt.querySelector("[data-save-recip-fn]");
+        var lnEl = savePrompt.querySelector("[data-save-recip-ln]");
+        var roleEl = savePrompt.querySelector("[data-save-recip-role]");
+        var fn = fnEl ? fnEl.value.trim() : "";
+        if (!fn) { fnEl.style.borderColor = "#ef4444"; return; }
+        var chContact = {};
+        chContact[channel] = recipVal;
+        this.disabled = true;
+        this.textContent = "...";
+        try {
+          var res = await fetch("/api/channels/team", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              location_id: locId,
+              first_name: fn,
+              last_name: lnEl ? lnEl.value.trim() : "",
+              role: roleEl ? roleEl.value.trim() : "",
+              channels_contact: chContact,
+              signal_routing: {},
+            }),
+          });
+          var json2 = await res.json();
+          if (json2 && json2.ok) {
+            _teamMembersCache = null;
+            await fetchTeamMembers(locId);
+            savePrompt.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#166534;">\u2713</span><span style="font-size:12px;color:#166534;font-weight:500;">Destinataire enregistr\u00e9</span></div>';
+            setTimeout(function() { savePrompt.remove(); }, 2000);
+          }
+        } catch(e) { this.textContent = "Erreur"; this.disabled = false; }
       });
     }
 
@@ -3258,6 +3674,15 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (sub === "ranking_up") return P("Classement \u2191", LOW, LOW_T);
       if (sub === "ranking_down") return P("Classement \u2193", LOW, LOW_T);
       if (sub === "competitor_event_ending") return P("Fin prochaine", GREEN, GREEN_T);
+      if (sub === "competitor_review_surge") return P("Avis \u2191", WARN, WARN_T);
+      if (sub === "competitor_review_drop") return P("Avis \u2193", GREEN, GREEN_T);
+      if (sub === "competitor_hours_change") return P("Horaires", WARN, WARN_T);
+      if (sub === "competitor_new_offering") return P("Offre", WARN, WARN_T);
+      if (sub === "competitor_sold_out") return P("Complet", GREEN, GREEN_T);
+      if (sub === "competitor_content_spike") return P("Contenu \u2191", WARN, WARN_T);
+      if (sub === "competitor_content_silent") return P("Silence", GREEN, GREEN_T);
+      if (sub === "institution_campaign_detected") return P("Campagne", INFO, INFO_T);
+      if (sub === "media_mention_detected") return P("M\u00e9dia", INFO, INFO_T);
       return P("Signal", LOW, LOW_T);
     }
 

@@ -36,7 +36,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         FROM \`muse-square-open-data.analytics.action_log\`
         WHERE user_id = @userId
           AND location_id = @location_id
-          AND event IN ('draft_generated', 'draft_copied')
+          AND event IN ('draft_generated', 'draft_copied', 'auto_dispatch')
           AND affected_date IS NOT NULL
           AND affected_date < CURRENT_DATE()
           AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)

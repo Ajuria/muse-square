@@ -275,7 +275,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         mobility_disruption_flag_region,
         nearest_transit_line_name,
         transit_network,
-        summary
+        summary,
+        score_driver_label
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
         AND feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
@@ -453,6 +454,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       nearest_transit_line_name:     r?.nearest_transit_line_name     ?? null,
       transit_network:               r?.transit_network               ?? null,
       summary:                       r?.summary                       ?? null,
+      score_driver_label:            r?.score_driver_label            ?? null,
       active_event_title:            (() => {
         const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
         if (!affected || !Array.isArray(savedItemRows)) return null;
