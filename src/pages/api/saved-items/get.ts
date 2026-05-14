@@ -72,6 +72,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ---- Tables (fixed in raw) ----
     const savedItemsTable = `\`${projectId}.raw.saved_items\``;
     const savedItemDatesTable = `\`${projectId}.raw.saved_item_dates\``;
+    const profileTable = `\`${projectId}.raw.insight_event_user_location_profile\``;
 
     // ---- Query ----
     const query = `
@@ -85,14 +86,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.stage,
         i.decision_date,
         i.event_end_date,
+        i.selected_date,
+        i.event_type,
+        i.launch_hour,
         i.created_at,
         i.updated_at,
+        COALESCE(p.company_name, p.company_address, i.location_id) AS location_label,
+        p.is_primary,
         ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date ASC) AS dates
       FROM ${savedItemsTable} i
       JOIN ${savedItemDatesTable} d
         ON d.saved_item_id = i.saved_item_id
        AND d.location_id = i.location_id
        AND d.clerk_user_id = i.clerk_user_id
+      LEFT JOIN ${profileTable} p
+        ON p.location_id = i.location_id
+       AND p.clerk_user_id = i.clerk_user_id
       WHERE i.clerk_user_id = @clerk_user_id
         AND i.location_id = @location_id
         AND i.saved_item_id = @saved_item_id
@@ -106,8 +115,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
         i.stage,
         i.decision_date,
         i.event_end_date,
+        i.selected_date,
+        i.event_type,
+        i.launch_hour,
         i.created_at,
-        i.updated_at
+        i.updated_at,
+        p.company_name,
+        p.company_address,
+        p.is_primary
       LIMIT 1
     `;
 
@@ -134,7 +149,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const item = { ...row, dates: normalizeDatesArray(row?.dates) };
+    const unwrapDate = (v: any): string | null => {
+      if (!v) return null;
+      if (typeof v === "string") return v;
+      if (typeof v?.value === "string") return v.value;
+      return null;
+    };
+
+    const item = {
+      ...row,
+      dates: normalizeDatesArray(row?.dates),
+      decision_date: unwrapDate(row.decision_date),
+      event_end_date: unwrapDate(row.event_end_date),
+      selected_date: unwrapDate(row.selected_date),
+      location_label: typeof row.location_label === "string" ? row.location_label : null,
+      is_primary: row.is_primary === true,
+    };
 
     return new Response(JSON.stringify({ ok: true, item }), {
       status: 200,

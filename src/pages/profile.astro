@@ -177,6 +177,7 @@ type LocationRow = {
   venue_capacity: string;
   location_description: string;
   operating_hours: string;
+  website_url: string;
 };
 
 let all_locations: LocationRow[] = [];
@@ -207,7 +208,8 @@ try {
         nearest_transit_lines,
         CAST(venue_capacity AS STRING) AS venue_capacity,
         location_description,
-        operating_hours
+        operating_hours,
+        COALESCE(website_url, '') AS website_url,
       FROM ${fullTable}
       WHERE clerk_user_id = @clerk_user_id
       ORDER BY is_primary DESC, created_at ASC
@@ -247,6 +249,7 @@ try {
         venue_capacity: String(r.venue_capacity || ""),
         location_description: String(r.location_description || ""),
         operating_hours: String(r.operating_hours || ""),
+        website_url: String(r.website_url || ""),
       }))
     : [];
 } catch (_) {}
@@ -450,8 +453,8 @@ function isIncomplete(loc: LocationRow): boolean {
 
   <!-- PAGE HEADER -->
   <div style="margin-bottom: 2rem;">
-    <h1 style="font-size: 28px; font-weight: 600; margin-bottom: 4px;">Mes sites</h1>
-    <p style="font-size: 14px; color: #6b7280;">Gérez vos lieux physiques et vos préférences d'analyse.</p>
+    <h1 style="font-size: 28px; font-weight: 600; margin-bottom: 4px;">Mon compte</h1>
+    <p style="font-size: 14px; color: #6b7280;">Profil, sites, communications et préférences.</p>
   </div>
 
   <!-- ===== USER PROFILE SECTION ===== -->
@@ -474,7 +477,7 @@ function isIncomplete(loc: LocationRow): boolean {
             {[saved_safe?.first_name, saved_safe?.last_name].filter(Boolean).join(" ") || "Profil utilisateur"}
             {saved_safe?.position ? ` · ${saved_safe.position}` : ""}
           </span>
-          <span class="loc-status" id="user-profile-section-title" style="margin-left:auto;font-size:11px;color:#6b7280;">Profil d'utilisateur</span>
+          <span class="loc-status" id="user-profile-section-title" style={`margin-left:auto;font-size:11px;color:${saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? '#059669' : '#6b7280'};`}>{saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? 'Profil complet' : "Profil d'utilisateur"}</span>
         </div>
         <div class="loc-address" id="user-profile-objective" style={`margin-top:2px;${!saved_safe?.main_event_objective ? 'display:none;' : ''}`}>
           {saved_safe?.main_event_objective && (`Objectif : ${
@@ -543,7 +546,6 @@ function isIncomplete(loc: LocationRow): boolean {
   </div>
 
   <div class="section-divider"></div>
-
   <!-- ===== SITES SECTION ===== -->
   <div class="section-title" style="margin-bottom:4px;">Mes sites</div>
   <p class="section-desc">Chaque lieu dispose de son propre profil d'analyse IA.</p>
@@ -664,6 +666,12 @@ function isIncomplete(loc: LocationRow): boolean {
               <label class="field-label">Description du site</label>
               <textarea name="location_description" rows={2} placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea">{loc.location_description}</textarea>
               <p class="field-hint">Facultatif. Aide l'IA à contextualiser les recommandations.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Site web</label>
+              <input type="url" name="website_url" value={loc.website_url || ""} placeholder="https://www.monsite.fr" class="field-input" />
+              <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
             </div>
 
             <div class="field-group">
@@ -872,6 +880,184 @@ function isIncomplete(loc: LocationRow): boolean {
     Ajouter un site physique
   </button>
 
+<!-- ===== COMMUNICATIONS ===== -->
+<div class="section-divider"></div>
+<div class="section-title" style="margin-bottom:4px;">Communication</div>
+<p class="section-desc">Canaux, destinataires et règles d'automatisation.</p>
+
+<div class="loc-card" id="comms-card">
+  <div class="loc-header" onclick="toggleCommsCard()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Canaux</span>
+        <span class="loc-status" id="comms-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Configurez vos canaux</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="comms-body" style="display:none;padding:20px;">
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">SL</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Slack</div>
+            <div style="font-size:11px;color:#9ca3af;" id="comms-slack-desc">Connectez votre workspace Slack</div>
+          </div>
+        </div>
+        <span id="comms-slack-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div id="comms-slack-actions">
+        <a id="comms-slack-connect" href="#" style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:6px;background:#4A154B;color:#fff;font-size:12px;font-weight:600;text-decoration:none;font-family:inherit;cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.313A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
+          Connecter Slack
+        </a>
+      </div>
+      <div id="comms-slack-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">@</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Email</div>
+            <div style="font-size:11px;color:#9ca3af;">Adresse d'exp&#xE9;diteur</div>
+          </div>
+        </div>
+        <span id="comms-email-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="comms-email-from" type="text" placeholder="Nom &lt;email@domaine.com&gt;" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />
+        <button type="button" id="comms-email-save" style="padding:8px 16px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">Connecter</button>
+      </div>
+      <div id="comms-email-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#4285F4;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">G</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Google Business Profile</div>
+            <div style="font-size:11px;color:#9ca3af;" id="comms-gbp-desc">Publiez automatiquement sur votre fiche</div>
+          </div>
+        </div>
+        <span id="comms-gbp-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div id="comms-gbp-actions">
+        <a id="comms-gbp-connect" href="#" style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:6px;background:#4285F4;color:#fff;font-size:12px;font-weight:600;text-decoration:none;font-family:inherit;cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Connecter GBP
+        </a>
+      </div>
+      <div id="comms-gbp-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
+    <div style="opacity:0.5;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:28px;height:28px;border-radius:6px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">WA</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;color:#111827;">WhatsApp Business</div>
+          <div style="font-size:11px;color:#9ca3af;">Bient&#xF4;t disponible</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="loc-card" id="team-card" style="margin-top:10px;">
+  <div class="loc-header" onclick="toggleTeamCard()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Destinataires</span>
+        <span class="loc-status" id="team-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Aucun membre</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="team-body" style="display:none;padding:20px;">
+    <div id="team-members-list"></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f3f4f6;">
+      <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:12px;">Ajouter un membre</div>
+      <div class="field-row">
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Pr&#xE9;nom <span class="field-req">*</span></label>
+          <input type="text" id="team-new-firstname" class="field-input" placeholder="Marie" />
+        </div>
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">Nom</label>
+          <input type="text" id="team-new-lastname" class="field-input" placeholder="Dupont" />
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field-group" style="margin-top:0">
+          <label class="field-label">R&#xF4;le</label>
+          <input type="text" id="team-new-role" class="field-input" placeholder="Community Manager, Exploitation..." />
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <label class="field-label">Canaux de contact</label>
+        <p class="field-hint" style="margin-top:2px;margin-bottom:8px;">Renseignez les canaux sur lesquels ce membre peut recevoir des messages.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="team-channel-inputs">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SL</span>
+            <input type="text" id="team-new-ch-slack" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="#canal ou @nom" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">@</span>
+            <input type="text" id="team-new-ch-email" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="email@domaine.com" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#059669;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SM</span>
+            <input type="text" id="team-new-ch-sms" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="+33 6 12 34 56 78" />
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:4px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">WA</span>
+            <input type="text" id="team-new-ch-whatsapp" class="field-input" style="margin-top:0;padding:6px 0;" placeholder="+33 6 12 34 56 78" />
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <label class="field-label">Signaux re&#xE7;us</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;" data-pill-group="team-routing" data-pill-max="5">
+          <span class="pill pill-active" data-group="team-routing" data-value="competition">Concurrence</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="weather">M&#xE9;t&#xE9;o</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="mobility">Mobilit&#xE9;</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="calendar">Calendrier</span>
+          <span class="pill pill-active" data-group="team-routing" data-value="opportunity">Opportunit&#xE9;s</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+        <button type="button" id="team-add-btn" class="loc-btn-save" style="padding:8px 18px;">Ajouter</button>
+        <span id="team-add-msg" style="font-size:11px;min-height:16px;"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="loc-card" id="automation-card" style="margin-top:10px;">
+  <div class="loc-header" onclick="toggleAutomationCard()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Automatisation</span>
+        <span class="loc-status" id="auto-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Chargement...</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="automation-body" style="display:none;padding:20px;">
+    <div id="automation-rules-list"></div>
+    <div style="margin-top:12px;font-size:10px;color:#9ca3af;line-height:1.6;">
+      Les r&#xE8;gles se cr&#xE9;ent depuis les cartes d'action dans Veille et &#xC9;v&#xE9;nement apr&#xE8;s une publication.<br>
+      <strong style="color:#6b7280;">Validation</strong> = brouillon pr&#xE9;par&#xE9;, vous validez avant envoi.<br>
+      <strong style="color:#6b7280;">Auto</strong> = publication imm&#xE9;diate d&#xE8;s qu'un signal correspond.
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- PASSWORD MODAL -->
@@ -932,6 +1118,24 @@ window.toggleLocCard = function(cardId, bodyId) {
     card.classList.add('loc-expanded');
     body.style.display = 'block';
   }
+};
+
+window.toggleTeamCard = function() {
+  const card = document.getElementById('team-card');
+  const body = document.getElementById('team-body');
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
+};
+
+window.toggleCommsCard = function() {
+  const card = document.getElementById('comms-card');
+  const body = document.getElementById('comms-body');
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
 };
 
 window.toggleUserProfileCard = function() {
@@ -1603,7 +1807,7 @@ window.saveLocation = async function(idx) {
   });
 
   // Named inputs/selects/textareas
-  ['site_name','venue_capacity','location_description','company_address',
+  ['site_name','venue_capacity','location_description','website_url','company_address',
    'company_activity_type','location_type','weather_sensitivity','seasonality',
    'location_access_pattern','nearest_transit_stop'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
@@ -1734,6 +1938,11 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
         <label class="field-label">Description du site</label>
         <textarea name="location_description" rows="2" placeholder="Cadre, spécificités, contraintes particulières…" class="field-textarea"></textarea>
         <p class="field-hint">Facultatif.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Site web</label>
+        <input type="url" name="website_url" placeholder="https://www.monsite.fr" class="field-input" />
+        <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
       </div>
       <div class="field-group" style="position:relative">
         <label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>
@@ -1966,6 +2175,518 @@ document.getElementById('pwd-submit')?.addEventListener('click', async () => {
     if(btn){btn.disabled=false;btn.textContent='Enregistrer';}
   }
 });
+
+// ── Automation rules card ──
+window.toggleAutomationCard = function() {
+  var card = document.getElementById('automation-card');
+  var body = document.getElementById('automation-body');
+  if (!card || !body) return;
+  var isOpen = card.classList.contains('loc-expanded');
+  card.classList.toggle('loc-expanded', !isOpen);
+  body.style.display = isOpen ? 'none' : 'block';
+};
+
+(async function() {
+  var locCard = document.querySelector('.loc-card[data-location-id]');
+  var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+  if (!locId) return;
+
+  var CAT_LABELS = {weather:"M\u00e9t\u00e9o",competition:"Concurrence",mobility:"Mobilit\u00e9",opportunity:"Opportunit\u00e9",calendar:"Calendrier"};
+  var CAT_ICONS = {weather:"\u26C8",competition:"\uD83C\uDFAF",mobility:"\uD83D\uDE87",opportunity:"\u2B06",calendar:"\uD83D\uDCC5"};
+  var CAT_BG = {weather:"#FEF3C7",competition:"#FEE2E2",mobility:"#E0E7FF",opportunity:"#D1FAE5",calendar:"#EDE9FE"};
+  var CH_LABELS = {gbp:"GBP",instagram:"Instagram",email:"Email",sms:"SMS",whatsapp:"WhatsApp",slack:"Slack",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
+
+  var _autoRules = [];
+
+  function renderAutoRules(rules) {
+    _autoRules = rules;
+    var list = document.getElementById('automation-rules-list');
+    var summary = document.getElementById('auto-header-summary');
+    var activeCount = rules.filter(function(r) { return r.enabled !== false; }).length;
+    if (summary) {
+      summary.textContent = activeCount > 0 ? activeCount + ' active' + (activeCount > 1 ? 's' : '') : 'Aucune r\u00e8gle';
+      summary.style.color = activeCount > 0 ? '#059669' : '#9ca3af';
+    }
+    if (!list) return;
+    if (rules.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:20px 0;"><div style="font-size:12px;color:#9ca3af;margin-bottom:4px;">Aucune r\u00e8gle automatique</div><div style="font-size:10px;color:#d1d5db;">Cr\u00e9ez-en depuis les cartes d\u2019action (bouton \u26A1 Automatiser)</div></div>';
+      return;
+    }
+    list.innerHTML = rules.map(function(r, ri) {
+      var cat = r.signal_category || '';
+      var catLabel = CAT_LABELS[cat] || cat;
+      var catIcon = CAT_ICONS[cat] || '\u26A1';
+      var catBg = CAT_BG[cat] || '#F3F4F6';
+      var chLabel = CH_LABELS[r.channel] || r.channel || '';
+      var recip = r.recipient || '';
+      var isApproval = r.require_approval !== false;
+      var modeLabel = isApproval ? 'Brouillon \u00e0 valider' : 'Publication automatique';
+      var enabled = r.enabled !== false;
+
+      return '<div data-auto-rule="' + r.rule_id + '" style="padding:12px 0;border-bottom:1px solid #f3f4f6;' + (!enabled ? 'opacity:0.45;' : '') + '">'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+          + '<span style="width:30px;height:30px;border-radius:7px;background:' + catBg + ';display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">' + catIcon + '</span>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-weight:600;font-size:12px;color:#111827;">' + catLabel + '</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:0;user-select:none;background:#f3f4f6;border-radius:6px;padding:2px;flex-shrink:0;">'
+            + '<span data-tri="off" data-rule-id="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:4px 9px;border-radius:4px;cursor:pointer;color:#9ca3af;' + (!enabled ? 'background:#e5e7eb;color:#4b5563;font-weight:700;' : '') + '">Off</span>'
+            + '<span data-tri="validation" data-rule-id="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:4px 9px;border-radius:4px;cursor:pointer;color:#9ca3af;' + (enabled && isApproval ? 'background:#1D3BB3;color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(29,59,179,0.3);' : '') + '">Validation</span>'
+            + '<span data-tri="auto" data-rule-id="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:4px 9px;border-radius:4px;cursor:pointer;color:#9ca3af;' + (enabled && !isApproval ? 'background:#059669;color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(5,150,105,0.3);' : '') + '">Auto</span>'
+          + '</div>'
+        + '</div>'
+        + '<div style="margin:6px 0 0 40px;display:flex;flex-direction:column;gap:3px;">'
+          + '<div style="font-size:10px;color:#6b7280;display:flex;align-items:center;gap:6px;">'
+            + '<span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:#f3f4f6;color:#4b5563;text-transform:uppercase;">' + chLabel + '</span>'
+            + (recip ? '<span>' + recip + '</span>' : '')
+          + '</div>'
+          + '<div style="font-size:10px;color:#9ca3af;">' + modeLabel + '</div>'
+        + '</div>'
+        + '<div style="margin:6px 0 0 40px;display:flex;gap:8px;">'
+          + '<button type="button" data-auto-edit="' + r.rule_id + '" style="font-size:10px;color:#1D3BB3;cursor:pointer;border:none;background:none;font-family:inherit;padding:0;">Modifier</button>'
+          + '<span style="color:#e5e7eb;">\u00b7</span>'
+          + '<button type="button" data-auto-delete="' + r.rule_id + '" style="font-size:10px;color:#9ca3af;cursor:pointer;border:none;background:none;font-family:inherit;padding:0;">Supprimer</button>'
+        + '</div>'
+        + '<div data-auto-edit-panel="' + r.rule_id + '" style="display:none;margin:8px 0 0 40px;padding:10px 12px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;">'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
+            + '<span style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;width:42px;">Canal</span>'
+            + '<div style="display:flex;gap:4px;flex-wrap:wrap;">'
+              + ['gbp','instagram','email','slack','internal'].map(function(ch) { return '<span data-edit-ch="' + ch + '" data-rule-id="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:3px 7px;border-radius:4px;border:1px solid ' + (ch === r.channel ? '#1D3BB3' : '#e5e7eb') + ';color:' + (ch === r.channel ? '#1D3BB3' : '#6b7280') + ';background:' + (ch === r.channel ? '#EFF3FF' : '#fff') + ';cursor:pointer;">' + (CH_LABELS[ch] || ch) + '</span>'; }).join('')
+            + '</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">'
+            + '<span style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;width:42px;">\u00c0</span>'
+            + '<input data-edit-recip="' + r.rule_id + '" value="' + (recip || '') + '" placeholder="email, #canal..." style="flex:1;font-size:10px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-family:inherit;color:#374151;outline:none;" />'
+          + '</div>'
+          + '<div style="display:flex;gap:6px;">'
+            + '<button type="button" data-edit-save="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:4px 10px;border-radius:4px;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+            + '<button type="button" data-edit-cancel="' + r.rule_id + '" style="font-size:9px;font-weight:600;padding:4px 10px;border-radius:4px;background:#f3f4f6;color:#6b7280;border:none;cursor:pointer;font-family:inherit;">Annuler</button>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join('');
+
+    // Wire tri-toggle
+    list.querySelectorAll('[data-tri]').forEach(function(opt) {
+      opt.addEventListener('click', async function() {
+        var ruleId = opt.getAttribute('data-rule-id');
+        var mode = opt.getAttribute('data-tri');
+        var rule = _autoRules.find(function(r) { return r.rule_id === ruleId; });
+        if (!rule) return;
+        if (mode === 'off') {
+          await fetch('/api/channels/automation', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rule_id: ruleId, location_id: locId }) });
+        } else {
+          await fetch('/api/channels/automation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rule_id: ruleId, location_id: locId, signal_category: rule.signal_category, channel: rule.channel, recipient: rule.recipient, require_approval: mode === 'validation', enabled: true, frequency: rule.frequency || 'first_occurrence' }) });
+        }
+        await loadAutoRules();
+      });
+    });
+
+    // Wire edit toggle
+    list.querySelectorAll('[data-auto-edit]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var ruleId = btn.getAttribute('data-auto-edit');
+        var panel = list.querySelector('[data-auto-edit-panel="' + ruleId + '"]');
+        if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      });
+    });
+
+    // Wire edit channel pills
+    list.querySelectorAll('[data-edit-ch]').forEach(function(pill) {
+      pill.addEventListener('click', function() {
+        var ruleId = pill.getAttribute('data-rule-id');
+        list.querySelectorAll('[data-edit-ch][data-rule-id="' + ruleId + '"]').forEach(function(p) {
+          p.style.borderColor = '#e5e7eb'; p.style.color = '#6b7280'; p.style.background = '#fff';
+        });
+        pill.style.borderColor = '#1D3BB3'; pill.style.color = '#1D3BB3'; pill.style.background = '#EFF3FF';
+      });
+    });
+
+    // Wire edit cancel
+    list.querySelectorAll('[data-edit-cancel]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var ruleId = btn.getAttribute('data-edit-cancel');
+        var panel = list.querySelector('[data-auto-edit-panel="' + ruleId + '"]');
+        if (panel) panel.style.display = 'none';
+      });
+    });
+
+    // Wire edit save
+    list.querySelectorAll('[data-edit-save]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var ruleId = btn.getAttribute('data-edit-save');
+        var rule = _autoRules.find(function(r) { return r.rule_id === ruleId; });
+        if (!rule) return;
+        var activePill = list.querySelector('[data-edit-ch][data-rule-id="' + ruleId + '"][style*="1D3BB3"]');
+        var newCh = activePill ? activePill.getAttribute('data-edit-ch') : rule.channel;
+        var recipInput = list.querySelector('[data-edit-recip="' + ruleId + '"]');
+        var newRecip = recipInput ? recipInput.value.trim() : rule.recipient;
+        btn.textContent = '...';
+        btn.disabled = true;
+        await fetch('/api/channels/automation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rule_id: ruleId, location_id: locId, signal_category: rule.signal_category, channel: newCh, recipient: newRecip, require_approval: rule.require_approval, enabled: true, frequency: rule.frequency || 'first_occurrence' }) });
+        await loadAutoRules();
+      });
+    });
+
+    // Wire delete
+    list.querySelectorAll('[data-auto-delete]').forEach(function(btn) {
+      btn.addEventListener('click', async function() {
+        var ruleId = btn.getAttribute('data-auto-delete');
+        if (!confirm('Supprimer cette r\u00e8gle ?')) return;
+        await fetch('/api/channels/automation', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rule_id: ruleId, location_id: locId }) });
+        await loadAutoRules();
+      });
+    });
+  }
+
+  async function loadAutoRules() {
+    try {
+      var res = await fetch('/api/channels/automation?location_id=' + encodeURIComponent(locId));
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.items)) {
+        renderAutoRules(json.items);
+      } else {
+        renderAutoRules([]);
+      }
+    } catch(e) { renderAutoRules([]); }
+  }
+
+  await loadAutoRules();
+})();
+
+// ── Communications channel config ──
+  (async function() {
+    var locCard = document.querySelector('.loc-card[data-location-id]');
+    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    if (!locId) return;
+
+    // Load existing configs
+    try {
+      var res = await fetch('/api/channels/config?location_id=' + encodeURIComponent(locId));
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.items)) {
+        json.items.forEach(function(item) {
+          if (item.channel === 'slack' && item.config && (item.config.bot_token || item.config.webhook_url)) {
+            var st = document.getElementById('comms-slack-status');
+            var desc = document.getElementById('comms-slack-desc');
+            var actions = document.getElementById('comms-slack-actions');
+            var teamName = item.config.team_name || 'Workspace';
+            if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+            if (desc) desc.textContent = teamName + (item.config.default_channel ? ' \u00b7 ' + item.config.default_channel : '');
+            if (actions) actions.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#059669;font-weight:600;">\u2713 ' + teamName + '</span><a href="/api/channels/slack-connect?location_id=' + encodeURIComponent(locId) + '" style="font-size:11px;color:#6b7280;text-decoration:underline;cursor:pointer;">Reconnecter</a></div>';
+          }
+          if (item.channel === 'email' && item.config && item.config.from_email) {
+            var inp = document.getElementById('comms-email-from');
+            var st = document.getElementById('comms-email-status');
+            var btn = document.getElementById('comms-email-save');
+            if (inp) inp.value = item.config.from_email;
+            if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+            if (btn) btn.textContent = 'Mettre \u00e0 jour';
+          }
+        });
+        var connectedCount = json.items.filter(function(i) { return i.enabled; }).length;
+        var commsSummary = document.getElementById('comms-header-summary');
+        if (commsSummary) {
+          commsSummary.textContent = connectedCount > 0 ? connectedCount + (connectedCount > 1 ? ' canaux connect\u00e9s' : ' canal connect\u00e9') : 'Configurez vos canaux';
+          commsSummary.style.color = connectedCount > 0 ? '#059669' : '#9ca3af';
+        }
+      }
+    } catch(e) {}
+    // Slack connect (OAuth)
+    var slackConnectBtn = document.getElementById('comms-slack-connect');
+    if (slackConnectBtn) {
+      slackConnectBtn.href = '/api/channels/slack-connect?location_id=' + encodeURIComponent(locId);
+    }
+    // Handle ?slack= query params (redirect back from OAuth)
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('slack') === 'success') {
+      var st = document.getElementById('comms-slack-status');
+      var msg = document.getElementById('comms-slack-msg');
+      var teamParam = urlParams.get('team') || 'Workspace';
+      if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+      if (msg) { msg.textContent = 'Slack connect\u00e9 \u00e0 ' + teamParam + '.'; msg.style.color = '#059669'; }
+      window.history.replaceState({}, '', '/profile');
+    } else if (urlParams.get('slack') === 'error') {
+      var msg = document.getElementById('comms-slack-msg');
+      if (msg) { msg.textContent = 'Erreur Slack : ' + (urlParams.get('reason') || 'inconnue'); msg.style.color = '#B91C1C'; }
+      window.history.replaceState({}, '', '/profile');
+    }
+
+    // Email save
+    document.getElementById('comms-email-save')?.addEventListener('click', async function() {
+      var inp = document.getElementById('comms-email-from');
+      var msg = document.getElementById('comms-email-msg');
+      var st = document.getElementById('comms-email-status');
+      var btn = this;
+      var from = inp ? inp.value.trim() : '';
+      if (!from) {
+        if (msg) { msg.textContent = 'Adresse d\u2019exp\u00e9diteur requise.'; msg.style.color = '#B91C1C'; }
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Connexion\u2026';
+      try {
+        var res = await fetch('/api/channels/config', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ location_id: locId, channel: 'email', config: { from_email: from } }),
+        });
+        var json = await res.json();
+        if (json && json.ok) {
+          if (msg) { msg.textContent = 'Email connect\u00e9.'; msg.style.color = '#059669'; }
+          if (st) { st.textContent = 'Connect\u00e9'; st.style.color = '#059669'; }
+          btn.textContent = 'Mettre \u00e0 jour';
+        } else {
+          if (msg) { msg.textContent = json.error || 'Erreur.'; msg.style.color = '#B91C1C'; }
+          btn.textContent = 'Connecter';
+        }
+      } catch(e) {
+        if (msg) { msg.textContent = 'Erreur r\u00e9seau.'; msg.style.color = '#B91C1C'; }
+        btn.textContent = 'Connecter';
+      }
+      btn.disabled = false;
+    });
+
+  // GBP connect (OAuth)
+    var gbpConnectBtn = document.getElementById('comms-gbp-connect');
+    if (gbpConnectBtn) {
+      gbpConnectBtn.href = '/api/channels/gbp-connect?location_id=' + encodeURIComponent(locId);
+    }
+    // Handle ?gbp= query params
+    if (urlParams.get('gbp') === 'success') {
+      var gbpSt = document.getElementById('comms-gbp-status');
+      var gbpMsg = document.getElementById('comms-gbp-msg');
+      var gbpLoc = urlParams.get('location') || '';
+      if (gbpSt) { gbpSt.textContent = 'Connect\u00e9'; gbpSt.style.color = '#059669'; }
+      if (gbpMsg) { gbpMsg.textContent = 'GBP connect\u00e9' + (gbpLoc ? ' : ' + gbpLoc : '') + '.'; gbpMsg.style.color = '#059669'; }
+      window.history.replaceState({}, '', '/profile');
+    } else if (urlParams.get('gbp') === 'error') {
+      var gbpMsg = document.getElementById('comms-gbp-msg');
+      if (gbpMsg) { gbpMsg.textContent = 'Erreur GBP : ' + (urlParams.get('reason') || 'inconnue'); gbpMsg.style.color = '#B91C1C'; }
+      window.history.replaceState({}, '', '/profile');
+    }
+    // Load GBP config state
+    try {
+      var configs = await fetch('/api/channels/config?location_id=' + encodeURIComponent(locId)).then(function(r) { return r.json(); });
+      if (configs && configs.ok && Array.isArray(configs.items)) {
+        var gbpConfig = configs.items.find(function(i) { return i.channel === 'gbp' && i.enabled; });
+        if (gbpConfig && gbpConfig.config) {
+          var gbpSt = document.getElementById('comms-gbp-status');
+          var gbpDesc = document.getElementById('comms-gbp-desc');
+          var gbpActions = document.getElementById('comms-gbp-actions');
+          var title = gbpConfig.config.gbp_location_title || 'Fiche connect\u00e9e';
+          if (gbpSt) { gbpSt.textContent = 'Connect\u00e9'; gbpSt.style.color = '#059669'; }
+          if (gbpDesc) gbpDesc.textContent = title;
+          if (gbpActions) gbpActions.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#059669;font-weight:600;">\u2713 ' + title + '</span><a href="/api/channels/gbp-connect?location_id=' + encodeURIComponent(locId) + '" style="font-size:11px;color:#6b7280;text-decoration:underline;cursor:pointer;">Reconnecter</a></div>';
+        }
+      }
+    } catch(e) {}
+
+  })();
+
+  // ── Team members ──
+  (async function() {
+    var locCard = document.querySelector('.loc-card[data-location-id]');
+    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    if (!locId) return;
+
+    var SIGNAL_LABELS = {competition:"Concurrence",weather:"M\u00e9t\u00e9o",mobility:"Mobilit\u00e9",calendar:"Calendrier",opportunity:"Opportunit\u00e9s"};
+    var CHANNEL_LABELS = {slack:"Slack",email:"Email",sms:"SMS",whatsapp:"WhatsApp",phone:"T\u00e9l\u00e9phone"};
+
+    function renderTeamList(items) {
+      var list = document.getElementById('team-members-list');
+      var summary = document.getElementById('team-header-summary');
+      if (summary) { summary.textContent = items.length > 0 ? items.length + ' membre' + (items.length > 1 ? 's' : '') : 'Aucun membre'; summary.style.color = items.length > 0 ? '#059669' : '#9ca3af'; }
+      if (!list) return;
+      if (items.length === 0) { list.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Aucun membre ajout\u00e9.</div>'; return; }
+      list.innerHTML = items.map(function(m) {
+        var fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || 'Sans nom';
+        var chContacts = m.channels_contact || {};
+        var chBadges = Object.keys(chContacts).filter(function(k) { return chContacts[k]; });
+        var CH_BADGE_COLORS = {slack:'#4A154B',email:'#6B7280',sms:'#059669',whatsapp:'#25D366',phone:'#0ea5e9'};
+        var CH_BADGE_ICONS = {slack:'SL',email:'@',sms:'SM',whatsapp:'WA',phone:'T'};
+        var routingTags = Object.keys(m.signal_routing || {}).filter(function(k) { return m.signal_routing[k] === true || m.signal_routing[k] === 'true'; }).map(function(k) { return SIGNAL_LABELS[k] || k; });
+        return '<div data-member-row="' + m.member_id + '" style="padding:12px 0;border-bottom:1px solid #f3f4f6;">'
+          + '<div data-member-view="' + m.member_id + '" style="display:flex;align-items:center;justify-content:space-between;">'
+            + '<div style="cursor:pointer;" data-edit-member="' + m.member_id + '">'
+              + '<div style="font-weight:600;font-size:13px;color:#111827;">' + fullName + (m.role ? ' <span style="font-weight:400;color:#9ca3af;">\u00b7 ' + m.role + '</span>' : '') + '</div>'
+              + (chBadges.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;">' + chBadges.map(function(k) { return '<span style="width:20px;height:20px;border-radius:4px;background:' + (CH_BADGE_COLORS[k] || '#9ca3af') + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">' + (CH_BADGE_ICONS[k] || k[0].toUpperCase()) + '</span>'; }).join('') + '</div>' : '')
+              + (routingTags.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">' + routingTags.map(function(t) { return '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + t + '</span>'; }).join('') + '</div>' : '')
+            + '</div>'
+            + '<div style="display:flex;gap:8px;align-items:center;">'
+              + '<button type="button" data-edit-member="' + m.member_id + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;">Modifier</button>'
+              + '<button type="button" data-delete-member="' + m.member_id + '" style="background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;">Supprimer</button>'
+            + '</div>'
+          + '</div>'
+          + '<div data-member-edit="' + m.member_id + '" style="display:none;margin-top:10px;">'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+              + '<input data-ed-fn="' + m.member_id + '" value="' + (m.first_name || '') + '" placeholder="Pr\u00e9nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+              + '<input data-ed-ln="' + m.member_id + '" value="' + (m.last_name || '') + '" placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
+            + '</div>'
+            + '<input data-ed-role="' + m.member_id + '" value="' + (m.role || '') + '" placeholder="R\u00f4le" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-top:8px;box-sizing:border-box;" />'
+            + '<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SL</span><input data-ed-ch-slack="' + m.member_id + '" value="' + (chContacts.slack || '') + '" placeholder="#canal ou @nom" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">@</span><input data-ed-ch-email="' + m.member_id + '" value="' + (chContacts.email || '') + '" placeholder="email@domaine.com" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#059669;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SM</span><input data-ed-ch-sms="' + m.member_id + '" value="' + (chContacts.sms || '') + '" placeholder="+33 6 12 34 56 78" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">WA</span><input data-ed-ch-whatsapp="' + m.member_id + '" value="' + (chContacts.whatsapp || '') + '" placeholder="+33 6 12 34 56 78" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
+            + '</div>'
+            + '<div style="display:flex;gap:8px;margin-top:10px;">'
+              + '<button type="button" data-save-member="' + m.member_id + '" style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+              + '<button type="button" data-cancel-edit="' + m.member_id + '" style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Annuler</button>'
+            + '</div>'
+          + '</div>'
+        + '</div>';
+      }).join('');
+      // Wire edit toggle
+      list.querySelectorAll('[data-edit-member]').forEach(function(el) {
+        el.addEventListener('click', function() {
+          var mid = el.getAttribute('data-edit-member');
+          var viewEl = list.querySelector('[data-member-view="' + mid + '"]');
+          var editEl = list.querySelector('[data-member-edit="' + mid + '"]');
+          if (viewEl) viewEl.style.display = 'none';
+          if (editEl) editEl.style.display = 'block';
+        });
+      });
+      // Wire cancel
+      list.querySelectorAll('[data-cancel-edit]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var mid = btn.getAttribute('data-cancel-edit');
+          var viewEl = list.querySelector('[data-member-view="' + mid + '"]');
+          var editEl = list.querySelector('[data-member-edit="' + mid + '"]');
+          if (viewEl) viewEl.style.display = 'flex';
+          if (editEl) editEl.style.display = 'none';
+        });
+      });
+      // Wire save edit
+      list.querySelectorAll('[data-save-member]').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var mid = btn.getAttribute('data-save-member');
+          var fnEl = list.querySelector('[data-ed-fn="' + mid + '"]');
+          var lnEl = list.querySelector('[data-ed-ln="' + mid + '"]');
+          var roleEl = list.querySelector('[data-ed-role="' + mid + '"]');
+          var slEl = list.querySelector('[data-ed-ch-slack="' + mid + '"]');
+          var emEl = list.querySelector('[data-ed-ch-email="' + mid + '"]');
+          var smEl = list.querySelector('[data-ed-ch-sms="' + mid + '"]');
+          var waEl = list.querySelector('[data-ed-ch-whatsapp="' + mid + '"]');
+          var oldMember = _teamCache.find(function(m) { return m.member_id === mid; });
+          var ch = {};
+          if (slEl && slEl.value.trim()) ch.slack = slEl.value.trim();
+          if (emEl && emEl.value.trim()) ch.email = emEl.value.trim();
+          if (smEl && smEl.value.trim()) ch.sms = smEl.value.trim();
+          if (waEl && waEl.value.trim()) ch.whatsapp = waEl.value.trim();
+          btn.textContent = '...';
+          btn.disabled = true;
+          try {
+            var res = await fetch('/api/channels/team', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                member_id: mid,
+                location_id: locId,
+                first_name: fnEl ? fnEl.value.trim() : '',
+                last_name: lnEl ? lnEl.value.trim() : '',
+                role: roleEl ? roleEl.value.trim() : '',
+                channels_contact: ch,
+                signal_routing: oldMember ? oldMember.signal_routing : {},
+              }),
+            });
+            var json = await res.json();
+            if (json && json.ok) {
+              var res2 = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+              var json2 = await res2.json();
+              if (json2 && json2.ok) { _teamCache = json2.items; renderTeamList(_teamCache); }
+            }
+          } catch(e) {}
+        });
+      });
+      // Wire delete
+      list.querySelectorAll('[data-delete-member]').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var mid = btn.getAttribute('data-delete-member');
+          if (!confirm('Supprimer ce membre ?')) return;
+          btn.textContent = '...';
+          try {
+            var res = await fetch('/api/channels/team', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ member_id: mid, location_id: locId }) });
+            var json = await res.json();
+            if (json && json.ok) {
+              _teamCache = _teamCache.filter(function(m) { return m.member_id !== mid; });
+              renderTeamList(_teamCache);
+            }
+          } catch(e) {}
+        });
+      });
+    }
+
+    var _teamCache = [];
+    try {
+      var res = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.items)) {
+        _teamCache = json.items;
+        renderTeamList(_teamCache);
+      }
+    } catch(e) {}
+
+    document.getElementById('team-add-btn')?.addEventListener('click', async function() {
+      var fnEl = document.getElementById('team-new-firstname');
+      var lnEl = document.getElementById('team-new-lastname');
+      var roleEl = document.getElementById('team-new-role');
+      var msgEl = document.getElementById('team-add-msg');
+      var btn = this;
+      var firstName = fnEl ? fnEl.value.trim() : '';
+      if (!firstName) { if (msgEl) { msgEl.textContent = 'Pr\u00e9nom requis.'; msgEl.style.color = '#B91C1C'; } return; }
+      var channels_contact = {};
+      var slackEl = document.getElementById('team-new-ch-slack');
+      var emailEl = document.getElementById('team-new-ch-email');
+      var smsEl = document.getElementById('team-new-ch-sms');
+      var waEl = document.getElementById('team-new-ch-whatsapp');
+      if (slackEl && slackEl.value.trim()) channels_contact.slack = slackEl.value.trim();
+      if (emailEl && emailEl.value.trim()) channels_contact.email = emailEl.value.trim();
+      if (smsEl && smsEl.value.trim()) channels_contact.sms = smsEl.value.trim();
+      if (waEl && waEl.value.trim()) channels_contact.whatsapp = waEl.value.trim();
+      var routing = {};
+      document.querySelectorAll('[data-group="team-routing"].pill-active').forEach(function(p) { routing[p.dataset.value] = true; });
+      document.querySelectorAll('[data-group="team-routing"]:not(.pill-active)').forEach(function(p) { routing[p.dataset.value] = false; });
+      btn.disabled = true;
+      btn.textContent = 'Ajout...';
+      try {
+        var res = await fetch('/api/channels/team', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            location_id: locId,
+            first_name: firstName,
+            last_name: lnEl ? lnEl.value.trim() : '',
+            role: roleEl ? roleEl.value.trim() : '',
+            channels_contact: channels_contact,
+            signal_routing: routing,
+          }),
+        });
+        var json = await res.json();
+        if (json && json.ok) {
+          if (msgEl) { msgEl.textContent = 'Membre ajout\u00e9.'; msgEl.style.color = '#059669'; }
+          if (fnEl) fnEl.value = '';
+          if (lnEl) lnEl.value = '';
+          if (roleEl) roleEl.value = '';
+          if (slackEl) slackEl.value = '';
+          if (emailEl) emailEl.value = '';
+          if (smsEl) smsEl.value = '';
+          if (waEl) waEl.value = '';
+          var res2 = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
+          var json2 = await res2.json();
+          if (json2 && json2.ok) { _teamCache = json2.items; renderTeamList(_teamCache); }
+          setTimeout(function() { if (msgEl) msgEl.textContent = ''; }, 2000);
+        } else {
+          if (msgEl) { msgEl.textContent = json.error || 'Erreur.'; msgEl.style.color = '#B91C1C'; }
+        }
+      } catch(e) {
+        if (msgEl) { msgEl.textContent = 'Erreur r\u00e9seau.'; msgEl.style.color = '#B91C1C'; }
+      }
+      btn.disabled = false;
+      btn.textContent = 'Ajouter';
+    });
+  })();
+
 </script>
 
 </BaseLayout>

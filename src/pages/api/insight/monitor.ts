@@ -25,6 +25,51 @@ function normalizeYmd(v: string): string {
   return m[1];
 }
 
+// ----------------------------------------------------------------
+// BestTime foot traffic — direct API call (bypasses Airbyte)
+// ----------------------------------------------------------------
+async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
+  const apiKey = process.env.BESTTIME_API_KEY_PUBLIC;
+  if (!apiKey || !venueId) return null;
+  try {
+    const res = await fetch(
+      `https://besttime.app/api/v1/forecasts/week?api_key_public=${encodeURIComponent(apiKey)}&venue_id=${encodeURIComponent(venueId)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const days = data?.analysis;
+    if (!Array.isArray(days)) return null;
+    return days.map((d: any) => {
+      const raw = d?.day_raw ?? [];
+      const info = d?.day_info ?? {};
+      const dayInt = info.day_int ?? d?.day_int ?? null;
+      const nonZero = raw.filter((v: number) => v > 0);
+      const peakIdx = raw.indexOf(Math.max(...raw));
+      const quietIdx = nonZero.length ? raw.indexOf(Math.min(...nonZero)) : 0;
+      return {
+        day_int: dayInt,
+        ft_day_max: info.day_max ?? (raw.length ? Math.max(...raw) : null),
+        ft_day_mean: info.day_mean ?? (nonZero.length ? Math.round(nonZero.reduce((a: number, b: number) => a + b, 0) / nonZero.length) : null),
+        ft_day_rank_max: info.day_rank_max ?? null,
+        ft_day_rank_mean: info.day_rank_mean ?? null,
+        ft_peak_hour: peakIdx >= 0 ? (peakIdx + 6) % 24 : null,
+        ft_peak_busyness_pct: raw.length ? Math.max(...raw) : null,
+        ft_quiet_hour: nonZero.length ? (quietIdx + 6) % 24 : null,
+        ft_quiet_busyness_pct: nonZero.length ? Math.min(...nonZero) : null,
+        ft_avg_busyness_pct: nonZero.length ? Math.round(nonZero.reduce((a: number, b: number) => a + b, 0) / nonZero.length) : null,
+        ft_busy_hours_count: raw.filter((v: number) => v >= 70).length,
+        ft_quiet_hours_count: raw.filter((v: number) => v > 0 && v < 30).length,
+        ft_venue_open_hour: info.venue_open ?? null,
+        ft_venue_closed_hour: info.venue_closed ?? null,
+        ft_hourly_raw: raw,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
@@ -79,7 +124,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         weather_sensitivity,
         seasonality,
         main_event_objective,
-        operating_hours
+        operating_hours,
+        besttime_venue_id,
+        besttime_venue_type,
+        besttime_rating,
+        besttime_dwell_time_min,
+        besttime_dwell_time_max
       FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\`
       WHERE location_id = @location_id
       LIMIT 1
@@ -151,6 +201,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         has_valid_baseline_flag,
         competition_pressure_ratio,
 
+        tourism_index_region,
+        tourism_peak_flag_region,
+        tourism_status_region,
+        has_tourism_signal_region,
+
         -- Context
         holiday_name,
         vacation_name,
@@ -167,7 +222,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
         -- Delta fields for context section
         delta_att_events_pct,
         delta_att_mobility_pct,
-        delta_ops_mobility_car_pct
+        delta_ops_mobility_car_pct,
+
+        -- Foot traffic
+        ft_day_max,
+        ft_day_mean,
+        ft_day_rank_max,
+        ft_day_rank_mean,
+        ft_peak_hour,
+        ft_peak_busyness_pct,
+        ft_quiet_hour,
+        ft_quiet_busyness_pct,
+        ft_avg_busyness_pct,
+        ft_busy_hours_count,
+        ft_quiet_hours_count,
+        ft_venue_open_hour,
+        ft_venue_closed_hour
 
       FROM \`muse-square-open-data.semantic.vw_insight_event_day_surface\`
       WHERE location_id = @location_id
@@ -180,6 +250,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // ----------------------------------------------------------------
     const feedQuery = `
       SELECT
+        entity_id,
         feed_date,
         affected_date,
         change_category,
@@ -204,7 +275,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         mobility_disruption_flag_region,
         nearest_transit_line_name,
         transit_network,
-        summary
+        summary,
+        score_driver_label
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
         AND feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
@@ -264,10 +336,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
             direction,
             distance_m,
             conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
             watched_event_id,
             watched_event_name,
             created_at
-          FROM \`muse-square-open-data.raw.competitor_alerts\`
+          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_alerts\`
           WHERE location_id = @location_id
             AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
           ORDER BY alert_level DESC, created_at DESC
@@ -290,7 +368,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const profile = profileRows?.[0] ?? null;
 
+    // Fetch BestTime foot traffic if venue is registered
+    const btVenueId = profile?.besttime_venue_id ?? null;
+    const btWeekData = btVenueId ? await fetchBestTimeWeek(btVenueId).catch(() => null) : null;
+    const btByDayInt = new Map<number, any>();
+    if (btWeekData) {
+      for (const d of btWeekData) {
+        if (d.day_int != null) btByDayInt.set(d.day_int, d);
+      }
+    }
+
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
+      entity_id:                     r?.competitor_event_id                              ?? null,
       feed_date:                     r?.created_at?.value        ?? r?.created_at        ?? null,
       affected_date:                 r?.affected_date?.value     ?? r?.affected_date     ?? null,
       change_category:               r?.change_category                                  ?? "competition",
@@ -314,9 +403,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       mobility_status_region:        null,
       mobility_disruption_flag_region: null,
       nearest_transit_line_name:     null,
-      transit_network:               null,
+      transit_network:               r?.transit_network                                 ?? null,
       summary:                       null,
-      active_event_title:            r?.watched_event_name                               ?? null,
+      active_event_title:            r?.watched_event_name                              ?? null,
       active_event_type:             null,
       has_active_event:              Boolean(r?.watched_event_id),
       primary_audience_1:            profile?.primary_audience_1                        ?? null,
@@ -339,6 +428,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
+      entity_id:                     r?.entity_id                     ?? null,
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
       affected_date:                 r?.affected_date?.value ?? r?.affected_date ?? null,
       change_category:               r?.change_category               ?? null,
@@ -364,6 +454,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       nearest_transit_line_name:     r?.nearest_transit_line_name     ?? null,
       transit_network:               r?.transit_network               ?? null,
       summary:                       r?.summary                       ?? null,
+      score_driver_label:            r?.score_driver_label            ?? null,
       active_event_title:            (() => {
         const affected = r?.affected_date?.value ?? r?.affected_date ?? null;
         if (!affected || !Array.isArray(savedItemRows)) return null;
@@ -672,10 +763,39 @@ export const GET: APIRoute = async ({ url, locals }) => {
         has_valid_baseline_flag:    r.has_valid_baseline_flag    ?? null,
         competition_pressure_ratio: r.competition_pressure_ratio ?? null,
 
+        tourism_index_region:      r.tourism_index_region      ?? null,
+        tourism_peak_flag_region:  r.tourism_peak_flag_region  ?? false,
+        tourism_status_region:     r.tourism_status_region     ?? null,
+        has_tourism_signal_region:  r.has_tourism_signal_region  ?? false,
+
         // Delta fields
         delta_att_events_pct:       r.delta_att_events_pct       ?? 0,
         delta_att_mobility_pct:     r.delta_att_mobility_pct     ?? 0,
         delta_ops_mobility_car_pct: r.delta_ops_mobility_car_pct ?? 0,
+
+        // Foot traffic (BestTime API → dbt fallback)
+        ...(() => {
+          const dateStr = String(r.date?.value ?? r.date ?? "");
+          const d = dateStr ? new Date(dateStr) : null;
+          const dayInt = d ? (d.getUTCDay() + 6) % 7 : null;
+          const bt = dayInt != null ? btByDayInt.get(dayInt) : null;
+          return {
+            ft_day_max:           bt?.ft_day_max           ?? r.ft_day_max           ?? null,
+            ft_day_mean:          bt?.ft_day_mean          ?? r.ft_day_mean          ?? null,
+            ft_day_rank_max:      bt?.ft_day_rank_max      ?? r.ft_day_rank_max      ?? null,
+            ft_day_rank_mean:     bt?.ft_day_rank_mean     ?? r.ft_day_rank_mean     ?? null,
+            ft_peak_hour:         bt?.ft_peak_hour         ?? r.ft_peak_hour         ?? null,
+            ft_peak_busyness_pct: bt?.ft_peak_busyness_pct ?? r.ft_peak_busyness_pct ?? null,
+            ft_quiet_hour:        bt?.ft_quiet_hour        ?? r.ft_quiet_hour        ?? null,
+            ft_quiet_busyness_pct:bt?.ft_quiet_busyness_pct?? r.ft_quiet_busyness_pct?? null,
+            ft_avg_busyness_pct:  bt?.ft_avg_busyness_pct  ?? r.ft_avg_busyness_pct  ?? null,
+            ft_busy_hours_count:  bt?.ft_busy_hours_count  ?? r.ft_busy_hours_count  ?? null,
+            ft_quiet_hours_count: bt?.ft_quiet_hours_count ?? r.ft_quiet_hours_count ?? null,
+            ft_venue_open_hour:   bt?.ft_venue_open_hour   ?? r.ft_venue_open_hour   ?? null,
+            ft_venue_closed_hour: bt?.ft_venue_closed_hour ?? r.ft_venue_closed_hour ?? null,
+            ft_hourly_raw:        bt?.ft_hourly_raw ??                                  null,
+          };
+        })(),
 
         // Primary driver
         primary_score_driver_label: r.primary_score_driver_label ?? null,
@@ -740,6 +860,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
             seasonality: profile.seasonality ?? null,
             main_event_objective: profile.main_event_objective ?? null,
             operating_hours: profile.operating_hours ?? null,
+            besttime_venue_id:      profile.besttime_venue_id      ?? null,
+            besttime_venue_type:    profile.besttime_venue_type    ?? null,
+            besttime_rating:        profile.besttime_rating        ?? null,
+            besttime_dwell_time_min: profile.besttime_dwell_time_min ?? null,
+            besttime_dwell_time_max: profile.besttime_dwell_time_max ?? null,
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,

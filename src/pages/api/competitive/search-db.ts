@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 1. Get user's city_id for context
     const [locRows] = await bq.query({
       query: `
-        SELECT city_id, latitude, longitude
+        SELECT city_id_granular AS city_id, latitude, longitude
         FROM \`${projectId}.dims.dim_client_location\`
         WHERE location_id = @location_id
         LIMIT 1
@@ -153,7 +153,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // Watched events (to set is_followed flag)
       bq.query({
         query: `
-          SELECT watched_event_name
+          SELECT event_name AS watched_event_name
           FROM \`${projectId}.raw.watched_events\`
           WHERE location_id = @location_id
             AND deleted_at IS NULL

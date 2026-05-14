@@ -99,11 +99,17 @@ export const GET: APIRoute = async ({ url }) => {
           SELECT
             ca.event_label,
             ca.conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
             ca.distance_m,
             ca.change_subtype,
             ca.new_value,
             ca.competitor_event_id
-          FROM \`muse-square-open-data.raw.competitor_alerts\` ca
+          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_alerts\` ca
           WHERE ca.location_id = @location_id
             AND ca.affected_date = @date
           ORDER BY ca.conflict_score DESC
@@ -125,6 +131,12 @@ export const GET: APIRoute = async ({ url }) => {
             event_industry_code  AS industry_code,
             description,
             conflict_score,
+            entity_threat_score,
+            entity_threat_level,
+            entity_threat_audience_pct,
+            entity_threat_industry_tier,
+            entity_threat_seasonality_flag,
+            entity_threat_distance_km,
             google_photos,
             google_rating,
             google_rating_count,
@@ -141,7 +153,7 @@ export const GET: APIRoute = async ({ url }) => {
     ]);
 
     // Build lookup: competitor_event_id → alert row
-    const alertByCompetitorEventId = new Map<string, { event_label: string; conflict_score: number; distance_m: number | null; change_subtype: string | null }>();
+    const alertByCompetitorEventId = new Map<string, { event_label: string; conflict_score: number; distance_m: number | null; change_subtype: string | null; entity_threat_score: number | null; entity_threat_level: string | null; entity_threat_audience_pct: number | null; entity_threat_industry_tier: string | null; entity_threat_seasonality_flag: boolean | null; entity_threat_distance_km: number | null }>();
     for (const a of (alertRows || [])) {
       const id = String(a.competitor_event_id || "").trim();
       if (!id) continue;
@@ -150,6 +162,12 @@ export const GET: APIRoute = async ({ url }) => {
         alertByCompetitorEventId.set(id, {
           event_label: String(a.event_label || "").trim(),
           conflict_score: Number(a.conflict_score ?? 0),
+          entity_threat_score: Number(a.entity_threat_score ?? 0),
+          entity_threat_level: a.entity_threat_level ?? null,
+          entity_threat_audience_pct: Number(a.entity_threat_audience_pct ?? 0),
+          entity_threat_industry_tier: a.entity_threat_industry_tier ?? null,
+          entity_threat_seasonality_flag: a.entity_threat_seasonality_flag ?? false,
+          entity_threat_distance_km: Number(a.entity_threat_distance_km ?? 0),
           distance_m: a.distance_m ?? null,
           change_subtype: a.change_subtype ?? null,
         });
@@ -182,6 +200,12 @@ export const GET: APIRoute = async ({ url }) => {
         keyword_priority_rank: 0,
         is_followed: true,
         conflict_score: Number(ce.conflict_score ?? 0),
+        entity_threat_score: Number(ce.entity_threat_score ?? 0),
+        entity_threat_level: ce.entity_threat_level ?? null,
+        entity_threat_audience_pct: Number(ce.entity_threat_audience_pct ?? 0),
+        entity_threat_industry_tier: ce.entity_threat_industry_tier ?? null,
+        entity_threat_seasonality_flag: ce.entity_threat_seasonality_flag ?? false,
+        entity_threat_distance_km: Number(ce.entity_threat_distance_km ?? 0),
         competitor_name: ce.competitor_name || null,
         google_photos: ce.google_photos || null,
         google_rating: ce.google_rating ?? null,

@@ -163,11 +163,15 @@ export const GET: APIRoute = async ({ request }) => {
           p.primary_audience_1,
           p.primary_audience_2,
           p.company_name,
-          p.city_name,
-          p.region_name,
-          p.client_industry_code,
+          ctx.city_name,
+          d.region_name,
+          d.client_industry_code,
           n.last_daily_email_sent_at
         FROM \`${projectId}.raw.insight_event_user_location_profile\` p
+        LEFT JOIN \`${projectId}.dims.dim_client_location\` d
+          ON p.location_id = d.location_id
+        LEFT JOIN \`${projectId}.semantic.vw_insight_event_ai_location_context\` ctx
+          ON p.location_id = ctx.location_id
         LEFT JOIN \`${projectId}.raw.notification_preferences\` n
           ON p.clerk_user_id = n.clerk_user_id
         WHERE p.email IS NOT NULL
@@ -348,6 +352,26 @@ export const GET: APIRoute = async ({ request }) => {
           failed_names: Array.isArray(healthRaw.failed_names) ? healthRaw.failed_names.filter(Boolean) : [],
         };
 
+        // 2f. Stale surveillance detection — competitors not crawled in 3+ days
+        const [staleRows] = await bq.query({
+          query: `
+            SELECT cd.competitor_name,
+              TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(ce.crawled_at), DAY) AS days_since_crawl
+            FROM \`${projectId}.raw.watched_competitors\` wc
+            JOIN \`${projectId}.raw.competitor_directory\` cd
+              ON wc.competitor_id = cd.competitor_id AND cd.deleted_at IS NULL
+            LEFT JOIN \`${projectId}.raw.competitor_events\` ce
+              ON cd.competitor_id = ce.competitor_id AND ce.extraction_status IN ('success', 'partial')
+            WHERE wc.clerk_user_id = @clerk_user_id AND wc.deleted_at IS NULL
+            GROUP BY cd.competitor_name
+            HAVING MAX(ce.crawled_at) IS NULL
+              OR TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(ce.crawled_at), DAY) >= 3
+          `,
+          params: { clerk_user_id: user.clerk_user_id },
+          location: BQ_LOCATION,
+        });
+        const staleCompetitors: string[] = (staleRows as any[]).map((r: any) => String(r.competitor_name));
+
         // 2f. Score per saved event date (today vs yesterday)
         const eventScores: Record<string, { today: number; yesterday: number }> = {};
         for (const evt of savedEvents) {
@@ -382,8 +406,9 @@ export const GET: APIRoute = async ({ request }) => {
         const hasNewCrawlFailure = competitorChanges.some(c => c.extraction_status === "failed" || c.extraction_status === "fetch_error");
         const hasEventMilestone = savedEvents.some(e => [0, 3, 7].includes(e.days_until));
         const hasEventScoreChange = Object.values(eventScores).some(s => Math.abs(s.today - s.yesterday) >= 0.3);
+        const hasStaleSurveillance = staleCompetitors.length > 0;
 
-        const hasMaterialChange = hasScoreChange || hasWeatherAlert || hasNewCompetitorEvent || hasEventMilestone || hasEventScoreChange;
+        const hasMaterialChange = hasScoreChange || hasWeatherAlert || hasNewCompetitorEvent || hasEventMilestone || hasEventScoreChange || hasStaleSurveillance;
 
         if (!hasMaterialChange) {
           results.skipped++;
@@ -437,6 +462,7 @@ export const GET: APIRoute = async ({ request }) => {
               date_range: c.event_date ? `${c.event_date}${c.event_date_end ? ' → ' + c.event_date_end : ''}` : null,
             })),
           crawl_failures: crawlHealth.failed_names.slice(0, 2),
+          stale_surveillance: staleCompetitors.slice(0, 3),
         };
 
         const narrativeSystem = `Tu es le rédacteur du briefing matinal de Muse Square Insight — une plateforme d'intelligence locale pour les professionnels de l'événementiel en France. Tu rédiges un briefing de 3 paragraphes courts (2-3 phrases chacun), factuel, opérationnel, chaleureux mais pas marketing. Chaque paragraphe commence par une phrase en gras qui résume le point clé pour un lecteur pressé. Tu t'adresses directement à l'utilisateur ("votre score", "votre zone"). Tu ne répètes jamais des données brutes — tu les interprètes en impact business. Tu réponds UNIQUEMENT avec le texte HTML des 3 paragraphes (balises <p> avec <strong> pour les leads), sans JSON, sans markdown, sans préambule.`;
@@ -577,6 +603,7 @@ function buildBriefingHtml(d: BriefingData): string {
   if (urgentEvent) verdictParts.push(`J-${urgentEvent.days_until} ${urgentEvent.title}`);
   const newCompEvents = competitorChanges.filter(c => c.extraction_status === "success" && c.event_name);
   if (newCompEvents.length > 0) verdictParts.push(`${newCompEvents.length} nouveau${newCompEvents.length > 1 ? "x" : ""} concurrent${newCompEvents.length > 1 ? "s" : ""}`);
+  if (d.crawlHealth.failed_names.length > 0) verdictParts.push(`${d.crawlHealth.failed_names.length} veille${d.crawlHealth.failed_names.length > 1 ? "s" : ""} interrompue${d.crawlHealth.failed_names.length > 1 ? "s" : ""}`);
 
   // ── Actions HTML ──
   const actionsHtml = savedEvents.map(evt => {

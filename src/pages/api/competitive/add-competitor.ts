@@ -2,6 +2,8 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
+import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
+import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 
 export const prerender = false;
 
@@ -39,9 +41,39 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const competitor_name     = String(body?.competitor_name     || "").trim();
     const city                = String(body?.city                || "").trim();
 
-    if (!competitor_name || !city) {
+    let resolvedCity = city;
+    if (!resolvedCity) {
+      try {
+        const bqTmp = makeBQClient(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+        const [locRows] = await bqTmp.query({
+          query: `
+            SELECT company_address
+            FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.raw.insight_event_user_location_profile\`
+            WHERE location_id = @location_id
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY updated_at DESC) = 1
+          `,
+          params: { location_id },
+          types: { location_id: "STRING" },
+          location: (process.env.BQ_LOCATION || "EU").trim(),
+        });
+        if (Array.isArray(locRows) && locRows.length > 0 && locRows[0].company_address) {
+          const addr = String(locRows[0].company_address).trim();
+          const cityMatch = addr.match(/\d{5}\s+(.+)$/);
+          if (cityMatch) {
+            resolvedCity = cityMatch[1].trim();
+          } else {
+            resolvedCity = addr.split(",").pop()?.trim() || "";
+          }
+          if (resolvedCity) console.info(`[add-competitor] city resolved from address: ${resolvedCity}`);
+        }
+      } catch (e: any) {
+        console.warn("[add-competitor] city fallback query failed:", e?.message);
+      }
+    }
+
+    if (!competitor_name || !resolvedCity) {
       console.warn("[add-competitor] 400 — received body:", JSON.stringify(body));
-      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city", received: { competitor_name: competitor_name || null, city: city || null } }), {
+      return new Response(JSON.stringify({ ok: false, error: "Missing required fields: competitor_name, city", received: { competitor_name: competitor_name || null, city: resolvedCity || null } }), {
         status: 400, headers: { "content-type": "application/json" }
       });
     }
@@ -53,6 +85,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const address             = String(body?.address             || "").trim() || null;
     const source_url          = String(body?.source_url          || "").trim() || null;
     const description         = String(body?.description         || "").trim() || null;
+
+    const VALID_ENTITY_TYPE = new Set(["competitor", "institution", "media", "aggregator"]);
+    const entity_type         = VALID_ENTITY_TYPE.has(body?.entity_type) ? body.entity_type : "competitor";
+
     const google_place_id     = String(body?.google_place_id     || "").trim() || null;
     const photos              = String(body?.photos              || "").trim() || null;
     const google_rating       = typeof body?.google_rating === "number" ? body.google_rating : null;
@@ -81,11 +117,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
         SELECT competitor_id, confidence_score
         FROM \`${projectId}.raw.competitor_directory\`
         WHERE LOWER(competitor_name) = LOWER(@competitor_name)
-          AND LOWER(city) = LOWER(@city)
+          AND (
+            LOWER(city) = LOWER(@city)
+            OR LOWER(@city) LIKE CONCAT(LOWER(city), '%')
+            OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
+          )
           AND deleted_at IS NULL
         LIMIT 1
       `,
-      params: { competitor_name, city },
+      params: { competitor_name, city: resolvedCity },
       types:  { competitor_name: "STRING", city: "STRING" },
       location: BQ_LOCATION,
     });
@@ -118,28 +158,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
         query: `
           INSERT INTO \`${projectId}.raw.competitor_directory\` (
             competitor_id, competitor_name, address, city,
+            entity_type,
             industry_code, industry_bucket,
             primary_audience, secondary_audience,
             lat, lon,
-            source_system, google_place_id, photos,
-            google_rating, google_review_count, google_review_summary,
+            source_system, google_place_id, google_photos,
+            google_rating, google_rating_count,
             description, source_url,
             confidence_score, is_user_vetted, vetted_at, vetted_by,
             created_at, updated_at, deleted_at
           ) VALUES (
             @competitor_id, @competitor_name, @address, @city,
+            @entity_type,
             @industry_code, @industry_bucket,
             @primary_audience, @secondary_audience,
             @lat, @lon,
-            @source_system, @google_place_id, @photos,
-            @google_rating, @google_review_count, @google_review_summary,
+            @source_system, @google_place_id, @google_photos,
+            @google_rating, @google_rating_count,
             @description, @source_url,
             @confidence_score, TRUE, CURRENT_TIMESTAMP(), @clerk_user_id,
             CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), NULL
           )
         `,
         params: {
-          competitor_id, competitor_name, city,
+          competitor_id, competitor_name, city: resolvedCity,
+          entity_type,
           address:              address              ?? null,
           industry_code:        industry_code        ?? null,
           industry_bucket:      industry_bucket      ?? null,
@@ -149,10 +192,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
           lon:                  lon                  ?? null,
           source_system,
           google_place_id:      google_place_id      ?? null,
-          photos:               photos               ?? null,
+          google_photos:        photos               ?? null,
           google_rating:        google_rating        ?? null,
-          google_review_count:  google_review_count  ?? null,
-          google_review_summary: google_review_summary ?? null,
+          google_rating_count:  google_review_count  ?? null,
           description:          description          ?? null,
           source_url:           source_url           ?? null,
           confidence_score,
@@ -160,16 +202,38 @@ export const POST: APIRoute = async ({ request, locals }) => {
         },
         types: {
           competitor_id: "STRING", competitor_name: "STRING", city: "STRING",
+          entity_type: "STRING",
           address: "STRING", industry_code: "STRING", industry_bucket: "STRING",
           primary_audience: "STRING", secondary_audience: "STRING",
           lat: "FLOAT64", lon: "FLOAT64",
-          source_system: "STRING", google_place_id: "STRING", photos: "STRING",
-          google_rating: "FLOAT64", google_review_count: "INT64",
-          google_review_summary: "STRING", description: "STRING", source_url: "STRING",
+          source_system: "STRING", google_place_id: "STRING", google_photos: "STRING",
+          google_rating: "FLOAT64", google_rating_count: "INT64",
+          description: "STRING", source_url: "STRING",
           confidence_score: "FLOAT64", clerk_user_id: "STRING",
         },
         location: BQ_LOCATION,
       });
+    }
+
+    // ── 1b. Geocode if lat/lon missing ──
+    if (lat === null || lon === null) {
+      try {
+        const geo = await geocodeCompetitor(competitor_name, resolvedCity, address);
+        if (geo) {
+          await bq.query({
+            query: `
+              UPDATE \`${projectId}.raw.competitor_directory\`
+              SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
+              WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+            `,
+            params: { lat: geo.lat, lon: geo.lon, competitor_id },
+            types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
+            location: BQ_LOCATION,
+          });
+        }
+      } catch (geoErr: any) {
+        console.error("[add-competitor] geocode failed:", geoErr?.message);
+      }
     }
 
     // ── 2. Upsert watched_competitors ──
@@ -179,11 +243,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
         FROM \`${projectId}.raw.watched_competitors\`
         WHERE clerk_user_id = @clerk_user_id
           AND LOWER(competitor_name) = LOWER(@competitor_name)
-          AND LOWER(city) = LOWER(@city)
+          AND (
+            LOWER(city) = LOWER(@city)
+            OR LOWER(@city) LIKE CONCAT(LOWER(city), '%')
+            OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
+          )
           AND deleted_at IS NULL
         LIMIT 1
       `,
-      params: { clerk_user_id, competitor_name, city },
+      params: { clerk_user_id, competitor_name, city: resolvedCity },
       types: { clerk_user_id: "STRING", competitor_name: "STRING", city: "STRING" },
       location: BQ_LOCATION,
     });
@@ -207,10 +275,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
           INSERT INTO \`${projectId}.raw.watched_competitors\` (
             watched_competitor_id, clerk_user_id, location_id,
             competitor_id, competitor_name, industry_code, city,
+            entity_type,
             source_url, confidence_score, created_at, deleted_at
           ) VALUES (
             @watched_competitor_id, @clerk_user_id, @location_id,
             @competitor_id, @competitor_name, @industry_code, @city,
+            @entity_type,
             @source_url, @confidence_score, CURRENT_TIMESTAMP(), NULL
           )
         `,
@@ -218,14 +288,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
           watched_competitor_id, clerk_user_id, location_id,
           competitor_id, competitor_name,
           industry_code: industry_code ?? null,
-          city,
+          entity_type,
+          city: resolvedCity,
           source_url: source_url ?? null,
           confidence_score,
         },
         types: {
           watched_competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING",
           competitor_id: "STRING", competitor_name: "STRING",
-          industry_code: "STRING", city: "STRING",
+          industry_code: "STRING", entity_type: "STRING", city: "STRING",
           source_url: "STRING", confidence_score: "FLOAT64",
         },
         location: BQ_LOCATION,
@@ -239,32 +310,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let extraction_status = "no_url";
     let discovered_url: string | null = null;
     let discovery_status: "found" | "not_found" | "skipped" = "skipped";
-
-    const AGENDA_PATTERNS = [
-      "agenda", "programme", "events", "calendar", "manifestation",
-      "what-s-on", "au-programme", "expositions", "spectacles",
-    ];
-
-    function isHomepagePath(url: string): boolean {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return !path || path === "/" || /^\/(fr|en|de|es|it)\/?$/.test(path);
-      } catch { return false; }
-    }
-
-    function isAgendaPath(url: string): boolean {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return AGENDA_PATTERNS.some(p => path.includes(p));
-      } catch { return false; }
-    }
-
-    function scoreUrl(url: string): number {
-      try {
-        const path = new URL(url).pathname.toLowerCase();
-        return AGENDA_PATTERNS.filter(p => path.includes(p)).length;
-      } catch { return 0; }
-    }
 
     if (source_url) {
       const browserless_token = process.env.BROWSERLESS_TOKEN ?? "";
@@ -304,81 +349,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
         crawl_status = "blocked";
       }
 
-      // URL discovery — always when source is a homepage, regardless of accessibility
-      if (
-        isHomepagePath(source_url) &&
-        !isAgendaPath(source_url)
-      ) {
-        try {
-          const discoverBql = `mutation DiscoverLinks {
-            goto(url: "${source_url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
-            verify(type: cloudflare) { found solved }
-            evaluate(content: "JSON.stringify(Array.from(document.querySelectorAll('a[href]')).map(a => a.href).filter(h => h.startsWith('http')).slice(0, 100))") { value }
-          }`;
+      // URL discovery — find agenda/programme URL if source is a homepage
+      if (isHomepagePath(source_url) && !isAgendaPath(source_url)) {
+        const discovery = await discoverAgendaUrl(
+          source_url,
+          browserless_token,
+          10_000
+        );
+        discovered_url = discovery.discovered_url;
+        discovery_status = discovery.discovery_status === "found" ? "found" : "not_found";
 
-          const discoverRes = await fetch(
-            `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
-            {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ query: discoverBql }),
-              signal: AbortSignal.timeout(15000),
-            }
-          );
-
-          if (discoverRes.ok) {
-            const discoverResult = await discoverRes.json();
-            const raw = discoverResult?.data?.evaluate?.value || "[]";
-            const allLinks: string[] = JSON.parse(raw);
-
-            // Filter to same origin, score, take top 3
-            const origin = new URL(source_url).origin;
-            const candidates = allLinks
-              .filter(h => {
-                try { return new URL(h).origin === origin && isAgendaPath(h); } catch { return false; }
-              })
-              .map(h => ({ url: h, score: scoreUrl(h) }))
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 3);
-
-            // Test each candidate with a lightweight check
-            for (const candidate of candidates) {
-              try {
-                const testBql = `mutation CheckPage {
-                  goto(url: "${candidate.url.replace(/"/g, '\\"')}", waitUntil: domContentLoaded) { status }
-                  text { text }
-                }`;
-                const testRes = await fetch(
-                  `https://production-sfo.browserless.io/stealth/bql?token=${browserless_token}`,
-                  {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ query: testBql }),
-                    signal: AbortSignal.timeout(10000),
-                  }
-                );
-                if (testRes.ok) {
-                  const testResult = await testRes.json();
-                  const text = testResult?.data?.text?.text || "";
-                  if (text.length > 100) {
-                    discovered_url = candidate.url;
-                    discovery_status = "found";
-                    break;
-                  }
-                }
-              } catch { /* try next */ }
-            }
-
-            if (discovery_status !== "found") {
-              discovery_status = "not_found";
-            }
-          }
-        } catch (discoverErr: any) {
-          console.error("[add-competitor] url discovery failed:", discoverErr?.message);
-          discovery_status = "not_found";
-        }
-
-        // If a better URL was found, update both watched_competitors and competitor_directory
         if (discovered_url) {
           await bq.query({
             query: `

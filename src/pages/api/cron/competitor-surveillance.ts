@@ -22,6 +22,8 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
+import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
+import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 
 export const prerender = false;
 
@@ -391,6 +393,8 @@ export const GET: APIRoute = async ({ request }) => {
           cd.source_url,
           cd.vetted_by,
           cd.industry_code                    AS competitor_industry_code,
+          cd.lat                              AS competitor_lat,
+          cd.lon                              AS competitor_lon,
           lp.company_lat                      AS location_lat,
           lp.company_lon                      AS location_lon,
           lc.last_crawled
@@ -414,7 +418,7 @@ export const GET: APIRoute = async ({ request }) => {
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
         ORDER BY lc.last_crawled ASC NULLS FIRST
-        LIMIT 1
+        LIMIT 10
       `,
       location: BQ_LOCATION,
     });
@@ -422,18 +426,61 @@ export const GET: APIRoute = async ({ request }) => {
     const competitors = sources as CompetitorSource[];
 
     // ── Step 2-5: Fetch → Extract → Write per competitor ─────────────────────
-    // Pick ONE competitor — oldest crawled first
-    const comp = competitors[0];
-    // Skip if this competitor was already crawled in the last 12 hours
-    const lastCrawled = (comp as any)?.last_crawled;
+    // Filter out competitors crawled in the last 12 hours
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    if (comp && lastCrawled && String(lastCrawled) > twelveHoursAgo) {
+    const toCrawl = competitors.filter((c: any) => {
+      const raw = c.last_crawled;
+      const str = raw?.value ?? (raw != null ? String(raw) : "");
+      return !str || str === "" || str <= twelveHoursAgo;
+    });
+
+    if (toCrawl.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "all_competitors_crawled_recently", ...results }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
     }
-    if (comp) {
+    // ── Geocode backfill — fill lat/lon for all vetted competitors missing coordinates ──
+    try {
+      const [missingGeo] = await bq.query({
+        query: `
+          SELECT competitor_id, competitor_name, city, address
+          FROM \`${projectId}.raw.competitor_directory\`
+          WHERE is_user_vetted = TRUE AND deleted_at IS NULL AND (lat IS NULL OR lon IS NULL)
+          LIMIT 5
+        `,
+        location: BQ_LOCATION,
+      });
+      for (const dir of (missingGeo as any[])) {
+        try {
+          const geo = await geocodeCompetitor(
+            String(dir.competitor_name ?? ""),
+            String(dir.city ?? ""),
+            dir.address ? String(dir.address) : null
+          );
+          if (geo) {
+            await bq.query({
+              query: `
+                UPDATE \`${projectId}.raw.competitor_directory\`
+                SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
+                WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+              `,
+              params: { lat: geo.lat, lon: geo.lon, competitor_id: String(dir.competitor_id) },
+              types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
+              location: BQ_LOCATION,
+            });
+          }
+        } catch (geoErr: any) {
+          console.error("[competitor-surveillance] geocode failed for", dir.competitor_name, geoErr?.message);
+        }
+      }
+    } catch (geoErr: any) {
+      console.error("[competitor-surveillance] geocode backfill query failed:", geoErr?.message);
+    }
+
+    for (const comp of toCrawl) {
+      // Timeout guard — break before Vercel kills the function
+      if (Date.now() - startTime > TIMEOUT_MS) break;
       // Timeout guard — break loop before Vercel kills the function
       // (timeout guard removed — single competitor mode, no loop)
 
@@ -698,6 +745,68 @@ export const GET: APIRoute = async ({ request }) => {
           location: BQ_LOCATION,
         });
 
+        // ── Backfill competitor address if missing ──
+          if (extraction.venue_address || extraction.event_city) {
+            try {
+              const [addrRow] = await bq.query({
+                query: `
+                  SELECT address, city
+                  FROM \`${projectId}.raw.competitor_directory\`
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                  LIMIT 1
+                `,
+                params: { competitor_id: comp.competitor_id },
+                types: { competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              const addrDir = (addrRow as any[])[0];
+              const needsAddress = addrDir && !addrDir.address && extraction.venue_address;
+              const needsCity = addrDir && (!addrDir.city || addrDir.city.length > 30) && extraction.event_city;
+              if (needsAddress || needsCity) {
+                const updates: string[] = [];
+                const params: Record<string, any> = { competitor_id: comp.competitor_id };
+                const types: Record<string, string> = { competitor_id: "STRING" };
+                if (needsAddress) {
+                  updates.push("address = @address");
+                  params.address = extraction.venue_address;
+                  types.address = "STRING";
+                }
+                if (needsCity) {
+                  updates.push("city = @clean_city");
+                  params.clean_city = extraction.event_city;
+                  types.clean_city = "STRING";
+                }
+                updates.push("updated_at = CURRENT_TIMESTAMP()");
+                await bq.query({
+                  query: `
+                    UPDATE \`${projectId}.raw.competitor_directory\`
+                    SET ${updates.join(", ")}
+                    WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                  `,
+                  params,
+                  types,
+                  location: BQ_LOCATION,
+                });
+                // Reset lat/lon so geocode backfill picks up the new address
+                if (needsAddress) {
+                  await bq.query({
+                    query: `
+                      UPDATE \`${projectId}.raw.competitor_directory\`
+                      SET lat = NULL, lon = NULL, updated_at = CURRENT_TIMESTAMP()
+                      WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                        AND lat IS NULL
+                    `,
+                    params: { competitor_id: comp.competitor_id },
+                    types: { competitor_id: "STRING" },
+                    location: BQ_LOCATION,
+                  });
+                }
+              }
+            } catch (addrErr: any) {
+              console.error("[competitor-surveillance] address backfill failed:", addrErr?.message);
+            }
+          }
+
         } // close for (const extraction of extractionArray)
 
         extractionStatus = anySuccess ? "success" : anyPartial ? "partial" : "failed";
@@ -759,6 +868,46 @@ export const GET: APIRoute = async ({ request }) => {
           },
           location: BQ_LOCATION,
         });
+
+        // ── URL discovery on failure — find a better URL if current one fails ──
+        if (
+          (extractionStatus === "fetch_error" || extractionStatus === "failed" || extractionStatus === "partial") &&
+          comp.source_url &&
+          process.env.BROWSERLESS_TOKEN
+        ) {
+          try {
+            const discovery = await discoverAgendaUrl(
+              comp.source_url,
+              process.env.BROWSERLESS_TOKEN,
+              10_000
+            );
+            if (discovery.discovered_url && discovery.discovered_url !== comp.source_url) {
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET source_url = @discovered_url, updated_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.watched_competitors\`
+                  SET source_url = @discovered_url
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              results.errors.push(`${comp.competitor_id}: url_discovery=${discovery.discovery_status}, new_url=${discovery.discovered_url}`);
+            }
+          } catch (discErr: any) {
+            console.error("[competitor-surveillance] url discovery failed:", discErr?.message);
+          }
+        }
       }
     }
 

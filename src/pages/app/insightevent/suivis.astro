@@ -25,8 +25,12 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
         </button>
         <button id="tab-brands" onclick="showTab('brands')"
           class="px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase">
-          Concurrents
+          Entit\u00e9s suivies
         </button>
+      </div>
+
+      <div id="entity-type-filter" style="display:none;margin-bottom:12px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="entity-filter-pills"></div>
       </div>
 
       <div id="panel-loading" class="text-sm text-gray-400">Chargement…</div>
@@ -56,6 +60,20 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
     sport:'Sports & Loisirs actifs', transport_mobility:'Transport & Mobilité locale',
     outdoor_leisure:'Tourisme & Loisirs', nightlife:'Vie nocturne',
     unknown:'Autre activité accueillant du public',
+  };
+
+  var ENTITY_TYPE_LABELS = {
+    competitor: 'Concurrent',
+    institution: 'Institution locale',
+    media: 'M\u00e9dia local',
+    aggregator: 'Plateforme'
+  };
+
+  var ENTITY_TYPE_COLORS = {
+    competitor: { bg: '#EEF2FF', color: '#3730A3' },
+    institution: { bg: '#FEF3C7', color: '#92400E' },
+    media: { bg: '#E0E7FF', color: '#3730A3' },
+    aggregator: { bg: '#F3E8FF', color: '#6B21A8' }
   };
 
   function escH(s) {
@@ -201,7 +219,12 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       : item.source_url
       ? '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#EAF3DE;color:#27500A;white-space:nowrap;">Suivi actif</span>'
       : '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:#F1EFE8;color:#444441;white-space:nowrap;">Sans URL</span>';
-    html += '<div style="font-size:12px;color:#6B7280;margin-top:4px;display:flex;align-items:center;gap:6px;">' + escH(industryLabel) + '&nbsp;&nbsp;' + statusBadge + '</div>';
+    var etLabel = ENTITY_TYPE_LABELS[item.entity_type] || ENTITY_TYPE_LABELS['competitor'];
+    var etColor = ENTITY_TYPE_COLORS[item.entity_type] || ENTITY_TYPE_COLORS['competitor'];
+    var entityPill = item.entity_type && item.entity_type !== 'competitor'
+      ? '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;background:' + etColor.bg + ';color:' + etColor.color + ';white-space:nowrap;">' + escH(etLabel) + '</span>'
+      : '';
+    html += '<div style="font-size:12px;color:#6B7280;margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' + escH(industryLabel) + entityPill + statusBadge + '</div>';
     html += '</div>';
     html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
     // chevron
@@ -558,6 +581,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       );
       evtPanel.innerHTML = renderEventsPanel(out.competitors);
       brdPanel.innerHTML = renderBrandsPanel(out.competitors);
+      renderEntityFilterPills();
 
       showTab('events');
     } catch(e) { console.error('loadData error', e); }
@@ -574,6 +598,47 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   window.saveUrl            = saveUrl;
   window.unfollowEvent      = unfollowEvent;
   window.unfollowCompetitor = unfollowCompetitor;
+
+  var activeEntityFilter = null;
+
+  function renderEntityFilterPills() {
+    if (!data || !data.competitors) return;
+    var types = {};
+    data.competitors.forEach(function(c) {
+      var t = c.entity_type || 'competitor';
+      types[t] = (types[t] || 0) + 1;
+    });
+    var keys = Object.keys(types);
+    var container = document.getElementById('entity-filter-pills');
+    var wrapper = document.getElementById('entity-type-filter');
+    if (!container || !wrapper) return;
+    if (keys.length <= 1) { wrapper.style.display = 'none'; return; }
+    wrapper.style.display = 'block';
+    var html = '<button onclick="filterByEntityType(null)" style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid ' + (!activeEntityFilter ? '#111827' : '#E5E7EB') + ';background:' + (!activeEntityFilter ? '#111827' : '#fff') + ';color:' + (!activeEntityFilter ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">Tous (' + data.competitors.length + ')</button>';
+    keys.forEach(function(k) {
+      var label = ENTITY_TYPE_LABELS[k] || k;
+      var isActive = activeEntityFilter === k;
+      html += '<button onclick="filterByEntityType(\'' + escH(k) + '\')" style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid ' + (isActive ? '#111827' : '#E5E7EB') + ';background:' + (isActive ? '#111827' : '#fff') + ';color:' + (isActive ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escH(label) + ' (' + types[k] + ')</button>';
+    });
+    container.innerHTML = html;
+  }
+
+  function filterByEntityType(type) {
+    activeEntityFilter = type;
+    renderEntityFilterPills();
+    rerenderBrands();
+  }
+
+  window.filterByEntityType = filterByEntityType;
+
+  // Patch rerenderBrands to apply filter
+  var _origRenderBrandsPanel = renderBrandsPanel;
+  renderBrandsPanel = function(items) {
+    if (activeEntityFilter && items) {
+      items = items.filter(function(c) { return (c.entity_type || 'competitor') === activeEntityFilter; });
+    }
+    return _origRenderBrandsPanel(items);
+  };
 
   loadData();
 

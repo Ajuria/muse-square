@@ -2,6 +2,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import crypto from "crypto";
 import {
   VALID_CONFIDENCE,
   VALID_INDUSTRY,
@@ -198,6 +199,36 @@ Priorité des sources : site officiel > Eventbrite > Openagenda > presse locale 
       c.confidence_score >= 0.5 &&
       !(c.source_url && JUNK_URL_PATTERNS.some(p => p.test(c.source_url!)))
     );
+
+    // Cache high-confidence results (fire and forget)
+    if (filtered.length > 0) {
+      const rows = filtered
+        .filter(c => c.confidence_score >= 0.7)
+        .map(c => ({
+          enrichment_id: crypto.randomUUID(),
+          event_uid: null,
+          event_label: c.name,
+          city_id: null,
+          source: 'competitive_search',
+          enriched_at: new Date().toISOString(),
+          confirmed_dates: c.date_start && c.date_end ? `${c.date_start} - ${c.date_end}` : c.date_start,
+          venue_name: c.location,
+          venue_address: c.address,
+          venue_capacity: null,
+          organizer: c.organizer,
+          estimated_attendance: null,
+          audience_profile: c.primary_audience,
+          primary_audience: c.primary_audience,
+          secondary_audience: null,
+          source_url: c.source_url,
+          business_takeaway: c.description,
+        }));
+
+      if (rows.length > 0) {
+        bq.dataset("dims").table("dim_event_enrichment").insert(rows)
+          .catch((err: any) => console.warn("[search-web] cache write failed:", err));
+      }
+    }
 
     return new Response(JSON.stringify({
       ok:       true,
