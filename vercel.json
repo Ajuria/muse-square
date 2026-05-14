@@ -1,0 +1,1 @@
+{"functions":{"src/pages/api/cron/**/*.ts":{"maxDuration":60}}}
