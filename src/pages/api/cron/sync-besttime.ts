@@ -23,10 +23,10 @@ async function fetchBestTimeWeek(venueId: string, apiKey: string): Promise<any[]
   }
 }
 
-export const GET: APIRoute = async ({ url }) => {
-  const secret = url.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
-    return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401 });
+export const GET: APIRoute = async ({ url, request }) => {
+  const authHeader = request.headers.get("authorization") || "";
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
   }
 
   const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
@@ -73,7 +73,7 @@ export const GET: APIRoute = async ({ url }) => {
   const [rows] = await bq.query({
     query: `
       SELECT location_id, besttime_venue_id
-      FROM \`${projectId}.mart.dim_ai_context_location\`
+      FROM \`${projectId}.dims.dim_ai_context_location\`
       WHERE besttime_venue_id IS NOT NULL
         AND active_flag = true
     `,
