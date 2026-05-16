@@ -1,0 +1,921 @@
+---
+export const prerender = false;
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
+const location_id =
+  Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+if (!location_id) {
+  return Astro.redirect("/profile");
+}
+const signal_type = Astro.url?.searchParams?.get("type") ?? "";
+const signal_date = Astro.url?.searchParams?.get("date") ?? "";
+---
+<Show when="signed-out" client:load>
+  <script is:inline>window.location.href = "/sign-in";</script>
+</Show>
+<Show when="signed-in" client:load>
+  <BaseLayout title="Signal — Insight Event" hideSurveyCta={true} hideFooter={true}>
+    <style is:inline>
+      .fs-wrap { width:100%; max-width:680px; margin:0 auto; padding:20px 20px 160px 20px; box-sizing:border-box; }
+      .fs-loading { display:flex; align-items:center; justify-content:center; gap:8px; padding:60px 0; color:#9ca3af; font-size:13px; }
+      .fs-loading-spin { width:14px; height:14px; border:2px solid #e5e7eb; border-top-color:#1D3BB3; border-radius:50%; display:inline-block; animation:ms-spin 0.7s linear infinite; }
+      @keyframes ms-spin { to { transform:rotate(360deg); } }
+      .fs-back { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#1D3BB3; text-decoration:none; margin-bottom:16px; cursor:pointer; background:none; border:none; font-family:inherit; padding:0; }
+      .fs-back:hover { text-decoration:underline; }
+      /* Hero */
+      .fs-hero { padding:20px 24px; border-radius:0; margin-bottom:20px; border-left:5px solid; }
+      .fs-hero.cat-urgent { background:#FEF2F2; border-color:#dc2626; }
+      .fs-hero.cat-concurrence { background:#FEF2F2; border-color:#ef4444; }
+      .fs-hero.cat-meteo { background:#fef3c7; border-color:#f59e0b; }
+      .fs-hero.cat-opportunite { background:#F0FDF4; border-color:#22c55e; }
+      .fs-hero.cat-intelligence { background:#EFF6FF; border-color:#3b82f6; }
+      .fs-hero.cat-planification { background:#FFFDE7; border-color:#F57F17; }
+      .fs-hero-cat { font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+      .fs-hero-title { font-size:20px; font-weight:700; color:#1a1d2e; line-height:1.3; }
+      /* Sections */
+      .fs-section { margin-bottom:24px; }
+      .fs-section-title { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#a0a6be; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #edf0f7; }
+      .fs-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+      .fs-metric { background:#f7f8fb; border-radius:10px; padding:14px 16px; }
+      .fs-metric-label { font-size:11px; font-weight:600; letter-spacing:0.03em; color:#9198ae; margin-bottom:6px; }
+      .fs-metric-value { font-size:26px; font-weight:600; color:#1a1d2e; line-height:1.15; }
+      .fs-metric-value.sm { font-size:15px; }
+      .fs-metric-unit { font-size:13px; font-weight:400; color:#9198ae; margin-left:2px; }
+      .fs-metric-sub { font-size:11px; color:#9198ae; margin-top:4px; line-height:1.4; }
+      /* Weather hero card */
+      .fs-weather-card { margin:0 0 20px; border-radius:14px; overflow:hidden; background:linear-gradient(145deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%); border:1px solid #fcd34d; }
+      .fs-weather-card-top { padding:24px 24px 16px; display:flex; align-items:flex-start; gap:18px; }
+      .fs-weather-card-bottom { display:flex; gap:24px; padding:14px 24px 18px; border-top:1px solid rgba(245,158,11,0.2); }
+      .fs-weather-emoji { font-size:56px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.08)); }
+      .fs-weather-temp { font-size:38px; font-weight:700; color:#78350f; line-height:1; }
+      .fs-weather-temp-lo { font-size:20px; font-weight:400; color:#92400e; opacity:0.7; }
+      .fs-weather-cond { font-size:16px; color:#92400e; margin-top:6px; font-weight:500; }
+      .fs-weather-stat-label { font-size:11px; color:#92400e; opacity:0.6; }
+      .fs-weather-stat-value { font-size:16px; font-weight:600; color:#78350f; margin-top:2px; }
+      .fs-alert-badge { padding:5px 12px; border-radius:8px; font-size:12px; font-weight:700; }
+      /* Competitors */
+      .fs-comp-card { padding:14px 16px; background:#f7f8fb; border-radius:10px; margin-bottom:8px; }
+      .fs-comp-org { font-size:14px; font-weight:700; color:#1a1d2e; }
+      .fs-comp-event { font-size:13px; font-weight:500; color:#4a4d5e; margin-top:4px; }
+      .fs-comp-theme { font-size:11px; color:#9198ae; margin-top:3px; }
+      .fs-comp-dist { font-size:13px; font-weight:600; color:#9198ae; white-space:nowrap; padding-top:2px; }
+      .fs-comp-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:4px; background:#dbeafe; color:#1e40af; }
+      .fs-map-link { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#f7f8fb; border-radius:10px; margin-top:4px; font-size:13px; color:#4361ee; text-decoration:none; font-weight:600; cursor:pointer; }
+      .fs-map-link:hover { background:#eef0f7; }
+      /* Mega event card */
+      .fs-mega-card { border-radius:12px; border:1px solid #dbeafe; background:#f0f5ff; padding:18px 20px; margin-bottom:0; }
+      .fs-mega-name { font-size:18px; font-weight:700; color:#1e3a5f; margin-bottom:4px; }
+      .fs-mega-org { font-size:13px; color:#4a5d80; margin-bottom:10px; }
+      .fs-mega-stats { display:flex; flex-wrap:wrap; gap:16px; font-size:13px; color:#4a5d80; }
+      .fs-mega-bold { font-weight:700; color:#1e3a5f; }
+      .fs-mega-link { display:inline-flex; align-items:center; gap:6px; margin-top:12px; font-size:13px; font-weight:600; color:#4361ee; text-decoration:none; }
+      /* Disruption card */
+      .fs-disruption-card { border-radius:12px; border:1px solid #fecaca; background:#fef2f2; padding:18px 20px; }
+      .fs-disruption-line { width:44px; height:44px; border-radius:10px; background:#dc2626; color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; flex-shrink:0; }
+      .fs-disruption-title { font-size:16px; font-weight:700; color:#7f1d1d; }
+      .fs-disruption-status { font-size:13px; font-weight:600; color:#dc2626; margin-top:2px; }
+      .fs-disruption-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px; color:#4a1d1d; margin-top:14px; }
+      .fs-disruption-label { color:#9198ae; font-size:11px; }
+      .fs-disruption-val { font-weight:600; margin-top:2px; }
+      /* Pourquoi */
+      .fs-pourquoi { border-left:4px solid #4361ee; background:rgba(67,97,238,0.025); border-radius:0 10px 10px 0; padding:18px 20px; margin-bottom:12px; }
+      .fs-pourquoi-title { font-size:13px; font-weight:700; color:#4361ee; margin-bottom:14px; }
+      .fs-pourquoi-fact { display:flex; align-items:baseline; gap:0; line-height:1.55; margin-bottom:10px; }
+      .fs-pourquoi-fact:last-child { margin-bottom:0; }
+      .fs-pourquoi-label { font-size:12px; font-weight:600; color:#6b7280; flex-shrink:0; }
+      .fs-pourquoi-value { font-size:15px; font-weight:800; color:#1a1d2e; margin-left:4px; }
+      .fs-pourquoi-text { font-size:13px; color:#4a4d5e; margin-left:6px; }
+      /* Que faire */
+      .fs-quefaire { display:flex; align-items:flex-start; gap:10px; padding:14px 18px; background:#f0fdf4; border-radius:10px; border-left:4px solid #22c55e; }
+      .fs-quefaire-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+      .fs-quefaire-label { font-size:11px; font-weight:700; color:#16a34a; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:4px; }
+      .fs-quefaire-text { font-size:13px; color:#14532d; line-height:1.6; }
+      /* Sources */
+      .fs-source { display:flex; align-items:center; gap:10px; padding:11px 14px; background:#f7f8fb; border-radius:8px; margin-bottom:6px; font-size:13px; color:#2a2d3e; text-decoration:none; cursor:pointer; }
+      .fs-source:hover { background:#eef0f7; }
+      .fs-source-icon { font-size:16px; color:#9198ae; flex-shrink:0; }
+      /* Action bar */
+      .fs-action-bar { position:fixed; bottom:56px; left:0; right:0; z-index:80; display:flex; justify-content:center; }
+      .fs-action-bar-inner { width:100%; max-width:680px; background:#fff; border-top:1px solid #edf0f7; padding:10px 20px; display:flex; align-items:center; gap:10px; }
+      .fs-btn-comm { flex:1; padding:12px 0; border-radius:10px; border:none; background:#4361ee; color:#fff; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px; }
+      .fs-btn-send { flex:1; padding:12px 0; border-radius:10px; border:1px solid #e5e7eb; background:#f7f8fb; color:#4a4d5e; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px; }
+      /* Workspace */
+      .fs-ws-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:200; align-items:flex-end; justify-content:center; }
+      .fs-ws-overlay.is-open { display:flex; }
+      .fs-ws-panel { width:100%; max-width:680px; background:#fff; border-top:3px solid #1D3BB3; max-height:95vh; overflow-y:auto; animation:fsSlideUp 0.2s ease-out; }
+      @keyframes fsSlideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+      .fs-ws-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-bottom:1px solid #f3f4f6; }
+      .fs-ws-ch-btn { display:flex; align-items:center; gap:8px; padding:5px 10px; border-radius:6px; border:1px solid #e5e7eb; background:#f9fafb; cursor:pointer; font-size:11px; font-weight:600; color:#374151; font-family:inherit; }
+      .fs-ws-ch-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.1); z-index:10; min-width:240px; overflow:hidden; }
+      .fs-ws-ch-item { display:flex; align-items:center; gap:10px; padding:8px 14px; width:100%; border:none; cursor:pointer; font-size:12px; color:#374151; font-family:inherit; text-align:left; border-bottom:0.5px solid #f3f4f6; }
+      .fs-ws-ch-heading { padding:6px 14px 2px; font-size:9px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#9ca3af; }
+      .fs-ws-ch-icon { width:20px; height:20px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; flex-shrink:0; }
+      .fs-ws-banner { margin:8px 16px 0; padding:8px 12px; border-radius:6px; background:#F5F7FF; border:1px solid #DBEAFE; display:flex; align-items:center; justify-content:space-between; }
+      .fs-ws-field-label { font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#6b7280; margin-bottom:4px; }
+      .fs-ws-input { width:100%; border:none; border-bottom:1px solid #e5e7eb; padding:6px 0; font-size:12px; color:#111827; outline:none; font-family:inherit; background:transparent; }
+      .fs-ws-title { width:100%; border:none; border-bottom:1px solid #e5e7eb; padding:6px 0; font-size:13px; font-weight:600; color:#111827; outline:none; font-family:inherit; background:transparent; }
+      .fs-ws-body { width:100%; border:none; outline:none; font-size:12.5px; color:#111827; line-height:1.6; resize:none; overflow:hidden; min-height:100px; font-family:inherit; background:transparent; }
+      .fs-ws-hashtags { width:100%; border:none; border-top:1px solid #f3f4f6; padding:6px 0; font-size:11px; color:#6366f1; outline:none; font-family:inherit; background:transparent; }
+      .fs-ws-adjust { flex:1; border:1px solid #e5e7eb; border-radius:6px; padding:6px 10px; font-size:11px; color:#111827; outline:none; font-family:inherit; background:#f9fafb; }
+      .fs-ws-adjust-btn { padding:6px 12px; border-radius:6px; background:#1D3BB3; color:#fff; border:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; }
+      .fs-ws-copy { padding:7px 14px; border-radius:6px; background:#1D3BB3; color:#fff; border:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; }
+      .fs-ws-save { padding:7px 14px; border-radius:6px; background:#f9fafb; color:#374151; border:1px solid #e5e7eb; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; }
+      .fs-ws-recip-dd { display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e5e7eb; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.06); z-index:100; margin-top:4px; overflow:hidden; }
+    </style>
+
+    <div class="fs-wrap" id="fs-root">
+      <div class="fs-loading" id="fs-loader">
+        <span class="fs-loading-spin"></span>
+        Chargement du signal...
+      </div>
+    </div>
+
+    <script is:inline src="/action-cards.js?v=5"></script>
+    <script is:inline define:vars={{ location_id, signal_type, signal_date }}>
+    (function() {
+      'use strict';
+
+      var root = document.getElementById("fs-root");
+      var loader = document.getElementById("fs-loader");
+      if (!root) return;
+
+      // ── Helpers ──
+      function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      function num(v) { return v != null ? String(Math.round(Number(v))) : '\u2014'; }
+      function pct(v) { return v != null ? Math.round(Number(v)) + '%' : '\u2014'; }
+      function temp(v) { return v != null ? Math.round(Number(v)) + '\u00b0' : '\u2014'; }
+      function ratio(v) { return v != null ? '\u00d7' + Number(v).toFixed(1) : '\u2014'; }
+      function distFmt(m) { if (!m) return '\u2014'; var v = Number(m); return v >= 1000 ? (v/1000).toFixed(1) + ' km' : Math.round(v) + 'm'; }
+
+      // ── Weather emoji ──
+      function weatherEmoji(code) {
+        var c = Number(code || 0);
+        if (c === 0) return '\u2600\ufe0f';
+        if (c <= 2) return '\ud83c\udf24\ufe0f';
+        if (c === 3) return '\u2601\ufe0f';
+        if (c >= 45 && c <= 48) return '\ud83c\udf2b\ufe0f';
+        if (c >= 51 && c <= 55) return '\ud83c\udf27\ufe0f';
+        if (c >= 56 && c <= 57) return '\ud83c\udf28\ufe0f';
+        if (c >= 61 && c <= 65) return '\ud83c\udf27\ufe0f';
+        if (c >= 66 && c <= 67) return '\ud83c\udf28\ufe0f';
+        if (c >= 71 && c <= 77) return '\u2744\ufe0f';
+        if (c >= 80 && c <= 82) return '\u26c8\ufe0f';
+        if (c >= 85 && c <= 86) return '\ud83c\udf28\ufe0f';
+        if (c >= 95) return '\u26a1';
+        return '\ud83c\udf24\ufe0f';
+      }
+
+      // ── Hazard label ──
+      function hazardLabel(d) {
+        if (Number(d.lvl_snow || 0) >= 2) return 'neige';
+        if (Number(d.lvl_rain || 0) >= 2) return 'fortes pluies';
+        if (Number(d.lvl_wind || 0) >= 2) return 'vent fort';
+        if (Number(d.lvl_heat || 0) >= 2) return 'canicule';
+        if (Number(d.lvl_cold || 0) >= 2) return 'grand froid';
+        if (Number(d.lvl_rain || 0) >= 1) return 'pluie';
+        if (Number(d.lvl_wind || 0) >= 1) return 'vent';
+        return '';
+      }
+
+      // ── French translations ──
+      var AUD_FR = {local:'r\u00e9sidents locaux',professionals:'professionnels',tourists:'touristes',students:'\u00e9tudiants',families:'familles',seniors:'seniors',mixed:'public mixte'};
+      var LOC_FR = {indoor:'int\u00e9rieur',outdoor:'ext\u00e9rieur',mixed:'mixte'};
+
+      // ── Category config ──
+      var CAT_CLASS = { 'URGENT':'cat-urgent', 'CONCURRENCE':'cat-concurrence', 'M\u00c9T\u00c9O':'cat-meteo', 'OPPORTUNIT\u00c9':'cat-opportunite', 'INTELLIGENCE':'cat-intelligence', 'PLANIFICATION':'cat-planification' };
+      var CAT_COLOR = { 'URGENT':'#7f1d1d', 'CONCURRENCE':'#991b1b', 'M\u00c9T\u00c9O':'#78350f', 'OPPORTUNIT\u00c9':'#14532d', 'INTELLIGENCE':'#1e3a5f', 'PLANIFICATION':'#78350f' };
+
+      // ── Mode detection ──
+      var METEO_TYPES = ['weather_hazard_onset','weather_worsened','weather_improved','weather_window','extended_bad_weather'];
+      var COMPETITION_TYPES = ['high_competition_density','competitor_threat_direct','competition_proximity','low_competition_window','competition_pressure_spike','competitor_event_launch','competitor_audience_conflict','competitor_review_surge','competitor_review_drop','competitor_hours_change','competitor_new_offering','competitor_sold_out','competitor_content_spike','competitor_content_silent'];
+      var MOBILITY_TYPES = ['mobility_disruption','mobility_disruption_planned','mobility_disruption_resolved'];
+      var OPPORTUNITY_TYPES = ['top_day_approaching','weekend_opportunity','audience_shift_opportunity','score_up'];
+      var CALENDAR_TYPES = ['calendar_audience_shift'];
+
+      function getMode(type, spec) {
+        if (METEO_TYPES.indexOf(type) >= 0) return 'meteo';
+        if (COMPETITION_TYPES.indexOf(type) >= 0) return 'concurrence';
+        if (MOBILITY_TYPES.indexOf(type) >= 0) return 'mobilite';
+        if (OPPORTUNITY_TYPES.indexOf(type) >= 0) return 'opportunite';
+        if (CALENDAR_TYPES.indexOf(type) >= 0) return 'opportunite';
+        if (spec) {
+          var cat = spec.category_label_fr;
+          if (cat === 'M\u00c9T\u00c9O') return 'meteo';
+          if (cat === 'CONCURRENCE') return 'concurrence';
+          if (cat === 'OPPORTUNIT\u00c9') return 'opportunite';
+        }
+        return 'intelligence';
+      }
+
+      // ── Crawled data parser ──
+      function parseCrawled(prof) {
+        try {
+          var raw = prof.auto_enriched_description;
+          if (!raw) return {};
+          return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch(e) { return {}; }
+      }
+
+      // ── Topic sections (generic fallback) ──
+      var TOPIC_SECTIONS = { 'weather':['weather'], 'competition':['competition','competitors'], 'mobility':['mobility'], 'score':['score'], 'calendar':['calendar'] };
+      var isActionType = window.ACTION_CARDS && window.ACTION_CARDS[signal_type];
+      var isGenericTopic = TOPIC_SECTIONS[signal_type];
+
+      // ── Try sessionStorage first ──
+      var cachedData = null;
+      try {
+        var key = "ms_signal_data_" + location_id + "_" + signal_date;
+        var raw = sessionStorage.getItem(key);
+        if (raw) cachedData = JSON.parse(raw);
+      } catch(e) {}
+
+      if (cachedData) {
+        renderPage(cachedData.day, cachedData.prof, cachedData.actionCandidate);
+      } else {
+        var dates = signal_date || new Date().toISOString().slice(0,10);
+        fetch("/api/insight/monitor?location_id=" + encodeURIComponent(location_id) + "&selected_dates=" + encodeURIComponent(dates))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (!data || !data.ok) throw new Error("Donn\u00e9es indisponibles");
+            var day = (data.days || []).find(function(d) {
+              var dd = (d.date && d.date.value) ? d.date.value : String(d.date || '');
+              return dd.slice(0,10) === signal_date;
+            }) || data.days[0] || {};
+            var prof = data.profile || {};
+            var ac = null;
+            if (isActionType && data.action_candidates) {
+              ac = data.action_candidates.find(function(c) { return c.action_type === signal_type; }) || null;
+            }
+            renderPage(day, prof, ac);
+          })
+          .catch(function(err) {
+            loader.innerHTML = '<span style="color:#B91C1C;">Erreur : ' + esc(err.message) + '</span>';
+          });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // RENDER PAGE
+      // ════════════════════════════════════════════════════════════════
+
+      function renderPage(day, prof, actionCandidate) {
+        if (day.opportunity_score != null && day.opportunity_score_final_local == null) day.opportunity_score_final_local = day.opportunity_score;
+        if (day.opportunity_medal == null && day.opportunity_regime) day.opportunity_medal = day.opportunity_regime;
+
+        var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
+        var mode = getMode(signal_type, spec);
+        var crawled = parseCrawled(prof);
+        var html = '';
+
+        // ── Build feed item for sowhat ──
+        var feedItem = {};
+        if (actionCandidate && actionCandidate.data_payload) {
+          var dp = actionCandidate.data_payload;
+          for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; }
+        }
+        feedItem.change_subtype = signal_type;
+
+        // ── Compute sowhat ──
+        var sowhat = '';
+        if (spec) { try { sowhat = spec.sowhat(feedItem, prof, day, 'signal'); } catch(e) {} }
+
+        // ── Back button ──
+        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+
+        // ── Hero — minimal: category + title only ──
+        if (spec) {
+          var cat = spec.category_label_fr;
+          var catClass = CAT_CLASS[cat] || 'cat-intelligence';
+          var catColor = CAT_COLOR[cat] || '#1e3a5f';
+          // For mobility: dynamic title with transport info
+          var heroTitle = spec.brand_label_fr;
+          if (mode === 'mobilite' && prof.nearest_transit_stop_name) {
+            var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
+            heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
+          }
+          html += '<div class="fs-hero ' + catClass + '">'
+            + '<div class="fs-hero-cat" style="color:' + catColor + ';">' + esc(spec.icon) + ' ' + esc(cat) + '</div>'
+            + '<div class="fs-hero-title">' + esc(heroTitle) + '</div>'
+          + '</div>';
+        } else if (isGenericTopic) {
+          var topicLabels = { weather:'M\u00e9t\u00e9o', competition:'Concurrence', mobility:'Mobilit\u00e9', score:'Score du jour', calendar:'Calendrier' };
+          var topicClasses = { weather:'cat-meteo', competition:'cat-concurrence', mobility:'cat-urgent', score:'cat-intelligence', calendar:'cat-intelligence' };
+          html += '<div class="fs-hero ' + (topicClasses[signal_type] || 'cat-intelligence') + '">'
+            + '<div class="fs-hero-cat" style="color:#1e3a5f;">' + esc(topicLabels[signal_type] || signal_type) + '</div>'
+            + '<div class="fs-hero-title">' + esc(topicLabels[signal_type] || signal_type) + ' \u2014 ' + esc(signal_date) + '</div>'
+          + '</div>';
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE: MÉTÉO
+        // ════════════════════════════════════════════════════════════
+        if (mode === 'meteo') {
+          var alertLevel = Number(day.alert_level_max || 0);
+          var alertFr = alertLevel >= 3 ? 'critique' : alertLevel >= 2 ? 's\u00e9v\u00e8re' : alertLevel >= 1 ? 'mod\u00e9r\u00e9' : 'faible';
+          var alertBg = alertLevel >= 2 ? '#fecaca' : alertLevel >= 1 ? '#fed7aa' : '#e5e7eb';
+          var alertCol = alertLevel >= 2 ? '#991b1b' : alertLevel >= 1 ? '#9a3412' : '#6b7280';
+          var impactWPct = Number(day.impact_weather_pct || 0);
+          var deltaW = Number(day.delta_att_weather_total_pct || day.impact_weather_pct || 0);
+
+          // Weather hero card
+          html += '<div class="fs-weather-card">'
+            + '<div class="fs-weather-card-top">'
+              + '<span class="fs-weather-emoji">' + weatherEmoji(day.weather_code) + '</span>'
+              + '<div style="flex:1;">'
+                + '<div class="fs-weather-temp">' + (day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : '\u2014') + '\u00b0 <span class="fs-weather-temp-lo">/ ' + (day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : '\u2014') + '\u00b0</span></div>'
+                + '<div class="fs-weather-cond">' + esc(day.weather_label_fr || '') + '</div>'
+              + '</div>'
+              + '<div class="fs-alert-badge" style="background:' + alertBg + ';color:' + alertCol + ';">Alerte ' + alertFr + '</div>'
+            + '</div>'
+            + '<div class="fs-weather-card-bottom">'
+              + '<div><div class="fs-weather-stat-label">Vent</div><div class="fs-weather-stat-value">' + num(day.wind_speed_10m_max) + ' km/h</div></div>'
+              + '<div><div class="fs-weather-stat-label">Pr\u00e9cipitations</div><div class="fs-weather-stat-value">' + (day.precipitation_sum_mm != null ? Number(day.precipitation_sum_mm).toFixed(1) : '\u2014') + ' mm</div></div>'
+              + '<div style="margin-left:auto;text-align:right;">'
+                + '<div class="fs-weather-stat-label">Impact fr\u00e9quentation</div>'
+                + '<div style="font-size:24px;font-weight:700;color:' + (impactWPct < -5 ? '#dc2626' : '#16a34a') + ';margin-top:2px;">' + Math.round(impactWPct) + '%</div>'
+              + '</div>'
+            + '</div>'
+          + '</div>';
+
+          // Impact KPIs
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">Impact sur votre site</div>'
+            + '<div class="fs-grid">'
+              + '<div class="fs-metric"><div class="fs-metric-label">Sensibilit\u00e9 m\u00e9t\u00e9o</div><div class="fs-metric-value" style="color:' + (Number(prof.weather_sensitivity || 0) >= 3 ? '#dc2626' : '#1a1d2e') + ';">' + (prof.weather_sensitivity || '\u2014') + ' <span class="fs-metric-unit">/5</span></div><div class="fs-metric-sub">' + (Number(prof.weather_sensitivity || 0) >= 3 ? '\u00e9lev\u00e9e' : 'mod\u00e9r\u00e9e') + '</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Type d\u2019espace</div><div class="fs-metric-value sm">' + esc(LOC_FR[String(prof.location_type || '').toLowerCase()] || prof.location_type || '\u2014') + '</div><div class="fs-metric-sub">' + (String(prof.location_type || '').toLowerCase() === 'mixed' || String(prof.location_type || '').toLowerCase() === 'outdoor' ? 'impact ext\u00e9rieur' : 'couvert') + '</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Variation trafic</div><div class="fs-metric-value" style="color:' + (deltaW < -5 ? '#dc2626' : '#1a1d2e') + ';">' + (deltaW > 0 ? '+' : '') + Math.round(deltaW) + ' <span class="fs-metric-unit">%</span></div></div>'
+            + '</div>'
+          + '</div>';
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE: CONCURRENCE
+        // ════════════════════════════════════════════════════════════
+        if (mode === 'concurrence') {
+          var samePct = Number(day.events_within_5km_count || 0) > 0 ? Math.round(Number(day.events_within_5km_same_bucket_count || 0) / Number(day.events_within_5km_count) * 100) : 0;
+          var pr = Number(day.competition_pressure_ratio || 0);
+
+          // Competition KPIs
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">Pression concurrentielle</div>'
+            + '<div class="fs-grid">'
+              + '<div class="fs-metric"><div class="fs-metric-label">\u00c0 500m</div><div class="fs-metric-value">' + num(day.events_within_500m_count) + '</div><div class="fs-metric-sub">\u00e9v\u00e9nements</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">\u00c0 1 km</div><div class="fs-metric-value">' + num(day.events_within_1km_count) + '</div><div class="fs-metric-sub">\u00e9v\u00e9nements</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">\u00c0 5 km</div><div class="fs-metric-value">' + num(day.events_within_5km_count) + '</div><div class="fs-metric-sub">' + num(day.events_within_5km_same_bucket_count) + ' m\u00eame secteur (' + samePct + '%)</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Pression</div><div class="fs-metric-value" style="color:' + (pr >= 1.5 ? '#dc2626' : '#1a1d2e') + ';">' + ratio(day.competition_pressure_ratio) + '</div><div class="fs-metric-sub">vs moyenne</div></div>'
+            + '</div>'
+          + '</div>';
+
+          // Competitors list — watched first
+          var tc = day.top_competitors || [];
+          if (tc.length > 0) {
+            var watched = []; var notWatched = [];
+            for (var ci = 0; ci < tc.length; ci++) {
+              var c = tc[ci].e || tc[ci];
+              if (c.watched_event_id) watched.push(c); else notWatched.push(c);
+            }
+            var allComp = watched.concat(notWatched);
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Concurrents' + (watched.length > 0 ? ' \u2014 ' + watched.length + ' suivi' + (watched.length > 1 ? 's' : '') : '') + '</div>';
+            for (var ci2 = 0; ci2 < Math.min(allComp.length, 5); ci2++) {
+              var cc = allComp[ci2];
+              var isWatched = !!cc.watched_event_id;
+              html += '<div class="fs-comp-card">'
+                + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">'
+                  + '<div style="flex:1;min-width:0;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+                      + '<span class="fs-comp-org">' + esc(cc.organizer_name || cc.event_label || '\u2014') + '</span>'
+                      + (isWatched ? '<span class="fs-comp-badge">Suivi</span>' : '')
+                    + '</div>'
+                    + '<div class="fs-comp-event">' + esc(cc.event_label || '') + '</div>'
+                    + (cc.theme ? '<div class="fs-comp-theme">' + esc(cc.theme) + '</div>' : '')
+                  + '</div>'
+                  + '<div class="fs-comp-dist">' + distFmt(cc.distance_m) + '</div>'
+                + '</div>'
+              + '</div>';
+            }
+            html += '<a href="/app/insightevent/map?location_id=' + encodeURIComponent(location_id) + '&date=' + encodeURIComponent(signal_date) + '&embed=1" class="fs-map-link">'
+              + '\ud83d\uddfa Voir sur la carte \u2192'
+            + '</a>';
+            html += '</div>';
+          }
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE: INTELLIGENCE
+        // ════════════════════════════════════════════════════════════
+        if (mode === 'intelligence') {
+          // Mega event card if available
+          var tcMega = day.top_competitors || [];
+          var megaComp = tcMega.length > 0 ? (tcMega[0].e || tcMega[0]) : null;
+          if (megaComp && (signal_type === 'mega_event_activation' || signal_type === 'mega_event_end')) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">\u00c9v\u00e9nement concern\u00e9</div>'
+              + '<div class="fs-mega-card">'
+                + '<div class="fs-mega-name">' + esc(megaComp.event_label || megaComp.organizer_name || '\u2014') + '</div>'
+                + '<div class="fs-mega-org">' + esc(megaComp.organizer_name || '') + '</div>'
+                + '<div class="fs-mega-stats">'
+                  + (megaComp.estimated_attendance ? '<div><span class="fs-mega-bold">' + Math.round(Number(megaComp.estimated_attendance) / 1000) + 'k</span> visiteurs</div>' : '')
+                  + '<div><span class="fs-mega-bold">' + distFmt(megaComp.distance_m) + '</span> de votre site</div>'
+                + '</div>'
+                + (megaComp.event_url ? '<a href="' + esc(megaComp.event_url) + '" target="_blank" rel="noopener" class="fs-mega-link">\ud83d\udd17 En savoir plus \u2192</a>' : '<a href="/app/insightevent/map?location_id=' + encodeURIComponent(location_id) + '&date=' + encodeURIComponent(signal_date) + '&embed=1" class="fs-mega-link">\ud83d\uddfa Voir sur la carte \u2192</a>')
+              + '</div>'
+            + '</div>';
+          }
+
+          // Day KPIs — relevant for intelligence
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">Donn\u00e9es du jour</div>'
+            + '<div class="fs-grid">'
+              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value">' + num(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">R\u00e9gime</div><div class="fs-metric-value">' + esc(day.opportunity_regime || '\u2014') + '</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Facteur</div><div class="fs-metric-value sm">' + esc(day.primary_score_driver_label_fr || '\u2014') + '</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9daille</div><div class="fs-metric-value">' + esc(day.opportunity_medal || '\u2014') + '</div></div>'
+            + '</div>'
+          + '</div>';
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE: OPPORTUNITÉ
+        // ════════════════════════════════════════════════════════════
+        if (mode === 'opportunite') {
+          var prOpp = Number(day.competition_pressure_ratio || 0);
+          var pressureLabel = prOpp < 0.5 ? 'Tr\u00e8s faible' : prOpp < 0.8 ? 'Faible' : prOpp < 1.2 ? 'Normale' : prOpp < 1.5 ? '\u00c9lev\u00e9e' : 'Tr\u00e8s \u00e9lev\u00e9e';
+          var pressureColor = prOpp < 0.8 ? '#16a34a' : prOpp < 1.2 ? '#1a1d2e' : '#dc2626';
+
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">Conditions du jour</div>'
+            + '<div class="fs-grid">'
+              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value" style="color:#16a34a;">' + num(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Concurrence</div><div class="fs-metric-value sm" style="color:' + pressureColor + ';">' + esc(pressureLabel) + '</div><div class="fs-metric-sub">' + num(day.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9t\u00e9o</div><div class="fs-metric-value sm" style="color:' + (Number(day.alert_level_max || 0) === 0 ? '#16a34a' : '#92400e') + ';">' + esc(day.weather_label_fr || '\u2014') + '</div><div class="fs-metric-sub">' + (day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) + '\u00b0C' : '') + '</div></div>'
+            + '</div>'
+          + '</div>';
+
+          // Calendar context if present
+          var calItems = [];
+          if (day.holiday_name) calItems.push(day.holiday_name);
+          if (day.vacation_name) calItems.push(day.vacation_name);
+          if (day.commercial_events && day.commercial_events.length > 0) {
+            for (var ei = 0; ei < day.commercial_events.length; ei++) {
+              calItems.push(day.commercial_events[ei].event_name || '');
+            }
+          }
+          if (calItems.length > 0) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Contexte calendaire</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            for (var cli = 0; cli < calItems.length; cli++) {
+              html += '<span style="font-size:12px;padding:6px 12px;background:#f7f8fb;border-radius:8px;color:#374151;font-weight:500;">' + esc(calItems[cli]) + '</span>';
+            }
+            html += '</div></div>';
+          }
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // MODE: MOBILITÉ
+        // ════════════════════════════════════════════════════════════
+        if (mode === 'mobilite') {
+          var tName = prof.nearest_transit_stop_name || '';
+          var tLine2 = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
+          var tDist = prof.nearest_transit_stop_distance_m ? Math.round(Number(prof.nearest_transit_stop_distance_m)) : 0;
+          var mobImpact = Number(day.delta_att_mobility_pct || 0);
+
+          // Disruption card
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">D\u00e9tail de la perturbation</div>'
+            + '<div class="fs-disruption-card">'
+              + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
+                + (tLine2 ? '<div class="fs-disruption-line">' + esc(tLine2) + '</div>' : '')
+                + '<div>'
+                  + '<div class="fs-disruption-title">' + (tLine2 ? 'Ligne ' + esc(tLine2) + ' \u2014 ' : '') + esc(tName) + '</div>'
+                  + '<div class="fs-disruption-status">Perturbation d\u00e9tect\u00e9e</div>'
+                + '</div>'
+              + '</div>'
+              + '<div class="fs-disruption-grid">'
+                + '<div><div class="fs-disruption-label">Station</div><div class="fs-disruption-val">' + esc(tName) + '</div></div>'
+                + '<div><div class="fs-disruption-label">Distance</div><div class="fs-disruption-val">' + (tDist > 0 ? tDist + 'm de votre site' : '\u2014') + '</div></div>'
+                + '<div><div class="fs-disruption-label">Impact estim\u00e9</div><div class="fs-disruption-val" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + Math.round(mobImpact) + '%</div></div>'
+                + '<div><div class="fs-disruption-label">Source</div><div class="fs-disruption-val">Muse Square</div></div>'
+              + '</div>'
+            + '</div>'
+          + '</div>';
+
+          // Impact KPIs
+          html += '<div class="fs-section">'
+            + '<div class="fs-section-title">Impact sur votre site</div>'
+            + '<div class="fs-grid">'
+              + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + Math.round(mobImpact) + ' <span class="fs-metric-unit">%</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Distance station</div><div class="fs-metric-value">' + (tDist > 0 ? tDist : '\u2014') + ' <span class="fs-metric-unit">m</span></div><div class="fs-metric-sub">de ' + esc(prof.site_name || 'votre site') + '</div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Score du jour</div><div class="fs-metric-value">' + num(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
+            + '</div>'
+          + '</div>';
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // POURQUOI ÇA VOUS CONCERNE — structured facts
+        // ════════════════════════════════════════════════════════════
+        if (spec && prof) {
+          var siteName = prof.site_name || prof.location_label || 'votre site';
+          var facts = buildPourquoiFacts(mode, day, prof, crawled, feedItem);
+          var queFaire = buildQueFaire(mode, spec, day, prof);
+
+          if (facts.length > 0 || queFaire) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Pourquoi \u00e7a vous concerne</div>'
+              + '<div class="fs-pourquoi">'
+                + '<div class="fs-pourquoi-title">' + esc(siteName) + '</div>';
+            for (var fi = 0; fi < facts.length; fi++) {
+              var f = facts[fi];
+              html += '<div class="fs-pourquoi-fact">'
+                + '<span class="fs-pourquoi-label">' + esc(f.label);
+              if (f.value) html += ' <span class="fs-pourquoi-value">' + esc(f.value) + '</span>';
+              html += '</span>';
+              if (f.text) html += '<span class="fs-pourquoi-text">' + esc(f.text) + '</span>';
+              html += '</div>';
+            }
+            html += '</div>';
+
+            if (queFaire) {
+              html += '<div class="fs-quefaire">'
+                + '<span class="fs-quefaire-icon">\ud83c\udfaf</span>'
+                + '<div>'
+                  + '<div class="fs-quefaire-label">Que faire</div>'
+                  + '<div class="fs-quefaire-text">' + esc(queFaire) + '</div>'
+                + '</div>'
+              + '</div>';
+            }
+
+            html += '</div>';
+          }
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // SOURCES
+        // ════════════════════════════════════════════════════════════
+        html += '<div class="fs-section">'
+          + '<div class="fs-section-title">Sources</div>'
+          + '<div class="fs-source"><span class="fs-source-icon">\ud83d\udcca</span> Donn\u00e9es Muse Square \u2014 mise \u00e0 jour quotidienne</div>';
+
+        // Competitor URLs — only for concurrence mode
+        if (mode === 'concurrence') {
+          var tc3 = day.top_competitors || [];
+          for (var si2 = 0; si2 < Math.min(tc3.length, 3); si2++) {
+            var sc = tc3[si2].e || tc3[si2];
+            if (sc.event_url) {
+              html += '<a href="' + esc(sc.event_url) + '" target="_blank" rel="noopener" class="fs-source">'
+                + '<span class="fs-source-icon">\ud83d\udd17</span> ' + esc(sc.organizer_name || sc.event_label || 'Source') + ' \u2014 site officiel'
+              + '</a>';
+            }
+          }
+        }
+
+        // Weather source
+        if (mode === 'meteo') {
+          html += '<a href="https://meteofrance.com" target="_blank" rel="noopener" class="fs-source">'
+            + '<span class="fs-source-icon">\ud83c\udf26\ufe0f</span> M\u00e9t\u00e9o-France \u2014 pr\u00e9visions'
+          + '</a>';
+        }
+
+        // Mobility source
+        if (mode === 'mobilite') {
+          html += '<a href="https://ratp.fr" target="_blank" rel="noopener" class="fs-source">'
+            + '<span class="fs-source-icon">\ud83d\ude87</span> RATP \u2014 info trafic'
+          + '</a>';
+        }
+
+        // Mega event source
+        if (mode === 'intelligence') {
+          var tcSrc = day.top_competitors || [];
+          var megaSrc = tcSrc.length > 0 ? (tcSrc[0].e || tcSrc[0]) : null;
+          if (megaSrc && megaSrc.event_url && (signal_type === 'mega_event_activation' || signal_type === 'mega_event_end')) {
+            html += '<a href="' + esc(megaSrc.event_url) + '" target="_blank" rel="noopener" class="fs-source">'
+              + '<span class="fs-source-icon">\ud83d\udd17</span> ' + esc(megaSrc.organizer_name || 'Organisateur') + ' \u2014 site officiel'
+            + '</a>';
+          }
+        }
+
+        html += '</div>';
+
+        // ── Render ──
+        root.innerHTML = html;
+        wireActionBar(root, day, prof, feedItem);
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // POURQUOI FACTS BUILDER — structured, mode-specific
+      // ════════════════════════════════════════════════════════════════
+
+      function buildPourquoiFacts(mode, day, prof, crawled, feedItem) {
+        var facts = [];
+        var aud1 = AUD_FR[prof.primary_audience_1] || prof.primary_audience_1 || '';
+        var aud2 = AUD_FR[prof.primary_audience_2] || prof.primary_audience_2 || '';
+        var audStr = aud1 + (aud2 ? ', ' + aud2 : '');
+        var diff = (crawled && crawled.key_differentiators) || (crawled && crawled.current_offering) || prof.business_short_description || '';
+        if (diff && diff.length > 120) diff = diff.substring(0, 120) + '\u2026';
+
+        if (mode === 'meteo') {
+          if (Number(prof.weather_sensitivity || 0) >= 3) facts.push({ label: 'Sensibilit\u00e9 m\u00e9t\u00e9o', value: prof.weather_sensitivity + '/5', text: '\u2014 impact direct sur votre fr\u00e9quentation' });
+          var lt = String(prof.location_type || '').toLowerCase();
+          if (lt === 'mixed' || lt === 'outdoor') facts.push({ label: 'Type d\u2019espace', value: LOC_FR[lt] || lt, text: '\u2014 installations ext\u00e9rieures expos\u00e9es' });
+          if (Number(day.impact_weather_pct || 0) !== 0) facts.push({ label: 'Impact estim\u00e9', value: Math.round(Number(day.impact_weather_pct)) + '%', text: 'de fr\u00e9quentation' });
+          if (diff) facts.push({ label: 'Votre atout', text: diff });
+        } else if (mode === 'concurrence') {
+          facts.push({ label: '\u00c9v\u00e9nements \u00e0 5 km', value: num(day.events_within_5km_count), text: 'dont ' + num(day.events_within_5km_same_bucket_count) + ' dans votre secteur' });
+          facts.push({ label: 'Pression', value: ratio(day.competition_pressure_ratio), text: 'vs moyenne habituelle' });
+          if (diff) facts.push({ label: 'Votre atout', text: diff });
+          if (audStr) facts.push({ label: 'Votre cible', value: audStr, text: 'sollicit\u00e9e par ' + num(day.events_within_5km_same_bucket_count) + ' concurrents directs' });
+        } else if (mode === 'opportunite') {
+          var prOpp = Number(day.competition_pressure_ratio || 0);
+          if (prOpp > 0 && prOpp < 0.8) facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km \u2014 bien en dessous de la moyenne' });
+          else facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km' });
+          facts.push({ label: 'Score', value: num(day.opportunity_score_final_local) + '/10', text: '\u2014 conditions favorables' });
+          if (diff) facts.push({ label: 'Votre atout', text: diff });
+        } else if (mode === 'mobilite') {
+          var tName = prof.nearest_transit_stop_name || '';
+          var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
+          var tDist = prof.nearest_transit_stop_distance_m ? Math.round(Number(prof.nearest_transit_stop_distance_m)) + 'm' : '';
+          if (tName) facts.push({ label: 'Station', value: tName + (tLine ? ' (ligne ' + tLine + ')' : ''), text: tDist ? '\u00e0 ' + tDist + ' de votre site' : '' });
+          if (Number(day.delta_att_mobility_pct || 0) !== 0) facts.push({ label: 'Impact mobilit\u00e9', value: Math.round(Number(day.delta_att_mobility_pct)) + '%', text: 'de fr\u00e9quentation estim\u00e9e' });
+          facts.push({ label: 'Acc\u00e8s visiteurs', text: 'Vos visiteurs viennent \u00e0 pied et en transports \u2014 impact direct' });
+        } else {
+          // Intelligence / default
+          if (Number(day.competition_pressure_ratio || 0) > 0) facts.push({ label: 'Pression', value: ratio(day.competition_pressure_ratio), text: 'niveau actuel' });
+          facts.push({ label: 'Score', value: num(day.opportunity_score_final_local) + '/10' });
+          if (diff) facts.push({ label: 'Votre atout', text: diff });
+        }
+
+        return facts;
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // QUE FAIRE BUILDER — mode-specific action hint
+      // ════════════════════════════════════════════════════════════════
+
+      function buildQueFaire(mode, spec, day, prof) {
+        if (mode === 'meteo') {
+          var lt = String(prof.location_type || '').toLowerCase();
+          if (lt === 'mixed' || lt === 'outdoor') return 'S\u00e9curisez vos installations ext\u00e9rieures et communiquez sur votre offre int\u00e9rieure.';
+          return 'Informez votre \u00e9quipe et adaptez votre accueil aux conditions du jour.';
+        }
+        if (mode === 'concurrence') return 'D\u00e9marquez-vous maintenant \u2014 communiquez votre diff\u00e9renciant avant que votre visibilit\u00e9 ne soit dilu\u00e9e.';
+        if (mode === 'opportunite') return 'Publiez maintenant \u2014 c\u2019est le moment o\u00f9 votre message aura le plus d\u2019impact.';
+        if (mode === 'mobilite') return 'Communiquez un itin\u00e9raire alternatif \u00e0 vos visiteurs et adaptez votre signal\u00e9tique.';
+        if (mode === 'intelligence') {
+          if (signal_type === 'mega_event_end') return 'Profitez de la baisse de pression pour publier et capter l\u2019attention.';
+          if (signal_type === 'mega_event_activation') return 'Captez le trafic de l\u2019\u00e9v\u00e9nement en communiquant votre offre aux visiteurs de passage.';
+          return 'Adaptez votre strat\u00e9gie aux nouvelles conditions.';
+        }
+        return null;
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // ACTION BAR + WORKSPACE (unchanged)
+      // ════════════════════════════════════════════════════════════════
+      var CH_DEFS = {
+        gbp:{label:"Google Business Profile",icon:"G",color:"#4285F4",max:1500,cat:"pub"},
+        instagram:{label:"Instagram",icon:"IG",color:"#E1306C",max:2200,cat:"pub"},
+        facebook:{label:"Facebook",icon:"FB",color:"#1877F2",max:null,cat:"pub"},
+        email:{label:"Email",icon:"@",color:"#6B7280",max:null,cat:"send"},
+        slack:{label:"Slack",icon:"SL",color:"#4A154B",max:null,cat:"send"},
+        whatsapp:{label:"WhatsApp",icon:"WA",color:"#25D366",max:1000,cat:"send"},
+        note_interne:{label:"Note interne",icon:"N",color:"#374151",max:null,cat:"send"}
+      };
+      var CH_PUB = ["gbp","instagram","facebook"];
+      var CH_SEND = ["email","slack","whatsapp","note_interne"];
+
+      function chIconHtml(key) {
+        var c = CH_DEFS[key]; if (!c) return '';
+        return '<span class="fs-ws-ch-icon" style="background:' + c.color + ';">' + esc(c.icon) + '</span>';
+      }
+
+      function wireActionBar(root, day, prof, feedItem) {
+        var barHtml = '<div class="fs-action-bar" id="fs-action-bar">'
+          + '<div class="fs-action-bar-inner">'
+            + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
+            + '<button type="button" class="fs-btn-send" id="fs-btn-send">\u2197\ufe0f Faire suivre</button>'
+          + '</div>'
+        + '</div>'
+        + '<div class="fs-ws-overlay" id="fs-ws-overlay">'
+          + '<div class="fs-ws-panel" id="fs-ws-panel"></div>'
+        + '</div>';
+        root.insertAdjacentHTML('afterend', barHtml);
+
+        var overlay = document.getElementById("fs-ws-overlay");
+        var panel = document.getElementById("fs-ws-panel");
+        var currentChannel = "gbp";
+        var _teamCache = null;
+        var _draftCache = {};
+
+        async function fetchTeam() {
+          if (_teamCache) return _teamCache;
+          try {
+            var res = await fetch("/api/channels/team?location_id=" + encodeURIComponent(location_id));
+            var json = await res.json().catch(function(){ return null; });
+            if (json && json.ok && Array.isArray(json.items)) { _teamCache = json.items; return _teamCache; }
+          } catch(e) {}
+          _teamCache = [];
+          return [];
+        }
+
+        function openWorkspace(mode) {
+          currentChannel = mode === "comm" ? "gbp" : "note_interne";
+          overlay.classList.add("is-open");
+          generateDraft(currentChannel);
+        }
+
+        function closeWorkspace() {
+          overlay.classList.remove("is-open");
+          panel.innerHTML = "";
+        }
+
+        overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
+        document.getElementById("fs-btn-comm").addEventListener("click", function() { openWorkspace("comm"); });
+        document.getElementById("fs-btn-send").addEventListener("click", function() { openWorkspace("send"); });
+
+        function generateDraft(ch) {
+          currentChannel = ch;
+          if (_draftCache[ch]) { renderWorkspace(ch, _draftCache[ch]); return; }
+          var chDef = CH_DEFS[ch] || CH_DEFS.gbp;
+          panel.innerHTML = '<div style="padding:40px 0;text-align:center;font-size:12px;color:#9ca3af;"><span class="fs-loading-spin"></span> R\u00e9daction en cours\u2026</div>';
+
+          var draftSeed = null;
+          if (window.getDraftSeed && window.ACTION_CARDS) {
+            try { draftSeed = window.getDraftSeed(signal_type, ch, feedItem, prof, day); } catch(e) {}
+          }
+
+          var payload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem, card_what: signal_type, card_sowhat: "" };
+          if (draftSeed) payload.draft_seed = draftSeed;
+
+          fetch("/api/insight/generate-action-draft", {
+            method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
+          }).then(function(r) { return r.json(); }).then(function(json) {
+            if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
+            _draftCache[ch] = json.draft;
+            renderWorkspace(ch, json.draft);
+          }).catch(function(err) {
+            panel.innerHTML = '<div style="padding:20px 16px;font-size:12px;color:#B91C1C;">Erreur : ' + esc(err?.message || "R\u00e9essayez") + '</div>';
+          });
+        }
+
+        function renderWorkspace(ch, draft) {
+          var chDef = CH_DEFS[ch] || CH_DEFS.gbp;
+          var isSend = chDef.cat === "send";
+          var showTitle = ch === "gbp" || ch === "email";
+          var showHashtags = ch === "instagram" || ch === "gbp";
+          var showRecipient = isSend && ch !== "note_interne";
+          var recipPlaceholder = ch === "email" ? "destinataire@email.com" : ch === "slack" ? "#canal ou @nom" : ch === "whatsapp" ? "+33 6 12 34 56 78" : "";
+          var insightUrl = window.location.href;
+          var bodyText = draft.body || draft.full_text || "";
+          var titleText = draft.title || "";
+          var hashText = draft.hashtags || "";
+          if (isSend) bodyText += "\n\n\u2014\nConsulter le d\u00e9tail : " + insightUrl;
+
+          var html = '';
+          html += '<div class="fs-ws-header"><div style="display:flex;align-items:center;gap:8px;"><div style="position:relative;" id="fs-ch-wrap"><button type="button" class="fs-ws-ch-btn" id="fs-ch-toggle">' + chIconHtml(ch) + ' ' + esc(chDef.label) + ' <span style="font-size:9px;color:#9ca3af;">\u25be</span></button><div class="fs-ws-ch-menu" id="fs-ch-menu"><div class="fs-ws-ch-heading">Publier sur</div>' + CH_PUB.map(function(k) { var c = CH_DEFS[k]; return '<button type="button" class="fs-ws-ch-item" data-fs-ch="' + k + '" style="background:' + (k === ch ? '#EFF6FF' : '#fff') + ';">' + chIconHtml(k) + ' <span style="flex:1;">' + esc(c.label) + '</span>' + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '') + '</button>'; }).join('') + '<div class="fs-ws-ch-heading">Envoyer \u00e0</div>' + CH_SEND.map(function(k) { var c = CH_DEFS[k]; return '<button type="button" class="fs-ws-ch-item" data-fs-ch="' + k + '" style="background:' + (k === ch ? '#EFF6FF' : '#fff') + ';">' + chIconHtml(k) + ' <span style="flex:1;">' + esc(c.label) + '</span>' + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '') + '</button>'; }).join('') + '</div></div><button type="button" id="fs-ws-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;">\u00d7</button></div></div>';
+          if (isSend) html += '<div class="fs-ws-banner"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>';
+          if (showRecipient) html += '<div style="padding:8px 16px 0;position:relative;" id="fs-recip-wrap"><div class="fs-ws-field-label">Destinataire</div><div id="fs-recip-display" style="font-size:12px;font-weight:500;color:#1D3BB3;margin-bottom:2px;cursor:pointer;display:none;"></div><input class="fs-ws-input" id="fs-recip-input" placeholder="' + esc(recipPlaceholder) + '" /><div class="fs-ws-recip-dd" id="fs-recip-dd"></div></div>';
+          if (showTitle) html += '<div style="padding:10px 16px 0;"><input class="fs-ws-title" id="fs-ws-title" value="' + esc(titleText) + '" placeholder="Titre / Objet" /></div>';
+          html += '<div style="padding:10px 16px;"><textarea class="fs-ws-body" id="fs-ws-body">' + esc(bodyText) + '</textarea></div>';
+          if (showHashtags) html += '<div style="padding:0 16px 10px;"><input class="fs-ws-hashtags" id="fs-ws-hashtags" value="' + esc(hashText) + '" placeholder="#hashtags" /></div>';
+          html += '<div style="padding:0 16px 10px;display:flex;align-items:center;gap:10px;" id="fs-charcount"></div>';
+          html += '<div style="padding:6px 16px 10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;"><input class="fs-ws-adjust" id="fs-ws-adjust" placeholder="Ajuster : plus court, ajouter les horaires\u2026" /><button type="button" class="fs-ws-adjust-btn" id="fs-ws-adjust-btn">\u2192</button></div>';
+          html += '<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><button type="button" class="fs-ws-copy" id="fs-ws-copy">Copier</button><button type="button" class="fs-ws-save" id="fs-ws-save">Enregistrer</button><div style="flex:1;"></div><button type="button" id="fs-ws-publish" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button><button type="button" id="fs-ws-automate" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">\u26a1 Automatiser</button></div>';
+
+          panel.innerHTML = html;
+
+          var bodyEl = document.getElementById("fs-ws-body");
+          if (bodyEl) { bodyEl.style.height = "auto"; bodyEl.style.height = bodyEl.scrollHeight + "px"; }
+
+          function updateChars() {
+            var b = document.getElementById("fs-ws-body");
+            var t = document.getElementById("fs-ws-title");
+            var h = document.getElementById("fs-ws-hashtags");
+            var count = (b ? b.value.length : 0) + (t ? t.value.length + 1 : 0) + (h ? h.value.length + 1 : 0);
+            var el = document.getElementById("fs-charcount");
+            if (!el) return;
+            if (chDef.max) {
+              var pctVal = Math.min(100, Math.round(count / chDef.max * 100));
+              var over = count > chDef.max;
+              el.innerHTML = '<div style="flex:1;height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;"><div style="width:' + pctVal + '%;height:100%;background:' + (over ? '#dc2626' : '#1D3BB3') + ';border-radius:2px;transition:width 0.2s;"></div></div><span style="font-size:10px;font-weight:500;white-space:nowrap;color:' + (over ? '#dc2626' : '#9ca3af') + ';">' + count + ' / ' + chDef.max + '</span>';
+            } else {
+              el.innerHTML = '<span style="font-size:10px;color:#9ca3af;">' + count + ' caract\u00e8res</span>';
+            }
+          }
+          updateChars();
+
+          if (bodyEl) bodyEl.addEventListener("input", function() { bodyEl.style.height = "auto"; bodyEl.style.height = bodyEl.scrollHeight + "px"; updateChars(); });
+          var titleEl = document.getElementById("fs-ws-title"); if (titleEl) titleEl.addEventListener("input", updateChars);
+          var hashEl = document.getElementById("fs-ws-hashtags"); if (hashEl) hashEl.addEventListener("input", updateChars);
+
+          document.getElementById("fs-ws-close").addEventListener("click", closeWorkspace);
+
+          var chToggle = document.getElementById("fs-ch-toggle");
+          var chMenu = document.getElementById("fs-ch-menu");
+          if (chToggle && chMenu) chToggle.addEventListener("click", function(e) { e.stopPropagation(); chMenu.style.display = chMenu.style.display === "none" ? "block" : "none"; });
+          panel.querySelectorAll("[data-fs-ch]").forEach(function(btn) { btn.addEventListener("click", function(e) { e.stopPropagation(); generateDraft(btn.getAttribute("data-fs-ch")); }); });
+
+          document.getElementById("fs-ws-copy").addEventListener("click", function() {
+            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags");
+            var full = [t ? t.value : "", b ? b.value : "", h ? h.value : ""].filter(Boolean).join("\n\n");
+            navigator.clipboard.writeText(full).then(function() {
+              var btn = document.getElementById("fs-ws-copy"); btn.textContent = "Copi\u00e9 \u2713"; btn.style.background = "#f0fdf4"; btn.style.color = "#166534"; btn.style.border = "1px solid #bbf7d0";
+              setTimeout(function() { btn.textContent = "Copier"; btn.style.background = "#1D3BB3"; btn.style.color = "#fff"; btn.style.border = "none"; }, 2000);
+            }).catch(function(){});
+            fetch("/api/analytics/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "draft_copied", location_id: location_id, change_subtype: signal_type, channel: ch, affected_date: signal_date }) }).catch(function(){});
+          });
+
+          document.getElementById("fs-ws-save").addEventListener("click", function() {
+            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags"); var r = document.getElementById("fs-recip-input");
+            var btn = document.getElementById("fs-ws-save"); btn.textContent = "\u2713 Enregistr\u00e9"; btn.style.background = "#f0fdf4"; btn.style.color = "#166534"; btn.style.borderColor = "#bbf7d0";
+            setTimeout(function() { btn.textContent = "Enregistrer"; btn.style.background = "#f9fafb"; btn.style.color = "#374151"; btn.style.borderColor = "#e5e7eb"; }, 2000);
+            fetch("/api/analytics/save-draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: location_id, signal_type: signal_type, channel: ch, card_what: signal_type, card_sowhat: "", affected_date: signal_date, title: t ? t.value : "", body: b ? b.value : "", hashtags: h ? h.value : "", recipient: r ? r.value : "", original_ai_text: draft.body || draft.full_text || "", user_instruction: "" }) }).catch(function(){});
+            fetch("/api/analytics/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "draft_saved", location_id: location_id, change_subtype: signal_type, channel: ch, affected_date: signal_date }) }).catch(function(){});
+          });
+
+          var adjustInput = document.getElementById("fs-ws-adjust");
+          var adjustBtn = document.getElementById("fs-ws-adjust-btn");
+          function submitAdjust() {
+            if (!adjustInput || !adjustInput.value.trim()) return;
+            var instruction = adjustInput.value.trim(); adjustInput.value = "";
+            panel.innerHTML = '<div style="padding:40px 0;text-align:center;font-size:12px;color:#9ca3af;"><span class="fs-loading-spin"></span> Ajustement en cours\u2026</div>';
+            var adjustedPayload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem, card_what: signal_type, card_sowhat: "", user_instruction: instruction };
+            fetch("/api/insight/generate-action-draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(adjustedPayload) })
+              .then(function(r) { return r.json(); })
+              .then(function(json) { if (!json || !json.ok || !json.draft) throw new Error("Draft vide"); renderWorkspace(ch, json.draft); })
+              .catch(function(err) { panel.innerHTML = '<div style="padding:20px 16px;font-size:12px;color:#B91C1C;">Erreur : ' + esc(err?.message || "R\u00e9essayez") + '</div>'; });
+          }
+          if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
+          if (adjustInput) adjustInput.addEventListener("keydown", function(e) { if (e.key === "Enter") { e.preventDefault(); submitAdjust(); } });
+
+          var pubBtn = document.getElementById("fs-ws-publish");
+          if (pubBtn) pubBtn.addEventListener("click", function() {
+            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags"); var r = document.getElementById("fs-recip-input");
+            pubBtn.textContent = "Publication\u2026"; pubBtn.style.opacity = "0.6"; pubBtn.disabled = true;
+            fetch("/api/channels/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel: ch, location_id: location_id, title: t ? t.value : "", body: b ? b.value : "", hashtags: h ? h.value : "", recipient: r ? r.value : "", signal_type: signal_type, affected_date: signal_date }) })
+              .then(function(res) { return res.json(); }).then(function(json) {
+                if (json && json.ok) { pubBtn.textContent = "Publi\u00e9 \u2713"; pubBtn.style.background = "#f0fdf4"; pubBtn.style.color = "#166534"; pubBtn.style.borderColor = "#bbf7d0"; pubBtn.style.opacity = "1"; }
+                else { pubBtn.textContent = "Erreur"; pubBtn.style.color = "#B91C1C"; pubBtn.style.opacity = "1"; pubBtn.disabled = false; setTimeout(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.color = "#1D3BB3"; pubBtn.style.borderColor = "#1D3BB3"; }, 2500); }
+              }).catch(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.opacity = "1"; pubBtn.disabled = false; });
+          });
+
+          var autoBtn = document.getElementById("fs-ws-automate");
+          if (autoBtn) autoBtn.addEventListener("click", function() {
+            var ROUTING_MAP = {weather_worsened:'weather',weather_hazard_onset:'weather',weather_improved:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity'};
+            var sigCat = ROUTING_MAP[signal_type] || 'competition';
+            var r = document.getElementById("fs-recip-input");
+            autoBtn.disabled = true; autoBtn.textContent = "\u26a1 ...";
+            fetch("/api/channels/automation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: location_id, signal_category: sigCat, channel: ch, recipient: r ? r.value : "", require_approval: true, frequency: "first_occurrence" }) })
+              .then(function(res) { return res.json(); }).then(function(json) {
+                if (json && json.ok) { autoBtn.textContent = "\u2713 R\u00e8gle cr\u00e9\u00e9e"; autoBtn.style.background = "#f0fdf4"; autoBtn.style.color = "#166534"; autoBtn.style.borderColor = "#bbf7d0"; }
+                else { autoBtn.textContent = "Erreur"; autoBtn.disabled = false; setTimeout(function() { autoBtn.textContent = "\u26a1 Automatiser"; }, 2000); }
+              }).catch(function() { autoBtn.textContent = "\u26a1 Automatiser"; autoBtn.disabled = false; });
+          });
+
+          if (showRecipient) {
+            var recipInput = document.getElementById("fs-recip-input");
+            var recipDD = document.getElementById("fs-recip-dd");
+            var recipDisplay = document.getElementById("fs-recip-display");
+            fetchTeam().then(function(members) {
+              var contactField = ch === "email" ? "email" : ch === "slack" ? "slack" : ch === "whatsapp" ? "whatsapp" : null;
+              if (!contactField) return;
+              var chMembers = members.filter(function(m) { return m.channels_contact && m.channels_contact[contactField]; });
+              if (!chMembers.length) return;
+              var ROUTING_MAP = {weather_worsened:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competition_pressure_spike:'competition',mobility_disruption:'mobility',score_up:'opportunity',score_down:'opportunity'};
+              var sigCat = ROUTING_MAP[signal_type] || '';
+              var suggested = sigCat ? chMembers.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
+              if (suggested) {
+                recipInput.value = suggested.channels_contact[contactField];
+                recipDisplay.textContent = (suggested.first_name || '') + ' ' + (suggested.last_name || '') + ' \u00b7 ' + suggested.channels_contact[contactField];
+                recipDisplay.style.display = "block"; recipInput.style.display = "none";
+              }
+              recipDisplay.addEventListener("click", function() { recipDisplay.style.display = "none"; recipInput.style.display = "block"; recipInput.value = ""; recipInput.focus(); });
+              var ddHtml = '';
+              if (suggested) {
+                ddHtml += '<div data-fs-pick="' + esc(suggested.channels_contact[contactField]) + '" data-fs-pick-name="' + esc((suggested.first_name||'') + ' ' + (suggested.last_name||'')) + '" style="padding:10px 12px;cursor:pointer;background:#F5F7FF;border-bottom:1px solid #f3f4f6;"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span style="font-size:13px;font-weight:600;color:#111827;">' + esc((suggested.first_name||'') + ' ' + (suggested.last_name||'')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + esc(suggested.role||'') + '</span></div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Sugg\u00e9r\u00e9</span></div><div style="font-size:11px;color:#6b7280;margin-top:2px;">' + esc(suggested.channels_contact[contactField]) + '</div></div>';
+              }
+              chMembers.filter(function(m) { return !suggested || m.member_id !== suggested.member_id; }).forEach(function(m) {
+                ddHtml += '<div data-fs-pick="' + esc(m.channels_contact[contactField]) + '" data-fs-pick-name="' + esc((m.first_name||'') + ' ' + (m.last_name||'')) + '" style="padding:10px 12px;cursor:pointer;"><span style="font-size:13px;font-weight:500;color:#111827;">' + esc((m.first_name||'') + ' ' + (m.last_name||'')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + esc(m.role||'') + '</span><div style="font-size:11px;color:#6b7280;margin-top:1px;">' + esc(m.channels_contact[contactField]) + '</div></div>';
+              });
+              ddHtml += '<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;">Ou saisissez directement</div>';
+              recipDD.innerHTML = ddHtml;
+              recipInput.addEventListener("focus", function() { recipDD.style.display = "block"; });
+              recipDD.querySelectorAll("[data-fs-pick]").forEach(function(opt) {
+                opt.addEventListener("click", function() {
+                  recipInput.value = opt.getAttribute("data-fs-pick");
+                  recipDisplay.textContent = opt.getAttribute("data-fs-pick-name") + ' \u00b7 ' + opt.getAttribute("data-fs-pick");
+                  recipDisplay.style.display = "block"; recipInput.style.display = "none"; recipDD.style.display = "none";
+                });
+              });
+              document.addEventListener("click", function(e) { if (!recipInput.contains(e.target) && !recipDD.contains(e.target) && !recipDisplay.contains(e.target)) recipDD.style.display = "none"; });
+            });
+          }
+        }
+      }
+    })();
+    </script>
+    <PiloterBottomBar />
+  </BaseLayout>
+</Show>

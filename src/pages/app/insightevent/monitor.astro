@@ -183,7 +183,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
 
       /* ---- Daily Action Brief ---- */
-      .ab-card { background:#fff; border:1px solid #E8EDF5; border-radius:0; overflow:hidden; margin-bottom:8px; }
+      .ab-card { background:#fff; border:1px solid #E8EDF5; border-radius:0; overflow:visible; margin-bottom:8px; }
       .ab-card-row { display:flex; }
       .ab-bar { width:3px; flex-shrink:0; }
       .ab-bar.ab-threat { background:#e24b4a; }
@@ -278,6 +278,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
+    <script is:inline src="/action-cards.js?v=5"></script>
   
   <PiloterBottomBar active="evenements" />
 
@@ -1898,12 +1899,17 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     var today = todayYmd();
     var prof = profile || {};
 
-    var ACTIONABLE = Object.keys(BRIEF_TEMPLATES);
     var candidates = [];
+    if (typeof window.renderActionCandidates === 'function' && window._lastActionCandidates) {
+      candidates = window.renderActionCandidates(window._lastActionCandidates, prof, currentDay, selectedDate, "monitor", _channelConfigsCache || {});
+    }
+    var _coveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
+    var ACTIONABLE = Object.keys(BRIEF_TEMPLATES);
     for (var i = 0; i < allFeed.length; i++) {
       var a = allFeed[i];
       var sub = String(a.change_subtype||"").toLowerCase();
       if (ACTIONABLE.indexOf(sub) < 0) continue;
+      if (_coveredTypes[sub]) continue;
       var affected = normalizeYmd(a.affected_date);
       if (affected < today) continue;
       var eventStart = normalizeYmd(selectedDate);
@@ -2314,7 +2320,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         urgencyPill: { label: "Semaine", style: wbIsGood ? "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);" : "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);" },
         typePill: { label: "Bilan", style: "background:#EFF6FF;color:#1e40af;" },
         what: "Bilan de la semaine : " + wbFavorable + "/" + wbSorted.length + " jours favorables" + (wbBestStreak >= 2 ? ", fen\u00eatre de " + wbBestStreak + "j" : ""),
-        sowhat: wbParts.join(" \u00b7 ") + "." + (wbIsGood ? " Semaine globalement favorable \u2014 maximisez les cr\u00e9neaux." : " Semaine contrast\u00e9e \u2014 concentrez vos efforts sur les fen\u00eatres favorables."),
+        sowhat: (function() { var profW = data.profile || {}; var crawledW = {}; try { var rawW = profW.auto_enriched_description; if (rawW) crawledW = typeof rawW === 'string' ? JSON.parse(rawW) : rawW; } catch(e) {} var diffW = crawledW.key_differentiators || ''; var offeringW = crawledW.current_offering || ''; var evTypesW = [profW.event_type_1, profW.event_type_2, profW.event_type_3].filter(Boolean); var EVT_FR_W = {corporate:'\u00e9v\u00e9nement corporate',product_launch:'lancement produit',store_opening:'ouverture point de vente',concert:'concert',press_conf:'conf\u00e9rence de presse',expo:'exposition',tasting:'d\u00e9gustation'}; var AUD_FR_W = {local:'r\u00e9sidents locaux',professionals:'professionnels',tourists:'touristes',students:'\u00e9tudiants',families:'familles',seniors:'seniors'}; var audW = AUD_FR_W[profW.primary_audience_1] || ''; var s = wbFavorable + ' jour' + (wbFavorable > 1 ? 's' : '') + ' favorable' + (wbFavorable > 1 ? 's' : '') + ' sur ' + wbSorted.length; s += ' \u00b7 score moyen ' + wbAvgScore + '/10'; if (wbAlertDays > 0) s += ' \u00b7 ' + wbAlertDays + ' jour' + (wbAlertDays > 1 ? 's' : '') + ' d\u2019alerte' + (wbDominantHazard ? ' (' + wbDominantHazard + ')' : ''); if (wbBestStreak >= 2) s += ' \u00b7 meilleure fen\u00eatre : ' + wbBestStreak + 'j cons\u00e9cutifs'; s += '.'; if (wbFavorable === 0) { s += ' Aucune fen\u00eatre favorable \u2014 reportez vos op\u00e9rations.'; if (profW.main_event_objective === 'maximize_attendance') s += ' Objectif affluence compromis cette semaine.'; } else if (wbIsGood) { s += ' Semaine favorable.'; if (evTypesW.length > 0) s += ' Id\u00e9al pour un ' + (EVT_FR_W[evTypesW[0]] || evTypesW[0]) + '.'; if (diffW) s += ' Appuyez sur : ' + diffW.substring(0, 80) + (diffW.length > 80 ? '\u2026' : '') + '.'; else if (offeringW) s += ' Mettez en avant : ' + offeringW.substring(0, 80) + (offeringW.length > 80 ? '\u2026' : '') + '.'; } else { s += ' Semaine contrast\u00e9e \u2014 concentrez-vous sur les ' + wbFavorable + ' jour' + (wbFavorable > 1 ? 's' : '') + ' favorable' + (wbFavorable > 1 ? 's' : '') + '.'; if (audW) s += ' Votre cible (' + audW + ') sera plus r\u00e9ceptive ces jours-l\u00e0.'; } return s; })(),
         actions: wbIsGood ? [
           { text: "Planifiez vos publications sur les " + wbBestStreak + " meilleurs jours", meta: "Communication \u00b7 Planning", key: "visitor_comm", channel: CH_GBP },
           { text: "Activez une offre sur votre meilleure fen\u00eatre", meta: "Marketing \u00b7 Timing", key: "marketing_push", channel: CH_GBP },
@@ -2368,7 +2374,28 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       var statusLabel = status === "copied" ? "Brouillon \u270e" : status === "saved" ? "Brouillon \u270e" : null;
       var signalJson = escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null}));
       var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
- 
+
+      // --- Build Agir dropdown ---
+      var commChannels = t._available_channels || [];
+      var hasComm = t._card_type === 'action' && commChannels.length > 0;
+      var menuHtml = '<div data-agir-menu="' + cardIdx + '"style="display:none;position:absolute;top:100%;right:0;min-width:220px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:9999;margin-top:6px;">';
+      var pubChannel = '';
+      var sendChannel = '';
+      for (var chi = 0; chi < commChannels.length; chi++) {
+        var chKey = commChannels[chi].key;
+        if (!pubChannel && (chKey === 'gbp' || chKey === 'instagram' || chKey === 'facebook' || chKey === 'website')) pubChannel = chKey;
+        if (!sendChannel && (chKey === 'email' || chKey === 'slack' || chKey === 'whatsapp' || chKey === 'sms' || chKey === 'note_interne')) sendChannel = chKey;
+      }
+      if (!pubChannel && commChannels.length > 0) pubChannel = commChannels[0].key;
+      if (!sendChannel) sendChannel = 'note_interne';
+      menuHtml += '<div style="padding:6px 0;border-bottom:1px solid #f3f4f6;">'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;font-weight:500;">\u270f\ufe0f Communiquer</button>'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\u2197\ufe0f Faire suivre</button>'
+      + '</div>';
+      menuHtml += '<div style="padding:6px 0;">'
+        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\ud83d\udd0d Consulter la source</button>'
+      + '</div></div>';
+
       return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
@@ -2382,11 +2409,19 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               + '<div class="ab-what">' + t.what + '</div>'
               + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
             + '</div>'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;">'
-              + '<button type="button" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" data-ab-draft-channel="' + escapeHtml(defaultCh) + '" data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '" data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '" data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-draft-signal=\'' + signalJson + '\' style="font-size:12px;font-weight:700;color:' + '#1D3BB3' + ';background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
-                + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u2192')
-              + '</button>'
-              + (statusLabel ? '<span style="font-size:10px;color:#9ca3af;">' + escapeHtml(CHANNEL_DEFS[defaultCh]?.label || defaultCh) + '</span>' : '')
+            + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
+              + ' data-ab-card-idx-ref="' + cardIdx + '"'
+              + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
+              + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
+              + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
+              + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
+              + ' data-ab-draft-signal=\'' + signalJson + '\'>'
+              + '<div style="position:relative;display:inline-block;margin-left:auto;" data-agir-wrap="' + cardIdx + '">'
+                + '<button type="button" data-agir-toggle="' + cardIdx + '" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
+                  + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
+                + '</button>'
+                + menuHtml
+              + '</div>'
             + '</div>'
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
@@ -2492,6 +2527,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       var showHashtags = channel === "instagram" || channel === "gbp";
       var showRecipient = ch.cat === "send" && channel !== "internal";
       var bodyText = draft ? (draft.body || draft.full_text || "") : "";
+      if (ch.cat === "send" && signalType && bodyText) {
+        var _parent = document.querySelector('[data-ab-draft-affected]');
+        var _affDate = _parent ? (_parent.getAttribute('data-ab-draft-affected') || '') : '';
+        var _locId = typeof currentLocationId !== 'undefined' ? currentLocationId : (typeof locationId !== 'undefined' ? locationId : location_id);
+        bodyText += '\n\n\u2014\nConsulter le d\u00e9tail : ' + window.location.origin + '/app/insightevent/insight?type=' + encodeURIComponent(signalType) + '&date=' + encodeURIComponent(_affDate) + '&location_id=' + encodeURIComponent(_locId);
+      }
       var titleText = draft ? (draft.title || "") : "";
       var hashText = draft ? (draft.hashtags || "") : "";
       var charCount = bodyText.length + (titleText ? titleText.length + 1 : 0) + (hashText ? hashText.length + 1 : 0);
@@ -2506,6 +2547,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           + ((_savedDraftsCache && _savedDraftsCache.length > 0) ? '<button type="button" data-ws-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
         + '</div>'
         + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
+        + (ch.cat === "send" ? '<div style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>' : '')
         + (showRecipient ? (function() {
           var members = (_teamMembersCache || []).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
           var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',score_down:'opportunity',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition'};
@@ -2631,49 +2673,74 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       }
     }
  
-    // ---- Agir triggers ----
-    root.querySelectorAll(".ab-draft-trigger").forEach(function(btn) {
+    // ---- Agir dropdown triggers ----
+    // Close all menus on outside click
+    document.addEventListener("click", function() {
+      root.querySelectorAll("[data-agir-menu]").forEach(function(m) { m.style.display = "none"; });
+    });
+
+    // Toggle dropdown
+    root.querySelectorAll("[data-agir-toggle]").forEach(function(btn) {
       btn.addEventListener("click", function(e) {
         e.stopPropagation();
-        var cardIdx = btn.getAttribute("data-ab-draft-card");
+        var cardIdx = btn.getAttribute("data-agir-toggle");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (!menu) return;
+        // Close all other menus
+        root.querySelectorAll("[data-agir-menu]").forEach(function(m) { if (m !== menu) m.style.display = "none"; });
+        menu.style.display = menu.style.display === "none" ? "block" : "none";
+      });
+    });
+
+    // Communiquer — open workspace with draft
+    root.querySelectorAll("[data-agir-comm]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-comm");
+        var channel = btn.getAttribute("data-agir-channel") || "note_interne";
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (menu) menu.style.display = "none";
+
         var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
         if (!workspace) return;
- 
-        // Toggle off if already open
-        if (workspace.style.display !== "none" && workspace.innerHTML.trim()) {
-          workspace.style.display = "none";
-          workspace.innerHTML = "";
-          var currentStatus = null;
-          try { currentStatus = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}")[cardIdx]; } catch(e) {}
-          if (!currentStatus) { btn.style.color = "#1D3BB3"; btn.textContent = "Agir \u2192"; }
-          return;
-        }
- 
+
         // Close any other open workspace
         root.querySelectorAll(".ab-workspace").forEach(function(ws) {
-          if (ws.id !== "ab-card-" + cardIdx + "-workspace") {
-            ws.style.display = "none";
-            ws.innerHTML = "";
-          }
+          if (ws.id !== "ab-card-" + cardIdx + "-workspace") { ws.style.display = "none"; ws.innerHTML = ""; }
         });
- 
-        // Show loading
-        workspace.style.display = "block";
-        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
- 
-        var channel = btn.getAttribute("data-ab-draft-channel") || "gbp";
+
+        // Get data attrs from parent
+        var parent = btn.closest("[data-ab-draft-sub]");
         var signalJson = {};
-        try { signalJson = JSON.parse(btn.getAttribute("data-ab-draft-signal") || "{}"); } catch(e) {}
- 
+        try { signalJson = JSON.parse((parent ? parent.getAttribute("data-ab-draft-signal") : null) || "{}"); } catch(ex) {}
+
         var payload = {
           action_key: "draft",
           channel: channel,
-          change_subtype: btn.getAttribute("data-ab-draft-sub") || "",
+          change_subtype: parent ? parent.getAttribute("data-ab-draft-sub") || "" : "",
           signal: signalJson,
-          card_what: btn.getAttribute("data-ab-draft-what") || "",
-          card_sowhat: btn.getAttribute("data-ab-draft-sowhat") || "",
+          card_what: parent ? parent.getAttribute("data-ab-draft-what") || "" : "",
+          card_sowhat: parent ? parent.getAttribute("data-ab-draft-sowhat") || "" : "",
         };
- 
+
+        // Get draft seed from spec
+        var draftSeed = null;
+        if (window.getDraftSeed && window.ACTION_CARDS) {
+          var actionType = payload.change_subtype;
+          try {
+            var prof = data.profile || {};
+            var day = currentDay || {};
+            draftSeed = window.getDraftSeed(actionType, channel, signalJson, prof, day);
+          } catch(ex) {}
+        }
+        if (draftSeed) payload.draft_seed = draftSeed;
+
+        // Show loading
+        workspace.style.display = "block";
+        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
+
+        var triggerBtn = root.querySelector('[data-agir-toggle="' + cardIdx + '"]');
+
         fetch("/api/insight/generate-action-draft", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -2681,26 +2748,90 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         }).then(function(res) { return res.json(); }).then(function(json) {
           if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
           var draft = json.draft;
- 
-          // Track
+
           fetch("/api/analytics/track", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: channel, affected_date: btn.getAttribute("data-ab-draft-affected") || null }),
+            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: channel, affected_date: parent ? parent.getAttribute("data-ab-draft-affected") || null : null }),
           }).catch(function(){});
- 
-          btn.style.color = "#1D3BB3";
-          btn.textContent = "Brouillon \u270e";
+
+          if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Brouillon \u270e"; }
 
           workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype);
- 
-          wireWorkspaceButtons(cardIdx, channel, draft, payload, btn);
- 
+          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
+
         }).catch(function(err) {
           workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-          btn.style.color = "#1D3BB3";
-          btn.textContent = "Agir \u2192";
+          if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Agir \u25be"; }
         });
+      });
+    });
+
+    // Consulter — navigate to target view
+    root.querySelectorAll("[data-agir-consult]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-consult");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (menu) menu.style.display = "none";
+        // Get action type and date from parent
+        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
+        var actionType = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
+        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
+        // Store day + profile data for instant load
+        try {
+          var key = "ms_signal_data_" + locationId + "_" + affected;
+          sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: null }));
+        } catch(ex) {}
+        // Navigate to insight page
+        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(locationId);
+      });
+    });
+
+    // Sauvegarder — bookmark card
+    root.querySelectorAll("[data-agir-save-card]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-save-card");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (menu) menu.style.display = "none";
+        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
+        var sub = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
+        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
+        // Save to localStorage
+        var bookmarks = {};
+        try { bookmarks = JSON.parse(localStorage.getItem("ms_bookmarks_" + locationId) || "{}"); } catch(ex) {}
+        bookmarks[sub + "_" + affected] = { action_type: sub, date: affected, saved_at: new Date().toISOString() };
+        try { localStorage.setItem("ms_bookmarks_" + locationId, JSON.stringify(bookmarks)); } catch(ex) {}
+        btn.textContent = "\ud83d\udcbe Sauvegard\u00e9 \u2713";
+        btn.style.color = "#059669";
+        setTimeout(function() { btn.textContent = "\ud83d\udcbe Sauvegarder"; btn.style.color = "#111827"; }, 2000);
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "action_saved", location_id: locationId, change_subtype: sub, affected_date: affected }),
+        }).catch(function(){});
+      });
+    });
+
+    // Signaler — flag card as incorrect/irrelevant
+    root.querySelectorAll("[data-agir-flag]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-flag");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (menu) menu.style.display = "none";
+        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
+        var sub = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
+        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
+        btn.textContent = "\ud83d\udea9 Signal\u00e9 \u2713";
+        btn.style.color = "#059669";
+        setTimeout(function() { btn.textContent = "\ud83d\udea9 Signaler"; btn.style.color = "#6b7280"; }, 2000);
+        fetch("/api/analytics/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ location_id: locationId, confirmation: "dismissed", signal_type: sub, signal_ref_id: sub + "_" + affected, signal_date: affected }),
+        }).catch(function(){});
       });
     });
  
@@ -3608,7 +3739,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // V4 NEW — Feed with CTAs
   // ----------------------------------------------------------------
-  function renderFeed(allFeed, isMultisite) {
+  function renderFeed(allFeed, isMultisite, coveredTypes) {
+    coveredTypes = coveredTypes || {};
+    allFeed = allFeed.filter(function(f) {
+      var sub = String(f.change_subtype||"").toLowerCase();
+      if (coveredTypes[sub]) return false;
+      return true;
+    });
     const totalCount = allFeed.length;
     if (!totalCount) {
       return `
@@ -3688,15 +3825,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     function feedItemCta(a) {
       const sub = String(a?.change_subtype || "").toLowerCase();
-      const cat = String(a?.change_category || "").toLowerCase();
-      const lvl = Number(a?.alert_level || 0);
-
-      if (sub === "competitor_event_launch" || sub === "competitor_audience_conflict") return { label: "Voir", action: "threats" };
-      if (sub === "competition_pressure_spike" || sub === "mega_event_activation") return { label: "Voir la carte", action: "map" };
       if (sub === "event_new") return { label: "Suivre", action: "follow" };
-      if (sub === "weather_worsened" || sub === "weather_hazard_onset") return { label: "Voir conditions", action: "weather" };
-      if (sub === "mobility_disruption" || sub === "mobility_disruption_planned") return { label: "Voir acc\u00e8s", action: "mobility" };
-      return null;
+      return { label: "Consulter", action: "insight" };
     }
 
     function feedBorderColor(a) {
@@ -3745,7 +3875,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               + '<button type="button" data-feed-enrich="' + uid + '" data-enrich-label="' + escapeHtml(a?.event_label || '') + '" data-enrich-venue="' + escapeHtml(a?.event_venue_name || '') + '" data-enrich-city="' + escapeHtml(a?.city_name || '') + '" data-enrich-distance="' + (a?.distance_m != null ? Math.round(Number(a.distance_m)) : '') + '" data-enrich-industry="' + escapeHtml(a?.industry_code || '') + '" data-enrich-uid="' + escapeHtml(a?.entity_id || '') + '" style="font-size:10px;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;">Voir plus \u2192</button>'
             + '</div>';
           }
-          return '<button type="button" data-feed-cta="' + escapeHtml(cta.action) + '" data-feed-idx="' + idx + '" style="flex-shrink:0;align-self:center;padding:5px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">' + escapeHtml(cta.label) + ' \u2192</button>';
+          var feedDate = normalizeYmd(a?.affected_date) || '';
+          var feedSub = String(a?.change_subtype || '');
+          var feedLocId = a?.location_id || location_id;
+          return '<a href="/app/insightevent/insight?type=' + encodeURIComponent(feedSub) + '&date=' + encodeURIComponent(feedDate) + '&location_id=' + encodeURIComponent(feedLocId) + '" style="flex-shrink:0;align-self:center;font-size:11px;font-weight:600;color:#1D3BB3;cursor:pointer;white-space:nowrap;font-family:inherit;text-decoration:none;">Consulter \u2192</a>';
         })();
 
         return `
@@ -3799,6 +3932,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     if (!root) return;
 
     const days = Array.isArray(data.days) ? data.days : [];
+    window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
     const dayMap = new Map(days.map(d => [normalizeYmd(d.date), d]));
     const currentDay = dayMap.get(selectedDate) || days[0] || null;
     const allFeed = Array.isArray(data.all_feed) ? data.all_feed : [];
@@ -4316,7 +4450,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       renderThreatSummary(competitorSignals, selectedDate, followedCount));
 
     // Feed
-    const feedHtml = renderFeed(allFeed, isMultisite);
+    var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
+    const feedHtml = renderFeed(allFeed, isMultisite, _feedCoveredTypes);
 
     // Date header
     const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
@@ -4491,29 +4626,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // Daily Brief handlers
     wireBriefHandlers(root, location_id, selectedDate);
 
-    // Feed CTA handlers
-    root.querySelectorAll("[data-feed-cta]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const action = btn.getAttribute("data-feed-cta");
-        if (action === "map") {
-          data._mapMode = null;
-          renderMonitor(data, item, selectedDate, "carte", monitorDates);
-        } else if (action === "threats") {
-          const strip2Body = root.querySelector('[data-radar-body="threats"]');
-          const strip2Chevron = root.querySelector('[data-radar-chevron="threats"]');
-          if (strip2Body && strip2Body.style.display === "none") {
-            strip2Body.style.display = "block";
-            if (strip2Chevron) strip2Chevron.style.transform = "rotate(180deg)";
-            strip2Body.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        }
-        if (action === "mobility") {
-          data._mapMode = "mobilite";
-          renderMonitor(data, item, selectedDate, "carte", monitorDates);
-        }
-      });
-    });
+    // Feed CTA handlers — links navigate directly, no JS needed
   }
 
   // ----------------------------------------------------------------
