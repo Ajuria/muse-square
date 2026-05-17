@@ -342,39 +342,26 @@ if (!location_id) {
 
   function filterFeedByWindow(allFeed, lastVisitTs) {
     const today = getToday();
-    const windowStart = ymdFromUTC(addDays(today, -7));
+    const windowStart = ymdFromUTC(today);
     const windowEnd   = ymdFromUTC(addDays(today, 6));
     const mobilityEnd = ymdFromUTC(addDays(today, 14));
-
     const competitionEnd = ymdFromUTC(addDays(today, 14));
-
-    return allFeed.filter(a => {
-      const affected = normalizeYmd(a?.affected_date);
-      const feedDate = normalizeYmd(a?.feed_date);
+    return allFeed.filter(function(a) {
+      var affected = normalizeYmd(a?.affected_date);
+      var feedDate = normalizeYmd(a?.feed_date);
       if (!affected) return false;
-
-      const sub = String(a?.change_subtype || "").toLowerCase();
-      const isMobility = String(a?.change_category || "").toLowerCase() === "mobility"
-        || sub.startsWith("mobility_");
-      const isWeather  = String(a?.change_category || "").toLowerCase() === "context" &&
-                        sub === "weather_change";
-      const isCompetition = sub === "competitor_event_launch" || sub === "competitor_audience_conflict"
-        || sub === "competition_pressure_spike" || sub === "mega_event_activation"
-        || sub === "competitor_event_ending" || sub === "mega_event_end";
-
-      const maxDate = isMobility ? mobilityEnd : isCompetition ? competitionEnd : windowEnd;
-
+      var sub = String(a?.change_subtype || "").toLowerCase();
+      var isMobility = String(a?.change_category || "").toLowerCase() === "mobility" || sub.startsWith("mobility_");
+      var isWeather = sub === "weather_worsened" || sub === "weather_improved" || sub === "weather_hazard_onset";
+      var isCompetition = sub === "competitor_event_launch" || sub === "competitor_audience_conflict" || sub === "competition_pressure_spike" || sub === "mega_event_activation" || sub === "competitor_event_ending" || sub === "mega_event_end";
+      var maxDate = isMobility ? mobilityEnd : isCompetition ? competitionEnd : windowEnd;
       if (affected < windowStart || affected > maxDate) return false;
       if (isWeather && affected > windowEnd) return false;
-
       if (lastVisitTs > 0) {
-        const fd = feedDate ? new Date(feedDate).getTime() : 0;
+        var fd = feedDate ? new Date(feedDate).getTime() : 0;
         if (fd > 0 && fd <= lastVisitTs) return false;
       }
-
-      // Skip mobility items with no mode (unmatched road incidents)
       if (isMobility && !a?.mobility_mode) return false;
-
       return true;
     });
   }
@@ -526,12 +513,16 @@ if (!location_id) {
     }
 
     if (sub === "score_up") {
-      const sign = delta != null ? ` (+${delta} pts)` : "";
-      return `${ov} \u2192 ${nv}${sign}`;
+      var _drv = a?.score_driver_label || "";
+      var _drvMap = {"m\u00e9t\u00e9o":"m\u00e9t\u00e9o favorable","concurrence":"faible concurrence","mobilit\u00e9":"acc\u00e8s am\u00e9lior\u00e9","calendrier":"contexte calendaire favorable"};
+      var _drvLabel = _drvMap[_drv.toLowerCase()] || _drv || "";
+      return "Score en hausse" + (_drvLabel ? " \u2014 " + _drvLabel : "");
     }
     if (sub === "score_down") {
-      const sign = delta != null ? ` (${delta} pts)` : "";
-      return `${ov} \u2192 ${nv}${sign}`;
+      var _drv = a?.score_driver_label || "";
+      var _drvMap = {"m\u00e9t\u00e9o":"m\u00e9t\u00e9o d\u00e9grad\u00e9e","concurrence":"forte pression concurrentielle","mobilit\u00e9":"acc\u00e8s perturb\u00e9","calendrier":"contexte calendaire d\u00e9favorable"};
+      var _drvLabel = _drvMap[_drv.toLowerCase()] || _drv || "";
+      return "Score en baisse" + (_drvLabel ? " \u2014 " + _drvLabel : "");
     }
     if (sub === "event_new") {
       const evLabel = name || "";
@@ -554,20 +545,28 @@ if (!location_id) {
       const newN = Number(nv || 0);
       return newN > oldN ? "Pression concurrentielle en hausse" : "Pression concurrentielle en baisse";
     }
-    if (sub === "mega_event_activation") return name || "M\u00e9ga-\u00e9v\u00e9nement";
-    if (sub === "mega_event_end") return name || "Fin m\u00e9ga-\u00e9v\u00e9nement";
+    if (sub === "mega_event_activation") { var _mn = nv && nv !== "true" && nv !== "false" ? nv : "M\u00e9ga-\u00e9v\u00e9nement d\u00e9tect\u00e9"; return _mn; }
+    if (sub === "mega_event_end") { var _mn = nv && nv !== "true" && nv !== "false" ? "Fin : " + nv : "Fin de m\u00e9ga-\u00e9v\u00e9nement"; return _mn; }
     if (sub === "weather_hazard_onset") {
-      const type = weatherType();
-      const label = type ? `Alerte ${type}` : "Alerte m\u00e9t\u00e9o";
-      return `${label} : niveau ${ov || "?"} \u2192 ${nv || "?"}`;
+      var WDESC = {"wind:1":"Vent mod\u00e9r\u00e9","wind:2":"Vent fort","wind:3":"Vent tr\u00e8s fort","rain:1":"Pluie mod\u00e9r\u00e9e","rain:2":"Fortes pluies","rain:3":"Pluies intenses","rain:4":"Pluies extr\u00eames","snow:1":"Neige mod\u00e9r\u00e9e","snow:2":"Fortes neiges","snow:3":"Neiges intenses","heat:1":"Chaleur","heat:2":"Forte chaleur","heat:3":"Canicule","cold:1":"Froid","cold:2":"Grand froid","cold:3":"Froid extr\u00eame","storm:1":"Orage","storm:2":"Orage fort","storm:3":"Orage violent","fog:1":"Brouillard","fog:2":"Brouillard dense"};
+      var _nvRaw = String(nv || "");
+      var _nvD = WDESC[_nvRaw];
+      if (!_nvD) { var _wType = weatherType(); if (_wType && _nvRaw.match(/^\d+$/)) { var _wKey = {"pluie":"rain","neige":"snow","vent":"wind","chaleur":"heat","froid":"cold"}[_wType] || ""; _nvD = WDESC[_wKey + ":" + _nvRaw]; } if (!_nvD) { var _wp = _nvRaw.split(":"); var _wt = {"wind":"Vent","rain":"Pluie","snow":"Neige","heat":"Chaleur","cold":"Froid","storm":"Orage","fog":"Brouillard"}[_wp[0]] || "Alerte m\u00e9t\u00e9o"; _nvD = _wp[1] ? _wt + " niveau " + _wp[1] : _wt; } }
+      return _nvD;
     }
     if (sub === "weather_worsened") {
-      const type = weatherType();
-      const label = type ? `Alerte ${type} renforc\u00e9e` : "Alerte m\u00e9t\u00e9o renforc\u00e9e";
-      return `${label}${ov && nv ? ` (niv. ${ov} \u2192 ${nv})` : ""}`;
+      var WDESC2 = {"wind:1":"Vent mod\u00e9r\u00e9","wind:2":"Vent fort","wind:3":"Vent tr\u00e8s fort","rain:1":"Pluie mod\u00e9r\u00e9e","rain:2":"Fortes pluies","rain:3":"Pluies intenses","rain:4":"Pluies extr\u00eames","snow:1":"Neige mod\u00e9r\u00e9e","snow:2":"Fortes neiges","snow:3":"Neiges intenses","heat:1":"Chaleur","heat:2":"Forte chaleur","heat:3":"Canicule","cold:1":"Froid","cold:2":"Grand froid","cold:3":"Froid extr\u00eame","storm:1":"Orage","storm:2":"Orage fort","storm:3":"Orage violent","fog:1":"Brouillard","fog:2":"Brouillard dense"};
+      var _nvRaw2 = String(nv || "");
+      var _nvD2 = WDESC2[_nvRaw2];
+      if (!_nvD2) { var _wType2 = weatherType(); if (_wType2 && _nvRaw2.match(/^\d+$/)) { var _wKey2 = {"pluie":"rain","neige":"snow","vent":"wind","chaleur":"heat","froid":"cold"}[_wType2] || ""; _nvD2 = WDESC2[_wKey2 + ":" + _nvRaw2]; } if (!_nvD2) { var _wp2 = _nvRaw2.split(":"); var _wt2 = {"wind":"Vent","rain":"Pluie","snow":"Neige","heat":"Chaleur","cold":"Froid","storm":"Orage","fog":"Brouillard"}[_wp2[0]] || "Alerte m\u00e9t\u00e9o"; _nvD2 = _wp2[1] ? _wt2 + " niveau " + _wp2[1] : _wt2; } }
+      return "Alerte renforc\u00e9e : " + _nvD2;
     }
     if (sub === "weather_improved") {
-      return `Conditions normalis\u00e9es${ov && nv ? ` (niv. ${ov} \u2192 ${nv})` : ""}`;
+      var WDESC3 = {"wind:1":"Vent mod\u00e9r\u00e9","wind:2":"Vent fort","wind:3":"Vent tr\u00e8s fort","rain:1":"Pluie mod\u00e9r\u00e9e","rain:2":"Fortes pluies","rain:3":"Pluies intenses","rain:4":"Pluies extr\u00eames","snow:1":"Neige mod\u00e9r\u00e9e","snow:2":"Fortes neiges","snow:3":"Neiges intenses","heat:1":"Chaleur","heat:2":"Forte chaleur","heat:3":"Canicule","cold:1":"Froid","cold:2":"Grand froid","cold:3":"Froid extr\u00eame","storm:1":"Orage","storm:2":"Orage fort","storm:3":"Orage violent","fog:1":"Brouillard","fog:2":"Brouillard dense"};
+      var _ovRaw3 = String(ov || "");
+      var _ovD3 = WDESC3[_ovRaw3];
+      if (!_ovD3) { var _wType3 = weatherType(); if (_wType3 && _ovRaw3.match(/^\d+$/)) { var _wKey3 = {"pluie":"rain","neige":"snow","vent":"wind","chaleur":"heat","froid":"cold"}[_wType3] || ""; _ovD3 = WDESC3[_wKey3 + ":" + _ovRaw3]; } if (!_ovD3) { var _wp3 = _ovRaw3.split(":"); var _wt3 = {"wind":"vent","rain":"pluie","snow":"neige","heat":"chaleur","cold":"froid","storm":"orage","fog":"brouillard"}[_wp3[0]] || "m\u00e9t\u00e9o"; _ovD3 = _wp3[1] ? _wt3 + " niveau " + _wp3[1] : _wt3; } }
+      return "Am\u00e9lioration : " + (_ovD3 || "conditions") + " en baisse";
     }
     if (sub === "mobility_disruption") {
       if (name && name !== "Signal d\u00e9tect\u00e9" && name !== "Perturbation mobilit\u00e9") return name;
@@ -585,9 +584,9 @@ if (!location_id) {
       return "Trafic r\u00e9tabli";
     }
     if (sub === "calendar_audience_shift") return nv || "Changement d\u2019audience";
-    if (sub === "regime_change") return `Contexte : ${ov || "?"} \u2192 ${nv || "?"}`;
-    if (sub === "ranking_up") return `${ov}e \u2192 ${nv}e position`;
-    if (sub === "ranking_down") return `${ov}e \u2192 ${nv}e position`;
+    if (sub === "regime_change") { var _rvMap = {"A":1,"B":2,"C":3,"D":4}; var _ovR = _rvMap[String(ov||"").toUpperCase()] || 0; var _nvR = _rvMap[String(nv||"").toUpperCase()] || 0; if (_nvR > _ovR) return "Environnement plus concurrentiel"; if (_nvR < _ovR) return "Environnement concurrentiel all\u00e9g\u00e9"; return "Changement de contexte"; }
+    if (sub === "ranking_up") { var _rd = Math.abs(Number(ov||0) - Number(nv||0)); return `Progresse de ${_rd} place${_rd > 1 ? "s" : ""}`; }
+    if (sub === "ranking_down") { var _rd = Math.abs(Number(ov||0) - Number(nv||0)); return `Recule de ${_rd} place${_rd > 1 ? "s" : ""}`; }
     if (sub === "baseline_validity_change") return null;
     if (sub === "medal_change") return null;
     if (sub === "context_change") return null;
@@ -705,8 +704,8 @@ if (!location_id) {
       const count = nv || ov || "";
       return count ? `${count} \u00e9v\u00e9nements \u00e0 5 km` : "";
     }
-    if (sub === "mega_event_activation") return "Impact attendu sur la fr\u00e9quentation et la mobilit\u00e9";
-    if (sub === "mega_event_end") return "Retour \u00e0 la normale attendu";
+    if (sub === "mega_event_activation") { var _mn2 = nv && nv !== "true" && nv !== "false" ? nv : ""; return _mn2 ? _mn2 + " \u2014 anticipez l\u2019impact sur votre fr\u00e9quentation" : "\u00c9v\u00e9nement majeur \u00e0 proximit\u00e9 \u2014 anticipez l\u2019impact sur votre fr\u00e9quentation"; }
+    if (sub === "mega_event_end") { var _mn2e = nv && nv !== "true" && nv !== "false" ? nv : ""; return _mn2e ? "Fin de " + _mn2e + " \u2014 fen\u00eatre pour reprendre la visibilit\u00e9" : "La pression retombe \u2014 fen\u00eatre pour reprendre la visibilit\u00e9"; }
     if (sub === "weather_hazard_onset") {
       if (isOutdoorClient) return "Impact direct sur vos installations et la fr\u00e9quentation.";
       return "Impact probable sur la fr\u00e9quentation.";
@@ -718,7 +717,7 @@ if (!location_id) {
       if (mode === "road") return "Axe routier de nouveau accessible";
       return "Acc\u00e8s normalis\u00e9 \u2014 la ligne dessert \u00e0 nouveau votre zone";
     }
-    if (sub === "regime_change") return "";
+    if (sub === "regime_change") { var _rvMap2 = {"A":1,"B":2,"C":3,"D":4}; var _ovR2 = _rvMap2[String(ov||"").toUpperCase()] || 0; var _nvR2 = _rvMap2[String(nv||"").toUpperCase()] || 0; if (_nvR2 > _ovR2) return "Plus d\u2019\u00e9v\u00e9nements en comp\u00e9tition pour l\u2019attention de votre public."; if (_nvR2 < _ovR2) return "Moins de comp\u00e9tition sur cette date \u2014 opportunit\u00e9 de visibilit\u00e9."; return ""; }
     if (sub === "baseline_validity_change") return "";
     if (sub === "medal_change") return "";
     if (sub === "context_change") return "";
@@ -2709,10 +2708,12 @@ if (!location_id) {
     candidates.sort(function(a,b) { return b.score - a.score; });
     var seen = {};
     var top = [];
+    var _catCounts = {};
+    var MAX_PER_CAT = 2;
     for (var j = 0; j < candidates.length && top.length < 5; j++) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
-      var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : sub2;
+      var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : (sub2 === "high_competition_density" || sub2 === "competition_proximity") ? "competition_density" : sub2;
       var dedup = dedupSub + "|" + normalizeYmd(c.item.affected_date);
       if (seen[dedup]) {
         var existingIdx = top.findIndex(function(t) { return (String(t.item.change_subtype||"").toLowerCase() === dedupSub || ((dedupSub === "weather_alert") && (String(t.item.change_subtype||"").toLowerCase() === "weather_hazard_onset" || String(t.item.change_subtype||"").toLowerCase() === "weather_worsened"))) && normalizeYmd(t.item.affected_date) === normalizeYmd(c.item.affected_date); });
@@ -2727,6 +2728,9 @@ if (!location_id) {
         var catCount = top.filter(function(t) { var s2 = String(t.item.change_subtype||"").toLowerCase(); return catKey === "_weather" ? (s2.startsWith("weather") || s2 === "_extended_bad_weather" || s2 === "_saturated_bad_weather" || s2 === "_ft_peak_bad_weather" || s2 === "_weather_window" || s2 === "_weather_mobility_double" || s2 === "_weather_hazard_onset") : (s2.startsWith("calendar_") || s2 === "_audience_mismatch"); }).length;
         if (catCount >= 1) continue;
       }
+      var _acCat = String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
+      _catCounts[_acCat] = (_catCounts[_acCat] || 0) + 1;
+      if (_catCounts[_acCat] > MAX_PER_CAT) continue;
       top.push(c);
     }
 
@@ -2792,6 +2796,10 @@ if (!location_id) {
         + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\ud83d\udd0d Consulter la source</button>'
       + '</div></div>';
 
+      var _sw = t.sowhat;
+      var _swText = '';
+      if (_sw && typeof _sw === 'object' && _sw.context) { _swText = _sw.context.split('. ')[0]; if (_swText && !_swText.endsWith('.')) _swText += '.'; if (_swText.length > 120) _swText = _swText.slice(0, 117) + '...'; }
+      else if (typeof _sw === 'string') { _swText = _sw.split('. ')[0]; if (_swText && !_swText.endsWith('.')) _swText += '.'; if (_swText.length > 120) _swText = _swText.slice(0, 117) + '...'; }
       return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
@@ -2799,17 +2807,18 @@ if (!location_id) {
             + '<div class="ab-summary">'
               + '<div class="ab-pills">'
                 + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
-                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
                 + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
+                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
               + '</div>'
               + '<div class="ab-what">' + t.what + '</div>'
-              + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
+              + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
               + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
+              + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
               + '<div style="position:relative;display:inline-block;margin-left:auto;" data-agir-wrap="' + cardIdx + '">'
                 + '<button type="button" data-agir-toggle="' + cardIdx + '" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
@@ -3182,13 +3191,14 @@ if (!location_id) {
         var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
         var actionType = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
         var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
+        var cardLocId = (parent ? parent.getAttribute("data-ab-draft-location") : "") || locationId;
         // Store day + profile data for instant load
         try {
-          var key = "ms_signal_data_" + locationId + "_" + affected;
+          var key = "ms_signal_data_" + cardLocId + "_" + affected;
           sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: null }));
         } catch(ex) {}
         // Navigate to insight page
-        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(locationId);
+        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId);
       });
     });
 
@@ -4271,7 +4281,8 @@ if (!location_id) {
     allFeed = allFeed.filter(function(f) {
       var sub = String(f.change_subtype||"").toLowerCase();
       if (coveredTypes[sub]) return false;
-      var k = sub + "|" + normalizeYmd(f.affected_date) + "|" + String(f.location_label||"") + "|" + String(f.new_value||"");
+      var _isWeatherSub = (sub === "weather_worsened" || sub === "weather_improved" || sub === "weather_hazard_onset");
+      var k = sub + "|" + normalizeYmd(f.affected_date) + "|" + String(f.location_label||"") + "|" + (_isWeatherSub ? "" : String(f.new_value||""));
       if (_seenFeedKeys[k]) return false;
       _seenFeedKeys[k] = true;
       return true;
@@ -4394,6 +4405,12 @@ if (!location_id) {
         const cta = feedItemCta(a);
         const typePill = feedTypePill(a);
         const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
+        var _ad = normalizeYmd(a?.affected_date);
+        var _today = todayYmd();
+        var _datePillLabel = "";
+        if (_ad === _today) _datePillLabel = "Aujourd\u2019hui";
+        else { var _dt = parseYmdToDate(_ad); if (_dt) { var _diff = Math.round((_dt - parseYmdToDate(_today)) / 86400000); if (_diff === 1) _datePillLabel = "Demain"; else if (_diff === -1) _datePillLabel = "Hier"; else if (_diff > 1 && _diff <= 7) _datePillLabel = new Intl.DateTimeFormat("fr-FR", {weekday:"short",day:"numeric"}).format(_dt); else _datePillLabel = new Intl.DateTimeFormat("fr-FR", {day:"numeric",month:"short"}).format(_dt); } }
+        var datePill = _datePillLabel ? '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;background:#f3f4f6;color:#6b7280;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(_datePillLabel) + '</span>' : "";
 
         const ctaHtml = (() => {
           if (!cta) return "";
@@ -4415,7 +4432,7 @@ if (!location_id) {
           <div style="padding:10px 14px;${idx > 0 ? "border-top:1px solid #f3f4f6;" : ""}border-left:3px solid ${borderCol};margin-left:-1px;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
               <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${locPill}${typePill}</div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${datePill}${locPill}${typePill}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px;">${escapeHtml(line1)}</div>
                 ${line2 ? `<div style="font-size:11.5px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
                 ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
@@ -4534,7 +4551,7 @@ if (!location_id) {
         }).join("")}
       </div>`;
     } else {
-      alertsHtml = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:rgba(16,185,129,0.06);border-radius:8px;"><span style="color:#059669;font-size:13px;">\u2713</span><span style="font-size:12.5px;color:#059669;font-weight:500;">Aucune alerte</span></div>';
+      alertsHtml = '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding:8px 12px;background:rgba(16,185,129,0.06);border-radius:8px;"><div style="display:flex;align-items:center;gap:6px;"><span style="color:#059669;font-size:13px;">\u2713</span><span style="font-size:12.5px;color:#059669;font-weight:500;">Aucune alerte</span></div><div style="font-size:11.5px;color:#6B7280;padding-left:21px;">Trafic routier et transports en commun fluides</div></div>';
     }
 
     // ---- Carte view ----
@@ -5341,7 +5358,7 @@ if (!location_id) {
         if (!valid.length) throw new Error("Aucune donnée disponible.");
 
         const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
-          (data.all_feed || []).map(a => ({ ...a, location_label: loc.company_name || loc.location_id }))
+          (data.all_feed || []).map(a => ({ ...a, location_id: loc.location_id, location_label: loc.company_name || loc.location_id }))
         );
         // Dedup regional signals that are identical within the same region
         const REGIONAL_SUBTYPES = new Set([
@@ -5395,7 +5412,7 @@ if (!location_id) {
           days: mergedDays,
           all_feed: mergedFeed,
           action_candidates: valid.flatMap(({ data, loc }) =>
-            (data.action_candidates || []).map(ac => ({ ...ac, location_label: loc.company_name || loc.location_id }))
+            (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
           ),
           _locations: locs,
           competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),

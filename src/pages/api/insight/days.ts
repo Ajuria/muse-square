@@ -429,6 +429,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
     LIMIT 1
   `;
 
+  const actionCandidatesQuery = `
+    SELECT
+      date,
+      action_type,
+      action_priority,
+      action_category,
+      channel_hint,
+      headline_fr,
+      detail_fr,
+      data_payload,
+      suppression_key,
+      expires_at
+    FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
+    WHERE location_id = @location_id
+      AND date IN UNNEST(ARRAY(
+        SELECT PARSE_DATE('%Y-%m-%d', d)
+        FROM UNNEST(@selected_dates) AS d
+      ))
+    ORDER BY action_priority DESC, action_type ASC
+  `;
+
   const alertsFeedQuery = `
     SELECT
       feed_date,
@@ -469,7 +490,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-    const [[daysRows], [locationContextRows], [alertsFeedRows]] = await Promise.all([
+    const [[daysRows], [locationContextRows], [alertsFeedRows], [actionCandidateRows]] = await Promise.all([
       bq.query({
         query: daysQuery,
         params: { location_id, selected_dates },
@@ -484,7 +505,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id, selected_dates },
         types: { selected_dates: ['STRING'] },
       }),
-    ]);
+      bq.query({
+        query: actionCandidatesQuery,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ['STRING'] },
+      }),
+    ] as any);
 
     console.log('[alerts debug]', {
       location_id,
@@ -494,6 +520,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
 
     const location_context_for_feed = locationContextRows?.[0] ?? null;
+
+    const action_candidates = (Array.isArray(actionCandidateRows) ? actionCandidateRows : []).map((r: any) => ({
+      date:             (r?.date?.value ?? r?.date ?? null) as string | null,
+      action_type:      r?.action_type ?? null,
+      action_priority:  r?.action_priority ?? null,
+      action_category:  r?.action_category ?? null,
+      channel_hint:     r?.channel_hint ?? null,
+      headline_fr:      r?.headline_fr ?? null,
+      detail_fr:        r?.detail_fr ?? null,
+      data_payload:     r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
+      suppression_key:  r?.suppression_key ?? null,
+      expires_at:       (r?.expires_at?.value ?? r?.expires_at ?? null) as string | null,
+    }));
 
     const alerts = (Array.isArray(alertsFeedRows) ? alertsFeedRows : []).map((r: any) => ({
       feed_date:                       (r?.feed_date?.value   ?? r?.feed_date   ?? null) as string | null,
@@ -975,6 +1014,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         selected_dates,
         days: days_with_points_cles,
         alerts,
+        action_candidates,
         competition_summary,
         // keep global for backward compat (uses first date)
         points_cles: {

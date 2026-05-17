@@ -155,7 +155,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   // #1 — high_competition_density
-  reg('high_competition_density', 'Forte pression', 'CONCURRENCE', '\u2694\ufe0f', '#D32F2F', 'action', 'pulse#carte',
+  reg('high_competition_density', 'Diff\u00e9renciez-vous face \u00e0 vos concurrents', 'CONCURRENCE', '\u2694\ufe0f', '#D32F2F', 'action', 'pulse#carte',
     function(a, p, d) {
       var n = Number(d.events_within_5km_count || 0);
       var same = Number(d.events_within_5km_same_bucket_count || 0);
@@ -179,7 +179,7 @@
   );
 
   // #2 — weather_window
-  reg('weather_window', '\u00c9claircie', 'OPPORTUNIT\u00c9', '\u2600\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
+  reg('weather_window', 'Saisissez cette fen\u00eatre m\u00e9t\u00e9o', 'OPPORTUNIT\u00c9', '\u2600\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var prevBad = a.prevBadDays || a.consecutive_bad_days || '2+';
       var t = temp(d.temperature_2m_max);
@@ -201,7 +201,7 @@
   );
 
   // #3 — top_day_approaching
-  reg('top_day_approaching', 'Meilleur jour', 'OPPORTUNIT\u00c9', '\u2b50', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('top_day_approaching', 'Meilleur jour de la semaine \u2014 agissez maintenant', 'OPPORTUNIT\u00c9', '\u2b50', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var comp = Number(d.events_within_5km_count || 0);
@@ -230,7 +230,7 @@
   );
 
   // #4 — audience_shift_opportunity
-  reg('audience_shift_opportunity', 'Nouvelle audience', 'OPPORTUNIT\u00c9', '\ud83d\udc65', '#1565C0', 'action', 'pulse#radar-changes',
+  reg('audience_shift_opportunity', 'Ajustez votre message au public du jour', 'OPPORTUNIT\u00c9', '\ud83d\udc65', '#1565C0', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var trigger = d.holiday_name || d.vacation_name || ((d.commercial_events && d.commercial_events[0]) ? d.commercial_events[0].event_name : null) || null;
       var delta = Number(d.delta_att_calendar_pct || 0);
@@ -265,7 +265,7 @@
   );
 
   // #5 — competitor_threat_direct
-  reg('competitor_threat_direct', 'Menace directe', 'CONCURRENCE', '\ud83d\udea8', '#D32F2F', 'action', 'pulse#radar-threats',
+  reg('competitor_threat_direct', 'Contrez votre concurrent direct', 'CONCURRENCE', '\ud83d\udea8', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var c = topComp(d);
       var name = c.organizer_name || a.competitor_name || 'Concurrent';
@@ -289,7 +289,7 @@
   );
 
   // #6 — regime_c_warning
-  reg('regime_c_warning', 'R\u00e9gime C', 'URGENT', '\u26a0\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
+  reg('regime_c_warning', 'Reportez ou adaptez vos op\u00e9rations', 'URGENT', '\u26a0\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var driver = d.primary_score_driver_label_fr || '';
@@ -310,7 +310,7 @@
   );
 
   // #7 — competition_proximity
-  reg('competition_proximity', 'Concurrence proche', 'CONCURRENCE', '\ud83d\udccd', '#E65100', 'action', 'pulse#carte',
+  reg('competition_proximity', 'Diff\u00e9renciez-vous de vos concurrents proches', 'CONCURRENCE', '\ud83d\udccd', '#E65100', 'action', 'pulse#carte',
     function(a, p, d) {
       var n500 = Number(d.events_within_500m_count || 0);
       var n1k = Number(d.events_within_1km_count || 0);
@@ -338,7 +338,7 @@
   );
 
   // #8 — low_competition_window
-  reg('low_competition_window', 'Fen\u00eatre calme', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
+  reg('low_competition_window', 'Prenez la parole \u2014 faible concurrence', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
     function(a, p, d) {
       var pr = Number(d.competition_pressure_ratio || 0);
       var n = Number(d.events_within_5km_count || 0);
@@ -358,7 +358,7 @@
   );
 
   // #9 — extended_bad_weather
-  reg('extended_bad_weather', 'M\u00e9t\u00e9o prolong\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#E65100', 'action', 'pulse#radar-score',
+  reg('extended_bad_weather', 'Adaptez vos op\u00e9rations \u2014 m\u00e9t\u00e9o d\u00e9grad\u00e9e prolong\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var days = a.consecutive_bad_days || a.prevBadDays || '2+';
       var weather = d.weather_label_fr || '';
@@ -402,7 +402,7 @@
   );
 
   // #11 — weekend_opportunity
-  reg('weekend_opportunity', 'Week-end favorable', 'OPPORTUNIT\u00c9', '\ud83d\udcc5', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('weekend_opportunity', 'Activez une op\u00e9ration ce week-end', 'OPPORTUNIT\u00c9', '\ud83d\udcc5', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var comp = Number(d.events_within_5km_count || 0);
@@ -451,7 +451,7 @@
   );
 
   // #13 — weather_worsened
-  reg('weather_worsened', 'M\u00e9t\u00e9o d\u00e9grad\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf26\ufe0f', '#E65100', 'action', 'pulse#radar-score',
+  reg('weather_worsened', 'Pr\u00e9venez votre \u00e9quipe \u2014 m\u00e9t\u00e9o d\u00e9grad\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf26\ufe0f', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var weather = d.weather_label_fr || '';
       var impactRaw = Number(d.impact_weather_pct || 0);
@@ -471,7 +471,7 @@
   );
 
   // #14 — weather_improved
-  reg('weather_improved', 'M\u00e9t\u00e9o am\u00e9lior\u00e9e', 'OPPORTUNIT\u00c9', '\ud83c\udf24\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
+  reg('weather_improved', 'Saisissez cette fen\u00eatre m\u00e9t\u00e9o', 'OPPORTUNIT\u00c9', '\ud83c\udf24\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var weather = d.weather_label_fr || '';
       var t = temp(d.temperature_2m_max);
@@ -492,7 +492,7 @@
   );
 
   // #15 — competition_pressure_spike
-  reg('competition_pressure_spike', 'Pic de pression', 'CONCURRENCE', '\ud83d\udcc8', '#D32F2F', 'action', 'pulse#carte',
+  reg('competition_pressure_spike', 'Renforcez votre visibilit\u00e9 \u2014 pression en hausse', 'CONCURRENCE', '\ud83d\udcc8', '#D32F2F', 'action', 'pulse#carte',
     function(a, p, d) {
       var cf = cfEntry(d, 'competition_pressure_spike');
       var oldR = Number(cf.old_value || 0);
@@ -537,7 +537,7 @@
   );
 
   // #17 — mobility_disruption
-  reg('mobility_disruption', 'Perturbation acc\u00e8s', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
+  reg('mobility_disruption', 'Alertez votre \u00e9quipe \u2014 acc\u00e8s perturb\u00e9', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var ti = transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
@@ -558,7 +558,7 @@
   );
 
   // #18 — mobility_disruption_planned
-  reg('mobility_disruption_planned', 'Travaux pr\u00e9vus', 'PLANIFICATION', '\ud83d\udea7', '#F57F17', 'action', 'pulse#radar-changes',
+  reg('mobility_disruption_planned', 'Alertez votre \u00e9quipe \u2014 travaux pr\u00e9vus', 'PLANIFICATION', '\ud83d\udea7', '#F57F17', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var ti = transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
@@ -594,7 +594,7 @@
   );
 
   // #20 — score_up
-  reg('score_up', 'Score en hausse', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'action', 'pulse#radar-score',
+  reg('score_up', 'Profitez de cette journ\u00e9e favorable', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var deltaRaw = Number(d.opportunity_score_vs_yesterday || 0);
@@ -669,7 +669,7 @@
   );
 
   // #24 — mega_event_activation
-  reg('mega_event_activation', 'M\u00e9ga-\u00e9v\u00e9nement', 'INTELLIGENCE', '\ud83c\udfdf\ufe0f', '#1565C0', 'action', 'pulse#carte',
+  reg('mega_event_activation', 'Captez le trafic du m\u00e9ga-\u00e9v\u00e9nement', 'INTELLIGENCE', '\ud83c\udfdf\ufe0f', '#1565C0', 'action', 'pulse#carte',
     function(a, p, d) {
       var c = topComp(d);
       var event = c.event_label || a.event_label || 'M\u00e9ga-\u00e9v\u00e9nement';
@@ -706,7 +706,7 @@
   );
 
   // #26 — competitor_event_launch
-  reg('competitor_event_launch', 'Lancement concurrent', 'CONCURRENCE', '\ud83d\udce3', '#D32F2F', 'action', 'pulse#radar-threats',
+  reg('competitor_event_launch', 'R\u00e9agissez au lancement concurrent', 'CONCURRENCE', '\ud83d\udce3', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var c = topComp(d);
       var name = c.organizer_name || a.competitor_name || 'Concurrent';
@@ -731,7 +731,7 @@
   );
 
   // #27 — competitor_audience_conflict
-  reg('competitor_audience_conflict', 'Conflit audience', 'CONCURRENCE', '\ud83d\udea8', '#B71C1C', 'action', 'pulse#radar-threats',
+  reg('competitor_audience_conflict', 'Prot\u00e9gez votre audience', 'CONCURRENCE', '\ud83d\udea8', '#B71C1C', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || topComp(d).organizer_name || 'Concurrent';
       var aud = audLabel(p);
@@ -752,7 +752,7 @@
   );
 
   // #28 — competitor_review_surge
-  reg('competitor_review_surge', 'Avis en hausse', 'CONCURRENCE', '\ud83d\udcac', '#D32F2F', 'action', 'pulse#radar-threats',
+  reg('competitor_review_surge', 'R\u00e9pondez aux avis \u2014 concurrent en hausse', 'CONCURRENCE', '\ud83d\udcac', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || '';
       var count = a.review_count || '';
@@ -999,7 +999,7 @@
       var sowhatText = '';
       var whatText = '';
       if (spec) {
-        try { sowhatText = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
+        try { sowhatText = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (sowhatText && typeof sowhatText === 'object' && sowhatText.context) sowhatText = sowhatText.context; var _s1 = String(sowhatText || '').split('. ')[0]; if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = _s1.length > 120 ? _s1.slice(0, 117) + '...' : _s1; } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
@@ -1007,7 +1007,7 @@
       }
       var catLabel = spec ? spec.category_label_fr : (ac.action_category || 'INTELLIGENCE');
       var barClass = CAT_BAR[catLabel] || 'ab-info';
-      var brandLabel = spec ? spec.brand_label_fr : actionType.replace(/_/g, ' ');
+      var brandLabel = spec ? spec.category_label_fr : actionType.replace(/_/g, ' ');
       var brandColor = spec ? spec.color : '#6B7280';
       var brandIcon = spec ? spec.icon : '';
       var cardType = spec ? spec.card_type : 'action';
@@ -1020,7 +1020,7 @@
       actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
       actions.push({ text: 'Sauvegarder', meta: '', key: 'save', channel: '' });
       actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_label: currentDay.location_label || '', action_category: ac.action_category, suppression_key: ac.suppression_key, card_type: cardType };
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, suppression_key: ac.suppression_key, card_type: cardType };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, actions: actions, _is_action_candidate: true, _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;
@@ -1044,6 +1044,59 @@
 
   window.getDraftSeed = getDraftSeed;
   window.getAvailableChannels = getAvailableChannels;
+
+  // ── Wrap sowhats to return {context, action, urgency} ──
+  var ACTION_SENTENCES = {
+    'high_competition_density': { action: 'Communiquer : diff\u00e9renciez votre offre pour sortir du lot.', urgency: 'soon', channel: 'communiquer' },
+    'competitor_threat_direct': { action: 'Communiquer : mettez en avant ce qui vous distingue de ce concurrent.', urgency: 'soon', channel: 'communiquer' },
+    'competition_proximity': { action: 'Communiquer : renforcez votre visibilit\u00e9 locale face \u00e0 ce voisin.', urgency: 'soon', channel: 'communiquer' },
+    'low_competition_window': { action: 'Communiquer : profitez de cette fen\u00eatre pour prendre la parole.', urgency: 'now', channel: 'communiquer' },
+    'competition_pressure_spike': { action: 'Communiquer : intensifiez vos publications pour rester visible.', urgency: 'now', channel: 'communiquer' },
+    'competitor_event_launch': { action: 'Communiquer : proposez une alternative \u00e0 votre public cible.', urgency: 'now', channel: 'communiquer' },
+    'competitor_audience_conflict': { action: 'Communiquer : adressez directement votre audience partag\u00e9e.', urgency: 'now', channel: 'communiquer' },
+    'competitor_review_surge': { action: 'Communiquer : sollicitez des avis clients pour \u00e9quilibrer.', urgency: 'soon', channel: 'communiquer' },
+    'competitor_review_drop': { action: 'Communiquer : capitalisez sur votre r\u00e9putation.', urgency: 'plan', channel: 'communiquer' },
+    'competitor_hours_change': { action: 'Faire suivre : v\u00e9rifiez si vos horaires restent comp\u00e9titifs.', urgency: 'soon', channel: 'suivre' },
+    'competitor_new_offering': { action: 'Communiquer : mettez en avant votre propre offre.', urgency: 'soon', channel: 'communiquer' },
+    'competitor_sold_out': { action: 'Communiquer : captez le public refus\u00e9 chez le concurrent.', urgency: 'now', channel: 'communiquer' },
+    'competitor_content_spike': { action: 'Communiquer : ne laissez pas le concurrent monopoliser l\u2019attention.', urgency: 'now', channel: 'communiquer' },
+    'competitor_content_silent': { action: 'Communiquer : profitez du silence concurrent pour gagner en visibilit\u00e9.', urgency: 'now', channel: 'communiquer' },
+    'top_day_approaching': { action: 'Communiquer : lancez une op\u00e9ration maintenant, c\u2019est le meilleur cr\u00e9neau.', urgency: 'now', channel: 'communiquer' },
+    'weekend_opportunity': { action: 'Communiquer : activez une op\u00e9ration ce week-end.', urgency: 'now', channel: 'communiquer' },
+    'audience_shift_opportunity': { action: 'Communiquer : adaptez votre message \u00e0 ce nouveau public.', urgency: 'soon', channel: 'communiquer' },
+    'score_up': { action: 'Communiquer : conditions favorables, publiez pour maximiser l\u2019affluence.', urgency: 'now', channel: 'communiquer' },
+    'weather_window': { action: 'Communiquer : fen\u00eatre m\u00e9t\u00e9o favorable, communiquez vite.', urgency: 'now', channel: 'communiquer' },
+    'extended_bad_weather': { action: 'Faire suivre : alertez votre \u00e9quipe pour adapter les op\u00e9rations.', urgency: 'now', channel: 'suivre' },
+    'weather_hazard_onset': { action: 'Faire suivre : pr\u00e9venez votre \u00e9quipe des conditions d\u00e9grad\u00e9es.', urgency: 'now', channel: 'suivre' },
+    'score_down': { action: 'Faire suivre : alertez votre \u00e9quipe pour adapter le planning.', urgency: 'soon', channel: 'suivre' },
+    'calendar_audience_shift': { action: 'Communiquer : ajustez votre message au profil du jour.', urgency: 'plan', channel: 'communiquer' },
+    'institution_campaign_detected': { action: 'Communiquer : surfez sur cette campagne institutionnelle.', urgency: 'soon', channel: 'communiquer' },
+    'mega_event_activation': { action: 'Communiquer : publiez une offre pour capter ce trafic.', urgency: 'now', channel: 'communiquer' },
+    'mega_event_end': { action: 'Communiquer : reprenez la visibilit\u00e9 d\u00e8s la fin du m\u00e9ga-\u00e9v\u00e9nement.', urgency: 'now', channel: 'communiquer' },
+    'mobility_disruption': { action: 'Faire suivre : informez votre \u00e9quipe de la perturbation d\u2019acc\u00e8s.', urgency: 'now', channel: 'suivre' },
+    'mobility_disruption_planned': { action: 'Faire suivre : anticipez un plan d\u2019acc\u00e8s alternatif.', urgency: 'soon', channel: 'suivre' },
+    'mobility_disruption_resolved': { action: 'Communiquer : l\u2019acc\u00e8s est r\u00e9tabli, relancez vos visiteurs.', urgency: 'now', channel: 'communiquer' },
+    'media_mention_detected': { action: 'Communiquer : relayez cette mention m\u00e9dia.', urgency: 'soon', channel: 'communiquer' },
+    'weekly_summary': { action: 'Faire suivre : partagez le bilan avec votre \u00e9quipe.', urgency: 'plan', channel: 'suivre' },
+    'weather_worsened': { action: 'Faire suivre : pr\u00e9venez votre \u00e9quipe des conditions d\u00e9grad\u00e9es.', urgency: 'now', channel: 'suivre' },
+    'weather_improved': { action: 'Communiquer : conditions am\u00e9lior\u00e9es, relancez vos visiteurs.', urgency: 'now', channel: 'communiquer' }
+  };
+
+  var _origSpecs = {};
+  for (var _k in SPECS) {
+    if (SPECS[_k] && typeof SPECS[_k].sowhat === 'function') {
+      _origSpecs[_k] = SPECS[_k].sowhat;
+      (function(key, origFn) {
+        SPECS[key].sowhat = function(a, p, d) {
+          var _raw = origFn(a, p, d);
+          var _meta = ACTION_SENTENCES[key];
+          if (!_meta) return _raw;
+          return { context: _raw, action: _meta.action, urgency: _meta.urgency };
+        };
+      })(_k, _origSpecs[_k]);
+    }
+  }
+
   window.ACTION_CARDS = SPECS;
 
 })();

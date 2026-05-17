@@ -7,10 +7,14 @@ const VALID_EVENTS = [
   "draft_generated",
   "draft_copied",
   "draft_saved",
+  "draft_published",
   "signal_confirmed",
   "signal_dismissed",
   "competitor_followed",
   "date_saved",
+  "action_consulted",
+  "action_saved",
+  "action_flagged",
 ];
 
 export const POST: APIRoute = async ({ request, locals }) => {

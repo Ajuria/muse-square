@@ -535,6 +535,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const cardSowhat = safeStr(body.card_sowhat);
     const userInstruction = safeStr(body.user_instruction);
     const bodyStyleReference = safeStr(body.style_reference);
+    const draftSeed = safeStr(body.draft_seed);
 
     if (!actionKey || !channel || !changeSubtype) {
       return new Response(
@@ -669,8 +670,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       mobility_context: mobilityContext,
       user_instruction: userInstruction,
     };
-
-    const userPrompt = buildUserPrompt(promptCtx);
+    const userPrompt = draftSeed
+      ? `CONSIGNE DE RÉDACTION (générée par le système) :\n${draftSeed}\n\n${userInstruction ? 'INSTRUCTION UTILISATEUR :\n' + userInstruction : ''}`
+      : buildUserPrompt(promptCtx);
 
     const templateId = (() => {
       const key = `${changeSubtype}__${channel}`;

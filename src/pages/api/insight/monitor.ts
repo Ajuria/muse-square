@@ -108,6 +108,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         geographic_catchment,
         company_industry,
         business_short_description,
+        website_url,
+        instagram_url,
+        facebook_url,
         latitude,
         longitude,
         city_name,
@@ -125,6 +128,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         seasonality,
         main_event_objective,
         operating_hours,
+        auto_enriched_description,
         besttime_venue_id,
         besttime_venue_type,
         besttime_rating,
@@ -150,6 +154,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         is_major_realization_risk_flag,
         is_forced_regime_c_flag,
         major_realization_risk_driver,
+        is_mega_event_flag,
+        active_mega_event_name,
 
         -- Component scores
         events_score,
@@ -170,6 +176,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         impact_heat_pct,
         impact_cold_pct,
         impact_weather_pct,
+        delta_att_weather_total_pct,
+        delta_att_calendar_pct,
+        audience_availability_label,
+        primary_score_driver_label_fr,
 
         -- Weather detail
         weather_code,
@@ -200,6 +210,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         baseline_comp_avg,
         has_valid_baseline_flag,
         competition_pressure_ratio,
+        concentration_index_score,
 
         tourism_index_region,
         tourism_peak_flag_region,
@@ -366,6 +377,32 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }) : Promise.resolve([[{ cnt: 0 }]]),
     ]);
 
+    // Fetch action candidates
+    let actionCandidateRows: any[] = [];
+    try {
+      const [acRows] = await bq.query({
+        query: `
+          SELECT
+            date, location_id, action_type, action_priority, action_category,
+            data_payload,
+            suppression_key, expires_at
+          FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
+          WHERE location_id = @location_id
+            AND date IN UNNEST(ARRAY(
+              SELECT PARSE_DATE('%Y-%m-%d', d)
+              FROM UNNEST(@selected_dates) AS d
+            ))
+          ORDER BY action_priority DESC, action_type ASC
+        `,
+        params: { location_id, selected_dates },
+        types: { selected_dates: ["STRING"] },
+        location: "EU",
+      });
+      actionCandidateRows = Array.isArray(acRows) ? acRows : [];
+    } catch (e) {
+      console.error("[monitor] action candidates query failed", e);
+    }
+
     const profile = profileRows?.[0] ?? null;
 
     // Fetch BestTime foot traffic if venue is registered
@@ -411,6 +448,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       primary_audience_1:            profile?.primary_audience_1                        ?? null,
       primary_audience_2:            profile?.primary_audience_2                        ?? null,
       operating_hours:               profile?.operating_hours                           ?? null,
+      auto_enriched_description:     profile?.auto_enriched_description                 ?? null,
       company_activity_type:         profile?.company_activity_type                     ?? null,
       event_time_profile:            profile?.event_time_profile                        ?? null,
       location_type_client:          profile?.location_type                             ?? null,
@@ -484,6 +522,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       primary_audience_1:            profile?.primary_audience_1      ?? null,
       primary_audience_2:            profile?.primary_audience_2      ?? null,
       operating_hours:               profile?.operating_hours         ?? null,
+      auto_enriched_description:     profile?.auto_enriched_description ?? null,
       company_activity_type:         profile?.company_activity_type   ?? null,
       event_time_profile:            profile?.event_time_profile      ?? null,
       location_type_client:          profile?.location_type           ?? null,
@@ -749,6 +788,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         alert_level_max:          r.alert_level_max           ?? 0,
         is_major_realization_risk_flag: r.is_major_realization_risk_flag ?? false,
         is_forced_regime_c_flag: r.is_forced_regime_c_flag ?? false,
+        is_mega_event_flag: r.is_mega_event_flag ?? false,
+        active_mega_event_name: r.active_mega_event_name ?? null,
 
         // Competition (same industry bucket)
         events_within_500m_same_bucket_count: r.events_within_500m_same_bucket_count ?? null,
@@ -762,6 +803,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         baseline_comp_avg:          r.baseline_comp_avg          ?? null,
         has_valid_baseline_flag:    r.has_valid_baseline_flag    ?? null,
         competition_pressure_ratio: r.competition_pressure_ratio ?? null,
+        concentration_index_score:  r.concentration_index_score  ?? null,
 
         tourism_index_region:      r.tourism_index_region      ?? null,
         tourism_peak_flag_region:  r.tourism_peak_flag_region  ?? false,
@@ -772,6 +814,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         delta_att_events_pct:       r.delta_att_events_pct       ?? 0,
         delta_att_mobility_pct:     r.delta_att_mobility_pct     ?? 0,
         delta_ops_mobility_car_pct: r.delta_ops_mobility_car_pct ?? 0,
+        delta_att_weather_total_pct:    r.delta_att_weather_total_pct    ?? 0,
+        delta_att_calendar_pct:         r.delta_att_calendar_pct         ?? 0,
+
+        audience_availability_label:    r.audience_availability_label    ?? null,
+        primary_score_driver_label_fr:  r.primary_score_driver_label_fr  ?? null,
 
         // Foot traffic (BestTime API → dbt fallback)
         ...(() => {
@@ -843,6 +890,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
             capacity_sensitivity: profile.capacity_sensitivity ?? null,
             geographic_catchment: profile.geographic_catchment ?? null,
             business_short_description: profile.business_short_description ?? null,
+            website_url: profile.website_url ?? null,
+            instagram_url: profile.instagram_url ?? null,
+            facebook_url: profile.facebook_url ?? null,
             city_name: profile.city_name ?? null,
             region_name: profile.region_name ?? null,
             latitude: profile.latitude ?? null,
@@ -860,6 +910,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             seasonality: profile.seasonality ?? null,
             main_event_objective: profile.main_event_objective ?? null,
             operating_hours: profile.operating_hours ?? null,
+            auto_enriched_description: profile.auto_enriched_description ?? null,
             besttime_venue_id:      profile.besttime_venue_id      ?? null,
             besttime_venue_type:    profile.besttime_venue_type    ?? null,
             besttime_rating:        profile.besttime_rating        ?? null,
@@ -868,6 +919,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,
+      action_candidates: actionCandidateRows.map((r: any) => ({
+        date:            (r?.date?.value ?? r?.date ?? null),
+        location_id:     r?.location_id ?? null,
+        action_type:     r?.action_type ?? null,
+        action_priority: r?.action_priority ?? null,
+        action_category: r?.action_category ?? null,
+        data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
+        suppression_key: r?.suppression_key ?? null,
+        expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
+      })),
       event_status: eventStatus,
       worst_day_count: worstDayCount,
       total_day_count: days.length,

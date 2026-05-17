@@ -529,12 +529,16 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     if (sub === "score_up") {
-      const sign = delta != null ? ` (+${delta} pts)` : "";
-      return `${ov} \u2192 ${nv}${sign}`;
+      var _drv = a?.score_driver_label || "";
+      var _drvMap = {"m\u00e9t\u00e9o":"m\u00e9t\u00e9o favorable","concurrence":"faible concurrence","mobilit\u00e9":"acc\u00e8s am\u00e9lior\u00e9","calendrier":"contexte calendaire favorable"};
+      var _drvLabel = _drvMap[_drv.toLowerCase()] || _drv || "";
+      return "Score en hausse" + (_drvLabel ? " \u2014 " + _drvLabel : "");
     }
     if (sub === "score_down") {
-      const sign = delta != null ? ` (${delta} pts)` : "";
-      return `${ov} \u2192 ${nv}${sign}`;
+      var _drv = a?.score_driver_label || "";
+      var _drvMap = {"m\u00e9t\u00e9o":"m\u00e9t\u00e9o d\u00e9grad\u00e9e","concurrence":"forte pression concurrentielle","mobilit\u00e9":"acc\u00e8s perturb\u00e9","calendrier":"contexte calendaire d\u00e9favorable"};
+      var _drvLabel = _drvMap[_drv.toLowerCase()] || _drv || "";
+      return "Score en baisse" + (_drvLabel ? " \u2014 " + _drvLabel : "");
     }
     if (sub === "event_new") {
       const evLabel = name || "";
@@ -588,7 +592,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return "Trafic r\u00e9tabli";
     }
     if (sub === "calendar_audience_shift") return nv || "Changement d\u2019audience";
-    if (sub === "regime_change") return `Contexte : ${ov || "?"} \u2192 ${nv || "?"}`;
+    if (sub === "regime_change") { var _rvMap = {"A":1,"B":2,"C":3,"D":4}; var _ovR = _rvMap[String(ov||"").toUpperCase()] || 0; var _nvR = _rvMap[String(nv||"").toUpperCase()] || 0; if (_nvR > _ovR) return "Environnement plus concurrentiel"; if (_nvR < _ovR) return "Environnement concurrentiel all\u00e9g\u00e9"; return "Changement de contexte"; }
     if (sub === "ranking_up") return `${ov}e \u2192 ${nv}e position`;
     if (sub === "ranking_down") return `${ov}e \u2192 ${nv}e position`;
     if (sub === "baseline_validity_change") return null;
@@ -708,8 +712,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const count = nv || ov || "";
       return count ? `${count} \u00e9v\u00e9nements \u00e0 5 km` : "";
     }
-    if (sub === "mega_event_activation") return "Impact attendu sur la fr\u00e9quentation et la mobilit\u00e9";
-    if (sub === "mega_event_end") return "Retour \u00e0 la normale attendu";
+    if (sub === "mega_event_activation") { var _mn2 = nv && nv !== "true" && nv !== "false" ? nv : ""; return _mn2 ? _mn2 + " \u2014 anticipez l\u2019impact sur votre fr\u00e9quentation" : "\u00c9v\u00e9nement majeur \u00e0 proximit\u00e9 \u2014 anticipez l\u2019impact sur votre fr\u00e9quentation"; }
+    if (sub === "mega_event_end") { var _mn2e = nv && nv !== "true" && nv !== "false" ? nv : ""; return _mn2e ? "Fin de " + _mn2e + " \u2014 fen\u00eatre pour reprendre la visibilit\u00e9" : "La pression retombe \u2014 fen\u00eatre pour reprendre la visibilit\u00e9"; }
     if (sub === "weather_hazard_onset") {
       if (isOutdoorClient) return "Impact direct sur vos installations et la fr\u00e9quentation.";
       return "Impact probable sur la fr\u00e9quentation.";
@@ -721,7 +725,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       if (mode === "road") return "Axe routier de nouveau accessible";
       return "Acc\u00e8s normalis\u00e9 \u2014 la ligne dessert \u00e0 nouveau votre zone";
     }
-    if (sub === "regime_change") return "";
+    if (sub === "regime_change") { var _rvMap2 = {"A":1,"B":2,"C":3,"D":4}; var _ovR2 = _rvMap2[String(ov||"").toUpperCase()] || 0; var _nvR2 = _rvMap2[String(nv||"").toUpperCase()] || 0; if (_nvR2 > _ovR2) return "Plus d\u2019\u00e9v\u00e9nements en comp\u00e9tition pour l\u2019attention de votre public."; if (_nvR2 < _ovR2) return "Moins de comp\u00e9tition sur cette date \u2014 opportunit\u00e9 de visibilit\u00e9."; return ""; }
     if (sub === "baseline_validity_change") return "";
     if (sub === "medal_change") return "";
     if (sub === "context_change") return "";
@@ -2396,6 +2400,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\ud83d\udd0d Consulter la source</button>'
       + '</div></div>';
 
+      var _sw = t.sowhat;
+      var _swText = '';
+      if (_sw && typeof _sw === 'object' && _sw.context) { _swText = _sw.context; }
+      else if (typeof _sw === 'string') { _swText = _sw.split('. ').slice(0, 2).join('. '); if (_swText && !_swText.endsWith('.')) _swText += '.'; }
       return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
@@ -2403,11 +2411,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             + '<div class="ab-summary">'
               + '<div class="ab-pills">'
                 + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
-                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
                 + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
+                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
               + '</div>'
               + '<div class="ab-what">' + t.what + '</div>'
-              + '<div class="ab-sowhat">' + escapeHtml(t.sowhat) + '</div>'
+              + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
               + ' data-ab-card-idx-ref="' + cardIdx + '"'
@@ -3864,6 +3872,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         const cta = feedItemCta(a);
         const typePill = feedTypePill(a);
         const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
+        var _ad = normalizeYmd(a?.affected_date);
+        var _today = todayYmd();
+        var _datePillLabel = "";
+        if (_ad === _today) _datePillLabel = "Aujourd\u2019hui";
+        else { var _dt = parseYmdToDate(_ad); if (_dt) { var _diff = Math.round((_dt - parseYmdToDate(_today)) / 86400000); if (_diff === 1) _datePillLabel = "Demain"; else if (_diff === -1) _datePillLabel = "Hier"; else if (_diff > 1 && _diff <= 7) _datePillLabel = new Intl.DateTimeFormat("fr-FR", {weekday:"short",day:"numeric"}).format(_dt); else _datePillLabel = new Intl.DateTimeFormat("fr-FR", {day:"numeric",month:"short"}).format(_dt); } }
+        var datePill = _datePillLabel ? '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;background:#f3f4f6;color:#6b7280;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(_datePillLabel) + '</span>' : "";
 
         const ctaHtml = (() => {
           if (!cta) return "";
@@ -3885,7 +3899,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           <div style="padding:10px 14px;${idx > 0 ? "border-top:1px solid #f3f4f6;" : ""}border-left:3px solid ${borderCol};margin-left:-1px;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
               <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${locPill}${typePill}</div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${datePill}${locPill}${typePill}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px;">${escapeHtml(line1)}</div>
                 ${line2 ? `<div style="font-size:11.5px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
                 ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}

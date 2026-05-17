@@ -409,18 +409,30 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
         if (mode === 'intelligence') {
           // Mega event card if available
           var tcMega = day.top_competitors || [];
-          var megaComp = tcMega.length > 0 ? (tcMega[0].e || tcMega[0]) : null;
-          if (megaComp && (signal_type === 'mega_event_activation' || signal_type === 'mega_event_end')) {
+          var megaName = (feedItem.new_value && feedItem.new_value !== 'true' && feedItem.new_value !== 'false') ? feedItem.new_value : (day.active_mega_event_name || null);
+          var megaComp = null;
+          var megaMatchedInTC = false;
+          if (megaName && tcMega.length > 0) {
+            for (var mi = 0; mi < tcMega.length; mi++) { var me = tcMega[mi].e || tcMega[mi]; if (me.event_label && megaName.indexOf(me.event_label) >= 0) { megaComp = me; megaMatchedInTC = true; break; } }
+          }
+          if ((signal_type === 'mega_event_activation' || signal_type === 'mega_event_end') && (megaName || megaComp)) {
+            var megaDisplayName = megaName || (megaComp ? (megaComp.event_label || megaComp.organizer_name) : '\u2014');
+            var megaOrg = megaMatchedInTC && megaComp ? (megaComp.organizer_name || '') : '';
+            var megaDist = megaMatchedInTC && megaComp ? megaComp.distance_m : null;
+            var megaAtt = megaMatchedInTC && megaComp ? megaComp.estimated_attendance : null;
+            var megaUrl = megaMatchedInTC && megaComp ? megaComp.event_url : null;
+            var megaSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(megaDisplayName);
             html += '<div class="fs-section">'
               + '<div class="fs-section-title">\u00c9v\u00e9nement concern\u00e9</div>'
               + '<div class="fs-mega-card">'
-                + '<div class="fs-mega-name">' + esc(megaComp.event_label || megaComp.organizer_name || '\u2014') + '</div>'
-                + '<div class="fs-mega-org">' + esc(megaComp.organizer_name || '') + '</div>'
+                + '<div class="fs-mega-name">' + esc(megaDisplayName) + '</div>'
+                + (megaOrg && megaOrg !== megaDisplayName ? '<div class="fs-mega-org">' + esc(megaOrg) + '</div>' : '')
                 + '<div class="fs-mega-stats">'
-                  + (megaComp.estimated_attendance ? '<div><span class="fs-mega-bold">' + Math.round(Number(megaComp.estimated_attendance) / 1000) + 'k</span> visiteurs</div>' : '')
-                  + '<div><span class="fs-mega-bold">' + distFmt(megaComp.distance_m) + '</span> de votre site</div>'
+                  + (megaAtt ? '<div><span class="fs-mega-bold">' + Math.round(Number(megaAtt) / 1000) + 'k</span> visiteurs</div>' : '')
+                  + (megaDist ? '<div><span class="fs-mega-bold">' + distFmt(megaDist) + '</span> de votre site</div>' : '')
                 + '</div>'
-                + (megaComp.event_url ? '<a href="' + esc(megaComp.event_url) + '" target="_blank" rel="noopener" class="fs-mega-link">\ud83d\udd17 En savoir plus \u2192</a>' : '<a href="/app/insightevent/map?location_id=' + encodeURIComponent(location_id) + '&date=' + encodeURIComponent(signal_date) + '&embed=1" class="fs-mega-link">\ud83d\uddfa Voir sur la carte \u2192</a>')
+                + (megaUrl ? '<a href="' + esc(megaUrl) + '" target="_blank" rel="noopener" class="fs-mega-link">\ud83d\udd17 En savoir plus \u2192</a>' : '<button type="button" data-mega-enrich="' + esc(megaDisplayName) + '" class="fs-mega-link" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:inherit;color:inherit;padding:0;text-align:left;">\ud83d\udd17 En savoir plus \u2192</button>')
+                + '<div data-mega-enrich-panel style="display:none;margin-top:10px;"></div>'
               + '</div>'
             + '</div>';
           }
@@ -601,6 +613,59 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
 
         // ── Render ──
         root.innerHTML = html;
+        // Wire mega event enrich button
+        var megaEnrichBtn = root.querySelector('[data-mega-enrich]');
+        if (megaEnrichBtn) {
+          megaEnrichBtn.addEventListener('click', async function() {
+            var evName = megaEnrichBtn.getAttribute('data-mega-enrich') || '';
+            var panel = root.querySelector('[data-mega-enrich-panel]');
+            if (!panel) return;
+            panel.style.display = 'block';
+            panel.innerHTML = '<div style="font-size:12px;color:#9CA3AF;padding:8px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche en cours\u2026</div>';
+            megaEnrichBtn.style.display = 'none';
+            try {
+              var res = await fetch('/api/insight/enrich-event', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ event_label: evName, description: '', city_name: '', event_venue_name: '', event_uid: null, city_id: null, distance_m: null, radius_bucket: null, industry_code: null }),
+              });
+              var json = await res.json();
+              if (!json?.ok || !json?.data) throw new Error('Donn\u00e9es indisponibles');
+              var d = json.data;
+              var rows = [
+                d.confirmed_dates      ? ['Dates',         d.confirmed_dates]      : null,
+                d.venue_name           ? ['Lieu',           d.venue_name]           : null,
+                d.venue_capacity       ? ['Capacit\u00e9',  d.venue_capacity]       : null,
+                d.organizer            ? ['Organisateur',   d.organizer]            : null,
+                d.estimated_attendance ? ['Fr\u00e9quentation', d.estimated_attendance] : null,
+              ].filter(Boolean);
+              var tags = d.audience_profile ? d.audience_profile.split(/[,;]/).map(function(t) { return t.trim(); }).filter(Boolean) : [];
+              panel.innerHTML = '<div style="background:#F9FAFB;border:0.5px solid #E5E7EB;border-radius:10px;overflow:hidden;">'
+                + (rows.length ? '<div style="display:grid;grid-template-columns:1fr 1fr;">' + rows.map(function(r, i) {
+                  return '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;' + (i % 2 === 0 && i < rows.length - 1 ? 'border-right:0.5px solid #F3F4F6;' : '') + '">'
+                    + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">' + esc(r[0]) + '</div>'
+                    + '<div style="font-size:13px;color:#111827;line-height:1.4;">' + esc(String(r[1])) + '</div>'
+                  + '</div>';
+                }).join('') + '</div>' : '')
+                + (tags.length ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+                  + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;">Audience</div>'
+                  + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(function(t) { return '<span style="font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;">' + esc(t) + '</span>'; }).join('') + '</div>'
+                + '</div>' : '')
+                + (d.business_takeaway ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+                  + '<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1D3BB3;margin-bottom:5px;">Impact pour votre activit\u00e9</div>'
+                  + '<div style="font-size:12px;color:#111827;line-height:1.55;">' + esc(d.business_takeaway) + '</div>'
+                + '</div>' : '')
+                + '<div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">'
+                  + '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;flex-shrink:0;"></span>Agent IA \u00b7 web</div>'
+                  + (d.source_url ? '<a href="' + esc(d.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Source officielle \u2192</a>' : '')
+                + '</div>'
+              + '</div>';
+            } catch(err) {
+              panel.innerHTML = '<div style="font-size:12px;color:#B91C1C;padding:4px 0;">Donn\u00e9es non disponibles.</div>';
+              megaEnrichBtn.style.display = '';
+            }
+          });
+        }
         wireActionBar(root, day, prof, feedItem);
       }
 
@@ -614,6 +679,7 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
         var aud2 = AUD_FR[prof.primary_audience_2] || prof.primary_audience_2 || '';
         var audStr = aud1 + (aud2 ? ', ' + aud2 : '');
         var diff = (crawled && crawled.key_differentiators) || (crawled && crawled.current_offering) || prof.business_short_description || '';
+        if (diff && (diff.indexOf('signaux contextuels') >= 0 || diff.indexOf('traduction automatique') >= 0 || diff.indexOf('Muse Square') >= 0 || diff.indexOf('muse square') >= 0)) diff = '';
         if (diff && diff.length > 120) diff = diff.substring(0, 120) + '\u2026';
 
         if (mode === 'meteo') {
@@ -640,6 +706,14 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
           if (tName) facts.push({ label: 'Station', value: tName + (tLine ? ' (ligne ' + tLine + ')' : ''), text: tDist ? '\u00e0 ' + tDist + ' de votre site' : '' });
           if (Number(day.delta_att_mobility_pct || 0) !== 0) facts.push({ label: 'Impact mobilit\u00e9', value: Math.round(Number(day.delta_att_mobility_pct)) + '%', text: 'de fr\u00e9quentation estim\u00e9e' });
           facts.push({ label: 'Acc\u00e8s visiteurs', text: 'Vos visiteurs viennent \u00e0 pied et en transports \u2014 impact direct' });
+        } else if (mode === 'intelligence' && (feedItem.change_subtype === 'mega_event_activation' || feedItem.change_subtype === 'mega_event_end')) {
+          var megaN = day.active_mega_event_name || feedItem.new_value || 'M\u00e9ga-\u00e9v\u00e9nement';
+          if (megaN === 'true' || megaN === 'false') megaN = 'M\u00e9ga-\u00e9v\u00e9nement';
+          facts.push({ label: '\u00c9v\u00e9nement', value: megaN, text: 'dans votre zone' });
+          facts.push({ label: 'Score jour', value: num(day.opportunity_score_final_local) + '/10' });
+          if (Number(day.events_within_5km_count || 0) > 0) facts.push({ label: '\u00c9v\u00e9nements \u00e0 5 km', value: num(day.events_within_5km_count), text: 'dont ' + num(day.events_within_5km_same_bucket_count) + ' m\u00eame secteur' });
+          if (audStr) facts.push({ label: 'Votre cible', value: audStr, text: '\u2014 pr\u00e9sente parmi les visiteurs de l\u2019\u00e9v\u00e9nement' });
+          if (diff) facts.push({ label: 'Votre atout', text: diff });
         } else {
           // Intelligence / default
           if (Number(day.competition_pressure_ratio || 0) > 0) facts.push({ label: 'Pression', value: ratio(day.competition_pressure_ratio), text: 'niveau actuel' });
