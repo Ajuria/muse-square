@@ -2,7 +2,6 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 
@@ -38,17 +37,10 @@ const show_actions = has_selected_dates;
 
 ---
 
-<Show when="signed-out" client:load>
-  <script is:inline>
-    window.location.href = "/sign-in";
-  </script>
-</Show>
-
-<Show when="signed-in" client:load>
-  <BaseLayout title="Insight Event — Days" hideSurveyCta={true} hideFooter={true}>
+<BaseLayout title="Insight Event — Days" hideSurveyCta={true} hideFooter={true}>
     <div class="ms-container pt-6 w-full max-w-none"></div>
   
-  <style is:inline id="ms-selected-days-style">  
+  <style is:inline id="ms-selected-days-style"> 
   /* =========================
    HERO SCORE BLOCK
    ========================= */
@@ -6933,9 +6925,12 @@ const show_actions = has_selected_dates;
 
         (async function init() {
           try {
-            const [data, allSavedItems] = await Promise.all([
+            const [data, allSavedItems, _csInitial] = await Promise.all([
               fetchDays(),
               fetchSavedItems().catch(() => []),
+              fetchCompetitorSignals(
+                selectedDate !== "__comparison__" ? selectedDate : (selectedDates[0] || "")
+              ),
             ]);
             window.__MS_DAYS__._allSavedItems = allSavedItems;
             if (!savedItemId && Array.isArray(allSavedItems) && allSavedItems.length > 0) {
@@ -6991,12 +6986,9 @@ const show_actions = has_selected_dates;
             MS.pointsCles = data.points_cles ?? null;
             MS.alerts = Array.isArray(data.alerts) ? data.alerts : [];
             MS.savedItemMeta = savedItemMeta ?? null;
-            const _cs = await fetchCompetitorSignals(
-              selectedDate !== "__comparison__" ? selectedDate : (selectedDates[0] || "")
-            );
-            MS.competitorSignals = _cs.signals;
-            MS.competitorFollowedCount = _cs.followed_count;
-            MS.topThreats = _cs.top_threats;
+            MS.competitorSignals = _csInitial.signals;
+            MS.competitorFollowedCount = _csInitial.followed_count;
+            MS.topThreats = _csInitial.top_threats;
 
             if ((!selectedDate || (selectedDate !== "__comparison__" && !byDate.has(selectedDate))) && selectedDates.length > 0) {
               const firstFound = selectedDates.find((d) => byDate.has(d));
@@ -7046,4 +7038,3 @@ const show_actions = has_selected_dates;
     </script>
 
   </BaseLayout>
-</Show>

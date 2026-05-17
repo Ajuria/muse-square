@@ -45,18 +45,11 @@ const location_id =
 const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 ---
 
-<Show when="signed-out" client:load>
-  <script is:inline>
-    window.location.href = "/sign-in";
-  </script>
-</Show>
-
-<Show when="signed-in" client:load>
-  <BaseLayout
-    title="Insight Event — Mois"
-    hideSurveyCta={true}
-    hideFooter={true}
-  >
+<BaseLayout
+  title="Insight Event — Mois"
+  hideSurveyCta={true}
+  hideFooter={true}
+>
     <div id="ie-30d-root" data-role="ie-30d-root">
       <main id="ie-30d-main" data-role="ie-30d-main">
         <div id="ms-new-loc-banner" style="display:none;background:#f0f4ff;border-left:3px solid #0b37e5;padding:12px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;gap:12px;">
@@ -2879,4 +2872,3 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     </script>
     <InsightBottomBar active="month" showActions={false} search={Astro.url.search} />
   </BaseLayout>
-</Show>
