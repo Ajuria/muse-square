@@ -34,7 +34,7 @@ async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
   try {
     const res = await fetch(
       `https://besttime.app/api/v1/forecasts/week?api_key_public=${encodeURIComponent(apiKey)}&venue_id=${encodeURIComponent(venueId)}`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(3000) }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -70,8 +70,12 @@ async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
   }
 }
 
+const _profileCache = new Map<string, { data: any; ts: number }>();
+const PROFILE_TTL_MS = 3600_000; // 1 hour
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
+    const _t0 = Date.now();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
     const selected_dates_raw = requireString(url.searchParams.get("selected_dates"), "selected_dates");
@@ -290,17 +294,32 @@ export const GET: APIRoute = async ({ url, locals }) => {
         score_driver_label
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
-        AND feed_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+        AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+        AND affected_date <= DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY)
       ORDER BY alert_level DESC, feed_date DESC
     `;
 
+    const _t1 = Date.now();
+    console.log(`[monitor] setup: ${_t1 - _t0}ms`);
+
     // Run all queries in parallel
-    const [[profileRows], [signalRows], [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows]] = await Promise.all([
-      bq.query({
-        query: profileQuery,
-        params: { location_id },
-        location: "EU",
-      }),
+    const [[profileRows], [signalRows], [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows] = await Promise.all([
+      (() => {
+        const cached = _profileCache.get(location_id);
+        if (cached && Date.now() - cached.ts < PROFILE_TTL_MS) {
+          return Promise.resolve([[ cached.data ]]) as any;
+        }
+        return bq.query({
+          query: profileQuery,
+          params: { location_id },
+          location: "EU",
+        }).then((result: any) => {
+          if (result?.[0]?.[0]) {
+            _profileCache.set(location_id, { data: result[0][0], ts: Date.now() });
+          }
+          return result;
+        });
+      })(),
       bq.query({
         query: signalsQuery,
         params: { location_id, selected_dates },
@@ -311,7 +330,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id, selected_dates },
         types: { selected_dates: ["STRING"] },
         location: "EU",
-        maxResults: 5000,
+        maxResults: 500,
       }),
       clerk_user_id ? bq.query({
         query: `
@@ -375,12 +394,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { clerk_user_id },
         location: "EU",
       }) : Promise.resolve([[{ cnt: 0 }]]),
-    ]);
-
-    // Fetch action candidates
-    let actionCandidateRows: any[] = [];
-    try {
-      const [acRows] = await bq.query({
+      bq.query({
         query: `
           SELECT
             date, location_id, action_type, action_priority, action_category,
@@ -397,11 +411,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id, selected_dates },
         types: { selected_dates: ["STRING"] },
         location: "EU",
-      });
-      actionCandidateRows = Array.isArray(acRows) ? acRows : [];
-    } catch (e) {
-      console.error("[monitor] action candidates query failed", e);
-    }
+      }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
+    ]);
+
+    const _t2 = Date.now();
+    console.log(`[monitor] Promise.all (6 queries): ${_t2 - _t1}ms`);
 
     const profile = profileRows?.[0] ?? null;
 
@@ -414,6 +428,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         if (d.day_int != null) btByDayInt.set(d.day_int, d);
       }
     }
+
+    const _t3 = Date.now();
+    console.log(`[monitor] action candidates + BestTime: ${_t3 - _t2}ms`);
 
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
       entity_id:                     r?.competitor_event_id                              ?? null,
@@ -874,6 +891,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     );
 
     const worstDayCount = days.filter((d) => d.status === eventStatus).length;
+
+    const _t4 = Date.now();
+    console.log(`[monitor] response build: ${_t4 - _t3}ms`);
+    console.log(`[monitor] TOTAL: ${_t4 - _t0}ms`);
 
     return json(200, {
       ok: true,

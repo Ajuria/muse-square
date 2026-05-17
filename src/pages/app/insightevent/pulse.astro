@@ -13,14 +13,10 @@ const location_id =
 if (!location_id) {
   return Astro.redirect("/profile");
 }
+
 ---
 
-<Show when="signed-out" client:load>
-  <script is:inline>window.location.href = "/sign-in";</script>
-</Show>
-
-<Show when="signed-in" client:load>
-  <BaseLayout title="Pulse — Insight Event" hideSurveyCta={true} hideFooter={true}>
+<BaseLayout title="Pulse — Insight Event" hideSurveyCta={true} hideFooter={true}></BaseLayout>
 
     <style is:inline>
       .mon-wrap {
@@ -274,8 +270,6 @@ if (!location_id) {
   <PiloterBottomBar active="veille" />
 
   </BaseLayout>
-</Show>
-
 <script is:inline define:vars={{ location_id }}>
 (function () {
 
@@ -5425,14 +5419,19 @@ if (!location_id) {
         };
 
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, 0);
-        const csResult = await fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0 }));
+        renderPulse(mergedData, todayYmd(), "radar");
+
+        var _locIdForSecondary = locs[0]?.location_id || currentLocationId;
+        const [csResult] = await Promise.all([
+          fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0, top_threats: [] })),
+          fetchPendingFeedback(_locIdForSecondary),
+          fetchSavedDrafts(_locIdForSecondary),
+          fetchChannelConfigs(_locIdForSecondary),
+          fetchTeamMembers(_locIdForSecondary),
+        ]);
         mergedData._competitor_signals = csResult.signals;
         mergedData._competitor_followed_count = csResult.followed_count;
         mergedData._top_threats = csResult.top_threats;
-        await fetchPendingFeedback(locs[0]?.location_id || currentLocationId);
-        await fetchSavedDrafts(locs[0]?.location_id || currentLocationId);
-        await fetchChannelConfigs(locs[0]?.location_id || currentLocationId);
-        await fetchTeamMembers(locs[0]?.location_id || currentLocationId);
         renderPulse(mergedData, todayYmd(), "radar");
 
       } else {
@@ -5444,14 +5443,18 @@ if (!location_id) {
 
         data.all_feed = filterFeedByWindow(data.all_feed || [], 0);
         data._locations = [];
-        const csResult = await fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0 }));
+        renderPulse(data, todayYmd(), "radar");
+
+        const [csResult] = await Promise.all([
+          fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0, top_threats: [] })),
+          fetchPendingFeedback(currentLocationId),
+          fetchSavedDrafts(currentLocationId),
+          fetchChannelConfigs(currentLocationId),
+          fetchTeamMembers(currentLocationId),
+        ]);
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;
         data._top_threats = csResult.top_threats;
-        await fetchPendingFeedback(currentLocationId);
-        await fetchSavedDrafts(currentLocationId);
-        await fetchChannelConfigs(currentLocationId);
-        await fetchTeamMembers(currentLocationId);
         renderPulse(data, todayYmd(), "radar");
       }
 
