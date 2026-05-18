@@ -6,56 +6,54 @@ import SocialProof from '../components/home/SocialProof.astro';
 const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQSm_qlYD1RTahTw_ligFT2D20AoopA/viewform?usp=header";
 ---
 <BaseLayout title="Muse Square — Gestion des risques contextuels">
-  <!-- Full-bleed decorative hero banner with text overlay (PNG-only for now) -->
-  <section
-    class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]"
-  >
-    <picture class="absolute inset-0" aria-hidden="true">
-      <!-- Desktop PNG -->
-      <source
-        srcset="/images/home-hero-1440x500.png"
-        media="(min-width: 768px)"
-        type="image/png" />
-      <!-- Mobile PNG -->
-      <source
-        srcset="/images/home-hero-768x300.png"
-        media="(max-width: 767px)"
-        type="image/png" />
-      <!-- Fallback -->
-      <img
-        src="/images/home-hero-768x300.png"
-        alt=""
-        width="1440" height="500"
-        class="w-full h-full object-cover"
-        loading="eager" decoding="async" />
-    </picture>
-
-    <!-- Overlay content (inside banner) -->
-    <div class="absolute inset-0">
-      <div class="ms-container h-full flex items-center">
-        <div>
-          <h1 class="ms-h1">
-
-Détectez ce qui menace votre activité. Saisissez les opportunités. Agissez avant vos concurrents.</h1>
-          <p class="mt-[16px] ms-lead text-[20px]">
-            Concurrence, météo, mobilité, calendrier — Muse Square surveille l environnement de vos sites et vous livre les actions prioritaires chaque matin.
-          </p>
-          <div class="mt-[16px] flex flex-wrap gap-3">
-            <a href="/offres"  class="msq-btn-ghost" data-kpi="cta_view_offres">Consulter offres</a>
-            <a href="/contact" class="msq-btn-ghost" data-kpi="cta_contact">Nous contacter</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-    <!-- Rest of the home page -->
-    <MiniOffers />
-    <Proofs />
-    <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
-    <SocialProof />
-
-    <!-- Divider above questionnaire -->
-    <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
- 
- </BaseLayout>
+<!-- Full-bleed decorative hero banner with text overlay -->
+<section
+class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]"
+>
+<picture class="absolute inset-0" aria-hidden="true">
+<!-- Desktop PNG -->
+<source
+srcset="/images/home-hero-1440x500.png"
+media="(min-width: 768px)"
+type="image/png" />
+<!-- Mobile PNG -->
+<source
+srcset="/images/home-hero-768x300.png"
+media="(max-width: 767px)"
+type="image/png" />
+<!-- Fallback -->
+<img
+src="/images/home-hero-768x300.png"
+alt=""
+width="1440" height="500"
+class="w-full h-full object-cover"
+loading="eager" decoding="async" />
+</picture>
+<!-- Dark gradient overlay for text readability -->
+<div class="absolute inset-0" style="background:linear-gradient(90deg,rgba(17,24,39,.82) 0%,rgba(17,24,39,.65) 35%,rgba(17,24,39,.20) 100%)"></div>
+<!-- Overlay content (inside banner) -->
+<div class="absolute inset-0">
+<div class="ms-container h-full flex items-center">
+<div>
+<h1 class="ms-h1 text-white">
+Le copilote opérationnel de votre entreprise</h1>
+<p class="mt-[16px] ms-lead text-[20px]" style="color:rgba(255,255,255,.92);max-width:560px">
+Muse Square transforme vos signaux contextuels et opérationnels en leviers d'actions — et les livre à vos équipes.
+</p>
+<div class="mt-[16px] flex flex-wrap gap-3">
+<a href="/offres" class="msq-btn-ghost" style="background:#fff;color:#111827;border-color:#fff" data-kpi="cta_view_offres">Consulter offres</a>
+<a href="/contact" class="msq-btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-kpi="cta_contact">Nous contacter</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<!-- Rest of the home page -->
+<MiniOffers />
+<Proofs />
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+<SocialProof />
+<!-- Divider above questionnaire -->
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+</BaseLayout>
