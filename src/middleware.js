@@ -159,6 +159,26 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
 
   const { userId } = auth();
   context.locals.clerk_user_id = userId || null;
+
+  // ── Admin impersonation ──
+  const ADMIN_IDS = [
+    "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo",
+    "user_3ACPaLPrh3ElWgvvHojUKTguf8L",
+  ];
+  if (userId && ADMIN_IDS.includes(userId)) {
+    const cookies = context.request.headers.get("cookie") || "";
+    const match = cookies.match(/ms_admin_as=([^;]+)/);
+    if (match) {
+      const targetId = decodeURIComponent(match[1]);
+      console.log("[MW] Admin impersonation:", userId, "->", targetId);
+      context.locals.clerk_user_id = targetId;
+      context.locals.real_clerk_user_id = userId;
+    }
+  }
+  if (!context.locals.real_clerk_user_id) {
+    context.locals.real_clerk_user_id = userId || null;
+  }
+
   const protectedHit = isProtectedRoute(context.request);
   const appHit = isAppRoute(context.request);
 
