@@ -88,12 +88,11 @@ async function getProfileContext(clerk_user_id) {
   const sql = `
     SELECT
       location_id,
-      first_name
+      first_name,
+      is_primary
     FROM \`${projectId}.${dataset}.${table}\`
     WHERE clerk_user_id = @clerk_user_id
-      AND (is_primary = TRUE OR is_primary IS NULL)
     ORDER BY is_primary DESC, company_geocode_status = 'geocoded_ok' DESC, created_at DESC
-    LIMIT 1
   `;
 
   const [rows] = await bq.query({
@@ -103,14 +102,16 @@ async function getProfileContext(clerk_user_id) {
   });
 
   if (!rows || rows.length === 0) {
-    return { ok: false, location_id: null, first_name: null };
+    return { ok: false, location_id: null, first_name: null, all_location_ids: [] };
   }
 
   const r = rows[0] || {};
+  const all_location_ids = rows.map(row => row.location_id).filter(Boolean);
   return {
     ok: true,
     location_id: (r.location_id ?? null),
     first_name: (r.first_name ?? null),
+    all_location_ids,
   };
 }
 
@@ -206,6 +207,7 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     context.locals.profileRowExists = profile.ok === true;
     context.locals.location_id = profile.location_id;
     context.locals.first_name = profile.first_name;
+    context.locals.all_location_ids = profile.all_location_ids || [];
 
     console.log("[MW] profileRowExists:", context.locals.profileRowExists);
     console.log("[MW] location_id:", context.locals.location_id);

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -22,6 +23,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       status: 400, headers: { "content-type": "application/json" },
     });
   }
+  requireLocationOwnership(locals, targetLocation);
 
   const bq = makeBQClient(PROJECT);
 

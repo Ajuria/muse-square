@@ -2,8 +2,8 @@ import { performance } from "node:perf_hooks";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
-
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 let BQ_CLIENT: BigQuery | null = null;
 function getBigQueryClient(projectId: string): BigQuery {
@@ -159,6 +159,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       new URL(request.url).searchParams.get("location_id") || (locals as any).location_id,
       "locals.location_id"
     );
+    requireLocationOwnership(locals, location_id);
 
     // ---- QUERY PARAMS ----
     const url = new URL(request.url);

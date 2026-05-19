@@ -1,6 +1,7 @@
 // src/pages/api/insight/monitor.ts
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -78,6 +79,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _t0 = Date.now();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
+    requireLocationOwnership(locals, location_id);
     const selected_dates_raw = requireString(url.searchParams.get("selected_dates"), "selected_dates");
 
     const selected_dates = selected_dates_raw

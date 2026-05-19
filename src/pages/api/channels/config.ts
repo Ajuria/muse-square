@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -22,6 +23,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         headers: { "content-type": "application/json" },
       });
     }
+    requireLocationOwnership(locals, locationId);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const [rows] = await bq.query({
       query: `
@@ -75,6 +77,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         headers: { "content-type": "application/json" },
       });
     }
+    requireLocationOwnership(locals, body.location_id);
     const channel = String(body.channel).trim();
     const locationId = String(body.location_id).trim();
     const configJson = JSON.stringify(body.config || {});

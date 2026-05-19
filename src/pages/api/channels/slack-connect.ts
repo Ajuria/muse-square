@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -7,6 +8,7 @@ export const GET: APIRoute = async ({ url, locals, redirect }) => {
   if (!userId) return redirect("/sign-in");
 
   const locationId = url.searchParams.get("location_id") || "";
+  if (locationId) requireLocationOwnership(locals, locationId);
   const clientId = process.env.SLACK_CLIENT_ID;
   if (!clientId) {
     return new Response("SLACK_CLIENT_ID manquant", { status: 500 });

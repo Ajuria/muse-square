@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -343,6 +344,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const location_id =
     url.searchParams.get("location_id") ??
     ((locals as any)?.location_id ? String((locals as any).location_id).trim() : null);
+  if (location_id) requireLocationOwnership(locals, location_id);
 
   const selected_dates_raw = url.searchParams.get("selected_dates");
   const current_date_raw = url.searchParams.get("current_date"); // optional now

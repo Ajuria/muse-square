@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
@@ -30,9 +31,10 @@ function normalizeYmd(v: string): string {
   return m[1];
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
+    requireLocationOwnership(locals, location_id);
     const date = normalizeYmd(requireString(url.searchParams.get("date"), "date"));
 
     const query = `

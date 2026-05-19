@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
 import { triggerDbtJobs } from "../../../lib/dbt-trigger";
 import { logApiError } from "../../../lib/error-logger";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -222,6 +223,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             }
             return crypto.randomUUID();
           })();
+    if (mode === "update") requireLocationOwnership(locals, location_id);
 
     // --- Auth (server-side truth) ---
     const clerk_user_id = getUserIdFromLocals(locals);

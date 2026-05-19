@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -11,6 +12,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (!userId) return new Response(JSON.stringify({ ok: false }), { status: 401, headers: { "content-type": "application/json" } });
     const locationId = url.searchParams.get("location_id");
     if (!locationId) return new Response(JSON.stringify({ ok: false, error: "Missing location_id" }), { status: 400, headers: { "content-type": "application/json" } });
+    requireLocationOwnership(locals, locationId);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const [rows] = await bq.query({
       query: `
@@ -50,6 +52,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!body || !body.location_id || !body.signal_category || !body.channel || !body.recipient) {
       return new Response(JSON.stringify({ ok: false, error: "Champs requis : location_id, signal_category, channel, recipient" }), { status: 400, headers: { "content-type": "application/json" } });
     }
+    requireLocationOwnership(locals, body.location_id);
     const now = new Date().toISOString();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const table = bq.dataset("analytics").table("automation_rules");
@@ -82,6 +85,7 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
     if (!body || !body.rule_id || !body.location_id) {
       return new Response(JSON.stringify({ ok: false, error: "rule_id et location_id requis" }), { status: 400, headers: { "content-type": "application/json" } });
     }
+    requireLocationOwnership(locals, body.location_id);
     const now = new Date().toISOString();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const table = bq.dataset("analytics").table("automation_rules");

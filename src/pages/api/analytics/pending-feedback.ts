@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 export const prerender = false;
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
@@ -19,6 +20,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         headers: { "content-type": "application/json" },
       });
     }
+    requireLocationOwnership(locals, location_id);
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
 

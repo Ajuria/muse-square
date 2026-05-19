@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
@@ -340,7 +341,7 @@ function isComparisonShapeValid(obj: any) {
   return true;
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   const location_id = url.searchParams.get("location_id");
   const selected_dates_raw = url.searchParams.get("selected_dates");
 
@@ -353,6 +354,7 @@ export const GET: APIRoute = async ({ url }) => {
       }
     );
   }
+  requireLocationOwnership(locals, location_id);
 
   const selected_dates = selected_dates_raw
     .split(",")
