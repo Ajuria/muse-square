@@ -19,13 +19,9 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       </div>
 
       <div class="flex gap-2 mb-8">
-        <button id="tab-events" onclick="showTab('events')"
-          class="px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase">
-          Événements
-        </button>
         <button id="tab-brands" onclick="showTab('brands')"
-          class="px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase">
-          Entit\u00e9s suivies
+          class="px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase">
+          Entités suivies
         </button>
       </div>
 
@@ -102,16 +98,16 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
     var brdBtn  = document.getElementById('tab-brands');
     var evtPanel = document.getElementById('panel-events');
     var brdPanel = document.getElementById('panel-brands');
-    if (t === 'events') {
+    if (t === 'events' && evtBtn && evtPanel) {
       evtBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
-      brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      if (brdBtn) brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
       evtPanel.style.display = 'block';
-      brdPanel.style.display = 'none';
+      if (brdPanel) brdPanel.style.display = 'none';
     } else {
-      brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
-      evtBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
-      brdPanel.style.display = 'block';
-      evtPanel.style.display = 'none';
+      if (brdBtn) brdBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-black bg-black text-white tracking-wide uppercase';
+      if (evtBtn) evtBtn.className  = 'px-4 py-1.5 text-xs font-medium border border-gray-300 text-gray-500 tracking-wide uppercase';
+      if (brdPanel) brdPanel.style.display = 'block';
+      if (evtPanel) evtPanel.style.display = 'none';
     }
   }
 
@@ -583,7 +579,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
       brdPanel.innerHTML = renderBrandsPanel(out.competitors);
       renderEntityFilterPills();
 
-      showTab('events');
+      showTab('brands');
     } catch(e) { console.error('loadData error', e); }
   }
 

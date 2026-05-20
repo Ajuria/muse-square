@@ -435,6 +435,7 @@ if (!location_id) {
             if (ev.event_date) dateParts.push(ev.event_date);
             if (ev.event_date_end && ev.event_date_end !== ev.event_date) dateParts[0] += " \u2013 " + ev.event_date_end;
             if (ev.event_type) dateParts.push(ev.event_type);
+            if (ev.venue_name) dateParts.push(ev.venue_name);
             if (dateParts.length) {
               html += '<div style="font-size:11px;color:#888;margin-top:2px;">' + esc(dateParts.join(" \u00b7 ")) + '</div>';
             }
