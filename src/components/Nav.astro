@@ -2,9 +2,8 @@
 import { Show } from "@clerk/astro/components";
 
 const items = [
-  { href: "/offres", label: "Solutions" },
+  { href: "/offres", label: "Plateforme" },
   { href: "/a-propos", label: "À propos" },
-  { href: "/contact", label: "Contact" },
 ];
 
 const ADMIN_IDS = [
@@ -62,8 +61,8 @@ const isAppShell = isApp;
       class="flex items-center gap-[16px]"
     >
       <img
-        src={isAppShell ? "/images/logo_ms_insight.svg" : "/images/muse-square-logo.png?v=2"}
-        alt={isAppShell ? "Muse Square Insight" : "Muse Square"}
+        src={isAppShell ? "/images/muse-square-logo.png?v=2" : "/images/muse-square-logo.png?v=2"}
+        alt="Muse Square"
         class="block h-8 md:h-10 w-auto object-contain"
         loading="lazy"
         decoding="async"
@@ -158,10 +157,6 @@ const isAppShell = isApp;
         {/* Auth actions: only when signed out */}
         <Show when="signed-out" client:load>
           <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
-            <a href="/sign-in" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isSignIn || isSignUp ? "after:bg-primary" : "after:bg-transparent"}`}>
-              Se connecter
-            </a>
-
             <a href="/sign-up" class="ms-btn">
               Nous contacter
             </a>
