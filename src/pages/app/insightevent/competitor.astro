@@ -6,7 +6,9 @@
  * Standalone page — does NOT load data in pulse.
  * All data fetched client-side via /api/competitive/competitor-profile
  */
+import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 export const prerender = false;
 
 const location_id =
@@ -21,22 +23,15 @@ if (!location_id) {
 }
 ---
 
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profil concurrent \u2014 Muse Square</title>
-  <link rel="stylesheet" href="/styles/global.css" />
+<BaseLayout title="Profil concurrent — Muse Square" hideSurveyCta={true} hideFooter={true}>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/tabler-icons.min.css" />
-</head>
-<body style="background:#F8F8F6;">
-  <Show when="signed-in" client:load>
-    <div id="cp-root" style="max-width:680px;margin:0 auto;padding:16px 12px 140px;">
-      <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;font-size:14px;">Chargement du profil\u2026</div>
-      <div id="cp-content" style="display:none;"></div>
-      <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;font-size:14px;"></div>
-    </div>
-  </Show>
+  <div id="cp-root" style="max-width:680px;margin:0 auto;padding:16px 12px 140px;">
+    <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;font-size:14px;">Chargement du profil\u2026</div>
+    <div id="cp-content" style="display:none;"></div>
+    <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;font-size:14px;"></div>
+  </div>
+  <PiloterBottomBar active="veille" />
+</BaseLayout>
 
   <script is:inline define:vars={{ location_id }}>
     // @ts-nocheck
@@ -112,7 +107,7 @@ if (!location_id) {
         var subtitle = [distLabel, industryLabel, dir.city].filter(Boolean).join(" \u00b7 ");
 
         var threatScore = thr ? (thr.threat_score * 10).toFixed(1) : "\u2014";
-        var overlapPct = thr && thr.audience_overlap_pct != null ? Math.round(thr.audience_overlap_pct * 100) + "%" : "\u2014";
+        var overlapPct = thr && thr.audience_overlap_pct != null ? Math.round(thr.audience_overlap_pct) + "%" : "\u2014";
         var gRating = dir.google_rating != null ? Number(dir.google_rating).toFixed(1) : "\u2014";
         var gCount = dir.google_rating_count != null ? (dir.google_rating_count >= 1000 ? (dir.google_rating_count / 1000).toFixed(1) + "k" : String(dir.google_rating_count)) : "\u2014";
 
@@ -183,7 +178,7 @@ if (!location_id) {
 
         // ── Sticky bar ──
         html += '<div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:0.5px solid rgba(0,0,0,0.1);padding:12px 16px;display:flex;gap:12px;justify-content:center;z-index:100;">';
-        html += '<button onclick="alert(\'Workspace brouillon \u00e0 venir\')" style="flex:1;max-width:320px;padding:12px;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;color:#111;"><i class="ti ti-pencil" style="font-size:16px"></i> Communiquer</button>';
+        html += '<button onclick="window.location.href=\'/app/insightevent/pulse\'" style="flex:1;max-width:320px;padding:12px;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;color:#111;"><i class="ti ti-pencil" style="font-size:16px"></i> Communiquer</button>';
         html += '<button onclick="window.location.href=\'/app/insightevent/suivis\'" style="flex:1;max-width:320px;padding:12px;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;color:#111;"><i class="ti ti-settings" style="font-size:16px"></i> G\u00e9rer</button>';
         html += '</div>';
 

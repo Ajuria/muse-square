@@ -1099,6 +1099,9 @@ if (!location_id) {
           ${launchesHtml}
           ${activeHtml}
           ${upcomingHtml}
+          <div style="padding-top:8px;border-top:0.5px solid #F3F4F6;margin-top:8px;">
+            <a href="/app/insightevent/competitor?id=${encodeURIComponent(cid)}" style="font-size:11px;font-weight:600;color:#1D3BB3;text-decoration:none;">Profil strat\u00e9gique \u2192</a>
+          </div>
         </div>
       </div>`;
     }).join("");
@@ -4140,9 +4143,119 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Threat summary (strip 2 expanded)
   // ----------------------------------------------------------------
-  function renderThreatSummary(competitorSignals, selectedDate, followedCount) {
-    // Delegates entirely to the existing 300-line renderSuivisMonitorSection
-    return renderSuivisMonitorSection(competitorSignals, selectedDate, followedCount);
+  function renderThreatSummary(competitorSignals, selectedDate, followedCount, topThreats) {
+    var followedHtml = renderFollowedCompetitorsList(competitorSignals, followedCount);
+    var potentialsHtml = renderPotentialCompetitors(topThreats || []);
+    var followedLabel = "Suivis" + (followedCount > 0 ? " (" + followedCount + ")" : "");
+    var potentialLabel = "Potentiels" + (topThreats && topThreats.length > 0 ? " (" + topThreats.length + ")" : "");
+    return '<div>'
+      + '<div style="display:flex;gap:0;border-bottom:1px solid #f3f4f6;margin-bottom:12px;">'
+        + '<button type="button" data-comp-tab="suivis" style="padding:10px 0;margin-right:22px;font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(followedLabel)+'</button>'
+        + '<button type="button" data-comp-tab="potentiels" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(potentialLabel)+'</button>'
+      + '</div>'
+      + '<div data-comp-panel="suivis" style="display:block;">' + followedHtml + '</div>'
+      + '<div data-comp-panel="potentiels" style="display:none;">' + potentialsHtml + '</div>'
+    + '</div>';
+  }
+
+  function renderPotentialCompetitors(topThreats) {
+    if (!topThreats || !topThreats.length) {
+      return '<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun concurrent potentiel d\u00e9tect\u00e9.</div>';
+    }
+    var AUDIENCE_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors",general_public:"grand public",art_lovers:"amateurs d\u0027art",mixed:"public mixte"};
+    var INDUSTRY_TIER_FR = {direct:"M\u00eame secteur",partial:"Secteur proche",contextual:"Secteur diff\u00e9rent"};
+    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
+    return topThreats.map(function(tc) {
+      var name = tc.competitor_name || "Concurrent";
+      var distKm = tc.distance_km != null ? Number(tc.distance_km).toFixed(1) : null;
+      var badge = THREAT_BADGE[tc.threat_level] || THREAT_BADGE.low;
+      var indLabel = INDUSTRY_TIER_FR[tc.industry_match_tier] || "";
+      var locAuds = [tc.location_primary_audience_1, tc.location_primary_audience_2].filter(Boolean);
+      var compAuds = [tc.competitor_primary_audience, tc.competitor_secondary_audience].filter(Boolean);
+      var sharedAuds = compAuds.filter(function(a) { return locAuds.includes(a); }).map(function(a) { return AUDIENCE_FR[a] || a; });
+      var audLine = sharedAuds.length > 0 ? "Cible les m\u00eames audiences : " + sharedAuds.join(", ") : (compAuds.length > 0 ? "Cible : " + compAuds.map(function(a) { return AUDIENCE_FR[a] || a; }).join(", ") : "");
+      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
+      return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;margin-bottom:6px;">'
+        + '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;">'
+          + '<div style="width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+              + '<span style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
+              + (distKm ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(distKm + ' km') + '</span>' : '')
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+              + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+              + (indLabel ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(indLabel) + '</span>' : '')
+            + '</div>'
+            + (audLine ? '<div style="font-size:11px;color:#374151;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
+          + '</div>'
+          + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
+            + '<button type="button" data-follow-threat="' + escapeHtml(tc.competitor_id) + '" data-follow-name="' + escapeHtml(name) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">Suivre \u2192</button>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+    }).join("");
+  }
+
+  function renderFollowedCompetitorsList(signals, followedCount) {
+    var byComp = new Map();
+    for (var i = 0; i < signals.length; i++) {
+      var s = signals[i];
+      var cid = s.competitor_id || "unknown";
+      if (!byComp.has(cid)) byComp.set(cid, []);
+      byComp.get(cid).push(s);
+    }
+    if (byComp.size === 0) {
+      if (!followedCount) return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun concurrent suivi. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
+      return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun signal d\u00e9tect\u00e9. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
+    }
+    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
+    var entries = [...byComp.entries()].sort(function(a, b) {
+      var aScore = Number(a[1][0].entity_threat_score || 0);
+      var bScore = Number(b[1][0].entity_threat_score || 0);
+      return bScore - aScore;
+    });
+    var html = entries.map(function(entry) {
+      var cid = entry[0];
+      var sigs = entry[1];
+      var first = sigs[0];
+      var name = first.competitor_name || "Concurrent";
+      var distKm = first.distance_from_location_m ? (Number(first.distance_from_location_m) / 1000).toFixed(1) : null;
+      var rating = first.google_rating;
+      var ratingCount = first.google_rating_count;
+      var photo = first.google_photos;
+      var threatLevel = first.entity_threat_level || "low";
+      var badge = THREAT_BADGE[threatLevel] || THREAT_BADGE.low;
+      var activeCount = sigs.filter(function(s) { return s.is_active; }).length;
+      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
+      var photoHtml = photo
+        ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(photo) + '" alt="">'
+        : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
+      var ratingHtml = rating ? '<span style="font-size:11px;color:#854F0B;">\u2605 ' + rating + (ratingCount ? ' \u00b7 ' + Number(ratingCount).toLocaleString('fr-FR') + ' avis' : '') + '</span>' : '';
+      var metaParts = [];
+      if (distKm) metaParts.push(distKm + ' km');
+      if (activeCount > 0) metaParts.push(activeCount + ' \u00e9v\u00e9n. actif' + (activeCount > 1 ? 's' : ''));
+      return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(cid) + '" style="text-decoration:none;color:inherit;display:block;">'
+        + '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid #F3F4F6;">'
+          + photoHtml
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+              + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+              + (metaParts.length ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>' : '')
+            + '</div>'
+            + (ratingHtml ? '<div style="margin-top:2px;">' + ratingHtml + '</div>' : '')
+          + '</div>'
+          + '<span style="font-size:12px;color:#1D3BB3;font-weight:500;flex-shrink:0;">Profil \u2192</span>'
+        + '</div>'
+      + '</a>';
+    }).join("");
+    return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;">'
+      + html
+    + '</div>'
+    + '<div style="padding:8px 0 0;display:flex;justify-content:flex-end;">'
+      + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
+    + '</div>';
   }
 
   // ----------------------------------------------------------------
@@ -4261,7 +4374,6 @@ if (!location_id) {
       + '</div>'
       + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
         + '<button type="button" data-radar-carte style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;font-family:inherit;">Carte</button>'
-        + '<button type="button" data-radar-concurrents style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;font-family:inherit;">Concurrents potentiels</button>'
       + '</div>'
     + '</div>';
   }
@@ -4946,7 +5058,7 @@ if (!location_id) {
       renderChangeDetail(currentDay, data._top_threats || []));
 
     const strip3 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount));
+      renderThreatSummary(competitorSignals, selectedDate, followedCount, data._top_threats || []));
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
@@ -5115,11 +5227,49 @@ if (!location_id) {
       });
     });
 
-    // Concurrents potentiels button → dedicated view
-    root.querySelectorAll("[data-radar-concurrents]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
+    // Competitor tab switching inside strip 3
+    root.querySelectorAll("[data-comp-tab]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var tab = btn.getAttribute("data-comp-tab");
+        root.querySelectorAll("[data-comp-tab]").forEach(function(b) {
+          var isActive = b.getAttribute("data-comp-tab") === tab;
+          b.style.color = isActive ? "#1D3BB3" : "#94A3B8";
+          b.style.borderBottom = isActive ? "2px solid #1D3BB3" : "2px solid transparent";
+        });
+        root.querySelectorAll("[data-comp-panel]").forEach(function(p) {
+          p.style.display = p.getAttribute("data-comp-panel") === tab ? "block" : "none";
+        });
+      });
+    });
+    // Suivre buttons inside potentiels tab
+    root.querySelectorAll("[data-follow-threat]").forEach(function(btn) {
+      btn.addEventListener("click", async function(e) {
         e.stopPropagation();
-        renderPulse(data, selectedDate, "concurrents");
+        var compId = btn.getAttribute("data-follow-threat");
+        var compName = btn.getAttribute("data-follow-name") || "";
+        if (!compId) return;
+        btn.disabled = true;
+        btn.textContent = "...";
+        try {
+          var res = await fetch("/api/competitive/add-competitor", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ competitor_id: compId, competitor_name: compName }),
+          });
+          var json = await res.json().catch(function() { return null; });
+          if (res.ok && json && json.ok) {
+            btn.textContent = "Suivi \u2713";
+            btn.style.background = "#dcfce7";
+            btn.style.borderColor = "#bbf7d0";
+            btn.style.color = "#166534";
+          } else {
+            btn.textContent = "Erreur";
+            btn.disabled = false;
+          }
+        } catch(err) {
+          btn.textContent = "Erreur";
+          btn.disabled = false;
+        }
       });
     });
 
