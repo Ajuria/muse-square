@@ -26,6 +26,68 @@ const INDUSTRY_BUCKET: Record<string, string> = {
   unknown:"unknown",
 };
 
+async function extractCompetitorWithClaude(pageText: string, websiteUrl: string, competitorName: string): Promise<Record<string, any> | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const systemPrompt = `You extract structured business information from a competitor's website text content.
+Return ONLY valid JSON, no markdown, no explanation.
+
+CRITICAL RULES:
+- Only extract information EXPLICITLY present on the page. Never infer, invent, or assume.
+- If a field's information is not found on the page, set it to null.
+- This must work for any type of physical venue: museum, hotel, restaurant, retail store, concert hall, corporate event space, sports venue, coworking, theme park, etc.
+- Adapt vocabulary to the business type.
+- Write all values in French.
+
+The JSON must have exactly these fields:
+{
+  "business_description": "2-3 sentence description of what this business does, its positioning, and what makes it unique",
+  "current_offering": "all products, services, experiences, and packages actively available: exhibitions, shows, menu items, rooms, collections, rental spaces, seasonal packages, workshops, guided tours, subscriptions, memberships, gift cards, etc. Include pricing when visible. null if none found",
+  "services_and_amenities": "services, experiences, facilities offered: guided tours, spa, delivery, private hire, catering, parking, etc. null if none found",
+  "target_audience": "who this business targets based on content tone and offerings. null if not discernible",
+  "tone_of_voice": "brand voice in 2-3 adjectives. null if not enough content",
+  "opening_hours_mentioned": "any opening hours or seasonal schedules found. null if none",
+  "key_differentiators": "what sets this business apart from competitors. null if not discernible",
+  "pricing_info": "pricing model, specific price points, entry fees, menu prices, room rates, package prices, subscription costs, free/paid status. Be as specific as possible with numbers. null if none found",
+  "event_examples": "specific past or upcoming events, exhibitions, concerts, promotions mentioned by name. null if none found",
+  "brand_positioning": "luxury, accessible, heritage, innovative, family, premium, popular, etc. null if not discernible",
+  "partnerships_mentioned": "sponsors, institutional partners, labels, affiliations. null if none found",
+  "geographic_scope": "local, regional, national, or international reach. null if not discernible",
+  "age_range_mentioned": "target age groups explicitly mentioned. null if none found",
+  "accessibility_info": "PMR accessibility, family-friendly facilities. null if none found"
+}
+All values must be strings or null.`;
+
+  const userPrompt = `Extract business information from this competitor website (${websiteUrl}, business name: ${competitorName}):\n\n${pageText.substring(0, 8000)}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: userPrompt }],
+        system: systemPrompt,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = data?.content?.[0]?.text || "";
+    const clean = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
@@ -116,13 +178,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       query: `
         SELECT competitor_id, confidence_score
         FROM \`${projectId}.raw.competitor_directory\`
-        WHERE LOWER(competitor_name) = LOWER(@competitor_name)
+        WHERE LOWER(REPLACE(REPLACE(competitor_name, '\u2019', "'"), '\u2018', "'"))
+            = LOWER(REPLACE(REPLACE(@competitor_name, '\u2019', "'"), '\u2018', "'"))
           AND (
             LOWER(city) = LOWER(@city)
             OR LOWER(@city) LIKE CONCAT(LOWER(city), '%')
             OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
           )
           AND deleted_at IS NULL
+        ORDER BY created_at ASC
         LIMIT 1
       `,
       params: { competitor_name, city: resolvedCity },
@@ -339,6 +403,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
           extraction_status = hasContent ? "partial" : "empty";
           extracted_field_count = hasContent ? 1 : 0;
           crawl_status = hasContent ? "accessible" : "blocked";
+          // Claude enrichment — extract structured business data
+          if (hasContent) {
+            try {
+              const enriched = await extractCompetitorWithClaude(text, source_url, competitor_name);
+              if (enriched) {
+                const enrichedJson = JSON.stringify(enriched);
+                await bq.query({
+                  query: `
+                    UPDATE \`${projectId}.raw.competitor_directory\`
+                    SET auto_enriched_description = @auto_enriched_description,
+                        updated_at = CURRENT_TIMESTAMP()
+                    WHERE competitor_id = @competitor_id
+                      AND deleted_at IS NULL
+                  `,
+                  params: { auto_enriched_description: enrichedJson, competitor_id },
+                  types: { auto_enriched_description: "STRING", competitor_id: "STRING" },
+                  location: BQ_LOCATION,
+                });
+                extraction_status = "enriched";
+                extracted_field_count = Object.values(enriched).filter(v => v != null).length;
+              }
+            } catch (enrichErr: any) {
+              console.error("[add-competitor] Claude enrichment failed (non-fatal):", enrichErr?.message);
+            }
+          }
         } else {
           extraction_status = "fetch_error";
           crawl_status = "blocked";
