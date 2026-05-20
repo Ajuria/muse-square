@@ -1,0 +1,455 @@
+---
+/**
+ * Competitor Strategic Profile Page
+ * URL: /app/insightevent/competitor?id=COMPETITOR_ID
+ *
+ * Standalone page — does NOT load data in pulse.
+ * All data fetched client-side via /api/competitive/competitor-profile
+ */
+import { Show } from "@clerk/astro/components";
+export const prerender = false;
+
+const location_id =
+  (Astro.locals &&
+    typeof (Astro.locals as any).location_id === "string" &&
+    (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+
+if (!location_id) {
+  return Astro.redirect("/app/insightevent/pulse");
+}
+---
+
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profil concurrent \u2014 Muse Square</title>
+  <link rel="stylesheet" href="/styles/global.css" />
+</head>
+<body>
+  <Show when="signed-in" client:load>
+    <div id="cp-root" style="max-width:720px;margin:0 auto;padding:16px 12px 120px;">
+      <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;">Chargement du profil\u2026</div>
+      <div id="cp-content" style="display:none;"></div>
+      <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;"></div>
+    </div>
+  </Show>
+
+  <script is:inline define:vars={{ location_id }}>
+    // @ts-nocheck
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const competitorId = (params.get("id") || "").trim();
+      if (!competitorId) {
+        document.getElementById("cp-loading").style.display = "none";
+        document.getElementById("cp-error").style.display = "block";
+        document.getElementById("cp-error").textContent = "Identifiant concurrent manquant.";
+        return;
+      }
+
+      fetch("/api/competitive/competitor-profile?id=" + encodeURIComponent(competitorId))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) {
+            document.getElementById("cp-loading").style.display = "none";
+            document.getElementById("cp-error").style.display = "block";
+            document.getElementById("cp-error").textContent = d.error || "Erreur inconnue";
+            return;
+          }
+          document.getElementById("cp-loading").style.display = "none";
+          document.getElementById("cp-content").style.display = "block";
+          renderProfile(d);
+        })
+        .catch(function(e) {
+          document.getElementById("cp-loading").style.display = "none";
+          document.getElementById("cp-error").style.display = "block";
+          document.getElementById("cp-error").textContent = e.message || "Erreur r\u00e9seau";
+        });
+
+      function esc(s) {
+        if (!s) return "";
+        var d = document.createElement("div");
+        d.textContent = String(s);
+        return d.innerHTML;
+      }
+
+      function pill(text, bg, color) {
+        return '<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:' + bg + ';color:' + color + ';margin:0 4px 4px 0;">' + esc(text) + '</span>';
+      }
+
+      function timeAgo(dateStr) {
+        if (!dateStr) return "";
+        var diff = Date.now() - new Date(dateStr).getTime();
+        var days = Math.floor(diff / 86400000);
+        if (days < 1) return "aujourd'hui";
+        if (days === 1) return "il y a 1j";
+        if (days < 7) return "il y a " + days + "j";
+        var weeks = Math.floor(days / 7);
+        if (weeks < 5) return "il y a " + weeks + " sem.";
+        var months = Math.floor(days / 30);
+        return "il y a " + months + " mois";
+      }
+
+      function threatColor(level) {
+        if (level === "critical") return "#DC2626";
+        if (level === "high") return "#EA580C";
+        if (level === "medium") return "#D97706";
+        return "#6B7280";
+      }
+
+      function alertBg(level) {
+        if (level === "critical" || level === "high") return "#FEF2F2";
+        if (level === "medium" || level === "warning") return "#FFFBEB";
+        return "#F0FDF4";
+      }
+
+      function alertBorder(level) {
+        if (level === "critical" || level === "high") return "#FECACA";
+        if (level === "medium" || level === "warning") return "#FDE68A";
+        return "#BBF7D0";
+      }
+
+      function renderProfile(d) {
+        var dir = d.directory;
+        var thr = d.threat;
+        var usr = d.user;
+        var analysis = d.analysis;
+        var alerts = d.alerts || [];
+        var events = d.events || [];
+        var enriched = dir.enriched;
+        var userEnriched = usr ? usr.enriched : null;
+
+        var initials = (dir.competitor_name || "??").split(" ").map(function(w) { return w[0]; }).join("").substring(0, 2).toUpperCase();
+        var distLabel = thr && thr.distance_km != null ? (thr.distance_km < 1 ? Math.round(thr.distance_km * 1000) + " m" : thr.distance_km.toFixed(1) + " km") : "";
+        var industryLabel = dir.industry_code ? dir.industry_code.replace(/_/g, " ") : "";
+        var subtitle = [distLabel, industryLabel, dir.city].filter(Boolean).join(" \u00b7 ");
+
+        // Threat KPIs
+        var threatScore = thr ? (thr.threat_score * 10).toFixed(1) : "\u2014";
+        var overlapPct = thr && thr.audience_overlap_pct != null ? Math.round(thr.audience_overlap_pct * 100) + "%" : "\u2014";
+        var gRating = dir.google_rating != null ? dir.google_rating.toFixed(1) : "\u2014";
+        var gCount = dir.google_rating_count != null ? (dir.google_rating_count >= 1000 ? (dir.google_rating_count / 1000).toFixed(1) + "k" : String(dir.google_rating_count)) : "\u2014";
+
+        // Verdict
+        var verdict = analysis ? analysis.verdict : (enriched ? "Analyse en cours\u2026" : "Enrichissement non disponible \u2014 ajoutez une URL source pour activer l'analyse.");
+
+        var html = '';
+
+        // ── Back button ──
+        html += '<div style="margin-bottom:16px;">';
+        html += '<a href="/app/insightevent/pulse" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#555;text-decoration:none;padding:6px 12px;border:1px solid #ddd;border-radius:8px;">\u2190 Retour au radar</a>';
+        html += '</div>';
+
+        // ── Summary card ──
+        html += '<div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:20px;margin-bottom:16px;">';
+        // Avatar + name row
+        html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">';
+        html += '<div style="width:44px;height:44px;border-radius:10px;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;">' + esc(initials) + '</div>';
+        html += '<div>';
+        html += '<div style="font-size:16px;font-weight:700;color:#111;">' + esc(dir.competitor_name) + '</div>';
+        html += '<div style="font-size:12px;color:#888;">' + esc(subtitle) + '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        // KPI row
+        html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">';
+        var kpis = [
+          { val: threatScore, label: "MENACE", color: thr ? threatColor(thr.threat_level) : "#6B7280" },
+          { val: overlapPct, label: "OVERLAP", color: "#1D3BB3" },
+          { val: gRating, label: "NOTE GOOGLE", color: "#111" },
+          { val: gCount, label: "AVIS", color: "#111" },
+        ];
+        for (var k = 0; k < kpis.length; k++) {
+          html += '<div style="text-align:center;padding:12px 4px;border:1px solid #E5E7EB;border-radius:8px;">';
+          html += '<div style="font-size:20px;font-weight:700;color:' + kpis[k].color + ';">' + kpis[k].val + '</div>';
+          html += '<div style="font-size:10px;font-weight:600;color:#888;letter-spacing:0.5px;margin-top:2px;">' + kpis[k].label + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // Verdict
+        html += '<div style="border-left:3px solid ' + (thr ? threatColor(thr.threat_level) : "#6B7280") + ';padding:10px 14px;background:#F9FAFB;border-radius:0 8px 8px 0;font-size:13px;color:#333;line-height:1.5;">';
+        html += esc(verdict);
+        html += '</div>';
+        html += '</div>';
+
+        // ── Tabs ──
+        html += '<div id="cp-tabs" style="display:flex;gap:8px;margin-bottom:20px;">';
+        html += '<button class="cp-tab cp-tab-active" data-tab="profil" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;font-size:13px;font-weight:600;cursor:pointer;">\u229e Profil</button>';
+        html += '<button class="cp-tab" data-tab="actus" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;font-size:13px;font-weight:600;cursor:pointer;">\u21b3 Actualit\u00e9s</button>';
+        html += '</div>';
+
+        // ── Tab: Profil ──
+        html += '<div id="cp-tab-profil">';
+        html += renderProfilTab(dir, enriched, usr, userEnriched, analysis, thr);
+        html += '</div>';
+
+        // ── Tab: Actualités ──
+        html += '<div id="cp-tab-actus" style="display:none;">';
+        html += renderActusTab(alerts, events);
+        html += '</div>';
+
+        // ── Footer ──
+        html += '<div style="text-align:center;font-size:11px;color:#aaa;margin-top:24px;">';
+        html += '\u25cf Agent IA \u00b7 crawl web + Google Business \u00b7 mis \u00e0 jour ' + timeAgo(dir.updated_at || dir.created_at);
+        html += '</div>';
+
+        // ── Sticky action bar ──
+        html += '<div style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #E5E7EB;padding:12px 16px;display:flex;gap:12px;justify-content:center;z-index:100;">';
+        html += '<button onclick="alert(\'Workspace brouillon \u00e0 venir\')" style="flex:1;max-width:320px;padding:12px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">\u270e Communiquer</button>';
+        html += '<button onclick="window.location.href=\'/app/insightevent/suivis\'" style="flex:1;max-width:320px;padding:12px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">\u2699 G\u00e9rer</button>';
+        html += '</div>';
+
+        document.getElementById("cp-content").innerHTML = html;
+
+        // Tab switching
+        document.querySelectorAll(".cp-tab").forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            document.querySelectorAll(".cp-tab").forEach(function(b) {
+              b.classList.remove("cp-tab-active");
+              b.style.background = "#fff";
+              b.style.color = "#333";
+            });
+            btn.classList.add("cp-tab-active");
+            btn.style.background = "#111";
+            btn.style.color = "#fff";
+            var tab = btn.getAttribute("data-tab");
+            document.getElementById("cp-tab-profil").style.display = tab === "profil" ? "block" : "none";
+            document.getElementById("cp-tab-actus").style.display = tab === "actus" ? "block" : "none";
+          });
+        });
+        // Set initial active tab style
+        var activeTab = document.querySelector(".cp-tab-active");
+        if (activeTab) { activeTab.style.background = "#111"; activeTab.style.color = "#fff"; }
+
+        // Parity toggle
+        var parityToggle = document.getElementById("cp-parity-toggle");
+        var parityContent = document.getElementById("cp-parity-content");
+        if (parityToggle && parityContent) {
+          parityToggle.addEventListener("click", function() {
+            var visible = parityContent.style.display !== "none";
+            parityContent.style.display = visible ? "none" : "block";
+            parityToggle.querySelector(".cp-parity-arrow").textContent = visible ? "\u203a" : "\u2304";
+          });
+        }
+      }
+
+      function renderProfilTab(dir, enriched, usr, userEnriched, analysis, thr) {
+        var html = '';
+        var compName = dir.competitor_name || "Concurrent";
+        var userName = (usr && usr.site_name) ? usr.site_name : "Votre site";
+
+        // ── Section 1: Positionnement & offre ──
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:12px;">POSITIONNEMENT & OFFRE</div>';
+
+        // Side-by-side
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+
+        // Competitor column
+        html += '<div style="border:1px solid #E5E7EB;border-top:3px solid #DC2626;border-radius:8px;padding:14px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#DC2626;margin-bottom:8px;">' + esc(compName).toUpperCase() + '</div>';
+        if (analysis && analysis.positioning_theirs) {
+          html += '<div style="font-size:12px;color:#555;margin-bottom:8px;">' + esc(analysis.positioning_theirs) + '</div>';
+        }
+        if (enriched && enriched.business_description) {
+          html += '<div style="font-size:12px;color:#333;line-height:1.5;margin-bottom:10px;">' + esc(enriched.business_description) + '</div>';
+        } else if (dir.description) {
+          html += '<div style="font-size:12px;color:#333;line-height:1.5;margin-bottom:10px;">' + esc(dir.description) + '</div>';
+        }
+        // Audience pills
+        var compAudiences = [];
+        if (enriched && enriched.target_audience) {
+          compAudiences = enriched.target_audience.split(",").map(function(s) { return s.trim(); }).filter(Boolean).slice(0, 4);
+        } else {
+          if (dir.primary_audience) compAudiences.push(dir.primary_audience);
+          if (dir.secondary_audience) compAudiences.push(dir.secondary_audience);
+        }
+        if (compAudiences.length) {
+          html += '<div>';
+          for (var a = 0; a < compAudiences.length; a++) {
+            html += pill(compAudiences[a], "#F3F4F6", "#333");
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // User column
+        html += '<div style="border:1px solid #E5E7EB;border-top:3px solid #1D3BB3;border-radius:8px;padding:14px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#1D3BB3;margin-bottom:8px;">' + esc(userName).toUpperCase() + '</div>';
+        if (analysis && analysis.positioning_yours) {
+          html += '<div style="font-size:12px;color:#555;margin-bottom:8px;">' + esc(analysis.positioning_yours) + '</div>';
+        }
+        if (userEnriched && userEnriched.business_description) {
+          html += '<div style="font-size:12px;color:#333;line-height:1.5;margin-bottom:10px;">' + esc(userEnriched.business_description) + '</div>';
+        } else if (usr) {
+          html += '<div style="font-size:12px;color:#333;line-height:1.5;margin-bottom:10px;">' + esc(usr.company_activity_type || "") + '</div>';
+        }
+        var userAudiences = [];
+        if (userEnriched && userEnriched.target_audience) {
+          userAudiences = userEnriched.target_audience.split(",").map(function(s) { return s.trim(); }).filter(Boolean).slice(0, 4);
+        } else if (usr) {
+          if (usr.primary_audience_1) userAudiences.push(usr.primary_audience_1);
+          if (usr.primary_audience_2) userAudiences.push(usr.primary_audience_2);
+        }
+        if (userAudiences.length) {
+          html += '<div>';
+          for (var u = 0; u < userAudiences.length; u++) {
+            html += pill(userAudiences[u], "#EEF2FF", "#1D3BB3");
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+
+        // Gap / complement badges
+        if (analysis) {
+          html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">';
+          if (analysis.segment_overlap) {
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:20px;background:#FEF2F2;color:#991B1B;">\u26a0 ' + esc(analysis.segment_overlap).substring(0, 60) + '</span>';
+          }
+          if (analysis.product_complements && analysis.product_complements.length) {
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:20px;background:#F0FDF4;color:#166534;">\u2713 Produits compl\u00e9mentaires</span>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // ── Section 2: Produits & prix ──
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:12px;">PRODUITS & PRIX</div>';
+
+        // Competitor products
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#DC2626;margin-bottom:8px;">' + esc(compName).toUpperCase() + '</div>';
+        if (enriched && enriched.current_offering) {
+          var offerings = enriched.current_offering.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+          for (var o = 0; o < offerings.length && o < 8; o++) {
+            html += '<div style="padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:13px;color:#333;">' + esc(offerings[o]) + '</div>';
+          }
+        } else {
+          html += '<div style="font-size:12px;color:#aaa;font-style:italic;">Aucune donn\u00e9e produit disponible</div>';
+        }
+        html += '</div>';
+
+        // User products
+        if (userEnriched && userEnriched.current_offering) {
+          html += '<div style="margin-bottom:12px;">';
+          html += '<div style="font-size:11px;font-weight:700;color:#1D3BB3;margin-bottom:8px;">' + esc(userName).toUpperCase() + '</div>';
+          var userOfferings = userEnriched.current_offering.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+          for (var uo = 0; uo < userOfferings.length && uo < 8; uo++) {
+            html += '<div style="padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:13px;color:#333;">' + esc(userOfferings[uo]) + '</div>';
+          }
+          html += '</div>';
+        }
+
+        // Product gaps
+        if (analysis && analysis.product_gaps && analysis.product_gaps.length) {
+          html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
+          for (var g = 0; g < analysis.product_gaps.length; g++) {
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:20px;background:#FEF2F2;color:#991B1B;">\u25cb ' + esc(analysis.product_gaps[g]) + '</span>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // ── Section 3: Points de parité (collapsed) ──
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div id="cp-parity-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid #E5E7EB;border-radius:8px;cursor:pointer;user-select:none;">';
+        html += '<span style="font-size:13px;color:#555;">\u2261 Points de parit\u00e9 \u2014 table stakes</span>';
+        html += '<span class="cp-parity-arrow" style="font-size:16px;color:#888;">\u203a</span>';
+        html += '</div>';
+        html += '<div id="cp-parity-content" style="display:none;margin-top:8px;">';
+        if (analysis && analysis.parity_theirs && analysis.parity_theirs.length) {
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+          for (var p = 0; p < analysis.parity_theirs.length; p++) {
+            html += '<div style="font-size:12px;color:#333;padding:6px 10px;background:#F9FAFB;border-radius:6px;">\u2713 ' + esc(analysis.parity_theirs[p]) + '</div>';
+          }
+          html += '</div>';
+          if (analysis.parity_gaps && analysis.parity_gaps.length) {
+            html += '<div style="margin-top:8px;">';
+            for (var pg = 0; pg < analysis.parity_gaps.length; pg++) {
+              html += '<div style="font-size:12px;color:#991B1B;padding:6px 10px;background:#FEF2F2;border-radius:6px;margin-bottom:4px;">\u2717 ' + esc(analysis.parity_gaps[pg]) + '</div>';
+            }
+            html += '</div>';
+          }
+        } else {
+          html += '<div style="font-size:12px;color:#aaa;font-style:italic;padding:8px;">Donn\u00e9es insuffisantes pour l\'analyse de parit\u00e9</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+
+        return html;
+      }
+
+      function renderActusTab(alerts, events) {
+        var html = '';
+
+        // ── Alerts section ──
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:12px;">ALERTES</div>';
+        if (alerts.length === 0) {
+          html += '<div style="font-size:12px;color:#aaa;font-style:italic;">Aucune alerte pour ce concurrent</div>';
+        } else {
+          for (var a = 0; a < alerts.length; a++) {
+            var al = alerts[a];
+            var bg = alertBg(al.alert_level);
+            var border = alertBorder(al.alert_level);
+            html += '<div style="background:' + bg + ';border-left:3px solid ' + border + ';border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:8px;">';
+            html += '<div style="font-size:13px;font-weight:600;color:#333;">' + esc(al.change_subtype || al.change_category || "Alerte") + '</div>';
+            if (al.event_label) {
+              html += '<div style="font-size:12px;color:#555;margin-top:2px;">' + esc(al.event_label) + '</div>';
+            }
+            if (al.old_value || al.new_value) {
+              html += '<div style="font-size:11px;color:#888;margin-top:4px;">' + esc(al.old_value || "") + ' \u2192 ' + esc(al.new_value || "") + '</div>';
+            }
+            html += '<div style="font-size:10px;color:#aaa;margin-top:4px;">' + timeAgo(al.created_at) + '</div>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+
+        // ── Timeline section ──
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:1px;margin-bottom:12px;">MOUVEMENTS R\u00c9CENTS</div>';
+        if (events.length === 0) {
+          html += '<div style="font-size:12px;color:#aaa;font-style:italic;">Aucun \u00e9v\u00e9nement d\u00e9tect\u00e9</div>';
+        } else {
+          for (var e = 0; e < events.length; e++) {
+            var ev = events[e];
+            var dotColor = ev.is_launch ? "#DC2626" : ev.is_active ? "#2563EB" : ev.is_upcoming ? "#16A34A" : "#9CA3AF";
+            var dateLabel = ev.event_date || "";
+            if (ev.event_date_end && ev.event_date_end !== ev.event_date) {
+              dateLabel += " \u2013 " + ev.event_date_end;
+            }
+            html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;">';
+            html += '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';margin-top:4px;flex-shrink:0;"></div>';
+            html += '<div style="flex:1;min-width:0;">';
+            html += '<div style="font-size:13px;color:#333;font-weight:500;">';
+            if (ev.is_launch) html += '<span style="font-size:10px;font-weight:600;color:#DC2626;margin-right:4px;">Nouveau</span>';
+            html += esc(ev.event_name);
+            html += '</div>';
+            if (dateLabel) {
+              html += '<div style="font-size:11px;color:#888;margin-top:2px;">' + esc(dateLabel);
+              if (ev.event_type) html += ' \u00b7 ' + esc(ev.event_type);
+              html += '</div>';
+            }
+            html += '</div>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+
+        // Surveillance status
+        html += '<div style="font-size:11px;color:#aaa;text-align:center;">';
+        html += '\u25cf Surveillance active \u00b7 crawl 15 min \u00b7 enrichissement quotidien';
+        html += '</div>';
+
+        return html;
+      }
+    })();
+  </script>
+</body>
+</html>
