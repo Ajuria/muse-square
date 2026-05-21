@@ -62,14 +62,7 @@ async function fetchPlaceDetails(
   }
 }
 
-export const GET: APIRoute = async ({ request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
-      status: 401, headers: { "content-type": "application/json" },
-    });
-  }
-
+async function runSnapshots() {
   try {
     const apiKey = (process.env.GOOGLE_PLACES_API_KEY || "").trim();
     if (!apiKey) {
@@ -268,9 +261,22 @@ export const GET: APIRoute = async ({ request }) => {
     );
   } catch (err: any) {
     console.error("[snapshot-competitors]", err?.message);
-    return new Response(
-      JSON.stringify({ ok: false, error: err?.message }),
-      { status: 500, headers: { "content-type": "application/json" } }
-    );
   }
+}
+
+export const GET: APIRoute = async ({ request }) => {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401, headers: { "content-type": "application/json" },
+    });
+  }
+
+  // Fire and forget — respond immediately, process in background
+  runSnapshots().catch((e) => console.error("[snapshot-competitors] background error:", e?.message));
+
+  return new Response(
+    JSON.stringify({ ok: true, status: "started" }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
 };
