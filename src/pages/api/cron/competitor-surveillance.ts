@@ -356,15 +356,7 @@ function hasEventSignals(text: string): boolean {
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
-export const GET: APIRoute = async ({ request }) => {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    });
-  }
-
+async function runSurveillance() {
   const projectId   = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
   const BQ_LOCATION = String(process.env.BQ_LOCATION || "EU").trim();
   const runId       = randomUUID();
@@ -435,10 +427,8 @@ export const GET: APIRoute = async ({ request }) => {
     });
 
     if (toCrawl.length === 0) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "all_competitors_crawled_recently", ...results }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      console.log("[competitor-surveillance] skipped: all competitors crawled recently");
+      return;
     }
     // ── Geocode backfill — fill lat/lon for all vetted competitors missing coordinates ──
     try {
@@ -911,15 +901,27 @@ export const GET: APIRoute = async ({ request }) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, ...results }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    console.log("[competitor-surveillance] done:", JSON.stringify(results));
+    return;
 
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ ok: false, error: err?.message ?? String(err), ...results }),
-      { status: 500, headers: { "content-type": "application/json" } }
-    );
+    console.error("[competitor-surveillance] fatal:", err?.message);
   }
+}
+
+export const GET: APIRoute = async ({ request }) => {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  runSurveillance().catch((e) => console.error("[competitor-surveillance] background error:", e?.message));
+
+  return new Response(
+    JSON.stringify({ ok: true, status: "started" }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
 };
