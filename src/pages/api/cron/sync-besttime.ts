@@ -23,16 +23,12 @@ async function fetchBestTimeWeek(venueId: string, apiKey: string): Promise<any[]
   }
 }
 
-export const GET: APIRoute = async ({ url, request }) => {
-  const authHeader = request.headers.get("authorization") || "";
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
-  }
-
+async function runBestTimeSync() {
   const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
   const apiKey = process.env.BESTTIME_API_KEY_PUBLIC;
   if (!apiKey) {
-    return new Response(JSON.stringify({ ok: false, error: "BESTTIME_API_KEY_PUBLIC not set" }), { status: 500 });
+    console.error("[sync-besttime] BESTTIME_API_KEY_PUBLIC not set");
+    return;
   }
 
   const bq = makeBQClient(projectId);
@@ -81,7 +77,8 @@ export const GET: APIRoute = async ({ url, request }) => {
   });
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    return new Response(JSON.stringify({ ok: true, message: "No venues to fetch", fetched: 0 }));
+    console.log("[sync-besttime] no venues to fetch");
+    return;
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -191,8 +188,19 @@ export const GET: APIRoute = async ({ url, request }) => {
     fetched++;
   }
 
+  console.log("[sync-besttime] done:", JSON.stringify({ fetched, failed, errors, total_venues: rows.length }));
+}
+
+export const GET: APIRoute = async ({ url, request }) => {
+  const authHeader = request.headers.get("authorization") || "";
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
+  }
+
+  runBestTimeSync().catch((e) => console.error("[sync-besttime] background error:", e?.message));
+
   return new Response(
-    JSON.stringify({ ok: true, fetched, failed, errors, total_venues: rows.length }),
-    { headers: { "content-type": "application/json" } }
+    JSON.stringify({ ok: true, status: "started" }),
+    { status: 200, headers: { "content-type": "application/json" } }
   );
 };
