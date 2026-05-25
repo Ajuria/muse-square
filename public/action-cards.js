@@ -736,7 +736,7 @@
       var name = a.competitor_name || topComp(d).organizer_name || 'Concurrent';
       var aud = audLabel(p);
       var overlap = Number(a.audience_overlap_pct || 0);
-      var threatRaw = a.threat_level || '';
+      var threatRaw = a.threat_level || a.entity_threat_level || '';
       var threatFr = THREAT_FR[threatRaw] || threatRaw;
       var edge = userEdge(p);
       var line = name + ' cible votre audience' + (aud ? ' (' + aud + ')' : '') + '.';
@@ -916,6 +916,430 @@
     }
   );
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPOUND SIGNALS (C1–C27)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // C1 — perfect_storm
+  reg('perfect_storm', 'Conditions exceptionnelles \u2014 tous les feux au vert', 'OPPORTUNIT\u00c9', '\ud83c\udf1f', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var fc = Number(a.favorable_count || 0);
+      var score = num(d.opportunity_score_final_local);
+      var parts = [];
+      if (Number(d.alert_level_max || 0) === 0) parts.push('m\u00e9t\u00e9o favorable');
+      if (Number(d.competition_pressure_ratio || a.pressure_ratio || 0) < 0.8) parts.push('concurrence faible');
+      if (d.holiday_name) parts.push(d.holiday_name);
+      if (d.vacation_name) parts.push('vacances');
+      if (d.is_weekend_flag) parts.push('week-end');
+      if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
+      var line = fc + ' facteurs favorables align\u00e9s : ' + (parts.length > 0 ? parts.join(', ') : 'conditions multiples') + '.';
+      line += ' Score ' + score + '/10.';
+      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions exceptionnelles. ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Tout est align\u00e9 aujourd\u2019hui. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Journ\u00e9e id\u00e9ale. Horaires + offre. Max 1500 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.favorable_count || '3+') + ' facteurs favorables. Renforcer effectif et comm.'; }
+    }
+  );
+
+  // C2 — weather_comp_opportunity
+  reg('weather_comp_opportunity', 'Beau temps + faible concurrence', 'OPPORTUNIT\u00c9', '\u2600\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var n = Number(a.events_5km || d.events_within_5km_count || 0);
+      var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + pr.toFixed(1) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
+      line += ' Conditions id\u00e9ales pour communiquer.';
+      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Beau temps, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Conditions id\u00e9ales. Horaires + offre. Max 1500 car.'; }
+    }
+  );
+
+  // C3 — saturated_bad_weather
+  reg('saturated_bad_weather', 'Mauvais temps + saturation sectorielle', 'URGENT', '\u26a0\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
+      var alert = Number(a.weather_alert || d.alert_level_max || 0);
+      var line = 'Double risque : alerte m\u00e9t\u00e9o (niveau ' + alert + ') et ' + Math.round(pctSame) + '% du secteur en comp\u00e9tition directe.';
+      if (weatherSens(p)) line += ' Site sensible m\u00e9t\u00e9o.';
+      line += ' R\u00e9duisez vos co\u00fbts ou reportez.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. Mauvais temps + saturation ' + num(a.pct_same_sector) + '%. Adapter effectif et publications.'; }
+    }
+  );
+
+  // C4 — holiday_high_comp
+  reg('holiday_high_comp', 'Jour f\u00e9ri\u00e9 mais concurrence \u00e9lev\u00e9e', 'CONCURRENCE', '\ud83c\udf89', '#E65100', 'action', 'pulse#carte',
+    function(a, p, d) {
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var n = Number(a.events_5km || d.events_within_5km_count || 0);
+      var line = 'Jour f\u00e9ri\u00e9 avec pression \u00d7' + pr.toFixed(1) + ' (' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
+      line += ' Public disponible mais concurrence aussi.';
+      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous avec : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour f\u00e9ri\u00e9, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. F\u00e9ri\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Renforcer accueil et comm.'; }
+    }
+  );
+
+  // C5 — best_day_of_week
+  reg('best_day_of_week', 'Meilleur jour de la semaine', 'OPPORTUNIT\u00c9', '\ud83c\udfc6', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var score = num(a.score || d.opportunity_score_final_local);
+      var regime = a.regime || d.opportunity_regime || '';
+      var line = 'Meilleur jour de la semaine : score ' + score + '/10, r\u00e9gime ' + regime + '.';
+      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Journ\u00e9e optimale. Horaires + offre. Max 1500 car.'; }
+    }
+  );
+
+  // C6 — day_opportunity
+  reg('day_opportunity', 'Journ\u00e9e tr\u00e8s favorable \u2014 r\u00e9gime A', 'OPPORTUNIT\u00c9', '\u2b50', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var score = num(a.score || d.opportunity_score_final_local);
+      var line = 'R\u00e9gime A, score ' + score + '/10. Conditions optimales.';
+      var edge = userEdge(p); if (edge) line += ' Maximisez avec : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. R\u00e9gime A. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Conditions optimales. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C7 — same_bucket_saturation
+  reg('same_bucket_saturation', 'Saturation dans votre secteur', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
+    function(a, p, d) {
+      var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
+      var n = Number(a.events_5km || d.events_within_5km_count || 0);
+      var line = Math.round(pctSame) + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
+      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Secteur satur\u00e9. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. Saturation sectorielle ' + num(a.pct_same_sector) + '%. Diff\u00e9rencier offre.'; }
+    }
+  );
+
+  // C8 — weekend_vacation_low_comp
+  reg('weekend_vacation_low_comp', 'Week-end de vacances \u2014 faible concurrence', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var score = num(a.score || d.opportunity_score_final_local);
+      var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '. Score ' + score + '/10.';
+      line += ' Fen\u00eatre rare \u2014 communiquez maintenant.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end de vacances, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Week-end vacances. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+    }
+  );
+
+  // C9 — commercial_event_match
+  reg('commercial_event_match', 'Temps fort commercial \u2014 activez', 'OPPORTUNIT\u00c9', '\ud83d\udecd\ufe0f', '#2E7D32', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var evName = a.commercial_event_name || a.event_label || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_name : null) || '';
+      var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      if (pr > 1.3) line += ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.';
+      else line += ' Concurrence mod\u00e9r\u00e9e \u2014 fen\u00eatre favorable.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. P\u00e9riode commerciale. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Offre sp\u00e9ciale p\u00e9riode commerciale. Max 1500 car.'; }
+    }
+  );
+
+  // C10 — weather_window_after_bad
+  reg('weather_window_after_bad', 'Retour au beau apr\u00e8s mauvais temps', 'OPPORTUNIT\u00c9', '\ud83c\udf24\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var line = 'Am\u00e9lioration m\u00e9t\u00e9o apr\u00e8s 2+ jours d\u00e9grad\u00e9s.';
+      if (weatherSens(p)) line += ' Site sensible (' + p.weather_sensitivity + '/5) \u2014 vos visiteurs reviennent.';
+      if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
+      var edge = userEdge(p); if (edge) line += ' Communiquez : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Le beau temps revient. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Am\u00e9lioration m\u00e9t\u00e9o. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C11 — extended_bad_weather_3d
+  reg('extended_bad_weather_3d', 'M\u00e9t\u00e9o d\u00e9grad\u00e9e 3+ jours', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var alert = Number(a.alert_level || d.alert_level_max || 0);
+      var line = '3+ jours cons\u00e9cutifs de mauvais temps (niveau ' + alert + ').';
+      if (weatherSens(p)) line += ' Site sensible \u2014 impact prolong\u00e9 sur la fr\u00e9quentation.';
+      if (isOutdoor(p)) line += ' Activez votre offre int\u00e9rieure.';
+      else line += ' Positionnez-vous comme refuge.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. M\u00e9t\u00e9o d\u00e9grad\u00e9e 3+ jours. ' + (weatherSens(p) ? 'Adapter effectif.' : 'Impact limit\u00e9.'); }
+    }
+  );
+
+  // C12 — tourist_high_season
+  reg('tourist_high_season', 'Haute saison touristique', 'OPPORTUNIT\u00c9', '\ud83c\udf0d', '#2E7D32', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Indice touristique \u00e9lev\u00e9 (' + Math.round(idx) + '). Afflux de visiteurs dans votre r\u00e9gion.';
+      var aud = audLabel(p); if (aud) line += ' Adaptez votre message pour ' + aud + ' et les touristes.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Haute saison touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Accueil touristes. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C13 — tourist_surge_vacation
+  reg('tourist_surge_vacation', 'Afflux touristique en vacances', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') + vacances scolaires. Double flux de visiteurs.';
+      var edge = userEdge(p); if (edge) line += ' Captez-les avec : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. P\u00e9riode touristique. Offre + horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C14 — tourism_peak_window
+  reg('tourism_peak_window', 'Pic touristique r\u00e9gional', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Pic touristique d\u00e9tect\u00e9 (indice ' + Math.round(idx) + '). Maximisez votre visibilit\u00e9.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Pic touristique. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C15 — tourism_weather_vacation
+  reg('tourism_weather_vacation', 'Tourisme + beau temps + vacances', 'OPPORTUNIT\u00c9', '\ud83c\udf1f', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Triple signal : tourisme (' + Math.round(idx) + '), beau temps, vacances. Conditions exceptionnelles.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + beau temps + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Triple signal favorable. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+    }
+  );
+
+  // C16 — tourism_comp_squeeze
+  reg('tourism_comp_squeeze', 'Tourisme \u00e9lev\u00e9 mais concurrence forte', 'CONCURRENCE', '\ud83c\udf0d', '#E65100', 'action', 'pulse#carte',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') mais pression \u00d7' + pr.toFixed(1) + '.';
+      line += ' Les touristes ont le choix \u2014 d\u00e9marquez-vous.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme \u00e9lev\u00e9, concurrence aussi. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. Tourisme + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Renforcer diff\u00e9renciation.'; }
+    }
+  );
+
+  // C17 — low_tourism_local_opp
+  reg('low_tourism_local_opp', 'Tourisme faible \u2014 ciblez les locaux', 'OPPORTUNIT\u00c9', '\ud83c\udfe0', '#1565C0', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Tourisme bas (' + Math.round(idx) + ') mais jour f\u00e9ri\u00e9. Les r\u00e9sidents sont disponibles.';
+      var aud = audLabel(p); if (aud) line += ' Ciblez vos ' + aud.split(',')[0] + '.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Journ\u00e9e pour les locaux. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. F\u00e9ri\u00e9, pour les locaux. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C18 — tourism_mobility_hit
+  reg('tourism_mobility_hit', 'Tourisme \u00e9lev\u00e9 mais mobilit\u00e9 perturb\u00e9e', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') mais acc\u00e8s perturb\u00e9. Risque de perte de trafic.';
+      line += ' Communiquez des itin\u00e9raires alternatifs.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. Tourisme \u00e9lev\u00e9 + mobilit\u00e9 perturb\u00e9e. Signal\u00e9tique + itin\u00e9raires alt.'; },
+      website: function(a, p, d) { return 'Banni\u00e8re acc\u00e8s. Tourisme en cours, perturbation mobilit\u00e9. Itin\u00e9raire alternatif.'; }
+    }
+  );
+
+  // C19 — weather_mobility_double
+  reg('weather_mobility_double', 'Double alerte : m\u00e9t\u00e9o + mobilit\u00e9', 'URGENT', '\u26a1', '#B71C1C', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var alert = Number(a.weather_alert || d.alert_level_max || 0);
+      var line = 'Double risque : alerte m\u00e9t\u00e9o (niveau ' + alert + ') et perturbation mobilit\u00e9.';
+      if (weatherSens(p)) line += ' Site sensible \u2014 impact direct.';
+      line += ' Pr\u00e9venez votre \u00e9quipe et vos visiteurs.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. M\u00e9t\u00e9o + mobilit\u00e9 perturb\u00e9es. Adapter effectif, signal\u00e9tique.'; },
+      website: function(a, p, d) { return 'Banni\u00e8re alerte. Conditions d\u00e9grad\u00e9es + acc\u00e8s perturb\u00e9. Alternatives.'; }
+    }
+  );
+
+  // C20 — mobility_comp_squeeze
+  reg('mobility_comp_squeeze', 'Mobilit\u00e9 perturb\u00e9e + concurrence', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#carte',
+    function(a, p, d) {
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var line = 'Acc\u00e8s perturb\u00e9 et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
+      line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 60) + '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. Mobilit\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Itin\u00e9raires alt + comm.'; }
+    }
+  );
+
+  // C21 — ft_peak_bad_weather
+  reg('ft_peak_bad_weather', 'Jour de pointe mais m\u00e9t\u00e9o d\u00e9grad\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf26\ufe0f', '#E65100', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var rank = num(a.ft_rank) || 0;
+      var alert = Number(a.weather_alert || d.alert_level_max || 0);
+      var line = 'Ce jour est habituellement un pic de fr\u00e9quentation (rang ' + rank + ') mais la m\u00e9t\u00e9o est d\u00e9grad\u00e9e (niveau ' + alert + ').';
+      if (isOutdoor(p)) line += ' Activez votre offre int\u00e9rieure.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note interne. Jour de pointe + m\u00e9t\u00e9o d\u00e9grad\u00e9e. Adapter offre.'; }
+    }
+  );
+
+  // C22 — ft_quiet_good_weather
+  reg('ft_quiet_good_weather', 'Jour calme + conditions favorables', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + pr.toFixed(1) + ').';
+      line += ' Opportunit\u00e9 de capter du trafic suppl\u00e9mentaire.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour calme, beau temps. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Conditions id\u00e9ales. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C23 — ft_peak_saturated
+  reg('ft_peak_saturated', 'Jour de pointe satur\u00e9', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
+    function(a, p, d) {
+      var rank = num(a.ft_rank) || 0;
+      var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') mais ' + Math.round(pctSame) + '% du secteur en concurrence directe.';
+      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. Pic + saturation ' + num(a.pct_same_sector) + '%. Diff\u00e9rencier.'; }
+    }
+  );
+
+  // C24 — ft_peak_low_comp
+  reg('ft_peak_low_comp', 'Jour de pointe + faible concurrence', 'OPPORTUNIT\u00c9', '\ud83d\ude80', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var rank = num(a.ft_rank) || 0;
+      var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Fen\u00eatre en or.';
+      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Journ\u00e9e id\u00e9ale. Horaires + offre. Max 1500 car.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Jour de pointe favorable. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+    }
+  );
+
+  // C25 — ft_peak_tourism_vacation
+  reg('ft_peak_tourism_vacation', 'Jour de pointe + tourisme + vacances', 'OPPORTUNIT\u00c9', '\ud83c\udf1f', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var rank = num(a.ft_rank) || 0;
+      var idx = num(a.tourism_index || d.tourism_index_region) || 0;
+      var line = 'Triple signal : pic de fr\u00e9quentation (rang ' + rank + '), tourisme (' + Math.round(idx) + '), vacances. Affluence maximale attendue.';
+      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic + tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Affluence max attendue. Horaires. Max 1500 car.'; }
+    }
+  );
+
+  // C26 — ft_peak_mobility
+  reg('ft_peak_mobility', 'Jour de pointe mais mobilit\u00e9 perturb\u00e9e', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var rank = num(a.ft_rank) || 0;
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') mais acc\u00e8s perturb\u00e9. Risque de perte de trafic significative.';
+      line += ' Communiquez des alternatives d\u2019acc\u00e8s.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note urgente. Jour de pointe + mobilit\u00e9 perturb\u00e9e. Signal\u00e9tique + comm acc\u00e8s.'; },
+      website: function(a, p, d) { return 'Banni\u00e8re. Jour de pointe, perturbation acc\u00e8s. Itin\u00e9raire alternatif.'; }
+    }
+  );
+
+  // C27 — weekly_briefing
+  reg('weekly_briefing', 'Bilan hebdomadaire', 'INTELLIGENCE', '\ud83d\udcca', '#1565C0', 'notification', 'pulse#radar-score',
+    function(a, p, d) {
+      var avgScore = num(a.avg_score) || 0;
+      var daysA = num(a.days_regime_a) || 0;
+      var daysC = num(a.days_regime_c) || 0;
+      var daysWx = num(a.days_weather_alert) || 0;
+      var avgPr = Number(a.avg_pressure_ratio || 0);
+      var parts = ['Score moyen : ' + Math.round(avgScore) + '/10'];
+      if (daysA > 0) parts.push(daysA + 'j r\u00e9gime A');
+      if (daysC > 0) parts.push(daysC + 'j r\u00e9gime C');
+      if (daysWx > 0) parts.push(daysWx + 'j alerte m\u00e9t\u00e9o');
+      parts.push('pression moy. \u00d7' + avgPr.toFixed(1));
+      return parts.join(' \u00b7 ') + '.';
+    },
+    {
+      email: function(a, p, d) { return 'Bilan hebdomadaire pour ' + siteName(p) + '. Score moyen ' + num(a.avg_score) + '/10, ' + num(a.days_regime_a) + 'j favorables, ' + num(a.days_regime_c) + 'j d\u00e9favorables.'; },
+      note_interne: function(a, p, d) { return 'Bilan semaine. Score moy ' + num(a.avg_score) + '/10. ' + num(a.days_regime_a) + 'j r\u00e9gime A, ' + num(a.days_regime_c) + 'j r\u00e9gime C. Pression moy \u00d7' + Number(a.avg_pressure_ratio||0).toFixed(1) + '.'; }
+    }
+  );
+
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
   var CAT_BAR = {
@@ -999,7 +1423,7 @@
       var sowhatText = '';
       var whatText = '';
       if (spec) {
-        try { sowhatText = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (sowhatText && typeof sowhatText === 'object' && sowhatText.context) sowhatText = sowhatText.context; var _s1 = String(sowhatText || '').split('. ')[0]; if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = _s1.length > 120 ? _s1.slice(0, 117) + '...' : _s1; } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
+        try { sowhatText = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (sowhatText && typeof sowhatText === 'object' && sowhatText.context) sowhatText = sowhatText.context; var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = _s1.length > 200 ? _s1.slice(0, 197) + '...' : _s1; } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
@@ -1079,7 +1503,34 @@
     'media_mention_detected': { action: 'Communiquer : relayez cette mention m\u00e9dia.', urgency: 'soon', channel: 'communiquer' },
     'weekly_summary': { action: 'Faire suivre : partagez le bilan avec votre \u00e9quipe.', urgency: 'plan', channel: 'suivre' },
     'weather_worsened': { action: 'Faire suivre : pr\u00e9venez votre \u00e9quipe des conditions d\u00e9grad\u00e9es.', urgency: 'now', channel: 'suivre' },
-    'weather_improved': { action: 'Communiquer : conditions am\u00e9lior\u00e9es, relancez vos visiteurs.', urgency: 'now', channel: 'communiquer' }
+    'weather_improved': { action: 'Communiquer : conditions am\u00e9lior\u00e9es, relancez vos visiteurs.', urgency: 'now', channel: 'communiquer' },
+    'perfect_storm': { action: 'Communiquer : conditions exceptionnelles, maximisez votre visibilit\u00e9.', urgency: 'now', channel: 'communiquer' },
+    'weather_comp_opportunity': { action: 'Communiquer : beau temps et faible concurrence, publiez maintenant.', urgency: 'now', channel: 'communiquer' },
+    'saturated_bad_weather': { action: 'Faire suivre : double risque, adaptez les op\u00e9rations.', urgency: 'now', channel: 'suivre' },
+    'holiday_high_comp': { action: 'Communiquer : d\u00e9marquez-vous face \u00e0 la concurrence du f\u00e9ri\u00e9.', urgency: 'now', channel: 'communiquer' },
+    'best_day_of_week': { action: 'Communiquer : c\u2019est le meilleur cr\u00e9neau de la semaine.', urgency: 'now', channel: 'communiquer' },
+    'day_opportunity': { action: 'Communiquer : r\u00e9gime A, maximisez votre pr\u00e9sence.', urgency: 'now', channel: 'communiquer' },
+    'same_bucket_saturation': { action: 'Communiquer : secteur satur\u00e9, diff\u00e9renciez votre offre.', urgency: 'soon', channel: 'communiquer' },
+    'weekend_vacation_low_comp': { action: 'Communiquer : fen\u00eatre rare, week-end de vacances calme.', urgency: 'now', channel: 'communiquer' },
+    'commercial_event_match': { action: 'Communiquer : surfez sur le temps fort commercial.', urgency: 'now', channel: 'communiquer' },
+    'weather_window_after_bad': { action: 'Communiquer : retour au beau, relancez vos visiteurs.', urgency: 'now', channel: 'communiquer' },
+    'extended_bad_weather_3d': { action: 'Faire suivre : m\u00e9t\u00e9o d\u00e9grad\u00e9e prolong\u00e9e, adaptez.', urgency: 'now', channel: 'suivre' },
+    'tourist_high_season': { action: 'Communiquer : captez le flux touristique.', urgency: 'now', channel: 'communiquer' },
+    'tourist_surge_vacation': { action: 'Communiquer : tourisme + vacances, double flux.', urgency: 'now', channel: 'communiquer' },
+    'tourism_peak_window': { action: 'Communiquer : pic touristique, maximisez la visibilit\u00e9.', urgency: 'now', channel: 'communiquer' },
+    'tourism_weather_vacation': { action: 'Communiquer : triple signal favorable.', urgency: 'now', channel: 'communiquer' },
+    'tourism_comp_squeeze': { action: 'Communiquer : tourisme \u00e9lev\u00e9 mais concurrence, d\u00e9marquez-vous.', urgency: 'soon', channel: 'communiquer' },
+    'low_tourism_local_opp': { action: 'Communiquer : ciblez les r\u00e9sidents locaux.', urgency: 'plan', channel: 'communiquer' },
+    'tourism_mobility_hit': { action: 'Faire suivre : tourisme + mobilit\u00e9 perturb\u00e9e, itin\u00e9raires alt.', urgency: 'now', channel: 'suivre' },
+    'weather_mobility_double': { action: 'Faire suivre : double alerte, s\u00e9curisez les op\u00e9rations.', urgency: 'now', channel: 'suivre' },
+    'mobility_comp_squeeze': { action: 'Faire suivre : acc\u00e8s + concurrence, pr\u00e9parez un plan.', urgency: 'now', channel: 'suivre' },
+    'ft_peak_bad_weather': { action: 'Faire suivre : jour de pointe + m\u00e9t\u00e9o, adaptez.', urgency: 'now', channel: 'suivre' },
+    'ft_quiet_good_weather': { action: 'Communiquer : conditions favorables, attirez du monde.', urgency: 'now', channel: 'communiquer' },
+    'ft_peak_saturated': { action: 'Communiquer : jour de pointe satur\u00e9, diff\u00e9renciez-vous.', urgency: 'soon', channel: 'communiquer' },
+    'ft_peak_low_comp': { action: 'Communiquer : fen\u00eatre en or, publiez maintenant.', urgency: 'now', channel: 'communiquer' },
+    'ft_peak_tourism_vacation': { action: 'Communiquer : affluence max, tous les signaux au vert.', urgency: 'now', channel: 'communiquer' },
+    'ft_peak_mobility': { action: 'Faire suivre : jour de pointe + acc\u00e8s perturb\u00e9.', urgency: 'now', channel: 'suivre' },
+    'weekly_briefing': { action: 'Faire suivre : partagez le bilan avec votre \u00e9quipe.', urgency: 'plan', channel: 'suivre' }
   };
 
   var _origSpecs = {};
