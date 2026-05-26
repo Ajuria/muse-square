@@ -71,7 +71,7 @@ export const GET: APIRoute = async ({ request }) => {
         // 2a. Score trend (past 7 days) — divide by 10 for display
         const [scoreRows] = await bigquery.query({
           query: `
-            SELECT date, opportunity_score AS score, opportunity_regime AS regime
+            SELECT date, opportunity_score_final_local AS score, opportunity_regime AS regime
             FROM \`${semanticProjectId}.semantic.vw_insight_event_day_surface\`
             WHERE location_id = @location_id
               AND date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
@@ -83,7 +83,7 @@ export const GET: APIRoute = async ({ request }) => {
 
         const scores = (scoreRows as any[]).map((r: any) => ({
           date: String(r.date?.value ?? r.date ?? ""),
-          score: Math.round(Number(r.score ?? 0)) / 10,
+          score: Math.round(Number(r.score ?? 0) * 10) / 10,
           regime: String(r.regime ?? "B"),
         }));
 
