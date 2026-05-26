@@ -1377,7 +1377,7 @@
     if (seeds.sms) channels.push({ key: 'sms', label: 'SMS', charLimit: 160 });
     if (seeds.whatsapp && cc.whatsapp) channels.push({ key: 'whatsapp', label: 'WhatsApp', charLimit: 1000 });
     if (seeds.slack && cc.slack) channels.push({ key: 'slack', label: 'Slack', charLimit: null });
-    if (seeds.note_interne) channels.push({ key: 'note_interne', label: 'Note interne', charLimit: null });
+    if (seeds.note_interne || channels.length === 0) channels.push({ key: 'note_interne', label: 'Note interne', charLimit: null }); 
     if (seeds.website && !!prof.website_url) channels.push({ key: 'website', label: 'Site web', charLimit: null });
     return channels;
   }

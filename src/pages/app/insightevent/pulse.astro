@@ -218,6 +218,37 @@ if (!location_id) {
       .ab-draft-regen { font-size:11px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
       .ab-draft-dismiss { font-size:11px; color:#9CA3AF; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
       .ab-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9999; align-items:flex-end; justify-content:center; }
+      /* ---- Tier 2 visual uplift ---- */
+      .ab-cat-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .ab-cat-icon-opportunity { background:#E1F5EE; color:#0F6E56; }
+      .ab-cat-icon-weather { background:#FAEEDA; color:#854F0B; }
+      .ab-cat-icon-competition { background:#FCEBEB; color:#A32D2D; }
+      .ab-cat-icon-calendar { background:#EEEDFE; color:#534AB7; }
+      .ab-cat-icon-urgent { background:#FCEBEB; color:#A32D2D; }
+      .ab-cat-icon-intelligence { background:#E6F1FB; color:#185FA5; }
+      .ab-cat-icon-performance { background:#E6F1FB; color:#185FA5; }
+      .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; }
+      .ab-metric { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:6px; background:#f8fafc; font-size:11px; color:#6B7280; border:0.5px solid #f0f0f0; }
+      .ab-metric-val { font-weight:600; color:#111827; }
+      .ab-metric-warn { background:#FEF2F2; border-color:#FECACA; }
+      .ab-metric-warn .ab-metric-val { color:#991B1B; }
+      .ab-metric-good { background:#F0FDF4; border-color:#BBF7D0; }
+      .ab-metric-good .ab-metric-val { color:#166534; }
+      .ab-cta-row { display:flex; align-items:center; gap:8px; padding:10px 16px; border-top:0.5px solid #F3F4F6; }
+      .ab-cta-primary { font-size:12px; font-weight:600; color:#fff; background:#185FA5; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px; }
+      .ab-cta-primary-red { background:#A32D2D; }
+      .ab-cta-secondary { font-size:12px; font-weight:500; color:#6B7280; background:none; border:0.5px solid #E5E7EB; padding:7px 12px; border-radius:6px; cursor:pointer; font-family:inherit; }
+      .ab-cta-ghost { font-size:14px; color:#9CA3AF; background:none; border:none; cursor:pointer; padding:2px 4px; margin-left:auto; font-family:inherit; }
+      .ab-agir-dropdown { display:none; position:absolute; top:100%; right:0; min-width:220px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.08); z-index:9999; margin-top:6px; overflow:hidden; }
+      .ab-dd-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 14px; border:none; background:none; cursor:pointer; font-size:12px; color:#111827; font-family:inherit; border-bottom:0.5px solid #f3f4f6; }
+      .ab-dd-item:last-child { border-bottom:none; }
+      .ab-dd-item:hover { background:#f9fafb; }
+      .ab-dd-icon { width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; }
+      .ab-dd-icon-comm { background:#E6F1FB; color:#185FA5; }
+      .ab-dd-icon-send { background:#EEEDFE; color:#534AB7; }
+      .ab-dd-icon-see { background:#f3f4f6; color:#6B7280; }
+      .ab-dd-label { font-weight:500; }
+      .ab-dd-desc { font-size:10px; color:#9CA3AF; margin-top:1px; }
       .ab-overlay.is-open { display:flex; }
       .ab-form-panel { background:#fff; width:100%; max-width:720px; border-top:3px solid #1D3BB3; padding:20px 20px 32px; animation:abSlideUp 0.2s ease-out; }
       @keyframes abSlideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -1357,20 +1388,180 @@ if (!location_id) {
     var briefStatuses = {};
     try { briefStatuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
  
+    var CAT_ICON_MAP = {
+      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
+      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
+      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
+      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
+      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
+      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+    };
+
+    function buildMetricsStrip(entry, currentDay) {
+      var a = entry.item;
+      var dp = a.data_payload || {};
+      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
+      var metrics = [];
+      // Pressure ratio
+      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
+      if (pr > 0 && pr !== 1) {
+        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
+      }
+      // Events count
+      var ev5km = Number(dp.events_5km || dp.events_500m || currentDay.events_within_5km_count || 0);
+      var ev500m = Number(dp.events_500m || 0);
+      if (ev500m > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
+      } else if (ev5km > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
+      }
+      // Score
+      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
+      if (score > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
+      }
+      // Weather alert
+      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
+      if (alertLvl >= 2) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
+      }
+      // Tourism index
+      var tourism = Number(dp.tourism_index || 0);
+      if (tourism > 50) {
+        var tCls = tourism > 75 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
+      }
+      // Commercial event name
+      if (dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
+      }
+      // Holiday name
+      if (dp.holiday_name && !dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
+      }
+      // Competitor name
+      if (dp.competitor_name) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
+      }
+      return metrics.slice(0, 4).join('');
+    }
+
+    var CAT_ICON_MAP = {
+      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
+      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
+      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
+      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
+      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
+      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+    };
+
+    function buildMetricsStrip(entry, currentDay) {
+      var a = entry.item;
+      var dp = a.data_payload || {};
+      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
+      var metrics = [];
+      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
+      if (pr > 0 && pr !== 1) {
+        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
+      }
+      var ev500m = Number(dp.events_500m || 0);
+      var ev5km = Number(dp.events_5km || currentDay.events_within_5km_count || 0);
+      if (ev500m > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
+      } else if (ev5km > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
+      }
+      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
+      if (score > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
+      }
+      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
+      if (alertLvl >= 2) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
+      }
+      var tourism = Number(dp.tourism_index || 0);
+      if (tourism > 50) {
+        var tCls = tourism > 75 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
+      }
+      if (dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
+      }
+      if (dp.holiday_name && !dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
+      }
+      if (dp.competitor_name) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
+      }
+      return metrics.slice(0, 4).join('');
+    }
+
+    var CAT_ICON_MAP = {
+      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
+      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
+      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
+      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
+      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
+      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+    };
+
+    function buildMetricsStrip(entry, currentDay) {
+      var a = entry.item;
+      var dp = a.data_payload || {};
+      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
+      var metrics = [];
+      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
+      if (pr > 0 && pr !== 1) {
+        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
+      }
+      var ev500m = Number(dp.events_500m || 0);
+      var ev5km = Number(dp.events_5km || currentDay.events_within_5km_count || 0);
+      if (ev500m > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
+      } else if (ev5km > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
+      }
+      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
+      if (score > 0) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
+      }
+      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
+      if (alertLvl >= 2) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
+      }
+      var tourism = Number(dp.tourism_index || 0);
+      if (tourism > 50) {
+        var tCls = tourism > 75 ? 'ab-metric-good' : '';
+        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
+      }
+      if (dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
+      }
+      if (dp.holiday_name && !dp.commercial_event_name) {
+        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
+      }
+      if (dp.competitor_name) {
+        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
+      }
+      return metrics.slice(0, 4).join('');
+    }
+
     var cardsHtml = top.map(function(entry, cardIdx) {
       var t = entry.tmpl;
       var cardId = "ab-card-" + cardIdx;
-      var defaultCh = (t.actions && t.actions.length > 0) ? (t.actions[0].channel || "gbp") : "gbp";
-      if (defaultCh === "internal" || defaultCh === "phone") defaultCh = defaultCh;
       var status = briefStatuses[cardIdx] || null;
       var statusLabel = status === "copied" ? "Brouillon \u270e" : status === "saved" ? "Brouillon \u270e" : null;
       var signalJson = escapeHtml(JSON.stringify({change_subtype:String(entry.item.change_subtype||""),event_label:entry.item.event_label||null,distance_m:entry.item.distance_m!=null?Number(entry.item.distance_m):null,mobility_mode:entry.item.mobility_mode||null,affected_date:normalizeYmd(entry.item.affected_date)||null,old_value:entry.item.old_value!=null?String(entry.item.old_value):null,new_value:entry.item.new_value!=null?String(entry.item.new_value):null,city_name:entry.item.city_name||null,event_venue_name:entry.item.event_venue_name||null,lvl_rain:entry.item.lvl_rain||0,lvl_wind:entry.item.lvl_wind||0,lvl_snow:entry.item.lvl_snow||0,lvl_heat:entry.item.lvl_heat||0,lvl_cold:entry.item.lvl_cold||0,score_delta:entry.item.score_delta!=null?Number(entry.item.score_delta):null,mobility_disruption_category:entry.item.mobility_disruption_category||null}));
       var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
 
-      // --- Build Agir dropdown ---
+      var catLabel = t.typePill ? t.typePill.label.replace(/^[^\s]+ /, '') : 'INTELLIGENCE';
+      var catIconInfo = CAT_ICON_MAP[catLabel] || CAT_ICON_MAP['INTELLIGENCE'];
+
+      // --- Channels for Agir dropdown ---
       var commChannels = t._available_channels || [];
-      var hasComm = t._card_type === 'action' && commChannels.length > 0;
-      var menuHtml = '<div data-agir-menu="' + cardIdx + '" style="display:none;position:absolute;top:100%;right:0;min-width:220px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:9999;margin-top:6px;">';
       var pubChannel = '';
       var sendChannel = '';
       for (var chi = 0; chi < commChannels.length; chi++) {
@@ -1380,44 +1571,70 @@ if (!location_id) {
       }
       if (!pubChannel && commChannels.length > 0) pubChannel = commChannels[0].key;
       if (!sendChannel) sendChannel = 'note_interne';
-      menuHtml += '<div style="padding:6px 0;border-bottom:1px solid #f3f4f6;">'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;font-weight:500;">\u270f\ufe0f Communiquer</button>'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\u2197\ufe0f Faire suivre</button>'
+
+      // --- Agir dropdown (opens below) ---
+      var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
+          + '<div><div class="ab-dd-label">Communiquer</div><div class="ab-dd-desc">R\u00e9diger un post, email ou message</div></div>'
+        + '</button>'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-send">\u2197\ufe0f</div>'
+          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Envoyer \u00e0 votre \u00e9quipe</div></div>'
+        + '</button>'
+        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+          + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Voir le d\u00e9tail du signal</div></div>'
+        + '</button>'
       + '</div>';
-      menuHtml += '<div style="padding:6px 0;">'
-        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="display:block;width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;">\ud83d\udd0d Consulter la source</button>'
-      + '</div></div>';
 
       var _sw = t.sowhat;
       var _swText = '';
-      if (_sw && typeof _sw === 'object' && _sw.context) { _swText = _sw.context.split('. ')[0]; if (_swText && !_swText.endsWith('.')) _swText += '.'; if (_swText.length > 120) _swText = _swText.slice(0, 117) + '...'; }
-      else if (typeof _sw === 'string') { _swText = _sw.split('. ')[0]; if (_swText && !_swText.endsWith('.')) _swText += '.'; if (_swText.length > 120) _swText = _swText.slice(0, 117) + '...'; }
+      if (_sw && typeof _sw === 'object' && _sw.context) { _swText = _sw.context; }
+      else if (typeof _sw === 'string') { _swText = _sw; }
+      var _sArr = String(_swText || '').split('. ');
+      var _s1 = _sArr.slice(0, 2).join('. ');
+      if (_s1 && !_s1.endsWith('.')) _s1 += '.';
+      _swText = _s1.length > 200 ? _s1.slice(0, 197) + '...' : _s1;
+
+      var metricsHtml = buildMetricsStrip(entry, currentDay);
+      var isAction = t._card_type === 'action' && commChannels.length > 0;
+
       return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
             + '<div class="ab-summary">'
-              + '<div class="ab-pills">'
-                + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
-                + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
+              + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+                + '<div class="ab-cat-icon ' + catIconInfo.cls + '" style="margin-top:2px;">' + catIconInfo.icon + '</div>'
+                + '<div style="flex:1;min-width:0;">'
+                  + '<div class="ab-pills">'
+                    + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
+                    + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
+                    + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
+                  + '</div>'
+                  + '<div class="ab-what">' + t.what + '</div>'
+                  + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
+                + '</div>'
               + '</div>'
-              + '<div class="ab-what">' + t.what + '</div>'
-              + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
             + '</div>'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
+            + (metricsHtml ? '<div class="ab-metrics-strip">' + metricsHtml + '</div>' : '')
+            + '<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 16px 12px;"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
               + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
               + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
-              + '<div style="position:relative;display:inline-block;margin-left:auto;" data-agir-wrap="' + cardIdx + '">'
-                + '<button type="button" data-agir-toggle="' + cardIdx + '" class="ab-draft-trigger" data-ab-draft-card="' + cardIdx + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
-                  + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
-                + '</button>'
-                + menuHtml
-              + '</div>'
+              + (isAction
+                ? '<div style="position:relative;display:inline-block;" data-agir-wrap="' + cardIdx + '">'
+                    + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
+                      + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
+                    + '</button>'
+                    + menuHtml
+                  + '</div>'
+                : '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">Voir \u2192</button>'
+              )
             + '</div>'
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
@@ -1677,23 +1894,22 @@ if (!location_id) {
         }
       }
     }
- 
-    // ---- Agir dropdown triggers ----
-    // Close all menus on outside click
+
+    // Close all Agir menus on outside click
     document.addEventListener("click", function() {
       root.querySelectorAll("[data-agir-menu]").forEach(function(m) { m.style.display = "none"; });
     });
 
-    // Toggle dropdown
+    // Toggle Agir dropdown
     root.querySelectorAll("[data-agir-toggle]").forEach(function(btn) {
       btn.addEventListener("click", function(e) {
         e.stopPropagation();
         var cardIdx = btn.getAttribute("data-agir-toggle");
         var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
         if (!menu) return;
-        // Close all other menus
         root.querySelectorAll("[data-agir-menu]").forEach(function(m) { if (m !== menu) m.style.display = "none"; });
-        menu.style.display = menu.style.display === "none" ? "block" : "none";
+        var isHidden = !menu.style.display || menu.style.display === "none";
+        menu.style.display = isHidden ? "block" : "none";
       });
     });
 
