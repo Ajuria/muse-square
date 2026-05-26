@@ -68,7 +68,7 @@ export const GET: APIRoute = async ({ request }) => {
       };
 
       try {
-        // 2a. Score trend (past 7 days) — divide by 10 for display
+        // 2a. Score trend (past 7 days) — semantic view returns 0-10 scale
         const [scoreRows] = await bigquery.query({
           query: `
             SELECT date, opportunity_score_final_local AS score, opportunity_regime AS regime
@@ -83,7 +83,7 @@ export const GET: APIRoute = async ({ request }) => {
 
         const scores = (scoreRows as any[]).map((r: any) => ({
           date: String(r.date?.value ?? r.date ?? ""),
-          score: Math.round(Number(r.score ?? 0) * 10) / 10,
+          score: Number(r.score ?? 0),
           regime: String(r.regime ?? "B"),
         }));
 
@@ -411,8 +411,6 @@ function buildDigestHtml(d: DigestData): string {
     return `<td align="center" valign="bottom" style="height:48px;padding:0 2px;">
       <div style="width:28px;height:${h}px;background:rgba(255,255,255,${opacity});border-radius:2px 2px 0 0;"></div>
     </td>`;
-    const bg = isLast ? "#ffffff" : "#7BA3D9";
-    return `<td align="center" valign="bottom" style="height:40px;padding:0 2px;"><div style="width:24px;height:${h}px;background:${bg};border-radius:2px 2px 0 0;"></div></td>`;
   }).join("");
 
   const dayLabelsHtml = d.scores.map((s) => {
