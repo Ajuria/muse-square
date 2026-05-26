@@ -25,7 +25,7 @@ export const GET: APIRoute = async ({ request }) => {
     // Step 1: Get all users with digest enabled
     const [userRows] = await bigquery.query({
       query: `
-        SELECT DISTINCT
+        SELECT
           p.clerk_user_id,
           p.location_id,
           p.email,
@@ -34,16 +34,15 @@ export const GET: APIRoute = async ({ request }) => {
           ctx.city_name,
           d.region_name
         FROM \`${projectId}.raw.insight_event_user_location_profile\` p
+        JOIN \`${projectId}.raw.notification_preferences\` n
+          ON p.clerk_user_id = n.clerk_user_id
         LEFT JOIN \`${projectId}.dims.dim_client_location\` d
           ON p.location_id = d.location_id
         LEFT JOIN \`${semanticProjectId}.semantic.vw_insight_event_ai_location_context\` ctx
           ON p.location_id = ctx.location_id
-        LEFT JOIN \`${projectId}.raw.notification_preferences\` n
-          ON p.clerk_user_id = n.clerk_user_id
         WHERE p.email IS NOT NULL
-          AND p.is_primary = TRUE
-          AND (n.digest_weekly = TRUE OR n.digest_weekly IS NULL)
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY p.clerk_user_id ORDER BY p.updated_at DESC) = 1
+          AND n.digest_weekly = TRUE
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY p.clerk_user_id ORDER BY p.is_primary DESC) = 1
       `,
       location: BQ_LOCATION,
     });
