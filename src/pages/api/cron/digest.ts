@@ -89,7 +89,7 @@ export const GET: APIRoute = async ({ request }) => {
 
         const scores = (scoreRows as any[]).map((r: any) => ({
           date: String(r.date?.value ?? r.date ?? ""),
-          score: Number(r.score ?? 0),
+          score: Math.round(Number(r.score ?? 0)) / 10,
           regime: String(r.regime ?? "B"),
         }));
 
@@ -162,15 +162,14 @@ export const GET: APIRoute = async ({ request }) => {
             SELECT
               action_type,
               date,
-              priority_score,
-              card_type,
+              action_priority,
               action_category,
+              headline_fr,
               data_payload
             FROM \`${semanticProjectId}.mart.fct_location_daily_action_candidates\`
             WHERE location_id = @location_id
               AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 6 DAY)
-              AND card_type = 'action'
-            ORDER BY priority_score DESC
+            ORDER BY action_priority DESC, date ASC
             LIMIT 3
           `,
           params: { location_id: user.location_id },
@@ -197,11 +196,11 @@ export const GET: APIRoute = async ({ request }) => {
             perfect_storm: { what: "Conditions idéales — saisissez l'opportunité", category: "Opportunité", color: "#1D9E75" },
             score_driver_shift: { what: "Changement de facteur dominant", category: "Intelligence", color: "#185FA5" },
           };
-          const label = ACTION_LABELS[r.action_type] || { what: String(r.action_type ?? "Signal"), category: String(r.action_category ?? "Signal"), color: "#6B7280" };
+          const fallback = ACTION_LABELS[r.action_type] || { what: String(r.action_type ?? "Signal"), category: String(r.action_category ?? "Signal"), color: "#6B7280" };
           return {
-            what: label.what,
-            category: label.category,
-            color: label.color,
+            what: r.headline_fr ? String(r.headline_fr) : fallback.what,
+            category: fallback.category,
+            color: fallback.color,
             date: String(r.date?.value ?? r.date ?? ""),
           };
         });
@@ -499,7 +498,7 @@ function buildDigestHtml(d: DigestData): string {
   <tr><td style="padding:0 40px 14px 40px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#111827;">MUSE SQUARE <span style="font-weight:400;font-style:italic;">insight</span></td>
+        <td style="font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#111827;">MUSE SQUARE</td>
         <td align="right" style="font-size:11px;color:#9ca3af;letter-spacing:0.04em;">${esc(dateLabel)} \u00b7 ${esc(cityLabel)}</td>
       </tr>
     </table>
