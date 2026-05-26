@@ -5,31 +5,80 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <BaseLayout title="Mentions légales — Muse Square">
   <section class="ms-section">
     <div class="max-w-[900px]">
-      <!-- Page title -->
-      <h1 class="ms-h1 mb-[24px] md:mb-[32px]">
-        Mentions légales
-      </h1>
+      <h1 class="ms-h1 mb-[24px] md:mb-[32px]">Mentions Légales</h1>
 
-      <!-- Helpers (no @layer) -->
-      <style is:global>
-        .legal-h2   { @apply font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]; }
-        .legal-h3   { @apply font-heading text-[18px] leading-[26px] text-primary mt-[14px]; }
-        .legal-body { @apply font-body text-[18px] leading-[28px] text-secondary mt-[8px]; }
-        .legal-list { @apply list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1; }
-      </style>
+      <p class="font-body text-[14px] leading-[22px] text-secondary mt-[8px]">Dernière mise à jour : mai 2026</p>
 
-      <p class="legal-body">
-        Le site www.musesquare.com est édité par Monsieur Julen DE AJURIA GUERRA, créateur de Muse Square, entreprise en cours d’immatriculation.<br />
+      <!-- Éditeur -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Éditeur du Site</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Le site <span class="break-words">https://www.musesquare.com/</span> (ci-après le «&nbsp;Site&nbsp;») et la plateforme Muse Square Insight (ci-après la «&nbsp;Plateforme&nbsp;») sont édités par :
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Monsieur Julen DE AJURIA-GUERRA, entrepreneur individuel, créateur de Muse Square Insight, entreprise en cours d'immatriculation.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Adresse : 7, rue de l'Yvette — 75016 Paris, France<br/>
+        E-mail : contact@musesquare.com
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        À la date de l'immatriculation de la personne morale, celle-ci se substituera de plein droit à l'éditeur individuel pour l'ensemble des obligations prévues aux présentes mentions légales et aux conditions générales d'utilisation.
+      </p>
 
-        Éditeur : Julen DE AJURIA GUERRA<br />
+      <!-- Directeur -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Directeur de la publication</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Monsieur Julen DE AJURIA-GUERRA
+      </p>
 
-        Adresse : 7 rue de l’Yvette, 75016 Paris France<br />
+      <!-- Hébergement -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Hébergement</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Le Site et la Plateforme sont hébergés par :
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Vercel Inc.<br/>
+        340 S Lemon Ave #4133<br/>
+        Walnut, CA 91789, États-Unis<br/>
+        Site : <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" class="underline">https://vercel.com</a>
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les données sont stockées et traitées sur les serveurs de Google Cloud Platform (région Europe — Union Européenne) via le service BigQuery, opéré par :
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Google Ireland Limited<br/>
+        Gordon House, Barrow Street<br/>
+        Dublin 4, Irlande
+      </p>
 
-        Téléphone : 06.10.14.00.29<br />
+      <!-- Propriété intellectuelle -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Propriété intellectuelle</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'ensemble des éléments figurant sur le Site et la Plateforme (textes, graphismes, logiciels, photographies, images, vidéos, sons, plans, noms, logos, marques, créations et œuvres protégeables diverses, bases de données, etc.) ainsi que le Site et la Plateforme eux-mêmes sont protégés par les dispositions du Code de la propriété intellectuelle.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Ces éléments sont la propriété exclusive de l'Éditeur. Toute reproduction, représentation, utilisation, adaptation ou modification, par quelque procédé que ce soit, de tout ou partie de ces éléments, sans l'autorisation écrite préalable de l'Éditeur, est strictement interdite et constitue un délit de contrefaçon au sens des articles L.335-2 et suivants du Code de la propriété intellectuelle.
+      </p>
 
-        Email : contact@musesquare.com<br />
+      <!-- Données personnelles -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Données personnelles</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'Éditeur s'engage à respecter les dispositions du Règlement (UE) 2016/679 du 27 avril 2016 (RGPD) et de la loi n° 78-17 du 6 janvier 1978 modifiée relative à l'informatique, aux fichiers et aux libertés.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Pour toute information relative à la collecte et au traitement des données personnelles, les utilisateurs sont invités à consulter la <a href="/politique-de-confidentialite" class="underline">Politique de Confidentialité</a> accessible sur le Site.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Pour toute question relative aux données personnelles : contact@musesquare.com
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Autorité de contrôle compétente : Commission Nationale de l'Informatique et des Libertés (CNIL), 3 Place de Fontenoy — TSA 80715 — 75334 Paris Cedex 07.
+      </p>
 
-        Hébergeur : Vercel Inc. / Adresse web : vercel.com / Adresse physique : 440 N Barranca Avenue #4133 - Covina, CA 91723 - United States / Contact : privacy@vercel.com.<br />
+      <!-- Loi applicable -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">Loi applicable</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les présentes mentions légales sont régies par la loi française.
       </p>
     </div>
   </section>

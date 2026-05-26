@@ -757,8 +757,8 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
         whatsapp:{label:"WhatsApp",icon:"WA",color:"#25D366",max:1000,cat:"send"},
         note_interne:{label:"Note interne",icon:"N",color:"#374151",max:null,cat:"send"}
       };
-      var CH_PUB = ["gbp","instagram","facebook"];
-      var CH_SEND = ["email","slack","whatsapp","note_interne"];
+      var CH_PUB = ["gbp"];
+      var CH_SEND = ["email","slack"];
 
       function chIconHtml(key) {
         var c = CH_DEFS[key]; if (!c) return '';

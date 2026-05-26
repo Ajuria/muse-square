@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { rateLimit } from "../../../lib/rate-limit";
 
 export const prerender = false;
 
@@ -9,12 +10,15 @@ function json(status: number, body: unknown) {
   });
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const body = await request.json();
     const signals = body?.signals;
     const profile = body?.profile;
     const day = body?.day;
+    const userId = String((locals as any)?.clerk_user_id || "").trim();
+    if (!userId) return json(401, { ok: false, error: "Unauthorized" });
+    if (!rateLimit(userId, "sowhat", 30, 60_000)) return json(429, { ok: false, error: "Too many requests" });
 
     if (!Array.isArray(signals) || !signals.length) {
       return json(400, { ok: false, error: "No signals provided" });

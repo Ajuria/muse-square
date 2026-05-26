@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -15,6 +16,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const body = await request.json();
     const location_id = String(body.location_id || "").trim();
+    requireLocationOwnership(locals, location_id);
     const company_name = String(body.company_name || "").trim();
 
     if (!location_id || !company_name) {

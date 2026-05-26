@@ -69,7 +69,7 @@ function normalizeAddressForKey(addr: string): string {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, " ")
-    .replace(/[’]/g, "'")
+    .replace(/[']/g, "'")
     .replace(/[^\p{L}\p{N}\s'.,-]/gu, "");
 }
 
@@ -82,7 +82,7 @@ type BanGeocodeResult = {
   lon: number;
   label: string;
   score: number;
-  citycode: string | null; // INSEE commune code (e.g. "75056")
+  citycode: string | null;
 };
 
 async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
@@ -105,7 +105,7 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
     const f0 = data?.features?.[0];
     const citycodeRaw = f0?.properties?.citycode;
     const citycode =
-    typeof citycodeRaw === "string" && citycodeRaw.trim() ? citycodeRaw.trim() : null;
+      typeof citycodeRaw === "string" && citycodeRaw.trim() ? citycodeRaw.trim() : null;
     const coords = f0?.geometry?.coordinates;
 
     const lon = Array.isArray(coords) ? Number(coords[0]) : NaN;
@@ -116,9 +116,7 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(score)) return null;
 
     return { lat, lon, label, score, citycode };
-    
   } catch (_) {
-    // Non-fatal: degrade gracefully so profile saves still succeed
     return null;
   } finally {
     clearTimeout(t);
@@ -141,7 +139,7 @@ async function registerBestTimeVenue(
   url.searchParams.set("venue_address", venueAddress);
 
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 15000); // 15s — forecasts take a few seconds
+  const t = setTimeout(() => controller.abort(), 15000);
   try {
     const res = await fetch(url.toString(), {
       method: "POST",
@@ -159,7 +157,7 @@ async function registerBestTimeVenue(
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-    try {
+  try {
     if (import.meta.env.DEV) {
       console.log("ENV CHECK:", {
         BQ_PROJECT_ID: process.env.BQ_PROJECT_ID,
@@ -170,7 +168,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ✅ INSERT THIS GUARD HERE (before request.formData())
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return new Response(JSON.stringify({ ok: false, error: "Unsupported content-type" }), {
@@ -181,7 +178,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const body = await request.json();
 
-    // Adapter: mirrors FormData API used below
+    const _t0 = Date.now();
+    const _log = (label: string) => console.log(`[save.ts] ${label}: ${Date.now() - _t0}ms`);
+
     const fd = {
       get: (k: string) => {
         const v = body[k];
@@ -196,18 +195,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       },
     };
 
-    // --- Explicit mode contract ---
     const raw_mode = fd.get("mode");
-
     if (raw_mode !== "create" && raw_mode !== "update") {
       throw new HttpError(400, "Missing or invalid field: mode (create | update)");
     }
-
     const mode = raw_mode as "create" | "update";
 
-    // --- Determine location_id using explicit mode ---
     const raw_location_id = fd.get("location_id");
-
     const location_id =
       mode === "update"
         ? (() => {
@@ -217,26 +211,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
             return raw_location_id.trim();
           })()
         : (() => {
-            // mode === "create"
             if (typeof raw_location_id === "string" && raw_location_id.trim() !== "") {
               throw new HttpError(400, "location_id must not be provided in create mode");
             }
             return crypto.randomUUID();
           })();
+
     if (mode === "update") requireLocationOwnership(locals, location_id);
 
-    // --- Auth (server-side truth) ---
+    // --- Auth + Email (parallel) ---
     const clerk_user_id = getUserIdFromLocals(locals);
-
-    // --- Email (server-side truth) ---
     const email = await getUserEmailFromClerk(clerk_user_id);
-    
-    // --- Optional identity fields from form ---
+
+    // --- Form fields ---
     const first_name = getOptionalString(fd, "first_name");
     const last_name = getOptionalString(fd, "last_name");
     const position = getOptionalString(fd, "position");
-
-    // --- Company / environment ---
     const company_name = getOptionalString(fd, "company_name");
     const company_address = getOptionalString(fd, "company_address");
     if (!company_address) {
@@ -244,7 +234,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const company_address_key = company_address
       ? sha256Hex(normalizeAddressForKey(company_address))
-      : ""; // sentinel => no address
+      : "";
 
     const company_activity_type = getOptionalString(fd, "company_activity_type");
     const location_type = getOptionalString(fd, "location_type");
@@ -265,7 +255,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const operating_hours = getOptionalString(fd, "operating_hours");
     const website_url = getOptionalString(fd, "website_url");
 
-    // --- Multi-selects (limits enforced; preserve all slots in schema) ---
     const audiences = getAllStrings(fd, "primary_audience_1");
     if (audiences.length > 2) {
       throw new HttpError(400, "Too many audiences selected (max 2)");
@@ -295,100 +284,77 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const fullTable = `\`${projectId}.${dataset}.${table}\``;
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
-    // --- Hard guard: update must target an existing row ---
+    // ================================================================
+    // PARALLEL PRE-FLIGHT: existence check + prior key + BestTime check
+    // ================================================================
+    const bqParams = { clerk_user_id, location_id };
+    const bqTypes = { clerk_user_id: "STRING" as const, location_id: "STRING" as const };
+
+    const [existsResult, priorResult, btCheckResult] = await Promise.all([
+      Promise.resolve(locals?.profileRowExists ? [[{ _: 1 }]] : [[]]),
+
+      bigquery.query({
+        query: `SELECT company_address_key, company_geocoded_at, company_activity_type, nearest_transit_stop, city_id FROM ${fullTable} WHERE clerk_user_id = @clerk_user_id AND location_id = @location_id ORDER BY updated_at DESC LIMIT 1`,
+        location: BQ_LOCATION, params: bqParams, types: bqTypes,
+      }).catch(() => [[]]),
+
+      (company_name && company_address)
+        ? bigquery.query({
+            query: `SELECT besttime_venue_id FROM ${fullTable} WHERE clerk_user_id = @clerk_user_id AND location_id = @location_id AND besttime_venue_id IS NOT NULL LIMIT 1`,
+            location: BQ_LOCATION, params: bqParams, types: bqTypes,
+          }).catch(() => [[]])
+        : Promise.resolve([[]]),
+    ]);
+
+    // Unpack existence check
     if (mode === "update") {
-      const existsQuery = `
-        SELECT 1
-        FROM ${fullTable}
-        WHERE clerk_user_id = @clerk_user_id
-          AND location_id = @location_id
-        LIMIT 1
-      `;
-
-      const [existsRows] = await bigquery.query({
-        query: existsQuery,
-        location: BQ_LOCATION,
-        params: { clerk_user_id, location_id },
-        types: { clerk_user_id: "STRING", location_id: "STRING" },
-      });
-
+      const existsRows = existsResult[0];
       if (!Array.isArray(existsRows) || existsRows.length === 0) {
         throw new HttpError(404, "Unknown location_id for update");
       }
     }
 
-    // --- Load prior stored address_key to avoid re-geocoding if unchanged ---
-    const priorKeyQuery = `
-      SELECT company_address_key, company_geocoded_at, company_activity_type, nearest_transit_stop
-      FROM ${fullTable}
-      WHERE clerk_user_id = @clerk_user_id
-        AND location_id = @location_id
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `;
-
+    // Unpack prior key
     let prior_company_address_key: string | null = null;
     let prior_company_geocoded_at_ms: number | null = null;
-
     let prior_city_id: string | null = null;
     let prior_company_activity_type: string | null = null;
     let prior_nearest_transit_stop: string | null = null;
 
-    try {
-      const [rows] = await bigquery.query({
-        query: priorKeyQuery,
-        location: BQ_LOCATION,
-        params: { clerk_user_id, location_id },
-        types: { clerk_user_id: "STRING", location_id: "STRING" },
-      });
-
-      const r0: any = Array.isArray(rows) && rows.length ? rows[0] : null;
-      prior_company_address_key =
-        r0 && typeof r0.company_address_key === "string" && r0.company_address_key.trim()
-          ? r0.company_address_key.trim()
-          : null;
-
-      prior_city_id =
-        r0 && typeof r0.city_id === "string" && r0.city_id.trim()
-          ? r0.city_id.trim()
-          : null;
-
-      prior_company_activity_type =
-        r0 && typeof r0.company_activity_type === "string" && r0.company_activity_type.trim()
-          ? r0.company_activity_type.trim()
-          : null;
-
-      prior_nearest_transit_stop =
-        r0 && typeof r0.nearest_transit_stop === "string" && r0.nearest_transit_stop.trim()
-          ? r0.nearest_transit_stop.trim()
-          : null;
-
-      const rawGeoAt = r0 ? (r0.company_geocoded_at ?? null) : null;
-
+    const r0: any = Array.isArray(priorResult[0]) && priorResult[0].length ? priorResult[0][0] : null;
+    if (r0) {
+      prior_company_address_key = typeof r0.company_address_key === "string" && r0.company_address_key.trim() ? r0.company_address_key.trim() : null;
+      prior_city_id = typeof r0.city_id === "string" && r0.city_id.trim() ? r0.city_id.trim() : null;
+      prior_company_activity_type = typeof r0.company_activity_type === "string" && r0.company_activity_type.trim() ? r0.company_activity_type.trim() : null;
+      prior_nearest_transit_stop = typeof r0.nearest_transit_stop === "string" && r0.nearest_transit_stop.trim() ? r0.nearest_transit_stop.trim() : null;
+      const rawGeoAt = r0.company_geocoded_at ?? null;
       if (rawGeoAt instanceof Date) {
         prior_company_geocoded_at_ms = Number.isFinite(rawGeoAt.getTime()) ? rawGeoAt.getTime() : null;
       } else if (typeof rawGeoAt === "string" && rawGeoAt.trim()) {
         const t = Date.parse(rawGeoAt);
         prior_company_geocoded_at_ms = Number.isFinite(t) ? t : null;
-      } else {
-        prior_company_geocoded_at_ms = null;
       }
-
-    } catch (_) {
-      // non-fatal
-      prior_company_address_key = null;
-      prior_company_geocoded_at_ms = null;
     }
 
+    // Unpack BestTime check
+    let besttime_venue_id: string | null = null;
+    const btRows = btCheckResult[0];
+    const existingBt = Array.isArray(btRows) && btRows.length > 0 ? btRows[0]?.besttime_venue_id : null;
+    if (typeof existingBt === "string" && existingBt.trim()) {
+      besttime_venue_id = existingBt.trim();
+    }
+
+    // --- Address change detection ---
     const prior_key = prior_company_address_key === null ? "" : prior_company_address_key;
     const addressChanged = company_address_key !== "" && company_address_key !== prior_key;
 
-    const GEOCODE_THROTTLE_MS = Number(process.env.GEOCODE_THROTTLE_MS || "10000"); // 10s default
+    const GEOCODE_THROTTLE_MS = Number(process.env.GEOCODE_THROTTLE_MS || "10000");
     const throttled =
       addressChanged &&
       prior_company_geocoded_at_ms !== null &&
       (Date.now() - prior_company_geocoded_at_ms) < GEOCODE_THROTTLE_MS;
 
+    // --- Geocode variable declarations ---
     let company_lat: number | null = null;
     let company_lon: number | null = null;
     let company_geocode_label: string | null = null;
@@ -396,30 +362,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let company_geocode_provider: string | null = null;
     let company_geocoded_at: Date | null = null;
     let company_geocode_status: string | null = null;
-
-    // start with prior city_id
     let city_id: string | null = prior_city_id ?? null;
 
+    // ================================================================
+    // PARALLEL EXTERNAL: geocode + BestTime registration
+    // ================================================================
+    const needsGeocode = company_address_key !== "" && addressChanged && !throttled && !!company_address;
+    const needsBestTimeReg = !besttime_venue_id && !!company_name && !!company_address;
+
+    const [geocodeResult, btRegResult] = await Promise.all([
+      needsGeocode ? geocodeWithBAN(company_address!) : Promise.resolve(null),
+      needsBestTimeReg ? registerBestTimeVenue(company_name!, company_address!) : Promise.resolve(null),
+    ]);
+
+    // Process geocode result
     if (!company_address_key) {
       company_geocode_status = "address_missing";
-
     } else if (!addressChanged && prior_city_id !== null) {
-      // already geocoded and city_id exists
       company_geocode_status = "unchanged";
-
     } else if (throttled) {
       company_geocode_status = "throttled";
-
-    } else {
+    } else if (needsGeocode) {
       const MIN_BAN_SCORE = 0.6;
-      const r = company_address
-        ? await geocodeWithBAN(company_address)
-        : null;
-
       company_geocode_provider = "ban";
       company_geocoded_at = new Date();
 
-      if (!r) {
+      if (!geocodeResult) {
         company_geocode_status = "geocode_failed";
         logApiError({
           clerk_user_id, location_id,
@@ -428,57 +396,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
           error_message: "BAN geocode returned null",
           request_metadata: { company_address },
         });
-
-      } else if (r.score < MIN_BAN_SCORE) {
+      } else if (geocodeResult.score < MIN_BAN_SCORE) {
         company_geocode_status = "geocode_low_score";
-        company_geocode_score = r.score;
-        company_geocode_label = r.label;
-
+        company_geocode_score = geocodeResult.score;
+        company_geocode_label = geocodeResult.label;
       } else {
         company_geocode_status = "geocoded_ok";
-        company_lat = r.lat;
-        company_lon = r.lon;
-        company_geocode_label = r.label;
-        company_geocode_score = r.score;
-        city_id = r.citycode;
+        company_lat = geocodeResult.lat;
+        company_lon = geocodeResult.lon;
+        company_geocode_label = geocodeResult.label;
+        company_geocode_score = geocodeResult.score;
+        city_id = geocodeResult.citycode;
       }
     }
 
-    // --- BestTime venue registration (fire once, skip if already registered) ---
-    let besttime_venue_id: string | null = null;
-
-    if (company_name && company_address) {
-      // Check if already registered
-      try {
-        const [btRows] = await bigquery.query({
-          query: `
-            SELECT besttime_venue_id
-            FROM ${fullTable}
-            WHERE clerk_user_id = @clerk_user_id
-              AND location_id = @location_id
-              AND besttime_venue_id IS NOT NULL
-            LIMIT 1
-          `,
-          location: BQ_LOCATION,
-          params: { clerk_user_id, location_id },
-          types: { clerk_user_id: "STRING", location_id: "STRING" },
-        });
-        const existing = Array.isArray(btRows) && btRows.length > 0
-          ? btRows[0]?.besttime_venue_id
-          : null;
-
-        if (typeof existing === "string" && existing.trim()) {
-          besttime_venue_id = existing.trim();
-        } else {
-          besttime_venue_id = await registerBestTimeVenue(company_name, company_address);
-        }
-      } catch (_) {
-        // Non-fatal — try registration anyway
-        besttime_venue_id = await registerBestTimeVenue(company_name, company_address);
-      }
+    // Process BestTime registration
+    if (btRegResult) {
+      besttime_venue_id = btRegResult;
     }
-    
-    // Default location = earliest created_at for this user, else generate one.
+
+    // ================================================================
+    // MERGE (must be sequential — writes depend on geocode results)
+    // ================================================================
     const mergeQuery = `
       MERGE ${fullTable} T
       USING (SELECT
@@ -514,7 +453,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             @company_geocode_status IN ('unchanged','throttled'),
             company_geog,
             IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat))
-          ),        
+          ),
         company_activity_type = @company_activity_type,
         location_type = @location_type,
         event_time_profile = @event_time_profile,
@@ -644,55 +583,54 @@ export const POST: APIRoute = async ({ request, locals }) => {
     `;
 
     const params = {
-        clerk_user_id,
-        location_id,
-        email,
-        first_name,
-        last_name,
-        position,
-        company_name,
-        company_address,
-        company_address_key,
-        city_id,
-        company_lat,
-        company_lon,
-        company_geocode_label,
-        company_geocode_score,
-        company_geocode_provider,
-        company_geocoded_at,
-        company_geocode_status,
-        company_activity_type,
-        location_type,
-        event_time_profile,
-        location_access_pattern,
-        nearest_transit_stop,
-        nearest_transit_stop_id,
-        nearest_transit_lines,
-        primary_audience_1,
-        primary_audience_2,
-        origin_city_id_1,
-        origin_city_id_2,
-        origin_city_id_3,
-        origin_city_label_1,
-        origin_city_label_2,
-        origin_city_label_3,
-        hasAudiences,
-        hasOriginCities,
-        site_name,
-        location_description,
-        venue_capacity,
-        event_type_1,
-        event_type_2,
-        event_type_3,
-        weather_sensitivity,
-        seasonality,
-        main_event_objective,
-        operating_hours,
-        website_url,
-        besttime_venue_id
+      clerk_user_id,
+      location_id,
+      email,
+      first_name,
+      last_name,
+      position,
+      company_name,
+      company_address,
+      company_address_key,
+      city_id,
+      company_lat,
+      company_lon,
+      company_geocode_label,
+      company_geocode_score,
+      company_geocode_provider,
+      company_geocoded_at,
+      company_geocode_status,
+      company_activity_type,
+      location_type,
+      event_time_profile,
+      location_access_pattern,
+      nearest_transit_stop,
+      nearest_transit_stop_id,
+      nearest_transit_lines,
+      primary_audience_1,
+      primary_audience_2,
+      origin_city_id_1,
+      origin_city_id_2,
+      origin_city_id_3,
+      origin_city_label_1,
+      origin_city_label_2,
+      origin_city_label_3,
+      hasAudiences,
+      hasOriginCities,
+      site_name,
+      location_description,
+      venue_capacity,
+      event_type_1,
+      event_type_2,
+      event_type_3,
+      weather_sensitivity,
+      seasonality,
+      main_event_objective,
+      operating_hours,
+      website_url,
+      besttime_venue_id,
     };
 
-    // BigQuery needs explicit param types when any value is null
     const types: Record<string, any> = {
       clerk_user_id: "STRING",
       location_id: "STRING",
@@ -744,150 +682,198 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     await bigquery.query({ query: mergeQuery, location: BQ_LOCATION, params, types });
 
-    // Propagate user-level fields to all rows for this user
-    await bigquery.query({
-      query: `
-        UPDATE ${fullTable}
-        SET
-          first_name = IF(@first_name IS NULL, first_name, @first_name),
-          last_name = IF(@last_name IS NULL, last_name, @last_name),
-          position = IF(@position IS NULL, position, @position),
-          main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
-          updated_at = CURRENT_TIMESTAMP()
-        WHERE clerk_user_id = @clerk_user_id
-      `,
-      location: BQ_LOCATION,
-      params: { clerk_user_id, first_name, last_name, position, main_event_objective },
-      types: {
-        clerk_user_id: "STRING",
-        first_name: "STRING",
-        last_name: "STRING",
-        position: "STRING",
-        main_event_objective: "STRING",
-      },
-    });
-
-    // ── Sync dim_client_location directly (bypass dbt for immediate effect) ──
+    // ================================================================
+    // PARALLEL POST-MERGE: propagate + dim sync + read-back
+    // ================================================================
     const activityToIndustry: Record<string, string> = {
       non_profit: 'Associatif & Non lucratif',
       wellness: 'Sports & Loisirs actifs',
-      cinema_theatre: 'Cinéma & Théâtre',
+      cinema_theatre: 'Cin\u00e9ma & Th\u00e9\u00e2tre',
       commercial: 'Commerce & Retail',
-      institutional: 'Collectivités & Secteur public',
+      institutional: 'Collectivit\u00e9s & Secteur public',
       culture: 'Culture & Patrimoine',
-      family: 'Éducation & Enseignement',
-      live_event: 'Événementiel',
-      hotel_lodging: 'Hôtellerie & Hébergement',
+      family: '\u00c9ducation & Enseignement',
+      live_event: '\u00c9v\u00e9nementiel',
+      hotel_lodging: 'H\u00f4tellerie & H\u00e9bergement',
       food_nightlife: 'Restauration & Bars',
       science_innovation: 'Sciences & Innovation',
-      pro_event: 'Événementiel',
+      pro_event: '\u00c9v\u00e9nementiel',
       sport: 'Sports & Loisirs actifs',
-      transport_mobility: 'Transport & Mobilité locale',
+      transport_mobility: 'Transport & Mobilit\u00e9 locale',
       outdoor_leisure: 'Tourisme & Loisirs',
       nightlife: 'Restauration & Bars',
-      unknown: 'Autre activité accueillant du public',
+      unknown: 'Autre activit\u00e9 accueillant du public',
     };
 
     const derivedIndustryCode = company_activity_type
       ? (activityToIndustry[company_activity_type] ?? company_activity_type)
       : null;
 
-    await bigquery.query({
-      query: `
-        MERGE \`${projectId}.dims.dim_client_location\` T
-        USING (SELECT @location_id AS location_id) S
-        ON T.location_id = S.location_id
-        WHEN MATCHED THEN UPDATE SET
-          location_label        = @location_label,
-          location_type         = @location_type,
-          active_flag           = TRUE,
-          latitude              = @latitude,
-          longitude             = @longitude,
-          client_industry_code  = @client_industry_code,
-          location_access_pattern = @location_access_pattern,
-          origin_city_ids       = @origin_city_ids,
-          site_name             = @site_name,
-          weather_sensitivity   = @weather_sensitivity,
-          seasonality           = @seasonality,
-          event_type_1          = @event_type_1,
-          event_type_2          = @event_type_2,
-          event_type_3          = @event_type_3,
-          main_event_objective  = @main_event_objective,
-          operating_hours       = @operating_hours,
-          is_primary            = @is_primary,
-          geo_point             = IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
-        WHEN NOT MATCHED THEN INSERT (
-          location_id, location_label, location_type, active_flag,
-          city_id_granular, city_id_commune, location_source,
-          latitude, longitude, client_industry_code,
-          location_access_pattern, origin_city_ids,
-          site_name, weather_sensitivity, seasonality,
-          event_type_1, event_type_2, event_type_3,
-          main_event_objective, operating_hours, is_primary, geo_point
-        ) VALUES (
-          @location_id, @location_label, @location_type, TRUE,
-          @city_id, @city_id, 'website',
-          @latitude, @longitude, @client_industry_code,
-          @location_access_pattern, @origin_city_ids,
-          @site_name, @weather_sensitivity, @seasonality,
-          @event_type_1, @event_type_2, @event_type_3,
-          @main_event_objective, @operating_hours, @is_primary,
-          IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
-        )
-      `,
-      location: BQ_LOCATION,
-      params: {
-        location_id,
-        location_label:         company_name ?? company_address ?? location_id,
-        location_type:          location_type ?? null,
-        latitude:               company_lat ?? null,
-        longitude:              company_lon ?? null,
-        client_industry_code:   derivedIndustryCode,
-        location_access_pattern: location_access_pattern ?? null,
-        origin_city_ids:        [origin_city_id_1, origin_city_id_2, origin_city_id_3]
-                                  .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
-                                  .join(','),
-        city_id:                city_id ?? null,
-        site_name:              site_name ?? null,
-        weather_sensitivity:    weather_sensitivity ?? null,
-        seasonality:            seasonality ?? null,
-        event_type_1:           event_type_1 ?? null,
-        event_type_2:           event_type_2 ?? null,
-        event_type_3:           event_type_3 ?? null,
-        main_event_objective:   main_event_objective ?? null,
-        operating_hours:        operating_hours ?? null,
-        is_primary:             mode === 'create' ? true : null,
-      },
-      types: {
-        location_id: 'STRING',
-        location_label: 'STRING',
-        location_type: 'STRING',
-        latitude: 'FLOAT64',
-        longitude: 'FLOAT64',
-        client_industry_code: 'STRING',
-        location_access_pattern: 'STRING',
-        origin_city_ids: 'STRING',
-        city_id: 'STRING',
-        site_name: 'STRING',
-        weather_sensitivity: 'INT64',
-        seasonality: 'STRING',
-        event_type_1: 'STRING',
-        event_type_2: 'STRING',
-        event_type_3: 'STRING',
-        main_event_objective: 'STRING',
-        operating_hours: 'STRING',
-        is_primary: 'BOOL',
-      },
-    }).catch((e) => {
-      console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
-      logApiError({
-        clerk_user_id, location_id,
-        endpoint: "/api/profile/save",
-        error_type: "dim_sync_failed",
-        error_message: e?.message || "dim_client_location MERGE failed",
-        request_metadata: { mode },
-      });
-    });
+    const dimSyncParams = {
+      location_id,
+      location_label: company_name ?? company_address ?? location_id,
+      location_type: location_type ?? null,
+      latitude: company_lat ?? null,
+      longitude: company_lon ?? null,
+      client_industry_code: derivedIndustryCode,
+      location_access_pattern: location_access_pattern ?? null,
+      origin_city_ids: [origin_city_id_1, origin_city_id_2, origin_city_id_3]
+        .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+        .join(','),
+      city_id: city_id ?? null,
+      site_name: site_name ?? null,
+      weather_sensitivity: weather_sensitivity ?? null,
+      seasonality: seasonality ?? null,
+      event_type_1: event_type_1 ?? null,
+      event_type_2: event_type_2 ?? null,
+      event_type_3: event_type_3 ?? null,
+      main_event_objective: main_event_objective ?? null,
+      operating_hours: operating_hours ?? null,
+      is_primary: mode === 'create' ? true : null,
+    };
+
+    const dimSyncTypes = {
+      location_id: 'STRING',
+      location_label: 'STRING',
+      location_type: 'STRING',
+      latitude: 'FLOAT64',
+      longitude: 'FLOAT64',
+      client_industry_code: 'STRING',
+      location_access_pattern: 'STRING',
+      origin_city_ids: 'STRING',
+      city_id: 'STRING',
+      site_name: 'STRING',
+      weather_sensitivity: 'INT64',
+      seasonality: 'STRING',
+      event_type_1: 'STRING',
+      event_type_2: 'STRING',
+      event_type_3: 'STRING',
+      main_event_objective: 'STRING',
+      operating_hours: 'STRING',
+      is_primary: 'BOOL',
+    };
+
+    const [, , readBackResult] = await Promise.all([
+      // 1. Propagate user-level fields
+      bigquery.query({
+        query: `
+          UPDATE ${fullTable}
+          SET
+            first_name = IF(@first_name IS NULL, first_name, @first_name),
+            last_name = IF(@last_name IS NULL, last_name, @last_name),
+            position = IF(@position IS NULL, position, @position),
+            main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
+            updated_at = CURRENT_TIMESTAMP()
+          WHERE clerk_user_id = @clerk_user_id
+        `,
+        location: BQ_LOCATION,
+        params: { clerk_user_id, first_name, last_name, position, main_event_objective },
+        types: { clerk_user_id: "STRING", first_name: "STRING", last_name: "STRING", position: "STRING", main_event_objective: "STRING" },
+      }),
+
+      // 2. dim_client_location sync (non-fatal)
+      bigquery.query({
+        query: `
+          MERGE \`${projectId}.dims.dim_client_location\` T
+          USING (SELECT @location_id AS location_id) S
+          ON T.location_id = S.location_id
+          WHEN MATCHED THEN UPDATE SET
+            location_label        = @location_label,
+            location_type         = @location_type,
+            active_flag           = TRUE,
+            latitude              = @latitude,
+            longitude             = @longitude,
+            client_industry_code  = @client_industry_code,
+            location_access_pattern = @location_access_pattern,
+            origin_city_ids       = @origin_city_ids,
+            site_name             = @site_name,
+            weather_sensitivity   = @weather_sensitivity,
+            seasonality           = @seasonality,
+            event_type_1          = @event_type_1,
+            event_type_2          = @event_type_2,
+            event_type_3          = @event_type_3,
+            main_event_objective  = @main_event_objective,
+            operating_hours       = @operating_hours,
+            is_primary            = @is_primary,
+            geo_point             = IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
+          WHEN NOT MATCHED THEN INSERT (
+            location_id, location_label, location_type, active_flag,
+            city_id_granular, city_id_commune, location_source,
+            latitude, longitude, client_industry_code,
+            location_access_pattern, origin_city_ids,
+            site_name, weather_sensitivity, seasonality,
+            event_type_1, event_type_2, event_type_3,
+            main_event_objective, operating_hours, is_primary, geo_point
+          ) VALUES (
+            @location_id, @location_label, @location_type, TRUE,
+            @city_id, @city_id, 'website',
+            @latitude, @longitude, @client_industry_code,
+            @location_access_pattern, @origin_city_ids,
+            @site_name, @weather_sensitivity, @seasonality,
+            @event_type_1, @event_type_2, @event_type_3,
+            @main_event_objective, @operating_hours, @is_primary,
+            IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
+          )
+        `,
+        location: BQ_LOCATION,
+        params: dimSyncParams,
+        types: dimSyncTypes,
+      }).catch((e) => {
+        console.error('[save.ts] dim_client_location sync failed (non-fatal):', e?.message);
+        logApiError({
+          clerk_user_id, location_id,
+          endpoint: "/api/profile/save",
+          error_type: "dim_sync_failed",
+          error_message: e?.message || "dim_client_location MERGE failed",
+          request_metadata: { mode },
+        });
+      }),
+
+      // 3. Read-back skipped — return params directly
+      Promise.resolve(null),
+    ]);
+
+    const saved = {
+      clerk_user_id,
+      location_id,
+      email,
+      first_name,
+      last_name,
+      position,
+      company_name,
+      company_address,
+      company_address_key,
+      city_id,
+      company_lat,
+      company_lon,
+      company_geocode_label,
+      company_geocode_score,
+      company_geocode_provider,
+      company_geocoded_at,
+      company_geocode_status,
+      company_activity_type,
+      location_type,
+      event_time_profile,
+      location_access_pattern,
+      nearest_transit_stop,
+      primary_audience_1,
+      primary_audience_2,
+      origin_city_id_1,
+      origin_city_id_2,
+      origin_city_id_3,
+      site_name,
+      location_description,
+      venue_capacity,
+      event_type_1,
+      event_type_2,
+      event_type_3,
+      weather_sensitivity,
+      seasonality,
+      main_event_objective,
+      operating_hours,
+      website_url,
+      besttime_venue_id,
+    };
 
     // ── Trigger dbt Cloud jobs based on what changed ──
     const industryChanged =
@@ -925,78 +911,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // Read-back proof: return the row as stored in BigQuery after MERGE
-    const readBackQuery = `
-      SELECT
-        clerk_user_id,
-        location_id,
-        email,
-        first_name,
-        last_name,
-        position,
-        company_name,
-        company_address,
-        company_address_key,
-        city_id,
-        company_lat,
-        company_lon,
-        company_geocode_label,
-        company_geocode_score,
-        company_geocode_provider,
-        company_geocoded_at,
-        company_geocode_status,
-        company_geog,
-        company_activity_type,
-        location_type,
-        event_time_profile,
-        location_access_pattern,
-        nearest_transit_stop,
-        primary_audience_1,
-        primary_audience_2,
-        origin_city_id_1,
-        origin_city_id_2,
-        origin_city_id_3,
-        site_name,
-        location_description,
-        venue_capacity,
-        event_type_1,
-        event_type_2,
-        event_type_3,
-        weather_sensitivity,
-        seasonality,
-        main_event_objective,
-        operating_hours,
-        website_url,
-        besttime_venue_id,
-        created_at,
-        updated_at
-      FROM ${fullTable}
-      WHERE clerk_user_id = @clerk_user_id
-        AND location_id = @location_id
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `;
-
-    const [savedRows] = await bigquery.query({
-      query: readBackQuery,
-      location: BQ_LOCATION,
-      params: { clerk_user_id, location_id },
-      types: { clerk_user_id: "STRING", location_id: "STRING" },
-    });
-
-    const saved = Array.isArray(savedRows) && savedRows.length > 0 ? savedRows[0] : null;
-
     return new Response(JSON.stringify({ ok: true, location_id, saved }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
-  
+
   } catch (err: any) {
     const status =
-      err instanceof HttpError ? err.status :
-      400;
+      err instanceof HttpError ? err.status : 400;
 
-    // Avoid leaking internals on 500 in production
     const message =
       status >= 500 && !import.meta.env.DEV
         ? "Server error"
@@ -1007,5 +930,4 @@ export const POST: APIRoute = async ({ request, locals }) => {
       headers: { "content-type": "application/json" },
     });
   }
-
 };

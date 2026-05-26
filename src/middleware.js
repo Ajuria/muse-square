@@ -45,6 +45,14 @@ const isProtectedRoute = createRouteMatcher([
   "/api/profile(.*)",
   "/api/saved-items(.*)",
   "/api/competitive(.*)",
+  "/api/insight(.*)",
+  "/api/analytics(.*)",
+  "/api/channels/publish",
+  "/api/channels/config",
+  "/api/channels/team",
+  "/api/channels/automation",
+  "/api/channels/gbp-connect",
+  "/api/channels/slack-connect",
 ]);
 
 const isAppRoute = createRouteMatcher([
@@ -62,6 +70,8 @@ const isLocalsRoute = createRouteMatcher([
   "/api/insight(.*)",
   "/api/profile(.*)",
   "/api/competitive(.*)",
+  "/api/analytics(.*)",
+  "/api/channels(.*)",
 ]);
 
 const DEV_BYPASS_PROMPT =

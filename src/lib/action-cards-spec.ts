@@ -214,12 +214,12 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
     card_type: 'action',
     consulter_target: 'pulse#radar-threats',
     sowhat: (a, prof, day) => {
-      const c = topCompetitor(day);
-      const name = c.organizer_name || a.competitor_name || 'Concurrent';
-      const event = c.event_label || a.event_label || '—';
-      const dist = c.distance_m ? Math.round(Number(c.distance_m)) + 'm' : '—';
-      const sameBucket = pct(day.pct_same_bucket_5km);
-      return `${name} — ${event}, à ${dist}. Même secteur à 5 km : ${sameBucket}.`;
+      const name = a.competitor_name || topCompetitor(day).organizer_name || 'Concurrent';
+      const event = a.event_name || a.event_label || topCompetitor(day).event_label || '—';
+      const dist = a.distance_m ? Math.round(Number(a.distance_m)) + 'm' : (topCompetitor(day).distance_m ? Math.round(Number(topCompetitor(day).distance_m)) + 'm' : '—');
+      const threat = a.entity_threat_level || a.threat_level || '—';
+      const rating = a.google_rating ? a.google_rating + '/5' : '';
+      return `${name} — ${event}, à ${dist}. Menace ${threat}${rating ? ', note ' + rating : ''}.`;
     },
     draft_seeds: {
       instagram: (a, prof, day) => {
@@ -274,10 +274,12 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
     card_type: 'action',
     consulter_target: 'pulse#carte',
     sowhat: (a, prof, day) => {
-      const n500 = num(day.events_within_500m_count);
-      const n1k = num(day.events_within_1km_count);
+      const n500 = num(a.events_500m ?? day.events_within_500m_count);
+      const n1k = num(a.events_1km ?? day.events_within_1km_count);
+      const topComp = a.top_competitor || '';
+      const topThreat = a.top_threat_level || '';
       const ci = day.concentration_index_score != null ? Number(day.concentration_index_score).toFixed(2) : '—';
-      return `${n500} événement(s) à 500 m, ${n1k} à 1 km. Indice de concentration : ${ci}.`;
+      return `${n500} événement(s) à 500 m, ${n1k} à 1 km${topComp ? '. Principal : ' + topComp + (topThreat ? ' (' + topThreat + ')' : '') : ''}. Concentration : ${ci}.`;
     },
     draft_seeds: {
       instagram: (a, prof, day) =>
@@ -629,6 +631,10 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
     draft_seeds: {
       instagram: (a, prof, day) =>
         `Post Instagram pour ${siteName(prof)}. Les conditions sont meilleures qu'hier — score en hausse. C'est le moment de communiquer. Mettre en avant : ${prof.business_short_description || ''}. Max 2200 car.`,
+      email: (a, prof, day) =>
+        `Email aux contacts de ${siteName(prof)}. Objet : les conditions s'améliorent — venez nous voir. Corps : score en hausse (${num(day.opportunity_score_final_local)}/100), ${day.weather_label_fr || 'conditions favorables'}. Inclure horaires (${prof.operating_hours || 'à préciser'}) et lien : ${prof.website_url || ''}.`,
+      note_interne: (a, prof, day) =>
+        `Note interne. Score en hausse : ${num(day.opportunity_score_final_local)}/100 (+${num(day.opportunity_score_vs_yesterday)} vs hier). Facteur : ${day.primary_score_driver_label_fr || '—'}. Opportunité de communication — publier maintenant.`,
     },
   },
 
@@ -672,7 +678,18 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
       const driver = day.primary_score_driver_label_fr || '';
       return `Régime ${from} → ${to}. Score ${score}/100${driver ? ', facteur : ' + driver : ''}.`;
     },
-    draft_seeds: {},
+    draft_seeds: {
+      note_interne: (a, prof, day) => {
+        const cf = changeFeedEntry(day, 'regime_change');
+        const from = cf.old_value || '—';
+        const to = cf.new_value || day.opportunity_regime || '—';
+        return `Note interne. Changement de régime : ${from} → ${to}. Score ${num(day.opportunity_score_final_local)}/100. Facteur : ${day.primary_score_driver_label_fr || '—'}. ${to === 'A' ? 'Conditions favorables — maximiser la présence et la communication.' : to === 'C' ? 'Conditions défavorables — réduire les dépenses, reporter si possible.' : 'Conditions neutres — maintenir le plan.'}`;
+      },
+      slack: (a, prof, day) => {
+        const cf = changeFeedEntry(day, 'regime_change');
+        return `Message Slack. Régime ${cf.old_value || '—'} → ${cf.new_value || day.opportunity_regime || '—'} pour ${siteName(prof)} le ${day.date}. Score ${num(day.opportunity_score_final_local)}/100. ${day.primary_score_driver_label_fr ? 'Facteur : ' + day.primary_score_driver_label_fr + '.' : ''}`;
+      },
+    },
   },
 
   // #23 — medal_change
@@ -751,12 +768,11 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
     card_type: 'action',
     consulter_target: 'pulse#radar-threats',
     sowhat: (a, prof, day) => {
-      const c = topCompetitor(day);
-      const name = c.organizer_name || a.competitor_name || 'Concurrent';
-      const event = c.event_label || a.event_label || '—';
-      const dist = c.distance_m ? Math.round(Number(c.distance_m)) + 'm' : '—';
-      const dates = c.event_start_date && c.event_end_date ? `du ${c.event_start_date} au ${c.event_end_date}` : '';
-      return `${name} lance ${event} — à ${dist}${dates ? ', ' + dates : ''}.`;
+      const name = a.competitor_name || topCompetitor(day).organizer_name || 'Concurrent';
+      const event = a.event_label || topCompetitor(day).event_label || '—';
+      const dist = a.distance_m ? Math.round(Number(a.distance_m)) + 'm' : (topCompetitor(day).distance_m ? Math.round(Number(topCompetitor(day).distance_m)) + 'm' : '—');
+      const threat = a.entity_threat_level || '—';
+      return `${name} lance ${event} — à ${dist}, menace ${threat}.`;
     },
     draft_seeds: {
       instagram: (a, prof, day) => {
@@ -784,7 +800,7 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
       const audience = prof.primary_audience_1 || '—';
       // audience_overlap_pct and threat_level from int_competitor_threat_profile — P0 dbt TODO
       const overlap = a.audience_overlap_pct ? pct(a.audience_overlap_pct) : '—';
-      const threat = a.threat_level || '—';
+      const threat = a.entity_threat_level || a.threat_level || '—';
       return `${name} cible ${audience} — chevauchement ${overlap}, menace ${threat}.`;
     },
     draft_seeds: {
@@ -793,7 +809,6 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
       note_interne: (a, prof, day) =>
         `Note interne. Conflit audience frontal avec ${a.competitor_name || 'un concurrent'}. Audience ciblée : ${prof.primary_audience_1 || '—'}. Options : différencier l'offre, adapter le tarif, renforcer la comm.`,
     },
-    missing_fields: ['audience_overlap_pct', 'threat_level'],
   },
 
   // #28 — competitor_review_surge
@@ -1010,6 +1025,175 @@ export const ACTION_CARD_SPECS: ActionCardSpec[] = [
         `Mise à jour ${prof.website_url || 'site web'}. Ajouter la mention presse dans votre rubrique actualités.`,
     },
     missing_fields: ['media_source', 'mention_topic'],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SALES CROSSOVER CARDS (S1–S4 + COMPETITOR POSITIONING GAP)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // S1 — sales_underperformance
+  {
+    action_type: 'sales_underperformance',
+    brand_label_fr: 'CA en retrait',
+    category_label_fr: 'INTELLIGENCE',
+    icon: '\ud83d\udcc9',
+    color: '#1565C0',
+    card_type: 'action',
+    consulter_target: 'pulse#radar-score',
+    sowhat: (a, prof, day) => {
+      const rev = num(a.daily_revenue);
+      const avg = num(a.avg_30d);
+      const pct_delta = num(a.revenue_vs_avg_pct);
+      const driver = a.driver || day.primary_score_driver_label_fr || '\u2014';
+      const competitor = a.top_competitor || '';
+      const pressure = ratio(a.pressure_ratio);
+      if (Number(a.pressure_ratio) > 1.3 && competitor) {
+        return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Cause : pression concurrentielle ${pressure} \u2014 ${competitor}.`;
+      }
+      if (Number(day.alert_level_max || 0) >= 2) {
+        return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Cause : conditions m\u00e9t\u00e9o d\u00e9favorables.`;
+      }
+      return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Facteur dominant : ${driver}.`;
+    },
+    draft_seeds: {
+      note_interne: (a, prof, day) =>
+        `Note interne. CA en retrait de ${num(a.revenue_vs_avg_pct)}% vs moyenne 30j. ${Number(a.pressure_ratio) > 1.3 ? 'Pression concurrentielle \u00e9lev\u00e9e (' + ratio(a.pressure_ratio) + ').' : ''} ${a.top_competitor ? 'Concurrent principal : ' + a.top_competitor + '.' : ''} ${a.driver ? 'Facteur : ' + a.driver + '.' : ''} D\u00e9cision : ajuster communication ou offre.`,
+      slack: (a, prof, day) =>
+        `Alerte CA. ${siteName(prof)} : CA ${num(a.daily_revenue)} EUR, -${num(Math.abs(Number(a.revenue_vs_avg_pct)))}% vs moyenne. ${a.top_competitor ? 'Concurrent : ' + a.top_competitor + '.' : ''} ${a.driver ? 'Facteur : ' + a.driver + '.' : ''}`,
+    },
+  },
+
+  // S2 — sales_surge
+  {
+    action_type: 'sales_surge',
+    brand_label_fr: 'CA en hausse',
+    category_label_fr: 'OPPORTUNIT\u00c9',
+    icon: '\ud83d\udcc8',
+    color: '#2E7D32',
+    card_type: 'action',
+    consulter_target: 'pulse#radar-score',
+    sowhat: (a, prof, day) => {
+      const rev = num(a.daily_revenue);
+      const avg = num(a.avg_30d);
+      const pct_delta = '+' + num(a.revenue_vs_avg_pct);
+      const pressure = Number(a.pressure_ratio);
+      if (pressure < 0.85) {
+        return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Fen\u00eatre de faible concurrence (\u00d7${pressure.toFixed(1)}) \u2014 conditions \u00e0 reproduire.`;
+      }
+      if (day.is_public_holiday_flag || day.is_school_holiday_flag) {
+        return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Contexte calendaire porteur \u2014 capitalisez sur le momentum.`;
+      }
+      if (Number(day.alert_level_max || 0) === 0) {
+        return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). M\u00e9t\u00e9o favorable, conditions propices.`;
+      }
+      return `CA ${rev} EUR vs ${avg} EUR en moyenne (${pct_delta}%). Facteur : ${a.driver || '\u2014'}.`;
+    },
+    draft_seeds: {
+      instagram: (a, prof, day) =>
+        `Post Instagram pour ${siteName(prof)}. Journ\u00e9e excellente \u2014 mettre en avant ce qui a fonctionn\u00e9 : ${prof.business_short_description || 'votre offre'}. Inviter \u00e0 revenir demain. Ton enthousiaste, factuel. Max 2200 car.`,
+      facebook: (a, prof, day) =>
+        `Post Facebook pour ${siteName(prof)}. Belle journ\u00e9e, capitaliser sur le momentum. Inclure horaires (${prof.operating_hours || '\u00e0 pr\u00e9ciser'}) et acc\u00e8s.`,
+      email: (a, prof, day) =>
+        `Email aux contacts de ${siteName(prof)}. Objet : les conditions sont r\u00e9unies \u2014 venez nous voir. Corps : CA en hausse, contexte favorable. Lien : ${prof.website_url || ''}.`,
+      note_interne: (a, prof, day) =>
+        `Note interne. CA +${num(a.revenue_vs_avg_pct)}% vs moyenne 30j. ${Number(a.pressure_ratio) < 0.85 ? 'Concurrence faible \u2014 amplifier la communication.' : 'Identifier les leviers pour reproduire.'} ${a.driver ? 'Facteur : ' + a.driver + '.' : ''}`,
+    },
+  },
+
+  // S3 — sales_missed_opportunity
+  {
+    action_type: 'sales_missed_opportunity',
+    brand_label_fr: 'Opportunit\u00e9 manqu\u00e9e',
+    category_label_fr: 'URGENT',
+    icon: '\ud83d\udea8',
+    color: '#B71C1C',
+    card_type: 'action',
+    consulter_target: 'pulse#radar-score',
+    sowhat: (a, prof, day) => {
+      const score = num(a.score);
+      const regime = a.regime || '\u2014';
+      const rev = num(a.daily_revenue);
+      const avg = num(a.avg_30d);
+      const pct_delta = num(a.revenue_vs_avg_pct);
+      const pressure = Number(a.pressure_ratio);
+      let diagnosis = '';
+      if (pressure < 1.0) {
+        diagnosis = 'Concurrence faible \u2014 fen\u00eatre id\u00e9ale pour communiquer.';
+      } else if (Number(day.alert_level_max || 0) === 0) {
+        diagnosis = 'M\u00e9t\u00e9o favorable \u2014 les conditions \u00e9taient r\u00e9unies.';
+      } else {
+        diagnosis = 'Malgr\u00e9 le contexte, le potentiel \u00e9tait l\u00e0.';
+      }
+      return `Score ${score}/100 (r\u00e9gime ${regime}) mais CA ${rev} EUR, soit ${pct_delta}% sous la moyenne (${avg} EUR). ${diagnosis}`;
+    },
+    draft_seeds: {
+      email: (a, prof, day) =>
+        `Email aux contacts de ${siteName(prof)}. Objet : ne manquez pas la prochaine fen\u00eatre. Corps : les conditions \u00e9taient id\u00e9ales r\u00e9cemment (score ${num(a.score)}/100) et nous n'avons pas communiqu\u00e9 assez. Lien : ${prof.website_url || ''}.`,
+      instagram: (a, prof, day) =>
+        `Post Instagram pour ${siteName(prof)}. Montrer l'\u00e9nergie et l'offre du moment. ${prof.business_short_description || ''}. Rattraper la visibilit\u00e9 manqu\u00e9e. Ton proactif. Max 2200 car.`,
+      facebook: (a, prof, day) =>
+        `Post Facebook pour ${siteName(prof)}. M\u00eame angle \u2014 format d\u00e9velopp\u00e9 avec horaires et d\u00e9tails de l'offre.`,
+      gbp: (a, prof, day) =>
+        `Post Google Business Profile pour ${siteName(prof)}. Mettre en avant l'offre actuelle. Court, factuel, avec horaires. Max 1500 car.`,
+      note_interne: (a, prof, day) =>
+        `Note interne. Opportunit\u00e9 manqu\u00e9e le ${day.date || '\u2014'} : score ${num(a.score)}/100 mais CA -${num(Math.abs(Number(a.revenue_vs_avg_pct)))}%. ${Number(a.pressure_ratio) < 1.0 ? 'Concurrence faible.' : ''} Action : pr\u00e9parer une communication pour la prochaine fen\u00eatre favorable.`,
+    },
+  },
+
+  // S4 — sales_competition_cannibalization
+  {
+    action_type: 'sales_competition_cannibalization',
+    brand_label_fr: 'Cannibalisation',
+    category_label_fr: 'URGENT',
+    icon: '\u2694\ufe0f',
+    color: '#B71C1C',
+    card_type: 'action',
+    consulter_target: 'pulse#carte',
+    sowhat: (a, prof, day) => {
+      const rev_delta = num(a.revenue_delta_pct);
+      const pressure = ratio(a.pressure_ratio);
+      const competitor = a.top_competitor || '';
+      const dist = a.competitor_distance_km ? a.competitor_distance_km + ' km' : '';
+      const overlap = a.competitor_overlap_pct ? pct(Number(a.competitor_overlap_pct) * 100) : '';
+      let attribution = `Pression concurrentielle ${pressure}.`;
+      if (competitor) {
+        attribution = `${competitor}${dist ? ' \u00e0 ' + dist : ''}${overlap ? ', chevauchement audience ' + overlap : ''}.`;
+      }
+      return `CA ${rev_delta}% vs hier. ${attribution}`;
+    },
+    draft_seeds: {
+      instagram: (a, prof, day) => {
+        const competitor = a.top_competitor || 'un concurrent';
+        return `Post Instagram pour ${siteName(prof)}. ${competitor} attire votre public \u2014 rappeler ce qui vous diff\u00e9rencie : ${prof.business_short_description || 'votre offre unique'}. Ton confiant, pas agressif. Max 2200 car.`;
+      },
+      note_interne: (a, prof, day) =>
+        `Note interne. CA ${num(a.revenue_delta_pct)}% vs hier. Pression ${ratio(a.pressure_ratio)}. ${a.top_competitor ? 'Concurrent : ' + a.top_competitor + (a.competitor_distance_km ? ' \u00e0 ' + a.competitor_distance_km + ' km' : '') + '.' : ''} D\u00e9cision : renforcer diff\u00e9renciation ou ajuster offre.`,
+      slack: (a, prof, day) =>
+        `Alerte cannibalisation. ${siteName(prof)} : CA ${num(a.revenue_delta_pct)}% vs hier. ${a.top_competitor ? a.top_competitor + ' (menace ' + (a.competitor_threat_level || '\u2014') + ').' : 'Pression ' + ratio(a.pressure_ratio) + '.'}`,
+    },
+  },
+
+  // S-NEW — competitor_positioning_gap
+  {
+    action_type: 'competitor_positioning_gap',
+    brand_label_fr: '\u00c9cart concurrent',
+    category_label_fr: 'INTELLIGENCE',
+    icon: '\ud83d\udd0d',
+    color: '#1565C0',
+    card_type: 'action',
+    consulter_target: 'pulse#radar-threats',
+    sowhat: (a, prof, day) => {
+      const n = num(a.enriched_competitor_count);
+      const topItem = a.top_item_description || '\u2014';
+      const share = a.top_item_revenue_share ? pct(Number(a.top_item_revenue_share) * 100) : '\u2014';
+      return `${n} concurrent(s) avec offre analys\u00e9e. Votre produit principal : ${topItem} (${share} du CA). V\u00e9rifiez les \u00e9carts de positionnement.`;
+    },
+    draft_seeds: {
+      note_interne: (a, prof, day) =>
+        `Note interne. ${num(a.enriched_competitor_count)} concurrent(s) suivi(s) disposent d'une offre enrichie. Top produit : ${a.top_item_description || '\u2014'} (${a.top_item_revenue_share ? pct(Number(a.top_item_revenue_share) * 100) : '\u2014'} du CA). Analyser les \u00e9carts prix/offre/positionnement et d\u00e9cider si adaptation n\u00e9cessaire.`,
+      operations: (a, prof, day) =>
+        `Directive op\u00e9rationnelle. ${num(a.enriched_competitor_count)} concurrents ont une offre document\u00e9e. Comparer avec notre mix produit (${num(a.client_product_count)} r\u00e9f\u00e9rences). Identifier gaps et opportunit\u00e9s de diff\u00e9renciation.`,
+    },
   },
 ];
 

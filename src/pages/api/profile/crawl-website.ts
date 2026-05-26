@@ -9,6 +9,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { logCrawl, logApiError } from "../../../lib/error-logger";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -128,6 +129,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const website_url = String(body?.website_url || "").trim();
 
     if (!location_id || !website_url) {
+      requireLocationOwnership(locals, location_id);
       return new Response(JSON.stringify({ ok: false, error: "location_id and website_url required" }), {
         status: 400, headers: { "content-type": "application/json" },
       });

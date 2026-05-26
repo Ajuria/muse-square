@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { makeBQClient } from "../../../lib/bq";
 
 export const prerender = false;
@@ -517,6 +518,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         { status: 400, headers: { "content-type": "application/json" } }
       );
     }
+
+    if (!rateLimit(userId, "action-draft", 15, 60_000)) return rateLimitResponse();
 
     // ── Parse body ──
     const body = await request.json().catch(() => null);

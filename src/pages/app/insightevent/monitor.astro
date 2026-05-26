@@ -1223,6 +1223,18 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
   // ---- Render ----
   var _pendingFeedbackCache = [];
+  async function fetchPendingFeedback(locationId) {
+    try {
+      var lsKey = "ms_feedback_dismissed_" + locationId;
+      var dismissed = {};
+      try { dismissed = JSON.parse(localStorage.getItem(lsKey) || "{}"); } catch(e) {}
+      var res = await fetch("/api/analytics/pending-feedback?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        _pendingFeedbackCache = json.items.filter(function(fb) { return !dismissed[fb.log_id]; });
+      }
+    } catch(e) {}
+  }
   var _teamMembersCache = null;
   async function fetchTeamMembers(locationId) {
     if (_teamMembersCache !== null) return _teamMembersCache;
@@ -1252,6 +1264,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     _channelConfigsCache = {};
     return {};
   }
+  var _pendingFeedbackCache = [];
   var _savedDraftsCache = null;
   async function fetchSavedDrafts(locationId) {
     if (_savedDraftsCache !== null) return _savedDraftsCache;

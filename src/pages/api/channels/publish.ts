@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
@@ -198,6 +199,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const locationId = String(body.location_id || "").trim();
+    if (locationId) requireLocationOwnership(locals, locationId);
 
     // Fetch channel config
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);

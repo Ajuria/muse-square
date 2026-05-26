@@ -12,8 +12,8 @@ import { buildUiNormalizedV2 } from "../../../lib/ai/ui_normalized/ui_normalized
 import { buildLookupIRV1FromRow } from "../../../components/ai/ir/lookup_ir_v1";
 import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/assertions_v1"; 
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
-import { buildWindowIRV1 } from "../../../lib/ai/decision/window/window_ir_v1";
 import { makeBQClient } from "../../../lib/bq";
+import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 
 export const prerender = false;
 
@@ -1968,6 +1968,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const location_id = bypass
       ? requireString(body?.thread_context?.location_id, "thread_context.location_id")
       : requireString(l.location_id, "locals.location_id");
+    
+    if (clerk_user_id && !rateLimit(clerk_user_id, "prompt", 20, 60_000)) return rateLimitResponse();
 
     // ----------------------------
     // THREAD CONTEXT (V1) — conversational routing inputs

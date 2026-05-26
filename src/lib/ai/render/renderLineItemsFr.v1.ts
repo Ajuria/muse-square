@@ -69,6 +69,39 @@ function safeRounded(v: any): string {
   return Number.isFinite(n) ? String(Math.round(n)) : "ND";
 }
 
+// Competition text builder (shared by multiple templates)
+function compText(li: { params?: Record<string, any> }): string {
+  const c500m = li.params?.c500m;
+  const c1km = li.params?.c1km;
+  const c5km = li.params?.c5km;
+
+  if (c500m !== undefined || c1km !== undefined || c5km !== undefined) {
+    return `Concurrence: ${safeNum(c500m)} à 500m, ${safeNum(c1km)} à 1km, ${safeNum(c5km)} à 5km.`;
+  }
+
+  // Backward compat: c10/c50 (compare engine)
+  const c10 = li.params?.c10;
+  const c50 = li.params?.c50;
+  const localR = li.params?.local_radius_km ?? 10;
+  const regionalR = li.params?.regional_radius_km ?? 50;
+  return `Concurrence: ${safeNum(c10)} événement(s) ≤${String(localR)}km, ${safeNum(c50)} dans un rayon de ${String(regionalR)}km.`;
+}
+
+// Competition text for inline (alternative summary)
+function compInline(li: { params?: Record<string, any> }): string {
+  const c500m = li.params?.c500m;
+  const c1km = li.params?.c1km;
+  const c5km = li.params?.c5km;
+
+  if (c500m !== undefined || c1km !== undefined || c5km !== undefined) {
+    return `concurrence ${safeNum(c500m)}/500m ${safeNum(c1km)}/1km ${safeNum(c5km)}/5km`;
+  }
+
+  const c10 = li.params?.c10;
+  const localR = li.params?.local_radius_km ?? 10;
+  return `concurrence ≤${String(localR)}km ${safeNum(c10)}`;
+}
+
 // -----------------------------------------------------
 // Public renderer
 // -----------------------------------------------------
@@ -110,7 +143,7 @@ export function renderLineItemsFrV1(args: {
     switch (li.template_id) {
 
       // -------------------------------------------------
-      // HEADLINE
+      // HEADLINE (compare)
       // -------------------------------------------------
       case "HEADLINE_COMPARE": {
         if (li.params?.mode === "missing_dates") {
@@ -132,6 +165,46 @@ export function renderLineItemsFrV1(args: {
       }
 
       // -------------------------------------------------
+      // HEADLINE TOP DAYS (window engine)
+      // -------------------------------------------------
+      case "HEADLINE_TOP_DAYS": {
+        if (li.params?.mode === "empty") {
+          lines.push({
+            kind: "headline",
+            text_fr: "Aucun jour ne se détache sur cette période.",
+            fact_ids: li.fact_ids,
+          });
+        } else {
+          lines.push({
+            kind: "headline",
+            text_fr: "Jours à privilégier sur la période",
+            fact_ids: li.fact_ids,
+          });
+        }
+        break;
+      }
+
+      // -------------------------------------------------
+      // HEADLINE WORST DAYS (window engine)
+      // -------------------------------------------------
+      case "HEADLINE_WORST_DAYS": {
+        if (li.params?.mode === "empty") {
+          lines.push({
+            kind: "headline",
+            text_fr: "Aucun jour particulièrement défavorable sur cette période.",
+            fact_ids: li.fact_ids,
+          });
+        } else {
+          lines.push({
+            kind: "headline",
+            text_fr: "Jours à éviter sur la période",
+            fact_ids: li.fact_ids,
+          });
+        }
+        break;
+      }
+
+      // -------------------------------------------------
       // TIE
       // -------------------------------------------------
       case "TIE_EQUIVALENT_DATES": {
@@ -146,7 +219,7 @@ export function renderLineItemsFrV1(args: {
       }
 
       // -------------------------------------------------
-      // WINNER VERDICT
+      // WINNER VERDICT (compare engine)
       // -------------------------------------------------
       case "WINNER_VERDICT": {
         const f = facts[0];
@@ -161,7 +234,23 @@ export function renderLineItemsFrV1(args: {
       }
 
       // -------------------------------------------------
-      // WORST VERDICT
+      // TOP DAY VERDICT (window engine — distinct from compare)
+      // -------------------------------------------------
+      case "TOP_DAY_VERDICT": {
+        const date = String(li.params?.date ?? "ND");
+        const regime = String(li.params?.regime ?? "ND")
+          .replace(/^R(é|e)gime\s*/i, "");
+        const score = li.params?.score;
+        lines.push({
+          kind: "headline",
+          text_fr: `Jour à privilégier: ${date} (Régime ${regime}, score ${safeRounded(score)})`,
+          fact_ids: li.fact_ids,
+        });
+        break;
+      }
+
+      // -------------------------------------------------
+      // WORST VERDICT (compare engine)
       // -------------------------------------------------
       case "WORST_VERDICT": {
         const f = facts[0];
@@ -170,6 +259,22 @@ export function renderLineItemsFrV1(args: {
           text_fr: `Date la moins favorable: ${String(
             li.params?.date ?? "ND"
           )} (${f?.label_fr ?? "Verdict ND"})`,
+          fact_ids: li.fact_ids,
+        });
+        break;
+      }
+
+      // -------------------------------------------------
+      // WORST DAY VERDICT (window engine — distinct from compare)
+      // -------------------------------------------------
+      case "WORST_DAY_VERDICT": {
+        const date = String(li.params?.date ?? "ND");
+        const regime = String(li.params?.regime ?? "ND")
+          .replace(/^R(é|e)gime\s*/i, "");
+        const score = li.params?.score;
+        lines.push({
+          kind: "headline",
+          text_fr: `Jour à éviter: ${date} (Régime ${regime}, score ${safeRounded(score)})`,
           fact_ids: li.fact_ids,
         });
         break;
@@ -202,42 +307,24 @@ export function renderLineItemsFrV1(args: {
       }
 
       // -------------------------------------------------
-      // WINNER COMPETITION (numeric from params)
+      // WINNER COMPETITION (500m/1km/5km or c10/c50 compat)
       // -------------------------------------------------
       case "WINNER_COMPETITION_LOCAL_REGIONAL": {
-        const localR = li.params?.local_radius_km ?? 10;
-        const regionalR = li.params?.regional_radius_km ?? 50;
-        const c10 = li.params?.c10;
-        const c50 = li.params?.c50;
-
         lines.push({
           kind: "fact",
-          text_fr:
-            `Concurrence: ${safeNum(c10)} événement(s) ≤${String(
-              localR
-            )}km, ` +
-            `${safeNum(c50)} dans un rayon de ${String(regionalR)}km.`,
+          text_fr: compText(li),
           fact_ids: li.fact_ids,
         });
         break;
       }
 
       // -------------------------------------------------
-      // WORST COMPETITION (numeric from params)
+      // WORST COMPETITION (500m/1km/5km or c10/c50 compat)
       // -------------------------------------------------
       case "WORST_COMPETITION_LOCAL_REGIONAL": {
-        const localR = li.params?.local_radius_km ?? 10;
-        const regionalR = li.params?.regional_radius_km ?? 50;
-        const c10 = li.params?.c10;
-        const c50 = li.params?.c50;
-
         lines.push({
           kind: "fact",
-          text_fr:
-            `Concurrence: ${safeNum(c10)} événement(s) ≤${String(
-              localR
-            )}km, ` +
-            `${safeNum(c50)} dans un rayon de ${String(regionalR)}km.`,
+          text_fr: compText(li),
           fact_ids: li.fact_ids,
         });
         break;
@@ -276,26 +363,21 @@ export function renderLineItemsFrV1(args: {
         lines.push({
           kind: "caveat",
           text_fr:
-            "Preuves incomplètes: certaines dimensions peuvent être absentes; rester prudent dans l’interprétation.",
+            "Preuves incomplètes: certaines dimensions peuvent être absentes; rester prudent dans l'interprétation.",
           fact_ids: li.fact_ids,
         });
         break;
       }
 
       // -------------------------------------------------
-      // ALTERNATIVE SUMMARY (numeric from params)
+      // ALTERNATIVE SUMMARY (500m/1km/5km or c10 compat)
       // -------------------------------------------------
       case "ALTERNATIVE_SUMMARY": {
         const date = String(li.params?.date ?? "ND");
-
-        // FIX 3 — sanitize regime formatting
         const regime = String(li.params?.regime ?? "ND")
           .replace(/^R(é|e)gime\s*/i, "");
-
         const score = li.params?.score;
         const alert = li.params?.alert_level_max;
-        const c10 = li.params?.c10;
-        const localR = li.params?.local_radius_km ?? 10;
 
         lines.push({
           kind: "fact",
@@ -304,7 +386,7 @@ export function renderLineItemsFrV1(args: {
             `(Régime ${regime}, ` +
             `score ${safeRounded(score)}, ` +
             `météo ${safeNum(alert)}, ` +
-            `concurrence ≤${String(localR)}km ${safeNum(c10)})`,
+            `${compInline(li)})`,
           fact_ids: li.fact_ids,
         });
         break;
@@ -344,7 +426,7 @@ export function renderLineItemsFrV1(args: {
       case "LOOKUP_EVENT_NOT_FOUND": {
         lines.push({
           kind: "headline",
-          text_fr: `Aucun événement correspondant n’a été trouvé.`,
+          text_fr: `Aucun événement correspondant n'a été trouvé.`,
           fact_ids: li.fact_ids,
         });
         break;

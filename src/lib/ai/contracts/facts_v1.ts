@@ -78,7 +78,11 @@ export type TemplateIdV1 =
   | "NEEDS_MORE_DATES"
   | "ENVELOPE_7D_UNAVAILABLE"
   | "LOOKUP_EVENT_FOUND"
-  | "LOOKUP_EVENT_NOT_FOUND";
+  | "LOOKUP_EVENT_NOT_FOUND"
+  | "HEADLINE_TOP_DAYS"
+  | "HEADLINE_WORST_DAYS"
+  | "TOP_DAY_VERDICT"
+  | "WORST_DAY_VERDICT";
 
 export type LineItemV1 = {
   kind: LineKindV1;

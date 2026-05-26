@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { makeBQClient } from "../../../lib/bq";
 export const prerender = false;
 
@@ -20,6 +21,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
+    requireLocationOwnership(locals, body.location_id);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const draftId = crypto.randomUUID();
 
