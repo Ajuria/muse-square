@@ -71,8 +71,8 @@ export const GET: APIRoute = async ({ request }) => {
         // 2a. Score trend (past 7 days) — divide by 10 for display
         const [scoreRows] = await bigquery.query({
           query: `
-            SELECT date, opportunity_score_final_local AS score, opportunity_regime AS regime
-            FROM \`${projectId}.mart.fct_location_context_features_daily\`
+            SELECT date, opportunity_score AS score, opportunity_regime AS regime
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_day_surface\`
             WHERE location_id = @location_id
               AND date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
             ORDER BY date ASC
@@ -145,11 +145,16 @@ export const GET: APIRoute = async ({ request }) => {
         // 2d. Top 3 action cards for next 7 days — correct columns
         const [actionCardRows] = await bigquery.query({
           query: `
+            WITH ranked AS (
+              SELECT action_type, date, action_priority, action_category, headline_fr, data_payload,
+                ROW_NUMBER() OVER (PARTITION BY action_type ORDER BY action_priority DESC, date ASC) AS rn
+              FROM \`${semanticProjectId}.mart.fct_location_daily_action_candidates\`
+              WHERE location_id = @location_id
+                AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 6 DAY)
+            )
             SELECT action_type, date, action_priority, action_category, headline_fr, data_payload
-            FROM \`${semanticProjectId}.mart.fct_location_daily_action_candidates\`
-            WHERE location_id = @location_id
-              AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 6 DAY)
-            ORDER BY action_priority DESC, date ASC
+            FROM ranked WHERE rn = 1
+            ORDER BY action_priority DESC
             LIMIT 3
           `,
           params: { location_id: user.location_id },
@@ -178,8 +183,29 @@ export const GET: APIRoute = async ({ request }) => {
 
         const topActions = (actionCardRows as any[]).map((r: any) => {
           const fallback = ACTION_LABELS[r.action_type] || { what: String(r.action_type ?? "Signal"), category: String(r.action_category ?? "Signal"), color: "#6B7280" };
+          let headline = r.headline_fr ? String(r.headline_fr) : fallback.what;
+
+          // Enrich generic headlines with specific data from payload
+          try {
+            const payload = typeof r.data_payload === "string" ? JSON.parse(r.data_payload) : r.data_payload;
+            if (payload) {
+              const at = String(r.action_type ?? "");
+              if (at === "commercial_event_match" && payload.commercial_event_name) {
+                headline = `${payload.commercial_event_name} \u2014 activez vos op\u00e9rations`;
+              } else if (at === "audience_shift_opportunity" && payload.commercial_event_name) {
+                headline = `${payload.commercial_event_name} \u2014 adaptez votre message`;
+              } else if ((at === "competition_proximity" || at === "high_competition_density") && payload.top_competitor) {
+                headline = `${payload.top_competitor} + ${payload.events_500m ?? payload.events_5km ?? "?"} \u00e9v\u00e9nements \u2014 forte pression`;
+              } else if (at === "competitor_threat_direct" && payload.competitor_name) {
+                headline = `${payload.competitor_name} \u2014 menace directe (${payload.threat_level ?? "?"})`;
+              } else if (at === "competitor_event_launch" && payload.competitor_name && payload.event_name) {
+                headline = `${payload.competitor_name} lance ${payload.event_name}`;
+              }
+            }
+          } catch {}
+
           return {
-            what: r.headline_fr ? String(r.headline_fr) : fallback.what,
+            what: headline,
             category: fallback.category,
             color: fallback.color,
             date: String(r.date?.value ?? r.date ?? ""),
@@ -462,7 +488,7 @@ function buildDigestHtml(d: DigestData): string {
     ${actionsHtml || '<div style="font-size:13px;color:#9ca3af;padding:12px 0;">Aucune action prioritaire cette semaine.</div>'}
     ${pillsHtml ? '<div style="margin-top:14px;">' + pillsHtml + '</div>' : ''}
     <div style="margin-top:20px;text-align:center;">
-      <a href="${d.baseUrl}/app/insightevent/pulse" style="display:inline-block;padding:12px 32px;background:#185FA5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;border-radius:6px;">Ouvrir Pulse &rarr;</a>
+      <a href="${d.baseUrl}/app/insightevent/pulse" style="display:inline-block;padding:12px 32px;background:#185FA5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;border-radius:6px;">Ouvrir Muse Square &rarr;</a>
     </div>
   </td></tr>
 
