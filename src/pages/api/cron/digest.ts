@@ -55,6 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
     }
 
     let sent = 0;
+    const errors: string[] = [];
 
     for (const rawUser of userRows) {
       const user = {
@@ -361,12 +362,13 @@ export const GET: APIRoute = async ({ request }) => {
         });
         sent++;
 
-      } catch (e) {
+      } catch (e: any) {
         console.error("[cron/digest] failed for", user.email, e);
+        errors.push(`${user.email}: ${e?.message ?? String(e)}`);
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, sent }), {
+    return new Response(JSON.stringify({ ok: true, sent, users: userRows.length, errors }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
