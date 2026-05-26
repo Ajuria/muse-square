@@ -162,15 +162,13 @@ export const GET: APIRoute = async ({ request }) => {
             SELECT
               action_type,
               date,
-              priority_score,
-              card_type,
+              action_priority,
               action_category,
               data_payload
             FROM \`${semanticProjectId}.mart.fct_location_daily_action_candidates\`
             WHERE location_id = @location_id
               AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 6 DAY)
-              AND card_type = 'action'
-            ORDER BY priority_score DESC
+            ORDER BY action_priority DESC, date ASC
             LIMIT 3
           `,
           params: { location_id: user.location_id },
