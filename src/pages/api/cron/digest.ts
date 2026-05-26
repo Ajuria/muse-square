@@ -436,7 +436,7 @@ function buildDigestHtml(d: DigestData): string {
   const scoreBarsHtml = d.scores.map((s, i) => {
     const h = Math.max(10, Math.round((s.score / maxScore) * 48));
     const isLast = i === d.scores.length - 1;
-    const opacity = isLast ? "0.9" : (0.15 + (i / d.scores.length) * 0.25).toFixed(2);
+    const opacity = isLast ? "1" : (0.4 + (i / d.scores.length) * 0.35).toFixed(2);
     return `<td align="center" valign="bottom" style="height:48px;padding:0 2px;">
       <div style="width:28px;height:${h}px;background:rgba(255,255,255,${opacity});border-radius:2px 2px 0 0;"></div>
     </td>`;
