@@ -151,14 +151,25 @@ if (!root) {
     if (weatherDay) {
       var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
       var wdLabel = DOW_FR[wd.getDay()];
-      var wLabel = weatherDay.weather_label_fr || 'Alerte m\u00e9t\u00e9o';
+      var tempMax = Number(weatherDay.temperature_2m_max || 0);
+      var windMax = Number(weatherDay.wind_speed_10m_max || 0);
+      var precipMax = Number(weatherDay.precipitation_probability_max_pct || 0);
+      var wLabel = tempMax >= 33 ? 'Forte chaleur (' + Math.round(tempMax) + '\u00b0C)'
+        : tempMax >= 30 ? 'Chaleur (' + Math.round(tempMax) + '\u00b0C)'
+        : precipMax >= 60 ? 'Risque pluie (' + Math.round(precipMax) + '%)'
+        : windMax >= 30 ? 'Vent fort (' + Math.round(windMax) + ' km/h)'
+        : weatherDay.weather_label_fr || 'Alerte m\u00e9t\u00e9o';
       suggestions.push({
         svg: SVG_ICON_CLOUD,
         iconBg: '#FAEEDA',
         iconColor: '#854F0B',
         text: wLabel + ' ' + wdLabel,
         sub: 'Quel impact sur mon activit\u00e9 ?',
-        q: 'Quel est l\u2019impact de la m\u00e9t\u00e9o ' + wdLabel + ' sur mon activit\u00e9 ?',
+        q: (function() {
+          var l = wLabel.toLowerCase();
+          var article = l.startsWith('risque') ? 'du ' : l.startsWith('vent') ? 'du ' : l.startsWith('forte') ? 'de la ' : l.startsWith('chaleur') ? 'de la ' : 'de la ';
+          return 'Quel est l\u2019impact ' + article + l + ' ' + wdLabel + ' sur mon activit\u00e9 ?';
+        })(),
       });
     } else if (compDay) {
       var cd = new Date(String(compDay.date).slice(0,10) + 'T00:00:00');

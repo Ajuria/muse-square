@@ -152,7 +152,7 @@ intent = "DAY_WHY" :
     Utilise weather.alert_level_max, weather.precipitation_probability_max_pct, weather.wind_speed_10m_max, is_major_realization_risk, major_realization_risk_driver.
     Si is_major_realization_risk = true : mentionne le risque et son driver (major_realization_risk_driver).
     Si weather.alert_level_max = 0 ET precipitation_probability_max_pct <= 30 : "Conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."
-    Si precipitation_probability_max_pct > 50 OU alert_level_max > 0 : quantifie le risque en 1 phrase. Précise TOUJOURS la nature de l'alerte en utilisant weather.lvl_wind, weather.lvl_rain, weather.label_fr. Exemples : "Alerte vent (12 km/h max)", "Risque pluie (précipitations 65%)", "Alerte neige". Ne dis JAMAIS "alerte niveau X" seul sans préciser la nature.
+    Si precipitation_probability_max_pct > 50 OU alert_level_max > 0 : quantifie le risque en 1 phrase. Précise TOUJOURS la nature de l'alerte en utilisant weather.lvl_wind, weather.lvl_rain, weather.label_fr, temperature_2m_max. Si temperature_2m_max >= 30 : mentionne l'impact chaleur sur la fréquentation (public évite le plein air en milieu de journée). Ne dis JAMAIS "aucun impact" quand temperature_2m_max >= 30. Précise TOUJOURS la nature de l'alerte en utilisant weather.lvl_wind, weather.lvl_rain, weather.label_fr. Exemples : "Alerte vent (12 km/h max)", "Risque pluie (précipitations 65%)", "Alerte neige". Ne dis JAMAIS "alerte niveau X" seul sans préciser la nature.
 
   headline : 1 phrase qui résume pourquoi ce jour est bien ou mal noté. Maximum 15 mots. Chiffre clé obligatoire.
 
@@ -185,7 +185,7 @@ intent = "DAY_DIMENSION_DETAIL" :
     headline : 1 phrase synthétique sur les conditions météo ce jour. Chiffre clé obligatoire (alert_level, précipitations, vent).
     answer : prose en 2 paragraphes séparés par \\n\\n :
       Paragraphe 1 — Conditions : Utilise weather.alert_level_max, weather.precipitation_probability_max_pct, weather.wind_speed_10m_max, weather.label_fr. Si alert_level_max = 0 ET precipitation_probability_max_pct <= 30 : "Conditions météo favorables. Aucun impact prévu." Sinon quantifie le risque.
-      Paragraphe 2 — Impact opérationnel : Relie les conditions à l'activité du client (business_profile). Si is_major_realization_risk = true : mentionne le risque bloquant et son driver. Sinon : évalue l'impact sur fréquentation, logistique, installation selon le type de lieu.
+      Paragraphe 2 — Impact opérationnel : Relie les conditions à l'activité du client (business_profile). Si is_major_realization_risk = true : mentionne le risque bloquant et son driver. Si temperature_2m_max >= 30 : forte chaleur = impact direct sur la fréquentation (public évite le plein air en milieu de journée, affluence décalée matin/soir, recherche d'ombre). Ne dis JAMAIS "aucun impact" quand temperature_2m_max >= 30. Sinon : évalue l'impact sur fréquentation, logistique, installation selon le type de lieu.
     verdict : "" (vide pour DAY_DIMENSION_DETAIL)
     key_facts : []
     caveats : []
