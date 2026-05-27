@@ -89,7 +89,7 @@ async function geocodeWithBAN(q: string): Promise<BanGeocodeResult | null> {
   const url = new URL("https://api-adresse.data.gouv.fr/search");
   url.searchParams.set("q", q);
   url.searchParams.set("limit", "1");
-  url.searchParams.set("type", "housenumber");
+  url.searchParams.set("autocomplete", "1");
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 3500);
