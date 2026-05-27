@@ -1620,101 +1620,60 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
   const form = e.currentTarget;
   const btn = document.getElementById('userSaveBtn');
   const statusEl = document.getElementById('userSaveStatus');
-  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement\u2026'; }
   if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
 
-  // ── Validate autocomplete fields before submit ──
-  const primaryCard = document.querySelector('.loc-card[data-location-id]');
-  const primaryCardIdx = primaryCard && primaryCard.dataset.locationId ? primaryCard.id.replace('loc-card-', '') : null;
-  if (primaryCardIdx != null) {
-    const addrInp = document.querySelector(`.addr-autocomplete[data-idx="${primaryCardIdx}"]`);
-    if (addrInp && addrInp.value.trim() && !_addrConfirmed[primaryCardIdx]) {
-      if (statusEl) { statusEl.textContent = 'Sélectionnez une adresse depuis la liste.'; statusEl.className = 'save-status status-err'; }
-      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
-      addrInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    const metroInp = document.querySelector(`.metro-autocomplete[data-idx="${primaryCardIdx}"]`);
-    if (metroInp && metroInp.value.trim() && !_metroConfirmed[primaryCardIdx]) {
-      if (statusEl) { statusEl.textContent = 'Sélectionnez une station depuis la liste.'; statusEl.className = 'save-status status-err'; }
-      if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
-      metroInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-  }
-
   const fd = new FormData(form);
-  const data = Object.fromEntries(fd.entries());
-  const primaryBody = primaryCardIdx ? document.getElementById(`loc-body-${primaryCardIdx}`) : null;
-  const existingLocationId = primaryBody?.querySelector('[name="location_id"]')?.value || '';
-  data.mode = existingLocationId ? 'update' : 'create';
-  if (existingLocationId) {
-    data.location_id = existingLocationId;
-    const idx = primaryCardIdx;
-    const body = document.getElementById(`loc-body-${idx}`);
-    if (body) {
-      ['primary_audience_1','primary_audience_2',
-       'origin_city_id_1','origin_city_id_2','origin_city_id_3',
-       'origin_city_label_1','origin_city_label_2','origin_city_label_3',
-       'company_address','company_activity_type','location_type',
-       'weather_sensitivity','seasonality','location_access_pattern',
-       'nearest_transit_stop','nearest_transit_stop_id','nearest_transit_lines',
-       'site_name','venue_capacity','location_description',
-       'event_type_1','event_type_2','event_type_3','operating_hours'].forEach(name => {
-        const el = body.querySelector(`[name="${name}"]`);
-        if (el && !data[name]) data[name] = el.value;
-      });
-      // Rebuild arrays
-      data.primary_audience_1 = [data.primary_audience_1, data.primary_audience_2].filter(Boolean);
-      data.origin_city_ids = [data.origin_city_id_1, data.origin_city_id_2, data.origin_city_id_3].filter(Boolean);
-    }
-  }
+  const data = {
+    first_name: fd.get('first_name') || '',
+    last_name: fd.get('last_name') || '',
+    position: fd.get('position') || '',
+    main_event_objective: fd.get('main_event_objective') || '',
+  };
 
   try {
-    const res = await fetch('/api/profile/save', {
+    const res = await fetch('/api/profile/save-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(data),
     });
     const out = await res.json().catch(() => null);
     if (res.ok && out?.ok) {
-      if (statusEl) { statusEl.textContent = 'Profil enregistré.'; statusEl.className = 'save-status status-ok'; }
-      if (btn) btn.textContent = '✓ Enregistré';
+      if (statusEl) { statusEl.textContent = 'Profil enregistr\u00e9.'; statusEl.className = 'save-status status-ok'; }
+      if (btn) btn.textContent = '\u2713 Enregistr\u00e9';
       setTimeout(() => {
         if (btn) btn.textContent = 'Enregistrer';
-        // Refresh collapsed header
         const nameEl = document.getElementById('user-profile-name');
         if (nameEl) {
           const fn = data.first_name || '';
           const ln = data.last_name || '';
           const pos = data.position || '';
-          nameEl.textContent = [fn, ln].filter(Boolean).join(' ') + (pos ? ` · ${pos}` : '');
+          nameEl.textContent = [fn, ln].filter(Boolean).join(' ') + (pos ? ' \u00b7 ' + pos : '');
         }
         const objEl = document.getElementById('user-profile-objective');
         const OBJ_LABELS = {
           maximize_attendance: "Maximiser l'affluence",
-          avoid_competition: "Éviter la concurrence",
-          optimize_weather: "Optimiser le rapport coût / météo",
-          test_market: "Tester un nouveau marché",
+          avoid_competition: "\u00c9viter la concurrence",
+          optimize_weather: "Optimiser le rapport co\u00fbt / m\u00e9t\u00e9o",
+          test_market: "Tester un nouveau march\u00e9",
         };
         if (objEl) {
           const val = data.main_event_objective || '';
-          objEl.textContent = val ? `Objectif : ${OBJ_LABELS[val] || val}` : '';
+          objEl.textContent = val ? 'Objectif : ' + (OBJ_LABELS[val] || val) : '';
           objEl.style.display = val ? '' : 'none';
         }
-        // Collapse
         const card = document.getElementById('user-profile-card');
         const body = document.getElementById('user-profile-body');
         if (card) card.classList.remove('loc-expanded');
         if (body) body.style.display = 'none';
       }, 900);
     } else {
-      if (statusEl) { statusEl.textContent = out?.error || 'Erreur lors de l\'enregistrement.'; statusEl.className = 'save-status status-err'; }
-      if (btn) btn.textContent = 'Réessayer';
+      if (statusEl) { statusEl.textContent = out?.error || 'Erreur lors de l\u2019enregistrement.'; statusEl.className = 'save-status status-err'; }
+      if (btn) btn.textContent = 'R\u00e9essayer';
     }
   } catch (_) {
-    if (statusEl) { statusEl.textContent = 'Erreur réseau.'; statusEl.className = 'save-status status-err'; }
-    if (btn) btn.textContent = 'Réessayer';
+    if (statusEl) { statusEl.textContent = 'Erreur r\u00e9seau.'; statusEl.className = 'save-status status-err'; }
+    if (btn) btn.textContent = 'R\u00e9essayer';
   } finally {
     if (btn) btn.disabled = false;
   }
