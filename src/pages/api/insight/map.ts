@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
-const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
+// bq instantiated inside handler — top-level causes Vercel cold-start failures
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -36,6 +36,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
     requireLocationOwnership(locals, location_id);
     const date = normalizeYmd(requireString(url.searchParams.get("date"), "date"));
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
     const query = `
       SELECT
@@ -90,7 +91,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         keyword_priority_rank ASC
     `;
 
-    const [[rows], [alertRows], [competitorEventRows]] = await Promise.all([
+    const [[rows], [alertRows], [competitorEventRows], [locRows]] = await Promise.all([
       bq.query({
         query,
         params: { location_id, date },
@@ -150,6 +151,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
             AND competitor_lon IS NOT NULL
         `,
         params: { location_id, date },
+        location: "EU",
+      }),
+      bq.query({
+        query: `
+          SELECT company_lat, company_lon, nearest_transit_stop, nearest_transit_stop_id, nearest_transit_lines
+          FROM \`muse-square-open-data.dims.dim_client_location\`
+          WHERE location_id = @location_id
+          LIMIT 1
+        `,
+        params: { location_id },
         location: "EU",
       }),
     ]);
@@ -306,13 +317,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location_id,
         date,
         venue: {
-          lat: rows?.find((r: any) => r.client_lat != null)?.client_lat ?? null,
-          lon: rows?.find((r: any) => r.client_lon != null)?.client_lon ?? null,
+          lat: locRows?.[0]?.company_lat ?? rows?.find((r: any) => r.client_lat != null)?.client_lat ?? null,
+          lon: locRows?.[0]?.company_lon ?? rows?.find((r: any) => r.client_lon != null)?.client_lon ?? null,
         },
         nearest_transit: {
-          stop_id: rows?.[0]?.nearest_transit_stop_id ?? null,
-          stop_name: rows?.[0]?.nearest_transit_stop_name ?? null,
-          line: rows?.[0]?.nearest_transit_line_name ?? null,
+          stop_id: locRows?.[0]?.nearest_transit_stop_id ?? rows?.[0]?.nearest_transit_stop_id ?? null,
+          stop_name: locRows?.[0]?.nearest_transit_stop ?? rows?.[0]?.nearest_transit_stop_name ?? null,
+          line: locRows?.[0]?.nearest_transit_lines ?? rows?.[0]?.nearest_transit_line_name ?? null,
           distance_m: rows?.[0]?.nearest_transit_stop_distance_m ?? null
         },
         event_count: events.length
