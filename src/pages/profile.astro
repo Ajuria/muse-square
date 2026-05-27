@@ -98,6 +98,44 @@ const sql = `
 
 let saved_safe: Record<string, string> | null = null;
 
+// Fallback: if no BQ row, use Clerk data
+if (!saved_safe) {
+  const clerkMeta = (clerkUser.publicMetadata ?? {}) as Record<string, any>;
+  saved_safe = {
+    email: escAttr(clerkEmail),
+    first_name: escAttr(clerkUser.firstName),
+    last_name: escAttr(clerkUser.lastName),
+    position: escAttr(clerkMeta.position ?? ""),
+    main_event_objective: escAttr(clerkMeta.main_event_objective ?? ""),
+    company_name: "",
+    company_address: "",
+    company_activity_type: "",
+    location_type: "",
+    event_time_profile: "",
+    location_access_pattern: "",
+    nearest_transit_stop: "",
+    nearest_transit_stop_id: "",
+    nearest_transit_lines: "",
+    primary_audience_1: "",
+    primary_audience_2: "",
+    origin_city_id_1: "",
+    origin_city_id_2: "",
+    origin_city_id_3: "",
+    origin_city_label_1: "",
+    origin_city_label_2: "",
+    origin_city_label_3: "",
+    site_name: "",
+    location_description: "",
+    venue_capacity: "",
+    event_type_1: "",
+    event_type_2: "",
+    event_type_3: "",
+    weather_sensitivity: "",
+    seasonality: "",
+    operating_hours: "",
+  };
+}
+
 try {
   const [rows] = await bigquery.query({
     query: sql,
@@ -1510,7 +1548,7 @@ const fetchBAN = debounce(async function(idx, q) {
     const url = new URL('https://api-adresse.data.gouv.fr/search');
     url.searchParams.set('q', q);
     url.searchParams.set('limit', '5');
-    url.searchParams.set('type', 'housenumber');
+    url.searchParams.set('autocomplete', '1');
     const res = await fetch(url.toString(), { signal: _addrAborters[idx].signal });
     if (!res.ok) { dd.style.display = 'none'; return; }
     const data = await res.json().catch(() => null);
