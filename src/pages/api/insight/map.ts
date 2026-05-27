@@ -155,7 +155,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }),
       bq.query({
         query: `
-          SELECT company_lat, company_lon, nearest_transit_stop, nearest_transit_stop_id, nearest_transit_lines
+          SELECT latitude, longitude, nearest_transit_stop, nearest_transit_stop_id, nearest_transit_line_name
           FROM \`muse-square-open-data.dims.dim_client_location\`
           WHERE location_id = @location_id
           LIMIT 1
@@ -317,13 +317,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location_id,
         date,
         venue: {
-          lat: locRows?.[0]?.company_lat ?? rows?.find((r: any) => r.client_lat != null)?.client_lat ?? null,
-          lon: locRows?.[0]?.company_lon ?? rows?.find((r: any) => r.client_lon != null)?.client_lon ?? null,
+          lat: locRows?.[0]?.latitude ?? rows?.find((r: any) => r.client_lat != null)?.client_lat ?? null,
+          lon: locRows?.[0]?.longitude ?? rows?.find((r: any) => r.client_lon != null)?.client_lon ?? null,
         },
         nearest_transit: {
           stop_id: locRows?.[0]?.nearest_transit_stop_id ?? rows?.[0]?.nearest_transit_stop_id ?? null,
           stop_name: locRows?.[0]?.nearest_transit_stop ?? rows?.[0]?.nearest_transit_stop_name ?? null,
-          line: locRows?.[0]?.nearest_transit_lines ?? rows?.[0]?.nearest_transit_line_name ?? null,
+          line: locRows?.[0]?.nearest_transit_line_name ?? rows?.[0]?.nearest_transit_line_name ?? null,
           distance_m: rows?.[0]?.nearest_transit_stop_distance_m ?? null
         },
         event_count: events.length
