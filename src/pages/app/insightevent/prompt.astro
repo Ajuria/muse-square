@@ -1934,8 +1934,9 @@ if (!location_id) {
 
       window.__ieRunConcSearch = runConcSearch;
 
-      // Initialize
-      setMode('planning');
+      // Initialize — respect ?mode= query param
+      var _initMode = new URLSearchParams(window.location.search).get('mode');
+      setMode(_initMode === 'concurrence' ? 'concurrence' : _initMode === 'marketing' ? 'marketing' : 'planning');
 
       // Flatpickr date pickers — init lazily on first open
       let _fpInitDone = false;
