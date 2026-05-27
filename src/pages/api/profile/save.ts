@@ -229,7 +229,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const position = getOptionalString(fd, "position");
     const company_name = getOptionalString(fd, "company_name");
     const company_address = getOptionalString(fd, "company_address");
-    if (!company_address) {
+    if (!company_address && mode === "create") {
       throw new HttpError(400, "L'adresse professionnelle est obligatoire.");
     }
     const company_address_key = company_address
@@ -431,7 +431,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         last_name = IF(@last_name IS NULL, last_name, @last_name),
         position = IF(@position IS NULL, position, @position),
         company_name = IF(@company_name IS NULL, company_name, @company_name),
-        company_address = @company_address,
+        company_address = IF(@company_address IS NULL, company_address, @company_address),
         company_address_key = @company_address_key,
         city_id =
           IF(@company_geocode_status IN ('unchanged','throttled'), city_id, @city_id),
@@ -483,7 +483,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           IF(@besttime_venue_id IS NULL, besttime_venue_id, @besttime_venue_id),
         main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
         updated_at = CURRENT_TIMESTAMP()
-      WHEN NOT MATCHED THEN INSERT (
+      WHEN NOT MATCHED AND @company_address IS NOT NULL THEN INSERT (
         clerk_user_id,
         location_id,
         email,
