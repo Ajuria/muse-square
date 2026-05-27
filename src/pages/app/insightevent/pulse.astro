@@ -3081,7 +3081,9 @@ if (!location_id) {
     let pressureLabel = "";
     let pressureBg = "#f3f4f6";
     let pressureFg = "#374151";
-    if (hasBaseline && pressureRatio > 1.2) {
+    if (count5km === 0) {
+      pressureLabel = "";
+    } else if (hasBaseline && pressureRatio > 1.2) {
       pressureLabel = "Sup\u00e9rieur \u00e0 la moyenne";
       pressureBg = "#fee2e2"; pressureFg = "#991b1b";
     } else if (hasBaseline && pressureRatio < 0.8) {
@@ -3835,7 +3837,9 @@ if (!location_id) {
     const hasBaseline = Boolean(currentDay.has_valid_baseline_flag);
     let envSummary = "";
     let envAlert = null;
-    if (hasBaseline && pressureRatio > 1.2) {
+    if (envCount5km === 0) {
+      envSummary = `Autour de vous : 0 \u00e9v\u00e9nement \u00e0 5 km`;
+    } else if (hasBaseline && pressureRatio > 1.2) {
       envSummary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
       envAlert = "warning";
     } else if (hasBaseline && pressureRatio < 0.8) {
