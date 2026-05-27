@@ -383,7 +383,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     } else if (throttled) {
       company_geocode_status = "throttled";
     } else if (needsGeocode) {
-      const MIN_BAN_SCORE = 0.6;
+      const MIN_BAN_SCORE = 0.45;
       company_geocode_provider = "ban";
       company_geocoded_at = new Date();
 
