@@ -56,35 +56,7 @@ if (!location_id) {
             <h1 id="ie-prompt-title" data-firstname={first_name ?? ""}></h1>
           </div>
 
-          <div id="ie-prompt-suggestions-label">SUGGESTIONS</div>
-
-          <a href="#" class="ie-prompt-card" data-suggestion-idx="0" style="display:none;"></a>
-            <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm7 4h4v4h-4z"/></svg>
-            </div>
-            <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">En juin, quel est le meilleur moment pour lancer mon produit ?</p>
-            </div>
-            <div class="ie-prompt-card-arrow">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-              </svg>
-            </div>
-          </a>
-
-          <a href="#" class="ie-prompt-card" data-suggestion-idx="1" style="display:none;"></a>
-            <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
-            </div>
-            <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text">Quel week-end de septembre concentre le moins de concurrence ?</p>
-            </div>
-            <div class="ie-prompt-card-arrow">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-              </svg>
-            </div>
-          </a>
+          <div id="ie-prompt-suggestions-label" style="display:none;">SUGGESTIONS</div>
 
           <div id="ie-prompt-actions-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:24px 0 16px 0;">ACTIONS</div>
           <a href="#" class="ie-prompt-card" id="ie-finder-card" data-suggestion-idx="2">

@@ -156,6 +156,9 @@ export const ALLOWED_INPUT_FIELDS: string[] = [
   "baseline_comp_avg",
   "has_valid_baseline_flag",
   "user_event",
+  // ---- V3 entity impact keys ----
+  "entity",
+  "events",
 ];
 
 function isObject(x: unknown): x is Record<string, unknown> {

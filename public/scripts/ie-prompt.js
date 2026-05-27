@@ -86,7 +86,23 @@ if (!root) {
     } catch(e) { return null; }
   }
 
-  function buildDynamicSuggestions(data) {
+  async function fetchCompetitorSignalsForSuggestions() {
+    try {
+      var today = new Date();
+      var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+      var res = await fetch('/api/competitive/competitor-signals?selected_date=' + encodeURIComponent(todayYmd));
+      var json = await res.json().catch(function() { return null; });
+      if (!json || !json.ok) return { signals: [], followed_count: 0 };
+      return { signals: Array.isArray(json.signals) ? json.signals : [], followed_count: json.followed_count || 0 };
+    } catch(e) { return { signals: [], followed_count: 0 }; }
+  }
+
+  var SVG_ICON_STAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  var SVG_ICON_CLOUD = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>';
+  var SVG_ICON_USERS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  var SVG_ICON_TARGET = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
+
+  function buildDynamicSuggestions(data, compData) {
     if (!data || !Array.isArray(data.days) || !data.days.length) return [];
     var today = new Date();
     var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -99,117 +115,106 @@ if (!root) {
     var todayDay = dayMap[todayYmd] || days[0] || {};
     var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 
-    // Find best day (highest score)
+    var suggestions = [];
+
+    // 1. Best day of the week (always)
     var bestDay = null;
     var bestScore = -1;
     for (var i = 0; i < days.length; i++) {
       var s = Number(days[i].opportunity_score || 0);
       if (s > bestScore) { bestScore = s; bestDay = days[i]; }
     }
-
-    // Find worst day
-    var worstDay = null;
-    var worstScore = 999;
-    for (var i = 0; i < days.length; i++) {
-      var s = Number(days[i].opportunity_score || 0);
-      if (s > 0 && s < worstScore) { worstScore = s; worstDay = days[i]; }
-    }
-
-    // Weather alert day
-    var weatherDay = null;
-    for (var i = 0; i < days.length; i++) {
-      if (Number(days[i].alert_level_max || 0) >= 2) { weatherDay = days[i]; break; }
-    }
-
-    // Competition day
-    var compDay = null;
-    for (var i = 0; i < days.length; i++) {
-      if (Number(days[i].events_within_5km_count || 0) > 0) { compDay = days[i]; break; }
-    }
-
-    var suggestions = [];
-
-    // 1. Best day
     if (bestDay && bestScore > 0) {
       var bd = new Date(String(bestDay.date).slice(0,10) + 'T00:00:00');
       var bdLabel = DOW_FR[bd.getDay()];
       var bdScore = Number(bestScore).toFixed(1);
       suggestions.push({
-        icon: 'ti-star',
+        svg: SVG_ICON_STAR,
         iconBg: '#E1F5EE',
         iconColor: '#0F6E56',
-        text: 'Meilleur jour : ' + bdLabel + ' (' + bdScore + '/10) \u2014 pourquoi ?',
-        sub: 'Faible concurrence + conditions favorables',
+        text: 'Meilleur jour : ' + bdLabel + ' (' + bdScore + '/10)',
+        sub: 'Pourquoi cette date est-elle la plus favorable ?',
         q: 'Pourquoi ' + bdLabel + ' est le meilleur jour de la semaine ?',
       });
     }
 
-    // 2. Today score
-    var todayScore = Number(todayDay.opportunity_score || 0);
-    if (todayScore > 0) {
-      suggestions.push({
-        icon: 'ti-chart-bar',
-        iconBg: '#E6F1FB',
-        iconColor: '#185FA5',
-        text: 'Score aujourd\u2019hui : ' + todayScore.toFixed(1) + '/10 \u2014 que signifie-t-il ?',
-        sub: String(todayDay.opportunity_regime || 'B').toUpperCase() === 'A' ? 'Contexte favorable' : String(todayDay.opportunity_regime || 'B').toUpperCase() === 'C' ? 'Contexte d\u00e9favorable' : 'Conditions normales',
-        q: 'Pourquoi mon score est de ' + todayScore.toFixed(1) + ' aujourd\u2019hui ?',
-      });
+    // 2. Weather or competition alert (only if exists)
+    var weatherDay = null;
+    for (var i = 0; i < days.length; i++) {
+      if (Number(days[i].alert_level_max || 0) >= 2) { weatherDay = days[i]; break; }
+    }
+    var compDay = null;
+    for (var i = 0; i < days.length; i++) {
+      if (Number(days[i].events_within_5km_count || 0) > 2) { compDay = days[i]; break; }
     }
 
-    // 3. Weather alert
     if (weatherDay) {
       var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
       var wdLabel = DOW_FR[wd.getDay()];
       var wLabel = weatherDay.weather_label_fr || 'Alerte m\u00e9t\u00e9o';
-      var alertLvl = Number(weatherDay.alert_level_max || 0);
       suggestions.push({
-        icon: 'ti-cloud',
+        svg: SVG_ICON_CLOUD,
         iconBg: '#FAEEDA',
         iconColor: '#854F0B',
-        text: wLabel + ' ' + wdLabel + ' \u2014 quel impact ?',
-        sub: 'Alerte niveau ' + alertLvl,
+        text: wLabel + ' ' + wdLabel,
+        sub: 'Quel impact sur mon activit\u00e9 ?',
         q: 'Quel est l\u2019impact de la m\u00e9t\u00e9o ' + wdLabel + ' sur mon activit\u00e9 ?',
       });
-    }
-
-    // 4. Competition
-    if (compDay) {
+    } else if (compDay) {
       var cd = new Date(String(compDay.date).slice(0,10) + 'T00:00:00');
       var cdLabel = DOW_FR[cd.getDay()];
       var evCount = Number(compDay.events_within_5km_count || 0);
       suggestions.push({
-        icon: 'ti-users',
+        svg: SVG_ICON_USERS,
         iconBg: '#FCEBEB',
         iconColor: '#A32D2D',
-        text: evCount + ' \u00e9v\u00e9nement' + (evCount > 1 ? 's' : '') + ' \u00e0 5 km ' + cdLabel + ' \u2014 risque ?',
-        sub: 'Pression concurrentielle ' + (Number(compDay.competition_pressure_ratio || 0) > 1.2 ? 'sup\u00e9rieure \u00e0 la moyenne' : 'dans la moyenne'),
+        text: evCount + ' \u00e9v\u00e9nements \u00e0 5 km ' + cdLabel,
+        sub: 'Quel risque pour ma fr\u00e9quentation ?',
         q: 'Quels \u00e9v\u00e9nements concurrents sont pr\u00e9vus ' + cdLabel + ' et quel est leur impact ?',
       });
     }
 
-    // 5. Worst day (if different from best)
-    if (worstDay && bestDay && String(worstDay.date).slice(0,10) !== String(bestDay.date).slice(0,10) && suggestions.length < 4) {
-      var wod = new Date(String(worstDay.date).slice(0,10) + 'T00:00:00');
-      var wodLabel = DOW_FR[wod.getDay()];
+    // 3. Followed competitor activity (only if signals exist)
+    var compSignals = compData && Array.isArray(compData.signals) ? compData.signals : [];
+    var activeSignal = null;
+    for (var i = 0; i < compSignals.length; i++) {
+      if (compSignals[i].is_active || compSignals[i].is_launch) { activeSignal = compSignals[i]; break; }
+    }
+    if (activeSignal) {
+      var compName = activeSignal.competitor_name || 'Concurrent';
+      var evName = activeSignal.event_name || '';
+      var distKm = activeSignal.distance_from_location_m ? (Number(activeSignal.distance_from_location_m) / 1000).toFixed(1) : null;
+      var chipText = compName + (evName ? ' \u2014 ' + evName : '');
+      if (distKm) chipText += ' (' + distKm + ' km)';
       suggestions.push({
-        icon: 'ti-alert-triangle',
+        svg: SVG_ICON_TARGET,
         iconBg: '#FCEBEB',
         iconColor: '#A32D2D',
-        text: 'Jour le moins favorable : ' + wodLabel + ' (' + worstScore.toFixed(1) + '/10)',
-        sub: 'Conditions d\u00e9favorables',
-        q: 'Pourquoi ' + wodLabel + ' est le jour le moins favorable cette semaine ?',
+        text: chipText,
+        sub: activeSignal.is_launch ? 'Lancement d\u00e9tect\u00e9 \u2014 quel impact ?' : '\u00c9v\u00e9nement actif \u2014 quel impact ?',
+        q: 'Quel est l\u2019impact de ' + compName + (evName ? ' (' + evName + ')' : '') + ' sur mon activit\u00e9 ?',
+      });
+    } else if (compData && compData.followed_count > 0 && compSignals.length > 0) {
+      var firstComp = compSignals[0];
+      var compName = firstComp.competitor_name || 'Concurrent';
+      suggestions.push({
+        svg: SVG_ICON_TARGET,
+        iconBg: '#E6F1FB',
+        iconColor: '#185FA5',
+        text: compName + ' \u2014 activit\u00e9 cette semaine',
+        sub: 'Que pr\u00e9parent vos concurrents ?',
+        q: 'Que pr\u00e9pare ' + compName + ' cette semaine et quel est l\u2019impact ?',
       });
     }
 
-    return suggestions.slice(0, 4);
+    return suggestions.slice(0, 3);
   }
 
   function renderDynamicSuggestions(suggestions) {
     var container = document.getElementById('ie-prompt-suggestions-label');
     if (!container) return;
 
-    // Remove old static cards
+    // Remove old static cards (but not finder)
     var oldCards = document.querySelectorAll('.ie-prompt-card:not(#ie-finder-card)');
     for (var i = 0; i < oldCards.length; i++) { oldCards[i].remove(); }
 
@@ -223,8 +228,8 @@ if (!root) {
     var html = '';
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '" style="margin-bottom:6px;">'
-        + '<div class="ie-prompt-card-icon" style="background:' + s.iconBg + ';"><i class="ti ' + s.icon + '" style="font-size:18px;color:' + s.iconColor + ';" aria-hidden="true"></i></div>'
+      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '" style="margin-bottom:6px;border-radius:10px;">'
+        + '<div class="ie-prompt-card-icon" style="background:' + s.iconBg + ';color:' + s.iconColor + ';">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
           + '<p class="ie-prompt-card-text" style="font-size:13px;font-weight:500;margin:0 0 2px;">' + escapeHtml(s.text) + '</p>'
           + '<p style="font-size:11px;color:#6b7280;margin:0;">' + escapeHtml(s.sub) + '</p>'
@@ -235,7 +240,6 @@ if (!root) {
 
     container.insertAdjacentHTML('afterend', html);
 
-    // Bind click → pre-fill and submit
     document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
       card.addEventListener('click', function(e) {
         e.preventDefault();
@@ -840,10 +844,15 @@ if (!root) {
 
     syncInputWrapHeight();
 
-    // Load dynamic suggestions
-    fetchMonitorForSuggestions().then(function(data) {
+    // Load dynamic suggestions + competitor signals
+    Promise.all([
+      fetchMonitorForSuggestions(),
+      fetchCompetitorSignalsForSuggestions()
+    ]).then(function(results) {
+      var data = results[0];
+      var compData = results[1];
       if (!data) return;
-      var suggestions = buildDynamicSuggestions(data);
+      var suggestions = buildDynamicSuggestions(data, compData);
       if (suggestions.length) {
         renderDynamicSuggestions(suggestions);
         for (var i = 0; i < suggestions.length; i++) {
@@ -864,7 +873,7 @@ if (!root) {
         if (score > 0) chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#E6F1FB;color:#0C447C;">' + score.toFixed(1) + '/10 score</span>');
         var alerts = Number(todayDay.alert_level_max || 0);
         if (alerts >= 2) chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#FAEEDA;color:#633806;">' + alerts + ' alerte' + (alerts > 1 ? 's' : '') + '</span>');
-        var compCount = Number(data.competitor_followed_count || data._competitor_followed_count || 0);
+        var compCount = compData ? compData.followed_count : 0;
         chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#f3f4f6;color:#6b7280;">' + compCount + ' concurrent' + (compCount > 1 ? 's' : '') + ' suivi' + (compCount > 1 ? 's' : '') + '</span>');
         chipsEl.innerHTML = chips.join('');
       }
