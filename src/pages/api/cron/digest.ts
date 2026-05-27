@@ -326,9 +326,13 @@ export const GET: APIRoute = async ({ request }) => {
           compEvents, totalComp, okComp, eventsDetected, baseUrl,
         });
 
-        const subject = topActions.length > 0
-          ? `${topActions[0].what} \u00b7 Score ${avgScore}/10`
-          : `Digest \u00b7 Score moyen ${avgScore}/10`;
+        const topContext = contextPills[0] ?? null;
+        const actionCount = topActions.length;
+        const subject = topContext
+          ? `${topContext} cette semaine \u2014 ${actionCount} action${actionCount !== 1 ? "s" : ""} \u00e0 lancer`
+          : threats > 0
+          ? `${threats} menace${threats > 1 ? "s" : ""} d\u00e9tect\u00e9e${threats > 1 ? "s" : ""} \u2014 votre briefing`
+          : `Score ${avgScore}/10 \u2014 ${actionCount} action${actionCount !== 1 ? "s" : ""} cette semaine`;
 
         await resend.emails.send({
           from: "Insight <insight@musesquare.com>",
@@ -452,7 +456,7 @@ function buildDigestHtml(d: DigestData): string {
   return `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Digest hebdomadaire</title></head>
+<title>Briefing hebdomadaire</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;padding:24px 0 48px 0;">
 <tr><td align="center">
@@ -468,7 +472,7 @@ function buildDigestHtml(d: DigestData): string {
 
   <!-- HERO -->
   <tr><td style="background:#1a2744;padding:28px 32px 22px;">
-    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#7BA3D9;margin-bottom:6px;">Digest hebdomadaire</div>
+    <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#7BA3D9;margin-bottom:6px;">Briefing hebdomadaire</div>
     <div style="font-size:22px;font-weight:300;color:#ffffff;line-height:1.25;margin-bottom:18px;">Bonjour ${esc(firstName)}.</div>
     <table cellpadding="0" cellspacing="0">
       <tr>${scoreBarsHtml}
@@ -564,7 +568,7 @@ function buildDigestHtml(d: DigestData): string {
   <tr><td style="background:#ffffff;padding:16px 32px 24px;border-top:1px solid #e5e7eb;">
     ${veilleLine ? '<div style="font-size:11px;color:#9ca3af;line-height:1.6;margin-bottom:8px;">' + veilleLine + '</div>' : ''}
     <div style="font-size:11px;color:#9ca3af;line-height:1.7;text-align:center;">
-      Digest hebdomadaire &middot; ${esc(cityLabel)}${d.user.region_name ? ", " + esc(d.user.region_name) : ""}<br>
+      Briefing hebdomadaire &middot; ${esc(cityLabel)}${d.user.region_name ? ", " + esc(d.user.region_name) : ""}<br>
       <a href="${d.baseUrl}/notifications" style="color:#9ca3af;text-decoration:underline;">G&eacute;rer mes alertes</a> &middot;
       <a href="${d.baseUrl}/notifications" style="color:#9ca3af;text-decoration:underline;">Se d&eacute;sabonner</a>
     </div>
