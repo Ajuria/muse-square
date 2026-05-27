@@ -1625,7 +1625,7 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
 
   // ── Validate autocomplete fields before submit ──
   const primaryCard = document.querySelector('.loc-card[data-location-id]');
-  const primaryCardIdx = primaryCard?.id.replace('loc-card-', '');
+  const primaryCardIdx = primaryCard && primaryCard.dataset.locationId ? primaryCard.id.replace('loc-card-', '') : null;
   if (primaryCardIdx != null) {
     const addrInp = document.querySelector(`.addr-autocomplete[data-idx="${primaryCardIdx}"]`);
     if (addrInp && addrInp.value.trim() && !_addrConfirmed[primaryCardIdx]) {
