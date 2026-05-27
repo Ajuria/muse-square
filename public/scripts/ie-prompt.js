@@ -63,11 +63,188 @@ if (!root) {
     };
   }
 
-  const SUGGESTION_CHIPS = [
-    "Quels sont les 3 jours les plus favorables pour organiser un événement en juin ?",
-    "Quels week-ends de mars présentent les conditions les plus favorables pour un événement en extérieur ?",
-    "Quelle est la probabilité d'une forte affluence pour une inauguration ce vendredi ?"
-  ];
+  const SUGGESTION_CHIPS = [];
+  let _monitorData = null;
+
+  async function fetchMonitorForSuggestions() {
+    try {
+      var today = new Date();
+      var dates = [];
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(today);
+        d.setDate(today.getDate() + i);
+        dates.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
+      }
+      var qs = new URLSearchParams();
+      qs.set('location_id', LOCATION_ID);
+      qs.set('selected_dates', dates.join(','));
+      var res = await fetch('/api/insight/monitor?' + qs.toString(), { cache: 'no-store' });
+      var json = await res.json().catch(function() { return null; });
+      if (!json || !json.ok) return null;
+      _monitorData = json;
+      return json;
+    } catch(e) { return null; }
+  }
+
+  function buildDynamicSuggestions(data) {
+    if (!data || !Array.isArray(data.days) || !data.days.length) return [];
+    var today = new Date();
+    var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var days = data.days;
+    var dayMap = {};
+    for (var i = 0; i < days.length; i++) {
+      var ymd = String(days[i].date || '').slice(0, 10);
+      dayMap[ymd] = days[i];
+    }
+    var todayDay = dayMap[todayYmd] || days[0] || {};
+    var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+
+    // Find best day (highest score)
+    var bestDay = null;
+    var bestScore = -1;
+    for (var i = 0; i < days.length; i++) {
+      var s = Number(days[i].opportunity_score || 0);
+      if (s > bestScore) { bestScore = s; bestDay = days[i]; }
+    }
+
+    // Find worst day
+    var worstDay = null;
+    var worstScore = 999;
+    for (var i = 0; i < days.length; i++) {
+      var s = Number(days[i].opportunity_score || 0);
+      if (s > 0 && s < worstScore) { worstScore = s; worstDay = days[i]; }
+    }
+
+    // Weather alert day
+    var weatherDay = null;
+    for (var i = 0; i < days.length; i++) {
+      if (Number(days[i].alert_level_max || 0) >= 2) { weatherDay = days[i]; break; }
+    }
+
+    // Competition day
+    var compDay = null;
+    for (var i = 0; i < days.length; i++) {
+      if (Number(days[i].events_within_5km_count || 0) > 0) { compDay = days[i]; break; }
+    }
+
+    var suggestions = [];
+
+    // 1. Best day
+    if (bestDay && bestScore > 0) {
+      var bd = new Date(String(bestDay.date).slice(0,10) + 'T00:00:00');
+      var bdLabel = DOW_FR[bd.getDay()];
+      var bdScore = Number(bestScore).toFixed(1);
+      suggestions.push({
+        icon: 'ti-star',
+        iconBg: '#E1F5EE',
+        iconColor: '#0F6E56',
+        text: 'Meilleur jour : ' + bdLabel + ' (' + bdScore + '/10) \u2014 pourquoi ?',
+        sub: 'Faible concurrence + conditions favorables',
+        q: 'Pourquoi ' + bdLabel + ' est le meilleur jour de la semaine ?',
+      });
+    }
+
+    // 2. Today score
+    var todayScore = Number(todayDay.opportunity_score || 0);
+    if (todayScore > 0) {
+      suggestions.push({
+        icon: 'ti-chart-bar',
+        iconBg: '#E6F1FB',
+        iconColor: '#185FA5',
+        text: 'Score aujourd\u2019hui : ' + todayScore.toFixed(1) + '/10 \u2014 que signifie-t-il ?',
+        sub: String(todayDay.opportunity_regime || 'B').toUpperCase() === 'A' ? 'Contexte favorable' : String(todayDay.opportunity_regime || 'B').toUpperCase() === 'C' ? 'Contexte d\u00e9favorable' : 'Conditions normales',
+        q: 'Pourquoi mon score est de ' + todayScore.toFixed(1) + ' aujourd\u2019hui ?',
+      });
+    }
+
+    // 3. Weather alert
+    if (weatherDay) {
+      var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
+      var wdLabel = DOW_FR[wd.getDay()];
+      var wLabel = weatherDay.weather_label_fr || 'Alerte m\u00e9t\u00e9o';
+      var alertLvl = Number(weatherDay.alert_level_max || 0);
+      suggestions.push({
+        icon: 'ti-cloud',
+        iconBg: '#FAEEDA',
+        iconColor: '#854F0B',
+        text: wLabel + ' ' + wdLabel + ' \u2014 quel impact ?',
+        sub: 'Alerte niveau ' + alertLvl,
+        q: 'Quel est l\u2019impact de la m\u00e9t\u00e9o ' + wdLabel + ' sur mon activit\u00e9 ?',
+      });
+    }
+
+    // 4. Competition
+    if (compDay) {
+      var cd = new Date(String(compDay.date).slice(0,10) + 'T00:00:00');
+      var cdLabel = DOW_FR[cd.getDay()];
+      var evCount = Number(compDay.events_within_5km_count || 0);
+      suggestions.push({
+        icon: 'ti-users',
+        iconBg: '#FCEBEB',
+        iconColor: '#A32D2D',
+        text: evCount + ' \u00e9v\u00e9nement' + (evCount > 1 ? 's' : '') + ' \u00e0 5 km ' + cdLabel + ' \u2014 risque ?',
+        sub: 'Pression concurrentielle ' + (Number(compDay.competition_pressure_ratio || 0) > 1.2 ? 'sup\u00e9rieure \u00e0 la moyenne' : 'dans la moyenne'),
+        q: 'Quels \u00e9v\u00e9nements concurrents sont pr\u00e9vus ' + cdLabel + ' et quel est leur impact ?',
+      });
+    }
+
+    // 5. Worst day (if different from best)
+    if (worstDay && bestDay && String(worstDay.date).slice(0,10) !== String(bestDay.date).slice(0,10) && suggestions.length < 4) {
+      var wod = new Date(String(worstDay.date).slice(0,10) + 'T00:00:00');
+      var wodLabel = DOW_FR[wod.getDay()];
+      suggestions.push({
+        icon: 'ti-alert-triangle',
+        iconBg: '#FCEBEB',
+        iconColor: '#A32D2D',
+        text: 'Jour le moins favorable : ' + wodLabel + ' (' + worstScore.toFixed(1) + '/10)',
+        sub: 'Conditions d\u00e9favorables',
+        q: 'Pourquoi ' + wodLabel + ' est le jour le moins favorable cette semaine ?',
+      });
+    }
+
+    return suggestions.slice(0, 4);
+  }
+
+  function renderDynamicSuggestions(suggestions) {
+    var container = document.getElementById('ie-prompt-suggestions-label');
+    if (!container) return;
+
+    // Remove old static cards
+    var oldCards = document.querySelectorAll('.ie-prompt-card:not(#ie-finder-card)');
+    for (var i = 0; i < oldCards.length; i++) { oldCards[i].remove(); }
+
+    if (!suggestions.length) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.textContent = 'Explorez vos donn\u00e9es';
+
+    var html = '';
+    for (var i = 0; i < suggestions.length; i++) {
+      var s = suggestions[i];
+      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '" style="margin-bottom:6px;">'
+        + '<div class="ie-prompt-card-icon" style="background:' + s.iconBg + ';"><i class="ti ' + s.icon + '" style="font-size:18px;color:' + s.iconColor + ';" aria-hidden="true"></i></div>'
+        + '<div class="ie-prompt-card-content">'
+          + '<p class="ie-prompt-card-text" style="font-size:13px;font-weight:500;margin:0 0 2px;">' + escapeHtml(s.text) + '</p>'
+          + '<p style="font-size:11px;color:#6b7280;margin:0;">' + escapeHtml(s.sub) + '</p>'
+        + '</div>'
+        + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
+      + '</a>';
+    }
+
+    container.insertAdjacentHTML('afterend', html);
+
+    // Bind click → pre-fill and submit
+    document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
+      card.addEventListener('click', function(e) {
+        e.preventDefault();
+        var q = card.getAttribute('data-dynamic-q') || '';
+        setTextareaValue(q);
+        submitQuestion(q);
+      });
+    });
+  }
 
   const qs = (id) => document.getElementById(id);
 
@@ -340,17 +517,35 @@ if (!root) {
     `;
   }
 
+  function isQuestion(q) {
+    var s = q.trim().toLowerCase();
+    if (s.length > 50) return true;
+    if (s.endsWith('?')) return true;
+    var starters = ['quel','quelle','quels','quelles','quand','pourquoi','comment','combien','est-ce','compare','explique','analyse','montre','donne','liste','trouve'];
+    var first = s.split(/\s+/)[0] || '';
+    for (var i = 0; i < starters.length; i++) { if (first === starters[i]) return true; }
+    var contains = ['impact','risque','meilleur','pire','score','opportunit','pourquoi','comment','difference','differencier','comparer','conseill','recommand','menace','audience','frequentation'];
+    for (var i = 0; i < contains.length; i++) { if (s.indexOf(contains[i]) >= 0) return true; }
+    return false;
+  }
+
   async function submitQuestion(overrideQ, confirmedParams) {
     const ta = qs("ie-prompt-input");
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
 
-    // In concurrence mode, route to search instead of AI prompt
+    // Smart routing: questions → AI prompt, keywords → competitor search
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
-    if (activeMode === 'concurrence' && typeof window.__ieRunConcSearch === 'function') {
+    if (!isQuestion(q) && typeof window.__ieRunConcSearch === 'function') {
+      // Short keyword → competitor search regardless of mode
+      // If in planning mode, setMode to concurrence temporarily for search UI
+      if (activeMode === 'planning') {
+        window.__ieSetMode('concurrence');
+      }
       window.__ieRunConcSearch();
       return;
     }
+    // Questions always go to AI prompt, even in concurrence mode
 
     const btn = qs("ie-prompt-submit-btn");
     btn?.setAttribute("disabled", "true");
@@ -644,4 +839,34 @@ if (!root) {
     if (deEl && !deEl.value) deEl.value = in30Str;
 
     syncInputWrapHeight();
+
+    // Load dynamic suggestions
+    fetchMonitorForSuggestions().then(function(data) {
+      if (!data) return;
+      var suggestions = buildDynamicSuggestions(data);
+      if (suggestions.length) {
+        renderDynamicSuggestions(suggestions);
+        for (var i = 0; i < suggestions.length; i++) {
+          SUGGESTION_CHIPS[i] = suggestions[i].q;
+        }
+      }
+      // Status chips
+      var chipsEl = document.getElementById('ie-prompt-status-chips');
+      if (chipsEl && Array.isArray(data.days) && data.days.length) {
+        var todayYmd = (function() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+        var todayDay = null;
+        for (var i = 0; i < data.days.length; i++) {
+          if (String(data.days[i].date || '').slice(0,10) === todayYmd) { todayDay = data.days[i]; break; }
+        }
+        if (!todayDay) todayDay = data.days[0];
+        var chips = [];
+        var score = Number(todayDay.opportunity_score || 0);
+        if (score > 0) chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#E6F1FB;color:#0C447C;">' + score.toFixed(1) + '/10 score</span>');
+        var alerts = Number(todayDay.alert_level_max || 0);
+        if (alerts >= 2) chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#FAEEDA;color:#633806;">' + alerts + ' alerte' + (alerts > 1 ? 's' : '') + '</span>');
+        var compCount = Number(data.competitor_followed_count || data._competitor_followed_count || 0);
+        chips.push('<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;background:#f3f4f6;color:#6b7280;">' + compCount + ' concurrent' + (compCount > 1 ? 's' : '') + ' suivi' + (compCount > 1 ? 's' : '') + '</span>');
+        chipsEl.innerHTML = chips.join('');
+      }
+    });
   }
