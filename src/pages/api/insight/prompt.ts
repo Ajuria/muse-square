@@ -46,6 +46,7 @@ type ScoringIntent =
   | "COMPARE_DATES"
   | "DRIVER_PRIMARY"
   | "MOBILITY_UNAVAILABLE"
+  | "ENTITY_IMPACT"
   | "INTENT_UNKNOWN";
 
 type Intent = ScoringIntent | "EVENT_LOOKUP" | "LOOKUP_EVENT";
@@ -521,6 +522,9 @@ function resolveHorizonFromText(q: string): ResolvedHorizon {
     return "day";
   }
 
+  // "cette semaine" → still month horizon but we'll constrain the window later
+  // No change needed here — the constraint is applied via weekday filter
+
   return "month";
 }
 
@@ -668,13 +672,87 @@ function isEventLookupQuestion(qRaw: string): boolean {
   const hasEvaluationIntent =
     EVALUATION_MARKERS.some(k => s.includes(k)) ||
     PLANNING_VERBS.some(k => s.includes(k)) ||
-    s.includes("jours");
+    s.includes("jours") ||
+    s.includes("impact") ||
+    s.includes("effet") ||
+    s.includes("consequence") ||
+    s.includes("influence");
 
   if (!hasEvaluationIntent && (hasMonth || hasNumericDate || hasWeekday)) {
     return true;
   }
   
   return false;
+}
+
+async function classifyIntentWithHaiku(qRaw: string): Promise<{
+  intent: "WINDOW_TOP_DAYS" | "DAY_DIMENSION_DETAIL" | "ENTITY_IMPACT" | "LOOKUP_EVENT";
+  horizon: "month" | "day";
+  detected_day: string | null;
+}> {
+  const fallback = { intent: "WINDOW_TOP_DAYS" as const, horizon: "month" as const, detected_day: null };
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 256,
+        temperature: 0,
+        system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
+Réponds UNIQUEMENT en JSON strict, sans markdown, sans commentaire.
+
+Classifie la question utilisateur :
+{
+  "intent": "WINDOW_TOP_DAYS" | "DAY_DIMENSION_DETAIL" | "ENTITY_IMPACT" | "LOOKUP_EVENT",
+  "horizon": "month" | "day",
+  "detected_day": null ou le nom du jour si mentionné (ex: "mercredi")
+}
+
+Règles :
+- DIMENSION = météo, pluie, vent, température, concurrence (abstraite, sans nom propre), mobilité, transport, trafic, tourisme, affluence, calendrier
+- ENTITÉ NOMMÉE = nom de concurrent, lieu, marque, événement spécifique, festival nommé, salon nommé
+- Si la question demande l'impact d'une DIMENSION sur un jour → DAY_DIMENSION_DETAIL + horizon "day"
+- Si la question demande l'impact d'une DIMENSION sur le mois → DAY_DIMENSION_DETAIL + horizon "month"
+- Si la question demande l'impact d'une ENTITÉ NOMMÉE → ENTITY_IMPACT
+- Si la question cherche quand a lieu un événement, ou liste des événements → LOOKUP_EVENT
+- Si la question demande les meilleurs/pires jours, quand organiser → WINDOW_TOP_DAYS
+- detected_day : si un jour de la semaine est mentionné (lundi, mardi...), extrais-le. Sinon null.`,
+        messages: [{ role: "user", content: qRaw }],
+      }),
+    });
+    const data = await res.json();
+    const text = data?.content?.[0]?.text ?? "";
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    const validIntents = ["WINDOW_TOP_DAYS", "DAY_DIMENSION_DETAIL", "ENTITY_IMPACT", "LOOKUP_EVENT"];
+    if (!validIntents.includes(parsed?.intent)) return fallback;
+    return {
+      intent: parsed.intent,
+      horizon: parsed.horizon === "day" ? "day" : "month",
+      detected_day: typeof parsed.detected_day === "string" ? parsed.detected_day : null,
+    };
+  } catch (e) {
+    console.error("[classifyIntentWithHaiku] error:", e);
+    return fallback;
+  }
+}
+
+function extractEntityNameFromQuestion(qRaw: string): string {
+  const s = String(qRaw ?? "").trim();
+  const cleaned = s
+    .replace(/^quel\s+(est\s+)?l[\u2019\u0027\u2018'']impact\s+(de\s+la\s+|de\s+l[\u2019\u0027\u2018'']\s*|du\s+|de\s+|des\s+|d[\u2019\u0027\u2018'']\s*)/i, "")
+    .replace(/^comment\s+(affecte|impacte)\s*/i, "")
+    .replace(/^l[\u2019\u0027\u2018'']impact\s+(de\s+la\s+|de\s+l[\u2019\u0027\u2018'']\s*|du\s+|de\s+|des\s+|d[\u2019\u0027\u2018'']\s*)/i, "")
+    .replace(/\s+sur\s+mon\s+activit[eé\u00e9].*$/i, "")
+    .replace(/\s+sur\s+ma\s+fr[eé\u00e9]quentation.*$/i, "")
+    .replace(/\s*\?\s*$/, "")
+    .trim();
+  return cleaned || s;
 }
 
 function adaptDayFactsByDate(ir: any): Record<string, any[]> {
@@ -2295,11 +2373,78 @@ export const POST: APIRoute = async ({ request, locals }) => {
         : [];
 
     // ------------------------------------
-    // LOOKUP OVERRIDE (after compare logic)
+    // HYBRID INTENT CLASSIFIER (Haiku fallback)
+    // Fires when deterministic classifier defaulted to WINDOW_TOP_DAYS
+    // on month horizon — the exact spot where misroutes happen.
+    // Also replaces the old isEventLookupQuestion late override.
     // ------------------------------------
+    const needsHaikuClassification =
+      !force_compare &&
+      resolved_horizon === "month" &&
+      resolved_intent === "WINDOW_TOP_DAYS" &&
+      !isEventLookupQuestion(qRaw); // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
+
+    // Clear-cut lookup (deterministic) — keep existing behavior for unambiguous cases
     if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
       resolved_horizon = "lookup_event";
       resolved_intent = "LOOKUP_EVENT";
+    }
+
+    // Ambiguous month/WINDOW_TOP_DAYS — ask Haiku
+    if (needsHaikuClassification) {
+      const haiku = await classifyIntentWithHaiku(qRaw);
+      console.log("[haiku-classifier]", JSON.stringify(haiku));
+
+      if (haiku.intent === "ENTITY_IMPACT") {
+        resolved_intent = "ENTITY_IMPACT" as any;
+        resolved_horizon = "month";
+      } else if (haiku.intent === "LOOKUP_EVENT") {
+        resolved_horizon = "lookup_event";
+        resolved_intent = "LOOKUP_EVENT";
+      } else if (haiku.intent === "DAY_DIMENSION_DETAIL") {
+        if (haiku.horizon === "day" && haiku.detected_day) {
+          // Resolve weekday to next occurrence
+          const DOW_MAP: Record<string, number> = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
+          const targetDow = DOW_MAP[haiku.detected_day.toLowerCase()] ?? null;
+          if (targetDow !== null) {
+            const today = new Date();
+            for (let i = 0; i <= 7; i++) {
+              const d = new Date(today);
+              d.setDate(today.getDate() + i);
+              if (d.getDay() === targetDow) {
+                const ymd = d.toISOString().slice(0, 10);
+                // Inject as if user provided this date
+                if (!extracted_dates.length) extracted_dates.push(ymd);
+                resolved_horizon = "day";
+                resolved_intent = "DAY_DIMENSION_DETAIL";
+                break;
+              }
+            }
+          } else {
+            resolved_horizon = "day";
+            resolved_intent = "DAY_DIMENSION_DETAIL";
+          }
+        } else {
+          // Month-level dimension question — keep month but change intent
+          resolved_intent = "DAY_DIMENSION_DETAIL";
+        }
+      }
+      // WINDOW_TOP_DAYS from Haiku = confirm default, no change needed
+    }
+
+    // Temporal window constraint: "cette semaine" / "semaine prochaine"
+    const qnTemporal = norm(qRaw);
+    const thisWeekConstraint = qnTemporal.includes("cette semaine");
+    const nextWeekConstraint = qnTemporal.includes("semaine prochaine");
+    let temporalWindowEnd: string | null = null;
+    if (thisWeekConstraint) {
+      const d = new Date();
+      d.setDate(d.getDate() + (7 - d.getDay())); // next Sunday
+      temporalWindowEnd = d.toISOString().slice(0, 10);
+    } else if (nextWeekConstraint) {
+      const d = new Date();
+      d.setDate(d.getDate() + (14 - d.getDay()));
+      temporalWindowEnd = d.toISOString().slice(0, 10);
     }
         
     console.log({
@@ -2981,7 +3126,22 @@ Règles :
 - Quand tu réponds depuis tes connaissances, indique-le aussi.
 - Ne fabrique jamais de données chiffrées sans source.
 - Sois direct et opérationnel — le client doit pouvoir agir sur ta réponse.`
-        : `Tu es l'assistant de Muse Square Insight, une plateforme française d'intelligence contextuelle pour les professionnels de l'événementiel. Tu réponds en français. Quand tu utilises une recherche web, indique-le clairement. Quand tu réponds depuis tes connaissances, indique-le aussi. Ne fabrique jamais de données.`;
+        : `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
+
+Contexte du client :
+- Type de lieu : ${internal_context?.location_type ?? "non renseigné"}
+- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+- Description : ${internal_context?.business_short_description ?? "non renseignée"}
+- Audience principale : ${internal_context?.primary_audience_1 ?? "non renseignée"}
+- Profil temporel : ${internal_context?.event_time_profile ?? "non renseigné"}
+
+Règles :
+- Réponds à la question posée de façon directe et opérationnelle.
+- Si la question porte sur l'impact d'une entité : 1) Identifie l'entité (1-2 phrases). 2) Analyse l'impact concret : fréquentation, audience partagée, timing, proximité. 3) Précise si l'impact est positif ou négatif.
+- Utilise les données web pour les faits (dates, lieu, thème, affluence).
+- Ne fabrique jamais de chiffres sans source.
+- Pas de markdown. Texte brut uniquement.
+- Maximum 150 mots.`;
 
       const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -2992,16 +3152,22 @@ Règles :
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1024,
+          max_tokens: 2048,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           system: systemPrompt,
           messages: [{ role: "user", content: qRaw }],
         }),
       }).then(r => r.json());
 
-      const textBlock = webSearchResult.content?.find((b: any) => b.type === "text");
-      const usedWebSearch = webSearchResult.content?.some((b: any) => b.type === "tool_use" && b.name === "web_search");
-      const answerText = textBlock?.text ?? "Je n'ai pas pu trouver de réponse.";
+      console.log("[webSearch] raw response:", JSON.stringify(webSearchResult).slice(0, 2000));
+
+      const contentBlocks = Array.isArray(webSearchResult.content) ? webSearchResult.content : [];
+      const usedWebSearch = contentBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
+      // Get the LAST text block — that's Claude's answer after processing search results
+      const textBlocks = contentBlocks.filter((b: any) => b.type === "text");
+      const answerText = textBlocks.length > 0
+        ? textBlocks[textBlocks.length - 1].text
+        : "Je n'ai pas pu trouver de réponse.";
 
       return new Response(JSON.stringify({
         ok: true,
@@ -3217,6 +3383,22 @@ Règles :
         if (resolved_intent === "WINDOW_TOP_DAYS") {
           shortlist_rows = shortlist_rows.slice(0, top_k);
         }
+
+        // Apply temporal window constraint ("cette semaine" / "semaine prochaine")
+        if (temporalWindowEnd && (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS")) {
+          const today = new Date().toISOString().slice(0, 10);
+          shortlist_rows = shortlist_rows.filter((r: any) => {
+            const d = ymdFromAnyDate(r?.date);
+            return d >= today && d <= temporalWindowEnd;
+          });
+          if (worstlist_rows.length) {
+            worstlist_rows = worstlist_rows.filter((r: any) => {
+              const d = ymdFromAnyDate(r?.date);
+              return d >= today && d <= temporalWindowEnd;
+            });
+          }
+        }
+        
         // ---- V3: Per-day deterministic driver enrichment ----
         shortlist_rows = shortlist_rows.map((r: any) => {
           const weather = buildWeatherSignal(r, internal_context);
@@ -3393,6 +3575,149 @@ Règles :
             warnings: [],
           };
           break;
+        }
+
+        if (resolved_intent === "ENTITY_IMPACT") {
+          const entityName = extractEntityNameFromQuestion(qRaw);
+          const entityNameNorm = entityName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          // Extract first meaningful token (before parenthesis, dash, or comma) for broader matching
+          const entityNameShort = entityNameNorm.split(/[\(\-,]/)[0].trim();
+          console.log("[ENTITY_IMPACT] entityNameNorm:", entityNameNorm, "entityNameShort:", entityNameShort);
+
+          // Step 1: Search competitor signals for this entity
+          const entitySignals = await bqAll(
+            `
+            SELECT
+              competitor_id,
+              competitor_name,
+              competitor_industry_code,
+              competitor_primary_audience,
+              competitor_secondary_audience,
+              competitor_address,
+              event_name,
+              event_type,
+              description,
+              event_date,
+              event_date_end,
+              venue_name,
+              event_city,
+              distance_from_location_m,
+              event_primary_audience,
+              event_industry_code,
+              conflict_score,
+              industry_overlap,
+              audience_overlap,
+              audience_overlap_score,
+              entity_threat_score,
+              entity_threat_level,
+              entity_threat_audience_pct,
+              entity_threat_industry_tier,
+              entity_threat_distance_km,
+              entity_is_followed,
+              is_launch,
+              is_active,
+              is_upcoming
+            FROM \`${semanticProjectId}.semantic.vw_insight_event_competitor_signals\`
+            WHERE location_id = @location_id
+              AND (
+                LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(competitor_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @entity_name_norm, '%')
+                OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @entity_name_norm, '%')
+                OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(competitor_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @entity_name_short, '%')
+              )
+              AND event_date >= CURRENT_DATE() - 30
+            ORDER BY conflict_score DESC, event_date ASC
+            LIMIT 20
+            `,
+            bqParams({ location_id, entity_name_norm: entityNameNorm, entity_name_short: entityNameShort })
+          );
+
+          console.log("[ENTITY_IMPACT] rows found:", entitySignals.length);
+
+          if (entitySignals.length > 0) {
+            // Scenario A: entity found in our data
+            const first = entitySignals[0];
+            const activeEvents = entitySignals.filter((r: any) => r.is_active || r.is_upcoming);
+
+            const narrative_input_entity = {
+              horizon: "month",
+              intent: "ENTITY_IMPACT",
+              entity: {
+                competitor_name: first.competitor_name ?? entityName,
+                competitor_industry_code: first.competitor_industry_code ?? null,
+                competitor_primary_audience: first.competitor_primary_audience ?? null,
+                competitor_secondary_audience: first.competitor_secondary_audience ?? null,
+                competitor_address: first.competitor_address ?? null,
+                competitor_enriched_description: first.description ?? null,
+                entity_threat_score: first.entity_threat_score ?? null,
+                entity_threat_level: first.entity_threat_level ?? null,
+                entity_threat_audience_pct: first.entity_threat_audience_pct ?? null,
+                entity_threat_industry_tier: first.entity_threat_industry_tier ?? null,
+                entity_threat_distance_km: first.entity_threat_distance_km ?? null,
+                entity_is_followed: first.entity_is_followed ?? false,
+                distance_from_location_m: first.distance_from_location_m ?? null,
+              },
+              events: activeEvents.slice(0, 10).map((r: any) => ({
+                event_name: r.event_name ?? null,
+                event_type: r.event_type ?? null,
+                description: typeof r.description === "string" ? r.description.slice(0, 200) : null,
+                event_date: r.event_date ? ymdFromAnyDate(r.event_date) : null,
+                event_date_end: r.event_date_end ? ymdFromAnyDate(r.event_date_end) : null,
+                venue_name: r.venue_name ?? null,
+                event_city: r.event_city ?? null,
+                conflict_score: r.conflict_score ?? null,
+                industry_overlap: r.industry_overlap ?? null,
+                audience_overlap: r.audience_overlap ?? null,
+                audience_overlap_score: r.audience_overlap_score ?? null,
+                is_launch: r.is_launch ?? false,
+                is_active: r.is_active ?? false,
+                is_upcoming: r.is_upcoming ?? false,
+              })),
+              business_profile: {
+                location_type: internal_context?.location_type ?? null,
+                company_activity_type: internal_context?.company_activity_type ?? null,
+                business_short_description: internal_context?.business_short_description ?? null,
+                event_time_profile: internal_context?.event_time_profile ?? null,
+                primary_audience_1: internal_context?.primary_audience_1 ?? null,
+                primary_audience_2: internal_context?.primary_audience_2 ?? null,
+                main_event_objective: internal_context?.main_event_objective ?? null,
+                venue_capacity: internal_context?.venue_capacity ?? null,
+              },
+            };
+
+            try {
+              ai = await runAIPackagerClaude({
+                mode: "v3_narrative",
+                row: { ...narrative_input_entity, _conversation_history: conversation_history },
+              });
+              producer = "v3_claude";
+            } catch (e) {
+              // Deterministic fallback
+              const distKm = first.entity_threat_distance_km ?? (first.distance_from_location_m ? (Number(first.distance_from_location_m) / 1000).toFixed(1) : "ND");
+              const threatLvl = first.entity_threat_level ?? "ND";
+              const activeCount = activeEvents.length;
+              ai = {
+                ok: true,
+                mode: "deterministic_entity_impact_v1",
+                output: {
+                  headline: `${first.competitor_name ?? entityName} — ${activeCount} événement(s) actif(s), ${distKm} km`,
+                  verdict: `Niveau de menace : ${threatLvl}.`,
+                  answer: `${first.competitor_name ?? entityName} est situé à ${distKm} km de votre lieu (secteur : ${first.competitor_industry_code ?? "ND"}).\n\n${activeCount} événement(s) actif(s) ou à venir détecté(s). Score de conflit moyen : ${first.conflict_score ?? "ND"}/4. Chevauchement audience : ${first.audience_overlap_score ?? "ND"}/10.\n\nConsultez la fiche concurrent pour plus de détails.`,
+                  key_facts: [],
+                  reasons: [],
+                  caveats: [],
+                },
+                raw_text: "",
+                errors: [],
+                warnings: [],
+              };
+              producer = "v3_fallback_deterministic";
+            }
+          } else {
+            // Scenario B: entity NOT in our data — fall back to web search
+            resolved_intent = "INTENT_UNKNOWN";
+          }
+
+          if (resolved_intent !== "INTENT_UNKNOWN") break;
         }
 
         if (resolved_intent === "DRIVER_PRIMARY") {
@@ -3575,6 +3900,7 @@ Règles :
         const narrative_input_day = {
           horizon: "day",
           intent: resolved_intent,
+          user_question: qRaw,
           date: effective_date,
           display_label: day_row?.display_label ?? effective_date,
           scoring: {
@@ -4234,7 +4560,7 @@ Règles :
     const secondary: ApiAction[] = [];
 
     if (resolved_horizon === "month") {
-      if (month_redirect_url) {
+      if (month_redirect_url && resolved_intent !== "ENTITY_IMPACT" && resolved_intent !== "MOBILITY_UNAVAILABLE" && resolved_intent !== "INTENT_UNKNOWN") {
         primary = {
           type: "redirect",
           url: month_redirect_url,
