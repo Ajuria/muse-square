@@ -1292,7 +1292,7 @@ if (!location_id) {
   }
 
   // ---- Render ----
-  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days) {
+  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount) {
     var today = todayYmd();
     var prof = profile || {};
 
@@ -1368,6 +1368,37 @@ if (!location_id) {
     window.__pendingAiSowhat = _aiSowhatPayload.length > 0 ? { payload: _aiSowhatPayload, profile: prof, day: currentDay } : null;
 
     if (top.length === 0) {
+      var _followedCount = Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0);
+      if (!_followedCount) {
+        return '<div style="margin-bottom:20px;">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+            + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+            + '<span style="font-size:11px;color:#9ca3af;">1 action</span>'
+          + '</div>'
+          + '<div class="ab-card"><div class="ab-card-row"><div class="ab-bar" style="background:#1D3BB3;"></div><div class="ab-inner">'
+            + '<div class="ab-summary"><div style="display:flex;align-items:flex-start;gap:12px;">'
+              + '<div class="ab-cat-icon ab-cat-icon-intelligence" style="margin-top:2px;">\ud83c\udfaf</div>'
+              + '<div style="flex:1;min-width:0;">'
+                + '<div class="ab-pills"><span class="ab-pill" style="background:#EEF2FF;color:#1D3BB3;">Configuration</span></div>'
+                + '<div class="ab-what">Configurez votre veille concurrentielle</div>'
+                + '<div class="ab-sowhat">Ajoutez vos concurrents pour recevoir des alertes quand ils lancent des \u00e9v\u00e9nements, modifient leurs horaires ou captent votre audience.</div>'
+              + '</div>'
+            + '</div></div>'
+            + '<div class="ab-metrics-strip">'
+              + '<span class="ab-metric"><span style="font-size:12px;margin-right:3px;">\ud83d\udd14</span> Alertes en temps r\u00e9el</span>'
+              + '<span class="ab-metric"><span style="font-size:12px;margin-right:3px;">\ud83d\udcc5</span> \u00c9v\u00e9nements d\u00e9tect\u00e9s</span>'
+              + '<span class="ab-metric"><span style="font-size:12px;margin-right:3px;">\ud83d\udc65</span> Chevauchement audience</span>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 16px 12px;">'
+              + '<a href="/app/insightevent/prompt?mode=concurrence" style="font-size:12px;font-weight:700;color:#1D3BB3;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">Ajouter un concurrent \u2192</a>'
+            + '</div>'
+          + '</div></div></div>'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
+            + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;"><div style="height:100%;background:#059669;width:0%;border-radius:2px;"></div></div>'
+            + '<span style="font-size:10px;color:#6B7280;">0/1</span>'
+          + '</div>'
+        + '</div>';
+      }
       return '<div style="margin-bottom:20px;">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
           + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
@@ -3796,7 +3827,7 @@ if (!location_id) {
     }
 
     // Daily Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days);
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount);
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
