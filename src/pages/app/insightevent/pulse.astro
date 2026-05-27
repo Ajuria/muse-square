@@ -2959,12 +2959,26 @@ if (!location_id) {
     var potentialsHtml = renderPotentialCompetitors(topThreats || []);
     var followedLabel = "Suivis" + (followedCount > 0 ? " (" + followedCount + ")" : "");
     var potentialLabel = "Potentiels" + (topThreats && topThreats.length > 0 ? " (" + topThreats.length + ")" : "");
+    if (!followedCount) {
+      return '<div>'
+        + followedHtml
+        + '<div style="padding-top:0;">'
+          + '<div style="font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:10px;">Concurrents potentiels \u00b7 ' + ((topThreats || []).length) + '</div>'
+          + potentialsHtml
+        + '</div>'
+      + '</div>';
+    }
     return '<div>'
       + '<div style="display:flex;gap:0;border-bottom:1px solid #f3f4f6;margin-bottom:12px;">'
         + '<button type="button" data-comp-tab="suivis" style="padding:10px 0;margin-right:22px;font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(followedLabel)+'</button>'
         + '<button type="button" data-comp-tab="potentiels" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(potentialLabel)+'</button>'
       + '</div>'
-      + '<div data-comp-panel="suivis" style="display:block;">' + followedHtml + '</div>'
+      + '<div data-comp-panel="suivis" style="display:block;">' + followedHtml
+        + '<div style="padding:10px 0 0;display:flex;justify-content:space-between;align-items:center;">'
+          + '<a href="/app/insightevent/prompt?mode=concurrence" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:4px;">+ Ajouter un concurrent</a>'
+          + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#9CA3AF;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
+        + '</div>'
+      + '</div>'
       + '<div data-comp-panel="potentiels" style="display:none;">' + potentialsHtml + '</div>'
     + '</div>';
   }
@@ -3016,8 +3030,21 @@ if (!location_id) {
       if (!byComp.has(cid)) byComp.set(cid, []);
       byComp.get(cid).push(s);
     }
+    if (byComp.size === 0 && !followedCount) {
+      return '<div style="padding:20px 16px;border-bottom:0.5px solid #F3F4F6;">'
+        + '<div style="display:flex;align-items:center;gap:14px;">'
+          + '<div style="width:40px;height:40px;border-radius:10px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+          + '</div>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-size:14px;color:#111827;font-weight:500;margin:0 0 3px;">Rechercher un concurrent</div>'
+            + '<div style="font-size:12px;color:#6B7280;line-height:1.4;">Par nom, secteur ou mot-cl\u00e9 dans votre zone</div>'
+          + '</div>'
+          + '<a href="/app/insightevent/prompt?mode=concurrence" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">+ Ajouter</a>'
+        + '</div>'
+      + '</div>';
+    }
     if (byComp.size === 0) {
-      if (!followedCount) return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun concurrent suivi. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
       return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun signal d\u00e9tect\u00e9. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
     }
     var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
