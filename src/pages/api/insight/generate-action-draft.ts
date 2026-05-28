@@ -116,6 +116,34 @@ function weatherType(signal: any): string {
   return "froid";
 }
 
+function parseCompetitorEnriched(comp: any): Record<string, string> {
+  if (!comp?.competitor_enriched_description) return {};
+  try {
+    const raw = typeof comp.competitor_enriched_description === 'string'
+      ? JSON.parse(comp.competitor_enriched_description)
+      : comp.competitor_enriched_description;
+    return raw || {};
+  } catch { return {}; }
+}
+
+function competitorIntelBlock(comps: any[] | null): string {
+  if (!comps || comps.length === 0) return '';
+  const top = comps[0];
+  const enriched = parseCompetitorEnriched(top);
+  if (!enriched.business_description && !enriched.current_offering && !enriched.pricing_info) return '';
+  const lines: string[] = [];
+  lines.push(`\nINTELLIGENCE CONCURRENTIELLE (données crawlées — NE PAS CITER comme source) :`);
+  lines.push(`Concurrent : ${safeStr(top.competitor_name)}`);
+  if (enriched.business_description) lines.push(`Description : ${enriched.business_description}`);
+  if (enriched.current_offering) lines.push(`Offre : ${enriched.current_offering}`);
+  if (enriched.pricing_info) lines.push(`Tarifs : ${enriched.pricing_info}`);
+  if (enriched.key_differentiators) lines.push(`Différenciants : ${enriched.key_differentiators}`);
+  if (enriched.target_audience) lines.push(`Public cible concurrent : ${enriched.target_audience}`);
+  if (enriched.opening_hours_mentioned) lines.push(`Horaires concurrent : ${enriched.opening_hours_mentioned}`);
+  lines.push(`Utilise ces données pour positionner NOTRE offre face à ce concurrent. Ne mentionne JAMAIS le nom du concurrent dans le post.`);
+  return lines.join('\n');
+}
+
 // ────────────────────────────────────────────────────────────
 // System prompt builder
 // ────────────────────────────────────────────────────────────
@@ -280,6 +308,7 @@ Notre public : ${aud || "notre clientèle habituelle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} qui met en avant NOTRE offre de manière positive pour ce week-end. Le post doit donner envie à notre public de venir chez nous. Ne mentionne jamais le concurrent, ne critique jamais. Mets en avant ce qui nous rend unique.
 ${ctx.channel === "instagram" ? "Termine par des hashtags locaux (" + safeStr(p.city_name) + ")." : ""}
+${competitorIntelBlock(ctx.competitor_context)}
 ${ctx.channel === "gbp" && safeStr(p.website_url) ? "Lien : " + p.website_url : ""}`.trim();
 }
 
@@ -304,6 +333,7 @@ Notre public : ${sharedAud}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de type "offre flash" ou "événement exclusif" qui donne une raison urgente de venir chez nous. Sans jamais mentionner le concurrent. Ton dynamique et exclusif.
 ${ctx.channel === "instagram" ? "Hashtags locaux (" + safeStr(p.city_name) + ")." : ""}
+${competitorIntelBlock(ctx.competitor_context)}
 ${ctx.channel === "gbp" && safeStr(p.website_url) ? "Lien : " + p.website_url : ""}`.trim();
 }
 
@@ -327,6 +357,7 @@ Notre public : ${AUD_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de fidélisation — rappeler à nos clients existants pourquoi revenir cette semaine. Ton personnel, pas marketing. Mentionner un avantage concret (exclusivité, nouveauté, ou simplement "on vous attend").
 ${ctx.channel === "email" ? "Signe : L'équipe " + (safeStr(p.site_name) || safeStr(p.location_label)) : ""}
+${competitorIntelBlock(ctx.competitor_context)}
 ${ctx.channel === "instagram" ? "Hashtags locaux (" + safeStr(p.city_name) + ")." : ""}`.trim();
 }
 

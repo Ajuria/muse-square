@@ -147,6 +147,48 @@ export const GET: APIRoute = async ({ url, locals }) => {
       location: BQ_LOCATION,
     });
 
+    // ---- Query 4: Followed competitors (always returned, even without events) ----
+    const [followedRows] = await bq.query({
+      query: `
+        SELECT
+          tp.competitor_id,
+          tp.competitor_name,
+          tp.is_followed,
+          tp.threat_score,
+          tp.threat_level,
+          tp.audience_overlap_pct,
+          tp.industry_match_tier,
+          tp.distance_km,
+          tp.competitor_google_rating,
+          tp.competitor_google_rating_count,
+          cd.google_photos,
+          cd.auto_enriched_description
+        FROM \`${projectId}.mart.fct_competitor_threat_profile\` tp
+        LEFT JOIN \`${projectId}.mart.fct_competitor_directory\` cd
+          ON tp.competitor_id = cd.competitor_id
+        WHERE tp.location_id = @location_id
+          AND tp.is_followed = true
+        ORDER BY tp.threat_score DESC
+      `,
+      params: { location_id },
+      types: { location_id: "STRING" },
+      location: BQ_LOCATION,
+    });
+
+    const followed_competitors = (Array.isArray(followedRows) ? followedRows : []).map((r: any) => ({
+      competitor_id:              r.competitor_id,
+      competitor_name:            r.competitor_name ?? null,
+      threat_score:               r.threat_score ?? 0,
+      threat_level:               r.threat_level ?? null,
+      audience_overlap_pct:       r.audience_overlap_pct ?? 0,
+      industry_match_tier:        r.industry_match_tier ?? null,
+      distance_km:                r.distance_km ?? null,
+      google_rating:              r.competitor_google_rating ?? null,
+      google_rating_count:        r.competitor_google_rating_count ?? null,
+      google_photos:              r.google_photos ?? null,
+      auto_enriched_description:  r.auto_enriched_description ?? null,
+    }));
+
     const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({
       competitor_id:              r.competitor_id,
       competitor_name:            r.competitor_name ?? null,
@@ -201,7 +243,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       event_type:                 r.event_type ?? null,
     }));
 
-    return new Response(JSON.stringify({ ok: true, signals, followed_count, top_threats }), {
+    return new Response(JSON.stringify({ ok: true, signals, followed_count, followed_competitors, top_threats }), {
       status: 200, headers: { "content-type": "application/json" },
     });
 
