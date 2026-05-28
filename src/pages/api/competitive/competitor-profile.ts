@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `
           SELECT
             competitor_id, competitor_name, address, city,
-            industry_code, industry_bucket,
+            industry_code, industry_bucket, entity_type,
             primary_audience, secondary_audience,
             lat, lon,
             google_place_id, google_photos,
