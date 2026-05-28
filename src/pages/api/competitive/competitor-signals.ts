@@ -147,28 +147,31 @@ export const GET: APIRoute = async ({ url, locals }) => {
       location: BQ_LOCATION,
     });
 
-    // ---- Query 4: Followed competitors (always returned, even without events) ----
+    // ---- Query 4: Followed competitors (directory-driven, left join threat profile) ----
     const [followedRows] = await bq.query({
       query: `
         SELECT
-          tp.competitor_id,
-          tp.competitor_name,
-          tp.is_followed,
+          cd.competitor_id,
+          cd.competitor_name,
+          cd.is_followed,
+          cd.google_rating,
+          cd.google_rating_count,
+          cd.google_photos,
+          cd.auto_enriched_description,
+          cd.industry_code       AS competitor_industry_code,
+          cd.primary_audience    AS competitor_primary_audience,
+          cd.secondary_audience  AS competitor_secondary_audience,
           tp.threat_score,
           tp.threat_level,
           tp.audience_overlap_pct,
           tp.industry_match_tier,
-          tp.distance_km,
-          tp.competitor_google_rating,
-          tp.competitor_google_rating_count,
-          cd.google_photos,
-          cd.auto_enriched_description
-        FROM \`${projectId}.mart.fct_competitor_threat_profile\` tp
-        LEFT JOIN \`${projectId}.mart.fct_competitor_directory\` cd
-          ON tp.competitor_id = cd.competitor_id
-        WHERE tp.location_id = @location_id
-          AND tp.is_followed = true
-        ORDER BY tp.threat_score DESC
+          tp.distance_km
+        FROM \`${projectId}.mart.fct_competitor_directory\` cd
+        LEFT JOIN \`${projectId}.mart.fct_competitor_threat_profile\` tp
+          ON cd.competitor_id = tp.competitor_id
+          AND tp.location_id = @location_id
+        WHERE cd.is_followed = true
+        ORDER BY tp.threat_score DESC NULLS LAST
       `,
       params: { location_id },
       types: { location_id: "STRING" },
@@ -178,15 +181,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const followed_competitors = (Array.isArray(followedRows) ? followedRows : []).map((r: any) => ({
       competitor_id:              r.competitor_id,
       competitor_name:            r.competitor_name ?? null,
-      threat_score:               r.threat_score ?? 0,
+      threat_score:               r.threat_score ?? null,
       threat_level:               r.threat_level ?? null,
-      audience_overlap_pct:       r.audience_overlap_pct ?? 0,
+      audience_overlap_pct:       r.audience_overlap_pct ?? null,
       industry_match_tier:        r.industry_match_tier ?? null,
       distance_km:                r.distance_km ?? null,
-      google_rating:              r.competitor_google_rating ?? null,
-      google_rating_count:        r.competitor_google_rating_count ?? null,
+      google_rating:              r.google_rating ?? null,
+      google_rating_count:        r.google_rating_count ?? null,
       google_photos:              r.google_photos ?? null,
       auto_enriched_description:  r.auto_enriched_description ?? null,
+      competitor_industry_code:   r.competitor_industry_code ?? null,
+      competitor_primary_audience: r.competitor_primary_audience ?? null,
+      competitor_secondary_audience: r.competitor_secondary_audience ?? null,
     }));
 
     const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({
