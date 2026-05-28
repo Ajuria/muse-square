@@ -3901,7 +3901,8 @@ if (!location_id) {
       if (!compByComp.has(cid)) compByComp.set(cid, []);
       compByComp.get(cid).push(s);
     }
-    const totalComps = compByComp.size;
+    const followedCompetitors = data._followed_competitors || [];
+    const totalComps = Math.max(compByComp.size, followedCompetitors.length);
     const totalActiveEvents = competitorSignals.filter(s => s.is_active).length;
 
     // Find worst threat level across all competitors
@@ -3916,13 +3917,22 @@ if (!location_id) {
       if (sigs.some(s => s.audience_overlap)) hasAnyAudOverlap = true;
     }
 
+    // Include threat levels from followed competitors without event signals
+    for (const fc of followedCompetitors) {
+      const ts = Number(fc.threat_score || 0);
+      const lvl = fc.threat_level || null;
+      if (ts > worstThreatScore) { worstThreatScore = ts; worstThreatLevel = lvl; }
+    }
+
     const THREAT_LABELS_FR = { high: "Menace \u00e9lev\u00e9e", moderate: "Menace mod\u00e9r\u00e9e", low: "Menace faible" };
     let threatSummary = "";
     if (totalComps > 0) {
       const worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
       const parts = [];
       parts.push(`Concurrents suivis : ${totalComps}`);
-      parts.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
+      if (totalActiveEvents > 0) {
+        parts.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
+      }
       if (worstLabel) parts.push(escapeHtml(worstLabel));
       else if (hasAnyAudOverlap) parts.push("Chevauchement audience");
       threatSummary = parts.join(" \u00b7 ");
