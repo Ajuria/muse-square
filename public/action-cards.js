@@ -279,12 +279,18 @@
       if (edge) line += ' Votre diff\u00e9renciant face \u00e0 ce concurrent : ' + trunc(edge, 100) + '.';
       var aud = audLabel(p);
       if (aud) line += ' M\u00eame cible (' + aud + ') \u2014 risque de cannibalisation.';
+      var compEnriched = null;
+      try { compEnriched = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) {}
+      if (compEnriched) {
+        if (compEnriched.current_offering) line += ' Offre concurrent : ' + trunc(compEnriched.current_offering, 120) + '.';
+        if (compEnriched.pricing_info) line += ' Tarifs : ' + trunc(compEnriched.pricing_info, 80) + '.';
+      }
       return line;
     },
     {
-      instagram: function(a, p, d) { var c = topComp(d); return 'Post Instagram pour ' + siteName(p) + '. Concurrent actif (' + (c.organizer_name || 'proche') + '). Se diff\u00e9rencier avec : ' + (userEdge(p) || 'votre offre') + '. Ton confiant. Max 2200 car.'; },
-      facebook: function(a, p, d) { var c = topComp(d); return 'Post Facebook pour ' + siteName(p) + '. Concurrent (' + (c.organizer_name || '') + ') m\u00eame jour. Positionnement unique + horaires + acc\u00e8s.'; },
-      note_interne: function(a, p, d) { var c = topComp(d); return 'Note interne. Menace directe : ' + (c.organizer_name || 'concurrent') + ' \u00e0 ' + distLabel(c.distance_m) + '. Diff\u00e9renciant : ' + (userEdge(p) || '\u00e0 d\u00e9finir') + '. D\u00e9cision : renforcer comm ou adapter offre.'; }
+      instagram: function(a, p, d) { var c = topComp(d); var ce = null; try { ce = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) {} var intel = ce && ce.current_offering ? ' Leur offre : ' + trunc(ce.current_offering, 80) + '.' : ''; return 'Post Instagram pour ' + siteName(p) + '. Concurrent actif (' + (c.organizer_name || a.competitor_name || 'proche') + ').' + intel + ' Se diff\u00e9rencier avec : ' + (userEdge(p) || 'votre offre') + '. Ton confiant. Max 2200 car.'; },
+      facebook: function(a, p, d) { var c = topComp(d); var ce = null; try { ce = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) {} var intel = ce && ce.current_offering ? ' Leur offre : ' + trunc(ce.current_offering, 80) + '.' : ''; return 'Post Facebook pour ' + siteName(p) + '. Concurrent (' + (c.organizer_name || a.competitor_name || '') + ') m\u00eame jour.' + intel + ' Positionnement unique + horaires + acc\u00e8s.'; },
+      note_interne: function(a, p, d) { var c = topComp(d); var ce = null; try { ce = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) {} var intel = ''; if (ce) { if (ce.current_offering) intel += ' Offre : ' + trunc(ce.current_offering, 100) + '.'; if (ce.pricing_info) intel += ' Tarifs : ' + trunc(ce.pricing_info, 60) + '.'; if (ce.key_differentiators) intel += ' Diff\u00e9renciants : ' + trunc(ce.key_differentiators, 80) + '.'; } return 'Note interne. Menace directe : ' + (c.organizer_name || a.competitor_name || 'concurrent') + ' \u00e0 ' + distLabel(a.distance_m || c.distance_m) + '.' + intel + ' Notre diff\u00e9renciant : ' + (userEdge(p) || '\u00e0 d\u00e9finir') + '. D\u00e9cision : renforcer comm ou adapter offre.'; }
     }
   );
 

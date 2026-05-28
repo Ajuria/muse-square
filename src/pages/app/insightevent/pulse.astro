@@ -2985,7 +2985,7 @@ if (!location_id) {
   // V4 NEW — Threat summary (strip 2 expanded)
   // ----------------------------------------------------------------
   function renderThreatSummary(competitorSignals, selectedDate, followedCount, topThreats) {
-    var followedHtml = renderFollowedCompetitorsList(competitorSignals, followedCount);
+    var followedHtml = renderFollowedCompetitorsList(competitorSignals, followedCount, competitorSignals._followedCompetitors || []);
     var potentialsHtml = renderPotentialCompetitors(topThreats || []);
     var followedLabel = "Suivis" + (followedCount > 0 ? " (" + followedCount + ")" : "");
     var potentialLabel = "Potentiels" + (topThreats && topThreats.length > 0 ? " (" + topThreats.length + ")" : "");
@@ -3052,7 +3052,7 @@ if (!location_id) {
     }).join("");
   }
 
-  function renderFollowedCompetitorsList(signals, followedCount) {
+  function renderFollowedCompetitorsList(signals, followedCount, followedCompetitors) {
     var byComp = new Map();
     for (var i = 0; i < signals.length; i++) {
       var s = signals[i];
@@ -3072,6 +3072,50 @@ if (!location_id) {
           + '</div>'
           + '<a href="/app/insightevent/prompt" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">+ Ajouter</a>'
         + '</div>'
+      + '</div>';
+    }
+    if (byComp.size === 0 && followedCompetitors && followedCompetitors.length > 0) {
+      var THREAT_BADGE_FC = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
+      var fcHtml = followedCompetitors.map(function(fc) {
+        var name = fc.competitor_name || "Concurrent";
+        var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
+        var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1) : null;
+        var badge = THREAT_BADGE_FC[fc.threat_level] || THREAT_BADGE_FC.low;
+        var photoHtml = fc.google_photos
+          ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(fc.google_photos) + '" alt="">'
+          : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
+        var ratingHtml = fc.google_rating ? '<span style="font-size:11px;color:#854F0B;">\u2605 ' + Number(fc.google_rating).toFixed(1) + (fc.google_rating_count ? ' \u00b7 ' + Number(fc.google_rating_count).toLocaleString('fr-FR') + ' avis' : '') + '</span>' : '';
+        var metaParts = [];
+        if (distKm) metaParts.push(distKm + ' km');
+        metaParts.push('0 \u00e9v\u00e9n.');
+        var enrichedSummary = '';
+        if (fc.auto_enriched_description) {
+          try {
+            var enr = typeof fc.auto_enriched_description === 'string' ? JSON.parse(fc.auto_enriched_description) : fc.auto_enriched_description;
+            if (enr && enr.business_description) enrichedSummary = '<div style="font-size:11px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">' + escapeHtml(enr.business_description.substring(0, 80)) + '\u2026</div>';
+          } catch(e) {}
+        }
+        return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(fc.competitor_id) + '" style="text-decoration:none;color:inherit;display:block;">'
+          + '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid #F3F4F6;">'
+            + photoHtml
+            + '<div style="flex:1;min-width:0;">'
+              + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
+              + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+                + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+                + '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>'
+              + '</div>'
+              + (ratingHtml ? '<div style="margin-top:2px;">' + ratingHtml + '</div>' : '')
+              + enrichedSummary
+            + '</div>'
+            + '<span style="font-size:12px;color:#1D3BB3;font-weight:500;flex-shrink:0;">Profil \u2192</span>'
+          + '</div>'
+        + '</a>';
+      }).join("");
+      return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;">'
+        + fcHtml
+      + '</div>'
+      + '<div style="padding:8px 0 0;display:flex;justify-content:flex-end;">'
+        + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
       + '</div>';
     }
     if (byComp.size === 0) {
@@ -3460,6 +3504,7 @@ if (!location_id) {
     const currentDay = dayMap.get(selectedDate) || days[0] || null;
     const allFeed = Array.isArray(data.all_feed) ? data.all_feed : [];
     const competitorSignals = data._competitor_signals || [];
+    competitorSignals._followedCompetitors = data._followed_competitors || [];
     const followedCount = Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0);
     const isMultisite = Array.isArray(data._locations) && data._locations.length > 1;
 
@@ -4306,7 +4351,7 @@ if (!location_id) {
   }
 
   async function fetchCompetitorSignals(date) {
-    if (!date) return { signals: [], followed_count: 0 };
+    if (!date) return { signals: [], followed_count: 0, followed_competitors: [], top_threats: [] };
     try {
       const res = await fetch(
         `/api/competitive/competitor-signals?selected_date=${encodeURIComponent(date)}`
@@ -4315,9 +4360,10 @@ if (!location_id) {
       return {
         signals: (json?.ok && Array.isArray(json.signals)) ? json.signals : [],
         followed_count: json?.followed_count ?? 0,
+        followed_competitors: (json?.ok && Array.isArray(json.followed_competitors)) ? json.followed_competitors : [],
         top_threats: (json?.ok && Array.isArray(json.top_threats)) ? json.top_threats : [],
       };
-    } catch { return { signals: [], followed_count: 0 }; }
+    } catch { return { signals: [], followed_count: 0, followed_competitors: [], top_threats: [] }; }
   }
 
   // ----------------------------------------------------------------
@@ -4439,6 +4485,7 @@ if (!location_id) {
         mergedData._competitor_signals = csResult.signals;
         mergedData._competitor_followed_count = csResult.followed_count;
         mergedData._top_threats = csResult.top_threats;
+        mergedData._followed_competitors = csResult.followed_competitors || [];
         renderPulse(mergedData, todayYmd(), "radar");
 
       } else {
@@ -4462,6 +4509,7 @@ if (!location_id) {
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;
         data._top_threats = csResult.top_threats;
+        data._followed_competitors = csResult.followed_competitors || [];
         renderPulse(data, todayYmd(), "radar");
       }
 
