@@ -27,12 +27,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // ── Parallel fetch: directory, threat profile, user profile, alerts, events ──
     const [dirRows, threatRows, userRows, alertRows, eventRows] = await Promise.all([
-      // 1. Competitor directory
+      // 1. Competitor directory (semantic layer)
       bq.query({
         query: `
           SELECT
             competitor_id, competitor_name, address, city,
-            industry_code, industry_bucket, entity_type,
+            industry_code, industry_bucket,
             primary_audience, secondary_audience,
             lat, lon,
             google_place_id, google_photos,
@@ -42,9 +42,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
             competitive_analysis_json,
             confidence_score, is_user_vetted,
             created_at, updated_at
-          FROM \`${projectId}.raw.competitor_directory\`
+          FROM \`${projectId}.semantic.vw_insight_event_competitor_lookup\`
           WHERE competitor_id = @competitor_id
-            AND deleted_at IS NULL
           LIMIT 1
         `,
         params: { competitor_id },
@@ -104,7 +103,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             conflict_score,
             entity_threat_score, entity_threat_level,
             created_at
-          FROM \`${projectId}.mart.fct_competitor_alerts\`
+          FROM \`${projectId}.semantic.vw_insight_event_competitor_alerts\`
           WHERE competitor_id = @competitor_id
             AND location_id = @location_id
           ORDER BY created_at DESC
