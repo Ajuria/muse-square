@@ -147,34 +147,33 @@ export const GET: APIRoute = async ({ url, locals }) => {
       location: BQ_LOCATION,
     });
 
-    // ---- Query 4: Followed competitors (directory-driven, left join threat profile) ----
+    // ---- Query 4: Followed competitors (semantic layer, user-scoped) ----
     const [followedRows] = await bq.query({
       query: `
         SELECT
-          cd.competitor_id,
-          cd.competitor_name,
-          cd.is_followed,
-          cd.google_rating,
-          cd.google_rating_count,
-          cd.google_photos,
-          cd.auto_enriched_description,
-          cd.industry_code       AS competitor_industry_code,
-          cd.primary_audience    AS competitor_primary_audience,
-          cd.secondary_audience  AS competitor_secondary_audience,
-          tp.threat_score,
-          tp.threat_level,
-          tp.audience_overlap_pct,
-          tp.industry_match_tier,
-          tp.distance_km
-        FROM \`${projectId}.mart.fct_competitor_directory\` cd
-        LEFT JOIN \`${projectId}.mart.fct_competitor_threat_profile\` tp
-          ON cd.competitor_id = tp.competitor_id
-          AND tp.location_id = @location_id
-        WHERE cd.is_followed = true
-        ORDER BY tp.threat_score DESC NULLS LAST
+          competitor_id,
+          competitor_name,
+          google_rating,
+          google_rating_count,
+          google_photos,
+          auto_enriched_description,
+          industry_code          AS competitor_industry_code,
+          primary_audience       AS competitor_primary_audience,
+          secondary_audience     AS competitor_secondary_audience,
+          city,
+          address,
+          threat_score,
+          threat_level,
+          audience_overlap_pct,
+          industry_match_tier,
+          distance_km
+        FROM \`${projectId}.semantic.vw_insight_event_competitors_followed\`
+        WHERE clerk_user_id = @clerk_user_id
+          AND location_id   = @location_id
+        ORDER BY threat_score DESC NULLS LAST
       `,
-      params: { location_id },
-      types: { location_id: "STRING" },
+      params: { location_id, clerk_user_id },
+      types: { location_id: "STRING", clerk_user_id: "STRING" },
       location: BQ_LOCATION,
     });
 
@@ -193,6 +192,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       competitor_industry_code:   r.competitor_industry_code ?? null,
       competitor_primary_audience: r.competitor_primary_audience ?? null,
       competitor_secondary_audience: r.competitor_secondary_audience ?? null,
+      city:                       r.city ?? null,
+      address:                    r.address ?? null,
     }));
 
     const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({
