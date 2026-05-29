@@ -139,8 +139,8 @@ if (!location_id) {
         // KPIs
         html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">';
         var kpis = [
-          { val: threatScore, label: "MENACE", color: tColor },
-          { val: overlapPct, label: thr && thr.audience_overlap_pct != null ? "OVERLAP" : "RELATION", color: "#534AB7" },
+          { val: threatScore, label: thr ? (thr.industry_match_tier === "direct" ? "CONCURRENT DIRECT" : thr.industry_match_tier === "partial" ? "CONCURRENT PARTIEL" : "MENACE") : "MENACE", color: tColor },
+          { val: overlapPct, label: thr && thr.audience_overlap_pct != null ? "OVERLAP" : "CONCURRENCE", color: "#534AB7" },
           { val: gRating, label: "NOTE GOOGLE", color: "#111" },
           { val: gCount, label: "AVIS", color: "#111" }
         ];
