@@ -898,7 +898,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (website_url) {
       const baseUrl = import.meta.env.DEV
         ? "http://localhost:4321"
-        : (process.env.SITE_URL || "https://app.musesquare.com");
+        : new URL(request.url).origin;
       fetch(`${baseUrl}/api/profile/crawl-website`, {
         method: "POST",
         headers: {
