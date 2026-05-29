@@ -296,19 +296,25 @@ try {
 const ACTIVITY_LABELS: Record<string, string> = {
   non_profit: "Associatif & Non lucratif",
   wellness: "Bien-être & Fitness",
+  camping_outdoor: "Camping & Plein air",
+  convention_center: "Centres de congrès & Palais des expos",
   cinema_theatre: "Cinéma & Théâtre",
   commercial: "Commerce & Retail",
   institutional: "Collectivités & Secteur public",
+  coworking: "Coworking & Tiers-lieux",
   culture: "Culture & Patrimoine",
   family: "Éducation & Enseignement",
   live_event: "Événementiel",
+  gallery: "Galeries d'art & Ateliers",
   hotel_lodging: "Hôtellerie & Hébergement",
+  market_hall: "Marchés & Halles",
+  wine_tourism: "Œnotourisme & Domaines viticoles",
+  theme_park: "Parcs d'attractions & Loisirs",
   food_nightlife: "Restauration & Bars",
   science_innovation: "Sciences & Innovation",
   pro_event: "Salons & Événements professionnels",
   sport: "Sports & Loisirs actifs",
   transport_mobility: "Transport & Mobilité locale",
-  outdoor_leisure: "Tourisme & Loisirs",
   nightlife: "Vie nocturne",
   unknown: "Autre activité accueillant du public",
 };
@@ -366,7 +372,7 @@ function buildSummaryTags(loc: LocationRow): string {
 type OperatingHoursMap = Record<string, { open: string; close: string } | null>;
 
 function isIncomplete(loc: LocationRow): boolean {
-  return !loc.company_activity_type || !loc.location_type || !loc.primary_audience_1 || !loc.event_type_1;
+  return !loc.company_activity_type || !loc.location_type || !loc.primary_audience_1 || !loc.event_type_1 || !loc.website_url;
 }
 ---
 
@@ -707,8 +713,8 @@ function isIncomplete(loc: LocationRow): boolean {
             </div>
 
             <div class="field-group">
-              <label class="field-label">Site web</label>
-              <input type="url" name="website_url" value={loc.website_url || ""} placeholder="https://www.monsite.fr" class="field-input" />
+              <label class="field-label">Site web <span class="field-req">*</span></label>
+              <input type="url" name="website_url" value={loc.website_url || ""} placeholder="https://www.monsite.fr" class="field-input" required />
               <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
             </div>
 
@@ -1190,13 +1196,17 @@ window.toggleUserProfileCard = function() {
 // ============================================================
 const _ACTIVITY_LABELS = {
   non_profit:'Associatif & Non lucratif',wellness:'Bien-être & Fitness',
+  camping_outdoor:'Camping & Plein air',convention_center:'Centres de congrès & Palais des expos',
   cinema_theatre:'Cinéma & Théâtre',commercial:'Commerce & Retail',
-  institutional:'Collectivités & Secteur public',culture:'Culture & Patrimoine',
-  family:'Éducation & Enseignement',live_event:'Événementiel',
-  hotel_lodging:'Hôtellerie & Hébergement',food_nightlife:'Restauration & Bars',
-  science_innovation:'Sciences & Innovation',pro_event:'Salons & Événements pro',
-  sport:'Sports & Loisirs actifs',transport_mobility:'Transport & Mobilité locale',
-  outdoor_leisure:'Tourisme & Loisirs',nightlife:'Vie nocturne',unknown:'Autre activité accueillant du public',
+  institutional:'Collectivités & Secteur public',coworking:'Coworking & Tiers-lieux',
+  culture:'Culture & Patrimoine',family:'Éducation & Enseignement',
+  live_event:'Événementiel',gallery:"Galeries d'art & Ateliers",
+  hotel_lodging:'Hôtellerie & Hébergement',market_hall:'Marchés & Halles',
+  wine_tourism:'\u0152notourisme & Domaines viticoles',theme_park:"Parcs d'attractions & Loisirs",
+  food_nightlife:'Restauration & Bars',science_innovation:'Sciences & Innovation',
+  pro_event:'Salons & Événements pro',sport:'Sports & Loisirs actifs',
+  transport_mobility:'Transport & Mobilité locale',nightlife:'Vie nocturne',
+  unknown:'Autre activité accueillant du public',
 };
 const _LOCATION_TYPE_LABELS = { outdoor:'Extérieur', indoor:'Intérieur', mixed:'Mixte' };
 const _WEATHER_LABELS = { '0':'Météo : aucune','1':'Météo : faible','2':'Météo : modérée','3':'Météo : élevée','4':'Météo : extrême' };
@@ -1766,6 +1776,8 @@ window.saveLocation = async function(idx) {
   });
   const siteNameEl = body.querySelector('[name="site_name"]');
   if (!siteNameEl || !siteNameEl.value.trim()) missingFields.push(siteNameEl);
+  const websiteEl = body.querySelector('[name="website_url"]');
+  if (!websiteEl || !websiteEl.value.trim()) missingFields.push(websiteEl);
   const aud1El = document.getElementById(`aud-1-${idx}`);
   if (!aud1El || !aud1El.value) {
     const audGroup = body.querySelector('[data-pill-group]');
@@ -1937,8 +1949,8 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
         <p class="field-hint">Facultatif.</p>
       </div>
       <div class="field-group">
-        <label class="field-label">Site web</label>
-        <input type="url" name="website_url" placeholder="https://www.monsite.fr" class="field-input" />
+        <label class="field-label">Site web <span class="field-req">*</span></label>
+        <input type="url" name="website_url" placeholder="https://www.monsite.fr" class="field-input" required />
         <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
       </div>
       <div class="field-group" style="position:relative">
@@ -1954,19 +1966,25 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
             <option value="">Sélectionner…</option>
             <option value="non_profit">Associatif & Non lucratif</option>
             <option value="wellness">Bien-être & Fitness</option>
+            <option value="camping_outdoor">Camping & Plein air</option>
+            <option value="convention_center">Centres de congrès & Palais des expos</option>
             <option value="cinema_theatre">Cinéma & Théâtre</option>
             <option value="commercial">Commerce & Retail</option>
             <option value="institutional">Collectivités & Secteur public</option>
+            <option value="coworking">Coworking & Tiers-lieux</option>
             <option value="culture">Culture & Patrimoine</option>
             <option value="family">Éducation & Enseignement</option>
             <option value="live_event">Événementiel</option>
+            <option value="gallery">Galeries d'art & Ateliers</option>
             <option value="hotel_lodging">Hôtellerie & Hébergement</option>
+            <option value="market_hall">Marchés & Halles</option>
+            <option value="wine_tourism">Œnotourisme & Domaines viticoles</option>
+            <option value="theme_park">Parcs d'attractions & Loisirs</option>
             <option value="food_nightlife">Restauration & Bars</option>
             <option value="science_innovation">Sciences & Innovation</option>
             <option value="pro_event">Salons & Événements pro</option>
             <option value="sport">Sports & Loisirs actifs</option>
             <option value="transport_mobility">Transport & Mobilité locale</option>
-            <option value="outdoor_leisure">Tourisme & Loisirs</option>
             <option value="nightlife">Vie nocturne</option>
             <option value="unknown">Autre</option>
           </select>

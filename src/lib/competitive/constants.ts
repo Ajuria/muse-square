@@ -3,10 +3,12 @@
 export const VALID_CONFIDENCE = new Set(["high", "medium", "low"]);
 
 export const VALID_INDUSTRY = new Set([
-  "non_profit", "wellness", "cinema_theatre", "commercial", "institutional",
-  "culture", "family", "live_event", "hotel_lodging", "food_nightlife",
+  "non_profit", "wellness", "camping_outdoor", "convention_center",
+  "cinema_theatre", "commercial", "institutional", "coworking",
+  "culture", "family", "live_event", "gallery", "hotel_lodging",
+  "market_hall", "wine_tourism", "theme_park", "food_nightlife",
   "science_innovation", "pro_event", "sport", "transport_mobility",
-  "outdoor_leisure", "nightlife", "unknown"
+  "nightlife", "unknown"
 ]);
 
 export const VALID_AUDIENCE = new Set([
@@ -16,19 +18,25 @@ export const VALID_AUDIENCE = new Set([
 export const BUCKET_MAP: Record<string, string> = {
   non_profit:         "institutional_activity",
   wellness:           "leisure_activity",
+  camping_outdoor:    "leisure_activity",
+  convention_center:  "commercial_activity",
   cinema_theatre:     "culture_event",
   commercial:         "commercial_activity",
   institutional:      "institutional_activity",
+  coworking:          "commercial_activity",
   culture:            "culture_event",
   family:             "institutional_activity",
   live_event:         "culture_event",
+  gallery:            "culture_event",
   hotel_lodging:      "commercial_activity",
+  market_hall:        "commercial_activity",
+  wine_tourism:       "leisure_activity",
+  theme_park:         "leisure_activity",
   food_nightlife:     "commercial_activity",
   science_innovation: "institutional_activity",
   pro_event:          "commercial_activity",
   sport:              "leisure_activity",
   transport_mobility: "institutional_activity",
-  outdoor_leisure:    "leisure_activity",
   nightlife:          "culture_event",
   unknown:            "commercial_activity",
 };
@@ -37,19 +45,25 @@ export const BUCKET_MAP: Record<string, string> = {
 export const INDUSTRY_LABEL: Record<string, string> = {
   non_profit:         "Associatif & Non lucratif",
   wellness:           "Bien-être & Fitness",
+  camping_outdoor:    "Camping & Plein air",
+  convention_center:  "Centres de congrès & Palais des expos",
   cinema_theatre:     "Cinéma & Théâtre",
   commercial:         "Commerce & Retail",
   institutional:      "Collectivités & Secteur public",
+  coworking:          "Coworking & Tiers-lieux",
   culture:            "Culture & Patrimoine",
   family:             "Éducation & Enseignement",
   live_event:         "Événementiel",
+  gallery:            "Galeries d'art & Ateliers",
   hotel_lodging:      "Hôtellerie & Hébergement",
+  market_hall:        "Marchés & Halles",
+  wine_tourism:       "Œnotourisme & Domaines viticoles",
+  theme_park:         "Parcs d'attractions & Loisirs",
   food_nightlife:     "Restauration & Bars",
-  science_innovation: "Sciences & Innovation",
   pro_event:          "Salons & Événements professionnels",
+  science_innovation: "Sciences & Innovation",
   sport:              "Sports & Loisirs actifs",
   transport_mobility: "Transport & Mobilité locale",
-  outdoor_leisure:    "Tourisme & Loisirs",
   nightlife:          "Vie nocturne",
   unknown:            "Autre activité accueillant du public",
 };

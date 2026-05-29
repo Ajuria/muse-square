@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { VALID_INDUSTRY, VALID_AUDIENCE, BUCKET_MAP, VALID_CONFIDENCE } from "../../../lib/competitive/constants";
 
 export const prerender = false;
 
@@ -43,9 +44,10 @@ RÈGLES DE CONFIANCE :
 - low : champ manquant ou source non officielle
 
 CODES INDUSTRIE (utilise exactement ces valeurs) :
-non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event,
-hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility,
-outdoor_leisure, nightlife, unknown
+non_profit, wellness, camping_outdoor, convention_center, cinema_theatre, commercial,
+institutional, coworking, culture, family, live_event, gallery, hotel_lodging, market_hall,
+wine_tourism, theme_park, food_nightlife, science_innovation, pro_event, sport,
+transport_mobility, nightlife, unknown
 
 AUDIENCES (utilise exactement ces valeurs) :
 local, tourists, mixed, professionals, students, families, seniors`;
@@ -153,37 +155,6 @@ Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda
     const validDates = (s: any): string | null => {
       if (!s || typeof s !== "string") return null;
       return /^\d{4}-\d{2}-\d{2}$/.test(s.trim()) ? s.trim() : null;
-    };
-
-    const VALID_CONFIDENCE = new Set(["high", "medium", "low"]);
-    const VALID_INDUSTRY   = new Set([
-      "non_profit","wellness","cinema_theatre","commercial","institutional",
-      "culture","family","live_event","hotel_lodging","food_nightlife",
-      "science_innovation","pro_event","sport","transport_mobility",
-      "outdoor_leisure","nightlife","unknown"
-    ]);
-    const VALID_AUDIENCE   = new Set([
-      "local","tourists","mixed","professionals","students","families","seniors"
-    ]);
-
-    const BUCKET_MAP: Record<string, string> = {
-      non_profit:         "institutional_activity",
-      wellness:           "leisure_activity",
-      cinema_theatre:     "culture_event",
-      commercial:         "commercial_activity",
-      institutional:      "institutional_activity",
-      culture:            "culture_event",
-      family:             "institutional_activity",
-      live_event:         "culture_event",
-      hotel_lodging:      "commercial_activity",
-      food_nightlife:     "commercial_activity",
-      science_innovation: "institutional_activity",
-      pro_event:          "commercial_activity",
-      sport:              "leisure_activity",
-      transport_mobility: "institutional_activity",
-      outdoor_leisure:    "leisure_activity",
-      nightlife:          "culture_event",
-      unknown:            "commercial_activity",
     };
 
     const sanitized = candidates.slice(0, 4).map((c: any) => {

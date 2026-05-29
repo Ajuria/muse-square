@@ -24,6 +24,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
+import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
 
 export const prerender = false;
 
@@ -63,18 +64,6 @@ interface ExtractionResult {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const VALID_INDUSTRY = new Set([
-  "non_profit", "wellness", "cinema_theatre", "commercial", "institutional",
-  "culture", "family", "live_event", "hotel_lodging", "food_nightlife",
-  "science_innovation", "pro_event", "sport", "transport_mobility",
-  "outdoor_leisure", "nightlife", "unknown",
-]);
-
-const VALID_AUDIENCE = new Set([
-  "families", "professionals", "students", "seniors", "tourists",
-  "locals", "art_lovers", "sports_fans", "general_public",
-]);
-
 const EXTRACTION_MODEL = "claude-sonnet-4-20250514";
 
 // 55s — safe margin for Vercel Pro 60s limit
@@ -100,7 +89,7 @@ RULES — non-negotiable:
 - Dates must be in YYYY-MM-DD format. If you cannot determine the exact date, return null.
 - signal_type must be exactly one of: "event", "launch", "opening", "campaign", "press", "partnership", "unknown" — nothing else.
 - venue_exposure must be exactly "indoor", "outdoor", or "unknown" — nothing else.
-- industry_code must be one of: non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event, hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility, outdoor_leisure, nightlife, unknown — or null.
+- industry_code must be one of: non_profit, wellness, camping_outdoor, convention_center, cinema_theatre, commercial, institutional, coworking, culture, family, live_event, gallery, hotel_lodging, market_hall, wine_tourism, theme_park, food_nightlife, science_innovation, pro_event, sport, transport_mobility, nightlife, unknown — or null.
 - primary_audience and secondary_audience must be one of: families, professionals, students, seniors, tourists, locals, art_lovers, sports_fans, general_public — or null.
 - capacity and estimated_attendance must be integers or null. Never compute or estimate them.
 - If the page contains multiple signals, extract ALL of them as an array.

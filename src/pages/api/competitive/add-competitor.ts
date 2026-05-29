@@ -4,27 +4,9 @@ import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
+import { VALID_INDUSTRY, BUCKET_MAP } from "../../../lib/competitive/constants";
 
 export const prerender = false;
-
-const VALID_INDUSTRY = new Set([
-  "non_profit","wellness","cinema_theatre","commercial","institutional",
-  "culture","family","live_event","hotel_lodging","food_nightlife",
-  "science_innovation","pro_event","sport","transport_mobility",
-  "outdoor_leisure","nightlife","unknown"
-]);
-
-const INDUSTRY_BUCKET: Record<string, string> = {
-  non_profit:"institutional_activity", wellness:"leisure_activity",
-  cinema_theatre:"culture_event", commercial:"commercial_activity",
-  institutional:"institutional_activity", culture:"culture_event",
-  family:"institutional_activity", live_event:"culture_event",
-  hotel_lodging:"commercial_activity", food_nightlife:"commercial_activity",
-  science_innovation:"institutional_activity", pro_event:"commercial_activity",
-  sport:"leisure_activity", transport_mobility:"institutional_activity",
-  outdoor_leisure:"leisure_activity", nightlife:"culture_event",
-  unknown:"unknown",
-};
 
 async function extractCompetitorWithClaude(pageText: string, websiteUrl: string, competitorName: string): Promise<Record<string, any> | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -141,7 +123,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const industry_code       = VALID_INDUSTRY.has(body?.industry_code) ? body.industry_code : null;
-    const industry_bucket     = industry_code ? (INDUSTRY_BUCKET[industry_code] ?? null) : null;
+    const industry_bucket     = industry_code ? (BUCKET_MAP[industry_code] ?? null) : null;
     const primary_audience    = String(body?.primary_audience    || "").trim() || null;
     const secondary_audience  = String(body?.secondary_audience  || "").trim() || null;
     const address             = String(body?.address             || "").trim() || null;
@@ -453,7 +435,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
                     primary_audience: mappedAud1,
                     secondary_audience: mappedAud2,
                     industry_code: derivedIndustry,
-                    industry_bucket: derivedIndustry ? (INDUSTRY_BUCKET[derivedIndustry] ?? null) : null,
+                    industry_bucket: derivedIndustry ? (BUCKET_MAP[derivedIndustry] ?? null) : null,
                   },
                   types: {
                     auto_enriched_description: "STRING",
