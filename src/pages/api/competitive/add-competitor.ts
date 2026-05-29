@@ -406,10 +406,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
                   "restaurant": "food_nightlife", "bar": "food_nightlife", "café": "food_nightlife",
                   "hôtel": "hotel_lodging", "hébergement": "hotel_lodging",
                   "commerce": "commercial", "boutique": "commercial", "retail": "commercial",
-                  "viticole": "outdoor_leisure", "domaine": "outdoor_leisure", "vignoble": "outdoor_leisure",
+                  "viticole": "wine_tourism", "domaine": "wine_tourism", "vignoble": "wine_tourism",
+                  "camping": "camping_outdoor", "plein air": "camping_outdoor",
+                  "galerie": "gallery", "atelier": "gallery",
+                  "marché": "market_hall", "halle": "market_hall",
+                  "parc": "theme_park", "attraction": "theme_park",
+                  "congrès": "convention_center", "exposition": "convention_center",
+                  "coworking": "coworking",
                   "sport": "sport", "wellness": "wellness", "spa": "wellness",
                   "spectacle": "live_event", "concert": "live_event", "festival": "live_event",
-                  "coworking": "pro_event", "conférence": "pro_event",
+                  "conférence": "pro_event",
                 };
                 let derivedIndustry: string | null = null;
                 const descLower = (String(enriched.business_description ?? "") + " " + String(enriched.brand_positioning ?? "")).toLowerCase();

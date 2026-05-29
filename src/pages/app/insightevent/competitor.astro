@@ -107,7 +107,11 @@ if (!location_id) {
         var subtitle = [distLabel, industryLabel, dir.city].filter(Boolean).join(" \u00b7 ");
 
         var threatScore = thr ? (thr.threat_score * 10).toFixed(1) : "\u2014";
-        var overlapPct = thr && thr.audience_overlap_pct != null ? Math.round(thr.audience_overlap_pct) + "%" : "\u2014";
+        var overlapPct = thr && thr.audience_overlap_pct != null
+          ? Math.round(thr.audience_overlap_pct) + "%"
+          : thr
+            ? (thr.industry_match_tier === "direct" ? "Direct" : thr.industry_match_tier === "partial" ? "Partiel" : "Indirect")
+            : "\u2014";
         var gRating = dir.google_rating != null ? Number(dir.google_rating).toFixed(1) : "\u2014";
         var gCount = dir.google_rating_count != null ? (dir.google_rating_count >= 1000 ? (dir.google_rating_count / 1000).toFixed(1) + "k" : String(dir.google_rating_count)) : "\u2014";
 
@@ -136,7 +140,7 @@ if (!location_id) {
         html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">';
         var kpis = [
           { val: threatScore, label: "MENACE", color: tColor },
-          { val: overlapPct, label: "OVERLAP", color: "#534AB7" },
+          { val: overlapPct, label: thr && thr.audience_overlap_pct != null ? "OVERLAP" : "RELATION", color: "#534AB7" },
           { val: gRating, label: "NOTE GOOGLE", color: "#111" },
           { val: gCount, label: "AVIS", color: "#111" }
         ];
