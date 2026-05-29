@@ -818,6 +818,91 @@ async function runSurveillance() {
         } // close for (const extraction of extractionArray)
 
         extractionStatus = anySuccess ? "success" : anyPartial ? "partial" : "failed";
+        // ── Backfill audience + industry from enrichment if missing ──
+          try {
+            const [enrichRow] = await bq.query({
+              query: `
+                SELECT auto_enriched_description, primary_audience, secondary_audience, industry_code
+                FROM \`${projectId}.raw.competitor_directory\`
+                WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                LIMIT 1
+              `,
+              params: { competitor_id: comp.competitor_id },
+              types: { competitor_id: "STRING" },
+              location: BQ_LOCATION,
+            });
+            const dirRow = (enrichRow as any[])[0];
+            if (dirRow && dirRow.auto_enriched_description && (!dirRow.primary_audience || !dirRow.industry_code)) {
+              try {
+                const enrichedData = JSON.parse(dirRow.auto_enriched_description);
+                const VALID_AUD = new Set([
+                  "families","professionals","students","seniors","tourists",
+                  "locals","art_lovers","sports_fans","general_public",
+                ]);
+                const enrichedAudiences = String(enrichedData.target_audience ?? "")
+                  .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+                const mappedAud1 = enrichedAudiences.find((a: string) => VALID_AUD.has(a)) || null;
+                const mappedAud2 = enrichedAudiences.filter((a: string) => VALID_AUD.has(a) && a !== mappedAud1)[0] || null;
+
+                const positioningToIndustry: Record<string, string> = {
+                  "culture": "culture", "patrimoine": "culture", "musée": "culture",
+                  "restaurant": "food_nightlife", "bar": "food_nightlife", "café": "food_nightlife",
+                  "hôtel": "hotel_lodging", "hébergement": "hotel_lodging",
+                  "commerce": "commercial", "boutique": "commercial", "retail": "commercial",
+                  "viticole": "wine_tourism", "domaine": "wine_tourism", "vignoble": "wine_tourism",
+                  "sport": "sport", "wellness": "wellness", "spa": "wellness",
+                  "spectacle": "live_event", "concert": "live_event", "festival": "live_event",
+                  "coworking": "coworking", "conférence": "pro_event",
+                  "camping": "camping_outdoor", "plein air": "camping_outdoor",
+                  "galerie": "gallery", "atelier": "gallery",
+                  "marché": "market_hall", "halle": "market_hall",
+                  "parc": "theme_park", "attraction": "theme_park",
+                  "congrès": "convention_center", "exposition": "convention_center",
+                };
+                let derivedIndustry: string | null = null;
+                const descLower = (String(enrichedData.business_description ?? "") + " " + String(enrichedData.brand_positioning ?? "")).toLowerCase();
+                for (const [keyword, code] of Object.entries(positioningToIndustry)) {
+                  if (descLower.includes(keyword)) { derivedIndustry = code; break; }
+                }
+
+                const updates: string[] = [];
+                const params: Record<string, any> = { competitor_id: comp.competitor_id };
+                const types: Record<string, string> = { competitor_id: "STRING" };
+
+                if (!dirRow.primary_audience && mappedAud1) {
+                  updates.push("primary_audience = @primary_audience");
+                  params.primary_audience = mappedAud1;
+                  types.primary_audience = "STRING";
+                }
+                if (!dirRow.secondary_audience && mappedAud2) {
+                  updates.push("secondary_audience = @secondary_audience");
+                  params.secondary_audience = mappedAud2;
+                  types.secondary_audience = "STRING";
+                }
+                if (!dirRow.industry_code && derivedIndustry) {
+                  updates.push("industry_code = @industry_code");
+                  params.industry_code = derivedIndustry;
+                  types.industry_code = "STRING";
+                }
+
+                if (updates.length > 0) {
+                  updates.push("updated_at = CURRENT_TIMESTAMP()");
+                  await bq.query({
+                    query: `
+                      UPDATE \`${projectId}.raw.competitor_directory\`
+                      SET ${updates.join(", ")}
+                      WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                    `,
+                    params,
+                    types,
+                    location: BQ_LOCATION,
+                  });
+                }
+              } catch {}
+            }
+          } catch (bfErr: any) {
+            console.error("[competitor-surveillance] audience/industry backfill failed:", bfErr?.message);
+          }
         if (extractionStatus === "success") results.success++;
         else if (extractionStatus === "partial") results.partial++;
         else results.failed++;
