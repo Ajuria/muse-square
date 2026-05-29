@@ -7,6 +7,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { triggerDbtJobs } from "../../../lib/dbt-trigger";
 import { logApiError } from "../../../lib/error-logger";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
 
 export const prerender = false;
 
@@ -685,28 +686,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ================================================================
     // PARALLEL POST-MERGE: propagate + dim sync + read-back
     // ================================================================
-    const activityToIndustry: Record<string, string> = {
-      non_profit: 'Associatif & Non lucratif',
-      wellness: 'Sports & Loisirs actifs',
-      cinema_theatre: 'Cin\u00e9ma & Th\u00e9\u00e2tre',
-      commercial: 'Commerce & Retail',
-      institutional: 'Collectivit\u00e9s & Secteur public',
-      culture: 'Culture & Patrimoine',
-      family: '\u00c9ducation & Enseignement',
-      live_event: '\u00c9v\u00e9nementiel',
-      hotel_lodging: 'H\u00f4tellerie & H\u00e9bergement',
-      food_nightlife: 'Restauration & Bars',
-      science_innovation: 'Sciences & Innovation',
-      pro_event: '\u00c9v\u00e9nementiel',
-      sport: 'Sports & Loisirs actifs',
-      transport_mobility: 'Transport & Mobilit\u00e9 locale',
-      outdoor_leisure: 'Tourisme & Loisirs',
-      nightlife: 'Restauration & Bars',
-      unknown: 'Autre activit\u00e9 accueillant du public',
-    };
-
     const derivedIndustryCode = company_activity_type
-      ? (activityToIndustry[company_activity_type] ?? company_activity_type)
+      ? (INDUSTRY_LABEL[company_activity_type] ?? company_activity_type)
       : null;
 
     const dimSyncParams = {

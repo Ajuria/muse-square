@@ -53,9 +53,10 @@ RÈGLES DE CONFIANCE :
 - low : champ manquant ou source non officielle
 
 CODES INDUSTRIE (utilise exactement ces valeurs) :
-non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event,
-hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility,
-outdoor_leisure, nightlife, unknown
+non_profit, wellness, camping_outdoor, convention_center, cinema_theatre, commercial,
+institutional, coworking, culture, family, live_event, gallery, hotel_lodging, market_hall,
+wine_tourism, theme_park, food_nightlife, science_innovation, pro_event, sport,
+transport_mobility, nightlife, unknown
 
 AUDIENCES (utilise exactement ces valeurs) :
 local, tourists, mixed, professionals, students, families, seniors`;

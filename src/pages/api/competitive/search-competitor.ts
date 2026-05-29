@@ -1,5 +1,6 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
+import { VALID_INDUSTRY, VALID_AUDIENCE, VALID_CONFIDENCE, BUCKET_MAP, classifySource, JUNK_URL_PATTERNS } from "../../../lib/competitive/constants";
 
 export const prerender = false;
 
@@ -36,9 +37,10 @@ RÈGLES DE CONFIANCE :
 - low : champ manquant ou source non officielle
 
 CODES INDUSTRIE (utilise exactement ces valeurs) :
-non_profit, wellness, cinema_theatre, commercial, institutional, culture, family, live_event,
-hotel_lodging, food_nightlife, science_innovation, pro_event, sport, transport_mobility,
-outdoor_leisure, nightlife, unknown
+non_profit, wellness, camping_outdoor, convention_center, cinema_theatre, commercial,
+institutional, coworking, culture, family, live_event, gallery, hotel_lodging, market_hall,
+wine_tourism, theme_park, food_nightlife, science_innovation, pro_event, sport,
+transport_mobility, nightlife, unknown
 
 AUDIENCES (utilise exactement ces valeurs) :
 local, tourists, mixed, professionals, students, families, seniors`;
@@ -136,58 +138,6 @@ Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > pre
       candidates = [];
     }
 
-    const VALID_CONFIDENCE = new Set(["high", "medium", "low"]);
-    const VALID_INDUSTRY   = new Set([
-      "non_profit","wellness","cinema_theatre","commercial","institutional",
-      "culture","family","live_event","hotel_lodging","food_nightlife",
-      "science_innovation","pro_event","sport","transport_mobility",
-      "outdoor_leisure","nightlife","unknown"
-    ]);
-    const VALID_AUDIENCE = new Set([
-      "local","tourists","mixed","professionals","students","families","seniors"
-    ]);
-
-    const BUCKET_MAP: Record<string, string> = {
-      non_profit:         "institutional_activity",
-      wellness:           "leisure_activity",
-      cinema_theatre:     "culture_event",
-      commercial:         "commercial_activity",
-      institutional:      "institutional_activity",
-      culture:            "culture_event",
-      family:             "institutional_activity",
-      live_event:         "culture_event",
-      hotel_lodging:      "commercial_activity",
-      food_nightlife:     "commercial_activity",
-      science_innovation: "institutional_activity",
-      pro_event:          "commercial_activity",
-      sport:              "leisure_activity",
-      transport_mobility: "institutional_activity",
-      outdoor_leisure:    "leisure_activity",
-      nightlife:          "culture_event",
-      unknown:            "commercial_activity",
-    };
-
-    function classifySource(url: string | null): string {
-        if (!url) return "Autre";
-        const u = url.toLowerCase();
-        if (u.includes("linkedin.com/company")) return "LinkedIn";
-        if (u.includes("linkedin.com"))         return "LinkedIn";
-        if (u.includes("eventbrite"))           return "Eventbrite";
-        if (u.includes("openagenda"))           return "OpenAgenda";
-        if (u.includes("facebook.com"))         return "Réseaux sociaux";
-        if (u.includes("instagram.com"))        return "Réseaux sociaux";
-        if (u.includes("societe.com") ||
-            u.includes("pappers.fr")  ||
-            u.includes("verif.com")   ||
-            u.includes("kompass.com"))          return "Annuaire pro";
-        if (u.includes("lemonde.fr")    ||
-            u.includes("lefigaro.fr")   ||
-            u.includes("lesechos.fr")   ||
-            u.includes("mediapart.fr"))         return "Presse";
-        // Official site heuristic: short domain, matches no known aggregator
-        return "Site officiel";
-    }
-
     const sanitized = candidates.slice(0, 4).map((c: any) => {
       const ic = VALID_INDUSTRY.has(c.industry_code) ? c.industry_code : null;
       return {
@@ -209,11 +159,10 @@ Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > pre
       };
     });
 
-    const JUNK_PATTERNS = [/linkedin\.com\/posts\//i, /linkedin\.com\/feed\//i, /404/i];
     const filtered = sanitized.filter(c =>
       c.competitor_name &&
       c.confidence_score >= 0.5 &&
-      !(c.source_url && JUNK_PATTERNS.some(p => p.test(c.source_url)))
+      !(c.source_url && JUNK_URL_PATTERNS.some(p => p.test(c.source_url)))
     );
 
     // If user provided a source_url, inject it into the top candidate
