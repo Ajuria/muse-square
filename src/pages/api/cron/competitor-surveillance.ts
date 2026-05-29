@@ -246,27 +246,56 @@ function validateExtraction(raw: unknown): ExtractionResult {
 }
 
 async function fetchHtml(url: string): Promise<{ html: string; status: number }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  // Attempt 1: basic Browserless /content
   try {
-    const res = await fetch(
-      `https://production-sfo.browserless.io/content?token=${process.env.BROWSERLESS_TOKEN}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          url,
-          waitForTimeout: 3000,
-          rejectResourceTypes: ["image", "media", "font"],
-        }),
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const res = await fetch(
+        `https://production-sfo.browserless.io/content?token=${process.env.BROWSERLESS_TOKEN}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            url,
+            waitForTimeout: 3000,
+            rejectResourceTypes: ["image", "media", "font"],
+          }),
+        }
+      );
+      const html = await res.text();
+      if (res.status >= 200 && res.status < 400 && html.length > 200) {
+        return { html, status: res.status };
       }
-    );
-    const html = await res.text();
-    return { html, status: res.status };
-  } finally {
-    clearTimeout(timeout);
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    // Basic fetch failed — fall through to stealth
   }
+
+  // Attempt 2: stealth BQL with Cloudflare bypass
+  const bql = `mutation StealthFetch {
+    goto(url: "${url.replace(/"/g, '\\"')}", waitUntil: networkIdle) { status }
+    verify(type: cloudflare) { found solved }
+    html { html }
+  }`;
+  const res = await fetch(
+    `https://production-sfo.browserless.io/stealth/bql?token=${process.env.BROWSERLESS_TOKEN}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: bql }),
+      signal: AbortSignal.timeout(30_000),
+    }
+  );
+  if (!res.ok) throw new Error(`Stealth BQL HTTP ${res.status}`);
+  const result = await res.json();
+  const status = result?.data?.goto?.status ?? 200;
+  const html = result?.data?.html?.html ?? "";
+  if (!html || html.length < 200) throw new Error("Stealth BQL returned empty HTML");
+  return { html, status };
 }
 
 // ── URL qualification ─────────────────────────────────────────────────────────
@@ -803,6 +832,46 @@ async function runSurveillance() {
         if (extractionStatus === "success") results.success++;
         else if (extractionStatus === "partial") results.partial++;
         else results.failed++;
+
+        // Trigger URL discovery if extraction yielded no actionable results
+        if (
+          !anySuccess &&
+          comp.source_url &&
+          process.env.BROWSERLESS_TOKEN
+        ) {
+          try {
+            const discovery = await discoverAgendaUrl(
+              comp.source_url,
+              process.env.BROWSERLESS_TOKEN,
+              10_000
+            );
+            if (discovery.discovered_url && discovery.discovered_url !== comp.source_url) {
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET source_url = @discovered_url, updated_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.watched_competitors\`
+                  SET source_url = @discovered_url
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { discovered_url: discovery.discovered_url, competitor_id: comp.competitor_id },
+                types: { discovered_url: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              results.errors.push(`${comp.competitor_id}: post_extraction_discovery=${discovery.discovery_status}, new_url=${discovery.discovered_url}`);
+            }
+          } catch (discErr: any) {
+            console.error("[competitor-surveillance] post-extraction url discovery failed:", discErr?.message);
+          }
+        }
 
       } catch (err: any) {
         if (extractionStatus !== "fetch_error") extractionStatus = "failed";
