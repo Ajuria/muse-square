@@ -409,16 +409,60 @@ export const POST: APIRoute = async ({ request, locals }) => {
               const enriched = await extractCompetitorWithClaude(text, source_url, competitor_name);
               if (enriched) {
                 const enrichedJson = JSON.stringify(enriched);
+
+                const VALID_AUD = new Set([
+                  "families","professionals","students","seniors","tourists",
+                  "locals","art_lovers","sports_fans","general_public",
+                ]);
+                const enrichedAudiences = (String(enriched.target_audience ?? ""))
+                  .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+                const mappedAud1 = enrichedAudiences.find((a: string) => VALID_AUD.has(a)) || null;
+                const mappedAud2 = enrichedAudiences.filter((a: string) => VALID_AUD.has(a) && a !== mappedAud1)[0] || null;
+
+                const positioningToIndustry: Record<string, string> = {
+                  "culture": "culture", "patrimoine": "culture", "musée": "culture",
+                  "restaurant": "food_nightlife", "bar": "food_nightlife", "café": "food_nightlife",
+                  "hôtel": "hotel_lodging", "hébergement": "hotel_lodging",
+                  "commerce": "commercial", "boutique": "commercial", "retail": "commercial",
+                  "viticole": "outdoor_leisure", "domaine": "outdoor_leisure", "vignoble": "outdoor_leisure",
+                  "sport": "sport", "wellness": "wellness", "spa": "wellness",
+                  "spectacle": "live_event", "concert": "live_event", "festival": "live_event",
+                  "coworking": "pro_event", "conférence": "pro_event",
+                };
+                let derivedIndustry: string | null = null;
+                const descLower = (String(enriched.business_description ?? "") + " " + String(enriched.brand_positioning ?? "")).toLowerCase();
+                for (const [keyword, code] of Object.entries(positioningToIndustry)) {
+                  if (descLower.includes(keyword)) { derivedIndustry = code; break; }
+                }
+
                 await bq.query({
                   query: `
                     UPDATE \`${projectId}.raw.competitor_directory\`
                     SET auto_enriched_description = @auto_enriched_description,
+                        primary_audience = IF(primary_audience IS NULL OR primary_audience = '', @primary_audience, primary_audience),
+                        secondary_audience = IF(secondary_audience IS NULL OR secondary_audience = '', @secondary_audience, secondary_audience),
+                        industry_code = IF(industry_code IS NULL OR industry_code = '', @industry_code, industry_code),
+                        industry_bucket = IF(industry_bucket IS NULL OR industry_bucket = '', @industry_bucket, industry_bucket),
                         updated_at = CURRENT_TIMESTAMP()
                     WHERE competitor_id = @competitor_id
                       AND deleted_at IS NULL
                   `,
-                  params: { auto_enriched_description: enrichedJson, competitor_id },
-                  types: { auto_enriched_description: "STRING", competitor_id: "STRING" },
+                  params: {
+                    auto_enriched_description: enrichedJson,
+                    competitor_id,
+                    primary_audience: mappedAud1,
+                    secondary_audience: mappedAud2,
+                    industry_code: derivedIndustry,
+                    industry_bucket: derivedIndustry ? (INDUSTRY_BUCKET[derivedIndustry] ?? null) : null,
+                  },
+                  types: {
+                    auto_enriched_description: "STRING",
+                    competitor_id: "STRING",
+                    primary_audience: "STRING",
+                    secondary_audience: "STRING",
+                    industry_code: "STRING",
+                    industry_bucket: "STRING",
+                  },
                   location: BQ_LOCATION,
                 });
                 extraction_status = "enriched";
