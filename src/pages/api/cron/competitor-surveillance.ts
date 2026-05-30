@@ -25,6 +25,7 @@ import { randomUUID } from "crypto";
 import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
+import { waitUntil } from "@vercel/functions";
 
 export const prerender = false;
 
