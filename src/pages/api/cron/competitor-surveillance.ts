@@ -22,7 +22,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
-import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
+import { discoverAgendaUrl, discoverTarifsUrl } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
 import { waitUntil } from "@vercel/functions";
@@ -39,6 +39,7 @@ interface CompetitorSource {
   vetted_by: string | null;
   competitor_industry_code: string | null;
   auto_enriched_description: string | null;
+  tarifs_url: string | null;
   location_lat: number | null;
   location_lon: number | null;
 }
@@ -483,6 +484,7 @@ async function runSurveillance() {
           cd.source_url,
           cd.vetted_by,
           cd.auto_enriched_description,
+          cd.tarifs_url,
           cd.industry_code                    AS competitor_industry_code,
           cd.lat                              AS competitor_lat,
           cd.lon                              AS competitor_lon,
@@ -619,8 +621,46 @@ async function runSurveillance() {
         // Runs once per competitor (missing or old shape), independent of event signals:
         // offering/pricing exists even without a dated event.
         if (needsBusinessEnrichment(comp.auto_enriched_description)) {
+          // Prices usually live on a separate tarifs/billetterie page. Discover it once
+          // (persist tarifs_url), fetch its text, and append to the enrichment content so
+          // offering_items gets prices in the same Claude call.
+          let enrichContent = content;
           try {
-            const profile = await extractBusinessProfile(anthropic, content, comp.source_url, comp.competitor_name ?? "");
+            let tarifsUrl: string | null = comp.tarifs_url;
+            if (!tarifsUrl && process.env.BROWSERLESS_TOKEN) {
+              const td = await discoverTarifsUrl(comp.source_url, process.env.BROWSERLESS_TOKEN, 10_000);
+              if (td.discovered_url) {
+                tarifsUrl = td.discovered_url;
+                await bq.query({
+                  query: `
+                    UPDATE \`${projectId}.raw.competitor_directory\`
+                    SET tarifs_url = @tarifs_url, updated_at = CURRENT_TIMESTAMP()
+                    WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                  `,
+                  params: { tarifs_url: tarifsUrl, competitor_id: comp.competitor_id },
+                  types: { tarifs_url: "STRING", competitor_id: "STRING" },
+                  location: BQ_LOCATION,
+                });
+                comp.tarifs_url = tarifsUrl;
+              }
+            }
+            if (tarifsUrl && tarifsUrl !== comp.source_url) {
+              try {
+                const { html: tHtml, status: tStatus } = await fetchHtml(tarifsUrl);
+                if (tStatus >= 200 && tStatus < 400) {
+                  const tContent = prepareContent(tHtml);
+                  enrichContent = `${content}\n\nTARIFS PAGE (${tarifsUrl}):\n${tContent}`;
+                }
+              } catch (tErr: any) {
+                console.error("[competitor-surveillance] tarifs fetch failed (non-fatal):", tErr?.message);
+              }
+            }
+          } catch (tdErr: any) {
+            console.error("[competitor-surveillance] tarifs discovery failed (non-fatal):", tdErr?.message);
+          }
+
+          try {
+            const profile = await extractBusinessProfile(anthropic, enrichContent, comp.source_url, comp.competitor_name ?? "");
             if (profile) {
               await bq.query({
                 query: `
