@@ -19,6 +19,7 @@
     "@clerk/localizations": "^3.35.3",
     "@clerk/shared": "4.3.0",
     "@google-cloud/bigquery": "^8.1.1",
+    "@vercel/functions": "^3.6.1",
     "astro": "^5.13.3",
     "dotenv": "^17.2.3",
     "resend": "^6.9.4",

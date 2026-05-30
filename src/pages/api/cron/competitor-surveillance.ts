@@ -25,6 +25,7 @@ import { randomUUID } from "crypto";
 import { discoverAgendaUrl } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
+import { waitUntil } from "@vercel/functions";
 
 export const prerender = false;
 
@@ -508,7 +509,7 @@ async function runSurveillance() {
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
         ORDER BY lc.last_crawled ASC NULLS FIRST
-        LIMIT 10
+        LIMIT 4
       `,
       location: BQ_LOCATION,
     });
@@ -1166,7 +1167,7 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  runSurveillance().catch((e) => console.error("[competitor-surveillance] background error:", e?.message));
+  waitUntil(runSurveillance());
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),
