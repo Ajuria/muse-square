@@ -25,6 +25,32 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq          = makeBQClient(projectId);
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
+    // The competitor profile is location-relative (threat/conflict/alerts are per location×competitor).
+    // The entry point (cross-location Suivis) may differ from the session's active location, so resolve
+    // to the location under which THIS user tracks THIS competitor — prefer the session location if it
+    // tracks it, else the earliest tracking location. Falls back to the session location.
+    let resolvedLocationId = location_id;
+    {
+      const [trackRows] = await bq.query({
+        query: `
+          SELECT location_id
+          FROM \`${projectId}.raw.competitor_tracking\`
+          WHERE clerk_user_id = @clerk_user_id
+            AND competitor_id = @competitor_id
+            AND deleted_at IS NULL
+          QUALIFY ROW_NUMBER() OVER (
+            ORDER BY IF(location_id = @session_location_id, 0, 1), created_at ASC
+          ) = 1
+        `,
+        params: { clerk_user_id, competitor_id, session_location_id: location_id },
+        types: { clerk_user_id: "STRING", competitor_id: "STRING", session_location_id: "STRING" },
+        location: BQ_LOCATION,
+      });
+      if (Array.isArray(trackRows) && trackRows.length > 0 && trackRows[0].location_id) {
+        resolvedLocationId = String(trackRows[0].location_id);
+      }
+    }
+
     // ── Parallel fetch: directory, threat profile, user profile, alerts, events ──
     const [dirRows, threatRows, userRows, alertRows, eventRows] = await Promise.all([
       // 1. Competitor directory (semantic layer)
@@ -70,7 +96,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             AND competitor_id = @competitor_id
           LIMIT 1
         `,
-        params: { location_id, competitor_id },
+        params: { location_id: resolvedLocationId, competitor_id },
         types: { location_id: "STRING", competitor_id: "STRING" },
         location: BQ_LOCATION,
       }),
@@ -86,7 +112,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           WHERE location_id = @location_id
           LIMIT 1
         `,
-        params: { location_id },
+        params: { location_id: resolvedLocationId },
         types: { location_id: "STRING" },
         location: BQ_LOCATION,
       }),
@@ -109,7 +135,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           ORDER BY created_at DESC
           LIMIT 20
         `,
-        params: { competitor_id, location_id },
+        params: { competitor_id, location_id: resolvedLocationId },
         types: { competitor_id: "STRING", location_id: "STRING" },
         location: BQ_LOCATION,
       }),
