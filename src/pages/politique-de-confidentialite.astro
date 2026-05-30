@@ -101,8 +101,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <td class="py-2">Intérêt légitime (art. 6.1.f)</td>
             </tr>
             <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Mesure d'audience et analyse des usages</td>
-              <td class="py-2">Consentement (art. 6.1.a)</td>
+              <td class="py-2 pr-4">Mesure d'audience et analyse des usages (Plausible, sans cookie)</td>
+              <td class="py-2">Intérêt légitime (art. 6.1.f)</td>
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4">Suivi du comportement utilisateur (dashboard interne)</td>
@@ -142,13 +142,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4 font-medium">Vercel Inc.</td>
-              <td class="py-2 pr-4">Hébergement de la Plateforme</td>
-              <td class="py-2">États-Unis (SCC)</td>
+              <td class="py-2 pr-4">Hébergement de la Plateforme (application et API)</td>
+              <td class="py-2">Union Européenne — France, Paris (CDG1)</td>
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4 font-medium">Google Cloud (BigQuery)</td>
               <td class="py-2 pr-4">Stockage et traitement des données</td>
-              <td class="py-2">Union Européenne (europe-west1)</td>
+              <td class="py-2">Union Européenne — multi-région EU (Pays-Bas, Finlande)</td>
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4 font-medium">Anthropic</td>
@@ -156,9 +156,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               <td class="py-2">États-Unis (SCC)</td>
             </tr>
             <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Google Analytics</td>
-              <td class="py-2 pr-4">Mesure d'audience</td>
-              <td class="py-2">États-Unis (SCC)</td>
+              <td class="py-2 pr-4 font-medium">Plausible Analytics</td>
+              <td class="py-2 pr-4">Mesure d'audience (sans cookie)</td>
+              <td class="py-2">Allemagne (Union Européenne)</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+              <td class="py-2 pr-4 font-medium">Google Places API</td>
+              <td class="py-2 pr-4">Enrichissement de données concurrentielles</td>
+              <td class="py-2">Données publiques uniquement</td>
             </tr>
           </tbody>
         </table>
@@ -186,23 +191,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <tbody>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4">Données de compte et de profil</td>
-              <td class="py-2">Durée de la relation contractuelle + 3 ans après la suppression du compte</td>
+              <td class="py-2">Durée de la relation contractuelle, supprimées dans les 30 jours suivant la clôture du compte</td>
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4">Données opérationnelles</td>
               <td class="py-2">Durée de la relation contractuelle, supprimées sur demande ou dans les 6 mois suivant la suppression du compte</td>
             </tr>
             <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Données de navigation / analytics</td>
-              <td class="py-2">26 mois maximum à compter de la collecte</td>
+              <td class="py-2 pr-4">Statistiques d'audience (Plausible)</td>
+              <td class="py-2">Données agrégées et anonymes, sans identifiant individuel ni cookie</td>
             </tr>
             <tr class="border-b border-gray-100">
               <td class="py-2 pr-4">Cookies d'authentification</td>
               <td class="py-2">Durée de la session ou selon la politique de Clerk</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Cookies de mesure d'audience</td>
-              <td class="py-2">13 mois maximum</td>
             </tr>
           </tbody>
         </table>
@@ -220,7 +221,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <li>Chiffrement des communications (HTTPS/TLS)</li>
         <li>Authentification sécurisée via Clerk (chiffrement des mots de passe, gestion des sessions)</li>
         <li>Accès restreint aux bases de données en production</li>
-        <li>Hébergement des données de traitement principal dans l'Union Européenne (Google BigQuery, région europe-west1)</li>
+        <li>Hébergement des données de traitement principal dans l'Union Européenne (Google BigQuery, multi-région EU — Pays-Bas et Finlande)</li>
         <li>Journalisation des accès aux données sensibles</li>
       </ul>
 

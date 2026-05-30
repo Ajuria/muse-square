@@ -32,10 +32,12 @@ export const prerender = false;
 
 interface CompetitorSource {
   competitor_id: string;
+  competitor_name: string | null;
   location_id: string;
   source_url: string;
   vetted_by: string | null;
   competitor_industry_code: string | null;
+  auto_enriched_description: string | null;
   location_lat: number | null;
   location_lon: number | null;
 }
@@ -119,6 +121,82 @@ Return this exact JSON structure — an array of objects:
     "industry_code": null
   }
 }`;
+
+// Business-profile enrichment — producer of auto_enriched_description.
+// offering_items is the structured source for the price-comparison table.
+const BUSINESS_PROFILE_PROMPT = `You extract structured business information from a competitor's website text content.
+Return ONLY valid JSON, no markdown, no explanation.
+
+CRITICAL RULES:
+- Only extract information EXPLICITLY present on the page. Never infer, invent, or assume.
+- If a field's information is not found on the page, set it to null.
+- This must work for any type of physical venue: museum, hotel, restaurant, retail store, concert hall, corporate event space, sports venue, coworking, theme park, etc.
+- Adapt vocabulary to the business type.
+- Write all values in French.
+
+The JSON must have exactly these fields:
+{
+  "business_description": "2-3 sentence description of what this business does, its positioning, and what makes it unique",
+  "current_offering": "all products, services, experiences, and packages actively available. null if none found",
+  "offering_items": [
+    {
+      "category": "product/service TYPE in French (e.g. Dégustation, Visite guidée, Hébergement, Privatisation, Restauration, Boutique, Atelier, Abonnement)",
+      "item": "specific name of the product/service as written on the page",
+      "price": "price exactly as written (e.g. '8 €', 'Gratuit', 'à partir de 95 €') or null if not shown",
+      "unit": "pricing unit if any (e.g. 'par personne', '/nuit', 'par bouteille') or null"
+    }
+  ],
+  "services_and_amenities": "services, experiences, facilities offered. null if none found",
+  "target_audience": "who this business targets based on content tone and offerings. null if not discernible",
+  "tone_of_voice": "brand voice in 2-3 adjectives. null if not enough content",
+  "opening_hours_mentioned": "any opening hours or seasonal schedules found. null if none",
+  "key_differentiators": "what sets this business apart from competitors. null if not discernible",
+  "pricing_info": "pricing model summary in free text. null if none found",
+  "event_examples": "specific past or upcoming events mentioned by name. null if none found",
+  "brand_positioning": "luxury, accessible, heritage, innovative, family, premium, popular, etc. null if not discernible",
+  "partnerships_mentioned": "sponsors, institutional partners, labels, affiliations. null if none found",
+  "geographic_scope": "local, regional, national, or international reach. null if not discernible",
+  "age_range_mentioned": "target age groups explicitly mentioned. null if none found",
+  "accessibility_info": "PMR accessibility, family-friendly facilities. null if none found"
+}
+RULES on offering_items:
+- One object per distinct named or priced product/service found on the page.
+- "category" groups items by type so two businesses can be compared by category.
+- If a product is named but no price is shown, include it with price=null.
+- If no products/services are found at all, return offering_items as [].
+All scalar values must be strings or null. offering_items must always be an array (possibly empty).`;
+
+async function extractBusinessProfile(
+  anthropic: Anthropic,
+  content: string,
+  websiteUrl: string,
+  competitorName: string
+): Promise<Record<string, any> | null> {
+  try {
+    const message = await anthropic.messages.create({
+      model: EXTRACTION_MODEL,
+      max_tokens: 2000,
+      system: BUSINESS_PROFILE_PROMPT,
+      messages: [{
+        role: "user",
+        content: `Extract business information from this competitor website (${websiteUrl}, business name: ${competitorName}):\n\n${content.slice(0, 8000)}`,
+      }],
+    });
+    const text = message.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+    const clean = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  } catch (e: any) {
+    console.error("[competitor-surveillance] business profile enrichment failed:", e?.message);
+    return null;
+  }
+}
+
+// Re-enrich when missing OR when on the old (pre-offering_items) shape — self-migrates the 3 existing rows.
+function needsBusinessEnrichment(aed: string | null): boolean {
+  if (!aed) return true;
+  try { return !Array.isArray(JSON.parse(aed)?.offering_items); }
+  catch { return true; }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -399,9 +477,11 @@ async function runSurveillance() {
       query: `
         SELECT
           cd.competitor_id,
+          cd.competitor_name,
           ct.location_id,
           cd.source_url,
           cd.vetted_by,
+          cd.auto_enriched_description,
           cd.industry_code                    AS competitor_industry_code,
           cd.lat                              AS competitor_lat,
           cd.lon                              AS competitor_lon,
@@ -533,6 +613,31 @@ async function runSurveillance() {
         // Step 3: Prepare content (JSON-LD first, then stripped text)
         const content = prepareContent(html);
         htmlByteLength = Buffer.byteLength(content, "utf8");
+
+        // Step 3a-bis: Business-profile enrichment — producer of auto_enriched_description.
+        // Runs once per competitor (missing or old shape), independent of event signals:
+        // offering/pricing exists even without a dated event.
+        if (needsBusinessEnrichment(comp.auto_enriched_description)) {
+          try {
+            const profile = await extractBusinessProfile(anthropic, content, comp.source_url, comp.competitor_name ?? "");
+            if (profile) {
+              await bq.query({
+                query: `
+                  UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET auto_enriched_description = @auto_enriched_description,
+                      updated_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+                `,
+                params: { auto_enriched_description: JSON.stringify(profile), competitor_id: comp.competitor_id },
+                types: { auto_enriched_description: "STRING", competitor_id: "STRING" },
+                location: BQ_LOCATION,
+              });
+              comp.auto_enriched_description = JSON.stringify(profile);
+            }
+          } catch (profErr: any) {
+            console.error("[competitor-surveillance] business enrichment write failed (non-fatal):", profErr?.message);
+          }
+        }
 
         // Step 3b: Content-level gate — skip Claude call if no event signals
         // detected in page text. Saves cost, avoids hallucination on
