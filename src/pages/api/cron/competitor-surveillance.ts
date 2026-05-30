@@ -1167,10 +1167,10 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  await runSurveillance();
+  waitUntil(runSurveillance());
 
   return new Response(
-    JSON.stringify({ ok: true, status: "done" }),
+    JSON.stringify({ ok: true, status: "started" }),
     { status: 200, headers: { "content-type": "application/json" } }
   );
 };
