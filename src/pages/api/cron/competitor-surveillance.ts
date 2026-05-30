@@ -1166,10 +1166,10 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  runSurveillance().catch((e) => console.error("[competitor-surveillance] background error:", e?.message));
+  await runSurveillance();
 
   return new Response(
-    JSON.stringify({ ok: true, status: "started" }),
+    JSON.stringify({ ok: true, status: "done" }),
     { status: 200, headers: { "content-type": "application/json" } }
   );
 };
