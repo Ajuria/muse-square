@@ -77,6 +77,14 @@ The JSON must have exactly these fields:
 {
   "business_description": "2-3 sentence description of what this business does, its positioning, and what makes it unique",
   "current_offering": "what is actively available right now: exhibitions, shows, menu, rooms, collections, rental spaces, seasonal packages, etc. Adapt to the business type. null if none found",
+  "offering_items": [
+    {
+      "category": "product/service TYPE in French (e.g. Dégustation, Visite guidée, Hébergement, Privatisation, Restauration, Boutique, Atelier, Abonnement)",
+      "item": "specific name of the product/service as written on the page",
+      "price": "price exactly as written (e.g. '8 €', 'Gratuit', 'à partir de 95 €') or null if not shown",
+      "unit": "pricing unit if any (e.g. 'par personne', '/nuit', 'par bouteille') or null"
+    }
+  ],
   "services_and_amenities": "services, experiences, facilities, or amenities offered: guided tours, spa, delivery, private hire, catering, parking, Wi-Fi, concierge, click-and-collect, etc. null if none found",
   "target_audience": "who this business targets based on content tone and offerings. null if not discernible",
   "tone_of_voice": "brand voice in 2-3 adjectives (e.g. 'professionnel, chaleureux, accessible'). null if not enough content",
@@ -90,7 +98,12 @@ The JSON must have exactly these fields:
   "age_range_mentioned": "any target age groups or generational segments explicitly mentioned. null if none found",
   "accessibility_info": "PMR accessibility, family-friendly facilities, disabled access, or similar mentions. null if none found"
 }
-All values must be strings or null.`;
+RULES on offering_items:
+- One object per distinct named or priced product/service found on the page.
+- "category" groups items by type so two businesses can be compared by category.
+- If a product is named but no price is shown, include it with price=null.
+- If no products/services are found at all, return offering_items as [].
+All scalar values must be strings or null. offering_items must always be an array (possibly empty).`;
 
   const userPrompt = `Extract business information from this website (${websiteUrl}):\n\n${pageText}`;
 
