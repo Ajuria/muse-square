@@ -511,7 +511,7 @@ async function runSurveillance() {
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
         ORDER BY lc.last_crawled ASC NULLS FIRST
-        LIMIT 4
+        LIMIT 10
       `,
       location: BQ_LOCATION,
     });
