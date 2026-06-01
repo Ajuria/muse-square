@@ -25,7 +25,15 @@ CRITICAL RULES:
 The JSON must have exactly these fields:
 {
   "business_description": "2-3 sentence description of what this business does, its positioning, and what makes it unique",
-  "current_offering": "all products, services, experiences, and packages actively available: exhibitions, shows, menu items, rooms, collections, rental spaces, seasonal packages, workshops, guided tours, subscriptions, memberships, gift cards, etc. Include pricing when visible. null if none found",
+  "current_offering": "all products, services, experiences, and packages actively available: exhibitions, shows, menu items, rooms, collections, rental spaces, seasonal packages, workshops, guided tours, subscriptions, memberships, gift cards, etc. null if none found",
+  "offering_items": [
+    {
+      "category": "product/service TYPE in French (e.g. Dégustation, Visite guidée, Hébergement, Privatisation, Restauration, Boutique, Atelier, Abonnement)",
+      "item": "specific name of the product/service as written on the page",
+      "price": "price exactly as written (e.g. '8 €', 'Gratuit', 'à partir de 95 €') or null if not shown",
+      "unit": "pricing unit if any (e.g. 'par personne', '/nuit', 'par bouteille') or null"
+    }
+  ],
   "services_and_amenities": "services, experiences, facilities offered: guided tours, spa, delivery, private hire, catering, parking, etc. null if none found",
   "target_audience": "who this business targets based on content tone and offerings. null if not discernible",
   "tone_of_voice": "brand voice in 2-3 adjectives. null if not enough content",
@@ -39,7 +47,13 @@ The JSON must have exactly these fields:
   "age_range_mentioned": "target age groups explicitly mentioned. null if none found",
   "accessibility_info": "PMR accessibility, family-friendly facilities. null if none found"
 }
-All values must be strings or null.`;
+}
+RULES on offering_items:
+- One object per distinct named or priced product/service found on the page.
+- "category" groups items by type so two businesses can be compared by category.
+- If a product is named but no price is shown, include it with price=null.
+- If no products/services are found at all, return offering_items as [].
+All scalar values must be strings or null. offering_items must always be an array (possibly empty).`;
 
   const userPrompt = `Extract business information from this competitor website (${websiteUrl}, business name: ${competitorName}):\n\n${pageText.substring(0, 8000)}`;
 
