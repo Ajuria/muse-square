@@ -247,6 +247,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
           const userPositioning = userEnriched?.brand_positioning || "";
           const userActivity = user?.company_activity_type || "";
 
+          const competitorItems = Array.isArray(competitorEnriched.offering_items) ? competitorEnriched.offering_items : [];
+          const userItems = Array.isArray(userEnriched?.offering_items) ? userEnriched.offering_items : [];
+          const competitorItemsJson = JSON.stringify(competitorItems);
+          const userItemsJson = JSON.stringify(userItems);
+
           const systemPrompt = `You are a competitive intelligence analyst for French physical venues and event professionals.
 Return ONLY valid JSON, no markdown, no explanation. All values in French.
 
@@ -266,6 +271,17 @@ Return exactly this JSON structure:
   "positioning_yours": "Your brand positioning keywords",
   "product_gaps": ["Products/services they offer that you don't"],
   "product_complements": ["Products/services that are complementary, not competitive"],
+  "price_comparison": [
+    {
+      "category": "shared product/service category in French (align THEIR items and YOUR items into the same bucket)",
+      "their_item": "their product name in this category, or null if they have nothing here",
+      "their_price": "their price exactly as given, or null",
+      "your_item": "your product name in this category, or null if you have nothing here",
+      "your_price": "your price exactly as given, or null",
+      "signal": "premium_eux | premium_vous | parite | gap_eux | gap_vous",
+      "reading": "one short French line: what this row means for the user"
+    }
+  ],
   "is_direct_competitor": true or false,
   "relationship_type": "direct_competitor | indirect_competitor | complementary | substitute"
 }
@@ -273,7 +289,16 @@ Return exactly this JSON structure:
 RULES:
 - Only state what is supported by the provided data. Never invent.
 - If information is insufficient for a field, use null.
-- Be specific and actionable in the verdict.`;
+- Be specific and actionable in the verdict.
+
+RULES on price_comparison:
+- Build it ONLY from the two offering_items lists provided below. Never invent items or prices.
+- Group items into shared categories so each row compares like-with-like. One row per category.
+- If only one side has items in a category, fill that side and set the other side's item/price to null.
+- signal: "premium_eux" = competitor charges more for a comparable offering (opportunity — the user may have pricing headroom); "premium_vous" = the user charges more (premium positioning to justify); "parite" = comparable prices; "gap_eux" = competitor offers this category and the user does NOT (revenue opportunity for the user); "gap_vous" = the user offers it and the competitor does NOT (the user's differentiator).
+- Only use "premium_eux"/"premium_vous"/"parite" when BOTH sides have a price in that category; otherwise use gap_eux/gap_vous.
+- "reading" is written to the user ("vous"), one actionable sentence.
+- If neither side has offering_items, return price_comparison as [].`;
 
           const userPrompt = `COMPETITOR: ${directory.competitor_name}
 Description: ${competitorDesc}
@@ -292,7 +317,13 @@ Offering: ${userOffering}
 Audience: ${userAudience}
 Positioning: ${userPositioning}
 Threat score: ${threat?.threat_score ?? "unknown"}
-Audience overlap: ${threat?.audience_overlap_pct ?? "unknown"}%`;
+Audience overlap: ${threat?.audience_overlap_pct ?? "unknown"}%
+
+COMPETITOR offering_items (their products/prices):
+${competitorItemsJson}
+
+USER offering_items (your products/prices):
+${userItemsJson}`;
 
           const res = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",

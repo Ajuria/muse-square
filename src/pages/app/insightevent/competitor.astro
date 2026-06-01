@@ -299,14 +299,20 @@ if (!location_id) {
         // ── Produits & prix ──
         html += '<div style="font-size:11px;font-weight:500;color:#888;letter-spacing:1px;margin-bottom:12px;">PRODUITS & PRIX</div>';
 
-        // Competitor products
-        html += '<div style="font-size:11px;font-weight:500;color:#A32D2D;letter-spacing:0.5px;margin-bottom:8px;">' + esc(compName).toUpperCase() + '</div>';
-        html += renderProductList(enriched ? enriched.current_offering : null, enriched ? enriched.pricing_info : null);
+        // Price comparison table (preferred). Falls back to per-side lists when no comparison exists.
+        var priceRows = analysis && analysis.price_comparison ? analysis.price_comparison : null;
+        if (priceRows && priceRows.length) {
+          html += renderPriceComparison(priceRows, compName, userName);
+        } else {
+          // Competitor products
+          html += '<div style="font-size:11px;font-weight:500;color:#A32D2D;letter-spacing:0.5px;margin-bottom:8px;">' + esc(compName).toUpperCase() + '</div>';
+          html += renderProductList(enriched ? enriched.current_offering : null, enriched ? enriched.pricing_info : null);
 
-        // User products
-        if (userEnriched && userEnriched.current_offering) {
-          html += '<div style="font-size:11px;font-weight:500;color:#185FA5;letter-spacing:0.5px;margin:16px 0 8px;">' + esc(userName).toUpperCase() + '</div>';
-          html += renderProductList(userEnriched.current_offering, userEnriched ? userEnriched.pricing_info : null);
+          // User products
+          if (userEnriched && userEnriched.current_offering) {
+            html += '<div style="font-size:11px;font-weight:500;color:#185FA5;letter-spacing:0.5px;margin:16px 0 8px;">' + esc(userName).toUpperCase() + '</div>';
+            html += renderProductList(userEnriched.current_offering, userEnriched ? userEnriched.pricing_info : null);
+          }
         }
 
         // Product gaps
@@ -342,6 +348,56 @@ if (!location_id) {
         }
         html += '</div>';
 
+        return html;
+      }
+
+      function priceSignalStyle(sig) {
+        if (sig === "premium_eux")  return { chip: "Opportunité tarifaire", bg: "#EAF3DE", fg: "#27500A" };
+        if (sig === "premium_vous") return { chip: "Positionnement premium", bg: "#E6F1FB", fg: "#0C447C" };
+        if (sig === "parite")       return { chip: "Parité", bg: "#F1EFE8", fg: "#444" };
+        if (sig === "gap_eux")      return { chip: "Gamme absente \u2014 opportunit\u00e9", bg: "#FCEBEB", fg: "#791F1F" };
+        if (sig === "gap_vous")     return { chip: "Votre diff\u00e9renciateur", bg: "#EAF3DE", fg: "#27500A" };
+        return { chip: "", bg: "#F8F8F6", fg: "#555" };
+      }
+
+      function renderPriceComparison(rows, compName, userName) {
+        if (!rows || !rows.length) return "";
+        var html = '<div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:12px;overflow:hidden;margin-bottom:12px;">';
+        // header
+        html += '<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;padding:10px 14px;border-bottom:0.5px solid rgba(0,0,0,0.08);background:#F8F8F6;">';
+        html += '<div style="font-size:10px;font-weight:600;color:#888;letter-spacing:0.5px;">CAT\u00c9GORIE</div>';
+        html += '<div style="font-size:10px;font-weight:600;color:#A32D2D;letter-spacing:0.5px;">' + esc((compName || "EUX").toUpperCase()) + '</div>';
+        html += '<div style="font-size:10px;font-weight:600;color:#185FA5;letter-spacing:0.5px;">' + esc((userName || "VOUS").toUpperCase()) + '</div>';
+        html += '</div>';
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var st = priceSignalStyle(r.signal);
+          var isLast = i === rows.length - 1;
+          html += '<div style="padding:10px 14px;' + (isLast ? "" : "border-bottom:0.5px solid rgba(0,0,0,0.06);") + '">';
+          html += '<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;align-items:baseline;">';
+          // category
+          html += '<div style="font-size:12px;font-weight:500;color:#111;">' + esc(r.category || "\u2014") + '</div>';
+          // their side
+          html += '<div style="font-size:12px;color:#333;">';
+          if (r.their_item) { html += esc(r.their_item); if (r.their_price) html += '<div style="font-size:13px;font-weight:600;color:#A32D2D;margin-top:1px;">' + esc(r.their_price) + '</div>'; }
+          else html += '<span style="color:#bbb;">\u2014</span>';
+          html += '</div>';
+          // your side
+          html += '<div style="font-size:12px;color:#333;">';
+          if (r.your_item) { html += esc(r.your_item); if (r.your_price) html += '<div style="font-size:13px;font-weight:600;color:#185FA5;margin-top:1px;">' + esc(r.your_price) + '</div>'; }
+          else html += '<span style="color:#bbb;">\u2014</span>';
+          html += '</div>';
+          html += '</div>';
+          // signal chip + reading
+          if (st.chip) {
+            html += '<div style="margin-top:8px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">';
+            html += '<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;background:' + st.bg + ';color:' + st.fg + ';white-space:nowrap;">' + esc(st.chip) + '</span>';
+            if (r.reading) html += '<span style="font-size:11px;color:#666;line-height:1.5;flex:1;min-width:140px;">' + esc(r.reading) + '</span>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
         return html;
       }
 
