@@ -279,7 +279,7 @@ async function writeOfferingSnapshot(
 
   await bq.query({
     query: `
-      INSERT INTO \`${projectId}.raw.competitor_offering_snapshots\` (
+      INSERT INTO \`${projectId}.raw.competitor_offering_history\` (
         snapshot_id, competitor_id, crawled_at, crawl_version, run_id,
         category, item, item_norm, price_raw, price_numeric, currency,
         price_qualifier, unit, source_url, tarifs_url, created_at
