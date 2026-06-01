@@ -200,6 +200,110 @@ function needsBusinessEnrichment(aed: string | null): boolean {
   catch { return true; }
 }
 
+// Normalize item name for cross-crawl matching: lowercase, strip accents,
+// straighten apostrophes, collapse whitespace. Deterministic — the diff key.
+function normalizeItemName(s: string | null | undefined): string {
+  if (!s) return "";
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")   // strip accents
+    .replace(/['']/g, "'")                                // straighten apostrophes
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Parse a free-text price into { numeric, currency, qualifier }.
+// "à partir de 95 €" -> { 95, "EUR", "à partir de" }; "5.60 EUR" -> { 5.6, "EUR", null };
+// "Gratuit"/"" -> { null, null, null }.
+function parsePrice(raw: string | null | undefined): { numeric: number | null; currency: string | null; qualifier: string | null } {
+  if (!raw) return { numeric: null, currency: null, qualifier: null };
+  const s = String(raw).trim();
+  const low = s.toLowerCase();
+
+  let qualifier: string | null = null;
+  if (/\bà partir de\b|\bdes\b|\bdès\b/.test(low)) qualifier = "à partir de";
+  else if (/\bjusqu'?à\b/.test(low)) qualifier = "jusqu'à";
+
+  let currency: string | null = null;
+  if (/€|eur/i.test(s)) currency = "EUR";
+  else if (/\$|usd/i.test(s)) currency = "USD";
+  else if (/£|gbp/i.test(s)) currency = "GBP";
+
+  // first number, allowing "1 234,56" / "1,234.56" / "16" / "5.60"
+  const m = s.replace(/\s/g, "").match(/(\d+(?:[.,]\d+)?)/);
+  let numeric: number | null = null;
+  if (m) {
+    const n = parseFloat(m[1].replace(",", "."));
+    numeric = Number.isFinite(n) ? n : null;
+  }
+  return { numeric, currency, qualifier };
+}
+
+// Write one snapshot row per offering item for this crawl (append-only history).
+// Reads whichever offering_items are current — fresh profile if just enriched,
+// otherwise the existing auto_enriched_description — so history accrues every run.
+async function writeOfferingSnapshot(
+  bq: any, projectId: string, BQ_LOCATION: string,
+  comp: CompetitorSource, aed: string | null,
+  crawledAt: string, crawlVersion: number, runId: string
+): Promise<void> {
+  let items: any[] = [];
+  try {
+    const parsed = aed ? JSON.parse(aed) : null;
+    items = Array.isArray(parsed?.offering_items) ? parsed.offering_items : [];
+  } catch { items = []; }
+  if (items.length === 0) return;
+
+  const snapRows = items.map((it: any) => {
+    const priceRaw = it?.price ?? null;
+    const p = parsePrice(priceRaw);
+    return {
+      snapshot_id:     randomUUID(),
+      competitor_id:   comp.competitor_id,
+      crawled_at:      crawledAt,
+      crawl_version:   crawlVersion,
+      run_id:          runId,
+      category:        it?.category ?? null,
+      item:            it?.item ?? null,
+      item_norm:       normalizeItemName(it?.item),
+      price_raw:       priceRaw,
+      price_numeric:   p.numeric,
+      currency:        p.currency,
+      price_qualifier: p.qualifier,
+      unit:            it?.unit ?? null,
+      source_url:      comp.source_url,
+      tarifs_url:      comp.tarifs_url ?? null,
+      created_at:      crawledAt,
+    };
+  });
+
+  await bq.query({
+    query: `
+      INSERT INTO \`${projectId}.raw.competitor_offering_snapshots\` (
+        snapshot_id, competitor_id, crawled_at, crawl_version, run_id,
+        category, item, item_norm, price_raw, price_numeric, currency,
+        price_qualifier, unit, source_url, tarifs_url, created_at
+      )
+      SELECT
+        snapshot_id, competitor_id, TIMESTAMP(crawled_at), crawl_version, run_id,
+        category, item, item_norm, price_raw, price_numeric, currency,
+        price_qualifier, unit, source_url, tarifs_url, TIMESTAMP(created_at)
+      FROM UNNEST(@rows)
+    `,
+    params: { rows: snapRows },
+    types: {
+      rows: [{
+        snapshot_id: "STRING", competitor_id: "STRING", crawled_at: "STRING",
+        crawl_version: "INT64", run_id: "STRING", category: "STRING",
+        item: "STRING", item_norm: "STRING", price_raw: "STRING",
+        price_numeric: "FLOAT64", currency: "STRING", price_qualifier: "STRING",
+        unit: "STRING", source_url: "STRING", tarifs_url: "STRING", created_at: "STRING",
+      }],
+    },
+    location: BQ_LOCATION,
+  });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function haversineDistance(
@@ -678,6 +782,16 @@ async function runSurveillance() {
           } catch (profErr: any) {
             console.error("[competitor-surveillance] business enrichment write failed (non-fatal):", profErr?.message);
           }
+        }
+
+        // ── Offering snapshot — runs every crawl, enriched or not. ──
+        try {
+          await writeOfferingSnapshot(
+            bq, projectId, BQ_LOCATION, comp,
+            comp.auto_enriched_description, crawledAt, crawlVersion, runId
+          );
+        } catch (snapErr: any) {
+          console.error("[competitor-surveillance] offering snapshot write failed (non-fatal):", snapErr?.message);
         }
 
         // Step 3b: Content-level gate — skip Claude call if no event signals
