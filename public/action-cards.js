@@ -808,22 +808,27 @@
     }
   );
 
-  // #31 — competitor_new_offering
+  // #31 — competitor_new_offering  (rewired: reads item/category/new_price_raw from int_competitor_offering_changes)
   reg('competitor_new_offering', 'Nouvelle offre', 'CONCURRENCE', '\ud83c\udf81', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
-      var desc = a.offering_description || 'nouvelle offre d\u00e9tect\u00e9e';
-      var dist = distLabel(a.distance_m);
+      var name = a.competitor_name || 'Un concurrent';
+      var item = a.item || 'une nouvelle offre';
+      var cat = a.category || '';
+      var price = a.new_price_raw || '';
+      var dkm = a.entity_threat_distance_km;
+      var dist = (dkm != null) ? distLabel(Number(dkm) * 1000) : '';
       var edge = userEdge(p);
-      var name = a.competitor_name || '';
-      var line = name + ' \u2014 ' + desc;
+      var line = name + ' lance une nouvelle offre : ' + item;
+      if (price) line += ' (' + price + ')';
+      if (cat) line += ' \u2014 ' + cat;
       if (dist) line += ', \u00e0 ' + dist;
       line += '.';
       if (edge) line += ' Votre positionnement face \u00e0 cette offre : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Concurrent \u00e9largit son offre. Affirmer votre sp\u00e9cificit\u00e9 : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' nouvelle offre : ' + (a.offering_description || '') + '. Analyser positionnement.'; }
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + (a.competitor_name || 'Un concurrent') + ' lance ' + (a.item || 'une nouvelle offre') + '. Affirmer votre sp\u00e9cificit\u00e9 : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' nouvelle offre : ' + (a.item || '') + (a.new_price_raw ? ' (' + a.new_price_raw + ')' : '') + (a.category ? ' \u2014 ' + a.category : '') + '. Analyser positionnement.'; }
     }
   );
 
@@ -919,6 +924,64 @@
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Mention dans ' + (a.media_source || 'les m\u00e9dias') + '. Relayer et inviter. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
       website: function(a, p, d) { return 'Mise \u00e0 jour site web. Ajouter la mention presse dans actualit\u00e9s.'; }
+    }
+  );
+
+  // #37 — competitor_price_increase
+  reg('competitor_price_increase', 'Saisissez la marge tarifaire', 'INTELLIGENCE', '\ud83d\udcc8', '#1565C0', 'action', 'pulse#radar-threats',
+    function(a, p, d) {
+      var name = a.competitor_name || 'Un concurrent';
+      var item = a.item || 'une offre';
+      var oldP = a.old_price_raw || '?';
+      var newP = a.new_price_raw || '?';
+      var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
+      var line = name + ' a augment\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
+      if (pctv != null) line += ' (+' + pctv + '%)';
+      line += '. Vous disposez peut-\u00eatre d\u2019une marge de repositionnement tarifaire.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a augment\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (+' + Number(a.price_pct_change) + '%)' : '') + '. \u00c9valuer une marge de repositionnement.'; }
+    }
+  );
+
+  // #38 — competitor_price_drop
+  reg('competitor_price_drop', 'R\u00e9agissez \u00e0 la baisse de prix concurrente', 'CONCURRENCE', '\ud83d\udcc9', '#D32F2F', 'action', 'pulse#radar-threats',
+    function(a, p, d) {
+      var name = a.competitor_name || 'Un concurrent';
+      var item = a.item || 'une offre';
+      var oldP = a.old_price_raw || '?';
+      var newP = a.new_price_raw || '?';
+      var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
+      var edge = userEdge(p);
+      var line = name + ' a baiss\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
+      if (pctv != null) line += ' (' + pctv + '%)';
+      line += '. Pression tarifaire \u2014 v\u00e9rifiez votre comp\u00e9titivit\u00e9 sur cette offre.';
+      if (edge) line += ' Votre atout : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Mettre en avant votre rapport qualit\u00e9-prix et : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a baiss\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (' + Number(a.price_pct_change) + '%)' : '') + '. V\u00e9rifier comp\u00e9titivit\u00e9.'; }
+    }
+  );
+
+  // #39 — competitor_offering_removed
+  reg('competitor_offering_removed', 'Captez l\u2019offre abandonn\u00e9e', 'INTELLIGENCE', '\ud83d\uddd1\ufe0f', '#1565C0', 'action', 'pulse#radar-threats',
+    function(a, p, d) {
+      var name = a.competitor_name || 'Un concurrent';
+      var item = a.item || 'une offre';
+      var oldP = a.old_price_raw || '';
+      var edge = userEdge(p);
+      var line = name + ' ne propose plus : ' + item;
+      if (oldP) line += ' (anciennement ' + oldP + ')';
+      line += '. Opportunit\u00e9 de capter cette demande.';
+      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Mettre en avant votre offre sur ce segment : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a retir\u00e9 : ' + (a.item || 'une offre') + (a.old_price_raw ? ' (anciennement ' + a.old_price_raw + ')' : '') + '. Opportunit\u00e9 de capter cette demande.'; }
     }
   );
 
@@ -1488,6 +1551,9 @@
     'competitor_review_drop': { action: 'Communiquer : capitalisez sur votre r\u00e9putation.', urgency: 'plan', channel: 'communiquer' },
     'competitor_hours_change': { action: 'Faire suivre : v\u00e9rifiez si vos horaires restent comp\u00e9titifs.', urgency: 'soon', channel: 'suivre' },
     'competitor_new_offering': { action: 'Communiquer : mettez en avant votre propre offre.', urgency: 'soon', channel: 'communiquer' },
+    'competitor_price_increase': { action: 'Faire suivre : \u00e9valuez une marge de repositionnement tarifaire.', urgency: 'plan', channel: 'suivre' },
+    'competitor_price_drop': { action: 'Communiquer : valorisez votre rapport qualit\u00e9-prix.', urgency: 'soon', channel: 'communiquer' },
+    'competitor_offering_removed': { action: 'Communiquer : captez la demande lib\u00e9r\u00e9e par ce retrait.', urgency: 'soon', channel: 'communiquer' },
     'competitor_sold_out': { action: 'Communiquer : captez le public refus\u00e9 chez le concurrent.', urgency: 'now', channel: 'communiquer' },
     'competitor_content_spike': { action: 'Communiquer : ne laissez pas le concurrent monopoliser l\u2019attention.', urgency: 'now', channel: 'communiquer' },
     'competitor_content_silent': { action: 'Communiquer : profitez du silence concurrent pour gagner en visibilit\u00e9.', urgency: 'now', channel: 'communiquer' },
