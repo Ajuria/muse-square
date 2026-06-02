@@ -1,12 +1,10 @@
 import type { APIRoute } from "astro";
-
+import { isAdmin } from "../../../lib/admins";
 export const prerender = false;
-
-const ADMIN_USER_ID = "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo";
 
 export const GET: APIRoute = async ({ locals }) => {
   const userId = (locals as any)?.clerk_user_id;
-  if (userId !== ADMIN_USER_ID) {
+  if (!isAdmin(userId)) {
     return new Response("Forbidden", { status: 403 });
   }
 

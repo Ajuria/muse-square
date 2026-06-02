@@ -1,12 +1,10 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { ADMIN_USER_IDS } from "../../../lib/admins";
 
 export const prerender = false;
 
-const ADMIN_IDS = [
-  "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo",
-  "user_3ACPaLPrh3ElWgvvHojUKTguf8L",
-];
+const ADMIN_IDS = ADMIN_USER_IDS;
 const PROJECT = "muse-square-open-data";
 
 export const GET: APIRoute = async ({ locals }) => {

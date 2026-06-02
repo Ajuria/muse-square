@@ -79,6 +79,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const company_name = String(body.company_name || p.company_name || company_address).trim();
     const location_id = crypto.randomUUID();
     const company_address_key = sha256Hex(company_address.toUpperCase().replace(/\s+/g, " "));
+
+    // Idempotency guard: if this user already has a site at this address, return the
+    // existing location_id instead of inserting a duplicate (fixes double-submit / re-add).
+    const [existingRows] = await bigquery.query({
+      query: `
+        SELECT location_id
+        FROM ${fullTable}
+        WHERE clerk_user_id = @clerk_user_id AND company_address_key = @company_address_key
+        LIMIT 1
+      `,
+      params: { clerk_user_id, company_address_key },
+      types: { clerk_user_id: "STRING", company_address_key: "STRING" },
+      location: BQ_LOCATION,
+    });
+    if (Array.isArray(existingRows) && existingRows.length) {
+      return new Response(JSON.stringify({ ok: true, location_id: existingRows[0].location_id, deduped: true }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    }
+
     const geo = await geocodeWithBAN(company_address);
     const company_lat = geo?.lat ?? null;
     const company_lon = geo?.lon ?? null;
@@ -87,7 +107,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     await bigquery.query({
       query: `
-        INSERT INTO ${fullTable} (
+        MERGE INTO ${fullTable} AS T
+        USING (
+          SELECT @clerk_user_id AS clerk_user_id, @company_address_key AS company_address_key
+        ) AS S
+        ON T.clerk_user_id = S.clerk_user_id AND T.company_address_key = S.company_address_key
+        WHEN NOT MATCHED THEN
+        INSERT (
           clerk_user_id, location_id, email, first_name, last_name, position,
           company_name, company_address, company_address_key, city_id,
           company_lat, company_lon, company_geocode_status, company_geog,
@@ -197,7 +223,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location: BQ_LOCATION,
     });
 
-    return new Response(JSON.stringify({ ok: true, location_id }), {
+    // Return the canonical id: if a concurrent request inserted first, the MERGE above
+    // matched and skipped our insert — re-read to return whatever actually persisted.
+    const [finalRows] = await bigquery.query({
+      query: `
+        SELECT location_id
+        FROM ${fullTable}
+        WHERE clerk_user_id = @clerk_user_id AND company_address_key = @company_address_key
+        LIMIT 1
+      `,
+      params: { clerk_user_id, company_address_key },
+      types: { clerk_user_id: "STRING", company_address_key: "STRING" },
+      location: BQ_LOCATION,
+    });
+    const final_location_id = (Array.isArray(finalRows) && finalRows.length) ? finalRows[0].location_id : location_id;
+
+    return new Response(JSON.stringify({ ok: true, location_id: final_location_id }), {
       status: 200, headers: { "content-type": "application/json" },
     });
 

@@ -1,5 +1,5 @@
 import "dotenv/config";
-
+import { ADMIN_USER_IDS } from "./lib/admins";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
 import { BigQuery } from "@google-cloud/bigquery";
 console.log("[MW] LOADED middleware.js");
@@ -172,10 +172,8 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
   context.locals.clerk_user_id = userId || null;
 
   // ── Admin impersonation ──
-  const ADMIN_IDS = [
-    "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo",
-    "user_3ACPaLPrh3ElWgvvHojUKTguf8L",
-  ];
+  const ADMIN_IDS = ADMIN_USER_IDS;
+  
   if (userId && ADMIN_IDS.includes(userId)) {
     const cookies = context.request.headers.get("cookie") || "";
     const match = cookies.match(/ms_admin_as=([^;]+)/);
