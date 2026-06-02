@@ -1417,6 +1417,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               + '</div>'
               + '<div class="ab-what">' + t.what + '</div>'
               + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
+                  + (t.action ? '<div style="font-size:12.5px;font-weight:600;color:#1D3BB3;margin-top:6px;">' + escapeHtml(t.action) + '</div>' : '')
             + '</div>'
             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
               + ' data-ab-card-idx-ref="' + cardIdx + '"'
@@ -1498,6 +1499,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
     + '</div>';
   }
+  
   function wireBriefHandlers(root, locationId, selectedDate) {
     var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
     var CHANNEL_PUB = ["gbp","instagram"];
