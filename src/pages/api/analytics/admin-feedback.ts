@@ -1,15 +1,14 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-
+import { isAdmin } from "../../../lib/admins";
 export const prerender = false;
 
-const ADMIN_USER_ID = "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo";
 const PROJECT = "muse-square-open-data";
 
 export const GET: APIRoute = async ({ url, locals }) => {
   const userId = (locals as any)?.real_clerk_user_id || (locals as any)?.clerk_user_id;
-  if (!["user_38OwkmwUq0Ldj5FwB9AJ8HmziWo", "user_3ACPaLPrh3ElWgvvHojUKTguf8L"].includes(userId)) {
+  if (!isAdmin(userId)) {
     return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), {
       status: 403, headers: { "content-type": "application/json" },
     });

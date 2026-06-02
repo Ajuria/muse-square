@@ -1,7 +1,5 @@
-const ADMIN_IDS = [
-  "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo",
-  "user_3ACPaLPrh3ElWgvvHojUKTguf8L",
-];
+import { ADMIN_USER_IDS } from "./admins";
+const ADMIN_IDS = ADMIN_USER_IDS;
 
 export function requireLocationOwnership(locals: any, location_id: string): void {
   const realUser = locals?.real_clerk_user_id || locals?.clerk_user_id;
