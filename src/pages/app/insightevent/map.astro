@@ -734,7 +734,7 @@ window.addEventListener("load", () => {
   // ---- Industry bucket mapping (French labels from seed) ----
   const INDUSTRY_BUCKETS = {
     'culture_event':          ['Culture & Patrimoine', 'Cinéma & Théâtre', 'Événementiel', 'Vie nocturne'],
-    'leisure_activity':       ['Tourisme & Loisirs', 'Sports & Loisirs actifs', 'Bien-être & Fitness'],
+    'leisure_activity':       ['Tourisme & Loisirs', 'Parcs d\'attractions & Loisirs', 'Œnotourisme & Domaines viticoles', 'Sports & Loisirs actifs', 'Bien-être & Fitness'],
     'commercial_activity':    ['Restauration & Bars', 'Commerce & Retail', 'Hôtellerie & Hébergement', 'Salons & Événements professionnels'],
     'institutional_activity': ['Collectivités & Secteur public', 'Éducation & Enseignement', 'Associatif & Non lucratif', 'Transport & Mobilité locale', 'Sciences & Innovation'],
   }
@@ -784,9 +784,10 @@ window.addEventListener("load", () => {
     // If own industry has no events, activate all
     const ownIndustry = ordered[0]
     const ownHasEvents = allEvents.some(e => e.industry_code === ownIndustry)
+    const ownBucket = getClientBucket(ownIndustry)
     ordered.forEach(i => {
       if (industryState[i] === undefined) {
-        industryState[i] = ownHasEvents ? (i === ownIndustry) : true
+        industryState[i] = ownHasEvents ? (getClientBucket(i) === ownBucket) : true
       }
     })
 
@@ -828,14 +829,15 @@ window.addEventListener("load", () => {
 
     // Filter by active industries — always include followed events
     const filtered = allEvents.filter(e => e.is_followed || industryState[e.industry_code] !== false)
-
-    // Re-render list with filtered events
-    renderEventList(filtered)
-
+    // Radius gate (same set used for list and markers)
+    const included = radiusIncludes[activeRadius] || []
+    const inRadius = filtered.filter(e => e.is_followed || included.includes(e.radius_bucket))
+    // Re-render list with the radius-gated set
+    renderEventList(inRadius)
     // Re-render markers
     let num = 1
     ;['500m','1km','5km','10km','50km'].forEach(bucket => {
-      filtered.filter(e => e.radius_bucket === bucket).forEach(e => {
+      inRadius.filter(e => e.radius_bucket === bucket).forEach(e => {
         const lat = Number(e.latitude)
         const lng = Number(e.longitude)
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
@@ -844,9 +846,6 @@ window.addEventListener("load", () => {
       })
     })
 
-    // Show/hide layers based on active radius (cumulative)
-    const included = radiusIncludes[activeRadius] || []
-    console.log('followed in filtered:', filtered.filter(e=>e.is_followed).map(e=>e.title))
     console.log('activeRadius:', activeRadius, 'included:', included)
     ;['500m','1km','5km','10km','50km'].forEach(bucket => {
       const layer = { '500m': eventsLayer500m, '1km': eventsLayer1km, '5km': eventsLayer5km, '10km': eventsLayer10km, '50km': eventsLayer50km }[bucket]
@@ -877,7 +876,13 @@ window.addEventListener("load", () => {
   window._onEventsLoaded = function(events) {
     allEvents = events
     buildIndustryRow(events)
-    applyRadius('filter-5km')
+
+    // Auto-select the tightest radius that actually contains events
+    const order = ['filter-500m', 'filter-1km', 'filter-5km', 'filter-10km']
+    const tightest = order.find(id =>
+      events.some(e => (radiusIncludes[id] || []).includes(e.radius_bucket))
+    ) || 'filter-10km'
+    applyRadius(tightest)
   }
 
   // ---- Mobilité ----

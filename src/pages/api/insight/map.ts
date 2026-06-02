@@ -131,7 +131,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             competitor_address   AS venue_address,
             event_city,
             distance_from_location_m,
-            event_industry_code  AS industry_code,
+            coalesce(n_ind.canonical_label_fr, s.event_industry_code) AS industry_code,
             description,
             conflict_score,
             entity_threat_score,
@@ -144,11 +144,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
             google_rating,
             google_rating_count,
             competitor_name
-          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_signals\`
-          WHERE location_id = @location_id
-            AND @date BETWEEN event_date AND COALESCE(event_date_end, event_date)
-            AND competitor_lat IS NOT NULL
-            AND competitor_lon IS NOT NULL
+          FROM \`muse-square-open-data.semantic.vw_insight_event_competitor_signals\` s
+          LEFT JOIN \`muse-square-open-data.open_data.event_industry_keywords_normalization\` n_ind
+            ON n_ind.source = 'event'
+           AND n_ind.raw_industry_code = s.event_industry_code
+          WHERE s.location_id = @location_id
+            AND @date BETWEEN s.event_date AND COALESCE(s.event_date_end, s.event_date)
+            AND s.competitor_lat IS NOT NULL
+            AND s.competitor_lon IS NOT NULL
         `,
         params: { location_id, date },
         location: "EU",
