@@ -808,7 +808,6 @@ const show_actions = has_selected_dates;
     margin-top: 16px;
   }
 
-
   /* -------------------------
     LIST READABILITY + CLAMP
     ------------------------- */
@@ -4012,7 +4011,8 @@ const show_actions = has_selected_dates;
         var suivisCompactHtml = renderSuivisCompactSection(competitorSignals, selectedDate, followedCount);
 
         // Map CTA URL
-        var mapUrl = "/app/insightevent/map?date=" + encodeURIComponent(selectedDate) +
+        var mapUrl = "/app/insightevent/map?location_id=" + encodeURIComponent(LOCATION_ID) +
+            "&date=" + encodeURIComponent(selectedDate) +
             "&selected_dates=" + encodeURIComponent(selectedDates.join(",")) + "&embed=1";
 
         // Page header
@@ -4213,8 +4213,8 @@ const show_actions = has_selected_dates;
         function renderContexteReferenceCard(row) {
         if (!row) return '';
 
-        var count500 = Number(row.events_within_500m_count || 0);
-        var count5km = Number(row.events_within_5km_count || 0);
+        var count500 = Number(row.events_within_500m_same_bucket_count || 0);
+        var count5km = Number(row.events_within_5km_same_bucket_count || 0);
         var deltaEvents = Number(row.delta_att_events_pct || 0);
         var deltaMob = Number(row.delta_att_mobility_pct || 0);
         var deltaOps = Number(row.delta_ops_mobility_car_pct || 0);
