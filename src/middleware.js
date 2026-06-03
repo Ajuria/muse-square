@@ -217,6 +217,22 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     context.locals.first_name = profile.first_name;
     context.locals.all_location_ids = profile.all_location_ids || [];
 
+    // ── Active location override (multi-site, non destructif) ──
+    // Calque ms_admin_as : lit un cookie, honoré UNIQUEMENT si l'utilisateur
+    // possède ce location_id (validé contre le set chargé ci-dessus).
+    // Ne touche jamais is_primary ; fallback primary si absent/invalide.
+    const cookieHeader = context.request.headers.get("cookie") || "";
+    const activeMatch = cookieHeader.match(/ms_active_location=([^;]+)/);
+    if (activeMatch) {
+      const activeId = decodeURIComponent(activeMatch[1]);
+      if ((profile.all_location_ids || []).includes(activeId)) {
+        console.log("[MW] Active location override:", profile.location_id, "->", activeId);
+        context.locals.location_id = activeId;
+      } else {
+        console.log("[MW] ms_active_location non possédé, ignoré:", activeId);
+      }
+    }
+
     console.log("[MW] profileRowExists:", context.locals.profileRowExists);
     console.log("[MW] location_id:", context.locals.location_id);
     console.log("[MW] profileRowExists:", profile.ok);
