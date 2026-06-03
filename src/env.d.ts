@@ -16,5 +16,8 @@ declare namespace App {
     location_id?: string;
     authStatus?: string;
     profileRowExists?: boolean;
+    first_name?: string;
+    all_location_ids?: string[];
+    scope?: import("./lib/scope").OperationalScope;
   }
 }

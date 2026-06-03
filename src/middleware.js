@@ -2,6 +2,7 @@ import "dotenv/config";
 import { ADMIN_USER_IDS } from "./lib/admins";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
 import { BigQuery } from "@google-cloud/bigquery";
+import { resolveOperationalScope } from "./lib/scope";
 console.log("[MW] LOADED middleware.js");
 
 const isOnboardingRoute = createRouteMatcher([
@@ -217,20 +218,27 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     context.locals.first_name = profile.first_name;
     context.locals.all_location_ids = profile.all_location_ids || [];
 
-    // ── Active location override (multi-site, non destructif) ──
-    // Calque ms_admin_as : lit un cookie, honoré UNIQUEMENT si l'utilisateur
-    // possède ce location_id (validé contre le set chargé ci-dessus).
-    // Ne touche jamais is_primary ; fallback primary si absent/invalide.
+    // ── Operational scope (multi-site, non destructif) ──
+    // Calque ms_admin_as : lit le cookie ms_active_location, honoré UNIQUEMENT
+    // si l'utilisateur possède ce location_id. Ne touche jamais is_primary.
+    // Pose locals.scope (consommé par les vues opérationnelles, ex. pulse) ;
+    // locals.location_id reste l'alias = scope.locationId pour le code existant.
     const cookieHeader = context.request.headers.get("cookie") || "";
     const activeMatch = cookieHeader.match(/ms_active_location=([^;]+)/);
-    if (activeMatch) {
-      const activeId = decodeURIComponent(activeMatch[1]);
-      if ((profile.all_location_ids || []).includes(activeId)) {
-        console.log("[MW] Active location override:", profile.location_id, "->", activeId);
-        context.locals.location_id = activeId;
-      } else {
-        console.log("[MW] ms_active_location non possédé, ignoré:", activeId);
-      }
+    const activeCookieId = activeMatch ? decodeURIComponent(activeMatch[1]) : null;
+
+    const scope = resolveOperationalScope({
+      ownedLocationIds: profile.all_location_ids || [],
+      primaryLocationId: profile.location_id,
+      activeCookieId,
+    });
+    context.locals.scope = scope;
+    context.locals.location_id = scope.locationId; // alias rétro-compatible
+
+    if (activeCookieId && scope.locationId === activeCookieId) {
+      console.log("[MW] Active location override:", profile.location_id, "->", activeCookieId);
+    } else if (activeCookieId) {
+      console.log("[MW] ms_active_location non possédé, ignoré:", activeCookieId);
     }
 
     console.log("[MW] profileRowExists:", context.locals.profileRowExists);
