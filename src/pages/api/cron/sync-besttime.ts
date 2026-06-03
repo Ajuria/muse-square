@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
+import { waitUntil } from "@vercel/functions";
 export const prerender = false;
 
 const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
@@ -197,7 +198,9 @@ export const GET: APIRoute = async ({ url, request }) => {
     return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
   }
 
-  runBestTimeSync().catch((e) => console.error("[sync-besttime] background error:", e?.message));
+  waitUntil(
+    runBestTimeSync().catch((e) => console.error("[sync-besttime] background error:", e?.message))
+  );
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),
