@@ -1499,7 +1499,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
     + '</div>';
   }
-  
+
   function wireBriefHandlers(root, locationId, selectedDate) {
     var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
     var CHANNEL_PUB = ["gbp","instagram"];
@@ -2948,6 +2948,12 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const root = document.getElementById("mon-root");
     if (!root) return;
 
+    // Event's own site — never the active site in pulse.
+    const itemLocationId =
+      (item && typeof item.location_id === "string" && item.location_id.trim())
+        ? item.location_id.trim()
+        : location_id;
+
     const days = Array.isArray(data.days) ? data.days : [];
     window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
     const dayMap = new Map(days.map(d => [normalizeYmd(d.date), d]));
@@ -3084,7 +3090,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     if (activeView === "carte") {
       const mapLocs = isMultisite ? data._locations : null;
       const primaryLoc = mapLocs ? (mapLocs.find(l => l.is_primary) || mapLocs[0]) : null;
-      const defaultLocId = primaryLoc ? primaryLoc.location_id : location_id;
+      const defaultLocId = primaryLoc ? primaryLoc.location_id : itemLocationId;
 
       const mapSwitcher = mapLocs ? `
         <div style="display:flex;align-items:center;gap:0;border:0.5px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-bottom:8px;">
@@ -3344,7 +3350,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // ---- RADAR VIEW (default) ----
 
     // Selected day's Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, location_id, days, item);
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, itemLocationId, days, item);
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
@@ -3608,7 +3614,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     });
 
     // Daily Brief handlers
-    wireBriefHandlers(root, location_id, selectedDate);
+    wireBriefHandlers(root, itemLocationId, selectedDate);
 
     // Feed CTA handlers — links navigate directly, no JS needed
   }
@@ -4162,9 +4168,16 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const dates = extractDates(item).map(normalizeYmd).filter(Boolean).slice(0, 7);
       if (!dates.length) throw new Error("Cet enregistrement ne contient aucune date.");
 
+      // Monitor detail is scoped to the EVENT's own site (item.location_id),
+      // never the active site in pulse.
+      const monitorLocationId =
+        (item && typeof item.location_id === "string" && item.location_id.trim())
+          ? item.location_id.trim()
+          : location_id;
+
       const selectedDate = focused_date ? normalizeYmd(focused_date) : normalizeYmd(dates[0]);
       const monitorDates = [selectedDate];
-      const data = await fetchMonitor(location_id, monitorDates);
+      const data = await fetchMonitor(monitorLocationId, monitorDates);
 
       const firstDate = focused_date
         ? normalizeYmd(focused_date)
@@ -4211,11 +4224,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       fetch("/api/analytics/track", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ event: "page_view", location_id: location_id, action_key: "monitor" }),
+        body: JSON.stringify({ event: "page_view", location_id: monitorLocationId, action_key: "monitor" }),
       }).catch(function(){});
-      await fetchSavedDrafts(location_id);
-      await fetchChannelConfigs(location_id);
-      await fetchTeamMembers(location_id);
+      await fetchSavedDrafts(monitorLocationId);
+      await fetchChannelConfigs(monitorLocationId);
+      await fetchTeamMembers(monitorLocationId);
       renderMonitor(data, item, firstDate, "radar", monitorDates);
     } catch (e) {
       if (root) root.innerHTML = `<div class="mon-error">${escapeHtml(e?.message || "Erreur de chargement.")}</div>`;

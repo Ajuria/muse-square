@@ -55,9 +55,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ---- AUTH + CONTEXT (truth) ----
+    // ---- AUTH (truth) ----
+    // Ownership is by clerk_user_id only. An event belongs to a specific site
+    // (i.location_id) and must open from any active state in pulse.
     const clerk_user_id = requireUserIdFromLocals(locals);
-    const location_id = requireLocationIdFromLocals(locals);
 
     // ---- Body ----
     const body = await request.json().catch(() => null);
@@ -103,7 +104,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ON p.location_id = i.location_id
        AND p.clerk_user_id = i.clerk_user_id
       WHERE i.clerk_user_id = @clerk_user_id
-        AND i.location_id = @location_id
         AND i.saved_item_id = @saved_item_id
       GROUP BY
         i.saved_item_id,
@@ -131,12 +131,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location: BQ_LOCATION,
       params: {
         clerk_user_id,
-        location_id,
         saved_item_id,
       },
       types: {
         clerk_user_id: "STRING",
-        location_id: "STRING",
         saved_item_id: "STRING",
       },
     });
