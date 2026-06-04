@@ -27,7 +27,7 @@ export async function callClaudeMessagesAPI(args: {
     temperature,
     system: args.system.trim(),
     messages: [
-      ...((args.userPayload as any)?._conversation_history ?? []).map((m: any) => ({
+      ...((args.conversationHistory ?? (args.userPayload as any)?._conversation_history) ?? []).map((m: any) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),

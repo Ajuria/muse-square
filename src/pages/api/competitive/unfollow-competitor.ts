@@ -38,6 +38,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location: BQ_LOCATION,
     });
 
+    await bq.query({
+      query: `
+        UPDATE \`${projectId}.raw.competitor_tracking\`
+        SET deleted_at = CURRENT_TIMESTAMP()
+        WHERE clerk_user_id = @clerk_user_id
+          AND competitor_id = (
+            SELECT competitor_id FROM \`${projectId}.raw.watched_competitors\`
+            WHERE watched_competitor_id = @id
+            LIMIT 1
+          )
+          AND deleted_at IS NULL
+      `,
+      params: { id, clerk_user_id },
+      types: { id: "STRING", clerk_user_id: "STRING" },
+      location: BQ_LOCATION,
+    });
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 200, headers: { "content-type": "application/json" }
     });

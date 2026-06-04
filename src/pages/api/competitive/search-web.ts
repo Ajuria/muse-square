@@ -150,7 +150,7 @@ Priorité des sources : site officiel > Eventbrite > Openagenda > presse locale 
       .filter((b: any) => b.type === "text" && b.text?.trim())
       .map((b: any) => b.text.trim());
 
-    const raw = textBlocks.pop() || "";
+    const raw = textBlocks.join("\n") || "";
 
     // Parse JSON from response
     let candidates: any[] = [];

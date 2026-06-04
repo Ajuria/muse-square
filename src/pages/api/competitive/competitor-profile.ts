@@ -51,6 +51,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }
     }
 
+    // User-set watched URL lives in watched_competitors, not the directory.
+    // Used to tell "no URL set" apart from "URL set, enrichment pending".
+    let watchedSourceUrl: string | null = null;
+    {
+      const [wcRows] = await bq.query({
+        query: `
+          SELECT source_url
+          FROM \`${projectId}.raw.watched_competitors\`
+          WHERE clerk_user_id = @clerk_user_id
+            AND competitor_id = @competitor_id
+            AND deleted_at IS NULL
+            AND source_url IS NOT NULL
+          QUALIFY ROW_NUMBER() OVER (ORDER BY created_at DESC) = 1
+        `,
+        params: { clerk_user_id, competitor_id },
+        types: { clerk_user_id: "STRING", competitor_id: "STRING" },
+        location: BQ_LOCATION,
+      });
+      if (Array.isArray(wcRows) && wcRows.length > 0 && wcRows[0].source_url) {
+        watchedSourceUrl = String(wcRows[0].source_url);
+      }
+    }
+
     // ── Parallel fetch: directory, threat profile, user profile, alerts, events ──
     const [dirRows, threatRows, userRows, alertRows, eventRows] = await Promise.all([
       // 1. Competitor directory (semantic layer)
@@ -390,10 +413,11 @@ ${userItemsJson}`;
         google_rating:     directory.google_rating,
         google_rating_count: directory.google_rating_count,
         description:       directory.description,
-        source_url:        directory.source_url,
+        source_url:        directory.source_url ?? watchedSourceUrl,
         confidence_score:  directory.confidence_score,
         is_user_vetted:    directory.is_user_vetted,
         enriched:          competitorEnriched,
+        enrichment_pending: !competitorEnriched && !!(directory.source_url ?? watchedSourceUrl),
       },
       threat: threat ? {
         threat_score:          threat.threat_score,

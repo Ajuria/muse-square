@@ -56,16 +56,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
     const fullTable = `\`${projectId}.raw.insight_event_user_location_profile\``;
 
-    // Copy all fields from primary location
+    // v2: inherit ONLY user-level identity from the primary. Location-specific fields
+    // are owned per-site (filled via the per-site settings page), never inherited.
     const [primaryRows] = await bigquery.query({
       query: `
         SELECT
-          email, first_name, last_name, position,
-          company_activity_type, location_type, event_time_profile,
-          location_access_pattern, nearest_transit_stop, nearest_transit_stop_id,
-          nearest_transit_lines, primary_audience_1, primary_audience_2,
-          origin_city_id_1, origin_city_id_2, origin_city_id_3,
-          origin_city_label_1, origin_city_label_2, origin_city_label_3
+          email, first_name, last_name, position
         FROM ${fullTable}
         WHERE clerk_user_id = @clerk_user_id AND is_primary = TRUE
         LIMIT 1
@@ -156,21 +152,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_lat,
         company_lon,
         geocode_status,
-        company_activity_type: p.company_activity_type ?? null,
-        location_type: p.location_type ?? null,
-        event_time_profile: p.event_time_profile ?? null,
-        location_access_pattern: p.location_access_pattern ?? null,
-        nearest_transit_stop: p.nearest_transit_stop ?? null,
-        nearest_transit_stop_id: p.nearest_transit_stop_id ?? null,
-        nearest_transit_lines: p.nearest_transit_lines ?? null,
-        primary_audience_1: p.primary_audience_1 ?? null,
-        primary_audience_2: p.primary_audience_2 ?? null,
-        origin_city_id_1: p.origin_city_id_1 ?? null,
-        origin_city_id_2: p.origin_city_id_2 ?? null,
-        origin_city_id_3: p.origin_city_id_3 ?? null,
-        origin_city_label_1: p.origin_city_label_1 ?? null,
-        origin_city_label_2: p.origin_city_label_2 ?? null,
-        origin_city_label_3: p.origin_city_label_3 ?? null,
+        // v2: location-specific, owned per-site — not inherited from primary.
+        company_activity_type: null,
+        location_type: null,
+        event_time_profile: null,
+        location_access_pattern: null,
+        nearest_transit_stop: null,
+        nearest_transit_stop_id: null,
+        nearest_transit_lines: null,
+        primary_audience_1: null,
+        primary_audience_2: null,
+        origin_city_id_1: null,
+        origin_city_id_2: null,
+        origin_city_id_3: null,
+        origin_city_label_1: null,
+        origin_city_label_2: null,
+        origin_city_label_3: null,
         site_name: null,
         location_description: null,
         venue_capacity: null,
