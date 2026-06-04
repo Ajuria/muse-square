@@ -1878,8 +1878,22 @@ window.deleteLocation = async function(locationId, cardId) {
 // ============================================================
 // SET AS PRIMARY (placeholder — needs endpoint)
 // ============================================================
-window.setAsPrimary = function(locationId) {
-  alert('Fonctionnalité à implémenter — endpoint location-set-primary requis.');
+window.setAsPrimary = async function(locationId) {
+  try {
+    const res = await fetch('/api/profile/location-set-primary', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ location_id: locationId }),
+    });
+    const out = await res.json().catch(() => null);
+    if (res.ok && out?.ok) {
+      window.location.reload();
+    } else {
+      alert(out?.error || 'Erreur lors de la définition du site principal.');
+    }
+  } catch (_) {
+    alert('Erreur réseau.');
+  }
 };
 
 // ============================================================

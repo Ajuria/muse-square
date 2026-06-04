@@ -2138,11 +2138,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 4) today
     const inferred_selected_date = inferSelectedDateFromMonthMention(q);
 
+    // Multi-turn: after a month/top-days turn, a date-less follow-up ("Pourquoi ?")
+    // inherits the #1 recommended date instead of defaulting to today.
+    const _lastCtx = thread_context?.last as any;
+    const _priorTopDate = safeYmd10(_lastCtx?.top_dates?.[0]?.date);
+    const _priorWasMonth = _lastCtx?.horizon === "month";
     const selected_date =
       (typeof body?.selected_date === "string" && body.selected_date.trim())
         ? body.selected_date.trim().slice(0, 10)
         : (inferred_selected_date ??
+          (_priorWasMonth ? _priorTopDate : undefined) ??
           safeYmd10(thread_context?.last?.selected_date) ??
+          _priorTopDate ??
           new Date().toISOString().slice(0, 10));
 
     const date =
@@ -3111,37 +3118,44 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const isConcurrence = request_mode === "concurrence";
 
       const systemPrompt = isConcurrence
-        ? `Tu es un expert en intelligence concurrentielle pour les professionnels de l'événementiel en France. Tu réponds en français.
+        ? `Tu es un expert en intelligence concurrentielle pour un opérateur de site physique en France. Tu réponds en français en vouvoyant l'opérateur.
 
-Contexte du client :
-- Type de lieu : ${internal_context?.location_type ?? "non renseigné"}
+Votre contexte (vous = l'opérateur) :
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
 - Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
 - Description : ${internal_context?.business_short_description ?? "non renseignée"}
-- Audience principale : ${internal_context?.primary_audience_1 ?? "non renseignée"}
-- Profil temporel : ${internal_context?.event_time_profile ?? "non renseigné"}
+- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+
+Tâche : réponds à la question concurrentielle en t'appuyant sur la recherche web et sur votre contexte ci-dessus.
+
+Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
+{ "found": boolean, "answer": string }
 
 Règles :
-- Analyse toujours la menace ou l'opportunité concurrentielle en la mettant en perspective avec le profil ci-dessus.
-- Quand tu utilises une recherche web, indique-le explicitement.
-- Quand tu réponds depuis tes connaissances, indique-le aussi.
-- Ne fabrique jamais de données chiffrées sans source.
-- Sois direct et opérationnel — le client doit pouvoir agir sur ta réponse.`
+- answer : réponds toujours de façon substantielle à la question. Appuie-toi sur la recherche web quand c'est possible, sinon sur ton analyse. found = true si tu cites une source web ou un fait vérifiable, false si la réponse est analytique. Ne laisse answer vide que si la question est inintelligible.
+- answer (si found) : réponse directe et opérationnelle, structurée en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON. Mets toujours la réponse en perspective avec votre contexte ci-dessus (proximité, audience, secteur).
+- PROXIMITÉ : compare la localisation réelle de toute entité citée à la vôtre. Ne suppose JAMAIS qu'elles partagent le même secteur ; si elles sont distantes, dis-le.
+- TON : adresse-toi à l'opérateur en le vouvoyant (« votre activité », « votre site », « vous »). N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
+- Ne fabrique JAMAIS de données chiffrées ni de jugement sans source.
+- Phrases complètes uniquement. Maximum 150 mots.`
         : `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
 
-Contexte du client :
-- Type de lieu : ${internal_context?.location_type ?? "non renseigné"}
+Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
 - Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
-- Description : ${internal_context?.business_short_description ?? "non renseignée"}
-- Audience principale : ${internal_context?.primary_audience_1 ?? "non renseignée"}
-- Profil temporel : ${internal_context?.event_time_profile ?? "non renseigné"}
+- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+
+Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+
+Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
+{ "found": boolean, "answer": string }
 
 Règles :
-- Réponds à la question posée de façon directe et opérationnelle.
-- Si la question porte sur l'impact d'une entité : 1) Identifie l'entité (1-2 phrases). 2) Analyse l'impact concret : fréquentation, audience partagée, timing, proximité. 3) Précise si l'impact est positif ou négatif.
-- Utilise les données web pour les faits (dates, lieu, thème, affluence).
-- Ne fabrique jamais de chiffres sans source.
-- Pas de markdown. Texte brut uniquement.
-- Maximum 150 mots.`;
+- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
+- PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
+- TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
+- Phrases complètes uniquement. Maximum 120 mots.`;
 
       const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -3163,29 +3177,58 @@ Règles :
 
       const contentBlocks = Array.isArray(webSearchResult.content) ? webSearchResult.content : [];
       const usedWebSearch = contentBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-      // Get the LAST text block — that's Claude's answer after processing search results
-      const textBlocks = contentBlocks.filter((b: any) => b.type === "text");
-      const answerText = textBlocks.length > 0
-        ? textBlocks[textBlocks.length - 1].text
-        : "Je n'ai pas pu trouver de réponse.";
+      // Concatenate every text block AFTER the last tool block (no partial fragments).
+      const lastToolIdx = contentBlocks.reduce(
+        (acc: number, b: any, i: number) =>
+          (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
+        -1
+      );
+      const rawWebAnswer = contentBlocks
+        .slice(lastToolIdx + 1)
+        .filter((b: any) => b.type === "text" && typeof b.text === "string")
+        .map((b: any) => b.text)
+        .join("")
+        .trim();
+
+      // Parse structured result + GATE: suppress not-found / irrelevant / partial.
+      let webFound = false;
+      let webAnswer = "";
+      try {
+        const fenced = rawWebAnswer.replace(/^```json\s*|\s*```$/g, "").trim();
+        const parsed = JSON.parse(fenced);
+        webFound = parsed?.found === true;
+        webAnswer = typeof parsed?.answer === "string"
+          ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
+          : "";
+      } catch {
+        webFound = false;
+      }
+      const webRelevant = isConcurrence
+        ? (webAnswer.length >= 30 && /[.!?]$/.test(webAnswer))
+        : (webFound && webAnswer.length >= 30 && /[.!?]$/.test(webAnswer));
+
+      const webHeadline = webRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
+      const webFinal = webRelevant
+        ? webAnswer
+        : "Je n'ai pas trouvé d'information fiable sur ce sujet dans votre zone. Ajoutez l'entité concernée à votre veille pour obtenir une analyse contextualisée.";
+      const webCaveats = webRelevant
+        ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
+        : [];
 
       return new Response(JSON.stringify({
         ok: true,
         meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", mode: request_mode },
         ai: {
-          headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+          headline: webHeadline,
           verdict: "",
-          answer: answerText,
+          answer: webFinal,
           key_facts: [],
           reasons: [],
-          caveats: [usedWebSearch
-            ? "Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."
-            : "Cette réponse est basée sur les connaissances générales du modèle, pas sur les données Muse Square."
-          ],
+          caveats: webCaveats,
           output: {
-            headline: usedWebSearch ? "Résultat de recherche web" : "Réponse générale",
+            headline: webHeadline,
             verdict: "",
-            answer: answerText,
+            answer: webFinal,
             key_facts: [],
             reasons: [],
             caveats: [],
@@ -3713,11 +3756,110 @@ Règles :
               producer = "v3_fallback_deterministic";
             }
           } else {
-            // Scenario B: entity NOT in our data — fall back to web search
-            resolved_intent = "INTENT_UNKNOWN";
+            // Scenario B: entity NOT in our data → web search, GATED on relevance + completeness.
+            const entitySystemPrompt = `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
+
+Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
+- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+
+Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+
+Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
+{ "found": boolean, "answer": string }
+
+Règles :
+- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
+- PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
+- TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
+- Phrases complètes uniquement. Maximum 120 mots.`;
+
+            const entityWebResult = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 1024,
+                tools: [{ type: "web_search_20250305", name: "web_search" }],
+                system: entitySystemPrompt,
+                messages: [{ role: "user", content: qRaw }],
+              }),
+            }).then(r => r.json());
+
+            const entityBlocks = Array.isArray(entityWebResult.content) ? entityWebResult.content : [];
+            const entityUsedWeb = entityBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
+            // Concatenate every text block AFTER the last tool block (no partial fragments).
+            const entityLastToolIdx = entityBlocks.reduce(
+              (acc: number, b: any, i: number) =>
+                (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
+              -1
+            );
+            const entityRaw = entityBlocks
+              .slice(entityLastToolIdx + 1)
+              .filter((b: any) => b.type === "text" && typeof b.text === "string")
+              .map((b: any) => b.text)
+              .join("")
+              .trim();
+
+            // Parse + GATE: suppress not-found / irrelevant / partial.
+            let entityFound = false;
+            let entityAnswer = "";
+            try {
+              const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
+              const parsed = JSON.parse(fenced);
+              entityFound = parsed?.found === true;
+              entityAnswer = typeof parsed?.answer === "string"
+                ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
+                : "";
+            } catch {
+              entityFound = false;
+            }
+            const entityRelevant = entityFound && entityAnswer.length >= 30 && /[.!?]$/.test(entityAnswer);
+
+            const entityHeadline = entityRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
+            const entityFinal = entityRelevant
+              ? entityAnswer
+              : "Je n'ai pas trouvé d'information fiable sur cette entité dans votre zone. Ajoutez-la à votre veille pour obtenir une analyse contextualisée.";
+            const entityCaveats = entityRelevant
+              ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
+              : [];
+
+            return new Response(JSON.stringify({
+              ok: true,
+              meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", mode: request_mode },
+              ai: {
+                headline: entityHeadline,
+                verdict: "",
+                answer: entityFinal,
+                key_facts: [],
+                reasons: [],
+                caveats: entityCaveats,
+                output: {
+                  headline: entityHeadline,
+                  verdict: "",
+                  answer: entityFinal,
+                  key_facts: [],
+                  reasons: [],
+                  caveats: [],
+                },
+                meta: { horizon: resolved_horizon, intent: "ENTITY_IMPACT", used_dates: [] },
+                actions: { month_redirect_url: null, primary: null, secondary: [] },
+              },
+              actions: { month_redirect_url: null, primary: null, secondary: [] },
+              top_dates: [],
+              decision_payload: { kind: "lookup", horizon: "lookup_event", intent: "EVENT_LOOKUP", used_dates: [], signals: {} },
+              window_aggregates_v3: null,
+              ui_packaging_v3: null,
+            }), { status: 200, headers: { "content-type": "application/json" } });
           }
 
-          if (resolved_intent !== "INTENT_UNKNOWN") break;
+          break;
         }
 
         if (resolved_intent === "DRIVER_PRIMARY") {

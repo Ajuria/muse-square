@@ -525,7 +525,7 @@ if (!root) {
     // ── FALLBACK (generic prose) ─────────────────────────────────
     return `
       ${headline ? `<div class="ie-ai-h">${escapeHtml(headline)}</div>` : ""}
-      ${answer ? `<div class="ie-ai-p">${escapeHtml(answer).replace(/\n/g, "<br/>")}</div>` : ""}
+      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${escapeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
       ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
       ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${escapeHtml(c)}</div>`).join("")}</div>` : ""}
       ${cta}

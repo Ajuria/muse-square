@@ -48,6 +48,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Split first word for partial matching (same pattern as check-event)
     const firstWord  = query.split(/\s+/)[0] || query;
 
+    // Robust event matching (mirror prompt.ts lookup_event): strip accents + apostrophes, tokenize.
+    const stripDiacritics = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const qNorm   = stripDiacritics(queryLower).replace(/['\u2019]/g, " ").replace(/\s+/g, " ").trim();
+    const qTokens = qNorm.split(/\s+/).filter((w) => w.length >= 4);
+    const qToken1 = qTokens[0] ?? "";
+    const qToken2 = qTokens[1] ?? "";
+
     const [eventResult, competitorResult, directoryResult, watchedEventsResult, watchedCompetitorsResult] = await Promise.all([
       // Events from event calendar lookup
       bq.query({
@@ -68,8 +75,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
             OR LOWER(description) LIKE CONCAT('%', LOWER(@query), '%')
             OR LOWER(keywords) LIKE CONCAT('%', LOWER(@query), '%')
             OR LOWER(theme) LIKE CONCAT('%', LOWER(@query), '%')
+            -- accent + apostrophe insensitive full-phrase match
+            OR REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(event_name), r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o'), r"['\\x{2019}]", ' ')
+               LIKE CONCAT('%', @q_norm, '%')
+            -- token fallback (requires 2 distinctive words to avoid over-matching)
+            OR (
+              @q_token1 != '' AND @q_token2 != ''
+              AND REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(event_name), r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o') LIKE CONCAT('%', @q_token1, '%')
+              AND REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(event_name), r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o') LIKE CONCAT('%', @q_token2, '%')
+            )
           )
-          AND event_start_date >= CURRENT_DATE()
+          AND (event_start_date >= CURRENT_DATE() OR event_end_date >= CURRENT_DATE())
           GROUP BY calendar_item_uid, event_name, event_start_date, event_end_date,
                    city_name, industry_code, source_system, description
           ORDER BY
@@ -77,8 +93,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             event_start_date ASC
           LIMIT 10
         `,
-        params: { query: queryLower },
-        types:  { query: "STRING" },
+        params: { query: queryLower, q_norm: qNorm, q_token1: qToken1, q_token2: qToken2 },
+        types:  { query: "STRING", q_norm: "STRING", q_token1: "STRING", q_token2: "STRING" },
         location: BQ_LOCATION,
       }),
 

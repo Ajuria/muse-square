@@ -26,7 +26,7 @@ if (!location_id) {
 <BaseLayout title="Profil concurrent — Muse Square" hideSurveyCta={true} hideFooter={true}>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.44.0/dist/tabler-icons.min.css" crossorigin="anonymous" />
   <div id="cp-root" style="max-width:680px;margin:0 auto;padding:16px 12px 140px;">
-    <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;font-size:14px;">Chargement du profil\u2026</div>
+    <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;font-size:14px;">Chargement du profil...</div>
     <div id="cp-content" style="display:none;"></div>
     <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;font-size:14px;"></div>
   </div>
@@ -116,7 +116,7 @@ if (!location_id) {
         var gRating = dir.google_rating != null ? Number(dir.google_rating).toFixed(1) : "\u2014";
         var gCount = dir.google_rating_count != null ? (dir.google_rating_count >= 1000 ? (dir.google_rating_count / 1000).toFixed(1) + "k" : String(dir.google_rating_count)) : "\u2014";
 
-        var verdict = analysis ? analysis.verdict : (enriched ? "Analyse en cours\u2026" : "Enrichissement non disponible \u2014 ajoutez une URL source pour activer l\u0027analyse.");
+        var verdict = analysis ? analysis.verdict : (enriched ? "Analyse en cours\u2026" : (dir.enrichment_pending ? "Analyse programm\u00e9e \u2014 enrichissement au prochain passage." : "Enrichissement non disponible \u2014 ajoutez une URL source pour activer l\u0027analyse."));
         var tColor = thr ? threatColor(thr.threat_level) : "#5F5E5A";
 
         var html = "";

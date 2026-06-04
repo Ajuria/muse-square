@@ -2,7 +2,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { VALID_INDUSTRY, VALID_AUDIENCE, BUCKET_MAP, VALID_CONFIDENCE } from "../../../lib/competitive/constants";
-
+import { confidenceToScore } from "../../../lib/competitive/constants";
 export const prerender = false;
 
 const SYSTEM_PROMPT = `Tu es un agent d'extraction de données événementielles pour Muse Square Insight, une plateforme de veille concurrentielle pour professionnels de l'événementiel en France.
@@ -133,7 +133,7 @@ Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda
       .filter((b: any) => b.type === "text" && b.text?.trim())
       .map((b: any) => b.text.trim());
 
-    const raw = textBlocks.pop() || "";
+    const raw = textBlocks.join("\n") || "";
 
     // Extract JSON from response
     let candidates: any[] = [];
@@ -175,10 +175,7 @@ Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda
         source_url:           typeof c.source_url === "string"  ? c.source_url.trim()  : null,
         source_sentence:      typeof c.source_sentence === "string" ? c.source_sentence.trim().slice(0, 300) : null,
         confidence:           VALID_CONFIDENCE.has(c.confidence) ? c.confidence : "low",
-        // Confidence → score mapping
-        confidence_score:
-          c.confidence === "high"   ? 0.9 :
-          c.confidence === "medium" ? 0.7 : 0.5,
+        confidence_score:     confidenceToScore(c.confidence),
       };
     });
 
