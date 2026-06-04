@@ -3,7 +3,7 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ url, locals, redirect }) => {
+export const GET: APIRoute = async ({ url, locals, redirect, request }) => {
   const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
   if (!userId) return redirect("/sign-in");
 
@@ -14,7 +14,9 @@ export const GET: APIRoute = async ({ url, locals, redirect }) => {
     return new Response("SLACK_CLIENT_ID manquant", { status: 500 });
   }
 
-  const baseUrl = url.origin;
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+  const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const baseUrl = `${proto}://${host}`;
   const redirectUri = baseUrl + "/api/channels/slack-callback";
   const state = Buffer.from(JSON.stringify({ user_id: userId, location_id: locationId })).toString("base64url");
 

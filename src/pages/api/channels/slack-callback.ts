@@ -5,7 +5,7 @@ export const prerender = false;
 
 const BQ_PROJECT = "muse-square-open-data";
 
-export const GET: APIRoute = async ({ url, redirect }) => {
+export const GET: APIRoute = async ({ url, redirect, request }) => {
   try {
     const code = url.searchParams.get("code");
     const stateRaw = url.searchParams.get("state");
@@ -33,7 +33,10 @@ export const GET: APIRoute = async ({ url, redirect }) => {
       return redirect("/profile?slack=error&reason=config");
     }
 
-    const redirectUri = url.origin + "/api/channels/slack-callback";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+    const baseUrl = `${proto}://${host}`;
+    const redirectUri = baseUrl + "/api/channels/slack-callback";
 
     const tokenRes = await fetch("https://slack.com/api/oauth.v2.access", {
       method: "POST",
