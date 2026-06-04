@@ -4,7 +4,7 @@ export const prerender = false;
 
 const BQ_PROJECT = "muse-square-open-data";
 
-export const GET: APIRoute = async ({ url, redirect }) => {
+export const GET: APIRoute = async ({ url, redirect, request }) => {
   try {
     const code = url.searchParams.get("code");
     const stateRaw = url.searchParams.get("state");
@@ -30,7 +30,10 @@ export const GET: APIRoute = async ({ url, redirect }) => {
       return redirect("/profile?gbp=error&reason=config");
     }
 
-    const redirectUri = url.origin + "/api/channels/gbp-callback";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+    const baseUrl = `${proto}://${host}`;
+    const redirectUri = baseUrl + "/api/channels/gbp-callback";
 
     // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {

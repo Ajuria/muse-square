@@ -7,290 +7,258 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <div class="max-w-[900px]">
       <h1 class="ms-h1 mb-[24px] md:mb-[32px]">Politique de Confidentialité</h1>
 
-      <p class="font-body text-[14px] leading-[22px] text-secondary mt-[8px]">Dernière mise à jour : mai 2026</p>
+      <p class="font-body text-[14px] leading-[22px] text-secondary mt-[8px]">Dernière mise à jour : juin 2026</p>
 
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        La présente politique de confidentialité décrit les modalités de collecte, de traitement et de protection des données personnelles des utilisateurs de la plateforme Muse Square Insight (ci-après la «&nbsp;Plateforme&nbsp;»), accessible à l'adresse <span class="break-words">https://www.musesquare.com/</span>.
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[16px]">
+        La présente Politique de Confidentialité décrit les pratiques de Muse Square en matière de collecte, de stockage, d'accès, de conservation et de suppression des données traitées par la plateforme. Elle répond aux obligations du Règlement Général sur la Protection des Données (RGPD) et constitue un engagement contractuel envers nos clients.
       </p>
 
-      <!-- 1. Responsable -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">1. Responsable du traitement</h2>
+      <!-- ARTICLE 1 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">1. Objet du document</h2>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Monsieur Julen DE AJURIA-GUERRA, entrepreneur individuel, créateur de Muse Square Insight, entreprise en cours d'immatriculation.
-      </p>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Adresse : 7, rue de l'Yvette — 75016 Paris, France<br/>
-        E-mail : contact@musesquare.com
-      </p>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        À la date de l'immatriculation de la personne morale, celle-ci se substituera de plein droit au responsable du traitement individuel.
+        Le présent document décrit les pratiques de Muse Square en matière de stockage, d'accès, de conservation et de suppression des données traitées par la plateforme. Il répond aux obligations du RGPD et constitue un engagement contractuel envers nos clients.
       </p>
 
-      <!-- 2. Données collectées -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">2. Données collectées</h2>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.1 Données d'identification et de compte</h3>
+      <!-- ARTICLE 2 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">2. Nature des données traitées</h2>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Lors de la création d'un Compte Utilisateur via le prestataire d'authentification Clerk, les données suivantes sont collectées :
+        Muse Square traite deux catégories de données, clairement séparées :
+      </p>
+
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.1 Données d'intelligence contextuelle (non personnelles)</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Ces données constituent le cœur de la plateforme. Elles sont collectées depuis des sources publiques et ne contiennent aucune donnée à caractère personnel :
       </p>
       <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
-        <li>Nom et prénom</li>
-        <li>Adresse email professionnelle</li>
-        <li>Mot de passe (stocké de manière chiffrée par Clerk, non accessible à l'Éditeur)</li>
-        <li>Identifiant unique de compte</li>
+        <li>Événements publics (agendas culturels, bases événementielles ouvertes)</li>
+        <li>Données météorologiques (Open-Meteo, prévisions et historiques)</li>
+        <li>Calendriers (vacances scolaires, jours fériés, événements commerciaux)</li>
+        <li>Mobilité (perturbations planifiées, grèves, travaux)</li>
+        <li>Concurrence (lieux concurrents enrichis via Google Places API, événements concurrents)</li>
+        <li>Tourisme et fréquentation piétonne (données agrégées, jamais individuelles)</li>
       </ul>
 
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.2 Données de profil professionnel</h3>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.2 Données utilisateur (liées au compte client)</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Ces données sont strictement limitées à ce qui est nécessaire au fonctionnement du service :
+      </p>
       <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
-        <li>Nom de l'entreprise ou de l'enseigne</li>
-        <li>Secteur d'activité</li>
-        <li>Adresse(s) du ou des sites physiques enregistrés</li>
-        <li>Mots-clés sectoriels</li>
-        <li>Préférences de configuration de la Plateforme</li>
+        <li>Identifiant utilisateur (clerk_user_id — identifiant technique, non nominatif)</li>
+        <li>Identifiants de sites (location_id) et profil entreprise associé</li>
+        <li>Brouillons de communication rédigés par ou pour l'utilisateur (saved_drafts)</li>
+        <li>Paramètres de canaux de diffusion (Slack, Email, Google Business Profile)</li>
+        <li>Données issues des comptes tiers connectés par l'Utilisateur, après autorisation explicite : Google Business Profile (informations de fiche, avis, statistiques, jetons d'accès) ; Meta — Pages Facebook et comptes Instagram professionnels (informations de profil, contenus publiés, statistiques d'engagement et d'audience, identifiants de compte, jetons d'accès) ; Slack (jeton d'accès, espace de travail, canal de diffusion)</li>
+        <li>Concurrents suivis et préférences de surveillance</li>
       </ul>
 
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.3 Données opérationnelles fournies par l'Utilisateur</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        L'Utilisateur peut volontairement transmettre des données opérationnelles dans le cadre des Services, incluant notamment : chiffres d'affaires, volumes de billetterie, comptages de fréquentation, données transactionnelles.
-      </p>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.4 Données collectées à partir du site web de l'Utilisateur</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        La Plateforme peut accéder automatiquement au site web professionnel de l'Utilisateur pour en extraire des données publiquement accessibles (descriptions, horaires, événements publiés) aux fins d'enrichissement de la base de données et d'amélioration des Services.
-      </p>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.5 Données de navigation et données techniques</h3>
-      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
-        <li>Adresse IP</li>
-        <li>Type de navigateur et version</li>
-        <li>Système d'exploitation</li>
-        <li>Pages consultées, date et heure de connexion</li>
-        <li>Données d'usage de la Plateforme (pages visitées, fonctionnalités utilisées, interactions)</li>
-      </ul>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">2.6 Données de cookies</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Les cookies utilisés sont décrits dans l'Article 12 des <a href="/cgu" class="underline">Conditions Générales d'Utilisation</a>.
-      </p>
-
-      <!-- 3. Finalités -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">3. Finalités du traitement et bases juridiques</h2>
-      <div class="overflow-x-auto mt-[8px]">
-        <table class="w-full font-body text-[16px] leading-[24px] text-secondary border-collapse">
+      <!-- ARTICLE 3 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">3. Localisation et infrastructure de stockage</h2>
+      <div class="overflow-x-auto mt-[12px]">
+        <table class="w-full border-collapse font-body text-[15px] leading-[22px] text-secondary">
           <thead>
-            <tr class="border-b border-gray-200">
-              <th class="text-left py-2 pr-4 font-heading text-primary">Finalité</th>
-              <th class="text-left py-2 font-heading text-primary">Base juridique (RGPD)</th>
+            <tr>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Composant</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Détail</th>
             </tr>
           </thead>
           <tbody>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Création et gestion du Compte Utilisateur</td>
-              <td class="py-2">Exécution du contrat (art. 6.1.b)</td>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Base de données</td><td class="border border-[#e5e7eb] p-[8px] align-top">Google BigQuery, projet muse-square-open-data</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Région</td><td class="border border-[#e5e7eb] p-[8px] align-top">Multi-région Union Européenne (Pays-Bas, Finlande)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Chiffrement au repos</td><td class="border border-[#e5e7eb] p-[8px] align-top">AES-256, clés gérées par Google (Google-managed encryption keys)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Chiffrement en transit</td><td class="border border-[#e5e7eb] p-[8px] align-top">TLS 1.2+ sur toutes les connexions</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Authentification</td><td class="border border-[#e5e7eb] p-[8px] align-top">Clerk v3 (certifié SOC 2 Type II)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Hébergement applicatif</td><td class="border border-[#e5e7eb] p-[8px] align-top">Vercel — application et API en région France, Paris (CDG1) ; CDN mondial sans donnée personnelle ; aucun stockage persistant côté serveur</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Code source</td><td class="border border-[#e5e7eb] p-[8px] align-top">GitHub (dépôt privé, accès restreint)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[12px]">
+        Les données applicatives sont stockées exclusivement dans l'Union Européenne (BigQuery — stockage unique et centralisé, sans data lake secondaire ni copie externe). Les données d'authentification (Clerk) et les traitements IA ponctuels (Anthropic) sont opérés aux États-Unis, encadrés par des clauses contractuelles types (voir section 9).
+      </p>
+
+      <!-- ARTICLE 4 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">4. Isolation des données entre clients</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'architecture de Muse Square repose sur un modèle multi-tenant avec isolation applicative :
+      </p>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">4.1 Mécanisme d'isolation</h3>
+      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
+        <li>Chaque requête API vérifie que le location_id demandé appartient au tableau all_location_ids de l'utilisateur authentifié (fonction requireLocationOwnership).</li>
+        <li>Ce contrôle est appliqué sur toutes les routes POST (renommage, suppression, crawl, publication, sauvegarde de brouillons) et toutes les routes GET protégées.</li>
+        <li>Les routes /api/insight, /api/analytics et /api/channels sont protégées par un middleware d'authentification (isProtectedRoute).</li>
+        <li>Les endpoints IA (prompt, generate-action-draft, generate-sowhat) sont authentifiés et soumis à un rate limiting par utilisateur.</li>
+      </ul>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">4.2 Architecture de stockage</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les données de tous les clients résident dans les mêmes datasets BigQuery, filtrées par location_id au moment de la requête. Il n'y a pas de dataset séparé par client. Ce modèle est standard pour les plateformes SaaS B2B et permet un déploiement, une maintenance et une évolution unifiés.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Si un client exige contractuellement une isolation physique des données (dataset dédié ou projet BigQuery séparé), cette option peut être évaluée dans le cadre d'un contrat entreprise.
+      </p>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">4.3 Accès administrateur</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'équipe technique de Muse Square dispose d'un accès administrateur permettant d'intervenir sur l'ensemble des données de la plateforme à des fins strictement limitées : support client, résolution d'incidents techniques, maintenance de la base de données et obligations légales.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Cet accès est restreint au personnel habilité. Toute intervention sur les données d'un client est tracée et justifiée par un motif légitime au sens de l'article 6(1)(f) du RGPD (intérêt légitime du responsable de traitement pour assurer le bon fonctionnement du service).
+      </p>
+
+      <!-- ARTICLE 5 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">5. Confidentialité des traitements IA</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les systèmes d'intelligence artificielle de Muse Square respectent les règles suivantes :
+      </p>
+      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
+        <li>Aucun identifiant utilisateur (clerk_user_id) ni identifiant de session n'apparaît dans les sorties IA.</li>
+        <li>Aucun location_id n'est exposé dans les textes générés, sauf s'il est déjà visible dans l'interface utilisateur.</li>
+        <li>Les noms de concurrents ne sont affichés que s'ils proviennent de la couche sémantique existante (jamais fabriqués).</li>
+        <li>Les textes saisis par l'utilisateur dans l'interface de question (prompt) ne sont pas conservés au-delà du traitement de la requête en cours.</li>
+        <li>Les journaux internes ne contiennent que les champs autorisés (allowlisted), les sorties du packager et les métadonnées de traçabilité — jamais de données brutes complètes.</li>
+      </ul>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les données transmises à l'API Anthropic (Claude) dans le cadre des appels IA sont soumises à la politique de conservation d'Anthropic (30 jours par défaut, suppression automatique). Aucune donnée transmise via l'API n'est utilisée pour l'entraînement des modèles. Les données opérationnelles client ne transitent par l'API que dans le cadre de requêtes IA ponctuelles (questions posées via l'assistant, génération de brouillons, synthèses). En dehors de ces appels, les données restent dans l'infrastructure européenne (BigQuery EU).
+      </p>
+
+      <!-- ARTICLE 6 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">6. Données issues des comptes connectés (Meta, Google, Slack)</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Lorsque l'Utilisateur connecte volontairement un compte tiers à la plateforme, et uniquement après son autorisation explicite, Muse Square accède aux données nécessaires aux fonctionnalités de lecture et de publication associées à ce compte.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les données obtenues via les API de Meta (Pages Facebook, comptes Instagram professionnels) sont utilisées dans le respect des Conditions de la plateforme Meta, exclusivement aux finalités consenties par l'Utilisateur : lecture des contenus et des statistiques de ses comptes, et publication de contenus en son nom. Ces données ne sont ni revendues, ni utilisées à des fins publicitaires tierces, ni partagées en dehors des sous-traitants mentionnés en section 9.
+      </p>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        La déconnexion d'un compte tiers (Meta, Google Business Profile, Slack) entraîne la révocation du jeton d'accès et la suppression des données associées à ce compte dans un délai de 30 jours. Toute demande relative aux données issues de Meta peut être adressée à contact@musesquare.com.
+      </p>
+
+      <!-- ARTICLE 7 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">7. Durées de conservation</h2>
+      <div class="overflow-x-auto mt-[12px]">
+        <table class="w-full border-collapse font-body text-[15px] leading-[22px] text-secondary">
+          <thead>
+            <tr>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Type de donnée</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Durée</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Justification</th>
             </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Fourniture des Services (scoring, alertes, veille, IA)</td>
-              <td class="py-2">Exécution du contrat (art. 6.1.b)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Traitement des Données Opérationnelles</td>
-              <td class="py-2">Exécution du contrat (art. 6.1.b)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Collecte de données publiques du site web de l'Utilisateur</td>
-              <td class="py-2">Intérêt légitime (art. 6.1.f)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Mesure d'audience et analyse des usages (Plausible, sans cookie)</td>
-              <td class="py-2">Intérêt légitime (art. 6.1.f)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Suivi du comportement utilisateur (dashboard interne)</td>
-              <td class="py-2">Intérêt légitime (art. 6.1.f)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Communication avec l'Utilisateur</td>
-              <td class="py-2">Exécution du contrat (art. 6.1.b)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Respect des obligations légales</td>
-              <td class="py-2">Obligation légale (art. 6.1.c)</td>
-            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Intelligence contextuelle (météo, événements, concurrence)</td><td class="border border-[#e5e7eb] p-[8px] align-top">120 jours passés + 365 jours futurs (fenêtre glissante)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Fenêtre nécessaire au calcul des scores et des tendances. Les données hors fenêtre ne sont pas recalculées.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Brouillons de communication (saved_drafts)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Durée du contrat + 30 jours</td><td class="border border-[#e5e7eb] p-[8px] align-top">Disponibles pour réutilisation et historique de communication. Supprimés 30 jours après la clôture du compte.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Profil entreprise et paramètres</td><td class="border border-[#e5e7eb] p-[8px] align-top">Durée du contrat + 30 jours</td><td class="border border-[#e5e7eb] p-[8px] align-top">Nécessaire au fonctionnement du service.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Tokens d'authentification et sessions</td><td class="border border-[#e5e7eb] p-[8px] align-top">Géré par Clerk</td><td class="border border-[#e5e7eb] p-[8px] align-top">Conformément à la politique de conservation de Clerk (SOC 2 Type II).</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Tokens OAuth (Slack, GBP, Meta)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Durée du contrat</td><td class="border border-[#e5e7eb] p-[8px] align-top">Révoqués et supprimés à la clôture du compte, à la déconnexion du compte concerné ou sur demande.</td></tr>
           </tbody>
         </table>
       </div>
 
-      <!-- 4. Destinataires -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">4. Destinataires des données et sous-traitants</h2>
+      <!-- ARTICLE 8 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">8. Droits des utilisateurs</h2>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Les données personnelles des Utilisateurs peuvent être transmises aux sous-traitants suivants, strictement nécessaires à la fourniture des Services :
+        Conformément au RGPD, chaque utilisateur dispose des droits suivants :
       </p>
-      <div class="overflow-x-auto mt-[8px]">
-        <table class="w-full font-body text-[16px] leading-[24px] text-secondary border-collapse">
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.1 Droit d'accès</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'utilisateur peut demander une copie de l'ensemble des données le concernant. La demande est traitée sous 30 jours.
+      </p>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.2 Droit de rectification</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'utilisateur peut corriger ses données de profil directement dans l'interface (renommage de site, mise à jour du profil entreprise). Pour les corrections nécessitant une intervention technique, contacter contact@musesquare.com.
+      </p>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.3 Droit à l'effacement</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Sur demande écrite à contact@musesquare.com, Muse Square procède à la suppression de :
+      </p>
+      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
+        <li>L'ensemble des brouillons de communication (saved_drafts)</li>
+        <li>Le profil entreprise et les paramètres de site</li>
+        <li>Les jetons OAuth et configurations de canaux, y compris les données et jetons issus des comptes Meta, Google Business Profile et Slack connectés</li>
+        <li>Les concurrents suivis et préférences de surveillance</li>
+      </ul>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Délai d'exécution : 30 jours maximum. La déconnexion d'un compte tiers entraîne la révocation du jeton et la suppression des données associées dans le même délai. Les données d'intelligence contextuelle (météo, événements, concurrence publique) ne sont pas concernées car elles ne constituent pas des données à caractère personnel.
+      </p>
+      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.4 Droit à la portabilité</h3>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        L'utilisateur peut demander l'export de ses données dans un format structuré et lisible par machine (JSON). L'export inclut : brouillons, profil, paramètres de canaux, concurrents suivis.
+      </p>
+
+      <!-- ARTICLE 9 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">9. Sous-traitants</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Muse Square fait appel aux sous-traitants suivants pour le fonctionnement de la plateforme :
+      </p>
+      <div class="overflow-x-auto mt-[12px]">
+        <table class="w-full border-collapse font-body text-[15px] leading-[22px] text-secondary">
           <thead>
-            <tr class="border-b border-gray-200">
-              <th class="text-left py-2 pr-4 font-heading text-primary">Sous-traitant</th>
-              <th class="text-left py-2 pr-4 font-heading text-primary">Rôle</th>
-              <th class="text-left py-2 font-heading text-primary">Localisation des données</th>
+            <tr>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Sous-traitant</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Finalité</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Localisation des données</th>
             </tr>
           </thead>
           <tbody>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Clerk, Inc.</td>
-              <td class="py-2 pr-4">Authentification et gestion des identités</td>
-              <td class="py-2">États-Unis (SCC)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Vercel Inc.</td>
-              <td class="py-2 pr-4">Hébergement de la Plateforme (application et API)</td>
-              <td class="py-2">Union Européenne — France, Paris (CDG1)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Google Cloud (BigQuery)</td>
-              <td class="py-2 pr-4">Stockage et traitement des données</td>
-              <td class="py-2">Union Européenne — multi-région EU (Pays-Bas, Finlande)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Anthropic</td>
-              <td class="py-2 pr-4">Traitement IA (narratifs et analyses)</td>
-              <td class="py-2">États-Unis (SCC)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Plausible Analytics</td>
-              <td class="py-2 pr-4">Mesure d'audience (sans cookie)</td>
-              <td class="py-2">Allemagne (Union Européenne)</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4 font-medium">Google Places API</td>
-              <td class="py-2 pr-4">Enrichissement de données concurrentielles</td>
-              <td class="py-2">Données publiques uniquement</td>
-            </tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Google Cloud (BigQuery)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Stockage et traitement des données</td><td class="border border-[#e5e7eb] p-[8px] align-top">Union européenne</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Clerk</td><td class="border border-[#e5e7eb] p-[8px] align-top">Authentification et gestion des sessions</td><td class="border border-[#e5e7eb] p-[8px] align-top">États-Unis (SOC 2 Type II, clauses contractuelles types)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Vercel</td><td class="border border-[#e5e7eb] p-[8px] align-top">Hébergement applicatif (serverless)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Union Européenne — France, Paris (CDG1) ; CDN mondial (sans donnée personnelle)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Anthropic (Claude)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Génération de narratifs IA (aucune donnée stockée)</td><td class="border border-[#e5e7eb] p-[8px] align-top">États-Unis (aucune donnée personnelle transmise)</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Meta (Facebook, Instagram)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Lecture des contenus et statistiques, publication sur les comptes connectés par l'Utilisateur</td><td class="border border-[#e5e7eb] p-[8px] align-top">Données traitées via les API Meta, selon l'autorisation de l'Utilisateur</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Google Places API</td><td class="border border-[#e5e7eb] p-[8px] align-top">Enrichissement de données concurrentielles</td><td class="border border-[#e5e7eb] p-[8px] align-top">Données publiques uniquement</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Plausible Analytics</td><td class="border border-[#e5e7eb] p-[8px] align-top">Mesure d'audience du site web (sans cookie)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Allemagne (Union Européenne)</td></tr>
           </tbody>
         </table>
       </div>
+
+      <!-- ARTICLE 10 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">10. Notification en cas de violation de données</h2>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        L'Éditeur s'assure que chaque sous-traitant présente des garanties suffisantes quant à la mise en œuvre de mesures techniques et organisationnelles appropriées pour la protection des données personnelles.
+        En cas de violation de données à caractère personnel, Muse Square s'engage à :
+      </p>
+      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
+        <li>Notifier la CNIL dans un délai de 72 heures après prise de connaissance de la violation.</li>
+        <li>Informer les utilisateurs concernés dans les meilleurs délais si la violation présente un risque élevé pour leurs droits et libertés.</li>
+        <li>Documenter l'incident dans un registre interne conformément à l'article 33 du RGPD.</li>
+      </ul>
+
+      <!-- ARTICLE 11 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">11. Contact</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Pour toute question relative à la gestion des données ou pour exercer vos droits :
       </p>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Pour les transferts hors de l'Espace Économique Européen, l'Éditeur s'appuie sur les clauses contractuelles types (SCC) adoptées par la Commission européenne et/ou sur les mécanismes de protection adéquats prévus par le RGPD.
+        <strong>Email :</strong> contact@musesquare.com
       </p>
       <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Les données personnelles ne sont jamais revendues à des tiers. Elles ne sont communiquées à des tiers que dans les cas suivants : obligation légale, exécution des Services via les sous-traitants listés ci-dessus.
+        Muse Square (Julen de Ajuria-Guerra, EI) s'engage à répondre à toute demande dans un délai de 30 jours.
       </p>
 
-      <!-- 5. Durée de conservation -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">5. Durée de conservation des données</h2>
-      <div class="overflow-x-auto mt-[8px]">
-        <table class="w-full font-body text-[16px] leading-[24px] text-secondary border-collapse">
+      <!-- ARTICLE 12 -->
+      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">12. Base juridique et références réglementaires</h2>
+      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
+        Les traitements de données réalisés par Muse Square reposent sur les bases juridiques suivantes du Règlement Général sur la Protection des Données (Règlement UE 2016/679) :
+      </p>
+      <div class="overflow-x-auto mt-[12px]">
+        <table class="w-full border-collapse font-body text-[15px] leading-[22px] text-secondary">
           <thead>
-            <tr class="border-b border-gray-200">
-              <th class="text-left py-2 pr-4 font-heading text-primary">Catégorie de données</th>
-              <th class="text-left py-2 font-heading text-primary">Durée de conservation</th>
+            <tr>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Article</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Objet</th>
+              <th class="border border-[#e5e7eb] bg-[#f3f4f6] text-left text-primary font-heading p-[8px] align-top">Application chez Muse Square</th>
             </tr>
           </thead>
           <tbody>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Données de compte et de profil</td>
-              <td class="py-2">Durée de la relation contractuelle, supprimées dans les 30 jours suivant la clôture du compte</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Données opérationnelles</td>
-              <td class="py-2">Durée de la relation contractuelle, supprimées sur demande ou dans les 6 mois suivant la suppression du compte</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Statistiques d'audience (Plausible)</td>
-              <td class="py-2">Données agrégées et anonymes, sans identifiant individuel ni cookie</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-              <td class="py-2 pr-4">Cookies d'authentification</td>
-              <td class="py-2">Durée de la session ou selon la politique de Clerk</td>
-            </tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 6(1)(b)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Exécution d'un contrat</td><td class="border border-[#e5e7eb] p-[8px] align-top">Traitement des données utilisateur (profil, brouillons, paramètres) nécessaire à la fourniture du service souscrit.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 6(1)(f)</td><td class="border border-[#e5e7eb] p-[8px] align-top">Intérêt légitime</td><td class="border border-[#e5e7eb] p-[8px] align-top">Traitement des données d'intelligence contextuelle (sources publiques, aucune donnée sensible). Accès administrateur pour le support et la maintenance.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 13</td><td class="border border-[#e5e7eb] p-[8px] align-top">Obligation d'information</td><td class="border border-[#e5e7eb] p-[8px] align-top">Le présent document remplit cette obligation en détaillant les traitements, finalités, durées et droits.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 17</td><td class="border border-[#e5e7eb] p-[8px] align-top">Droit à l'effacement</td><td class="border border-[#e5e7eb] p-[8px] align-top">Couvert en section 8.3. Suppression sur demande sous 30 jours.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 20</td><td class="border border-[#e5e7eb] p-[8px] align-top">Droit à la portabilité</td><td class="border border-[#e5e7eb] p-[8px] align-top">Couvert en section 8.4. Export en format JSON structuré.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 28</td><td class="border border-[#e5e7eb] p-[8px] align-top">Sous-traitants</td><td class="border border-[#e5e7eb] p-[8px] align-top">Couvert en section 9. Chaque sous-traitant est identifié avec sa finalité et la localisation des données.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 33</td><td class="border border-[#e5e7eb] p-[8px] align-top">Notification de violation</td><td class="border border-[#e5e7eb] p-[8px] align-top">Couvert en section 10. Notification CNIL sous 72 heures.</td></tr>
+            <tr><td class="border border-[#e5e7eb] p-[8px] align-top">Art. 44–49</td><td class="border border-[#e5e7eb] p-[8px] align-top">Transferts hors UE</td><td class="border border-[#e5e7eb] p-[8px] align-top">Clerk et Anthropic sont établis aux États-Unis ; les comptes Meta connectés par l'Utilisateur sont traités via les API Meta. Les transferts sont encadrés par des clauses contractuelles types (CCT) conformément à l'article 46(2)(c).</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Au-delà de ces durées, les données sont supprimées ou anonymisées de manière irréversible.
-      </p>
 
-      <!-- 6. Sécurité -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">6. Sécurité des données</h2>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        L'Éditeur met en œuvre les mesures techniques et organisationnelles appropriées pour garantir la sécurité des données personnelles, incluant :
-      </p>
-      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
-        <li>Chiffrement des communications (HTTPS/TLS)</li>
-        <li>Authentification sécurisée via Clerk (chiffrement des mots de passe, gestion des sessions)</li>
-        <li>Accès restreint aux bases de données en production</li>
-        <li>Hébergement des données de traitement principal dans l'Union Européenne (Google BigQuery, multi-région EU — Pays-Bas et Finlande)</li>
-        <li>Journalisation des accès aux données sensibles</li>
-      </ul>
-
-      <!-- 7. Droits -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">7. Droits des Utilisateurs</h2>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Conformément au RGPD et à la loi Informatique et Libertés, l'Utilisateur dispose des droits suivants :
-      </p>
-      <ul class="list-disc pl-5 font-body text-[18px] leading-[28px] text-secondary mt-[8px] space-y-1">
-        <li><strong>Droit d'accès</strong> (article 15 du RGPD) — obtenir la confirmation que ses données sont traitées et en recevoir une copie.</li>
-        <li><strong>Droit de rectification</strong> (article 16 du RGPD) — faire corriger les données inexactes ou incomplètes.</li>
-        <li><strong>Droit à l'effacement</strong> (article 17 du RGPD) — demander la suppression de ses données, sous réserve des obligations légales de conservation.</li>
-        <li><strong>Droit à la limitation du traitement</strong> (article 18 du RGPD) — demander la suspension du traitement dans certains cas.</li>
-        <li><strong>Droit à la portabilité</strong> (article 20 du RGPD) — recevoir ses données dans un format structuré, couramment utilisé et lisible par machine.</li>
-        <li><strong>Droit d'opposition</strong> (article 21 du RGPD) — s'opposer au traitement de ses données fondé sur l'intérêt légitime.</li>
-        <li><strong>Droit de retirer son consentement</strong> — lorsque le traitement est fondé sur le consentement (notamment pour les cookies de mesure d'audience), l'Utilisateur peut retirer son consentement à tout moment, sans que cela ne porte atteinte à la licéité du traitement effectué avant le retrait.</li>
-        <li><strong>Droit de définir des directives post-mortem</strong> — conformément à l'article 85 de la loi n° 78-17 du 6 janvier 1978, l'Utilisateur peut définir des directives relatives à la conservation, l'effacement et la communication de ses données personnelles après son décès.</li>
-      </ul>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">Exercice des droits</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Pour exercer l'un de ces droits, l'Utilisateur peut adresser sa demande par email à : <strong>contact@musesquare.com</strong>
-      </p>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        L'Éditeur fournira une réponse dans un délai d'un (1) mois à compter de la réception de la demande. Ce délai peut être prolongé de deux (2) mois en cas de complexité ou de nombre élevé de demandes. L'Éditeur peut vérifier l'identité de l'Utilisateur avant de donner suite à la demande.
-      </p>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">Réclamation auprès de la CNIL</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        En cas de désaccord persistant concernant le traitement de ses données, l'Utilisateur a le droit d'introduire une réclamation auprès de la Commission Nationale de l'Informatique et des Libertés (CNIL) :
-      </p>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        CNIL — 3 Place de Fontenoy — TSA 80715 — 75334 Paris Cedex 07<br/>
-        Site : <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" class="underline">https://www.cnil.fr</a>
-      </p>
-
-      <!-- 8. IA -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">8. Intelligence artificielle et traitement automatisé</h2>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.1 Traitement par l'IA</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        La Plateforme fait appel à des modèles d'intelligence artificielle (fournis par Anthropic) pour générer des analyses, narratifs et recommandations. Ces traitements sont réalisés à partir des données de la couche sémantique de la Plateforme et peuvent intégrer des données relatives aux sites de l'Utilisateur.
-      </p>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.2 Absence de décision automatisée au sens de l'article 22 du RGPD</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Les scores, évaluations et recommandations produits par la Plateforme ne constituent pas des décisions automatisées produisant des effets juridiques ou affectant significativement l'Utilisateur au sens de l'article 22 du RGPD. Ils sont des outils d'aide à la décision, la décision finale relevant de la seule responsabilité de l'Utilisateur.
-      </p>
-
-      <h3 class="font-heading text-[18px] md:text-[20px] leading-[26px] text-primary mt-[18px]">8.3 Données transmises à l'IA</h3>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Les données transmises au prestataire d'IA (Anthropic) dans le cadre du traitement de requêtes utilisateur incluent des éléments de la couche sémantique associés au site de l'Utilisateur (scores, signaux contextuels, données événementielles agrégées). Aucune donnée directement identifiante (nom, email, adresse personnelle) n'est transmise au prestataire d'IA dans le cadre de ces traitements.
-      </p>
-
-      <!-- 9. Modifications -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">9. Modifications de la politique de confidentialité</h2>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        L'Éditeur se réserve le droit de modifier la présente politique de confidentialité à tout moment. Les modifications entreront en vigueur dès leur publication sur la Plateforme. L'Utilisateur sera informé de toute modification substantielle par notification sur la Plateforme ou par email.
-      </p>
-
-      <!-- 10. Contact -->
-      <h2 class="font-heading text-[20px] md:text-[22px] leading-[28px] text-primary mt-[22px]">10. Contact</h2>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        Pour toute question relative à la présente politique de confidentialité ou au traitement de vos données personnelles :
-      </p>
-      <p class="font-body text-[18px] leading-[28px] text-secondary mt-[8px]">
-        <strong>Email :</strong> contact@musesquare.com<br/>
-        <strong>Adresse :</strong> Julen DE AJURIA-GUERRA — 7, rue de l'Yvette — 75016 Paris, France
-      </p>
     </div>
   </section>
 </BaseLayout>
