@@ -58,24 +58,44 @@ export const GET: APIRoute = async ({ url, redirect, request }) => {
     const now = new Date().toISOString();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const table = bq.dataset("analytics").table("channel_configs");
-    await table.insert([{
-      config_id: crypto.randomUUID(),
-      user_id: userId,
-      location_id: locationId || "",
-      channel: "meta",
-      config_json: JSON.stringify({
-        user_access_token: accessToken,
-        expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
-        page_id: firstPage?.id || null,
-        page_name: firstPage?.name || null,
-        page_access_token: firstPage?.access_token || null,
-        ig_user_id: firstPage?.instagram_business_account?.id || null,
-        ig_username: firstPage?.instagram_business_account?.username || null,
-      }),
-      enabled: true,
-      created_at: now,
-      updated_at: now,
-    }]);
+    const baseConfig = {
+      user_access_token: accessToken,
+      expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
+      page_id: firstPage?.id || null,
+      page_name: firstPage?.name || null,
+      page_access_token: firstPage?.access_token || null,
+      ig_user_id: firstPage?.instagram_business_account?.id || null,
+      ig_username: firstPage?.instagram_business_account?.username || null,
+    };
+    const rows = [];
+    if (baseConfig.page_id) {
+      rows.push({
+        config_id: crypto.randomUUID(),
+        user_id: userId,
+        location_id: locationId || "",
+        channel: "facebook",
+        config_json: JSON.stringify(baseConfig),
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (baseConfig.ig_user_id) {
+      rows.push({
+        config_id: crypto.randomUUID(),
+        user_id: userId,
+        location_id: locationId || "",
+        channel: "instagram",
+        config_json: JSON.stringify(baseConfig),
+        enabled: true,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    if (rows.length === 0) {
+      return redirect("/profile?meta=error&reason=no_assets");
+    }
+    await table.insert(rows);
 
     return redirect("/profile?meta=success&page=" + encodeURIComponent(firstPage?.name || "") + "&ig=" + encodeURIComponent(firstPage?.instagram_business_account?.username || ""));
   } catch (err: any) {
