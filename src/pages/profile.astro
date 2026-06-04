@@ -997,6 +997,24 @@ function isIncomplete(loc: LocationRow): boolean {
       </div>
       <div id="comms-gbp-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
     </div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="width:28px;height:28px;border-radius:6px;background:#0866FF;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">IG</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Instagram &amp; Facebook</div>
+            <div style="font-size:11px;color:#9ca3af;" id="comms-meta-desc">Publiez sur votre Page et votre compte Instagram</div>
+          </div>
+        </div>
+        <span id="comms-meta-status" style="font-size:11px;font-weight:600;color:#9ca3af;">Non connect&#xE9;</span>
+      </div>
+      <div id="comms-meta-actions">
+        <a id="comms-meta-connect" href="#" style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:6px;background:#0866FF;color:#fff;font-size:12px;font-weight:600;text-decoration:none;font-family:inherit;cursor:pointer;">
+          Connecter Instagram &amp; Facebook
+        </a>
+      </div>
+      <div id="comms-meta-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+    </div>
     <div style="opacity:0.5;">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="width:28px;height:28px;border-radius:6px;background:#25D366;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;">WA</span>
@@ -2481,6 +2499,44 @@ window.toggleAutomationCard = function() {
     if (gbpConnectBtn) {
       gbpConnectBtn.href = '/api/channels/gbp-connect?location_id=' + encodeURIComponent(locId);
     }
+    // Meta connect (OAuth)
+    var metaConnectBtn = document.getElementById('comms-meta-connect');
+    if (metaConnectBtn) {
+      metaConnectBtn.href = '/api/channels/meta-connect?location_id=' + encodeURIComponent(locId);
+    }
+    // Handle ?meta= query params
+    if (urlParams.get('meta') === 'success') {
+      var metaSt = document.getElementById('comms-meta-status');
+      var metaMsg = document.getElementById('comms-meta-msg');
+      var metaPage = urlParams.get('page') || '';
+      var metaIg = urlParams.get('ig') || '';
+      if (metaSt) { metaSt.textContent = 'Connect\u00e9'; metaSt.style.color = '#059669'; }
+      if (metaMsg) { metaMsg.textContent = 'Connect\u00e9' + (metaPage ? ' : ' + metaPage : '') + (metaIg ? ' / @' + metaIg : '') + '.'; metaMsg.style.color = '#059669'; }
+      window.history.replaceState({}, '', '/profile');
+    } else if (urlParams.get('meta') === 'error') {
+      var metaMsg = document.getElementById('comms-meta-msg');
+      if (metaMsg) { metaMsg.textContent = 'Erreur Meta : ' + (urlParams.get('reason') || 'inconnue'); metaMsg.style.color = '#B91C1C'; }
+      window.history.replaceState({}, '', '/profile');
+    }
+    // Load Meta config state
+    try {
+      var metaConfigs = await fetch('/api/channels/config?location_id=' + encodeURIComponent(locId)).then(function(r) { return r.json(); });
+      if (metaConfigs && metaConfigs.ok && Array.isArray(metaConfigs.items)) {
+        var metaIgCfg = metaConfigs.items.find(function(i) { return i.channel === 'instagram' && i.enabled; });
+        var metaFbCfg = metaConfigs.items.find(function(i) { return i.channel === 'facebook' && i.enabled; });
+        var metaCfg = metaIgCfg || metaFbCfg;
+        if (metaCfg && metaCfg.config) {
+          var metaSt = document.getElementById('comms-meta-status');
+          var metaDesc = document.getElementById('comms-meta-desc');
+          var metaActions = document.getElementById('comms-meta-actions');
+          var pageName = metaCfg.config.page_name || 'Page connect\u00e9e';
+          var igName = metaCfg.config.ig_username ? '@' + metaCfg.config.ig_username : '';
+          if (metaSt) { metaSt.textContent = 'Connect\u00e9'; metaSt.style.color = '#059669'; }
+          if (metaDesc) metaDesc.textContent = pageName + (igName ? ' / ' + igName : '');
+          if (metaActions) metaActions.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#059669;font-weight:600;">\u2713 ' + pageName + (igName ? ' / ' + igName : '') + '</span><a href="/api/channels/meta-connect?location_id=' + encodeURIComponent(locId) + '" style="font-size:11px;color:#6b7280;text-decoration:underline;cursor:pointer;">Reconnecter</a></div>';
+        }
+      }
+    } catch(e) {}
     // Handle ?gbp= query params
     if (urlParams.get('gbp') === 'success') {
       var gbpSt = document.getElementById('comms-gbp-status');

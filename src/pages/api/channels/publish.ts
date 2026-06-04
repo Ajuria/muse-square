@@ -5,6 +5,7 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 export const prerender = false;
 
 const BQ_PROJECT = "muse-square-open-data";
+const GRAPH_VERSION = "v25.0"; // keep in sync with meta-connect.ts / meta-callback.ts
 
 type ChannelHandler = (config: any, payload: PublishPayload) => Promise<{ ok: boolean; error?: string }>;
 
@@ -17,6 +18,7 @@ interface PublishPayload {
   location_id: string;
   signal_type: string;
   affected_date: string;
+  image_url: string;
 }
 
 // ── Slack ──
@@ -159,6 +161,67 @@ const handleGbp: ChannelHandler = async (config, payload) => {
   return { ok: true };
 };
 
+// ── Facebook (Page feed) ──
+
+const handleFacebook: ChannelHandler = async (config, payload) => {
+  const pageId = config?.page_id;
+  const pageToken = config?.page_access_token;
+  if (!pageId || !pageToken) {
+    return { ok: false, error: "Facebook non connect\u00e9. Reconnectez-le dans vos param\u00e8tres." };
+  }
+  const message = [payload.title, payload.body].filter(Boolean).join("\n\n").trim();
+  if (!message) {
+    return { ok: false, error: "Contenu du post vide" };
+  }
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${pageId}/feed`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message, access_token: pageToken }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.id) {
+    return { ok: false, error: json?.error?.message || "Erreur Facebook " + res.status };
+  }
+  return { ok: true };
+};
+
+// ── Instagram (container -> publish, image required) ──
+
+const handleInstagram: ChannelHandler = async (config, payload) => {
+  const igUserId = config?.ig_user_id;
+  const token = config?.page_access_token;
+  if (!igUserId || !token) {
+    return { ok: false, error: "Instagram non connect\u00e9 ou non li\u00e9 \u00e0 une Page. Reconnectez-le dans vos param\u00e8tres." };
+  }
+  if (!payload.image_url) {
+    return { ok: false, error: "Instagram exige une image (image_url manquante)." };
+  }
+  const caption = [payload.title, payload.body, payload.hashtags].filter(Boolean).join("\n\n").trim().substring(0, 2200);
+
+  // Step 1 - create media container
+  const createRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ image_url: payload.image_url, caption, access_token: token }),
+  });
+  const createJson = await createRes.json().catch(() => null);
+  if (!createRes.ok || !createJson?.id) {
+    return { ok: false, error: createJson?.error?.message || "Erreur Instagram (conteneur) " + createRes.status };
+  }
+
+  // Step 2 - publish container
+  const publishRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ creation_id: createJson.id, access_token: token }),
+  });
+  const publishJson = await publishRes.json().catch(() => null);
+  if (!publishRes.ok || !publishJson?.id) {
+    return { ok: false, error: publishJson?.error?.message || "Erreur Instagram (publication) " + publishRes.status };
+  }
+  return { ok: true };
+};
+
 // ── Router ──
 
 const HANDLERS: Record<string, ChannelHandler> = {
@@ -167,6 +230,8 @@ const HANDLERS: Record<string, ChannelHandler> = {
   sms: handleSms,
   whatsapp: handleWhatsapp,
   gbp: handleGbp,
+  facebook: handleFacebook,
+  instagram: handleInstagram,
 };
 
 // ── Main ──
@@ -233,6 +298,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_id: locationId,
       signal_type: String(body.signal_type || "").trim(),
       affected_date: String(body.affected_date || "").trim(),
+      image_url: String(body.image_url || "").trim(),
     };
 
     // Execute
