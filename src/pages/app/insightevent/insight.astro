@@ -751,13 +751,13 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
       var CH_DEFS = {
         gbp:{label:"Google Business Profile",icon:"G",color:"#4285F4",max:1500,cat:"pub"},
         instagram:{label:"Instagram",icon:"IG",color:"#E1306C",max:2200,cat:"pub"},
-        facebook:{label:"Facebook",icon:"FB",color:"#1877F2",max:null,cat:"pub"},
+        facebook:{label:"Facebook",icon:"FB",color:"#0866FF",max:null,cat:"pub"},
         email:{label:"Email",icon:"@",color:"#6B7280",max:null,cat:"send"},
         slack:{label:"Slack",icon:"SL",color:"#4A154B",max:null,cat:"send"},
         whatsapp:{label:"WhatsApp",icon:"WA",color:"#25D366",max:1000,cat:"send"},
         note_interne:{label:"Note interne",icon:"N",color:"#374151",max:null,cat:"send"}
       };
-      var CH_PUB = ["gbp"];
+      var CH_PUB = ["gbp","facebook"];
       var CH_SEND = ["email","slack"];
 
       function chIconHtml(key) {
