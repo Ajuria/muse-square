@@ -9,7 +9,7 @@ const GRAPH_VERSION = "v25.0";
 
 // Lifetime post metrics. If a call starts returning "(#100) ... valid insights metric"
 // after a Meta deprecation, remove the offending name from this list.
-const FB_POST_METRICS = ["post_impressions", "post_clicks", "post_engaged_users"];
+const FB_POST_METRICS = ["post_media_view", "post_clicks", "post_reactions_by_type_total"];
 
 async function fetchPostInsights(postId: string, token: string): Promise<any | null> {
   const url =
@@ -75,22 +75,29 @@ async function runFbSync() {
     if (!data) { failed++; continue; }
 
     const outRows: any[] = [];
+    const base = {
+      platform: "facebook",
+      entity_type: "post",
+      entity_id: postId,
+      location_id: locationId,
+      metric_date: today,
+      metric_period: "lifetime",
+      source_api: "graph_" + GRAPH_VERSION,
+      fetched_at: fetchedAt,
+    };
     for (const item of data) {
       const metricName = item?.name;
       const val = item?.values?.[0]?.value;
-      if (!metricName || typeof val !== "number") continue;
-      outRows.push({
-        platform: "facebook",
-        entity_type: "post",
-        entity_id: postId,
-        location_id: locationId,
-        metric_date: today,
-        metric_name: metricName,
-        metric_period: "lifetime",
-        metric_value: val,
-        source_api: "graph_" + GRAPH_VERSION,
-        fetched_at: fetchedAt,
-      });
+      if (!metricName) continue;
+      if (typeof val === "number") {
+        outRows.push({ ...base, metric_name: metricName, metric_value: val });
+      } else if (val && typeof val === "object") {
+        for (const [k, v] of Object.entries(val)) {
+          if (typeof v === "number") {
+            outRows.push({ ...base, metric_name: metricName + ":" + k, metric_value: v });
+          }
+        }
+      }
     }
 
     if (outRows.length === 0) continue;
