@@ -7,7 +7,7 @@ export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
 const GRAPH_VERSION = "v25.0"; // keep in sync with meta-connect.ts / meta-callback.ts
 
-type ChannelHandler = (config: any, payload: PublishPayload) => Promise<{ ok: boolean; error?: string }>;
+type ChannelHandler = (config: any, payload: PublishPayload) => Promise<{ ok: boolean; error?: string; external_post_id?: string; permalink?: string }>;
 
 interface PublishPayload {
   title: string;
@@ -158,7 +158,7 @@ const handleGbp: ChannelHandler = async (config, payload) => {
     return { ok: false, error: errMsg };
   }
 
-  return { ok: true };
+  return { ok: true, external_post_id: postJson.name, permalink: postJson.searchUrl || undefined };
 };
 
 // ── Facebook (Page feed) ──
@@ -182,7 +182,7 @@ const handleFacebook: ChannelHandler = async (config, payload) => {
   if (!res.ok || !json?.id) {
     return { ok: false, error: json?.error?.message || "Erreur Facebook " + res.status };
   }
-  return { ok: true };
+  return { ok: true, external_post_id: json.id };
 };
 
 // ── Instagram (container -> publish, image required) ──
@@ -219,7 +219,7 @@ const handleInstagram: ChannelHandler = async (config, payload) => {
   if (!publishRes.ok || !publishJson?.id) {
     return { ok: false, error: publishJson?.error?.message || "Erreur Instagram (publication) " + publishRes.status };
   }
-  return { ok: true };
+  return { ok: true, external_post_id: publishJson.id };
 };
 
 // ── Router ──
@@ -269,10 +269,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Fetch channel config
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     let config: any = {};
+    let configId: string | null = null;
     if (locationId) {
       const [rows] = await bq.query({
         query: `
-          SELECT config_json
+          SELECT config_json, config_id
           FROM \`${BQ_PROJECT}.analytics.channel_configs\`
           WHERE user_id = @userId
             AND location_id = @locationId
@@ -284,8 +285,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         params: { userId, locationId, channel },
         location: "EU",
       });
-      if (rows?.[0]?.config_json) {
-        try { config = JSON.parse(rows[0].config_json); } catch {}
+      if (rows?.[0]) {
+        configId = rows[0].config_id || null;
+        try { config = JSON.parse(rows[0].config_json || "{}"); } catch {}
       }
     }
 
@@ -321,6 +323,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
         created_at: new Date().toISOString(),
       }]).catch(() => {});
     }
+
+    // Log to publish_log (success and failure) — attribution chain
+    bq.dataset("analytics").table("publish_log").insert([{
+      publish_id: crypto.randomUUID(),
+      draft_id: String(body.draft_id || "").trim() || null,
+      location_id: locationId,
+      user_id: userId,
+      channel,
+      action_type: String(body.action_type || "").trim() || null,
+      signal_type: payload.signal_type || null,
+      affected_date: payload.affected_date || null,
+      external_post_id: result.external_post_id || null,
+      permalink: result.permalink || null,
+      config_id: configId,
+      published_text: [payload.title, payload.body].filter(Boolean).join("\n\n") || null,
+      publish_status: result.ok ? "success" : "failed",
+      error_detail: result.error || null,
+      published_at: new Date().toISOString(),
+    }]).catch(() => {});
 
     return new Response(JSON.stringify({ ok: result.ok, error: result.error || null }), {
       status: result.ok ? 200 : 422,

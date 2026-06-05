@@ -1410,7 +1410,7 @@ if (!location_id) {
     // BLOCK 1 — cardsHtml builder
     // ============================
 
-    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
+    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
     var CHANNEL_PUB = ["gbp"];
     var CHANNEL_SEND = ["email","slack"];
     var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
@@ -1743,8 +1743,8 @@ if (!location_id) {
 // Paste this instead:
  
   function wireBriefHandlers(root, locationId, selectedDate) {
-    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
-    var CHANNEL_PUB = ["gbp","instagram"];
+    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
+    var CHANNEL_PUB = ["gbp","facebook"];
     var CHANNEL_SEND = ["email","sms","whatsapp","slack","internal","phone"];
     var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
  
@@ -2457,13 +2457,13 @@ if (!location_id) {
       var CAT_LABELS = {weather:"M\u00e9t\u00e9o",competition:"Concurrence",mobility:"Mobilit\u00e9",opportunity:"Opportunit\u00e9",calendar:"Calendrier"};
       var sigCat = ROUTING_MAP[payload.change_subtype] || "competition";
       var catLabel = CAT_LABELS[sigCat] || sigCat;
-      var chDef = {gbp:"GBP",instagram:"Instagram",email:"Email",sms:"SMS",whatsapp:"WhatsApp",slack:"Slack",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
+      var chDef = {gbp:"GBP",instagram:"Instagram",facebook:"Facebook",email:"Email",sms:"SMS",whatsapp:"WhatsApp",slack:"Slack",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
       var chLabel = chDef[channel] || channel;
       var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
       var rEl = workspace ? workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]') : null;
       var recipVal = rEl ? rEl.value.trim() : "";
       var hasChannelConfig = _channelConfigsCache && _channelConfigsCache[channel];
-      var canPublish = hasChannelConfig && (channel === "gbp" || channel === "instagram" || channel === "internal" || recipVal);
+      var canPublish = hasChannelConfig && (channel === "gbp" || channel === "facebook" || channel === "instagram" || channel === "internal" || recipVal);
 
       container.style.display = "block";
       container.innerHTML = '<div style="padding:12px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
@@ -2587,7 +2587,7 @@ if (!location_id) {
     }
 
     function showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal) {
-      if (!recipVal || channel === "internal" || channel === "gbp" || channel === "instagram") return;
+      if (!recipVal || channel === "internal" || channel === "gbp" || channel === "facebook" || channel === "instagram") return;
       var isKnown = (_teamMembersCache || []).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
       if (isKnown) return;
       var savePrompt = document.createElement("div");
