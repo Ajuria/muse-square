@@ -1689,6 +1689,126 @@
     }
   );
 
+  // sales_traffic_not_converting — PERFORMANCE. Payload: footfall_delta_pct,
+  // conversion_delta_pct, conversion_rate, daily_visitors, primary_revenue_driver.
+  reg('sales_traffic_not_converting', 'Trafic sans conversion', 'INTELLIGENCE', '🚶', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
+      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+      var rate = a.conversion_rate != null ? (Number(a.conversion_rate) * 100).toFixed(1) : null;
+      var vis = a.daily_visitors != null ? num(a.daily_visitors) : null;
+      var line = 'Le public était là';
+      if (foot != null) line += ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude)';
+      line += ' mais peu d\'achats';
+      if (conv != null) line += ' (conversion ' + conv + ' %' + (rate != null ? ', ' + rate + ' % des visiteurs' : '') + ')';
+      line += '.';
+      if (vis != null) line += ' ' + vis + ' visiteurs comptés.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
+        var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+        return 'Note interne ' + siteName(p) + '. Trafic ' + (foot != null ? (foot >= 0 ? '+' : '') + foot + ' %' : 'présent') + ' mais conversion ' + (conv != null ? conv + ' %' : 'en retrait') + ' vs habitude. Vérifier effectif en caisse, fluidité du parcours et mise en avant produit ; définir une routine pour les prochains jours à fort trafic.';
+      }
+    }
+  );
+
+  // sales_discount_no_lift — PERFORMANCE. Payload: discount_rate,
+  // discount_rate_delta_pct, revenue_vs_30d_avg_pct, daily_revenue.
+  reg('sales_discount_no_lift', 'Remises sans effet', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
+      var ddelta = a.discount_rate_delta_pct != null ? Math.round(Number(a.discount_rate_delta_pct)) : null;
+      var rev30 = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+      var line = 'Vous avez remisé plus que d\'habitude';
+      if (ddelta != null) line += ' (+' + ddelta + ' % d\'intensité' + (dr != null ? ', ' + dr + ' % du CA en remises' : '') + ')';
+      line += ' sans que le CA suive';
+      if (rev30 != null) line += ' (' + (rev30 >= 0 ? '+' : '') + rev30 + ' % vs moyenne 30j)';
+      line += '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var ddelta = a.discount_rate_delta_pct != null ? Math.round(Number(a.discount_rate_delta_pct)) : null;
+        var rev30 = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+        return 'Note interne ' + siteName(p) + '. Intensité de remise ' + (ddelta != null ? '+' + ddelta + ' %' : 'en hausse') + ' sans effet sur le CA (' + (rev30 != null ? (rev30 >= 0 ? '+' : '') + rev30 + ' % vs moyenne 30j' : 'pas de hausse') + '). Réexaminer le ciblage et le niveau de promotion.';
+      }
+    }
+  );
+
+  // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_last_week_pct,
+  // daily_revenue, revenue_same_weekday_last_week, primary_revenue_driver.
+  reg('sales_revenue_down_wow', 'CA en baisse hebdo', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+      var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
+      var prev = a.revenue_same_weekday_last_week != null ? Math.round(Number(a.revenue_same_weekday_last_week)) : null;
+      var driver = ({footfall:'moins de trafic', basket:'panier plus faible', conversion:'conversion plus faible'})[a.primary_revenue_driver] || null;
+      var line = 'CA ' + (rev != null ? rev + ' € ' : '') + (wow != null ? (wow >= 0 ? '+' : '') + wow + ' % vs le même jour la semaine dernière' : 'en baisse vs la semaine dernière');
+      if (prev != null) line += ' (' + prev + ' €)';
+      line += '.';
+      if (driver) line += ' Cause dominante : ' + driver + '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+        var driver = ({footfall:'trafic', basket:'panier moyen', conversion:'conversion'})[a.primary_revenue_driver] || 'plusieurs facteurs';
+        return 'Note interne ' + siteName(p) + '. CA ' + (wow != null ? wow + ' %' : 'en baisse') + ' vs le même jour la semaine dernière. Levier dominant : ' + driver + '. Identifier la cause et tracer pour comparer aux prochaines semaines.';
+      }
+    }
+  );
+
+  // proven_action_replication — LEARNING. Payload: learned_action_type,
+  // avg_revenue_delta_pct, positive_rate, measurable_count, window_days.
+  reg('proven_action_replication', 'Action à reproduire', 'OPPORTUNITÉ', '🔁', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+      var n = a.measurable_count != null ? Number(a.measurable_count) : null;
+      var rate = a.positive_rate != null ? Math.round(Number(a.positive_rate) * 100) : null;
+      var win = a.window_days != null ? Number(a.window_days) : null;
+      var line = 'Sur ' + (win != null ? 'les ' + win + ' derniers jours' : 'la période récente') + ', les jours où ce type d\'action a été publié, le CA était en moyenne ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' %' : 'au-dessus') + ' vs votre référence';
+      if (n != null) line += ' (' + n + ' publication' + (n > 1 ? 's' : '') + ' mesurée' + (n > 1 ? 's' : '') + (rate != null ? ', ' + rate + ' % au-dessus' : '') + ')';
+      line += '. Association observée, pas une garantie.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+        var n = a.measurable_count != null ? Number(a.measurable_count) : null;
+        return 'Note interne ' + siteName(p) + '. Une action récurrente est associée à un CA en moyenne ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' %' : 'supérieur') + ' vs référence' + (n != null ? ' sur ' + n + ' publication(s) mesurée(s)' : '') + '. À reproduire sur des jours comparables et continuer à mesurer (association, pas causalité).';
+      }
+    }
+  );
+
+  // offering_mix_shift — PERFORMANCE. Payload: item_category, revenue_share,
+  // baseline_share, share_delta_points, direction, category_revenue, revenue_rank.
+  reg('offering_mix_shift', 'Bascule de votre mix', 'INTELLIGENCE', '🛍️', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var cat = a.item_category || 'Une catégorie';
+      var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
+      var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
+      var dpts = a.share_delta_points != null ? Math.round(Number(a.share_delta_points)) : null;
+      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
+      var line = cat + ' représente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
+      if (base != null) line += ' vs ' + base + ' % en moyenne';
+      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '') + dpts + ' pts)';
+      line += '.';
+      line += dir === 'collapse' ? ' Catégorie qui décroche.' : ' Catégorie qui surperforme.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var cat = a.item_category || 'une catégorie';
+        var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
+        var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
+        var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Catégorie en recul : vérifier stock, visibilité, prix.' : 'Catégorie qui surperforme : sécuriser le réassort et la mettre en avant.');
+      }
+    }
+  );
+
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
   var CAT_BAR = {
@@ -2227,7 +2347,30 @@
       if (avg != null) s += ', score moyen ' + avg;
       s += '. Partagez-le avec votre équipe.';
       return s;
-    }, urgency: 'plan' }
+    }, urgency: 'plan' },
+    'sales_traffic_not_converting': { action: function(a, p, d) {
+      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+      return 'À corriger : du trafic mais ' + (conv != null ? 'conversion ' + conv + ' % sous votre habitude' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
+    }, urgency: 'soon' },
+    'sales_discount_no_lift': { action: function(a, p, d) {
+      return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
+    }, urgency: 'plan' },
+    'sales_revenue_down_wow': { action: function(a, p, d) {
+      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+      var driver = ({footfall:'le trafic', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
+      return 'À surveiller : CA ' + (wow != null ? wow + ' % ' : '') + 'sous le même jour de la semaine dernière' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
+    }, urgency: 'soon' },
+    'proven_action_replication': { action: function(a, p, d) {
+      var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+      return 'À reproduire : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
+    }, urgency: 'plan' },
+    'offering_mix_shift': { action: function(a, p, d) {
+      var cat = a.item_category || 'une catégorie';
+      var dir = a.direction || 'surge';
+      return dir === 'collapse'
+        ? 'À surveiller : ' + cat + ' décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
+        : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu\'elle tire.';
+    }, urgency: 'soon' }
   };
 
   var _origSpecs = {};
