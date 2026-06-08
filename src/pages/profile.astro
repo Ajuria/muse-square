@@ -5,6 +5,7 @@ export const prerender = false;
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { clerkClient } from "@clerk/astro/server";
+import { RECO_BUCKETS } from "../lib/reco-taxonomy";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -374,6 +375,144 @@ type OperatingHoursMap = Record<string, { open: string; close: string } | null>;
 function isIncomplete(loc: LocationRow): boolean {
   return !loc.company_activity_type || !loc.location_type || !loc.primary_audience_1 || !loc.event_type_1 || !loc.website_url;
 }
+
+const recoValidTabs = ["profil", "sites", "reco", "comm"];
+const recoTabParam = (Astro.url.searchParams.get("tab") || "").trim();
+
+// ---- RECOMMANDATIONS: per-site gating + saved preferences ----
+const recoSites = all_locations.map(l => ({
+  id: l.location_id,
+  name: l.site_name || l.company_name || l.company_address || "Site",
+  activity: l.company_activity_type,
+  location_type: l.location_type,
+  weather_sensitivity: l.weather_sensitivity,
+}));
+
+const recoSiteParam = (Astro.url.searchParams.get("site") || "").trim();
+const recoLocationId =
+  (recoSiteParam && recoSites.some(s => s.id === recoSiteParam) ? recoSiteParam : null) ||
+  all_locations.find(l => l.is_primary)?.location_id ||
+  all_locations[0]?.location_id ||
+  location_id ||
+  null;
+
+const recoCurrentSite = recoSites.find(s => s.id === recoLocationId) || null;
+
+let recoGates = { pos: false, watched_competitors: false, tourism_source: false, measured_actions: false };
+let recoCompetitorCount = 0;
+let recoDisabledThemes: string[] = [];
+let recoWeatherIntensity = "";
+
+if (recoLocationId) {
+  try {
+    const [gateRows] = await bigquery.query({
+      query: `
+        SELECT
+          (SELECT COUNT(*) FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+             WHERE location_id = @loc) AS sales_cnt,
+          (SELECT COUNT(*) FROM \`muse-square-open-data.mart.fct_location_action_learning\`
+             WHERE location_id = @loc) AS learning_cnt,
+          (SELECT COUNT(*) FROM \`muse-square-open-data.mart.fct_location_competitors_followed\`
+             WHERE clerk_user_id = @uid AND location_id = @loc) AS comp_cnt
+      `,
+      location: BQ_LOCATION,
+      params: { loc: recoLocationId, uid: clerk_user_id },
+      types: { loc: "STRING", uid: "STRING" },
+    });
+    const g: any = Array.isArray(gateRows) && gateRows[0] ? gateRows[0] : {};
+    recoCompetitorCount = Number(g.comp_cnt || 0);
+    recoGates = {
+      pos: Number(g.sales_cnt || 0) > 0,
+      watched_competitors: recoCompetitorCount > 0,
+      tourism_source: false,
+      measured_actions: Number(g.learning_cnt || 0) > 0,
+    };
+  } catch (e) {
+    if (import.meta.env.DEV) console.error("[PROFILE][reco gates]", e);
+  }
+
+  try {
+    const [cfgRows] = await bigquery.query({
+      query: `
+        SELECT config_json FROM (
+          SELECT config_json, ROW_NUMBER() OVER (ORDER BY updated_at DESC) AS rn
+          FROM \`muse-square-open-data.analytics.channel_configs\`
+          WHERE user_id = @uid AND location_id = @loc AND channel = 'recommendations'
+        ) WHERE rn = 1
+      `,
+      location: BQ_LOCATION,
+      params: { loc: recoLocationId, uid: clerk_user_id },
+      types: { loc: "STRING", uid: "STRING" },
+    });
+    const raw = Array.isArray(cfgRows) && cfgRows[0]?.config_json ? cfgRows[0].config_json : null;
+    const cfg = raw ? JSON.parse(raw) : null;
+    if (cfg && Array.isArray(cfg.disabled_themes)) {
+      recoDisabledThemes = cfg.disabled_themes.map((x: any) => String(x));
+    }
+    if (cfg && typeof cfg.weather_intensity === "string") {
+      recoWeatherIntensity = cfg.weather_intensity;
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) console.error("[PROFILE][reco cfg]", e);
+  }
+}
+
+const recoDisabledSet = new Set(recoDisabledThemes);
+
+function recoGateOpen(gate: string | null): boolean {
+  if (!gate) return true;
+  return (recoGates as any)[gate] === true;
+}
+function recoGateReason(gate: string | null): string {
+  switch (gate) {
+    case "pos": return "Connectez votre caisse pour activer";
+    case "watched_competitors": return "Ajoutez des concurrents à suivre pour activer";
+    case "tourism_source": return "Source touristique pas encore raccordée pour votre zone";
+    case "measured_actions": return "Disponible après quelques actions publiées et mesurées";
+    default: return "Indisponible";
+  }
+}
+
+const RECO_LT_LABEL: Record<string, string> = { outdoor: "Site extérieur", indoor: "Site intérieur", mixed: "Site mixte" };
+const recoSiteMeta = recoCurrentSite ? (ACTIVITY_LABELS[recoCurrentSite.activity] || "") : "";
+const recoChips = recoCurrentSite
+  ? [
+      recoGates.pos ? { text: "Caisse connectée", cls: "ok" } : { text: "Caisse non connectée", cls: "warn" },
+      recoCompetitorCount > 0
+        ? { text: `${recoCompetitorCount} concurrent${recoCompetitorCount > 1 ? "s" : ""} suivi${recoCompetitorCount > 1 ? "s" : ""}`, cls: "ok" }
+        : { text: "Aucun concurrent suivi", cls: "warn" },
+      { text: RECO_LT_LABEL[recoCurrentSite.location_type] || "Type de site —", cls: "" },
+      recoGates.measured_actions ? { text: "Actions mesurées", cls: "ok" } : { text: "Aucune action mesurée", cls: "warn" },
+    ]
+  : [];
+
+const recoMeteoIntensity = recoWeatherIntensity || (() => {
+  const ws = Number(recoCurrentSite?.weather_sensitivity || 0);
+  if (ws >= 3) return "Élevée";
+  if (ws === 2) return "Moyenne";
+  return "Faible";
+})();
+
+const RECO_BUCKET_DESC: Record<string, string> = {
+  "gerer": "Ce qu'il faut anticiper pour bien tenir la journée.",
+  "faire-venir": "Les bons moments pour communiquer et remplir vos journées calmes.",
+  "surveiller": "Ce que font vos concurrents suivis, et quand réagir.",
+  "mesurer": "Ce qui marche dans vos ventes, et ce qu'il faut reproduire.",
+};
+const RECO_THEME_DESC: Record<string, string> = {
+  meteo: "Dégradations, alertes, épisodes prolongés, jours défavorables.",
+  mobilite: "Perturbations et travaux sur vos axes d'accès.",
+  fenetres: "Éclaircies, faible concurrence, meilleurs jours, week-ends porteurs.",
+  calendrier: "Fériés, vacances, temps forts commerciaux, jours de pointe.",
+  tourisme: "Pics et saisons touristiques de votre zone.",
+  concurrence: "Pression, proximité, menaces directes, lancements, conflits d'audience.",
+  tarifs: "Nouvelles offres, mouvements de prix, avis et repositionnements concurrents.",
+  ventes: "Trafic sans conversion, remises sans effet, CA en baisse, bascules de gamme.",
+  apprentissage: "Actions associées à une hausse de CA — à reproduire.",
+};
+const recoThemeMeta = RECO_BUCKETS.flatMap(b => b.themes.map(t => ({ id: t.id, count: t.action_types.length, gated: !recoGateOpen(t.gate) })));
+const recoTotal = recoThemeMeta.reduce((s, t) => s + t.count, 0);
+const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "reco" || recoLocationId)) ? recoTabParam : "profil";
 ---
 
 <BaseLayout title="Profil - Muse Square" hideSurveyCta={true}>
@@ -484,6 +623,13 @@ function isIncomplete(loc: LocationRow): boolean {
   .save-status.status-ok { color: #059669; }
   .save-status.status-err { color: #dc2626; }
 
+  /* ---- Tabs ---- */
+  .ms-tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 28px; flex-wrap: wrap; }
+  .ms-tab-btn { appearance: none; background: none; border: none; padding: 10px 14px; font-size: 14px; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; }
+  .ms-tab-btn:hover { color: #111827; }
+  .ms-tab-btn.active { color: #111827; font-weight: 600; border-bottom-color: #111827; }
+  .ms-tab[hidden] { display: none; }
+
   /* ---- Password modal ---- */
   .pwd-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); align-items: center; justify-content: center; }
   .pwd-modal-box { background: #fff; padding: 32px; width: 100%; max-width: 420px; margin: 0 20px; position: relative; }
@@ -491,6 +637,75 @@ function isIncomplete(loc: LocationRow): boolean {
 
   /* ---- Map notice modal ---- */
   .map-notice-backdrop { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; padding: 20px; }
+</style>
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+
+  .reco-root{
+    --paper-2:#FFFFFF;--ink:#26221B;--ink-soft:#5C564B;--ink-faint:#928B7C;
+    --line:#E3DBC9;--line-soft:#ECE5D6;--accent:#9A3B1B;
+    --amber:#B26A2E;--green:#3F7A4E;--red:#A4442A;--blue:#2F5C8A;
+    --on-bg:#2E5A3E;--radius:14px;--shadow:0 1px 2px rgba(38,34,27,.04),0 8px 24px rgba(38,34,27,.06);
+    font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--ink);
+  }
+  .reco-root *{box-sizing:border-box;}
+  .reco-eyebrow{font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0 0 10px;}
+  .reco-h1{font-family:'Fraunces',Georgia,serif;font-weight:500;font-size:34px;line-height:1.05;letter-spacing:-.01em;margin:0 0 12px;}
+  .reco-lede{color:var(--ink-soft);max-width:54ch;margin:0 0 26px;font-size:15.5px;}
+  .reco-profile{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
+  .reco-site-wrap{display:flex;flex-direction:column;gap:2px;}
+  .reco-site-select{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:16px;color:var(--ink);appearance:none;-webkit-appearance:none;border:none;background:transparent;padding:2px 22px 2px 0;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23928B7C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right center;}
+  .reco-meta{color:var(--ink-faint);font-size:13px;}
+  .reco-chips{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto;}
+  .reco-chip{font-size:11.5px;font-weight:500;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);}
+  .reco-chip.warn{border-color:#E4C9B4;background:#FBEEE2;color:#8A4A1E;}
+  .reco-chip.ok{border-color:#CFE0CF;background:#EEF5EE;color:#356042;}
+  .reco-summary{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:2px 4px 22px;color:var(--ink-soft);font-size:13.5px;}
+  .reco-summary .reco-big{font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:600;color:var(--ink);}
+  .reco-summary .reco-muted{color:var(--ink-faint);}
+  .reco-root .bucket{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .reco-root .b-head{display:flex;align-items:center;gap:16px;padding:18px 20px;cursor:pointer;position:relative;user-select:none;}
+  .reco-root .b-head::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--bhue,var(--accent));}
+  .reco-root .b-titles{flex:1;min-width:0;}
+  .reco-root .b-verb{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--bhue,var(--accent));margin-bottom:3px;}
+  .reco-root .b-name{font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:17px;line-height:1.15;}
+  .reco-root .b-desc{color:var(--ink-soft);font-size:13.5px;margin-top:4px;max-width:48ch;}
+  .reco-root .b-right{display:flex;align-items:center;gap:16px;}
+  .reco-root .b-count{font-size:12.5px;color:var(--ink-faint);white-space:nowrap;text-align:right;}
+  .reco-root .b-count b{color:var(--ink);font-weight:600;}
+  .reco-root .chev{transition:transform .25s ease;color:var(--ink-faint);flex:none;}
+  .reco-root .bucket.open .chev{transform:rotate(180deg);}
+  .reco-root .reco-sw{--w:46px;--h:26px;appearance:none;-webkit-appearance:none;cursor:pointer;flex:none;width:var(--w);height:var(--h);border-radius:999px;position:relative;background:#D9D0BD;border:1px solid rgba(38,34,27,.08);transition:background .2s ease;margin:0;}
+  .reco-root .reco-sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);transition:transform .2s ease;}
+  .reco-root .reco-sw:checked{background:var(--on-bg);}
+  .reco-root .reco-sw:checked::after{transform:translateX(20px);}
+  .reco-root .reco-sw.sm{--w:40px;--h:23px;}
+  .reco-root .reco-sw.sm::after{width:17px;height:17px;}
+  .reco-root .reco-sw.sm:checked::after{transform:translateX(17px);}
+  .reco-root .b-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease;}
+  .reco-root .bucket.open .b-body{grid-template-rows:1fr;}
+  .reco-root .b-body-inner{overflow:hidden;}
+  .reco-root .themes{border-top:1px solid var(--line-soft);padding:6px 20px 14px;}
+  .reco-root .theme{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--line-soft);}
+  .reco-root .theme:last-child{border-bottom:none;}
+  .reco-root .t-main{flex:1;min-width:0;}
+  .reco-root .t-name{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .reco-root .t-count{font-size:11px;font-weight:600;color:var(--ink-faint);background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 8px;}
+  .reco-root .t-desc{color:var(--ink-soft);font-size:13px;margin-top:3px;max-width:50ch;}
+  .reco-root .t-gate{margin-top:7px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#8A4A1E;background:#FBEEE2;border:1px solid #E9D2BC;border-radius:8px;padding:5px 9px;}
+  .reco-root .t-gate svg{flex:none;}
+  .reco-root .theme.gated .t-name,.reco-root .theme.gated .t-desc{opacity:.6;}
+  .reco-root .theme.off .t-main{opacity:.5;}
+  .reco-root .theme.off .intensity{display:none;}
+  .reco-root .intensity{margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .reco-root .intensity .lbl{font-size:12px;color:var(--ink-faint);}
+  .reco-root .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;}
+  .reco-root .seg button{appearance:none;border:none;background:transparent;cursor:pointer;font:inherit;font-size:12.5px;padding:5px 12px;color:var(--ink-soft);}
+  .reco-root .seg button.active{background:var(--on-bg);color:#fff;font-weight:600;}
+  .reco-root .reco-foot{margin-top:26px;padding:16px 18px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--ink-soft);font-size:13px;display:flex;gap:12px;align-items:flex-start;}
+  .reco-root .reco-foot svg{flex:none;color:var(--ink-faint);margin-top:1px;}
+  .reco-root .reco-foot b{color:var(--ink);font-weight:600;}
 </style>
 
 <div class="profile-wrap">
@@ -501,45 +716,16 @@ function isIncomplete(loc: LocationRow): boolean {
     <p style="font-size: 14px; color: #6b7280;">Profil, sites, communications et préférences.</p>
   </div>
 
-  <!-- ===== USER PROFILE SECTION ===== -->
-  <div
-    class="loc-card"
-    id="user-profile-card"
-    style="margin-bottom: 0; border-radius: 10px; overflow: hidden;"
-  >
-    <div
-      class="loc-header"
-      onclick="toggleUserProfileCard()"
-      id="user-profile-header"
-    >
-      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="loc-meta">
-        <div class="loc-name-row">
-          <span class="loc-name" id="user-profile-name">
-            {[saved_safe?.first_name, saved_safe?.last_name].filter(Boolean).join(" ") || "Profil utilisateur"}
-            {saved_safe?.position ? ` · ${saved_safe.position}` : ""}
-          </span>
-          <span class="loc-status" id="user-profile-section-title" style={`margin-left:auto;font-size:11px;color:${saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? '#059669' : '#6b7280'};`}>{saved_safe?.first_name && saved_safe?.last_name && saved_safe?.main_event_objective ? 'Profil complet' : "Profil d'utilisateur"}</span>
-        </div>
-        <div class="loc-address" id="user-profile-objective" style={`margin-top:2px;${!saved_safe?.main_event_objective ? 'display:none;' : ''}`}>
-          {saved_safe?.main_event_objective && (`Objectif : ${
-            saved_safe.main_event_objective === "maximize_attendance" ? "Maximiser l'affluence" :
-            saved_safe.main_event_objective === "avoid_competition" ? "Éviter la concurrence" :
-            saved_safe.main_event_objective === "optimize_weather" ? "Optimiser le rapport coût / météo" :
-            saved_safe.main_event_objective === "test_market" ? "Tester un nouveau marché" :
-            saved_safe.main_event_objective
-          }`)}
-        </div>
-      </div>
-    </div>
+  <div class="ms-tabs" id="ms-tabs">
+    <button type="button" class={`ms-tab-btn${activeTab === "profil" ? " active" : ""}`} data-tab-btn="profil">Profil</button>
+    <button type="button" class={`ms-tab-btn${activeTab === "sites" ? " active" : ""}`} data-tab-btn="sites">Sites</button>
+    {recoLocationId && (<button type="button" class={`ms-tab-btn${activeTab === "reco" ? " active" : ""}`} data-tab-btn="reco">Recommandations</button>)}
+    <button type="button" class={`ms-tab-btn${activeTab === "comm" ? " active" : ""}`} data-tab-btn="comm">Communication</button>
+  </div>
 
-    <div class="loc-body" id="user-profile-body" style="display:none; padding: 0 16px 20px;">
-      <div style="margin-bottom: 12px; padding-top: 16px;">
-        <div class="section-title">Profil d'utilisateur</div>
-        <p class="section-desc">Informations personnelles et accès.</p>
-      </div>
+  <div class="ms-tab" data-tab="profil" hidden={activeTab !== "profil"}>
+  <div class="section-title">Profil</div>
+  <p class="section-desc">Informations personnelles et accès.</p>
 
   <form id="userProfileForm">
     <div class="field-row">
@@ -586,10 +772,9 @@ function isIncomplete(loc: LocationRow): boolean {
     <button type="submit" class="user-save-btn" id="userSaveBtn">Enregistrer</button>
     <div class="save-status" id="userSaveStatus"></div>
     </form>
-    </div>
   </div>
 
-  <div class="section-divider"></div>
+  <div class="ms-tab" data-tab="sites" hidden={activeTab !== "sites"}>
   <!-- ===== SITES SECTION ===== -->
   <div class="section-title" style="margin-bottom:4px;">Mes sites</div>
   <p class="section-desc">Chaque lieu dispose de son propre profil d'analyse IA.</p>
@@ -923,9 +1108,106 @@ function isIncomplete(loc: LocationRow): boolean {
     <span class="add-plus">+</span>
     Ajouter un site physique
   </button>
+  </div>
+
+  {recoLocationId && (
+  <div class="ms-tab" data-tab="reco" hidden={activeTab !== "reco"}>
+    <div class="reco-root">
+      <div class="section-title">Recommandations</div>
+      <p class="section-desc">Choisissez ce que Muse Square surveille pour vous.</p>
+
+      <div class="reco-profile">
+        <div class="reco-site-wrap">
+          {recoSites.length > 1 ? (
+            <select id="reco-site-select" class="reco-site-select" aria-label="Choisir un site">
+              {recoSites.map(s => (<option value={s.id} selected={s.id === recoLocationId}>{s.name}</option>))}
+            </select>
+          ) : (
+            <div class="reco-site-select" style="cursor:default;background:none;padding-right:0;">{recoCurrentSite?.name}</div>
+          )}
+          <div class="reco-meta">{recoSiteMeta}</div>
+        </div>
+        <div class="reco-chips">
+          {recoChips.map(c => (<span class={`reco-chip ${c.cls}`}>{c.text}</span>))}
+        </div>
+      </div>
+
+      <div class="reco-summary">
+        <span class="reco-big" id="reco-count">—</span>
+        <span>recommandations actives</span>
+        <span class="reco-muted" id="reco-count-detail"></span>
+      </div>
+
+      <div id="reco-buckets" data-reco-location={recoLocationId} data-reco-init-disabled={JSON.stringify(recoDisabledThemes)} data-reco-meta={JSON.stringify({ total: recoTotal, themes: recoThemeMeta })}>
+        {RECO_BUCKETS.map(bucket => {
+          const availIds = bucket.themes.filter(t => recoGateOpen(t.gate)).map(t => t.id);
+          const masterOn = availIds.length > 0 && availIds.every(id => !recoDisabledSet.has(id));
+          const activeCount = bucket.themes
+            .filter(t => recoGateOpen(t.gate) && !recoDisabledSet.has(t.id))
+            .reduce((s, t) => s + t.action_types.length, 0);
+          return (
+            <div class="bucket open" style={`--bhue:${bucket.hue}`} data-bucket={bucket.id}>
+              <div class="b-head" data-toggle={bucket.id}>
+                <div class="b-titles">
+                  <div class="b-verb">{bucket.verb}</div>
+                  <div class="b-name">{bucket.label}</div>
+                  <div class="b-desc">{RECO_BUCKET_DESC[bucket.id] || ""}</div>
+                </div>
+                <div class="b-right">
+                  <div class="b-count"><b data-bucket-count={bucket.id}>{activeCount}</b> signaux actifs</div>
+                  {availIds.length > 0 && (
+                    <input type="checkbox" class="reco-sw" data-master={bucket.id} data-children={availIds.join(",")} checked={masterOn} title="Activer / désactiver" />
+                  )}
+                  <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+              </div>
+              <div class="b-body"><div class="b-body-inner"><div class="themes">
+                {bucket.themes.map(theme => {
+                  const open = recoGateOpen(theme.gate);
+                  const on = open && !recoDisabledSet.has(theme.id);
+                  const cls = "theme" + (open ? "" : " gated") + (open && !on ? " off" : "");
+                  return (
+                    <div class={cls}>
+                      <div class="t-main">
+                        <div class="t-name">{theme.label}<span class="t-count">{theme.action_types.length} signaux</span></div>
+                        <div class="t-desc">{RECO_THEME_DESC[theme.id] || ""}</div>
+                        {!open && (
+                          <span class="t-gate">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                            {recoGateReason(theme.gate)}
+                          </span>
+                        )}
+                        {open && theme.id === "meteo" && (
+                          <div class="intensity">
+                            <span class="lbl">Sensibilité météo</span>
+                            <div class="seg" data-seg="meteo">
+                              {["Faible", "Moyenne", "Élevée"].map(o => (<button type="button" data-val={o} class={o === recoMeteoIntensity ? "active" : ""}>{o}</button>))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {open && (<input type="checkbox" class="reco-sw sm" data-theme={theme.id} data-bucket={bucket.id} checked={on} />)}
+                    </div>
+                  );
+                })}
+              </div></div></div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div class="reco-foot">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <div>Chaque intention regroupe plusieurs signaux précis (le décompte « signaux »). Le bon message est choisi automatiquement chaque jour selon votre contexte — <b>vous n'avez jamais à régler les cartes individuellement.</b></div>
+      </div>
+
+      <div class="save-status" id="reco-save-status" style="margin-top:10px;"></div>
+    </div>
+  </div>
+  )}
 
 <!-- ===== COMMUNICATIONS ===== -->
-<div class="section-divider"></div>
+<div class="ms-tab" data-tab="comm" hidden={activeTab !== "comm"}>
 <div class="section-title" style="margin-bottom:4px;">Communication</div>
 <p class="section-desc">Canaux, destinataires et règles d'automatisation.</p>
 
@@ -1119,6 +1401,7 @@ function isIncomplete(loc: LocationRow): boolean {
       <strong style="color:#6b7280;">Auto</strong> = publication imm&#xE9;diate d&#xE8;s qu'un signal correspond.
     </div>
   </div>
+</div>
 </div>
 </div>
 
@@ -1728,11 +2011,7 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
           objEl.textContent = val ? 'Objectif : ' + (OBJ_LABELS[val] || val) : '';
           objEl.style.display = val ? '' : 'none';
         }
-        const card = document.getElementById('user-profile-card');
-        const body = document.getElementById('user-profile-body');
-        if (card) card.classList.remove('loc-expanded');
-        if (body) body.style.display = 'none';
-      }, 900);
+        }, 900);
     } else {
       if (statusEl) { statusEl.textContent = out?.error || 'Erreur lors de l\u2019enregistrement.'; statusEl.className = 'save-status status-err'; }
       if (btn) btn.textContent = 'R\u00e9essayer';
@@ -2772,6 +3051,146 @@ window.toggleAutomationCard = function() {
     });
   })();
 
+</script>
+
+<script>
+// @ts-nocheck
+'use strict';
+(function () {
+  var root = document.getElementById('reco-buckets');
+  if (!root) return;
+  var locId = root.getAttribute('data-reco-location') || '';
+  var statusEl = document.getElementById('reco-save-status');
+  var countEl = document.getElementById('reco-count');
+  var detailEl = document.getElementById('reco-count-detail');
+
+  var meta = { total: 0, themes: [] };
+  try { meta = JSON.parse(root.getAttribute('data-reco-meta') || '{}'); } catch (e) {}
+  var countById = {};
+  (meta.themes || []).forEach(function (t) { countById[t.id] = t.count; });
+
+  var initialDisabled = [];
+  try { initialDisabled = JSON.parse(root.getAttribute('data-reco-init-disabled') || '[]'); } catch (e) {}
+  var availableIds = Array.prototype.slice.call(root.querySelectorAll('[data-theme]')).map(function (s) { return s.getAttribute('data-theme'); });
+
+  root.querySelectorAll('[data-toggle]').forEach(function (h) {
+    h.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.reco-sw')) return;
+      h.closest('.bucket').classList.toggle('open');
+    });
+  });
+
+  function currentDisabled() {
+    var offAvail = Array.prototype.slice.call(root.querySelectorAll('[data-theme]'))
+      .filter(function (s) { return !s.checked; })
+      .map(function (s) { return s.getAttribute('data-theme'); });
+    var carried = initialDisabled.filter(function (id) { return availableIds.indexOf(id) === -1; });
+    var seen = {};
+    return offAvail.concat(carried).filter(function (id) { if (seen[id]) return false; seen[id] = true; return true; });
+  }
+
+  function weatherIntensity() {
+    var act = root.querySelector('[data-seg="meteo"] button.active');
+    return act ? act.getAttribute('data-val') : '';
+  }
+
+  function updateSummary() {
+    var active = 0, dormant = 0;
+    (meta.themes || []).forEach(function (t) {
+      if (t.gated) { dormant += t.count; return; }
+      var sw = root.querySelector('[data-theme="' + t.id + '"]');
+      if (sw && sw.checked) active += t.count;
+    });
+    var pause = (meta.total || 0) - active - dormant;
+    if (countEl) countEl.textContent = active;
+    if (detailEl) detailEl.textContent = '· ' + pause + ' en pause · ' + dormant + ' en attente de raccordement · ' + (meta.total || 0) + ' au total';
+    root.querySelectorAll('.bucket').forEach(function (bk) {
+      var bid = bk.getAttribute('data-bucket');
+      var sum = 0;
+      bk.querySelectorAll('[data-theme]').forEach(function (sw) { if (sw.checked) sum += (countById[sw.getAttribute('data-theme')] || 0); });
+      var cEl = bk.querySelector('[data-bucket-count="' + bid + '"]');
+      if (cEl) cEl.textContent = sum;
+      var master = bk.querySelector('[data-master]');
+      if (master) {
+        var kids = (master.getAttribute('data-children') || '').split(',').filter(Boolean);
+        master.checked = kids.length > 0 && kids.every(function (cid) { var s = bk.querySelector('[data-theme="' + cid + '"]'); return s && s.checked; });
+      }
+      bk.querySelectorAll('[data-theme]').forEach(function (sw) {
+        var th = sw.closest('.theme');
+        if (th) th.classList.toggle('off', !sw.checked);
+      });
+    });
+  }
+
+  var _t = null;
+  function save() {
+    clearTimeout(_t);
+    _t = setTimeout(function () {
+      if (statusEl) { statusEl.textContent = 'Enregistrement…'; statusEl.className = 'save-status'; }
+      fetch('/api/channels/config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location_id: locId, channel: 'recommendations', config: { disabled_themes: currentDisabled(), weather_intensity: weatherIntensity() } }),
+      }).then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (out) {
+          if (out && out.ok) { if (statusEl) { statusEl.textContent = 'Préférences enregistrées.'; statusEl.className = 'save-status status-ok'; } }
+          else { if (statusEl) { statusEl.textContent = (out && out.error) || 'Erreur.'; statusEl.className = 'save-status status-err'; } }
+        })
+        .catch(function () { if (statusEl) { statusEl.textContent = 'Erreur réseau.'; statusEl.className = 'save-status status-err'; } });
+    }, 500);
+  }
+
+  root.addEventListener('change', function (e) {
+    var s = e.target;
+    if (s.matches && s.matches('[data-theme]')) { updateSummary(); save(); return; }
+    if (s.matches && s.matches('[data-master]')) {
+      var kids = (s.getAttribute('data-children') || '').split(',').filter(Boolean);
+      kids.forEach(function (cid) { var t = root.querySelector('[data-theme="' + cid + '"]'); if (t) t.checked = s.checked; });
+      updateSummary(); save(); return;
+    }
+  });
+
+  root.querySelectorAll('[data-seg] button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var seg = btn.closest('[data-seg]');
+      seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x === btn); });
+      save();
+    });
+  });
+
+  var sel = document.getElementById('reco-site-select');
+  if (sel && sel.tagName === 'SELECT') {
+    sel.addEventListener('change', function () {
+      var u = new URL(window.location.href);
+      u.searchParams.set('site', sel.value);
+      window.location.href = u.toString();
+    });
+  }
+
+  updateSummary();
+})();
+</script>
+
+<script>
+// @ts-nocheck
+'use strict';
+(function () {
+  var tabs = document.getElementById('ms-tabs');
+  if (!tabs) return;
+  function show(tab) {
+    document.querySelectorAll('.ms-tab-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab-btn') === tab); });
+    document.querySelectorAll('.ms-tab[data-tab]').forEach(function (p) { p.hidden = p.getAttribute('data-tab') !== tab; });
+    var u = new URL(window.location.href);
+    u.searchParams.set('tab', tab);
+    window.history.replaceState({}, '', u.toString());
+  }
+  tabs.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-tab-btn]') : null;
+    if (!b) return;
+    show(b.getAttribute('data-tab-btn'));
+    window.scrollTo({ top: 0 });
+  });
+})();
 </script>
 
 </BaseLayout>

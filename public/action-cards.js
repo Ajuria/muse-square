@@ -1689,6 +1689,126 @@
     }
   );
 
+  // sales_traffic_not_converting — PERFORMANCE. Payload: footfall_delta_pct,
+  // conversion_delta_pct, conversion_rate, daily_visitors, primary_revenue_driver.
+  reg('sales_traffic_not_converting', 'Trafic sans conversion', 'INTELLIGENCE', '🚶', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
+      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+      var rate = a.conversion_rate != null ? (Number(a.conversion_rate) * 100).toFixed(1) : null;
+      var vis = a.daily_visitors != null ? num(a.daily_visitors) : null;
+      var line = 'Le public était là';
+      if (foot != null) line += ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude)';
+      line += ' mais peu d\'achats';
+      if (conv != null) line += ' (conversion ' + conv + ' %' + (rate != null ? ', ' + rate + ' % des visiteurs' : '') + ')';
+      line += '.';
+      if (vis != null) line += ' ' + vis + ' visiteurs comptés.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
+        var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+        return 'Note interne ' + siteName(p) + '. Trafic ' + (foot != null ? (foot >= 0 ? '+' : '') + foot + ' %' : 'présent') + ' mais conversion ' + (conv != null ? conv + ' %' : 'en retrait') + ' vs habitude. Vérifier effectif en caisse, fluidité du parcours et mise en avant produit ; définir une routine pour les prochains jours à fort trafic.';
+      }
+    }
+  );
+
+  // sales_discount_no_lift — PERFORMANCE. Payload: discount_rate,
+  // discount_rate_delta_pct, revenue_vs_30d_avg_pct, daily_revenue.
+  reg('sales_discount_no_lift', 'Remises sans effet', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
+      var ddelta = a.discount_rate_delta_pct != null ? Math.round(Number(a.discount_rate_delta_pct)) : null;
+      var rev30 = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+      var line = 'Vous avez remisé plus que d\'habitude';
+      if (ddelta != null) line += ' (+' + ddelta + ' % d\'intensité' + (dr != null ? ', ' + dr + ' % du CA en remises' : '') + ')';
+      line += ' sans que le CA suive';
+      if (rev30 != null) line += ' (' + (rev30 >= 0 ? '+' : '') + rev30 + ' % vs moyenne 30j)';
+      line += '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var ddelta = a.discount_rate_delta_pct != null ? Math.round(Number(a.discount_rate_delta_pct)) : null;
+        var rev30 = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+        return 'Note interne ' + siteName(p) + '. Intensité de remise ' + (ddelta != null ? '+' + ddelta + ' %' : 'en hausse') + ' sans effet sur le CA (' + (rev30 != null ? (rev30 >= 0 ? '+' : '') + rev30 + ' % vs moyenne 30j' : 'pas de hausse') + '). Réexaminer le ciblage et le niveau de promotion.';
+      }
+    }
+  );
+
+  // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_last_week_pct,
+  // daily_revenue, revenue_same_weekday_last_week, primary_revenue_driver.
+  reg('sales_revenue_down_wow', 'CA en baisse hebdo', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+      var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
+      var prev = a.revenue_same_weekday_last_week != null ? Math.round(Number(a.revenue_same_weekday_last_week)) : null;
+      var driver = ({footfall:'moins de trafic', basket:'panier plus faible', conversion:'conversion plus faible'})[a.primary_revenue_driver] || null;
+      var line = 'CA ' + (rev != null ? rev + ' € ' : '') + (wow != null ? (wow >= 0 ? '+' : '') + wow + ' % vs le même jour la semaine dernière' : 'en baisse vs la semaine dernière');
+      if (prev != null) line += ' (' + prev + ' €)';
+      line += '.';
+      if (driver) line += ' Cause dominante : ' + driver + '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+        var driver = ({footfall:'trafic', basket:'panier moyen', conversion:'conversion'})[a.primary_revenue_driver] || 'plusieurs facteurs';
+        return 'Note interne ' + siteName(p) + '. CA ' + (wow != null ? wow + ' %' : 'en baisse') + ' vs le même jour la semaine dernière. Levier dominant : ' + driver + '. Identifier la cause et tracer pour comparer aux prochaines semaines.';
+      }
+    }
+  );
+
+  // proven_action_replication — LEARNING. Payload: learned_action_type,
+  // avg_revenue_delta_pct, positive_rate, measurable_count, window_days.
+  reg('proven_action_replication', 'Action à reproduire', 'OPPORTUNITÉ', '🔁', '#2E7D32', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+      var n = a.measurable_count != null ? Number(a.measurable_count) : null;
+      var rate = a.positive_rate != null ? Math.round(Number(a.positive_rate) * 100) : null;
+      var win = a.window_days != null ? Number(a.window_days) : null;
+      var line = 'Sur ' + (win != null ? 'les ' + win + ' derniers jours' : 'la période récente') + ', les jours où ce type d\'action a été publié, le CA était en moyenne ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' %' : 'au-dessus') + ' vs votre référence';
+      if (n != null) line += ' (' + n + ' publication' + (n > 1 ? 's' : '') + ' mesurée' + (n > 1 ? 's' : '') + (rate != null ? ', ' + rate + ' % au-dessus' : '') + ')';
+      line += '. Association observée, pas une garantie.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+        var n = a.measurable_count != null ? Number(a.measurable_count) : null;
+        return 'Note interne ' + siteName(p) + '. Une action récurrente est associée à un CA en moyenne ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' %' : 'supérieur') + ' vs référence' + (n != null ? ' sur ' + n + ' publication(s) mesurée(s)' : '') + '. À reproduire sur des jours comparables et continuer à mesurer (association, pas causalité).';
+      }
+    }
+  );
+
+  // offering_mix_shift — PERFORMANCE. Payload: item_category, revenue_share,
+  // baseline_share, share_delta_points, direction, category_revenue, revenue_rank.
+  reg('offering_mix_shift', 'Bascule de votre mix', 'INTELLIGENCE', '🛍️', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var cat = a.item_category || 'Une catégorie';
+      var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
+      var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
+      var dpts = a.share_delta_points != null ? Math.round(Number(a.share_delta_points)) : null;
+      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
+      var line = cat + ' représente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
+      if (base != null) line += ' vs ' + base + ' % en moyenne';
+      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '') + dpts + ' pts)';
+      line += '.';
+      line += dir === 'collapse' ? ' Catégorie qui décroche.' : ' Catégorie qui surperforme.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var cat = a.item_category || 'une catégorie';
+        var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
+        var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
+        var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Catégorie en recul : vérifier stock, visibilité, prix.' : 'Catégorie qui surperforme : sécuriser le réassort et la mettre en avant.');
+      }
+    }
+  );
+
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
   var CAT_BAR = {
@@ -2227,7 +2347,30 @@
       if (avg != null) s += ', score moyen ' + avg;
       s += '. Partagez-le avec votre équipe.';
       return s;
-    }, urgency: 'plan' }
+    }, urgency: 'plan' },
+    'sales_traffic_not_converting': { action: function(a, p, d) {
+      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+      return 'À corriger : du trafic mais ' + (conv != null ? 'conversion ' + conv + ' % sous votre habitude' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
+    }, urgency: 'soon' },
+    'sales_discount_no_lift': { action: function(a, p, d) {
+      return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
+    }, urgency: 'plan' },
+    'sales_revenue_down_wow': { action: function(a, p, d) {
+      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
+      var driver = ({footfall:'le trafic', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
+      return 'À surveiller : CA ' + (wow != null ? wow + ' % ' : '') + 'sous le même jour de la semaine dernière' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
+    }, urgency: 'soon' },
+    'proven_action_replication': { action: function(a, p, d) {
+      var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
+      return 'À reproduire : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
+    }, urgency: 'plan' },
+    'offering_mix_shift': { action: function(a, p, d) {
+      var cat = a.item_category || 'une catégorie';
+      var dir = a.direction || 'surge';
+      return dir === 'collapse'
+        ? 'À surveiller : ' + cat + ' décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
+        : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu\'elle tire.';
+    }, urgency: 'soon' }
   };
 
   var _origSpecs = {};
@@ -2245,6 +2388,54 @@
       })(_k, _origSpecs[_k]);
     }
   }
+
+  // ─── RECOMMANDATIONS TAXONOMY (settings page: buckets → themes → action_types) ───
+  // Additive. Maps each user-controllable action card to one theme under one outcome
+  // bucket. Feed-only subtypes (internal-metric movements) are excluded — governed as
+  // feed, not recommandations. 73 controllable cards across 9 themes.
+  // `gate` is a profile-condition token the settings page resolves (null = always on).
+  window.RECO_TAXONOMY = {
+    feed_only: ['score_up', 'score_down', 'regime_change', 'medal_change', 'score_driver_shift'],
+    buckets: [
+      { id: 'gerer', label: 'Gérer la journée', verb: 'Adapter & temporiser', hue: '#B26A2E', themes: [
+        { id: 'meteo', label: 'Météo & alertes', gate: null, action_types: [
+          'regime_c_warning', 'extended_bad_weather', 'weather_hazard_onset', 'weather_worsened',
+          'saturated_bad_weather', 'extended_bad_weather_3d', 'weather_mobility_double', 'ft_peak_bad_weather'] },
+        { id: 'mobilite', label: 'Accès & mobilité', gate: null, action_types: [
+          'mobility_disruption', 'mobility_disruption_planned', 'mobility_disruption_resolved',
+          'tourism_mobility_hit', 'mobility_comp_squeeze', 'ft_peak_mobility'] },
+      ]},
+      { id: 'faire-venir', label: 'Faire venir', verb: 'Pousser & capter', hue: '#3F7A4E', themes: [
+        { id: 'fenetres', label: 'Fenêtres favorables', gate: null, action_types: [
+          'weather_window', 'weather_improved', 'weather_window_after_bad', 'low_competition_window',
+          'weekend_opportunity', 'perfect_storm', 'weather_comp_opportunity', 'day_opportunity',
+          'best_day_of_week', 'top_day_approaching', 'weekend_vacation_low_comp', 'ft_quiet_good_weather', 'ft_peak_low_comp'] },
+        { id: 'calendrier', label: 'Calendrier & affluence', gate: null, action_types: [
+          'audience_shift_opportunity', 'calendar_audience_shift', 'commercial_event_match', 'holiday_high_comp',
+          'mega_event_activation', 'mega_event_end', 'institution_campaign_detected', 'media_mention_detected', 'ft_peak_tourism_vacation'] },
+        { id: 'tourisme', label: 'Tourisme', gate: 'tourism_source', action_types: [
+          'tourist_high_season', 'tourist_surge_vacation', 'tourism_peak_window', 'tourism_weather_vacation',
+          'tourism_comp_squeeze', 'low_tourism_local_opp'] },
+      ]},
+      { id: 'surveiller', label: 'Surveiller le marché', verb: 'Défendre & surveiller', hue: '#A4442A', themes: [
+        { id: 'concurrence', label: 'Concurrence', gate: 'watched_competitors', action_types: [
+          'high_competition_density', 'competition_proximity', 'competition_pressure_spike', 'competitor_threat_direct',
+          'competitor_event_launch', 'competitor_audience_conflict', 'competitor_hours_change', 'competitor_sold_out',
+          'competitor_content_spike', 'competitor_content_silent', 'same_bucket_saturation', 'ft_peak_saturated'] },
+        { id: 'tarifs', label: 'Offres, prix & réputation', gate: 'watched_competitors', action_types: [
+          'competitor_new_offering', 'competitor_price_increase', 'competitor_price_drop', 'competitor_offering_removed',
+          'competitor_repricing_event', 'competitor_positioning_brief', 'competitor_reputation_strength',
+          'competitor_review_surge', 'competitor_review_drop'] },
+      ]},
+      { id: 'mesurer', label: 'Mesurer', verb: 'Attribuer & apprendre', hue: '#2F5C8A', themes: [
+        { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
+          'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
+          'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift'] },
+        { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
+          'proven_action_replication', 'weekly_briefing'] },
+      ]},
+    ]
+  };
 
   window.ACTION_CARDS = SPECS;
 
