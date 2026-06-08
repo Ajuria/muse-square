@@ -2389,6 +2389,54 @@
     }
   }
 
+  // ─── RECOMMANDATIONS TAXONOMY (settings page: buckets → themes → action_types) ───
+  // Additive. Maps each user-controllable action card to one theme under one outcome
+  // bucket. Feed-only subtypes (internal-metric movements) are excluded — governed as
+  // feed, not recommandations. 73 controllable cards across 9 themes.
+  // `gate` is a profile-condition token the settings page resolves (null = always on).
+  window.RECO_TAXONOMY = {
+    feed_only: ['score_up', 'score_down', 'regime_change', 'medal_change', 'score_driver_shift'],
+    buckets: [
+      { id: 'gerer', label: 'Gérer la journée', verb: 'Adapter & temporiser', hue: '#B26A2E', themes: [
+        { id: 'meteo', label: 'Météo & alertes', gate: null, action_types: [
+          'regime_c_warning', 'extended_bad_weather', 'weather_hazard_onset', 'weather_worsened',
+          'saturated_bad_weather', 'extended_bad_weather_3d', 'weather_mobility_double', 'ft_peak_bad_weather'] },
+        { id: 'mobilite', label: 'Accès & mobilité', gate: null, action_types: [
+          'mobility_disruption', 'mobility_disruption_planned', 'mobility_disruption_resolved',
+          'tourism_mobility_hit', 'mobility_comp_squeeze', 'ft_peak_mobility'] },
+      ]},
+      { id: 'faire-venir', label: 'Faire venir', verb: 'Pousser & capter', hue: '#3F7A4E', themes: [
+        { id: 'fenetres', label: 'Fenêtres favorables', gate: null, action_types: [
+          'weather_window', 'weather_improved', 'weather_window_after_bad', 'low_competition_window',
+          'weekend_opportunity', 'perfect_storm', 'weather_comp_opportunity', 'day_opportunity',
+          'best_day_of_week', 'top_day_approaching', 'weekend_vacation_low_comp', 'ft_quiet_good_weather', 'ft_peak_low_comp'] },
+        { id: 'calendrier', label: 'Calendrier & affluence', gate: null, action_types: [
+          'audience_shift_opportunity', 'calendar_audience_shift', 'commercial_event_match', 'holiday_high_comp',
+          'mega_event_activation', 'mega_event_end', 'institution_campaign_detected', 'media_mention_detected', 'ft_peak_tourism_vacation'] },
+        { id: 'tourisme', label: 'Tourisme', gate: 'tourism_source', action_types: [
+          'tourist_high_season', 'tourist_surge_vacation', 'tourism_peak_window', 'tourism_weather_vacation',
+          'tourism_comp_squeeze', 'low_tourism_local_opp'] },
+      ]},
+      { id: 'surveiller', label: 'Surveiller le marché', verb: 'Défendre & surveiller', hue: '#A4442A', themes: [
+        { id: 'concurrence', label: 'Concurrence', gate: 'watched_competitors', action_types: [
+          'high_competition_density', 'competition_proximity', 'competition_pressure_spike', 'competitor_threat_direct',
+          'competitor_event_launch', 'competitor_audience_conflict', 'competitor_hours_change', 'competitor_sold_out',
+          'competitor_content_spike', 'competitor_content_silent', 'same_bucket_saturation', 'ft_peak_saturated'] },
+        { id: 'tarifs', label: 'Offres, prix & réputation', gate: 'watched_competitors', action_types: [
+          'competitor_new_offering', 'competitor_price_increase', 'competitor_price_drop', 'competitor_offering_removed',
+          'competitor_repricing_event', 'competitor_positioning_brief', 'competitor_reputation_strength',
+          'competitor_review_surge', 'competitor_review_drop'] },
+      ]},
+      { id: 'mesurer', label: 'Mesurer', verb: 'Attribuer & apprendre', hue: '#2F5C8A', themes: [
+        { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
+          'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
+          'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift'] },
+        { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
+          'proven_action_replication', 'weekly_briefing'] },
+      ]},
+    ]
+  };
+
   window.ACTION_CARDS = SPECS;
 
 })();
