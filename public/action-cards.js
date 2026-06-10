@@ -1074,6 +1074,30 @@
     }
   );
 
+  // review_solicitation — gesture (own reputation). Fires before a favourable day. Profile A.
+  reg('review_solicitation', 'Sollicitez des avis clients', 'R\u00c9PUTATION', '\u2b50', '#1565C0', 'action', 'pulse#radar-score',
+    function(a, p, d) {
+      var n = Number(a.favorable_days_next_5 || d.favorable_days_next_5 || 0);
+      var PK = {'jour ferie':'jour f\u00e9ri\u00e9','week-end':'week-end','vacances scolaires':'vacances scolaires','jour de pointe':'jour de forte affluence'};
+      var pkRaw = a.peak_window || d.peak_window || '';
+      var pk = PK[pkRaw] || pkRaw;
+      var line = 'Une fen\u00eatre favorable approche';
+      if (pk) line += ' (' + pk + ')';
+      line += ' \u2014 c\u2019est le bon moment pour solliciter des avis aupr\u00e8s de vos visiteurs satisfaits.';
+      if (n > 1) line += ' ' + n + ' journ\u00e9es porteuses dans les 5 prochains jours.';
+      var edge = userEdge(p);
+      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) { return 'Note interne ' + siteName(p) + '. Fen\u00eatre favorable \u00e0 venir \u2014 pr\u00e9parer une sollicitation d\u2019avis : carte QR en caisse, message de remerciement en fin de visite, relance email. Objectif : convertir la fr\u00e9quentation en avis Google.' + (p.review_link ? ' Lien d\u2019avis configur\u00e9 : ' + p.review_link : ' (Aucun lien d\u2019avis configur\u00e9 \u2014 ajoutez-le dans Sites.)'); },
+      gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Invitez vos visiteurs satisfaits \u00e0 laisser un avis Google.' + (p.review_link ? ' Lien direct : ' + p.review_link + '.' : '') + ' ' + (userEdge(p) || '') + ' Max 1500 car.'; },
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Invitez vos visiteurs \u00e0 partager leur exp\u00e9rience en avis. Ton chaleureux. ' + (userEdge(p) || '') + ' Max 2200 car.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Remerciez vos visiteurs et invitez-les \u00e0 laisser un avis.' + (p.review_link ? ' Lien direct : ' + p.review_link + '.' : '') + ' ' + (userEdge(p) || '') + '.'; },
+      email: function(a, p, d) { return 'Email ' + siteName(p) + '. Objet : votre avis compte. Relance post-visite invitant \u00e0 laisser un avis en ligne.' + (p.review_link ? ' Lien direct : ' + p.review_link + '.' : '') + ' ' + (userEdge(p) || '') + '.'; }
+    }
+  );
+
   // competitor_repricing_event — compound: >=2 price moves in one crawl
   reg('competitor_repricing_event', 'Analysez ce mouvement tarifaire', 'CONCURRENCE', '\ud83d\udcb1', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
@@ -1760,6 +1784,34 @@
     }
   );
 
+  // footfall_vs_basket_decomposition — PERFORMANCE. Payload: revenue_vs_30d_avg_pct,
+  // daily_revenue, revenue_30d_avg, daily_transactions, avg_basket,
+  // transactions_delta_pct, basket_delta_pct, dominant_factor.
+  reg('footfall_vs_basket_decomposition', 'Ventes ou panier — d\u2019o\u00f9 vient le mouvement', 'INTELLIGENCE', '\ud83e\uddee', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
+      var revPct = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+      var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+      var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+      var dom = a.dominant_factor || ((tx != null && bk != null && Math.abs(tx) >= Math.abs(bk)) ? 'transactions' : 'basket');
+      var line = 'CA ' + (rev != null ? rev + ' \u20ac ' : '') + (revPct != null ? '(' + (revPct >= 0 ? '+' : '') + revPct + ' % vs moyenne 30j)' : 'en mouvement') + '.';
+      if (tx != null && bk != null) {
+        line += ' Nombre de ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier moyen ' + (bk >= 0 ? '+' : '') + bk + ' % vs habitude.';
+      }
+      line += dom === 'transactions' ? ' Le volume de ventes porte le mouvement.' : ' Le panier moyen porte le mouvement.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var revPct = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
+        var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+        var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+        var dom = a.dominant_factor || ((tx != null && bk != null && Math.abs(tx) >= Math.abs(bk)) ? 'transactions' : 'basket');
+        return 'Note interne ' + siteName(p) + '. CA ' + (revPct != null ? (revPct >= 0 ? '+' : '') + revPct + ' % vs moyenne 30j' : 'en mouvement') + ' : nombre de ventes ' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ', panier moyen ' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?') + ' vs habitude. ' + (dom === 'transactions' ? 'Levier dominant : volume (fr\u00e9quentation / conversion).' : 'Levier dominant : panier (mix produit / mont\u00e9e en gamme).') + ' Tracer pour comparer aux prochains jours.';
+      }
+    }
+  );
+
   // proven_action_replication — LEARNING. Payload: learned_action_type,
   // avg_revenue_delta_pct, positive_rate, measurable_count, window_days.
   reg('proven_action_replication', 'Action à reproduire', 'OPPORTUNITÉ', '🔁', '#2E7D32', 'action', 'pulse#day-detail',
@@ -1817,7 +1869,8 @@
     'M\u00c9T\u00c9O': 'ab-warning',
     'OPPORTUNIT\u00c9': 'ab-opportunity',
     'INTELLIGENCE': 'ab-info',
-    'PLANIFICATION': 'ab-info'
+    'PLANIFICATION': 'ab-info',
+    'R\u00c9PUTATION': 'ab-info'
   };
 
   var CAT_URGENCY = {
@@ -1826,7 +1879,8 @@
     'M\u00c9T\u00c9O': { label: 'M\u00e9t\u00e9o', style: 'background:#FEF3C7;color:#92400E;' },
     'OPPORTUNIT\u00c9': { label: 'Opportunit\u00e9', style: 'background:#D1FAE5;color:#065F46;' },
     'INTELLIGENCE': { label: 'Intelligence', style: 'background:#EFF6FF;color:#1e40af;' },
-    'PLANIFICATION': { label: 'Planification', style: 'background:#F3F4F6;color:#374151;' }
+    'PLANIFICATION': { label: 'Planification', style: 'background:#F3F4F6;color:#374151;' },
+    'R\u00c9PUTATION': { label: 'R\u00e9putation', style: 'background:#EFF6FF;color:#1e40af;' }
   };
 
   var PRIO_SCORE = { 4: 95, 3: 80, 2: 60, 1: 40 };
@@ -1914,7 +1968,7 @@
       actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
       actions.push({ text: 'Sauvegarder', meta: '', key: 'save', channel: '' });
       actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, suppression_key: ac.suppression_key, card_type: cardType };
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;
@@ -2067,6 +2121,9 @@
     }, urgency: 'now' },
     'competitor_review_surge': { action: 'Communiquer : sollicitez des avis clients pour \u00e9quilibrer.', urgency: 'soon', channel: 'communiquer' },
     'competitor_review_drop': { action: 'Communiquer : capitalisez sur votre r\u00e9putation.', urgency: 'plan', channel: 'communiquer' },
+    'review_solicitation': { action: function(a, p, d) {
+      return 'À pousser : une fenêtre favorable approche. Profitez de l\'affluence attendue pour solliciter des avis auprès de vos visiteurs satisfaits — un bon moment pour renforcer votre e-réputation.';
+    }, urgency: 'soon' },
     'competitor_hours_change': { action: 'Faire suivre : v\u00e9rifiez si vos horaires restent comp\u00e9titifs.', urgency: 'soon', channel: 'suivre' },
     'competitor_new_offering': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
@@ -2360,6 +2417,20 @@
       var driver = ({footfall:'le trafic', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
       return 'À surveiller : CA ' + (wow != null ? wow + ' % ' : '') + 'sous le même jour de la semaine dernière' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
     }, urgency: 'soon' },
+    'footfall_vs_basket_decomposition': { action: function(a, p, d) {
+      var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;
+      var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+      var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+      var dom = a.dominant_factor || ((tx != null && bk != null && Math.abs(tx) >= Math.abs(bk)) ? 'transactions' : 'basket');
+      var up = revPct != null && revPct >= 0;
+      var src = dom === 'transactions' ? 'le volume de ventes' : 'le panier moyen';
+      var lever = dom === 'transactions'
+        ? 'la fréquentation et la conversion (accueil, mise en avant, communication)'
+        : 'le mix produit et la montée en gamme (cross-sell, offres groupées)';
+      return up
+        ? 'À amplifier : le CA est tiré par ' + src + '. Renforcez ' + lever + ' pour prolonger l\'effet.'
+        : 'À corriger : le recul de CA vient surtout de ' + src + '. Agissez sur ' + lever + '.';
+    }, urgency: 'soon' },
     'proven_action_replication': { action: function(a, p, d) {
       var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
       return 'À reproduire : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
@@ -2430,10 +2501,41 @@
       { id: 'mesurer', label: 'Mesurer', verb: 'Attribuer & apprendre', hue: '#2F5C8A', themes: [
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
-          'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift'] },
+          'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
+          'footfall_vs_basket_decomposition'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},
+    ]
+  };
+
+  // Goal → serving action_types. The daily brief surfaces up to 3 of these first.
+  // Additive: context cards keep their natural rank. Aligns with dim_client_goal.
+  // Editable. plus_avis stays thin until the review_solicitation gesture card ships.
+  window.GOAL_SERVING_TYPES = {
+    faire_venir: [
+      'weather_window','weather_improved','weather_window_after_bad','low_competition_window',
+      'weekend_opportunity','perfect_storm','weather_comp_opportunity','day_opportunity',
+      'best_day_of_week','top_day_approaching','weekend_vacation_low_comp','ft_quiet_good_weather',
+      'ft_peak_low_comp','audience_shift_opportunity','calendar_audience_shift','commercial_event_match',
+      'holiday_high_comp','mega_event_activation','mega_event_end','institution_campaign_detected',
+      'media_mention_detected','ft_peak_tourism_vacation','tourist_high_season','tourist_surge_vacation',
+      'tourism_peak_window','tourism_weather_vacation','tourism_comp_squeeze','low_tourism_local_opp'
+    ],
+    augmenter_panier: [
+      'sales_underperformance','sales_surge','sales_missed_opportunity','sales_competition_cannibalization',
+      'sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','offering_mix_shift',
+      'footfall_vs_basket_decomposition','proven_action_replication'
+    ],
+    plus_avis: [
+      'competitor_review_surge','competitor_review_drop','competitor_reputation_strength','review_solicitation'
+    ],
+    surveiller_marche: [
+      'high_competition_density','competition_proximity','competition_pressure_spike','competitor_threat_direct',
+      'competitor_event_launch','competitor_audience_conflict','competitor_hours_change','competitor_sold_out',
+      'competitor_content_spike','competitor_content_silent','same_bucket_saturation','ft_peak_saturated',
+      'competitor_new_offering','competitor_price_increase','competitor_price_drop','competitor_offering_removed',
+      'competitor_repricing_event','competitor_positioning_brief'
     ]
   };
 

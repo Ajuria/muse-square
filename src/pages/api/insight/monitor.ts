@@ -2,6 +2,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -117,6 +118,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         website_url,
         instagram_url,
         facebook_url,
+        review_link,
         latitude,
         longitude,
         city_name,
@@ -399,7 +401,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `
           SELECT
-            date, location_id, action_type, action_priority, action_category,
+            date, location_id, action_type, card_instance_id, action_priority, action_category,
             data_payload,
             suppression_key, expires_at
           FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
@@ -433,6 +435,75 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const _t3 = Date.now();
     console.log(`[monitor] action candidates + BestTime: ${_t3 - _t2}ms`);
+
+    // Active operational goal (selector pre-select + ranking weight)
+    let activeGoal: any = null;
+    if (clerk_user_id) {
+      try {
+        const [goalRows] = await bq.query({
+          query: `
+            SELECT goal, goal_label_fr, goal_scope
+            FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
+            WHERE user_id = @clerk_user_id
+              AND location_id = @location_id
+            LIMIT 1
+          `,
+          params: { clerk_user_id, location_id },
+          location: "EU",
+        });
+        activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
+      } catch { activeGoal = null; }
+    }
+
+    // Lifetime action tally (gamification counter)
+    let activity: any = null;
+    if (clerk_user_id) {
+      try {
+        const [actRows] = await bq.query({
+          query: `
+            SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
+            FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
+            WHERE user_id = @clerk_user_id
+              AND location_id = @location_id
+            LIMIT 1
+          `,
+          params: { clerk_user_id, location_id },
+          location: "EU",
+        });
+        activity = (Array.isArray(actRows) && actRows[0]) ? actRows[0] : null;
+      } catch { activity = null; }
+    }
+
+    // ----------------------------------------------------------------
+    // Disabled recommendation themes (Recommandations toggles)
+    // Mirrors client _channelConfigsCache: latest row, honored only if enabled.
+    // ----------------------------------------------------------------
+    let disabledThemes: string[] = [];
+    if (clerk_user_id) {
+      try {
+        const [recoRows] = await bq.query({
+          query: `
+            SELECT config_json, enabled
+            FROM (
+              SELECT config_json, enabled,
+                     ROW_NUMBER() OVER (ORDER BY updated_at DESC) AS rn
+              FROM \`muse-square-open-data.analytics.channel_configs\`
+              WHERE user_id = @clerk_user_id
+                AND location_id = @location_id
+                AND channel = 'recommendations'
+            )
+            WHERE rn = 1
+          `,
+          params: { clerk_user_id, location_id },
+          location: "EU",
+        });
+        const row = (Array.isArray(recoRows) && recoRows[0]) ? recoRows[0] : null;
+        if (row && row.enabled) {
+          const cfg = typeof row.config_json === "string" ? JSON.parse(row.config_json) : row.config_json;
+          if (Array.isArray(cfg?.disabled_themes)) disabledThemes = cfg.disabled_themes;
+        }
+      } catch { disabledThemes = []; }
+    }
 
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
       entity_id:                     r?.competitor_event_id                              ?? null,
@@ -942,16 +1013,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,
-      action_candidates: actionCandidateRows.map((r: any) => ({
+      action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes).map((r: any) => ({
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
+        card_instance_id: r?.card_instance_id ?? null,
         action_priority: r?.action_priority ?? null,
         action_category: r?.action_category ?? null,
         data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
       })),
+      active_goal: activeGoal,
+      activity: activity,
       event_status: eventStatus,
       worst_day_count: worstDayCount,
       total_day_count: days.length,

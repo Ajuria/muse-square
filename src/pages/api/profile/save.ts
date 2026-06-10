@@ -255,6 +255,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const main_event_objective = getOptionalString(fd, "main_event_objective");
     const operating_hours = getOptionalString(fd, "operating_hours");
     const website_url = getOptionalString(fd, "website_url");
+    const review_link = getOptionalString(fd, "review_link");
+    const google_place_id = getOptionalString(fd, "google_place_id");
 
     const audiences = getAllStrings(fd, "primary_audience_1");
     if (audiences.length > 2) {
@@ -480,6 +482,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality = @seasonality,
         operating_hours = @operating_hours,
         website_url = @website_url,
+        review_link = @review_link,
+        google_place_id = @google_place_id,
         besttime_venue_id =
           IF(@besttime_venue_id IS NULL, besttime_venue_id, @besttime_venue_id),
         main_event_objective = IF(@main_event_objective IS NULL, main_event_objective, @main_event_objective),
@@ -528,6 +532,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         seasonality,
         operating_hours,
         website_url,
+        review_link,
+        google_place_id,
         besttime_venue_id,
         main_event_objective,
         created_at,
@@ -576,6 +582,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @seasonality,
         @operating_hours,
         @website_url,
+        @review_link,
+        @google_place_id,
         @besttime_venue_id,
         @main_event_objective,
         CURRENT_TIMESTAMP(),
@@ -629,6 +637,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       main_event_objective,
       operating_hours,
       website_url,
+      review_link,
+      google_place_id,
       besttime_venue_id,
     };
 
@@ -676,6 +686,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       main_event_objective: "STRING",
       operating_hours: "STRING",
       website_url: "STRING",
+      review_link: "STRING",
+      google_place_id: "STRING",
       besttime_venue_id: "STRING",
       hasAudiences: "BOOL",
       hasOriginCities: "BOOL",

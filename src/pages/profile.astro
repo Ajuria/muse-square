@@ -217,6 +217,8 @@ type LocationRow = {
   location_description: string;
   operating_hours: string;
   website_url: string;
+  review_link: string;
+  google_place_id: string;
 };
 
 let all_locations: LocationRow[] = [];
@@ -249,6 +251,8 @@ try {
         location_description,
         operating_hours,
         COALESCE(website_url, '') AS website_url,
+        COALESCE(review_link, '') AS review_link,
+        COALESCE(google_place_id, '') AS google_place_id,
       FROM ${fullTable}
       WHERE clerk_user_id = @clerk_user_id
       ORDER BY is_primary DESC, created_at ASC
@@ -289,6 +293,8 @@ try {
         location_description: String(r.location_description || ""),
         operating_hours: String(r.operating_hours || ""),
         website_url: String(r.website_url || ""),
+        review_link: String(r.review_link || ""),
+        google_place_id: String(r.google_place_id || ""),
       }))
     : [];
 } catch (_) {}
@@ -498,6 +504,7 @@ const RECO_BUCKET_DESC: Record<string, string> = {
   "faire-venir": "Les bons moments pour communiquer et remplir vos journées calmes.",
   "surveiller": "Ce que font vos concurrents suivis, et quand réagir.",
   "mesurer": "Ce qui marche dans vos ventes, et ce qu'il faut reproduire.",
+  "reputation": "Récolter des avis au bon moment pour renforcer votre réputation.",
 };
 const RECO_THEME_DESC: Record<string, string> = {
   meteo: "Dégradations, alertes, épisodes prolongés, jours défavorables.",
@@ -509,6 +516,7 @@ const RECO_THEME_DESC: Record<string, string> = {
   tarifs: "Nouvelles offres, mouvements de prix, avis et repositionnements concurrents.",
   ventes: "Trafic sans conversion, remises sans effet, CA en baisse, bascules de gamme.",
   apprentissage: "Actions associées à une hausse de CA — à reproduire.",
+  avis: "Relances d'avis calées sur vos pics de fréquentation.",
 };
 const recoThemeMeta = RECO_BUCKETS.flatMap(b => b.themes.map(t => ({ id: t.id, count: t.action_types.length, gated: !recoGateOpen(t.gate) })));
 const recoTotal = recoThemeMeta.reduce((s, t) => s + t.count, 0);
@@ -749,20 +757,6 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
       <input type="email" name="email" value={saved_safe?.email || clerkEmail} readonly class="field-input" />
     </div>
 
-    <div class="field-group">
-      <label class="field-label">Objectif principal</label>
-      <div class="field-select-wrap">
-        <select name="main_event_objective" class="field-select">
-          <option value="">Sélectionner…</option>
-          <option value="maximize_attendance" selected={(saved_safe?.main_event_objective ?? "") === "maximize_attendance"}>Maximiser l'affluence</option>
-          <option value="avoid_competition" selected={(saved_safe?.main_event_objective ?? "") === "avoid_competition"}>Éviter la concurrence</option>
-          <option value="optimize_weather" selected={(saved_safe?.main_event_objective ?? "") === "optimize_weather"}>Optimiser le rapport coût / météo</option>
-          <option value="test_market" selected={(saved_safe?.main_event_objective ?? "") === "test_market"}>Tester un nouveau marché</option>
-        </select>
-      </div>
-      <p class="field-hint">Utilisé par l'IA comme critère de départage entre dates équivalentes.</p>
-    </div>
-
     {hasPassword && (
       <div style="margin-top: 14px;">
         <button type="button" id="pwd-open" style="background:none;border:none;padding:0;font-size:13px;color:#4b5563;cursor:pointer;">→ Modifier mon mot de passe</button>
@@ -901,6 +895,17 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
               <label class="field-label">Site web <span class="field-req">*</span></label>
               <input type="url" name="website_url" value={loc.website_url || ""} placeholder="https://www.monsite.fr" class="field-input" required />
               <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Lien d'avis Google</label>
+              <input type="url" name="review_link" value={loc.review_link || ""} placeholder="https://g.page/r/..." class="field-input" />
+              <p class="field-hint">Lien direct vers le formulaire d'avis. Utilisé pour les relances d'avis.</p>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Google Place ID</label>
+              <input type="text" name="google_place_id" value={loc.google_place_id || ""} placeholder="ChIJ..." class="field-input" />
+              <p class="field-hint">Identifiant Google de votre établissement (visible dans l'URL Google Maps). Utilisé pour suivre votre note et vos avis.</p>
             </div>
 
             <div class="field-group">
@@ -1977,7 +1982,6 @@ document.getElementById('userProfileForm')?.addEventListener('submit', async fun
     first_name: fd.get('first_name') || '',
     last_name: fd.get('last_name') || '',
     position: fd.get('position') || '',
-    main_event_objective: fd.get('main_event_objective') || '',
   };
 
   try {
@@ -2113,7 +2117,7 @@ window.saveLocation = async function(idx) {
   });
 
   // Named inputs/selects/textareas
-  ['site_name','venue_capacity','location_description','website_url','company_address',
+  ['site_name','venue_capacity','location_description','website_url','review_link','google_place_id','company_address',
    'company_activity_type','location_type','weather_sensitivity','seasonality',
    'location_access_pattern','nearest_transit_stop'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
@@ -2263,6 +2267,16 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
         <label class="field-label">Site web <span class="field-req">*</span></label>
         <input type="url" name="website_url" placeholder="https://www.monsite.fr" class="field-input" required />
         <p class="field-hint">Votre site est analysé automatiquement pour enrichir les recommandations IA.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Lien d'avis Google</label>
+        <input type="url" name="review_link" placeholder="https://g.page/r/..." class="field-input" />
+        <p class="field-hint">Lien direct vers le formulaire d'avis. Utilisé pour les relances d'avis.</p>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Google Place ID</label>
+        <input type="text" name="google_place_id" placeholder="ChIJ..." class="field-input" />
+        <p class="field-hint">Identifiant Google de votre établissement (visible dans l'URL Google Maps). Utilisé pour suivre votre note et vos avis.</p>
       </div>
       <div class="field-group" style="position:relative">
         <label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>
