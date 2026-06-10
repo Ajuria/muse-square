@@ -208,6 +208,20 @@ export const RECO_BUCKETS: RecoBucket[] = [
       },
     ],
   },
+  {
+    id: 'reputation',
+    label: 'Réputation',
+    verb: 'Soigner & solliciter',
+    hue: '#7A5C9A',
+    themes: [
+      {
+        id: 'avis',
+        label: 'Avis & réputation',
+        gate: null,
+        action_types: ['review_solicitation'],
+      },
+    ],
+  },
 ];
 
 // action_type -> { bucketId, themeId }. Built once at module load.

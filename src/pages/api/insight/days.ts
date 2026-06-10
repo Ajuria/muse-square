@@ -3,6 +3,7 @@ import { BigQuery } from "@google-cloud/bigquery";
 import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -346,6 +347,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     ((locals as any)?.location_id ? String((locals as any).location_id).trim() : null);
   if (location_id) requireLocationOwnership(locals, location_id);
 
+  const clerk_user_id = (locals as any)?.clerk_user_id
+    ? String((locals as any).clerk_user_id).trim()
+    : null;
+
   const selected_dates_raw = url.searchParams.get("selected_dates");
   const current_date_raw = url.searchParams.get("current_date"); // optional now
 
@@ -492,7 +497,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-    const [[daysRows], [locationContextRows], [alertsFeedRows], [actionCandidateRows]] = await Promise.all([
+    const [[daysRows], [locationContextRows], [alertsFeedRows], [actionCandidateRows], [recoRows]] = await Promise.all([
       bq.query({
         query: daysQuery,
         params: { location_id, selected_dates },
@@ -512,7 +517,31 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id, selected_dates },
         types: { selected_dates: ['STRING'] },
       }),
+      clerk_user_id ? bq.query({
+        query: `
+          SELECT config_json, enabled
+          FROM (
+            SELECT config_json, enabled,
+                   ROW_NUMBER() OVER (ORDER BY updated_at DESC) AS rn
+            FROM \`muse-square-open-data.analytics.channel_configs\`
+            WHERE user_id = @clerk_user_id
+              AND location_id = @location_id
+              AND channel = 'recommendations'
+          )
+          WHERE rn = 1
+        `,
+        params: { clerk_user_id, location_id },
+      }) : Promise.resolve([[]]),
     ] as any);
+
+    let disabledThemes: string[] = [];
+    try {
+      const recoRow = (Array.isArray(recoRows) && recoRows[0]) ? recoRows[0] : null;
+      if (recoRow && recoRow.enabled) {
+        const cfg = typeof recoRow.config_json === "string" ? JSON.parse(recoRow.config_json) : recoRow.config_json;
+        if (Array.isArray(cfg?.disabled_themes)) disabledThemes = cfg.disabled_themes;
+      }
+    } catch { disabledThemes = []; }
 
     console.log('[alerts debug]', {
       location_id,
@@ -523,7 +552,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const location_context_for_feed = locationContextRows?.[0] ?? null;
 
-    const action_candidates = (Array.isArray(actionCandidateRows) ? actionCandidateRows : []).map((r: any) => ({
+    const action_candidates = filterDisabledThemes(
+      Array.isArray(actionCandidateRows) ? actionCandidateRows : [],
+      disabledThemes
+    ).map((r: any) => ({
       date:             (r?.date?.value ?? r?.date ?? null) as string | null,
       action_type:      r?.action_type ?? null,
       action_priority:  r?.action_priority ?? null,

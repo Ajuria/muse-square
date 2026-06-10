@@ -1292,7 +1292,7 @@ if (!location_id) {
   }
 
   // ---- Render ----
-  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount) {
+  function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount, activeGoalKey) {
     var today = todayYmd();
     var prof = profile || {};
 
@@ -1333,7 +1333,29 @@ if (!location_id) {
     var top = [];
     var _catCounts = {};
     var MAX_PER_CAT = 2;
-    for (var j = 0; j < candidates.length && top.length < 5; j++) {
+
+    // Goal pass: up to 3 cards serving the active weekly goal, surfaced first.
+    var _goalTypes = (activeGoalKey && window.GOAL_SERVING_TYPES) ? (window.GOAL_SERVING_TYPES[activeGoalKey] || []) : [];
+    var _goalSet = {};
+    for (var _gi = 0; _gi < _goalTypes.length; _gi++) _goalSet[String(_goalTypes[_gi]).toLowerCase()] = true;
+    if (_goalTypes.length) {
+      var _goalCount = 0;
+      for (var _gj = 0; _gj < candidates.length && _goalCount < 3; _gj++) {
+        var _gc = candidates[_gj];
+        var _gsub = String(_gc.item.change_subtype||"").toLowerCase();
+        if (!_goalSet[_gsub]) continue;
+        var _gDedupSub = (_gsub === "weather_hazard_onset" || _gsub === "weather_worsened") ? "weather_alert" : (_gsub === "high_competition_density" || _gsub === "competition_proximity") ? "competition_density" : _gsub;
+        var _gDedup = _gDedupSub + "|" + normalizeYmd(_gc.item.affected_date);
+        if (seen[_gDedup]) continue;
+        seen[_gDedup] = true;
+        _gc.tmpl._goal_card = true;
+        top.push(_gc);
+        _goalCount++;
+      }
+    }
+
+    // Context pass: fill up to 8 total (≈5 context after up to 3 goal cards).
+    for (var j = 0; j < candidates.length && top.length < 8; j++) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
       var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : (sub2 === "high_competition_density" || sub2 === "competition_proximity") ? "competition_density" : sub2;
@@ -1425,6 +1447,7 @@ if (!location_id) {
       'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
       'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
       'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
     };
 
     function buildMetricsStrip(entry, currentDay) {
@@ -1484,6 +1507,7 @@ if (!location_id) {
       'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
       'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
       'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
     };
 
     function buildMetricsStrip(entry, currentDay) {
@@ -1535,6 +1559,7 @@ if (!location_id) {
       'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
       'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
       'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
+      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
     };
 
     function buildMetricsStrip(entry, currentDay) {
@@ -1639,6 +1664,7 @@ if (!location_id) {
                 + '<div class="ab-cat-icon ' + catIconInfo.cls + '" style="margin-top:2px;">' + catIconInfo.icon + '</div>'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-pills">'
+                    + (t._goal_card ? '<span class="ab-pill" style="background:#1D3BB3;color:#fff;">Objectif</span>' : '')
                     + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
@@ -1667,6 +1693,12 @@ if (!location_id) {
                 : '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">Voir \u2192</button>'
               )
             + '</div>'
+            + (t._card_type === 'action' ? ('<div style="display:flex;align-items:center;gap:8px;padding:8px 16px 12px;border-top:1px solid #F3F4F6;" data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '">'
+                + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
+                + '<button type="button" data-ab-dispo-btn="card_done" style="font-size:11px;font-weight:600;color:#059669;background:none;border:1px solid #BBF7D0;padding:4px 10px;cursor:pointer;font-family:inherit;">Fait</button>'
+                + '<button type="button" data-ab-dispo-btn="card_already_done" style="font-size:11px;font-weight:600;color:#6B7280;background:none;border:1px solid #E5E7EB;padding:4px 10px;cursor:pointer;font-family:inherit;">Déjà fait</button>'
+                + '<button type="button" data-ab-dispo-btn="card_not_done" style="font-size:11px;font-weight:600;color:#9CA3AF;background:none;border:1px solid #E5E7EB;padding:4px 10px;cursor:pointer;font-family:inherit;">Pas pour moi</button>'
+              + '</div>') : '')
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
         + '</div>'
@@ -2088,6 +2120,34 @@ if (!location_id) {
       });
     });
  
+    // Disposition — log card_done / card_already_done / card_not_done (Profile A: status only)
+    root.querySelectorAll("[data-ab-dispo-row] [data-ab-dispo-btn]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var row = btn.closest("[data-ab-dispo-row]");
+        if (!row) return;
+        var ev = btn.getAttribute("data-ab-dispo-btn");
+        var instance = row.getAttribute("data-ab-dispo-instance") || null;
+        var sub = row.getAttribute("data-ab-dispo-sub") || null;
+        var cat = row.getAttribute("data-ab-dispo-cat") || null;
+        var affected = row.getAttribute("data-ab-dispo-affected") || null;
+        var locId = row.getAttribute("data-ab-dispo-location") || locationId;
+        row.querySelectorAll("[data-ab-dispo-btn]").forEach(function(b) {
+          if (b === btn) { b.style.opacity = "1"; b.style.fontWeight = "700"; }
+          else { b.style.opacity = "0.4"; }
+        });
+        if (ev === "card_done") {
+          var _cEl = root.querySelector("[data-actions-counter]");
+          if (_cEl) { var _n = parseInt(_cEl.textContent, 10) || 0; _cEl.textContent = String(_n + 1); }
+        }
+        fetch("/api/analytics/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: ev, location_id: locId, card_instance_id: instance, action_type: sub, action_category: cat, change_subtype: sub, affected_date: affected }),
+        }).catch(function(){});
+      });
+    });
+
     function wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn) {
       var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
       if (!workspace) return;
@@ -3872,7 +3932,7 @@ if (!location_id) {
     }
 
     // Daily Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount);
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount, (data.active_goal && data.active_goal.goal) ? String(data.active_goal.goal) : "");
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
@@ -3980,9 +4040,35 @@ if (!location_id) {
     // Date header
     const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
 
+    // Weekly goal selector (single-site only — per-location goal is ambiguous when sites are merged)
+    var GOAL_OPTS = [
+      { key: "faire_venir", label: "Faire venir" },
+      { key: "augmenter_panier", label: "Augmenter le panier" },
+      { key: "plus_avis", label: "Plus d\u2019avis" },
+      { key: "surveiller_marche", label: "Surveiller le march\u00e9" },
+    ];
+    var activeGoalKey = data.active_goal ? String((data.active_goal.goal != null ? data.active_goal.goal : data.active_goal) || "") : "";
+    var goalSelectorHtml = isMultisite ? "" : (
+      '<div style="margin-bottom:16px;" data-goal-selector>'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Objectif de la semaine</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      + GOAL_OPTS.map(function(g) {
+          var sel = g.key === activeGoalKey;
+          return '<button type="button" data-goal-key="' + g.key + '" aria-pressed="' + (sel ? 'true' : 'false') + '" style="font-size:12px;font-weight:600;padding:6px 12px;border:1px solid ' + (sel ? '#1D3BB3' : '#E5E7EB') + ';background:' + (sel ? '#1D3BB3' : '#fff') + ';color:' + (sel ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escapeHtml(g.label) + '</button>';
+        }).join("")
+      + '</div>'
+      + '</div>'
+    );
+
+    // Actions-menées counter (single-site; baseline from dbt table, bumped live on card_done)
+    var _cardsDone = (!isMultisite && data.activity && data.activity.cards_done != null) ? Number(data.activity.cards_done) : null;
+    var counterHtml = (_cardsDone != null)
+      ? '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;"><span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#059669;">\u2713 <span data-actions-counter>' + _cardsDone + '</span> actions men\u00e9es</span></div>'
+      : "";
+
     // Assemble
     root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + alertsHtml +
-      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + briefHtml + feedHtml;
+      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
 
     // ---- Wire event handlers ----
 
@@ -3995,6 +4081,30 @@ if (!location_id) {
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;
         renderPulse(data, d, "radar");
+      });
+    });
+
+    // Weekly goal selector
+    root.querySelectorAll("[data-goal-selector] [data-goal-key]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var key = btn.getAttribute("data-goal-key");
+        var clear = btn.getAttribute("aria-pressed") === "true"; // re-tapping the active goal deselects
+        var rowEl = btn.closest("[data-goal-selector]");
+        if (rowEl) rowEl.querySelectorAll("[data-goal-key]").forEach(function(b) {
+          var on = (!clear && b === btn);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+          b.style.border = "1px solid " + (on ? "#1D3BB3" : "#E5E7EB");
+          b.style.background = on ? "#1D3BB3" : "#fff";
+          b.style.color = on ? "#fff" : "#6B7280";
+        });
+        data.active_goal = clear ? null : { goal: key };
+        fetch("/api/insight/set-goal", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(clear
+            ? { location_id: currentLocationId, scope: "weekly", clear: true }
+            : { location_id: currentLocationId, scope: "weekly", goal: key }),
+        }).catch(function(){});
       });
     });
 
