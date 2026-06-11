@@ -43,6 +43,9 @@
   --icon-size-md: 24px;
   --btn-size-md: 44px;
 
+  /* ---- Pulse Mon environement grey background ---- */
+  --color-bg-recessed:#F4F5F7;
+
   /* ---- Status pill colors ---- */
   
   --color-pill-safe-text: #ffffff;

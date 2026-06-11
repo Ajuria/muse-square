@@ -150,6 +150,16 @@ if (!location_id) {
         width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
       }
 
+      /* ---- Navigator (7-day score-bar strip) ---- */
+      .pls-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 1px 5px; border-radius:10px; background:transparent; border:none; font-family:inherit; cursor:pointer; }
+      .pls-col.is-sel { background:rgba(29,59,179,0.08); }
+      .pls-ba { height:70px; width:100%; display:flex; align-items:flex-end; justify-content:center; }
+      .pls-bar { width:64%; border-radius:3px 3px 0 0; background:rgba(29,59,179,0.24); }
+      .pls-bar.is-now { background:#1D3BB3; }
+      .pls-sc { font-size:13px; font-weight:500; color:var(--color-text-primary); }
+      .pls-dy { font-size:11px; color:var(--color-text-muted); text-align:center; line-height:1.15; }
+      .pls-dy.is-now { color:#1D3BB3; font-weight:500; }
+
       /* ---- Location switcher ---- */
       .pls-loc-row {
         display: flex; align-items: center; justify-content: space-between;
@@ -161,6 +171,11 @@ if (!location_id) {
         font-size: 12px; font-weight: 600; color: #1D3BB3;
         background: none; border: none; cursor: pointer; padding: 0;
       }
+
+      .pls-goal { position:relative; align-self:flex-start; }
+      .pls-goal-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1D3BB3; background:#fff; border:1px solid #1D3BB3; border-radius:0; padding:6px 10px; cursor:pointer; font-family:inherit; }
+      .pls-goal-pop { position:absolute; top:100%; right:0; margin-top:4px; z-index:20; min-width:220px; max-width:280px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:0; box-shadow:0 6px 20px rgba(16,24,40,0.12); padding:12px; }
+      .pls-goal-pop[hidden] { display:none; }
 
       .mon-context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
       .mon-context-cell { display: flex; flex-direction: column; gap: 2px; }
@@ -175,10 +190,24 @@ if (!location_id) {
       }
       .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
 
-      /* ---- Daily Action Brief ---- */
-      .ab-card { background:#fff; border:1px solid #E8EDF5; border-radius:0; overflow:visible; margin-bottom:8px; }
+      /* ---- Action-card chips / action line / Agir / disposition ---- */
+      .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:0; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+      .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:0; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
+      .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
+      .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:0; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+      .disc { display:flex; align-items:center; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
+      .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:0; padding:4px 10px; cursor:pointer; font-family:inherit; }
+
+      /* ---- Eyebrow + Fil d'actualité timeline ---- */
+      .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:0; }
+      .tl { position:relative; padding-left:22px; margin-left:5px; border-left:1.5px solid var(--color-border); }
+      .tlrow { position:relative; padding-bottom:18px; }
+      .tldot { position:absolute; left:-28px; top:3px; width:9px; height:9px; border-radius:50%; background:#1D3BB3; border:2px solid var(--color-bg-card); }
+
+      .ab-bar { display:none; }
+      .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:0; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
       .ab-card-row { display:flex; }
-      .ab-bar { width:3px; flex-shrink:0; }
+      .ab-bar { display:none; }
       .ab-bar.ab-threat { background:#e24b4a; }
       .ab-bar.ab-warning { background:#ef9f27; }
       .ab-bar.ab-opportunity { background:#059669; }
@@ -227,13 +256,11 @@ if (!location_id) {
       .ab-cat-icon-urgent { background:#FCEBEB; color:#A32D2D; }
       .ab-cat-icon-intelligence { background:#E6F1FB; color:#185FA5; }
       .ab-cat-icon-performance { background:#E6F1FB; color:#185FA5; }
+      .ab-disc { width:34px; height:34px; border-radius:50%; background:rgba(29,59,179,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
       .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; }
-      .ab-metric { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:6px; background:#f8fafc; font-size:11px; color:#6B7280; border:0.5px solid #f0f0f0; }
-      .ab-metric-val { font-weight:600; color:#111827; }
-      .ab-metric-warn { background:#FEF2F2; border-color:#FECACA; }
-      .ab-metric-warn .ab-metric-val { color:#991B1B; }
-      .ab-metric-good { background:#F0FDF4; border-color:#BBF7D0; }
-      .ab-metric-good .ab-metric-val { color:#166534; }
+      .ab-metric, .ab-metric-warn, .ab-metric-good { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:0; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
+      .ab-metric-val { font-weight:600; color:var(--color-text-primary); }
+      .ab-metric-warn .ab-metric-val, .ab-metric-good .ab-metric-val { color:var(--color-text-primary); }
       .ab-cta-row { display:flex; align-items:center; gap:8px; padding:10px 16px; border-top:0.5px solid #F3F4F6; }
       .ab-cta-primary { font-size:12px; font-weight:600; color:#fff; background:#185FA5; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px; }
       .ab-cta-primary-red { background:#A32D2D; }
@@ -1393,7 +1420,7 @@ if (!location_id) {
       if (!followedCount) {
         return '<div style="margin-bottom:20px;">'
           + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-            + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+            + '<span style="f<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
             + '<span style="font-size:11px;color:#9ca3af;">1 action</span>'
           + '</div>'
           + '<div class="ab-card"><div class="ab-card-row"><div class="ab-bar" style="background:#1D3BB3;"></div><div class="ab-inner">'
@@ -1422,7 +1449,7 @@ if (!location_id) {
       }
       return '<div style="margin-bottom:20px;">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-          + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+          + '<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
         + '</div>'
         + '<div class="ab-zero"><span style="font-size:18px;">\u2713</span><span>Aucune action requise \u2014 votre journ\u00e9e est sous contr\u00f4le</span></div>'
       + '</div>';
@@ -1661,43 +1688,45 @@ if (!location_id) {
           + '<div class="ab-inner">'
             + '<div class="ab-summary">'
               + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-                + '<div class="ab-cat-icon ' + catIconInfo.cls + '" style="margin-top:2px;">' + catIconInfo.icon + '</div>'
+                + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-pills">'
-                    + (t._goal_card ? '<span class="ab-pill" style="background:#1D3BB3;color:#fff;">Objectif</span>' : '')
-                    + '<span class="ab-pill" style="' + t.urgencyPill.style + '">' + escapeHtml(t.urgencyPill.label) + '</span>'
-                    + (entry.item.location_label ? '<span class="ab-pill" style="background:#EFF6FF;color:#1e40af;">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                    + '<span class="ab-pill" style="' + t.typePill.style + '">' + escapeHtml(t.typePill.label) + '</span>'
+                    + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
+                    + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
+                    + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
+                    + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
                   + '</div>'
                   + '<div class="ab-what">' + t.what + '</div>'
                   + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
-                  + (t.action ? '<div style="font-size:12.5px;font-weight:600;color:#1D3BB3;margin-top:6px;">' + escapeHtml(t.action) + '</div>' : '')
+                  + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
                 + '</div>'
               + '</div>'
             + '</div>'
-            + (metricsHtml ? '<div class="ab-metrics-strip">' + metricsHtml + '</div>' : '')
-            + '<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 16px 12px;"'
+            + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
               + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
               + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
+              + metricsHtml
+              + '<span style="margin-left:auto;display:inline-flex;align-items:center;">'
               + (isAction
                 ? '<div style="position:relative;display:inline-block;" data-agir-wrap="' + cardIdx + '">'
-                    + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;">'
+                    + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" class="agir-btn">'
                       + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
                     + '</button>'
                     + menuHtml
                   + '</div>'
                 : '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">Voir \u2192</button>'
               )
+              + '</span>'
             + '</div>'
-            + (t._card_type === 'action' ? ('<div style="display:flex;align-items:center;gap:8px;padding:8px 16px 12px;border-top:1px solid #F3F4F6;" data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '">'
+            + (t._card_type === 'action' ? ('<div class="disc" data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '">'
                 + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
-                + '<button type="button" data-ab-dispo-btn="card_done" style="font-size:11px;font-weight:600;color:#059669;background:none;border:1px solid #BBF7D0;padding:4px 10px;cursor:pointer;font-family:inherit;">Fait</button>'
-                + '<button type="button" data-ab-dispo-btn="card_already_done" style="font-size:11px;font-weight:600;color:#6B7280;background:none;border:1px solid #E5E7EB;padding:4px 10px;cursor:pointer;font-family:inherit;">Déjà fait</button>'
-                + '<button type="button" data-ab-dispo-btn="card_not_done" style="font-size:11px;font-weight:600;color:#9CA3AF;background:none;border:1px solid #E5E7EB;padding:4px 10px;cursor:pointer;font-family:inherit;">Pas pour moi</button>'
+                + '<button type="button" data-ab-dispo-btn="card_done" class="disc-btn">Fait</button>'
+                + '<button type="button" data-ab-dispo-btn="card_already_done" class="disc-btn">Déjà fait</button>'
+                + '<button type="button" data-ab-dispo-btn="card_not_done" class="disc-btn">Pas pour moi</button>'
               + '</div>') : '')
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
@@ -1751,7 +1780,7 @@ if (!location_id) {
  
     return '<div style="margin-bottom:20px;" id="daily-brief-section">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
+        + '<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
         + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
       + '</div>'
       + feedbackCardsHtml
@@ -2817,21 +2846,24 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
-  function renderRadarStrip(id, icon, summary, alertLevel, expandedHtml) {
-    const borderColor = alertLevel === "critical" ? "#ef4444" : alertLevel === "warning" ? "#f59e0b" : "#e5e7eb";
-    return `
-      <div id="radar-strip-${escapeHtml(id)}" style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;border-left:4px solid ${borderColor};overflow:hidden;margin-bottom:6px;transition:border-color 0.15s;">
-        <div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;">
-          <span style="font-size:15px;flex-shrink:0;">${icon}</span>
-          <div style="flex:1;min-width:0;font-size:13.5px;color:#1f2937;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-            ${summary}
-          </div>
-          <span data-radar-chevron="${escapeHtml(id)}" style="font-size:11px;color:#9ca3af;transition:transform 0.15s;flex-shrink:0;">▾</span>
-        </div>
-        <div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;border-top:1px solid #f3f4f6;">
-          ${expandedHtml}
-        </div>
-      </div>`;
+  function renderRadarStrip(id, iconKey, primary, secondary, expandedHtml, isFirst) {
+    const ICONS = {
+      "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
+      "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
+      "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
+    };
+    const iconPaths = ICONS[iconKey] || "";
+    return `<div style="${isFirst ? "" : "border-top:1px solid var(--color-border);"}">`
+      + `<div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">`
+        + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;">${iconPaths}</svg>`
+        + `<div style="flex:1;min-width:0;">`
+          + `<p style="font-size:14px;color:var(--color-text-primary);margin:0;">${primary}</p>`
+          + (secondary ? `<p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">${secondary}</p>` : "")
+        + `</div>`
+        + `<svg data-radar-chevron="${escapeHtml(id)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>`
+      + `</div>`
+      + `<div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;">${expandedHtml}</div>`
+    + `</div>`;
   }
 
   // ----------------------------------------------------------------
@@ -2884,22 +2916,28 @@ if (!location_id) {
       tagsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${tagItems.join("")}</div>`;
     }
 
-    // Weather (only if alert_level_max > 0)
+    // Weather — promoted to a daily météo row (label + temp + alert level)
     let weatherHtml = "";
     const alertMax = Number(day.alert_level_max || 0);
-    if (alertMax > 0) {
-      const wLabel = day.weather_label_fr || "Alerte météo";
+    if (day.weather_label_fr) {
+      const wLabel = day.weather_label_fr;
       const tMin = day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : null;
       const tMax = day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : null;
-      const tempStr = (tMin != null && tMax != null) ? `${tMin}° – ${tMax}°` : "";
+      const tempStr = (tMin != null && tMax != null) ? `${tMin}° – ${tMax}°` : (tMax != null ? `${tMax}°` : "");
+      const wRead = alertMax > 0 ? `Vigilance niv. ${alertMax}` : "Conditions favorables à la sortie";
+      const wIcon = alertMax > 0
+        ? '<path d="M7 18a4 4 0 1 1 .5-7.97A5 5 0 0 1 17 11h.5a3.5 3.5 0 0 1 0 7H7z"/><path d="M9 21l-.4 1M13 21l-.4 1"/>'
+        : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
       weatherHtml = `
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:#fffbeb;border-radius:8px;">
-          <span style="font-size:18px;">⚠️</span>
-          <div style="flex:1;">
-            <span style="font-size:13px;font-weight:600;color:#1f2937;">${escapeHtml(wLabel)}</span>
-            ${tempStr ? `<span style="font-size:12px;color:#6b7280;"> · ${escapeHtml(tempStr)}</span>` : ""}
+        <div>
+          <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:600;margin-bottom:9px;">Météo</div>
+          <div style="display:flex;align-items:center;gap:11px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--color-text-secondary);flex-shrink:0;">${wIcon}</svg>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">${escapeHtml(wLabel)}${tempStr ? ` · ${tempStr}` : ""}</div>
+              <div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px;">${wRead}</div>
+            </div>
           </div>
-          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;">Niv. ${alertMax}</span>
         </div>`;
     }
 
@@ -3008,21 +3046,19 @@ if (!location_id) {
           <button type="button" data-score-tab="fiabilite" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;display:flex;align-items:center;gap:6px;">Fiabilit\u00e9<span data-fiabilite-badge style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#f3f4f6;color:#9ca3af;"></span></button>
         </div>
         <div data-score-panel="score" style="display:block;padding-top:14px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div>
-              ${score != null ? `<div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:36px;font-weight:800;color:${scoreColor};">${escapeHtml(String(score))}</span>
-                <span style="font-size:14px;color:#9ca3af;">/10</span>
-              </div>` : ""}
-              ${weekRankLabel ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(weekRankLabel)}</div>` : ""}
-            </div>
-            <div style="text-align:right;">
-              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};">${escapeHtml(rd.t)}</span>
-            </div>
-          </div>
-          ${tagsHtml}
           ${weatherHtml}
           ${ftHtml}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f3f4f6;">
+            <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:600;margin-bottom:9px;">Score &amp; contexte</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <div style="min-width:0;">
+                <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">${score != null ? escapeHtml(String(score)) + " / 10" : "Score indisponible"}</div>
+                ${weekRankLabel ? `<div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px;">${escapeHtml(weekRankLabel)}</div>` : ""}
+              </div>
+              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};flex-shrink:0;">${escapeHtml(rd.t)}</span>
+            </div>
+            ${tagsHtml}
+          </div>
         </div>
         <div data-score-panel="fiabilite" style="display:none;padding-top:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -3081,7 +3117,7 @@ if (!location_id) {
     var AUDIENCE_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors",general_public:"grand public",art_lovers:"amateurs d\u0027art",mixed:"public mixte"};
     var INDUSTRY_TIER_FR = {direct:"M\u00eame secteur",partial:"Secteur proche",contextual:"Secteur diff\u00e9rent"};
     var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
-    return topThreats.map(function(tc) {
+    return topThreats.map(function(tc, idx) {
       var name = tc.competitor_name || "Concurrent";
       var distKm = tc.distance_km != null ? Number(tc.distance_km).toFixed(1) : null;
       var badge = THREAT_BADGE[tc.threat_level] || THREAT_BADGE.low;
@@ -3091,25 +3127,21 @@ if (!location_id) {
       var sharedAuds = compAuds.filter(function(a) { return locAuds.includes(a); }).map(function(a) { return AUDIENCE_FR[a] || a; });
       var audLine = sharedAuds.length > 0 ? "Cible les m\u00eames audiences : " + sharedAuds.join(", ") : (compAuds.length > 0 ? "Cible : " + compAuds.map(function(a) { return AUDIENCE_FR[a] || a; }).join(", ") : "");
       var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
-      return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;margin-bottom:6px;">'
-        + '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;">'
-          + '<div style="width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
+      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+          + '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
           + '<div style="flex:1;min-width:0;">'
             + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-              + '<span style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
-              + (distKm ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(distKm + ' km') + '</span>' : '')
+              + '<span style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
+              + (distKm ? '<span style="font-size:11px;color:#8A909A;">' + escapeHtml(distKm + ' km') + '</span>' : '')
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
               + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
               + (indLabel ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(indLabel) + '</span>' : '')
             + '</div>'
-            + (audLine ? '<div style="font-size:11px;color:#374151;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
+            + (audLine ? '<div style="font-size:11px;color:#6b7280;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
           + '</div>'
-          + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
-            + '<button type="button" data-follow-threat="' + escapeHtml(tc.competitor_id) + '" data-follow-name="' + escapeHtml(name) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">Suivre \u2192</button>'
-          + '</div>'
-        + '</div>'
-      + '</div>';
+          + '<button type="button" data-follow-threat="' + escapeHtml(tc.competitor_id) + '" data-follow-name="' + escapeHtml(name) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0;margin-top:2px;">Suivre \u2192</button>'
+        + '</div>';
     }).join("");
   }
 
@@ -3135,13 +3167,13 @@ if (!location_id) {
         + '</div>'
       + '</div>';
     }
+    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
     if (byComp.size === 0 && followedCompetitors && followedCompetitors.length > 0) {
-      var THREAT_BADGE_FC = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
-      var fcHtml = followedCompetitors.map(function(fc) {
+      var fcHtml = followedCompetitors.map(function(fc, idx) {
         var name = fc.competitor_name || "Concurrent";
         var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
         var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1) : null;
-        var badge = THREAT_BADGE_FC[fc.threat_level] || THREAT_BADGE_FC.low;
+        var badge = THREAT_BADGE[fc.threat_level] || THREAT_BADGE.low;
         var photoHtml = fc.google_photos
           ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(fc.google_photos) + '" alt="">'
           : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
@@ -3157,38 +3189,32 @@ if (!location_id) {
           } catch(e) {}
         }
         return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(fc.competitor_id) + '" style="text-decoration:none;color:inherit;display:block;">'
-          + '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid #F3F4F6;">'
+          + '<div style="display:flex;align-items:center;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
             + photoHtml
             + '<div style="flex:1;min-width:0;">'
-              + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
+              + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
               + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
                 + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
-                + '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>'
+                + '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>'
               + '</div>'
-              + (ratingHtml ? '<div style="margin-top:2px;">' + ratingHtml + '</div>' : '')
+              + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
               + enrichedSummary
             + '</div>'
-            + '<span style="font-size:12px;color:#1D3BB3;font-weight:500;flex-shrink:0;">Profil \u2192</span>'
+            + '<span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil \u2192</span>'
           + '</div>'
         + '</a>';
       }).join("");
-      return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;">'
-        + fcHtml
-      + '</div>'
-      + '<div style="padding:8px 0 0;display:flex;justify-content:flex-end;">'
-        + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
-      + '</div>';
+      return '<div>' + fcHtml + '</div>';
     }
     if (byComp.size === 0) {
       return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun signal d\u00e9tect\u00e9. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
     }
-    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
     var entries = [...byComp.entries()].sort(function(a, b) {
       var aScore = Number(a[1][0].entity_threat_score || 0);
       var bScore = Number(b[1][0].entity_threat_score || 0);
       return bScore - aScore;
     });
-    var html = entries.map(function(entry) {
+    var html = entries.map(function(entry, idx) {
       var cid = entry[0];
       var sigs = entry[1];
       var first = sigs[0];
@@ -3209,26 +3235,21 @@ if (!location_id) {
       if (distKm) metaParts.push(distKm + ' km');
       if (activeCount > 0) metaParts.push(activeCount + ' \u00e9v\u00e9n. actif' + (activeCount > 1 ? 's' : ''));
       return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(cid) + '" style="text-decoration:none;color:inherit;display:block;">'
-        + '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid #F3F4F6;">'
+        + '<div style="display:flex;align-items:center;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
           + photoHtml
           + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
+            + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
             + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
               + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
-              + (metaParts.length ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>' : '')
+              + (metaParts.length ? '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>' : '')
             + '</div>'
-            + (ratingHtml ? '<div style="margin-top:2px;">' + ratingHtml + '</div>' : '')
+            + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
           + '</div>'
-          + '<span style="font-size:12px;color:#1D3BB3;font-weight:500;flex-shrink:0;">Profil \u2192</span>'
+          + '<span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil \u2192</span>'
         + '</div>'
       + '</a>';
     }).join("");
-    return '<div style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;">'
-      + html
-    + '</div>'
-    + '<div style="padding:8px 0 0;display:flex;justify-content:flex-end;">'
-      + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
-    + '</div>';
+    return '<div>' + html + '</div>';
   }
 
   // ----------------------------------------------------------------
@@ -3331,25 +3352,17 @@ if (!location_id) {
       : '';
 
     return '<div style="padding-top:12px;">'
-      + (pressureLabel
-        ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
-          + '<span style="font-size:12px;color:#6b7280;">Pression concurrentielle :</span>'
-          + '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:600;background:' + pressureBg + ';color:' + pressureFg + ';">' + escapeHtml(pressureLabel) + '</span>'
+      + '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid var(--color-border-tertiary);border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;">'
+        + '<div style="position:relative;height:120px;background:#EBEEF2;">'
+          + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
+            + '<circle cx="200" cy="60" r="50" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
+            + '<circle cx="200" cy="60" r="22" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
+            + '<circle cx="200" cy="60" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
+          + '</svg>'
+          + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:5px 10px;">Ouvrir la carte →</span>'
         + '</div>'
-        : '')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'
-        + '<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">'
-          + '<div style="font-size:10px;color:#6b7280;margin-bottom:3px;">< 500 m</div>'
-          + '<div style="font-size:22px;font-weight:700;color:#1f2937;">' + count500 + '</div>'
-        + '</div>'
-        + '<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">'
-          + '<div style="font-size:10px;color:#6b7280;margin-bottom:3px;">< 5 km</div>'
-          + '<div style="font-size:22px;font-weight:700;color:#1f2937;">' + count5km + '</div>'
-        + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
-        + '<button type="button" data-radar-carte style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;font-family:inherit;">Carte</button>'
-      + '</div>'
+        + '<div style="padding:11px 14px;font-size:12px;color:var(--color-text-secondary);">' + count500 + ' à moins de 500 m · ' + count5km + ' à 5 km</div>'
+      + '</button>'
     + '</div>';
   }
 
@@ -3373,8 +3386,8 @@ if (!location_id) {
       return `
         <div style="margin-top:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;">Fil d'activité</span>
-            <span style="font-size:11px;color:#9ca3af;">0 événements</span>
+            <span class="eb">Fil d'actualité</span>
+            <span style="font-size:11px;color:var(--color-text-muted);">0 événements</span>
           </div>
           <div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun changement récent.</div>
         </div>`;
@@ -3482,9 +3495,7 @@ if (!location_id) {
         if (!line1) return "";
         const line2 = feedLine2(a);
         const line4 = feedLine4(a);
-        const borderCol = feedBorderColor(a);
         const cta = feedItemCta(a);
-        const typePill = feedTypePill(a);
         const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
         var _ad = normalizeYmd(a?.affected_date);
         var _today = todayYmd();
@@ -3510,26 +3521,23 @@ if (!location_id) {
         })();
 
         return `
-          <div style="padding:10px 14px;${idx > 0 ? "border-top:1px solid #f3f4f6;" : ""}border-left:3px solid ${borderCol};margin-left:-1px;">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${datePill}${locPill}${typePill}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px;">${escapeHtml(line1)}</div>
-                ${line2 ? `<div style="font-size:11.5px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
-                ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
-                <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
-              </div>
-              ${ctaHtml}
-            </div>
+          <div class="tlrow">
+            <span class="tldot"></span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">${datePill}${locPill}</div>
+            <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);margin:0 0 2px;">${escapeHtml(line1)}</div>
+            ${line2 ? `<div style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
+            ${line4 ? `<div style="font-size:11px;color:var(--color-text-muted);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
+            <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
+            <div style="margin-top:6px;">${ctaHtml}</div>
           </div>`;
       }).filter(Boolean).join("");
 
       if (!itemsHtml) return "";
 
       return `
-        <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:6px;">
-          <div style="padding:5px 14px;background:#f9fafb;font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(groupLabel)}</div>
-          ${itemsHtml}
+        <div style="margin-bottom:18px;">
+          <p class="eb" style="margin:0 0 10px;">${escapeHtml(groupLabel)}</p>
+          <div class="tl">${itemsHtml}</div>
         </div>`;
     }).filter(Boolean).join("");
 
@@ -3540,11 +3548,11 @@ if (!location_id) {
 
     return `
       <div style="margin-top:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;">Fil d'activité</span>
-          <span style="font-size:11px;color:#9ca3af;">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span class="eb">Fil d'actualité</span>
+          <span style="font-size:11px;color:var(--color-text-muted);">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
+        <div>
           ${groupsHtml}
         </div>
         ${showAllBtn}
@@ -3576,25 +3584,30 @@ if (!location_id) {
 
     const today = todayYmd();
 
-    // ---- Pills ----
-    const pillsHtml = `<div class="pls-pills">
-      ${dates.map(ymd => {
+    // ---- Navigator (7-day score-bar strip) ----
+    const navMaxScore = days.reduce(function(m, d) {
+      const s = Number(d && d.opportunity_score);
+      return (Number.isFinite(s) && s > m) ? s : m;
+    }, 0);
+    const pillsHtml = `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:500;margin:22px 0 10px;">7 jours à venir &middot; choisissez un jour</p>`
+      + `<div style="display:flex;align-items:flex-end;gap:4px;">`
+      + dates.map(ymd => {
         const d = dayMap.get(ymd);
-        const allRisks = [...(d?.attendance||[]),...(d?.operations||[]),...(d?.installation||[])];
-        const hasCrit = allRisks.some(r => r.severity==="D"||r.severity==="C");
-        const hasWarn = !hasCrit && allRisks.some(r => r.severity==="B");
-        const isActive = ymd===selectedDate;
-        let cls = "pls-pill";
-        if (isActive) cls+=" is-active";
-        else if (ymd===today) cls+=" is-today";
-        else if (hasCrit) cls+=" has-crit";
-        else if (hasWarn) cls+=" has-warn";
-        const label = ymd===today ? "Aujourd'hui" : fmtDateShort(ymd);
-        const dotColor = isActive ? "#fff" : hasCrit ? "#e24b4a" : hasWarn ? "#ef9f27" : null;
-        const dot = dotColor ? `<span class="pls-pill-dot" style="background:${dotColor};"></span>` : "";
-        return `<button type="button" class="${cls}" data-pill-date="${ymd}">${escapeHtml(label)}${dot}</button>`;
-      }).join("")}
-    </div>`;
+        const sc = d != null ? Number(d.opportunity_score) : NaN;
+        const hasScore = Number.isFinite(sc);
+        const isToday = ymd === today;
+        const isSel = ymd === selectedDate;
+        const barPx = (hasScore && navMaxScore > 0) ? Math.max(3, Math.round(sc / navMaxScore * 65)) : 3;
+        const dt = parseYmdToDate(ymd);
+        const dowFr = dt ? ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][((dt.getUTCDay()+6)%7)] : "";
+        const dayLabel = isToday ? "Auj." : (dt ? `${dowFr} ${dt.getUTCDate()}` : ymd);
+        return `<button type="button" class="pls-col${isSel ? " is-sel" : ""}" data-pill-date="${ymd}">`
+          + `<div class="pls-sc">${hasScore ? sc.toFixed(1) : "\u2014"}</div>`
+          + `<div class="pls-ba"><div class="pls-bar${isSel ? " is-now" : ""}" style="height:${barPx}px;"></div></div>`
+          + `<div class="pls-dy${isSel ? " is-now" : ""}">${escapeHtml(dayLabel)}</div>`
+        + `</button>`;
+      }).join("")
+      + `</div>`;
 
     // ---- Alerts (severity != A, shown as strips before radar) ----
     const dayAlertsRaw = [
@@ -3949,11 +3962,8 @@ if (!location_id) {
     else if (rank === totalDays) weekRankShort = "Jour le moins favorable de la semaine";
     else if (rank != null && totalDays > 0) weekRankShort = `${rank}e meilleur jour de la semaine`;
 
-    const scoreSummary = score != null
-      ? `Score jour : ${score} /10${weekRankShort ? ` · ${escapeHtml(weekRankShort)}` : ""} · ${escapeHtml(regimeLabel)}`
-      : "Score indisponible";
-
-    const scoreAlert = currentDay.is_forced_regime_c_flag ? "critical" : (dayAlerts.length > 0 ? "warning" : null);
+    const scorePrimary = (score != null && Number.isFinite(Number(score))) ? `Score ${Number(score).toFixed(1)} / 10` : "Score indisponible";
+    const scoreSecondary = (score != null) ? [weekRankShort ? escapeHtml(weekRankShort) : "", escapeHtml(regimeLabel)].filter(Boolean).join(" \u00b7 ") : "";
 
     // Strip 2: Threats — recap across ALL followed competitors
     const compByComp = new Map();
@@ -3986,59 +3996,72 @@ if (!location_id) {
     }
 
     const THREAT_LABELS_FR = { high: "Menace \u00e9lev\u00e9e", moderate: "Menace mod\u00e9r\u00e9e", low: "Menace faible" };
-    let threatSummary = "";
+    let threatPrimary, threatSecondary;
     if (totalComps > 0) {
-      const worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
-      const parts = [];
-      parts.push(`Concurrents suivis : ${totalComps}`);
-      if (totalActiveEvents > 0) {
-        parts.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
-      }
-      if (worstLabel) parts.push(escapeHtml(worstLabel));
-      else if (hasAnyAudOverlap) parts.push("Chevauchement audience");
-      threatSummary = parts.join(" \u00b7 ");
+      const _worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
+      const _hasConflict = (worstThreatLevel === "high" || hasAnyAudOverlap);
+      threatPrimary = _hasConflict ? escapeHtml(_worstLabel || "Conflit direct") : "Aucun conflit direct";
+      const _tp = [`${totalComps} concurrent${totalComps > 1 ? "s" : ""} suivi${totalComps > 1 ? "s" : ""}`];
+      if (totalActiveEvents > 0) _tp.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
+      threatSecondary = _tp.join(" \u00b7 ");
     } else {
-      threatSummary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
+      threatPrimary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
+      threatSecondary = followedCount > 0 ? `${followedCount} concurrent${followedCount > 1 ? "s" : ""} suivi${followedCount > 1 ? "s" : ""}` : "";
     }
-
-    const threatAlert = (worstThreatLevel === "high" || hasAnyAudOverlap) ? "warning" : null;
 
     // Strip 3: Environnement concurrentiel — use competition_pressure_ratio for pressure label
     const envCount500 = Number(currentDay.events_within_500m_count || 0);
     const envCount5km = Number(currentDay.events_within_5km_count || 0);
-    const pressureRatio = Number(currentDay.competition_pressure_ratio || 0);
     const hasBaseline = Boolean(currentDay.has_valid_baseline_flag);
-    let envSummary = "";
-    let envAlert = null;
-    if (envCount5km === 0) {
-      envSummary = `Autour de vous : 0 \u00e9v\u00e9nement \u00e0 5 km`;
-    } else if (hasBaseline && pressureRatio > 1.2) {
-      envSummary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
-      envAlert = "warning";
-    } else if (hasBaseline && pressureRatio < 0.8) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Inf\u00e9rieur \u00e0 la moyenne`;
-    } else if (hasBaseline) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Dans la moyenne`;
+    const _envRatioRaw = currentDay.competition_pressure_ratio;
+    const _envRatio = Number(_envRatioRaw);
+    const _envHasRatio = (_envRatioRaw != null && Number.isFinite(_envRatio) && _envRatio > 0);
+    let envPrimary, envSecondary;
+    if (_envHasRatio) {
+      envPrimary = `Pression \u00d7${_envRatio.toFixed(1)}`;
+      let _envRel = "";
+      if (hasBaseline && _envRatio > 1.2) _envRel = "Sup\u00e9rieur \u00e0 la moyenne";
+      else if (hasBaseline && _envRatio < 0.8) _envRel = "Inf\u00e9rieur \u00e0 la moyenne";
+      else if (hasBaseline) _envRel = "Dans la moyenne";
+      envSecondary = [_envRel, `${envCount5km} \u00e9v\u00e9n. \u00e0 5 km`].filter(Boolean).join(" \u00b7 ");
     } else {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km`;
+      envPrimary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nement${envCount5km > 1 ? "s" : ""} \u00e0 5 km`;
+      envSecondary = "";
     }
 
     // Build strips
-    const strip1 = renderRadarStrip("score", "📈", scoreSummary, scoreAlert,
-      renderScoreDetail(currentDay, days));
+    const strip1 = renderRadarStrip("score", "chart-line", scorePrimary, scoreSecondary,
+      renderScoreDetail(currentDay, days), true);
 
-    const strip2 = renderRadarStrip("changes", "📡", envSummary, envAlert,
-      renderChangeDetail(currentDay, data._top_threats || []));
+    const strip2 = renderRadarStrip("changes", "swords", envPrimary, envSecondary,
+      renderChangeDetail(currentDay, data._top_threats || []), false);
 
-    const strip3 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount, data._top_threats || []));
+    const strip3 = renderRadarStrip("threats", "target", threatPrimary, threatSecondary,
+      renderThreatSummary(competitorSignals, selectedDate, followedCount, data._top_threats || []), false);
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
     const feedHtml = renderFeed(allFeed, isMultisite, _feedCoveredTypes);
 
-    // Date header
-    const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
+    // Verdict hero (v1 — single grounded line; no delta/segment)
+    const _vBest = (Array.isArray(sortedDays) && sortedDays.length) ? sortedDays[0] : null;
+    const _vBestYmd = _vBest ? normalizeYmd(_vBest.date) : "";
+    const _vIsBest = _vBestYmd && _vBestYmd === selectedDate;
+    const _vBestDt = _vBestYmd ? parseYmdToDate(_vBestYmd) : null;
+    const _vBestWeekday = _vBestDt ? ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"][((_vBestDt.getUTCDay()+6)%7)] : "";
+    // ↓↓↓ EDITABLE COPY ↓↓↓
+    const verdictLine = (_vIsBest || !_vBestWeekday)
+      ? `${regimeLabel}. Meilleure fenêtre de la semaine.`
+      : `${regimeLabel}. ${_vBestWeekday.charAt(0).toUpperCase() + _vBestWeekday.slice(1)} est plus favorable cette semaine.`;
+    // ↑↑↑ EDITABLE COPY ↑↑↑
+    const _vScore = (score != null && Number.isFinite(Number(score)));
+    const verdictHtml = `<div style="margin-top:26px;margin-bottom:16px;padding-top:22px;border-top:1px solid var(--color-border);">`
+      + `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</p>`
+      + `<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">`
+        + `<div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">${_vScore ? Number(score).toFixed(1) : "\u2014"}</span>${_vScore ? `<span style="font-size:16px;color:var(--color-text-muted);">/10</span>` : ""}</div>`
+        + `<p style="flex:1;min-width:220px;font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">${escapeHtml(verdictLine)}</p>`
+      + `</div>`
+    + `</div>`;
 
     // Weekly goal selector (single-site only — per-location goal is ambiguous when sites are merged)
     var GOAL_OPTS = [
@@ -4048,14 +4071,37 @@ if (!location_id) {
       { key: "surveiller_marche", label: "Surveiller le march\u00e9" },
     ];
     var activeGoalKey = data.active_goal ? String((data.active_goal.goal != null ? data.active_goal.goal : data.active_goal) || "") : "";
-    var goalSelectorHtml = isMultisite ? "" : (
-      '<div style="margin-bottom:16px;" data-goal-selector>'
-      + '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Objectif de la semaine</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-      + GOAL_OPTS.map(function(g) {
-          var sel = g.key === activeGoalKey;
-          return '<button type="button" data-goal-key="' + g.key + '" aria-pressed="' + (sel ? 'true' : 'false') + '" style="font-size:12px;font-weight:600;padding:6px 12px;border:1px solid ' + (sel ? '#1D3BB3' : '#E5E7EB') + ';background:' + (sel ? '#1D3BB3' : '#fff') + ';color:' + (sel ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escapeHtml(g.label) + '</button>';
+    // Multisite: goal is per-site — pick a site, then a goal. The activeGoalKey
+    // highlight only applies single-site (data.active_goal is the merged goal).
+    var _goalSites = (isMultisite && Array.isArray(data._locations)) ? data._locations : null;
+    var _goalSitePickerHtml = _goalSites ? (
+      '<select data-goal-site style="font-size:12px;font-weight:600;padding:6px 10px;border:1px solid #E5E7EB;background:#fff;color:#374151;cursor:pointer;font-family:inherit;margin-bottom:8px;display:block;max-width:100%;">'
+      + _goalSites.map(function(s, i) {
+          var id = s.location_id;
+          var label = s.site_name || s.company_name || s.company_address || id;
+          return '<option value="' + escapeHtml(String(id)) + '"' + (i === 0 ? ' selected' : '') + '>' + escapeHtml(String(label)) + '</option>';
         }).join("")
+      + '</select>'
+    ) : "";
+    // Multisite has no per-site goal read-back yet, so the chip states the action plainly (no count, no reflection).
+    var _goalChipLabel = isMultisite
+      ? "Objectifs par site"
+      : (activeGoalKey ? ("Objectif\u00a0: " + ((GOAL_OPTS.filter(function(g){ return g.key === activeGoalKey; })[0] || {}).label || "")) : "D\u00e9finir un objectif");
+    var goalSelectorHtml = (
+      '<div class="pls-goal" data-goal-selector>'
+      + '<button type="button" class="pls-goal-chip" data-goal-chip-toggle aria-expanded="false">'
+        + '<span data-goal-chip-label>' + escapeHtml(_goalChipLabel) + '</span>'
+        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'
+      + '</button>'
+      + '<div class="pls-goal-pop" data-goal-popover hidden>'
+        + (isMultisite ? '<div class="eb" style="margin-bottom:8px;">Objectif par site</div>' : '')
+        + _goalSitePickerHtml
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        + GOAL_OPTS.map(function(g) {
+            var sel = (!isMultisite && g.key === activeGoalKey);
+            return '<button type="button" data-goal-key="' + g.key + '" aria-pressed="' + (sel ? 'true' : 'false') + '" style="font-size:12px;font-weight:600;padding:6px 12px;border:1px solid ' + (sel ? '#1D3BB3' : '#E5E7EB') + ';background:' + (sel ? '#1D3BB3' : '#fff') + ';color:' + (sel ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escapeHtml(g.label) + '</button>';
+          }).join("")
+        + '</div>'
       + '</div>'
       + '</div>'
     );
@@ -4067,8 +4113,8 @@ if (!location_id) {
       : "";
 
     // Assemble
-    root.innerHTML = pillsHtml + `<div style="height:12px;"></div>` + dateHeaderHtml + alertsHtml +
-      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+    root.innerHTML = pillsHtml + verdictHtml +
+      `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${strip1}${strip2}${strip3}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
 
     // ---- Wire event handlers ----
 
@@ -4084,8 +4130,39 @@ if (!location_id) {
       });
     });
 
+    // Weekly goal chip — relocate into the site-context row (.pls-loc-row)
+    var _goalNode = root.querySelector("[data-goal-selector]");
+    var _locRow = document.querySelector(".pls-loc-row");
+    if (_goalNode && _locRow) {
+      var _oldGoal = _locRow.querySelector("[data-goal-selector]");
+      if (_oldGoal) _oldGoal.remove();
+      _locRow.appendChild(_goalNode);
+    }
+    document.querySelectorAll("[data-goal-chip-toggle]").forEach(function(chip) {
+      var pop = chip.parentElement ? chip.parentElement.querySelector("[data-goal-popover]") : null;
+      chip.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if (!pop) return;
+        if (pop.hasAttribute("hidden")) { pop.removeAttribute("hidden"); chip.setAttribute("aria-expanded", "true"); }
+        else { pop.setAttribute("hidden", ""); chip.setAttribute("aria-expanded", "false"); }
+      });
+    });
+    if (!window.__plsGoalDocClick) {
+      window.__plsGoalDocClick = true;
+      document.addEventListener("click", function(e) {
+        document.querySelectorAll("[data-goal-popover]").forEach(function(pop) {
+          var wrap = pop.closest("[data-goal-selector]");
+          if (wrap && !wrap.contains(e.target)) {
+            pop.setAttribute("hidden", "");
+            var c = wrap.querySelector("[data-goal-chip-toggle]");
+            if (c) c.setAttribute("aria-expanded", "false");
+          }
+        });
+      });
+    }
+
     // Weekly goal selector
-    root.querySelectorAll("[data-goal-selector] [data-goal-key]").forEach(function(btn) {
+    document.querySelectorAll("[data-goal-selector] [data-goal-key]").forEach(function(btn) {
       btn.addEventListener("click", function() {
         var key = btn.getAttribute("data-goal-key");
         var clear = btn.getAttribute("aria-pressed") === "true"; // re-tapping the active goal deselects
@@ -4097,13 +4174,26 @@ if (!location_id) {
           b.style.background = on ? "#1D3BB3" : "#fff";
           b.style.color = on ? "#fff" : "#6B7280";
         });
-        data.active_goal = clear ? null : { goal: key };
+        var siteSel = rowEl ? rowEl.querySelector("[data-goal-site]") : null;
+        var goalLoc = siteSel ? siteSel.value : currentLocationId;
+        if (!goalLoc) return;
+        if (!isMultisite) data.active_goal = clear ? null : { goal: key };
+        // Single-site: reflect the new goal on the chip + close the popover
+        if (!isMultisite && rowEl) {
+          var GOAL_LABELS = { faire_venir: "Faire venir", augmenter_panier: "Augmenter le panier", plus_avis: "Plus d\u2019avis", surveiller_marche: "Surveiller le march\u00e9" };
+          var lbl = rowEl.querySelector("[data-goal-chip-label]");
+          if (lbl) lbl.textContent = clear ? "D\u00e9finir un objectif" : ("Objectif\u00a0: " + (GOAL_LABELS[key] || ""));
+          var pop2 = rowEl.querySelector("[data-goal-popover]");
+          if (pop2) pop2.setAttribute("hidden", "");
+          var chip2 = rowEl.querySelector("[data-goal-chip-toggle]");
+          if (chip2) chip2.setAttribute("aria-expanded", "false");
+        }
         fetch("/api/insight/set-goal", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(clear
-            ? { location_id: currentLocationId, scope: "weekly", clear: true }
-            : { location_id: currentLocationId, scope: "weekly", goal: key }),
+            ? { location_id: goalLoc, scope: "weekly", clear: true }
+            : { location_id: goalLoc, scope: "weekly", goal: key }),
         }).catch(function(){});
       });
     });

@@ -183,8 +183,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
 
       /* ---- Daily Action Brief ---- */
-      .ab-card { background:#fff; border:1px solid #E8EDF5; border-radius:0; overflow:visible; margin-bottom:8px; }
       .ab-card-row { display:flex; }
+      .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:0; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
       .ab-bar { width:3px; flex-shrink:0; }
       .ab-bar.ab-threat { background:#e24b4a; }
       .ab-bar.ab-warning { background:#ef9f27; }
@@ -246,6 +246,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       .mon-breadcrumb { display: flex; align-items: center; gap: 8px; margin: 16px 0 20px 0; font-size: 13px; color: #888; }
       .mon-breadcrumb a { color: #0F1F3D; text-decoration: none; font-weight: 500; }
       .mon-breadcrumb a:hover { text-decoration: underline; }
+      .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:#8A909A; font-weight:500; margin:0; }
+      .tl { position:relative; padding-left:22px; margin-left:5px; border-left:1.5px solid #E6E8EC; }
+      .tlrow { position:relative; padding-bottom:18px; }
+      .tldot { position:absolute; left:-28px; top:3px; width:9px; height:9px; border-radius:50%; background:#1D3BB3; border:2px solid #fff; }
       @keyframes ms-spin { to { transform: rotate(360deg); } }
     </style>
 
@@ -893,7 +897,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const totalSignals = signals.length;
     const totalComps = compEntries.length;
 
-    const cardsHtml = compEntries.map(([cid, compSignals]) => {
+    const cardsHtml = compEntries.map(([cid, compSignals], idx) => {
       const first = compSignals[0];
       const name = first.competitor_name || "Concurrent";
       const rating = first.google_rating;
@@ -1064,8 +1068,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const activeHtml = active.length ? section("Événements en cours", renderEventRows(active, 3, "#1D3BB3")) : "";
       const upcomingHtml = upcoming.length ? section("À venir", renderEventRows(upcoming, 3, "#EF9F27")) : "";
 
-      return `<div class="ms-comp-card" style="background:#fff;border:0.5px solid #E8EDF5;border-radius:12px;overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;">
+      return `<div class="ms-comp-card" style="${idx > 0 ? 'border-top:1px solid #E6E8EC;' : ''}">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 0 0;">
           ${photoHtml}
           <div style="flex:1;min-width:0;">
             <div style="font-size:15px;font-weight:500;color:#111827;margin:0 0 2px;">${escapeHtml(name)}</div>
@@ -1075,9 +1079,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
             </div>
           </div>
         </div>
-        <div style="padding:0 20px 16px;">
+        <div style="padding:12px 0 14px;">
           ${flagsHtml}
-          ${takeaway ? `<div style="font-size:12px;color:#111827;background:#F9FAFB;border-radius:8px;padding:10px 14px;margin-top:${hasAnyOverlap ? '10' : '0'}px;line-height:1.45;border-left:3px solid ${takeawayAccent};">${escapeHtml(takeaway)}</div>` : ''}
+          ${takeaway ? `<div style="font-size:13px;color:#565C66;line-height:1.45;margin-top:${hasAnyOverlap ? '10' : '0'}px;">${escapeHtml(takeaway)}</div>` : ''}
           ${launchesHtml}
           ${activeHtml}
           ${upcomingHtml}
@@ -1086,7 +1090,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }).join("");
 
     return `<div style="padding:0;">
-      <div style="display:flex;flex-direction:column;gap:10px;">${cardsHtml}</div>
+      <div>${cardsHtml}</div>
       <div style="padding:12px 0 0;display:flex;justify-content:flex-end;">
         <a href="/app/insightevent/suivis" style="font-size:12px;color:var(--color-brand-blue);text-decoration:none;">Gérer mes suivis \u2192</a>
       </div>
@@ -1358,7 +1362,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
           + '<span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;">Vos actions du jour</span>'
         + '</div>'
-        + '<div class="ab-zero"><span style="font-size:18px;">\u2713</span><span>Aucune action requise \u2014 votre journ\u00e9e est sous contr\u00f4le</span></div>'
+        + '<div class="ab-zero"><span style="font-size:18px;">\u2713</span><span>Aucune action requise pour l\u2019instant</span></div>'
       + '</div>';
     }
 
@@ -2513,21 +2517,24 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
-  function renderRadarStrip(id, icon, summary, alertLevel, expandedHtml) {
-    const borderColor = alertLevel === "critical" ? "#ef4444" : alertLevel === "warning" ? "#f59e0b" : "#e5e7eb";
-    return `
-      <div id="radar-strip-${escapeHtml(id)}" style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;border-left:4px solid ${borderColor};overflow:hidden;margin-bottom:6px;transition:border-color 0.15s;">
-        <div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;">
-          <span style="font-size:15px;flex-shrink:0;">${icon}</span>
-          <div style="flex:1;min-width:0;font-size:13.5px;color:#1f2937;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-            ${summary}
-          </div>
-          <span data-radar-chevron="${escapeHtml(id)}" style="font-size:11px;color:#9ca3af;transition:transform 0.15s;flex-shrink:0;">▾</span>
-        </div>
-        <div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;border-top:1px solid #f3f4f6;">
-          ${expandedHtml}
-        </div>
-      </div>`;
+  function renderRadarStrip(id, iconKey, primary, secondary, expandedHtml, isFirst) {
+    const ICONS = {
+      "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
+      "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
+      "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
+    };
+    const iconPaths = ICONS[iconKey] || "";
+    return `<div style="${isFirst ? "" : "border-top:0.5px solid #E6E8EC;"}">`
+      + `<div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">`
+        + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:#565C66;flex-shrink:0;">${iconPaths}</svg>`
+        + `<div style="flex:1;min-width:0;">`
+          + `<p style="font-size:14px;color:#1A1D23;margin:0;">${primary}</p>`
+          + (secondary ? `<p style="font-size:12px;color:#565C66;margin:1px 0 0;">${secondary}</p>` : "")
+        + `</div>`
+        + `<svg data-radar-chevron="${escapeHtml(id)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:#8A909A;flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>`
+      + `</div>`
+      + `<div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;">${expandedHtml}</div>`
+    + `</div>`;
   }
 
   // ----------------------------------------------------------------
@@ -2580,41 +2587,45 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       tagsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${tagItems.join("")}</div>`;
     }
 
-    // Weather (only if alert_level_max > 0)
+    // Weather — promoted to a daily météo row (label + temp + alert level)
     let weatherHtml = "";
     const alertMax = Number(day.alert_level_max || 0);
-    if (alertMax > 0) {
-      const wLabel = day.weather_label_fr || "Alerte météo";
+    if (day.weather_label_fr) {
+      const wLabel = day.weather_label_fr;
       const tMin = day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : null;
       const tMax = day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : null;
-      const tempStr = (tMin != null && tMax != null) ? `${tMin}° – ${tMax}°` : "";
+      const tempStr = (tMin != null && tMax != null) ? `${tMin}° – ${tMax}°` : (tMax != null ? `${tMax}°` : "");
+      const wRead = alertMax > 0 ? `Vigilance niv. ${alertMax}` : "Conditions favorables à la sortie";
+      const wIcon = alertMax > 0
+        ? '<path d="M7 18a4 4 0 1 1 .5-7.97A5 5 0 0 1 17 11h.5a3.5 3.5 0 0 1 0 7H7z"/><path d="M9 21l-.4 1M13 21l-.4 1"/>'
+        : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
       weatherHtml = `
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;background:#fffbeb;border-radius:8px;">
-          <span style="font-size:18px;">⚠️</span>
-          <div style="flex:1;">
-            <span style="font-size:13px;font-weight:600;color:#1f2937;">${escapeHtml(wLabel)}</span>
-            ${tempStr ? `<span style="font-size:12px;color:#6b7280;"> · ${escapeHtml(tempStr)}</span>` : ""}
+        <div>
+          <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#8A909A;font-weight:600;margin-bottom:9px;">Météo</div>
+          <div style="display:flex;align-items:center;gap:11px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:#565C66;flex-shrink:0;">${wIcon}</svg>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:500;color:#1A1D23;">${escapeHtml(wLabel)}${tempStr ? ` · ${tempStr}` : ""}</div>
+              <div style="font-size:12px;color:#565C66;margin-top:1px;">${wRead}</div>
+            </div>
           </div>
-          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;">Niv. ${alertMax}</span>
         </div>`;
     }
 
     return `
       <div style="padding-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div>
-            ${score != null ? `<div style="display:flex;align-items:baseline;gap:6px;">
-              <span style="font-size:36px;font-weight:800;color:${scoreColor};">${escapeHtml(String(score))}</span>
-              <span style="font-size:14px;color:#9ca3af;">/10</span>
-            </div>` : ""}
-            ${weekRankLabel ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(weekRankLabel)}</div>` : ""}
-          </div>
-          <div style="text-align:right;">
-            <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};">${escapeHtml(rd.t)}</span>
-          </div>
-        </div>
-        ${tagsHtml}
         ${weatherHtml}
+        <div style="${weatherHtml ? "margin-top:14px;padding-top:14px;border-top:1px solid #f3f4f6;" : ""}">
+          <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#8A909A;font-weight:600;margin-bottom:9px;">Score &amp; contexte</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:500;color:#1A1D23;">${score != null ? escapeHtml(String(score)) + " / 10" : "Score indisponible"}</div>
+              ${weekRankLabel ? `<div style="font-size:12px;color:#565C66;margin-top:1px;">${escapeHtml(weekRankLabel)}</div>` : ""}
+            </div>
+            <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};flex-shrink:0;">${escapeHtml(rd.t)}</span>
+          </div>
+          ${tagsHtml}
+        </div>
       </div>`;
   }
 
@@ -2724,26 +2735,18 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       : '';
 
     return '<div style="padding-top:12px;">'
-      + (pressureLabel
-        ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
-          + '<span style="font-size:12px;color:#6b7280;">Pression concurrentielle :</span>'
-          + '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:600;background:' + pressureBg + ';color:' + pressureFg + ';">' + escapeHtml(pressureLabel) + '</span>'
+      + '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid #E6E8EC;border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px;">'
+        + '<div style="position:relative;height:120px;background:#EBEEF2;">'
+          + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
+            + '<circle cx="200" cy="60" r="50" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
+            + '<circle cx="200" cy="60" r="22" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
+            + '<circle cx="200" cy="60" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
+          + '</svg>'
+          + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:0.5px solid #E6E8EC;border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:5px 10px;">Ouvrir la carte →</span>'
         + '</div>'
-        : '')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'
-        + '<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">'
-          + '<div style="font-size:10px;color:#6b7280;margin-bottom:3px;">< 500 m</div>'
-          + '<div style="font-size:22px;font-weight:700;color:#1f2937;">' + count500 + '</div>'
-        + '</div>'
-        + '<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">'
-          + '<div style="font-size:10px;color:#6b7280;margin-bottom:3px;">< 5 km</div>'
-          + '<div style="font-size:22px;font-weight:700;color:#1f2937;">' + count5km + '</div>'
-        + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
-        + '<button type="button" data-radar-carte style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;font-family:inherit;">Carte</button>'
-        + '<button type="button" data-radar-concurrents style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#1e40af;cursor:pointer;font-family:inherit;">Concurrents potentiels</button>'
-      + '</div>'
+        + '<div style="padding:11px 14px;font-size:12px;color:#565C66;">' + count500 + ' à moins de 500 m · ' + count5km + ' à 5 km</div>'
+      + '</button>'
+      + '<button type="button" data-radar-concurrents style="width:100%;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 12px;background:none;border:0.5px solid #E6E8EC;border-radius:8px;font-size:12px;font-weight:600;color:#1D3BB3;cursor:pointer;font-family:inherit;">Concurrents potentiels →</button>'
     + '</div>';
   }
 
@@ -2762,8 +2765,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       return `
         <div style="margin-top:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;">Fil d'activité</span>
-            <span style="font-size:11px;color:#9ca3af;">0 événements</span>
+            <span class="eb">Fil d'activité</span>
+            <span style="font-size:11px;color:#8A909A;">0 événements</span>
           </div>
           <div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun changement récent.</div>
         </div>`;
@@ -2796,11 +2799,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       const dir = String(a?.direction || "").toLowerCase();
       const lvl = Number(a?.alert_level || 0);
       const P = (label, bg, fg) => '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + bg + ';color:' + fg + ';text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(label) + '</span>';
-      const RISK = "var(--color-pill-risk-bg)"; const RISK_T = "var(--color-pill-risk-text)";
-      const WARN = "var(--color-pill-warn-bg)"; const WARN_T = "var(--color-pill-warn-text)";
-      const INFO = "var(--color-pill-info-bg)"; const INFO_T = "var(--color-pill-info-text)";
-      const LOW = "var(--color-pill-source-low-bg)"; const LOW_T = "var(--color-pill-source-low-text)";
-      const GREEN = "var(--color-pill-green-bg)"; const GREEN_T = "var(--color-pill-green-text)";
+      const RISK = "#f3f4f6"; const RISK_T = "#6b7280";
+      const WARN = "#f3f4f6"; const WARN_T = "#6b7280";
+      const INFO = "#f3f4f6"; const INFO_T = "#6b7280";
+      const LOW = "#f3f4f6"; const LOW_T = "#6b7280";
+      const GREEN = "#f3f4f6"; const GREEN_T = "#6b7280";
       if (sub === "competitor_audience_conflict") return P("Conflit audience", RISK, RISK_T);
       if (sub === "competitor_event_launch") return P("Lancement", RISK, RISK_T);
       if (sub === "competition_pressure_spike") { const oldN = Number(a?.old_value||0); const newN = Number(a?.new_value||0); return newN > oldN ? P("Pression \u2191", RISK, RISK_T) : P("Pression \u2193", GREEN, GREEN_T); }
@@ -2871,9 +2874,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         if (!line1) return "";
         const line2 = feedLine2(a);
         const line4 = feedLine4(a);
-        const borderCol = feedBorderColor(a);
         const cta = feedItemCta(a);
-        const typePill = feedTypePill(a);
         const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
         var _ad = normalizeYmd(a?.affected_date);
         var _today = todayYmd();
@@ -2899,26 +2900,23 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         })();
 
         return `
-          <div style="padding:10px 14px;${idx > 0 ? "border-top:1px solid #f3f4f6;" : ""}border-left:3px solid ${borderCol};margin-left:-1px;">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;">${datePill}${locPill}${typePill}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px;">${escapeHtml(line1)}</div>
-                ${line2 ? `<div style="font-size:11.5px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
-                ${line4 ? `<div style="font-size:11px;color:var(--color-dot-neutral);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
-                <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
-              </div>
-              ${ctaHtml}
-            </div>
+          <div class="tlrow">
+            <span class="tldot"></span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">${datePill}${locPill}</div>
+            <div style="font-size:14px;font-weight:500;color:#1A1D23;margin:0 0 2px;">${escapeHtml(line1)}</div>
+            ${line2 ? `<div style="font-size:13px;color:#565C66;">${escapeHtml(line2)}</div>` : ""}
+            ${line4 ? `<div style="font-size:11px;color:#8A909A;margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
+            <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
+            <div style="margin-top:6px;">${ctaHtml}</div>
           </div>`;
       }).filter(Boolean).join("");
 
       if (!itemsHtml) return "";
 
       return `
-        <div style="background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:6px;">
-          <div style="padding:5px 14px;background:#f9fafb;font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(groupLabel)}</div>
-          ${itemsHtml}
+        <div style="margin-bottom:18px;">
+          <p class="eb" style="margin:0 0 10px;">${escapeHtml(groupLabel)}</p>
+          <div class="tl">${itemsHtml}</div>
         </div>`;
     }).filter(Boolean).join("");
 
@@ -2929,11 +2927,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     return `
       <div style="margin-top:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#374151;">Fil d'activité</span>
-          <span style="font-size:11px;color:#9ca3af;">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span class="eb">Fil d'activité</span>
+          <span style="font-size:11px;color:#8A909A;">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;">
+        <div>
           ${groupsHtml}
         </div>
         ${showAllBtn}
@@ -3014,23 +3012,42 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     const metaTags = [evtTypeLabel, _evtCapacity, evtStatusLabel].filter(Boolean);
     const metaTagsHtml = metaTags.length
-      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${metaTags.map(t =>
-          `<span style="display:inline-block;padding:4px 14px;border-radius:6px;font-size:12px;font-weight:600;color:#166534;border:1px solid #bbf7d0;background:#f0fdf4;">${escapeHtml(t)}</span>`
+      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">${metaTags.map(t =>
+          `<span style="display:inline-block;padding:4px 14px;font-size:12px;font-weight:600;color:#565C66;border:1px solid #D6D9DF;background:#fff;">${escapeHtml(t)}</span>`
         ).join("")}</div>`
       : "";
 
+    // Single mode source — clean integer diff, both ends on the same axis
+    const _today0 = parseYmdToDate(todayYmd());
+    const _target0 = parseYmdToDate(selectedDate);
+    const _diffDays = (_today0 && _target0) ? Math.round((_target0 - _today0) / 86400000) : null;
+    const _mode = _diffDays === null ? "future" : _diffDays < 0 ? "past" : _diffDays === 0 ? "today" : _diffDays <= 2 ? "soon" : "future";
+
+    let _recencyText = null, _recBg = "rgba(29,59,179,0.08)", _recFg = "#1D3BB3";
+    if (_diffDays !== null) {
+      if (_diffDays < 0) { _recencyText = "Pass\u00e9 \u00b7 il y a " + Math.abs(_diffDays) + "j"; _recBg = "#F4F5F7"; _recFg = "#8A909A"; }
+      else if (_diffDays === 0) { _recencyText = "Aujourd'hui"; }
+      else if (_diffDays === 1) { _recencyText = "Demain \u00b7 J\u20111"; _recBg = "#FBE9E1"; _recFg = "#9A3A12"; }
+      else if (_diffDays === 2) { _recencyText = "Apr\u00e8s-demain \u00b7 J\u20112"; _recBg = "#FBE9E1"; _recFg = "#9A3A12"; }
+      else { _recencyText = "Dans " + _diffDays + " jours"; }
+    }
+    const _scoreLabel = (_diffDays !== null && _diffDays > 0) ? "Score pr\u00e9vu" : "Score du jour";
+    const _heroRight = (_recencyText || _safeScore)
+      ? '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;flex-shrink:0;text-align:right;">'
+          + (_recencyText ? '<span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;padding:4px 10px;white-space:nowrap;background:' + _recBg + ';color:' + _recFg + ';">' + escapeHtml(_recencyText) + '</span>' : '')
+          + (_safeScore ? '<span style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;"><span style="font-size:21px;font-weight:600;color:#111827;">' + escapeHtml(_safeScore) + '<span style="font-size:13px;color:#9ca3af;font-weight:400;">/10</span></span><span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin-top:2px;">' + escapeHtml(_scoreLabel) + '</span></span>' : '')
+        + '</div>'
+      : '';
+
     const headerHtml = `
-      <div style="background:rgba(29,59,179,0.04);border-left:6px solid #0b37e5;padding:24px;margin-bottom:0;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div style="background:rgba(29,59,179,0.04);border-left:3px solid #1D3BB3;padding:18px 20px;margin-bottom:0;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:22px;font-weight:500;color:#111827;margin:0 0 4px 0;line-height:1.2;">${escapeHtml(item?.title || "Événement")}</div>
-            <div style="font-size:13px;color:#6b7280;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</div>
-            ${_locationLabel ? `<div style="font-size:13px;color:#9ca3af;margin-top:2px;">${escapeHtml(_locationLabel)}</div>` : ""}
+            <div style="font-size:23px;font-weight:600;color:#111827;margin:0;line-height:1.2;">${escapeHtml(item?.title || "Événement")}</div>
+            <div style="font-size:13px;color:#6b7280;margin:6px 0 0;">${escapeHtml(fmtDateLong(selectedDate))}${_locationLabel ? " \u00b7 " + escapeHtml(_locationLabel) : ""}</div>
             ${metaTagsHtml}
           </div>
-          ${_cev ? `<div style="flex-shrink:0;text-align:right;">
-            <div style="font-size:42px;font-weight:700;color:#111827;line-height:1;letter-spacing:-0.02em;">${escapeHtml(_cev)}</div>
-          </div>` : ""}
+          ${_heroRight}
         </div>
       </div>
     `;
@@ -3065,25 +3082,31 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
     let alertsHtml = "";
     if (dayAlerts.length > 0) {
-      alertsHtml = `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-        ${dayAlerts.slice(0, 5).map(a => {
-          const isCrit = a.severity === "D" || a.severity === "C";
-          const bg = isCrit ? "#fef2f2" : "#fffbeb";
-          const border = isCrit ? "#dc2626" : "#f59e0b";
-          const labelColor = isCrit ? "#991b1b" : "#92400e";
-          const icon = isCrit ? '<span style="width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block;"></span>' : '<span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>';
-          const blockLabel = BLOCK_LABELS[a.block] || a.block.toUpperCase();
-          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;background:${bg};border-left:3px solid ${border};">
-            <span style="display:flex;align-items:center;margin-top:2px;">${icon}</span>
-            <div style="flex:1;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${labelColor};margin-bottom:1px;">${escapeHtml(blockLabel)}</div>
-              <div style="font-size:12.5px;color:#1f2937;line-height:1.4;">${escapeHtml(a.sentence)}</div>
-            </div>
-          </div>`;
-        }).join("")}
+      const _alRows = dayAlerts.slice().sort((x, y) => {
+        const rk = s => (s === "D" || s === "C") ? 0 : 1;
+        return rk(x.severity) - rk(y.severity);
+      }).slice(0, 5).map(a => {
+        const isCrit = a.severity === "D" || a.severity === "C";
+        const blockLabel = BLOCK_LABELS[a.block] || a.block.toUpperCase();
+        return `<div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid #f3f4f6;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6B7280;">${escapeHtml(blockLabel)}</span>
+            ${isCrit ? '<span class="chip-bad">Critique</span>' : ''}
+          </div>
+          <div style="font-size:12.5px;color:#374151;line-height:1.4;">${escapeHtml(a.sentence)}</div>
+        </div>`;
+      }).join("");
+      const _alLabel = dayAlerts.length + " point" + (dayAlerts.length > 1 ? "s" : "") + " de vigilance";
+      alertsHtml = `<div style="margin-bottom:12px;">
+        <div onclick="(function(b){var l=b.parentElement.querySelector('[data-alert-list]');var c=b.querySelector('[data-alert-chev]');var open=l.style.display!=='none';l.style.display=open?'none':'block';if(c)c.style.transform=open?'none':'rotate(180deg)';})(this)" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f3f4f6;cursor:pointer;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;flex-shrink:0;"></span>
+          <span style="flex:1;font-size:12.5px;font-weight:500;color:#374151;">${escapeHtml(_alLabel)}</span>
+          <span data-alert-chev style="font-size:11px;color:#9ca3af;transition:transform 0.15s;">\u25be</span>
+        </div>
+        <div data-alert-list style="display:none;padding:0 14px;">${_alRows}</div>
       </div>`;
     } else {
-      alertsHtml = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:rgba(16,185,129,0.06);border-radius:8px;"><span style="color:#059669;font-size:13px;">\u2713</span><span style="font-size:12.5px;color:#059669;font-weight:500;">Aucune alerte</span></div>';
+      alertsHtml = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:rgba(16,185,129,0.06);"><span style="color:#059669;font-size:13px;">\u2713</span><span style="font-size:12.5px;color:#059669;font-weight:500;">Aucune alerte</span></div>';
     }
 
     // ---- Carte view ----
@@ -3367,11 +3390,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     else if (rank === totalDays) weekRankShort = "Jour le moins favorable de la semaine";
     else if (rank != null && totalDays > 0) weekRankShort = `${rank}e meilleur jour de la semaine`;
 
-    const scoreSummary = score != null
-      ? `Score jour : ${score} /10${weekRankShort ? ` · ${escapeHtml(weekRankShort)}` : ""} · ${escapeHtml(regimeLabel)}`
-      : "Score indisponible";
-
-    const scoreAlert = currentDay.is_forced_regime_c_flag ? "critical" : (dayAlerts.length > 0 ? "warning" : null);
+    const scorePrimary = (score != null && Number.isFinite(Number(score))) ? `Score ${Number(score).toFixed(1)} / 10` : "Score indisponible";
+    const scoreSecondary = (score != null) ? [weekRankShort ? escapeHtml(weekRankShort) : "", escapeHtml(regimeLabel)].filter(Boolean).join(" \u00b7 ") : "";
 
     // Strip 2: Threats — recap across ALL followed competitors
     const compByComp = new Map();
@@ -3396,48 +3416,48 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     const THREAT_LABELS_FR = { high: "Menace \u00e9lev\u00e9e", moderate: "Menace mod\u00e9r\u00e9e", low: "Menace faible" };
-    let threatSummary = "";
+    let threatPrimary, threatSecondary;
     if (totalComps > 0) {
-      const worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
-      const parts = [];
-      parts.push(`Concurrents suivis : ${totalComps}`);
-      parts.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
-      if (worstLabel) parts.push(escapeHtml(worstLabel));
-      else if (hasAnyAudOverlap) parts.push("Chevauchement audience");
-      threatSummary = parts.join(" \u00b7 ");
+      const _worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
+      const _hasConflict = (worstThreatLevel === "high" || hasAnyAudOverlap);
+      threatPrimary = _hasConflict ? escapeHtml(_worstLabel || "Conflit direct") : "Aucun conflit direct";
+      const _tp = [`${totalComps} concurrent${totalComps > 1 ? "s" : ""} suivi${totalComps > 1 ? "s" : ""}`];
+      if (totalActiveEvents > 0) _tp.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
+      threatSecondary = _tp.join(" \u00b7 ");
     } else {
-      threatSummary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
+      threatPrimary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
+      threatSecondary = followedCount > 0 ? `${followedCount} concurrent${followedCount > 1 ? "s" : ""} suivi${followedCount > 1 ? "s" : ""}` : "";
     }
-
-    const threatAlert = (worstThreatLevel === "high" || hasAnyAudOverlap) ? "warning" : null;
 
     // Strip 3: Environnement concurrentiel — use competition_pressure_ratio for pressure label
     const envCount500 = Number(currentDay.events_within_500m_count || 0);
     const envCount5km = Number(currentDay.events_within_5km_count || 0);
-    const pressureRatio = Number(currentDay.competition_pressure_ratio || 0);
     const hasBaseline = Boolean(currentDay.has_valid_baseline_flag);
-    let envSummary = "";
-    let envAlert = null;
-    if (hasBaseline && pressureRatio > 1.2) {
-      envSummary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Sup\u00e9rieur \u00e0 la moyenne`;
-      envAlert = "warning";
-    } else if (hasBaseline && pressureRatio < 0.8) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Inf\u00e9rieur \u00e0 la moyenne`;
-    } else if (hasBaseline) {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km \u00b7 Dans la moyenne`;
+    const _envRatioRaw = currentDay.competition_pressure_ratio;
+    const _envRatio = Number(_envRatioRaw);
+    const _envHasRatio = (_envRatioRaw != null && Number.isFinite(_envRatio) && _envRatio > 0);
+    let envPrimary, envSecondary;
+    if (_envHasRatio) {
+      envPrimary = `Pression \u00d7${_envRatio.toFixed(1)}`;
+      let _envRel = "";
+      if (hasBaseline && _envRatio > 1.2) _envRel = "Sup\u00e9rieur \u00e0 la moyenne";
+      else if (hasBaseline && _envRatio < 0.8) _envRel = "Inf\u00e9rieur \u00e0 la moyenne";
+      else if (hasBaseline) _envRel = "Dans la moyenne";
+      envSecondary = [_envRel, `${envCount5km} \u00e9v\u00e9n. \u00e0 5 km`].filter(Boolean).join(" \u00b7 ");
     } else {
-      envSummary = `Contexte concurrentiel : ${envCount5km} \u00e9v\u00e9nements \u00e0 5 km`;
+      envPrimary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nement${envCount5km > 1 ? "s" : ""} \u00e0 5 km`;
+      envSecondary = "";
     }
 
     // Build strips
-    const strip1 = renderRadarStrip("score", "📈", scoreSummary, scoreAlert,
-      renderScoreDetail(currentDay, days));
+    const strip1 = renderRadarStrip("score", "chart-line", scorePrimary, scoreSecondary,
+      renderScoreDetail(currentDay, days), true);
 
-    const strip2 = renderRadarStrip("changes", "📡", envSummary, envAlert,
-      renderChangeDetail(currentDay, data._top_threats || []));
+    const strip2 = renderRadarStrip("changes", "swords", envPrimary, envSecondary,
+      renderChangeDetail(currentDay, data._top_threats || []), false);
 
-    const strip3 = renderRadarStrip("threats", "🎯", threatSummary, threatAlert,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount));
+    const strip3 = renderRadarStrip("threats", "target", threatPrimary, threatSecondary,
+      renderThreatSummary(competitorSignals, selectedDate, followedCount), false);
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
@@ -3446,9 +3466,97 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     // Date header
     const dateHeaderHtml = `<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">${escapeHtml(fmtDateLong(selectedDate))}</div>`;
 
+    // ---- Past-date Bilan (Variant B grammar + per-factor field feedback) ----
+    let bilanHtml = "";
+    {
+      const _bSorted = dayAlerts.slice().sort((x, y) => {
+        const rk = s => (s === "D" || s === "C") ? 0 : 1;
+        return rk(x.severity) - rk(y.severity);
+      });
+      const _n = _bSorted.length;
+      const _bSummary = _n > 0
+        ? "Journ\u00e9e pass\u00e9e. " + _n + " facteur" + (_n > 1 ? "s ont" : " a") + " marqu\u00e9 cette date. Confirmez ce qui s'est r\u00e9ellement produit \u2014 vos retours affinent les pr\u00e9visions."
+        : "Journ\u00e9e pass\u00e9e \u2014 aucun facteur notable. Rien \u00e0 confirmer.";
+      try {
+        window.__bilanData = window.__bilanData || {};
+        window.__bilanData[location_id + "|" + selectedDate] = _bSorted.map(function (a) { return { block: a.block, sentence: a.sentence }; });
+      } catch (e) {}
+      var _fbKey = "ms_bilan_fb_" + location_id + "_" + selectedDate;
+      var _fbState = {};
+      try { _fbState = JSON.parse(localStorage.getItem(_fbKey) || "{}"); } catch (e) {}
+      const _bRows = _bSorted.map((a, i) => {
+        var _ans = _fbState[i];
+        var _ctrl;
+        if (_ans === "confirmed") {
+          _ctrl = '<div style="display:flex;align-items:center;flex-shrink:0;margin-top:1px;"><span style="font-size:11px;font-weight:600;color:#166534;white-space:nowrap;">\u2713 Confirm\u00e9</span></div>';
+        } else if (_ans === "negative") {
+          _ctrl = '<div style="display:flex;align-items:center;flex-shrink:0;margin-top:1px;"><span style="font-size:11px;font-weight:600;color:#8A909A;white-space:nowrap;">Pas arriv\u00e9 \u00b7 not\u00e9</span></div>';
+        } else {
+          _ctrl = '<div style="display:flex;align-items:center;gap:7px;flex-shrink:0;margin-top:1px;">'
+            + '<span style="font-size:11px;color:#8A909A;">Arriv\u00e9 ?</span>'
+            + '<button type="button" data-bilan-fb="oui" data-bilan-i="' + i + '" data-bilan-loc="' + escapeHtml(location_id) + '" data-bilan-date="' + escapeHtml(selectedDate) + '" style="font-size:11px;font-weight:600;padding:3px 11px;border:1px solid #BBF7D0;background:#F0FDF4;color:#166534;cursor:pointer;font-family:inherit;border-radius:6px;">Oui</button>'
+            + '<button type="button" data-bilan-fb="non" data-bilan-i="' + i + '" data-bilan-loc="' + escapeHtml(location_id) + '" data-bilan-date="' + escapeHtml(selectedDate) + '" style="font-size:11px;font-weight:600;padding:3px 11px;border:1px solid #E6E8EC;background:#fff;color:#565C66;cursor:pointer;font-family:inherit;border-radius:6px;">Non</button>'
+          + '</div>';
+        }
+        return '<div style="display:flex;align-items:flex-start;gap:11px;padding:13px 0;' + (i > 0 ? "border-top:1px solid #E6E8EC;" : "") + '">'
+          + '<span style="width:5px;height:5px;border-radius:50%;background:#C4C9D1;flex-shrink:0;margin-top:7px;"></span>'
+          + '<div style="flex:1;min-width:0;font-size:13.5px;color:#565C66;line-height:1.45;">' + escapeHtml(a.sentence) + '</div>'
+          + _ctrl
+        + '</div>';
+      }).join("");
+      bilanHtml = '<div style="margin-bottom:20px;">'
+        + '<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#8A909A;font-weight:500;margin:0 0 10px;">Bilan de la journ\u00e9e</p>'
+        + '<p style="font-size:13.5px;color:#565C66;line-height:1.5;margin:0 0 12px;">' + escapeHtml(_bSummary) + '</p>'
+        + (_n > 0 ? ('<div>' + _bRows + '</div>') : '')
+      + '</div>';
+    }
+
     // Assemble
-    root.innerHTML = headerHtml + `<div style="height:12px;"></div>` + alertsHtml +
-      `<div style="margin-bottom:20px;">${strip1}${strip2}${strip3}</div>` + briefHtml + feedHtml;
+    const stripsPanel = `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#8A909A;font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:#F4F5F7;border:0.5px solid #E6E8EC;border-radius:10px;overflow:hidden;">${strip1}${strip2}${strip3}</div></div>`;
+    root.innerHTML = headerHtml + `<div style="height:12px;"></div>`
+      + (_mode === "past"
+          ? bilanHtml + stripsPanel + feedHtml
+          : alertsHtml + stripsPanel + briefHtml + feedHtml);
+
+    // ---- Bilan per-factor feedback wiring (document-delegated, attached once) ----
+    if (!window.__bilanFbWired) {
+      window.__bilanFbWired = true;
+      document.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-bilan-fb]") : null;
+        if (!btn) return;
+        var ans = btn.getAttribute("data-bilan-fb");
+        var i = parseInt(btn.getAttribute("data-bilan-i"), 10);
+        var loc = btn.getAttribute("data-bilan-loc");
+        var dt = btn.getAttribute("data-bilan-date");
+        var conf = ans === "oui" ? "confirmed" : "negative";
+        var ctrl = btn.parentNode;
+        if (ctrl) {
+          ctrl.innerHTML = ans === "oui"
+            ? '<span style="font-size:11px;font-weight:600;color:#166534;white-space:nowrap;">\u2713 Confirm\u00e9</span>'
+            : '<span style="font-size:11px;font-weight:600;color:#8A909A;white-space:nowrap;">Pas arriv\u00e9 \u00b7 not\u00e9</span>';
+        }
+        try {
+          var k = "ms_bilan_fb_" + loc + "_" + dt;
+          var st = JSON.parse(localStorage.getItem(k) || "{}");
+          st[i] = conf;
+          localStorage.setItem(k, JSON.stringify(st));
+        } catch (e) {}
+        var reg = (window.__bilanData || {})[loc + "|" + dt] || [];
+        var fct = reg[i] || {};
+        fetch("/api/analytics/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            signal_type: "outcome",
+            confirmation: conf,
+            signal_ref_id: "bilan:" + dt + ":" + i,
+            signal_date: dt,
+            location_id: loc,
+            feedback_text: fct.sentence || null
+          })
+        }).catch(function () {});
+      });
+    }
 
     // ---- Wire event handlers ----
 
