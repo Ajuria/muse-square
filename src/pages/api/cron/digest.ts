@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ request }) => {
     const bigquery = makeBQClient(projectId);
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const baseUrl = process.env.APP_BASE_URL || "https://dev.musesquare.com";
+    const baseUrl = process.env.APP_BASE_URL || "https://www.musesquare.com";
 
     const [userRows] = await bigquery.query({
       query: `

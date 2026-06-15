@@ -2444,6 +2444,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const thisWeekConstraint = qnTemporal.includes("cette semaine");
     const nextWeekConstraint = qnTemporal.includes("semaine prochaine");
     let temporalWindowEnd: string | null = null;
+    let temporalWindowStart: string | null = null; // null => month filter defaults to today
     if (thisWeekConstraint) {
       const d = new Date();
       d.setDate(d.getDate() + (7 - d.getDay())); // next Sunday
@@ -2452,6 +2453,45 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const d = new Date();
       d.setDate(d.getDate() + (14 - d.getDay()));
       temporalWindowEnd = d.toISOString().slice(0, 10);
+    }
+
+    // Reusable: first date with weekday `targetDow` (0=dim..6=sam) inside [start,end].
+    const weekdayDateInWindow = (targetDow: number, startYmd: string, endYmd: string): string | null => {
+      const start = new Date(startYmd + "T00:00:00Z");
+      const end = new Date(endYmd + "T00:00:00Z");
+      const d = new Date(start);
+      while (d.getTime() <= end.getTime()) {
+        if (d.getUTCDay() === targetDow) return d.toISOString().slice(0, 10);
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+      return null;
+    };
+
+    // Bare weekday on the day path → resolve within CURRENT WEEK (today excluded → tomorrow..Sunday).
+    let weekday_window_date: string | null = null;
+    if (
+      resolved_horizon === "day" &&
+      wanted_weekday !== null &&
+      !hasExplicitAnyDate &&
+      !override_day_date
+    ) {
+      const now = new Date();
+      const todayDow = now.getUTCDay();
+      const startD = new Date(now); startD.setUTCDate(now.getUTCDate() + 1);               // tomorrow
+      const daysToSunday = (7 - todayDow) % 7 === 0 ? 7 : (7 - todayDow) % 7;              // Sunday → next Sunday
+      const endD = new Date(now);   endD.setUTCDate(now.getUTCDate() + daysToSunday);
+      const startYmd = startD.toISOString().slice(0, 10);
+      const endYmd = endD.toISOString().slice(0, 10);
+      const hit = startYmd <= endYmd ? weekdayDateInWindow(wanted_weekday, startYmd, endYmd) : null;
+      if (hit) {
+        weekday_window_date = hit; // still ahead this week → DAY_WHY on it
+      } else {
+        // already passed this week → premise dead → best day among remaining days
+        resolved_horizon = "month";
+        resolved_intent = "WINDOW_TOP_DAYS";
+        temporalWindowStart = startYmd;
+        temporalWindowEnd = endYmd;
+      }
     }
         
     console.log({
@@ -3429,15 +3469,15 @@ Règles :
 
         // Apply temporal window constraint ("cette semaine" / "semaine prochaine")
         if (temporalWindowEnd && (resolved_intent === "WINDOW_TOP_DAYS" || resolved_intent === "WINDOW_WORST_DAYS")) {
-          const today = new Date().toISOString().slice(0, 10);
+          const lower = temporalWindowStart ?? new Date().toISOString().slice(0, 10);
           shortlist_rows = shortlist_rows.filter((r: any) => {
             const d = ymdFromAnyDate(r?.date);
-            return d >= today && d <= temporalWindowEnd;
+            return d >= lower && d <= temporalWindowEnd;
           });
           if (worstlist_rows.length) {
             worstlist_rows = worstlist_rows.filter((r: any) => {
               const d = ymdFromAnyDate(r?.date);
-              return d >= today && d <= temporalWindowEnd;
+              return d >= lower && d <= temporalWindowEnd;
             });
           }
         }
@@ -3936,6 +3976,7 @@ Règles :
           override_day_date ??
           dateFieldYmd ??
           dateMentions.dates[0] ??
+          weekday_window_date ??
           selected_date
         ).slice(0, 10);
 

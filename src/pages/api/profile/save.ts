@@ -203,7 +203,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const mode = raw_mode as "create" | "update";
 
     const raw_location_id = fd.get("location_id");
-    const location_id =
+    let location_id =
       mode === "update"
         ? (() => {
             if (typeof raw_location_id !== "string" || raw_location_id.trim() === "") {
@@ -286,6 +286,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const fullTable = `\`${projectId}.${dataset}.${table}\``;
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
+
+    // CREATE-MODE DEDUP GUARD (idempotent): reuse an existing location at the
+    // same normalized address for this user instead of inserting a duplicate.
+    if (mode === "create" && company_address_key) {
+      const dupRows = await bigquery.query({
+        query: `SELECT location_id FROM ${fullTable} WHERE clerk_user_id = @clerk_user_id AND company_address_key = @company_address_key ORDER BY created_at ASC LIMIT 1`,
+        location: BQ_LOCATION,
+        params: { clerk_user_id, company_address_key },
+        types: { clerk_user_id: "STRING", company_address_key: "STRING" },
+      }).then((r) => r[0]).catch(() => []);
+      const existingId = Array.isArray(dupRows) && dupRows.length ? dupRows[0]?.location_id : null;
+      if (typeof existingId === "string" && existingId.trim()) {
+        location_id = existingId.trim();
+      }
+    }
 
     // ================================================================
     // PARALLEL PRE-FLIGHT: existence check + prior key + BestTime check

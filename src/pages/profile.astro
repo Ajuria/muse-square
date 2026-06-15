@@ -2140,6 +2140,22 @@ window.saveLocation = async function(idx) {
     const out = await res.json().catch(() => null);
     if (res.ok && out?.ok) {
       if (btn) btn.textContent = '✓ Enregistré';
+      // Promote a freshly-created card to update mode so a second save in the
+      // same session edits the same row instead of creating a duplicate.
+      const modeElLive = body.querySelector('[name="mode"]');
+      if (modeElLive && modeElLive.value === 'create' && out.location_id) {
+        modeElLive.value = 'update';
+        let locIdEl = body.querySelector('[name="location_id"]');
+        if (!locIdEl) {
+          locIdEl = document.createElement('input');
+          locIdEl.type = 'hidden';
+          locIdEl.name = 'location_id';
+          body.insertBefore(locIdEl, body.firstChild);
+        }
+        locIdEl.value = out.location_id;
+        const cardEl = document.getElementById(`loc-card-${idx}`);
+        if (cardEl) cardEl.dataset.locationId = out.location_id;
+      }
       // Collapse after brief confirmation delay so user sees the tick
       setTimeout(() => {
         if (btn) { btn.textContent = 'Enregistrer ce site'; btn.disabled = false; }
