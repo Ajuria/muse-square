@@ -1633,6 +1633,7 @@ if (!location_id) {
 
     var cardsHtml = top.map(function(entry, cardIdx) {
       var t = entry.tmpl;
+      try { window.__msCardByIdx = window.__msCardByIdx || {}; window.__msCardByIdx[cardIdx] = entry.item; } catch(e) {}
       var cardId = "ab-card-" + cardIdx;
       var status = briefStatuses[cardIdx] || null;
       var statusLabel = status === "copied" ? "Brouillon \u270e" : status === "saved" ? "Brouillon \u270e" : null;
@@ -2092,13 +2093,16 @@ if (!location_id) {
         var actionType = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
         var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
         var cardLocId = (parent ? parent.getAttribute("data-ab-draft-location") : "") || locationId;
-        // Store day + profile data for instant load
+        var _ac = null;
+        try { _ac = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
+        var _instId = (_ac && _ac.card_instance_id) ? String(_ac.card_instance_id) : "";
+        // Store day + profile + the exact tapped candidate for an identity-correct load
         try {
           var key = "ms_signal_data_" + cardLocId + "_" + affected;
-          sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: null }));
+          sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: _ac }));
         } catch(ex) {}
         // Navigate to insight page
-        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId);
+        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId) + (_instId ? "&card_instance_id=" + encodeURIComponent(_instId) : "");
       });
     });
 
