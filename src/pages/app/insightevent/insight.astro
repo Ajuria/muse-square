@@ -12,6 +12,7 @@ if (!location_id) {
 }
 const signal_type = Astro.url?.searchParams?.get("type") ?? "";
 const signal_date = Astro.url?.searchParams?.get("date") ?? "";
+const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 ---
 <Show when="signed-out" client:load>
   <script is:inline>window.location.href = "/sign-in";</script>
@@ -134,7 +135,7 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
     </div>
 
     <script is:inline src="/action-cards.js?v=5"></script>
-    <script is:inline define:vars={{ location_id, signal_type, signal_date }}>
+    <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
 
@@ -224,6 +225,583 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
       var isActionType = window.ACTION_CARDS && window.ACTION_CARDS[signal_type];
       var isGenericTopic = TOPIC_SECTIONS[signal_type];
 
+      // ════════════════════════════════════════════════════════════════
+      // CLAIM -> PROOF SKELETON (generic; per-type variance = CLAIM_MAPS only)
+      // ════════════════════════════════════════════════════════════════
+      var THREAT_FR = {
+        high:     { label:'Menace \u00e9lev\u00e9e',  bg:'#FCEBEB', fg:'#A32D2D' },
+        moderate: { label:'Menace mod\u00e9r\u00e9e', bg:'#FAEEDA', fg:'#854F0B' },
+        low:      { label:'Menace faible',           bg:'#EEF2FF', fg:'#1D3BB3' }
+      };
+      function frInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
+      function frDec(n) { return String(n).replace('.', ','); }
+
+      var CLAIM_MAPS = {
+        competitor_reputation_strength: function(a, prof, day) {
+          var name = a.competitor_name || 'Concurrent';
+          var level = String(a.entity_threat_level || '').toLowerCase();
+          var th = THREAT_FR[level] || THREAT_FR.low;
+          var ov = (a.audience_overlap_pct != null ? a.audience_overlap_pct : a.entity_threat_audience_pct);
+          var ratingStr = (a.google_rating != null ? '\u2605 ' + frDec(a.google_rating) + ' / 5' : '\u2014')
+            + (a.google_rating_count != null ? ' \u00b7 ' + frInt(a.google_rating_count) + ' avis' : '');
+          var distStr = (a.entity_threat_distance_km != null ? frDec(a.entity_threat_distance_km) + ' km' : '\u2014');
+          var overlapStr = (ov != null && Number(ov) > 0) ? Math.round(Number(ov)) + ' %' : '0 % \u2014 audiences distinctes';
+          var inputs = [];
+          if (ov != null && Number(ov) > 0) inputs.push('chevauchement ' + Math.round(Number(ov)) + ' %');
+          if (a.entity_threat_distance_km != null) inputs.push('distance ' + frDec(a.entity_threat_distance_km) + ' km');
+          if (a.google_rating != null) inputs.push('r\u00e9putation ' + frDec(a.google_rating) + '/5');
+          return {
+            cat: 'Concurrence \u00b7 R\u00e9putation',
+            title: name,
+            badge: th,
+            competitor_id: a.competitor_id || '',
+            competitor_name: name,
+            descriptif_orientation: 'Ce qui nourrit sa r\u00e9putation \u2014 pour vous diff\u00e9rencier',
+            claims: [
+              { claim:'R\u00e9putation forte',      value: ratingStr,   source:'Google' },
+              { claim:'\u00c0 proximit\u00e9',        value: distStr,     source:'Muse Square' },
+              { claim:'Partage votre audience',      value: overlapStr,  source:'Muse Square' },
+              { claim: th.label, computed:true,      value: inputs.join('  \u00b7  '), source:'Muse Square' }
+            ],
+            sources: [
+              'Muse Square \u2014 donn\u00e9es quotidiennes (menace, distance, chevauchement)',
+              'Google \u2014 note et nombre d\u2019avis'
+            ]
+          };
+        },
+        audience_shift_opportunity: function(a, prof, day) {
+          var name, trigClaim;
+          if (a.is_holiday) { trigClaim = 'Jour f\u00e9ri\u00e9'; name = a.holiday_name || 'Jour f\u00e9ri\u00e9'; }
+          else if (a.is_vacation) { trigClaim = 'Vacances scolaires'; name = a.vacation_name || 'Vacances scolaires'; }
+          else if (a.is_commercial) { trigClaim = '\u00c9v\u00e9nement commercial'; name = a.commercial_event_name || '\u00c9v\u00e9nement commercial'; }
+          else { trigClaim = 'Contexte calendaire'; name = 'D\u00e9calage d\u2019audience'; }
+          var dv = (a.delta_att_calendar_pct != null) ? ((Number(a.delta_att_calendar_pct) > 0 ? '+' : '') + frDec(a.delta_att_calendar_pct) + ' %') : '\u2014';
+          var claims = [
+            { claim: trigClaim, value: name, source: 'Calendrier' },
+            { claim: 'Effet attendu sur la fr\u00e9quentation', value: dv, source: 'Muse Square' }
+          ];
+          if (a.audience_availability_label) claims.push({ claim: 'Disponibilit\u00e9 d\u2019audience', value: a.audience_availability_label, source: 'Muse Square' });
+          return {
+            cat: 'Calendrier \u00b7 Audience',
+            title: name,
+            badge: { label: 'Opportunit\u00e9', bg: '#E1F5EE', fg: '#0F6E56' },
+            competitor_id: '',
+            competitor_name: a.is_commercial ? (a.commercial_event_name || '') : '',
+            descriptif_orientation: a.is_commercial ? 'L\u2019\u00e9v\u00e9nement d\u00e9clencheur \u2014 pour calibrer offre et accueil' : '',
+            claims: claims,
+            sources: [
+              'Muse Square \u2014 mod\u00e8le d\u2019impact calendaire quotidien',
+              'R\u00e9f\u00e9rentiel disponibilit\u00e9 d\u2019audience'
+            ]
+          };
+        },
+        competition_proximity: function(a, prof, day) {
+          var n500 = (a.events_500m != null) ? Number(a.events_500m) : 0;
+          var badge = (n500 >= 10) ? { label:'Saturation', bg:'#FCEBEB', fg:'#A32D2D' }
+                    : (n500 >= 3) ? { label:'Concurrence directe', bg:'#FAEEDA', fg:'#854F0B' }
+                    : { label:'Quartier dense', bg:'#EEF2FF', fg:'#1D3BB3' };
+          var claims = [
+            { claim:'Concurrence imm\u00e9diate (500 m)', value: (a.events_500m != null ? frInt(a.events_500m) + ' \u00e9v\u00e9n.' : '\u2014'), source:'Muse Square' },
+            { claim:'Dans le quartier (1 km)', value: (a.events_1km != null ? frInt(a.events_1km) + ' \u00e9v\u00e9n.' : '\u2014'), source:'Muse Square' },
+            { claim:'\u00c0 5 km', value: (a.events_5km != null ? frInt(a.events_5km) + ' \u00e9v\u00e9n.' : '\u2014'), source:'Muse Square' }
+          ];
+          if (a.top_competitor) {
+            var tl = String(a.top_threat_level || '').toLowerCase();
+            var tlFr = tl === 'high' ? 'menace \u00e9lev\u00e9e' : tl === 'moderate' ? 'menace mod\u00e9r\u00e9e' : tl === 'low' ? 'menace faible' : '';
+            var dist = (a.top_competitor_distance_km != null) ? frDec(a.top_competitor_distance_km) + ' km' : '';
+            claims.push({ claim:'Principal concurrent', value: a.top_competitor + (dist ? ' \u00b7 ' + dist : '') + (tlFr ? ' \u00b7 ' + tlFr : ''), source:'Muse Square' });
+            if (a.top_competitor_overlap_pct != null) {
+              var ov = Number(a.top_competitor_overlap_pct);
+              claims.push({ claim:'Chevauchement d\u2019audience', value: (Math.abs(ov) <= 1 ? Math.round(ov * 100) : Math.round(ov)) + ' %', source:'Muse Square' });
+            }
+          }
+          return {
+            cat:'Concurrence \u00b7 Proximit\u00e9',
+            title:'Saturation concurrentielle locale',
+            badge: badge,
+            competitor_id:'',
+            competitor_name:'',
+            descriptif_orientation:'',
+            claims: claims,
+            sources:[ 'Muse Square \u2014 comptages d\u2019\u00e9v\u00e9nements par rayon', 'Muse Square \u2014 profil de menace concurrent' ]
+          };
+        },
+        high_competition_density: function(a, prof, day) {
+          var pr = (a.pressure_ratio != null) ? Number(a.pressure_ratio) : 0;
+          var badge = (pr >= 1.8) ? { label:'Pression forte', bg:'#FCEBEB', fg:'#A32D2D' }
+                    : (pr >= 1.2) ? { label:'Pression \u00e9lev\u00e9e', bg:'#FAEEDA', fg:'#854F0B' }
+                    : { label:'Quartier dense', bg:'#EEF2FF', fg:'#1D3BB3' };
+          var claims = [
+            { claim:'Concurrence \u00e0 5 km', value: (a.events_5km != null ? frInt(a.events_5km) + ' \u00e9v\u00e9n.' : '\u2014'), source:'Muse Square' }
+          ];
+          if (a.events_500m != null) claims.push({ claim:'\u00c0 500 m', value: frInt(a.events_500m) + ' \u00e9v\u00e9n.', source:'Muse Square' });
+          if (a.pressure_ratio != null) claims.push({ claim:'Pression vs moyenne', value: '\u00d7' + frDec(a.pressure_ratio), source:'Muse Square' });
+          if (a.pct_same_sector != null) { var ps = Number(a.pct_same_sector); claims.push({ claim:'M\u00eame secteur', value: (Math.abs(ps) <= 1 ? Math.round(ps * 100) : Math.round(ps)) + ' %', source:'Muse Square' }); }
+          return {
+            cat:'Concurrence \u00b7 Densit\u00e9',
+            title:'Forte densit\u00e9 concurrentielle',
+            badge: badge,
+            competitor_id:'',
+            competitor_name:'',
+            descriptif_orientation:'',
+            claims: claims,
+            sources:[ 'Muse Square \u2014 comptages d\u2019\u00e9v\u00e9nements par rayon', 'Muse Square \u2014 pression vs baseline' ]
+          };
+        },
+        tourism_peak_window: function(a, prof, day) { return tourismClaimMap(a, prof, day); },
+        tourist_high_season: function(a, prof, day) { return tourismClaimMap(a, prof, day); },
+        tourism_comp_squeeze: function(a, prof, day) { return tourismClaimMap(a, prof, day); }
+      };
+
+      // ── Weather (transition tokens in payload; conditions from day surface) ──
+      function wxLevel(v) { if (v == null) return null; var s = String(v); var i = s.indexOf(':'); var n = (i >= 0) ? Number(s.slice(i + 1)) : Number(s); return isNaN(n) ? null : n; }
+      function wxHazard(v) { var s = String(v || ''); var i = s.indexOf(':'); if (i < 0) return ''; var H = {heat:'canicule',cold:'grand froid',rain:'pluie',snow:'neige',wind:'vent',storm:'orage'}; var k = s.slice(0, i); return H[k] || k; }
+      function weatherClaimMap(a, prof, day) {
+        var condParts = [];
+        if (day.weather_label_fr) condParts.push(day.weather_label_fr);
+        if (day.temperature_2m_max != null) condParts.push(Math.round(Number(day.temperature_2m_max)) + '\u00b0');
+        var condStr = condParts.length ? condParts.join(', ') : '\u2014';
+        var cat, title, badge, claims = [];
+        if (signal_type === 'extended_bad_weather_3d') {
+          var lvl = (a.alert_level != null) ? Number(a.alert_level) : (day.alert_level_max != null ? Number(day.alert_level_max) : null);
+          cat = 'M\u00e9t\u00e9o \u00b7 \u00c9pisode prolong\u00e9'; title = 'M\u00e9t\u00e9o d\u00e9grad\u00e9e \u2014 3 jours ou plus';
+          badge = { label:'\u00c9pisode prolong\u00e9', bg:'#FCEBEB', fg:'#A32D2D' };
+          claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
+          if (lvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + lvl, source:'Muse Square' });
+          if (a.site_sensitivity != null) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: Number(a.site_sensitivity) + ' / 5', source:'Muse Square' });
+        } else {
+          var oldLvl = wxLevel(a.old_value), newLvl = wxLevel(a.new_value), hazard = wxHazard(a.new_value);
+          if (signal_type === 'weather_improved') {
+            cat = 'M\u00e9t\u00e9o \u00b7 Am\u00e9lioration'; title = 'Am\u00e9lioration des conditions';
+            badge = { label:'Opportunit\u00e9', bg:'#E1F5EE', fg:'#0F6E56' };
+          } else {
+            cat = 'M\u00e9t\u00e9o \u00b7 D\u00e9gradation';
+            title = (signal_type === 'weather_hazard_onset' && hazard) ? ('Risque ' + hazard) : 'D\u00e9gradation des conditions';
+            badge = (newLvl != null && newLvl >= 3) ? { label:'Alerte s\u00e9v\u00e8re', bg:'#FCEBEB', fg:'#A32D2D' } : { label:'Alerte', bg:'#FAEEDA', fg:'#854F0B' };
+          }
+          claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
+          if (oldLvl != null && newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + oldLvl + ' \u2192 ' + newLvl, source:'Muse Square' });
+          else if (newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + newLvl, source:'Muse Square' });
+          if (day.impact_weather_pct != null && Number(day.impact_weather_pct) !== 0) claims.push({ claim:'Impact fr\u00e9quentation', value: Math.round(Number(day.impact_weather_pct)) + ' %', source:'Muse Square' });
+          if (prof && Number(prof.weather_sensitivity || 0) >= 3) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: prof.weather_sensitivity + ' / 5', source:'Muse Square' });
+        }
+        return { cat:cat, title:title, badge:badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['M\u00e9t\u00e9o-France \u2014 pr\u00e9visions', 'Muse Square \u2014 niveau d\u2019alerte et impact estim\u00e9'] };
+      }
+
+      // ── Calendar (narrative old/new strings) ──
+      function calendarClaimMap(a, prof, day) {
+        var claims = [];
+        if (a.new_value) claims.push({ claim:'Profil attendu', value: String(a.new_value), source:'Muse Square' });
+        if (a.old_value) claims.push({ claim:'Auparavant', value: String(a.old_value), source:'Muse Square' });
+        if (day.holiday_name) claims.push({ claim:'Jour f\u00e9ri\u00e9', value: day.holiday_name, source:'Calendrier' });
+        if (day.vacation_name) claims.push({ claim:'Vacances scolaires', value: day.vacation_name, source:'Calendrier' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Changement calendaire', source:'Muse Square' });
+        return { cat:'Calendrier \u00b7 Audience', title:'Changement de profil d\u2019audience', badge:{ label:'Intelligence', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 mod\u00e8le d\u2019impact calendaire quotidien'] };
+      }
+
+      // ── Mega-event (new_value = event name) ──
+      function megaClaimMap(a, prof, day) {
+        var name = (a.new_value && a.new_value !== 'true' && a.new_value !== 'false') ? String(a.new_value) : 'M\u00e9ga-\u00e9v\u00e9nement';
+        var ending = (signal_type === 'mega_event_end');
+        var claims = [{ claim: ending ? '\u00c9v\u00e9nement termin\u00e9' : '\u00c9v\u00e9nement', value: name, source:'Muse Square' }];
+        if (day.competition_pressure_ratio != null) claims.push({ claim:'Pression vs moyenne', value:'\u00d7' + frDec(Number(day.competition_pressure_ratio).toFixed(1)), source:'Muse Square' });
+        return { cat: ending ? 'Intelligence \u00b7 Fin d\u2019\u00e9v\u00e9nement' : 'Intelligence \u00b7 M\u00e9ga-\u00e9v\u00e9nement', title:name, badge:{ label: ending ? 'Fin' : 'M\u00e9ga-\u00e9v\u00e9nement', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 d\u00e9tection d\u2019\u00e9v\u00e9nements majeurs'] };
+      }
+
+      // ── Top day approaching ──
+      function topDayClaimMap(a, prof, day) {
+        var claims = [];
+        if (a.rank != null) claims.push({ claim:'Rang sur la p\u00e9riode', value:'n\u00b0 ' + Number(a.rank), source:'Muse Square' });
+        if (a.regime) claims.push({ claim:'R\u00e9gime', value: String(a.regime), source:'Muse Square' });
+        if (a.driver) claims.push({ claim:'Facteur dominant', value: String(a.driver), source:'Muse Square' });
+        if (a.events_5km != null) claims.push({ claim:'Concurrence \u00e0 5 km', value: frInt(a.events_5km) + ' \u00e9v\u00e9n.', source:'Muse Square' });
+        if (a.weather_alert != null) claims.push({ claim:'Niveau d\u2019alerte m\u00e9t\u00e9o', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Jour favorable \u00e0 venir', source:'Muse Square' });
+        return { cat:'Opportunit\u00e9 \u00b7 Meilleur jour', title:'Meilleur jour \u00e0 venir', badge:{ label:'Opportunit\u00e9', bg:'#E1F5EE', fg:'#0F6E56' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 score d\u2019opportunit\u00e9 quotidien'] };
+      }
+
+      // ── Competition pressure spike (old/new ratio strings) ──
+      function pressureSpikeClaimMap(a, prof, day) {
+        var oldR = (a.old_value != null) ? Number(a.old_value) : null;
+        var newR = (a.new_value != null) ? Number(a.new_value) : null;
+        var claims = [];
+        if (oldR != null && newR != null && !isNaN(oldR) && !isNaN(newR)) claims.push({ claim:'Pression vs moyenne', value:'\u00d7' + frDec(oldR.toFixed(1)) + ' \u2192 \u00d7' + frDec(newR.toFixed(1)), source:'Muse Square' });
+        else if (newR != null && !isNaN(newR)) claims.push({ claim:'Pression vs moyenne', value:'\u00d7' + frDec(newR.toFixed(1)), source:'Muse Square' });
+        if (day.events_within_5km_count != null) claims.push({ claim:'Concurrence \u00e0 5 km', value: frInt(day.events_within_5km_count) + ' \u00e9v\u00e9n.', source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Pression en hausse', source:'Muse Square' });
+        return { cat:'Concurrence \u00b7 Pression', title:'Pression concurrentielle en hausse', badge:{ label:'En hausse', bg:'#FAEEDA', fg:'#854F0B' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 pression vs baseline'] };
+      }
+
+      // ── Low competition window ──
+      function lowCompClaimMap(a, prof, day) {
+        var claims = [];
+        if (a.pressure_ratio != null) claims.push({ claim:'Pression vs moyenne', value:'\u00d7' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
+        if (a.events_5km != null) { var base = (a.baseline_avg != null) ? ' vs ~' + Math.round(Number(a.baseline_avg)) + ' habituellement' : ''; claims.push({ claim:'Concurrence \u00e0 5 km', value: frInt(a.events_5km) + ' \u00e9v\u00e9n.' + base, source:'Muse Square' }); }
+        if (!claims.length) claims.push({ claim:'Signal', value:'Faible concurrence', source:'Muse Square' });
+        return { cat:'Opportunit\u00e9 \u00b7 Faible concurrence', title:'Fen\u00eatre \u00e0 faible concurrence', badge:{ label:'Opportunit\u00e9', bg:'#E1F5EE', fg:'#0F6E56' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 pression vs baseline'] };
+      }
+
+      // ── Review solicitation (own reputation gesture) ──
+      function reviewSolicitationClaimMap(a, prof, day) {
+        var PK = {'jour ferie':'jour f\u00e9ri\u00e9','week-end':'week-end','vacances scolaires':'vacances scolaires','jour de pointe':'jour de forte affluence'};
+        var pk = a.peak_window ? (PK[a.peak_window] || a.peak_window) : '';
+        var claims = [];
+        if (pk) claims.push({ claim:'Fen\u00eatre favorable', value: pk, source:'Muse Square' });
+        if (a.favorable_days_next_5 != null) claims.push({ claim:'Journ\u00e9es porteuses (5 j)', value: frInt(a.favorable_days_next_5), source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Moment propice aux avis', source:'Muse Square' });
+        return { cat:'R\u00e9putation \u00b7 Avis', title:'Sollicitez des avis clients', badge:{ label:'R\u00e9putation', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 calendrier de fr\u00e9quentation'] };
+      }
+
+      // ── ft_peak_bad_weather (compound) ──
+      function ftPeakBadWeatherClaimMap(a, prof, day) {
+        var claims = [];
+        if (a.ft_rank != null) claims.push({ claim:'Rang de fr\u00e9quentation', value:'n\u00b0 ' + Number(a.ft_rank), source:'Muse Square' });
+        if (a.weather_alert != null) claims.push({ claim:'Niveau d\u2019alerte m\u00e9t\u00e9o', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Jour de pointe + m\u00e9t\u00e9o d\u00e9grad\u00e9e', source:'Muse Square' });
+        return { cat:'M\u00e9t\u00e9o \u00b7 Jour de pointe', title:'Jour de pointe \u2014 m\u00e9t\u00e9o d\u00e9grad\u00e9e', badge:{ label:'Vigilance', bg:'#FAEEDA', fg:'#854F0B' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Muse Square \u2014 fr\u00e9quentation pr\u00e9vue et alerte m\u00e9t\u00e9o'] };
+      }
+
+      // ── Foreign tourism (country arrays, FR whitelist mirrors dbt) ──
+      function foreignTourismClaimMap(a, prof, day) {
+        var FR = {'Germany':'Allemagne','Belgium':'Belgique','Netherlands (the)':'Pays-Bas','Switzerland':'Suisse','Italy':'Italie','Spain':'Espagne','Luxembourg':'Luxembourg','Austria':'Autriche','Ireland':'Irlande','Portugal':'Portugal','Poland':'Pologne','Czechia':'Tch\u00e9quie','Sweden':'Su\u00e8de'};
+        function names(arr) { if (!Array.isArray(arr)) return []; var o = []; for (var i = 0; i < arr.length; i++) { var c = arr[i]; var en = (c && typeof c === 'object') ? (c.country_name_en || '') : String(c || ''); if (FR[en]) o.push(FR[en]); } return o; }
+        function uniq(arr) { var s = {}, r = []; for (var i = 0; i < arr.length; i++) { if (!s[arr[i]]) { s[arr[i]] = 1; r.push(arr[i]); } } return r; }
+        var school = uniq(names(a.countries_on_school_holiday));
+        var pub = uniq(names(a.countries_on_public_holiday));
+        var claims = [];
+        if (school.length) claims.push({ claim:'Vacances scolaires', value: school.join(', '), source:'OpenHolidays' });
+        if (pub.length) claims.push({ claim:'Jour f\u00e9ri\u00e9', value: pub.join(', '), source:'OpenHolidays' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'Public touristique \u00e9tranger en cong\u00e9s', source:'Muse Square' });
+        return { cat:'Opportunit\u00e9 \u00b7 Tourisme \u00e9tranger', title:'Public touristique \u00e9tranger', badge:{ label:'Opportunit\u00e9', bg:'#E1F5EE', fg:'#0F6E56' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['OpenHolidays + INSEE \u2014 calendriers \u00e9trangers (liste blanche)'] };
+      }
+
+      // ── Competitor positioning brief (single entity + analysis + enrichment) ──
+      function positioningBriefClaimMap(a, prof, day) {
+        var name = a.competitor_name || 'Concurrent suivi';
+        var lvl = String(a.entity_threat_level || '').toLowerCase();
+        var ca = null; try { ca = a.competitive_analysis_json ? (typeof a.competitive_analysis_json === 'string' ? JSON.parse(a.competitive_analysis_json) : a.competitive_analysis_json) : null; } catch(e) { ca = null; }
+        var rel = ca ? (ca.relationship_type === 'complementary' ? 'Profil compl\u00e9mentaire' : (ca.is_direct_competitor === false ? 'Concurrent indirect' : 'Concurrent direct')) : '\u2014';
+        var ratingStr = (a.google_rating != null ? '\u2605 ' + frDec(a.google_rating) + ' / 5' : '\u2014') + (a.google_rating_count != null ? ' \u00b7 ' + frInt(a.google_rating_count) + ' avis' : '');
+        var distStr = (a.entity_threat_distance_km != null) ? frDec(a.entity_threat_distance_km) + ' km' : '\u2014';
+        var enr = null; try { enr = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) { enr = null; }
+        var claims = [
+          { claim:'Relation', value: rel, source:'Muse Square' },
+          { claim:'\u00c0 proximit\u00e9', value: distStr, source:'Muse Square' },
+          { claim:'R\u00e9putation', value: ratingStr, source:'Google' }
+        ];
+        if (ca && ca.verdict) claims.push({ claim:'Lecture', value: String(ca.verdict), source:'Muse Square' });
+        return { cat:'Concurrence \u00b7 Positionnement', title:name, badge:(THREAT_FR[lvl] || THREAT_FR.low), competitor_id: a.competitor_id || '', competitor_name: name, descriptif_orientation:'Ce que propose ce concurrent \u2014 pour situer votre offre', enriched_inline: enr, claims:claims, sources:['Muse Square \u2014 analyse de positionnement','Google \u2014 note et nombre d\u2019avis'] };
+      }
+
+      // ── Competitor positioning gap (POS x competitor; revenue_share is a fraction) ──
+      function positioningGapClaimMap(a, prof, day) {
+        var claims = [];
+        if (a.top_item_description) claims.push({ claim:'Votre produit phare', value: String(a.top_item_description), source:'Caisse' });
+        if (a.top_item_revenue_share != null) { var s = Number(a.top_item_revenue_share); claims.push({ claim:'Part de chiffre d\u2019affaires', value: (Math.abs(s) <= 1 ? Math.round(s * 100) : Math.round(s)) + ' %', source:'Caisse' }); }
+        if (a.watched_competitor_count != null) claims.push({ claim:'Concurrents suivis', value: frInt(a.watched_competitor_count), source:'Muse Square' });
+        if (a.enriched_competitor_count != null) claims.push({ claim:'Concurrents analys\u00e9s', value: frInt(a.enriched_competitor_count), source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value:'\u00c9cart de positionnement', source:'Muse Square' });
+        return { cat:'Ventes \u00b7 Positionnement', title:'\u00c9cart de positionnement produit', badge:{ label:'Intelligence', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Caisse \u2014 mix produit','Muse Square \u2014 concurrents suivis'] };
+      }
+
+      CLAIM_MAPS.weather_hazard_onset = weatherClaimMap;
+      CLAIM_MAPS.weather_worsened = weatherClaimMap;
+      CLAIM_MAPS.weather_improved = weatherClaimMap;
+      CLAIM_MAPS.extended_bad_weather_3d = weatherClaimMap;
+      CLAIM_MAPS.calendar_audience_shift = calendarClaimMap;
+      CLAIM_MAPS.mega_event_activation = megaClaimMap;
+      CLAIM_MAPS.mega_event_end = megaClaimMap;
+      CLAIM_MAPS.top_day_approaching = topDayClaimMap;
+      CLAIM_MAPS.competition_pressure_spike = pressureSpikeClaimMap;
+      CLAIM_MAPS.low_competition_window = lowCompClaimMap;
+      CLAIM_MAPS.review_solicitation = reviewSolicitationClaimMap;
+      CLAIM_MAPS.ft_peak_bad_weather = ftPeakBadWeatherClaimMap;
+      CLAIM_MAPS.foreign_tourism_signal = foreignTourismClaimMap;
+      CLAIM_MAPS.competitor_positioning_brief = positioningBriefClaimMap;
+      CLAIM_MAPS.competitor_positioning_gap = positioningGapClaimMap;
+
+      // Single named-entity competitor cards. Verified live: competitor_event_launch.
+      // Add a type here only after its data_payload is verified on
+      // semantic.vw_insight_event_action_candidates.
+      var SINGLE_ENTITY_TYPES = ['competitor_event_launch', 'competitor_event_ending'];
+
+      function singleEntityClaimMap(a, prof, day) {
+        var parts = String(a.new_value || '').split(' \u2014 ');
+        var name = parts[0] || a.competitor_name || 'Concurrent';
+        var event = parts[1] || '';
+        var tier = String(a.entity_threat_industry_tier || '').toLowerCase();
+        var lvl = String(a.entity_threat_level || '').toLowerCase();
+        var badge = (tier === 'contextual')
+          ? { label: 'Contextuel', bg: '#EEF2FF', fg: '#1D3BB3' }
+          : (THREAT_FR[lvl] || THREAT_FR.low);
+        var distKm = (a.entity_threat_distance_km != null) ? Number(a.entity_threat_distance_km)
+                   : (a.distance_m != null ? Number(a.distance_m) / 1000 : null);
+        var distStr = (distKm != null) ? frDec((Math.round(distKm * 10) / 10).toFixed(1)) + ' km' : '\u2014';
+        // audience_overlap_pct is a whole percent (0-100) in data_payload \u2014 render as-is, NO x100.
+        var ov = (a.audience_overlap_pct != null) ? Number(a.audience_overlap_pct) : null;
+        var overlapStr = (ov != null && ov > 0) ? Math.round(ov) + ' %' : '0 % \u2014 audiences distinctes';
+        var ratingStr = (a.google_rating != null ? '\u2605 ' + frDec(a.google_rating) + ' / 5' : '\u2014')
+          + (a.google_rating_count != null ? ' \u00b7 ' + frInt(a.google_rating_count) + ' avis' : '');
+        var enr = null;
+        try { enr = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) { enr = null; }
+        var ending = (a.direction === 'ending') || (signal_type === 'competitor_event_ending');
+        return {
+          cat: ending ? 'Concurrence \u00b7 Fin d\u2019\u00e9v\u00e9nement' : 'Concurrence \u00b7 Lancement',
+          title: name,
+          badge: badge,
+          competitor_id: a.competitor_id || '',
+          competitor_name: name,
+          descriptif_orientation: (a.competitor_id ? 'Ce que propose ce concurrent \u2014 pour situer le ' + (ending ? 'changement' : 'lancement') : ''),
+          enriched_inline: enr,
+          claims: [
+            { claim: (ending ? 'Fin d\u2019\u00e9v\u00e9nement' : 'Lancement'), value: (event || '\u2014'), source: 'Site concurrent' },
+            { claim: '\u00c0 proximit\u00e9', value: distStr, source: 'Muse Square' },
+            { claim: 'Chevauchement d\u2019audience', value: overlapStr, source: 'Muse Square' },
+            { claim: 'R\u00e9putation', value: ratingStr, source: 'Google' }
+          ],
+          sources: [
+            'Muse Square \u2014 d\u00e9tection de lancement, distance, chevauchement',
+            'Google \u2014 note et nombre d\u2019avis'
+          ]
+        };
+      }
+
+      // Aggregate tourism signals (no named entity). Verified payloads:
+      // tourism_peak_window {tourism_index,is_peak,score}; tourist_high_season {+events_5km};
+      // tourism_comp_squeeze {tourism_index,pressure_ratio,events_5km}. tourism_index rendered
+      // as-is (0-100, no x100); payload `score` omitted (0-100 scale, not /10).
+      function tourismClaimMap(a, prof, day) {
+        var idx = (a.tourism_index != null) ? Math.round(Number(a.tourism_index)) : null;
+        var claims = [{ claim:'Indice touristique r\u00e9gional', value: (idx != null ? String(idx) : '\u2014'), source:'Muse Square' }];
+        var cat, title, badge;
+        if (signal_type === 'tourism_comp_squeeze') {
+          var pr = (a.pressure_ratio != null) ? Number(a.pressure_ratio) : 0;
+          cat = 'Tourisme \u00b7 Concurrence';
+          title = 'Flux touristique disput\u00e9';
+          badge = (pr >= 1.8) ? { label:'Tr\u00e8s disput\u00e9', bg:'#FCEBEB', fg:'#A32D2D' }
+                : { label:'Disput\u00e9', bg:'#FAEEDA', fg:'#854F0B' };
+          if (a.events_5km != null) claims.push({ claim:'Concurrence \u00e0 5 km', value: frInt(a.events_5km) + ' \u00e9v\u00e9n.', source:'Muse Square' });
+          if (a.pressure_ratio != null) claims.push({ claim:'Pression vs moyenne', value: '\u00d7' + frDec(a.pressure_ratio), source:'Muse Square' });
+        } else if (signal_type === 'tourist_high_season') {
+          cat = 'Tourisme \u00b7 Haute saison';
+          title = 'Haute saison touristique';
+          badge = { label:'Haute saison', bg:'#E1F5EE', fg:'#0F6E56' };
+          if (a.is_peak) claims.push({ claim:'Pic de fr\u00e9quentation', value:'Oui', source:'Muse Square' });
+          if (a.events_5km != null) claims.push({ claim:'Concurrence \u00e0 5 km', value: frInt(a.events_5km) + ' \u00e9v\u00e9n.', source:'Muse Square' });
+        } else {
+          cat = 'Tourisme \u00b7 Pic r\u00e9gional';
+          title = 'Pic touristique r\u00e9gional';
+          badge = { label:'Opportunit\u00e9', bg:'#E1F5EE', fg:'#0F6E56' };
+          if (a.is_peak) claims.push({ claim:'Pic de fr\u00e9quentation', value:'Oui', source:'Muse Square' });
+        }
+        var sources = ['Muse Square \u2014 indice de fr\u00e9quentation touristique r\u00e9gionale'];
+        if (signal_type === 'tourism_comp_squeeze') sources.push('Muse Square \u2014 comptages d\u2019\u00e9v\u00e9nements par rayon');
+        return {
+          cat: cat, title: title, badge: badge,
+          competitor_id: '', competitor_name: '', descriptif_orientation: '',
+          claims: claims, sources: sources
+        };
+      }
+
+      function genericClaimMap(a, prof, day) {
+        var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
+        var cat = (spec && spec.category_label_fr) ? spec.category_label_fr : 'Signal';
+        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : String(signal_type).replace(/_/g, ' ');
+        var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1 };
+        var LABELS = {
+          events_500m:'\u00c9v\u00e9nements \u00e0 500 m', events_1km:'\u00c9v\u00e9nements \u00e0 1 km', events_5km:'\u00c9v\u00e9nements \u00e0 5 km', events_10km:'\u00c9v\u00e9nements \u00e0 10 km',
+          pressure_ratio:'Pression vs moyenne', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
+          weather_alert:'Niveau d\u2019alerte m\u00e9t\u00e9o', alert_level:'Niveau d\u2019alerte', today_alert:'Alerte aujourd\u2019hui', yesterday_alert:'Alerte hier',
+          tourism_index:'Indice touristique', is_peak:'Pic touristique', is_holiday:'Jour f\u00e9ri\u00e9', is_vacation:'Vacances scolaires', is_commercial:'\u00c9v\u00e9nement commercial', is_weekend:'Week-end',
+          site_sensitivity:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', consecutive_bad_days:'Jours d\u00e9grad\u00e9s cons\u00e9cutifs', preceding_bad_days:'Jours d\u00e9grad\u00e9s pr\u00e9c\u00e9dents',
+          top_competitor:'Principal concurrent', top_threat_level:'Niveau de menace', top_competitor_distance_km:'Distance', top_competitor_overlap_pct:'Chevauchement d\u2019audience', top_threat_score:'Score de menace',
+          mobility_disrupted:'Mobilit\u00e9 perturb\u00e9e', ft_rank:'Rang de fr\u00e9quentation', favorable_count:'Facteurs favorables', commercial_event_name:'\u00c9v\u00e9nement commercial',
+          old_value:'Avant', new_value:'D\u00e9tect\u00e9'
+        };
+        var claims = [];
+        for (var k in a) {
+          if (!a.hasOwnProperty(k) || SKIP[k]) continue;
+          var v = a[k];
+          if (v == null || v === '' || v === 'Signal d\u00e9tect\u00e9' || v === 'true' || v === 'false') continue;
+          if (typeof v === 'object') continue;
+          if (typeof v === 'boolean') { if (!v) continue; claims.push({ claim: LABELS[k] || k.replace(/_/g, ' '), value: 'Oui', source: 'Muse Square' }); continue; }
+          var val;
+          if (/_pct$/.test(k) || k === 'pct_same_sector') { var nv = Number(v); val = (Math.abs(nv) <= 1 ? Math.round(nv * 100) : Math.round(nv)) + ' %'; }
+          else if (k === 'pressure_ratio') { val = '\u00d7' + frDec(v); }
+          else if (typeof v === 'number') { val = frDec(Math.round(Number(v) * 100) / 100); }
+          else { val = String(v); }
+          claims.push({ claim: LABELS[k] || k.replace(/_/g, ' '), value: val, source: 'Muse Square' });
+        }
+        if (!claims.length) claims.push({ claim: 'Signal', value: title, source: 'Muse Square' });
+        return { cat: cat, title: title, badge: { label: 'Signal', bg: '#EEF2FF', fg: '#1D3BB3' }, competitor_id: '', competitor_name: '', descriptif_orientation: '', claims: claims, sources: ['Muse Square \u2014 donn\u00e9es quotidiennes'] };
+      }
+
+      function renderClaimSkeleton(day, prof, feedItem, actionCandidate, spec, sowhat) {
+        var m = (CLAIM_MAPS[signal_type] || (SINGLE_ENTITY_TYPES.indexOf(signal_type) >= 0 ? singleEntityClaimMap : genericClaimMap))(feedItem, prof, day);
+        var ctx = '', act = '';
+        if (sowhat && typeof sowhat === 'object') { ctx = sowhat.context || ''; act = sowhat.action || ''; }
+        else { ctx = String(sowhat || ''); }
+
+        var BR='#1D3BB3', BD='#E8EDF5', INK='#111827', SUB='#6B7280', MUTE='#9CA3AF';
+        function zone(kicker, inner, last) {
+          return '<div style="padding:18px 0;border-bottom:' + (last ? 'none' : '1px solid ' + BD) + ';">'
+            + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:' + MUTE + ';margin-bottom:12px;">' + esc(kicker) + '</div>'
+            + inner + '</div>';
+        }
+
+        var html = '';
+        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+        html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
+          + '<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap;">'
+            + '<h1 style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:' + INK + ';">' + esc(m.title) + '</h1>'
+            + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
+          + '</div>';
+
+        var synth = '<p style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
+        if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
+        html += zone('Synth\u00e8se', synth);
+
+        var dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
+        for (var i = 0; i < m.claims.length; i++) {
+          var c = m.claims[i];
+          dec += '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
+            + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
+              + '<div style="font-size:13px;font-weight:600;color:' + INK + ';">' + esc(c.claim) + '</div>'
+              + '<span style="font-size:10px;color:' + MUTE + ';white-space:nowrap;flex-shrink:0;">' + esc(c.source) + '</span>'
+            + '</div>'
+            + '<div style="font-size:14px;color:' + (c.computed ? SUB : INK) + ';margin-top:4px;' + (c.computed ? 'font-family:ui-monospace,monospace;' : '') + '">'
+              + (c.computed ? '<span style="color:' + MUTE + ';margin-right:6px;">=</span>' : '') + esc(c.value)
+            + '</div>'
+          + '</div>';
+        }
+        html += zone('D\u00e9composition \u00b7 preuve', dec);
+
+        if (m.enriched_inline) {
+          var d = m.enriched_inline;
+          var drows = [
+            d.business_description   ? ['Profil', d.business_description] : null,
+            d.current_offering       ? ['Offre actuelle', d.current_offering] : null,
+            d.key_differentiators    ? ['Diff\u00e9renciateurs', d.key_differentiators] : null,
+            d.event_examples         ? ['\u00c9v\u00e9nements r\u00e9cents', d.event_examples] : null,
+            d.brand_positioning      ? ['Positionnement', d.brand_positioning] : null,
+            d.partnerships_mentioned ? ['Partenariats', d.partnerships_mentioned] : null,
+            d.accessibility_info     ? ['Accessibilit\u00e9', d.accessibility_info] : null
+          ].filter(Boolean);
+          var desc = m.descriptif_orientation ? '<div style="font-size:12px;color:' + SUB + ';margin-bottom:10px;">' + esc(m.descriptif_orientation) + '</div>' : '';
+          desc += '<div style="background:#F9FAFB;border:0.5px solid #E5E7EB;">';
+          for (var di = 0; di < drows.length; di++) {
+            desc += '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+              + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">' + esc(drows[di][0]) + '</div>'
+              + '<div style="font-size:13px;color:#111827;line-height:1.5;">' + esc(String(drows[di][1])) + '</div>'
+            + '</div>';
+          }
+          desc += '<div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;"></span>Agent IA \u00b7 web</span>'
+          + '</div></div>';
+          html += zone('Descriptif', desc);
+        } else if (m.descriptif_orientation) {
+          var desc = '<div style="font-size:12px;color:' + SUB + ';margin-bottom:10px;">' + esc(m.descriptif_orientation) + '</div>'
+            + '<button type="button" id="fs-desc-btn" style="font-size:12px;font-weight:600;color:' + BR + ';background:none;border:1px solid ' + BR + ';padding:7px 12px;cursor:pointer;font-family:inherit;">En savoir plus \u2192</button>'
+            + '<div id="fs-desc-panel" style="display:none;margin-top:10px;"></div>';
+          html += zone('Descriptif', desc);
+        }
+
+        var src = '<ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:' + SUB + ';">';
+        for (var si = 0; si < m.sources.length; si++) src += '<li>' + esc(m.sources[si]) + '</li>';
+        src += '</ul>';
+        if (m.competitor_name) {
+          var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.competitor_name);
+          src += '<a href="' + esc(mapsUrl) + '" target="_blank" rel="noopener" class="fs-source" style="margin-top:10px;text-decoration:none;"><span class="fs-source-icon">\ud83d\udccd</span> Voir ' + esc(m.competitor_name) + ' sur Google Maps \u2192</a>';
+        }
+        html += zone('Sources', src, true);
+
+        root.innerHTML = html;
+
+        var descBtn = document.getElementById('fs-desc-btn');
+        if (descBtn) descBtn.addEventListener('click', function() {
+          var panel = document.getElementById('fs-desc-panel');
+          if (!panel) return;
+          panel.style.display = 'block';
+          panel.innerHTML = '<div style="font-size:12px;color:#9CA3AF;padding:8px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche en cours\u2026</div>';
+          descBtn.style.display = 'none';
+          loadCompetitorDescriptif(m.competitor_id, m.competitor_name, panel, descBtn);
+        });
+
+        wireActionBar(root, day, prof, feedItem);
+      }
+
+      function loadCompetitorDescriptif(competitorId, competitorName, panel, btn) {
+        fetch('/api/competitive/competitor-signals?location_id=' + encodeURIComponent(location_id))
+          .then(function(r) { return r.json(); })
+          .then(function(j) {
+            var found = null;
+            if (j && j.ok) {
+              var pools = [].concat(j.followed_competitors || [], j.signals || []);
+              for (var i = 0; i < pools.length; i++) {
+                if (String(pools[i].competitor_id) === String(competitorId) && pools[i].auto_enriched_description) { found = pools[i]; break; }
+              }
+            }
+            if (found) renderDescriptifFromEnrichment(found, panel);
+            else crawlDescriptif(competitorName, panel, btn);
+          })
+          .catch(function() { crawlDescriptif(competitorName, panel, btn); });
+      }
+
+      function renderDescriptifFromEnrichment(comp, panel) {
+        var d = {};
+        try { d = typeof comp.auto_enriched_description === 'string' ? JSON.parse(comp.auto_enriched_description) : (comp.auto_enriched_description || {}); } catch(e) { d = {}; }
+        var rows = [
+          d.business_description   ? ['Profil',                d.business_description]   : null,
+          d.current_offering       ? ['Offre actuelle',        d.current_offering]       : null,
+          d.event_examples         ? ['\u00c9v\u00e9nements r\u00e9cents', d.event_examples] : null,
+          d.brand_positioning      ? ['Positionnement',        d.brand_positioning]      : null,
+          d.partnerships_mentioned ? ['Partenariats',          d.partnerships_mentioned] : null,
+          d.accessibility_info     ? ['Accessibilit\u00e9',     d.accessibility_info]     : null
+        ].filter(Boolean);
+        var inner = '<div style="background:#F9FAFB;border:0.5px solid #E5E7EB;">';
+        for (var i = 0; i < rows.length; i++) {
+          inner += '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+            + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">' + esc(rows[i][0]) + '</div>'
+            + '<div style="font-size:13px;color:#111827;line-height:1.5;">' + esc(String(rows[i][1])) + '</div>'
+          + '</div>';
+        }
+        inner += '<div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">'
+          + '<span style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;"></span>Agent IA \u00b7 web</span>'
+          + (comp.city ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((comp.competitor_name || '') + ' ' + comp.city) + '" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Localiser \u2192</a>' : '')
+        + '</div></div>';
+        panel.innerHTML = inner;
+      }
+
+      function crawlDescriptif(name, panel, btn) {
+        fetch('/api/insight/enrich-event', {
+          method:'POST', headers:{ 'content-type':'application/json' },
+          body: JSON.stringify({ event_label: name, description:'', city_name:'', event_venue_name:'', event_uid:null, city_id:null, distance_m:null, radius_bucket:null, industry_code:null })
+        }).then(function(r) { return r.json(); }).then(function(json) {
+          if (!json || !json.ok || !json.data) throw new Error('x');
+          var d = json.data;
+          var rows = [
+            d.business_description ? ['Profil', d.business_description] : null,
+            d.current_offering    ? ['Offre',  d.current_offering]    : null,
+            d.business_takeaway   ? ['Impact pour votre activit\u00e9', d.business_takeaway] : null
+          ].filter(Boolean);
+          var inner = '<div style="background:#F9FAFB;border:0.5px solid #E5E7EB;">';
+          for (var i = 0; i < rows.length; i++) {
+            inner += '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
+              + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:3px;">' + esc(rows[i][0]) + '</div>'
+              + '<div style="font-size:13px;color:#111827;line-height:1.5;">' + esc(String(rows[i][1])) + '</div>'
+            + '</div>';
+          }
+          inner += '<div style="padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">'
+            + '<span style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:#9CA3AF;display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;"></span>Agent IA \u00b7 web</span>'
+            + (d.source_url ? '<a href="' + esc(d.source_url) + '" target="_blank" rel="noopener" style="font-size:12px;color:#1D3BB3;text-decoration:none;">Source officielle \u2192</a>' : '')
+          + '</div></div>';
+          panel.innerHTML = inner;
+        }).catch(function() {
+          panel.innerHTML = '<div style="font-size:12px;color:#B91C1C;padding:4px 0;">Donn\u00e9es non disponibles.</div>';
+          if (btn) btn.style.display = '';
+        });
+      }
+
       // ── Try sessionStorage first ──
       var cachedData = null;
       try {
@@ -232,7 +810,7 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
         if (raw) cachedData = JSON.parse(raw);
       } catch(e) {}
 
-      if (cachedData) {
+      if (cachedData && !(isActionType && signal_instance && !cachedData.actionCandidate)) {
         renderPage(cachedData.day, cachedData.prof, cachedData.actionCandidate);
       } else {
         var dates = signal_date || new Date().toISOString().slice(0,10);
@@ -247,7 +825,10 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
             var prof = data.profile || {};
             var ac = null;
             if (isActionType && data.action_candidates) {
-              ac = data.action_candidates.find(function(c) { return c.action_type === signal_type; }) || null;
+              if (signal_instance) {
+                ac = data.action_candidates.find(function(c) { return String(c.card_instance_id) === String(signal_instance); }) || null;
+              }
+              if (!ac) ac = data.action_candidates.find(function(c) { return c.action_type === signal_type; }) || null;
             }
             renderPage(day, prof, ac);
           })
@@ -280,6 +861,12 @@ const signal_date = Astro.url?.searchParams?.get("date") ?? "";
         // ── Compute sowhat ──
         var sowhat = '';
         if (spec) { try { sowhat = spec.sowhat(feedItem, prof, day, 'signal'); } catch(e) {} }
+
+        // ── NEW: claim -> proof skeleton (curated map, else generic fallback) ──
+        if (CLAIM_MAPS[signal_type] || (isActionType && actionCandidate && actionCandidate.data_payload)) {
+          renderClaimSkeleton(day, prof, feedItem, actionCandidate, spec, sowhat);
+          return;
+        }
 
         // ── Back button ──
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
