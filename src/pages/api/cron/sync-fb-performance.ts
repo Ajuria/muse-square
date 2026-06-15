@@ -127,8 +127,8 @@ async function runFbSync() {
 }
 
 export const GET: APIRoute = async ({ request }) => {
-  const cronSecret = request.headers.get("x-cron-secret") || "";
-  if (cronSecret !== (process.env.CRON_SECRET || "")) {
+  const authHeader = request.headers.get("authorization") || "";
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401 });
   }
   waitUntil(runFbSync().catch((e) => console.error("[sync-fb-performance] background error:", e?.message)));
