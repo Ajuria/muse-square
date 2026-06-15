@@ -152,7 +152,7 @@ export async function runAIPackagerClaude(args: {
       ) {
         errors.push("v3_narrative: missing answer");
       }
-      if (typeof output.verdict !== "string") {
+      if (output.verdict !== undefined && typeof output.verdict !== "string") {
         errors.push("v3_narrative: verdict must be a string");
       }
       if (!Array.isArray(output.key_facts)) {
