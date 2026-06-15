@@ -2477,20 +2477,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     ) {
       const now = new Date();
       const todayDow = now.getUTCDay();
-      const startD = new Date(now); startD.setUTCDate(now.getUTCDate() + 1);               // tomorrow
-      const daysToSunday = (7 - todayDow) % 7 === 0 ? 7 : (7 - todayDow) % 7;              // Sunday → next Sunday
-      const endD = new Date(now);   endD.setUTCDate(now.getUTCDate() + daysToSunday);
-      const startYmd = startD.toISOString().slice(0, 10);
-      const endYmd = endD.toISOString().slice(0, 10);
-      const hit = startYmd <= endYmd ? weekdayDateInWindow(wanted_weekday, startYmd, endYmd) : null;
-      if (hit) {
-        weekday_window_date = hit; // still ahead this week → DAY_WHY on it
+      if (wanted_weekday === todayDow) {
+        // Named weekday == today → include today (only the best-remaining-day reroute excludes today).
+        weekday_window_date = now.toISOString().slice(0, 10);
       } else {
-        // already passed this week → premise dead → best day among remaining days
-        resolved_horizon = "month";
-        resolved_intent = "WINDOW_TOP_DAYS";
-        temporalWindowStart = startYmd;
-        temporalWindowEnd = endYmd;
+        const startD = new Date(now); startD.setUTCDate(now.getUTCDate() + 1);               // tomorrow
+        const daysToSunday = (7 - todayDow) % 7 === 0 ? 7 : (7 - todayDow) % 7;              // Sunday → next Sunday
+        const endD = new Date(now);   endD.setUTCDate(now.getUTCDate() + daysToSunday);
+        const startYmd = startD.toISOString().slice(0, 10);
+        const endYmd = endD.toISOString().slice(0, 10);
+        const hit = startYmd <= endYmd ? weekdayDateInWindow(wanted_weekday, startYmd, endYmd) : null;
+        if (hit) {
+          weekday_window_date = hit; // still ahead this week → DAY_WHY on it
+        } else {
+          // already passed this week → premise dead → best day among remaining days
+          resolved_horizon = "month";
+          resolved_intent = "WINDOW_TOP_DAYS";
+          temporalWindowStart = startYmd;
+          temporalWindowEnd = endYmd;
+        }
       }
     }
         
