@@ -23,6 +23,13 @@ const isApp = Astro.url.pathname.startsWith("/app");
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
 
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>
+    <script is:inline>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
+
     <!-- Favicons -->
     <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2" />
