@@ -1,6 +1,7 @@
 ---
 const {
   title = "Muse Square",
+  description = "Muse Square est le copilote opérationnel des entreprises dont le chiffre d'affaires dépend de la fréquentation.",
   hideSurveyCta = false,
   hideFooter = false,
   hideNav = false,
@@ -22,12 +23,26 @@ const isApp = Astro.url.pathname.startsWith("/app");
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content={description} />
 
     <!-- Privacy-friendly analytics by Plausible -->
     <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>
     <script is:inline>
       window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
       plausible.init()
+    </script>
+
+    <!-- Organization structured data -->
+    <script type="application/ld+json" is:inline>
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Muse Square",
+        "url": "https://www.musesquare.com/",
+        "logo": "https://www.musesquare.com/images/muse-square-logo.png",
+        "description": "Copilote opérationnel des entreprises dont le chiffre d'affaires dépend de la fréquentation.",
+        "sameAs": ["https://www.linkedin.com/in/julen-de-ajuriaguerra/"]
+      }
     </script>
 
     <!-- Favicons -->
