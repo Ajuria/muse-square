@@ -9,6 +9,11 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   site: process.env.APP_BASE_URL || "https://www.musesquare.com",
 
+  redirects: {
+    "/cgu": { status: 301, destination: "/conditions-generales" },
+    "/privacy": { status: 301, destination: "/politique-de-confidentialite" },
+  },
+
   server: { host: true },
 
   devToolbar: { enabled: false },
