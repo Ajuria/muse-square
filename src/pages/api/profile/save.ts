@@ -48,7 +48,9 @@ function getUserIdFromLocals(locals: any): string {
   return v.trim();
 }
 
-async function getUserEmailFromClerk(userId: string): Promise<string> {
+async function getUserIdentityFromClerk(
+  userId: string
+): Promise<{ email: string; firstName: string | null; lastName: string | null }> {
   const secretKey = requireString(process.env.CLERK_SECRET_KEY, "CLERK_SECRET_KEY");
   const clerk = createClerkClient({ secretKey });
   const user = await clerk.users.getUser(userId);
@@ -59,7 +61,12 @@ async function getUserEmailFromClerk(userId: string): Promise<string> {
     user.emailAddresses?.[0]?.emailAddress ||
     "";
 
-  return requireString(primary, "email (from Clerk user)");
+  const firstName =
+    typeof user.firstName === "string" && user.firstName.trim() ? user.firstName.trim() : null;
+  const lastName =
+    typeof user.lastName === "string" && user.lastName.trim() ? user.lastName.trim() : null;
+
+  return { email: requireString(primary, "email (from Clerk user)"), firstName, lastName };
 }
 
 // ------------------------
@@ -222,11 +229,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // --- Auth + Email (parallel) ---
     const clerk_user_id = getUserIdFromLocals(locals);
-    const email = await getUserEmailFromClerk(clerk_user_id);
+    const { email, firstName: clerkFirstName, lastName: clerkLastName } =
+      await getUserIdentityFromClerk(clerk_user_id);
 
     // --- Form fields ---
-    const first_name = getOptionalString(fd, "first_name");
-    const last_name = getOptionalString(fd, "last_name");
+    // Fall back to the Clerk identity so a row is never created name-less when
+    // the site/onboarding form doesn't carry the name (it lives on the Profil tab).
+    const first_name = getOptionalString(fd, "first_name") ?? clerkFirstName;
+    const last_name = getOptionalString(fd, "last_name") ?? clerkLastName;
     const position = getOptionalString(fd, "position");
     const company_name = getOptionalString(fd, "company_name");
     const company_address = getOptionalString(fd, "company_address");
