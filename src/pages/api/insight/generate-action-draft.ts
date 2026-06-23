@@ -8,7 +8,7 @@ export const prerender = false;
 // Constants
 // ────────────────────────────────────────────────────────────
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 const ANTHROPIC_MAX_TOKENS = 500;
 const ANTHROPIC_TEMPERATURE = 0.7;
 
@@ -44,6 +44,12 @@ const CHANNEL_CONFIG: Record<
     maxChars: 160,
     rules:
       "Maximum 160 caractères tout compris. Pas de lien. Identifie l'expéditeur en début. Va droit au but.",
+  },
+  note_interne: {
+    label: "note interne",
+    maxChars: 800,
+    rules:
+      "Note opérationnelle destinée à l'équipe, jamais au public. Aucun émoji. Pas d'appel à l'action commercial, pas de lien de réservation, pas de formule promotionnelle. Ton factuel et direct : ce qui se passe, pourquoi c'est important, ce que l'équipe doit faire (effectif, horaires, accueil, signalétique).",
   },
 };
 
@@ -145,12 +151,64 @@ function competitorIntelBlock(comps: any[] | null): string {
 }
 
 // ────────────────────────────────────────────────────────────
+// Facts block (ground truth from card data_payload)
+// ────────────────────────────────────────────────────────────
+
+function frThreat(level: string): string {
+  const l = level.toLowerCase();
+  if (l === "high") return "élevée";
+  if (l === "medium" || l === "moderate") return "modérée";
+  if (l === "low") return "faible";
+  return level || "à surveiller";
+}
+
+function buildFactsBlock(changeSubtype: string, payload: any, channel: string): string {
+  if (!payload || typeof payload !== "object") return "";
+  const isInternal = channel === "note_interne" || channel === "internal";
+
+  if (changeSubtype === "competition_proximity") {
+    const e500 = safeNum(payload.events_500m);
+    const e1km = safeNum(payload.events_1km);
+    const overlap = safeNum(payload.top_competitor_overlap_pct); // déjà un pourcentage (0–100), ne pas multiplier
+    const distKm = safeNum(payload.top_competitor_distance_km);
+    const threat = safeStr(payload.top_threat_level);
+    const compName = safeStr(payload.top_competitor);
+
+    const facts: string[] = [];
+    if (e500 !== null || e1km !== null) {
+      facts.push(`- Pression : ${e500 ?? "?"} événements concurrents à moins de 500 m, ${e1km ?? "?"} à 1 km.`);
+    }
+    if (overlap !== null && distKm !== null) {
+      facts.push(`- Recoupement d'audience avec le concurrent le plus proche : ${Math.round(overlap)} % de votre public cible, à ${distKm} km. Menace ${frThreat(threat)}.`);
+    }
+    if (isInternal && compName) {
+      facts.push(`- Concurrent concerné : ${compName}.`);
+    }
+    if (facts.length === 0) return "";
+
+    return `
+
+CONTEXTE CONCURRENTIEL (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :
+${facts.join("\n")}
+
+Consignes de rédaction pour ce contexte :
+1. Nomme la pression concurrentielle et quantifie-la (recoupement d'audience, proximité) — sans la minimiser.
+2. Propose 1 à 3 leviers de différenciation, tirés EXCLUSIVEMENT de NOTRE identité ci-dessus (différenciants, services, offre actuelle). Si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un — n'invente jamais pour atteindre trois. Interdiction de généralités type "améliorer la visibilité" ou "renforcer l'accueil" si elles ne sont pas ancrées dans un fait d'identité.
+3. Termine par une action concrète et mesurable.${isInternal ? "" : "\nNe nomme JAMAIS le concurrent ni aucun établissement tiers."}`;
+  }
+
+  return "";
+}
+
+// ────────────────────────────────────────────────────────────
 // System prompt builder
 // ────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(
   profile: any,
-  channel: string
+  channel: string,
+  artifactMode: string,
+  facts: string
 ): string {
   const cfg = CHANNEL_CONFIG[channel] || CHANNEL_CONFIG.gbp;
   const siteName = safeStr(profile?.site_name) || safeStr(profile?.location_label) || "notre établissement";
@@ -158,10 +216,10 @@ function buildSystemPrompt(
   let autoEnriched: Record<string, string | null> = {};
   try { autoEnriched = JSON.parse(safeStr(profile?.auto_enriched_description) || "{}"); } catch {}
   const autoDesc = safeStr(autoEnriched?.business_description);
-  const autoServices = safeStr(autoEnriched?.services);
+  const autoServices = safeStr(autoEnriched?.services_and_amenities);
   const autoTone = safeStr(autoEnriched?.tone_of_voice);
   const autoDiff = safeStr(autoEnriched?.key_differentiators);
-  const autoProgramming = safeStr(autoEnriched?.current_programming);
+  const autoProgramming = safeStr(autoEnriched?.current_offering);
   const effectiveDesc = desc || autoDesc;
   const aud1 = AUD_FR[safeStr(profile?.primary_audience_1)] || safeStr(profile?.primary_audience_1) || "";
   const aud2 = AUD_FR[safeStr(profile?.primary_audience_2)] || safeStr(profile?.primary_audience_2) || "";
@@ -181,9 +239,9 @@ function buildSystemPrompt(
   const identityLines: string[] = [];
   identityLines.push(`Établissement : ${siteName}${city ? ", " + city : ""}`);
   if (effectiveDesc) identityLines.push(`Description : ${effectiveDesc}`);
-  if (autoServices && !desc) identityLines.push(`Services : ${autoServices}`);
+  if (autoServices) identityLines.push(`Services : ${autoServices}`);
   if (autoProgramming) identityLines.push(`Programmation actuelle : ${autoProgramming}`);
-  if (autoDiff && !desc) identityLines.push(`Différenciants : ${autoDiff}`);
+  if (autoDiff) identityLines.push(`Différenciants : ${autoDiff}`);
   if (autoTone) identityLines.push(`Ton de la marque : ${autoTone}`);
   if (activity) identityLines.push(`Activité : ${activity}`);
   if (eventTypes.length) identityLines.push(`Types d'événements : ${eventTypes.join(", ")}`);
@@ -195,6 +253,18 @@ function buildSystemPrompt(
   if (seasonality) identityLines.push(`Saisonnalité : ${seasonality}`);
   if (channel === "instagram" && instagram) identityLines.push(`Instagram : ${instagram}`);
   if ((channel === "gbp" || channel === "email") && website) identityLines.push(`Site web : ${website}`);
+
+  const offerStructure = artifactMode === "offer"
+    ? `
+
+MODE OFFRE — structure le texte comme une offre commerciale concrète, dans cet ordre :
+1. Accroche courte qui pose le contexte ou l'occasion
+2. L'offre elle-même, explicite (ce qui est proposé, pour qui)
+3. Validité — période ou échéance claire (le rédacteur la précisera)
+4. Appel à l'action sans ambiguïté (réserver, venir, profiter)
+5. Code ou condition si pertinent
+N'invente ni montant, ni pourcentage, ni date précise : laisse des formulations que l'établissement complétera. L'offre doit rester crédible et alignée sur l'établissement, jamais du remplissage promotionnel.`
+    : "";
 
   return `Tu es le rédacteur de contenu de ${siteName}. Tu connais parfaitement cet établissement et tu rédiges en son nom.
 
@@ -212,7 +282,7 @@ Règles :
 - Ne mentionne JAMAIS Muse Square, ni le fait que cette information vient d'une plateforme d'intelligence
 - Le texte doit pouvoir être publié tel quel sans modification
 - Inclus un appel à l'action concret quand pertinent
-- Pas d'émoji excessifs — 1 ou 2 maximum, en début de post si pertinent
+- Pas d'émoji excessifs — 1 ou 2 maximum, en début de post si pertinent${offerStructure}${facts}
 
 Réponds UNIQUEMENT avec le texte du post. Pas de commentaire, pas d'explication, pas de guillemets autour du texte.`;
 }
@@ -570,6 +640,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const userInstruction = safeStr(body.user_instruction);
     const bodyStyleReference = safeStr(body.style_reference);
     const draftSeed = safeStr(body.draft_seed);
+    const artifactMode = safeStr(body.artifact_mode);
+    const dataPayload = body.data_payload && typeof body.data_payload === "object" ? body.data_payload : {};
 
     if (!actionKey || !channel || !changeSubtype) {
       return new Response(
@@ -688,7 +760,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // ── Build prompts ──
-    let systemPrompt = buildSystemPrompt(profile, channel);
+    const facts = buildFactsBlock(changeSubtype, dataPayload, channel);
+    let systemPrompt = buildSystemPrompt(profile, channel, artifactMode, facts);
     if (styleReference) {
       systemPrompt += "\n\n---\nR\u00c9F\u00c9RENCE DE STYLE (brouillon pr\u00e9c\u00e9dent de l'utilisateur) :\n\"\"\"\n" + styleReference + "\n\"\"\"\nReprends le ton, la structure et le style de ce brouillon. Adapte le contenu aux nouvelles donn\u00e9es fournies dans le message utilisateur. Ne copie pas le texte mot pour mot \u2014 r\u00e9\u00e9cris avec les informations actuelles tout en conservant la voix de l'utilisateur.";
     }
@@ -746,10 +819,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
+    // Surface the real API error instead of masking it as "Draft vide"
+    if (!anthropicRes.ok || anthropicJson.type === "error") {
+      const apiErr = anthropicJson?.error?.message || `HTTP ${anthropicRes.status}`;
+      console.error("[generate-action-draft] Anthropic error:", anthropicRes.status, JSON.stringify(anthropicJson));
+      return new Response(
+        JSON.stringify({ ok: false, error: "Anthropic: " + apiErr }),
+        { status: 502, headers: { "content-type": "application/json" } }
+      );
+    }
+
     const textBlock = anthropicJson.content?.find((b: any) => b.type === "text");
     const draftText = safeStr(textBlock?.text);
 
     if (!draftText) {
+      console.error(
+        "[generate-action-draft] empty draft:",
+        "stop_reason=", anthropicJson?.stop_reason,
+        "content=", JSON.stringify(anthropicJson?.content),
+        "usage=", JSON.stringify(anthropicJson?.usage)
+      );
       return new Response(
         JSON.stringify({ ok: false, error: "Draft vide" }),
         { status: 200, headers: { "content-type": "application/json" } }

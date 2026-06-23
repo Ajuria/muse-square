@@ -1661,6 +1661,10 @@ if (!location_id) {
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
           + '<div><div class="ab-dd-label">Communiquer</div><div class="ab-dd-desc">R\u00e9diger un post, email ou message</div></div>'
         + '</button>'
+        + (pubChannel && t.barClass === 'ab-opportunity' ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
+          + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
+        + '</button>' : '')
         + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-send">\u2197\ufe0f</div>'
           + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Envoyer \u00e0 votre \u00e9quipe</div></div>'
@@ -1836,7 +1840,7 @@ if (!location_id) {
       + '</div>';
     }
  
-    function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType) {
+    function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType, isOffer) {
       var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
       var showTitle = channel === "gbp" || channel === "email";
       var showHashtags = channel === "instagram" || channel === "gbp";
@@ -1897,6 +1901,15 @@ if (!location_id) {
         })() : '')
         + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + cardIdx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
         + '<div style="padding:10px 14px;"><textarea data-ws-body="' + cardIdx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
+        + (isOffer ? '<div style="padding:0 14px 10px;border-top:1px solid #f3f4f6;">'
+            + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin:10px 0 6px;">Offre</div>'
+            + '<div style="display:flex;gap:8px;margin-bottom:6px;">'
+              + '<input data-ws-validity-from="' + cardIdx + '" placeholder="Valable du" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
+              + '<input data-ws-validity-to="' + cardIdx + '" placeholder="au" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
+            + '</div>'
+            + '<input data-ws-cta="' + cardIdx + '" placeholder="Appel \u00e0 l\u2019action (ex. R\u00e9server)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;margin-bottom:6px;" />'
+            + '<input data-ws-code="' + cardIdx + '" placeholder="Code promo (optionnel)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
+          + '</div>' : '')
         + (showHashtags ? '<div style="padding:0 14px 10px;"><input data-ws-hashtags="' + cardIdx + '" value="' + escapeHtml(hashText) + '" placeholder="#hashtags" style="width:100%;border:none;border-top:1px solid #f3f4f6;padding:6px 0;font-size:11px;color:#6366f1;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
         + '<div style="padding:0 14px 10px;display:flex;align-items:center;gap:10px;" data-ws-charcount="' + cardIdx + '">'
           + (ch.max
@@ -2012,6 +2025,7 @@ if (!location_id) {
         e.stopPropagation();
         var cardIdx = btn.getAttribute("data-agir-comm");
         var channel = btn.getAttribute("data-agir-channel") || "note_interne";
+        var artifactMode = btn.getAttribute("data-agir-mode") || "post";
         var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
         if (menu) menu.style.display = "none";
 
@@ -2035,8 +2049,9 @@ if (!location_id) {
           signal: signalJson,
           card_what: parent ? parent.getAttribute("data-ab-draft-what") || "" : "",
           card_sowhat: parent ? parent.getAttribute("data-ab-draft-sowhat") || "" : "",
+          artifact_mode: artifactMode,
         };
-
+        payload.data_payload = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
         // Get draft seed from spec
         var draftSeed = null;
         if (window.getDraftSeed && window.ACTION_CARDS) {
@@ -2071,7 +2086,7 @@ if (!location_id) {
 
           if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Brouillon \u270e"; }
 
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype, artifactMode === "offer");
           wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
 
         }).catch(function(err) {
@@ -2204,7 +2219,7 @@ if (!location_id) {
           ev.stopPropagation();
           var newCh = chBtn.getAttribute("data-ch-select");
           channel = newCh;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft, false, payload.change_subtype);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
           wireWorkspaceButtons(cardIdx, newCh, draft, payload, triggerBtn);
         });
       });
@@ -2216,13 +2231,27 @@ if (!location_id) {
         workspace.innerHTML = "";
       });
  
+      // Offer fields → text suffix (empty when not an offer card; inputs absent)
+      function offerSuffix() {
+        var vfEl = workspace.querySelector('[data-ws-validity-from="' + cardIdx + '"]');
+        var vtEl = workspace.querySelector('[data-ws-validity-to="' + cardIdx + '"]');
+        var ctaEl = workspace.querySelector('[data-ws-cta="' + cardIdx + '"]');
+        var codeEl = workspace.querySelector('[data-ws-code="' + cardIdx + '"]');
+        var lines = [];
+        if (vfEl && vfEl.value) lines.push("Valable du " + vfEl.value + (vtEl && vtEl.value ? " au " + vtEl.value : ""));
+        else if (vtEl && vtEl.value) lines.push("Valable jusqu\u2019au " + vtEl.value);
+        if (ctaEl && ctaEl.value) lines.push(ctaEl.value);
+        if (codeEl && codeEl.value) lines.push("Code : " + codeEl.value);
+        return lines.length ? lines.join("\n") : "";
+      }
+
       // Copy
       var copyBtn = workspace.querySelector('[data-ws-copy="' + cardIdx + '"]');
       if (copyBtn) copyBtn.addEventListener("click", function() {
         var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
         var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
         var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-        var fullText = [tEl ? tEl.value : "", bEl ? bEl.value : "", hEl ? hEl.value : ""].filter(Boolean).join("\n\n");
+        var fullText = [tEl ? tEl.value : "", bEl ? bEl.value : "", offerSuffix(), hEl ? hEl.value : ""].filter(Boolean).join("\n\n");
         navigator.clipboard.writeText(fullText).then(function() {
           copyBtn.textContent = "Copi\u00e9 \u2713";
           setTimeout(function() { copyBtn.textContent = "Copier"; }, 2000);
@@ -2263,11 +2292,12 @@ if (!location_id) {
             affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null,
             severity: triggerBtn.closest(".ab-card")?.querySelector(".ab-pill")?.textContent || "",
             title: tEl ? tEl.value : "",
-            body: bEl ? bEl.value : "",
+            body: [bEl ? bEl.value : "", offerSuffix()].filter(Boolean).join("\n\n"),
             hashtags: hEl ? hEl.value : "",
             recipient: rEl ? rEl.value : "",
             original_ai_text: draft ? (draft.full_text || draft.body || "") : "",
             user_instruction: "",
+            artifact_mode: payload.artifact_mode || "post",
           }),
         }).then(function() { _savedDraftsCache = null; }).catch(function(){});
         // Track event
@@ -2289,7 +2319,7 @@ if (!location_id) {
         }).then(function(res) { return res.json(); }).then(function(json) {
           if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
           draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype, payload.artifact_mode === "offer");
           wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
         }).catch(function(err) {
           workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
@@ -2313,7 +2343,7 @@ if (!location_id) {
         }).then(function(res) { return res.json(); }).then(function(json) {
           if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
           draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype);
+          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
           wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
         }).catch(function(err) {
           workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
@@ -2373,7 +2403,7 @@ if (!location_id) {
             channel: channel,
             location_id: locationId,
             title: tEl ? tEl.value : "",
-            body: bEl ? bEl.value : "",
+            body: [bEl ? bEl.value : "", offerSuffix()].filter(Boolean).join("\n\n"),
             hashtags: hEl ? hEl.value : "",
             recipient: rEl ? rEl.value : "",
             signal_type: payload.change_subtype || "",
@@ -2507,7 +2537,7 @@ if (!location_id) {
             var picked = drafts[idx];
             if (!picked) return;
             draft = { title: picked.title || null, body: picked.body || "", hashtags: picked.hashtags || null, full_text: picked.body || "" };
-            workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype);
+            workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
             wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
             overlay.remove();
           });
@@ -2528,7 +2558,7 @@ if (!location_id) {
             }).then(function(res) { return res.json(); }).then(function(json) {
               if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
               draft = json.draft;
-              workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, true, payload.change_subtype);
+              workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, true, payload.change_subtype, payload.artifact_mode === "offer");
               wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
             }).catch(function(err) {
               workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';

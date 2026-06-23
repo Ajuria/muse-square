@@ -664,7 +664,7 @@
   );
 
   // #20 — score_up
-  reg('score_up', 'Profitez de cette journ\u00e9e favorable', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'action', 'pulse#radar-score',
+  reg('score_up', 'Profitez de cette journ\u00e9e favorable', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'notification', 'pulse#radar-score',
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var deltaRaw = Number(d.opportunity_score_vs_yesterday || 0);
@@ -990,7 +990,7 @@
   );
 
   // #37 — competitor_price_increase
-  reg('competitor_price_increase', 'Saisissez la marge tarifaire', 'INTELLIGENCE', '\ud83d\udcc8', '#1565C0', 'action', 'pulse#radar-threats',
+  reg('competitor_price_increase', 'Saisissez la marge tarifaire', 'INTELLIGENCE', '\ud83d\udcc8', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
@@ -1054,7 +1054,7 @@
   );
 
   // competitor_positioning_brief — reads cached competitive_analysis_json
-  reg('competitor_positioning_brief', 'Analysez le positionnement concurrent', 'INTELLIGENCE', '\ud83e\udded', '#1565C0', 'action', 'pulse#radar-threats',
+  reg('competitor_positioning_brief', 'Analysez le positionnement concurrent', 'INTELLIGENCE', '\ud83e\udded', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
       var ca = null;
@@ -1093,7 +1093,7 @@
   );
 
   // competitor_reputation_strength — standing rating signal (fires immediately)
-  reg('competitor_reputation_strength', 'Surveillez la r\u00e9putation concurrente', 'INTELLIGENCE', '\u2b50', '#1565C0', 'action', 'pulse#radar-threats',
+  reg('competitor_reputation_strength', 'Surveillez la r\u00e9putation concurrente', 'INTELLIGENCE', '\u2b50', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
       var rating = (a.google_rating != null) ? Number(a.google_rating).toFixed(1) : null;
@@ -1143,7 +1143,7 @@
   );
 
   // competitor_repricing_event — compound: >=2 price moves in one crawl
-  reg('competitor_repricing_event', 'Analysez ce mouvement tarifaire', 'CONCURRENCE', '\ud83d\udcb1', '#D32F2F', 'action', 'pulse#radar-threats',
+  reg('competitor_repricing_event', 'Analysez ce mouvement tarifaire', 'CONCURRENCE', '\ud83d\udcb1', '#D32F2F', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var n = (a.price_change_count != null) ? Number(a.price_change_count) : 0;
@@ -1673,7 +1673,7 @@
   // sales_underperformance — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver (EN token), top_competitor, events_5km.
   // €-shortfall T1; cause is model-implied → hedged as "probable".
-  reg('sales_underperformance', 'CA en retrait — cause probable', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+  reg('sales_underperformance', 'CA en retrait — cause probable', 'INTELLIGENCE', '📉', '#B45309', 'notification', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
@@ -1752,7 +1752,7 @@
   // revenue_yesterday, revenue_delta_pct, pressure_ratio, top_competitor,
   // competitor_distance_km, competitor_overlap_pct, competitor_threat_level.
   // CO-OCCURRENCE only — never asserts the competitor caused the drop (T3 risk).
-  reg('sales_competition_cannibalization', 'CA en baisse — concurrence à surveiller', 'CONCURRENCE', '📉', '#D32F2F', 'action', 'pulse#day-detail',
+  reg('sales_competition_cannibalization', 'CA en baisse — concurrence à surveiller', 'CONCURRENCE', '📉', '#D32F2F', 'notification', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var yest = a.revenue_yesterday != null ? Math.round(Number(a.revenue_yesterday)) : null;
@@ -1965,9 +1965,14 @@
     var seeds = spec.draft_seeds || {};
     var cc = channelConfig || {};
     var channels = [];
-    if (seeds.gbp && cc.gbp) channels.push({ key: 'gbp', label: 'Google Business Profile', charLimit: 1500 });
+    // A card that declares a public social seed (instagram) is a public-communicate card.
+    // Offer GBP + Facebook for it too when the client has them, even without a bespoke seed —
+    // getDraftSeed synthesizes one from the card's own sowhat. Internal-only cards
+    // (no instagram seed) are unaffected and stay on note_interne/email/slack.
+    var isPublicComm = !!seeds.instagram;
+    if ((seeds.gbp || isPublicComm) && cc.gbp) channels.push({ key: 'gbp', label: 'Google Business Profile', charLimit: 1500 });
     if (seeds.instagram && !!prof.instagram_url) channels.push({ key: 'instagram', label: 'Instagram', charLimit: 2200 });
-    if (seeds.facebook && !!prof.facebook_url) channels.push({ key: 'facebook', label: 'Facebook', charLimit: null });
+    if ((seeds.facebook || isPublicComm) && !!prof.facebook_url) channels.push({ key: 'facebook', label: 'Facebook', charLimit: null });
     if (seeds.email && cc.email) channels.push({ key: 'email', label: 'Email', charLimit: null });
     if (seeds.sms) channels.push({ key: 'sms', label: 'SMS', charLimit: 160 });
     if (seeds.whatsapp && cc.whatsapp) channels.push({ key: 'whatsapp', label: 'WhatsApp', charLimit: 1000 });
@@ -1979,8 +1984,21 @@
 
   function getDraftSeed(actionType, channel, feedItem, prof, day) {
     var spec = SPECS[actionType];
-    if (!spec || !spec.draft_seeds || !spec.draft_seeds[channel]) return null;
-    try { return spec.draft_seeds[channel](feedItem, prof, day); } catch (e) { return null; }
+    if (!spec) return null;
+    var seeds = spec.draft_seeds || {};
+    if (seeds[channel]) { try { return seeds[channel](feedItem, prof, day); } catch (e) { return null; } }
+    // Synthesized fallback: GBP/Facebook on a public-communicate card with no bespoke seed.
+    if ((channel === 'gbp' || channel === 'facebook') && seeds.instagram && typeof spec.sowhat === 'function') {
+      try {
+        var sw = spec.sowhat(feedItem, prof, day);
+        var ctx = (sw && typeof sw === 'object') ? (sw.context || '') : String(sw || '');
+        var label = channel === 'gbp' ? 'Post Google Business Profile' : 'Post Facebook';
+        var lim = channel === 'gbp' ? ' Max 1500 car.' : '';
+        var edge = userEdge(prof);
+        return label + ' pour ' + siteName(prof) + '. ' + ctx + ' Mettre en avant : ' + (edge || 'votre offre') + '.' + lim;
+      } catch (e) { return null; }
+    }
+    return null;
   }
 
   // ─── RENDERER ────────────────────────────────────────────────────────────

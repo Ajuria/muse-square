@@ -68,7 +68,7 @@ interface ExtractionResult {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EXTRACTION_MODEL = "claude-sonnet-4-20250514";
+const EXTRACTION_MODEL = "claude-sonnet-4-6";
 
 // 55s — safe margin for Vercel Pro 60s limit
 const TIMEOUT_MS = 55_000;

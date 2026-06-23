@@ -261,7 +261,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
     } else if (item.source_url) {
       html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
       html += '<a href="' + escH(item.source_url) + '" target="_blank" rel="noopener" style="font-size:13px;color:#185FA5;text-decoration:none;word-break:break-all;">' + escH(item.source_url.replace(/^https?:\/\//, '')) + '</a>';
-      html += '<span style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:20px;background:' + (isFailed ? '#FCEBEB' : '#EAF3DE') + ';color:' + (isFailed ? '#791F1F' : '#3B6D11') + ';">' + confidencePct + '%</span>';
+      html += '<span style="font-size:10px;font-weight:500;padding:1px 6px;border-radius:20px;background:' + (isFailed ? '#FCEBEB' : '#EAF3DE') + ';color:' + (isFailed ? '#791F1F' : '#3B6D11') + ';">Fiabilité ' + confidencePct + '%</span>';
       html += '</div>';
       if (isFailed) {
         var urlPath = '';

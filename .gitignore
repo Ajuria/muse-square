@@ -43,3 +43,4 @@ secrets/
 src/lib/Chat GPT/
 .vercel/
 
+.vercel

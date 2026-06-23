@@ -116,7 +116,7 @@ All scalar values must be strings or null. offering_items must always be an arra
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2000,
         messages: [{ role: "user", content: userPrompt }],
         system: systemPrompt,
@@ -171,7 +171,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         clerk_user_id, location_id, website_url,
         status: "extraction_failed", duration_ms: Date.now() - crawlStart,
         error_message: "Claude extraction returned null",
-        extraction_model: "claude-sonnet-4-20250514",
+        extraction_model: "claude-sonnet-4-6",
       });
       return new Response(JSON.stringify({ ok: false, error: "extraction_failed", detail: "Claude extraction returned null" }), {
         status: 200, headers: { "content-type": "application/json" },
@@ -208,7 +208,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     logCrawl({
       clerk_user_id, location_id, website_url,
       status: "success", duration_ms: Date.now() - crawlStart,
-      pages_extracted: 1, extraction_model: "claude-sonnet-4-20250514",
+      pages_extracted: 1, extraction_model: "claude-sonnet-4-6",
     });
 
     return new Response(JSON.stringify({ ok: true, enriched: extracted }), {

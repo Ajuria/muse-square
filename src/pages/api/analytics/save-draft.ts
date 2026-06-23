@@ -32,12 +32,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
           card_what, card_sowhat, affected_date, severity,
           title, body, hashtags, recipient,
           original_ai_text, user_instruction,
+          status, artifact_mode,
           created_at, updated_at
         ) VALUES (
           @draft_id, @user_id, @location_id, @signal_type, @channel,
-          @card_what, @card_sowhat, @affected_date, @severity,
+          @card_what, @card_sowhat, SAFE.PARSE_DATE('%Y-%m-%d', NULLIF(@affected_date, '')), @severity,
           @title, @body, @hashtags, @recipient,
           @original_ai_text, @user_instruction,
+          'active', @artifact_mode,
           CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
         )
       `,
@@ -49,7 +51,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         channel: String(body.channel || ""),
         card_what: String(body.card_what || ""),
         card_sowhat: String(body.card_sowhat || ""),
-        affected_date: body.affected_date || null,
+        affected_date: String(body.affected_date || ""),
         severity: String(body.severity || ""),
         title: String(body.title || ""),
         body: String(body.body || ""),
@@ -57,6 +59,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         recipient: String(body.recipient || ""),
         original_ai_text: String(body.original_ai_text || ""),
         user_instruction: String(body.user_instruction || ""),
+        artifact_mode: String(body.artifact_mode || "post"),
       },
       location: "EU",
     });

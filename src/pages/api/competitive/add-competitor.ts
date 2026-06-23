@@ -66,7 +66,7 @@ All scalar values must be strings or null. offering_items must always be an arra
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 2000,
         messages: [{ role: "user", content: userPrompt }],
         system: systemPrompt,
@@ -144,8 +144,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const source_url          = String(body?.source_url          || "").trim() || null;
     const description         = String(body?.description         || "").trim() || null;
 
-    const VALID_ENTITY_TYPE = new Set(["competitor", "institution", "media", "aggregator"]);
-    const entity_type         = VALID_ENTITY_TYPE.has(body?.entity_type) ? body.entity_type : "competitor";
+    // v1: role taxonomy collapsed — every followed entity is a competitor.
+    const entity_type = "competitor";
 
     const google_place_id     = String(body?.google_place_id     || "").trim() || null;
     const photos              = String(body?.photos              || "").trim() || null;
@@ -437,10 +437,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
                   if (descLower.includes(keyword)) { derivedIndustry = code; break; }
                 }
 
+                // Recompute confidence now that enrichment may have resolved industry_code.
+                const enriched_industry = industry_code ?? derivedIndustry;
+                const recomputed_confidence =
+                  (enriched_industry && source_url) ? 0.8 :
+                  enriched_industry ? 0.7 :
+                  source_url ? 0.5 : 0.3;
+
                 await bq.query({
                   query: `
                     UPDATE \`${projectId}.raw.competitor_directory\`
                     SET auto_enriched_description = @auto_enriched_description,
+                        confidence_score = GREATEST(confidence_score, @recomputed_confidence),
                         primary_audience = IF(primary_audience IS NULL OR primary_audience = '', @primary_audience, primary_audience),
                         secondary_audience = IF(secondary_audience IS NULL OR secondary_audience = '', @secondary_audience, secondary_audience),
                         industry_code = IF(industry_code IS NULL OR industry_code = '', @industry_code, industry_code),
@@ -456,6 +464,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
                     secondary_audience: mappedAud2,
                     industry_code: derivedIndustry,
                     industry_bucket: derivedIndustry ? (BUCKET_MAP[derivedIndustry] ?? null) : null,
+                    recomputed_confidence,
                   },
                   types: {
                     auto_enriched_description: "STRING",
@@ -464,7 +473,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
                     secondary_audience: "STRING",
                     industry_code: "STRING",
                     industry_bucket: "STRING",
+                    recomputed_confidence: "FLOAT64",
                   },
+                  location: BQ_LOCATION,
+                });
+
+                // Mirror recomputed confidence onto the follow record (Suivis badge reads this).
+                await bq.query({
+                  query: `
+                    UPDATE \`${projectId}.raw.watched_competitors\`
+                    SET confidence_score = GREATEST(confidence_score, @recomputed_confidence)
+                    WHERE competitor_id = @competitor_id
+                      AND deleted_at IS NULL
+                  `,
+                  params: { recomputed_confidence, competitor_id },
+                  types: { recomputed_confidence: "FLOAT64", competitor_id: "STRING" },
                   location: BQ_LOCATION,
                 });
                 extraction_status = "enriched";
