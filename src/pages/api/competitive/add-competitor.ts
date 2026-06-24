@@ -84,6 +84,41 @@ All scalar values must be strings or null. offering_items must always be an arra
   }
 }
 
+const PLACES_API_BASE = "https://places.googleapis.com/v1/places";
+
+async function resolveCoordinatesViaPlaces(
+  query: string
+): Promise<{ lat: number; lon: number; google_place_id: string } | null> {
+  const apiKey = (process.env.GOOGLE_PLACES_API_KEY || "").trim();
+  if (!apiKey || !query.trim()) return null;
+  try {
+    const res = await fetch(`${PLACES_API_BASE}:searchText`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "places.id,places.location,places.displayName",
+      },
+      body: JSON.stringify({ textQuery: query, languageCode: "fr", maxResultCount: 1 }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.error(`[add-competitor] Places searchText error: ${res.status} ${res.statusText}`);
+      return null;
+    }
+    const data: any = await res.json();
+    const p = data?.places?.[0];
+    const lat = Number(p?.location?.latitude);
+    const lon = Number(p?.location?.longitude);
+    const pid = String(p?.id || "").trim();
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !pid) return null;
+    return { lat, lon, google_place_id: pid };
+  } catch (err: any) {
+    console.error("[add-competitor] Places searchText failed:", err?.message);
+    return null;
+  }
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
@@ -275,24 +310,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ── 1b. Geocode if lat/lon missing ──
+    // ── 1b. Resolve coordinates if missing — Google Places (POI-aware) ──
+    // BAN (api-adresse) is a street-address geocoder and mis-resolves POIs
+    // (e.g. "Office de Tourisme Uzès" -> Honfleur, 700km off). Places Text
+    // Search resolves business/POI names correctly and returns a place_id we
+    // persist so nightly snapshots can enrich the row going forward.
     if (lat === null || lon === null) {
-      try {
-        const geo = await geocodeCompetitor(competitor_name, resolvedCity, address);
-        if (geo) {
-          await bq.query({
-            query: `
-              UPDATE \`${projectId}.raw.competitor_directory\`
-              SET lat = @lat, lon = @lon, updated_at = CURRENT_TIMESTAMP()
-              WHERE competitor_id = @competitor_id AND deleted_at IS NULL
-            `,
-            params: { lat: geo.lat, lon: geo.lon, competitor_id },
-            types: { lat: "FLOAT64", lon: "FLOAT64", competitor_id: "STRING" },
-            location: BQ_LOCATION,
-          });
-        }
-      } catch (geoErr: any) {
-        console.error("[add-competitor] geocode failed:", geoErr?.message);
+      const placesQuery = [competitor_name, address, resolvedCity].filter(Boolean).join(", ");
+      const resolved = await resolveCoordinatesViaPlaces(placesQuery);
+      if (resolved) {
+        await bq.query({
+          query: `
+            UPDATE \`${projectId}.raw.competitor_directory\`
+            SET lat = @lat,
+                lon = @lon,
+                google_place_id = COALESCE(NULLIF(google_place_id, ''), @google_place_id),
+                updated_at = CURRENT_TIMESTAMP()
+            WHERE competitor_id = @competitor_id AND deleted_at IS NULL
+          `,
+          params: {
+            lat: resolved.lat,
+            lon: resolved.lon,
+            google_place_id: resolved.google_place_id,
+            competitor_id,
+          },
+          types: {
+            lat: "FLOAT64",
+            lon: "FLOAT64",
+            google_place_id: "STRING",
+            competitor_id: "STRING",
+          },
+          location: BQ_LOCATION,
+        });
+      } else {
+        console.warn(`[add-competitor] coordinate resolution failed for "${placesQuery}" (competitor_id=${competitor_id})`);
       }
     }
 
