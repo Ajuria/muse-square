@@ -197,12 +197,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         UPDATE ${fullTable}
         SET auto_enriched_description = @auto_enriched_description,
             updated_at = CURRENT_TIMESTAMP()
-        WHERE clerk_user_id = @clerk_user_id
-          AND location_id = @location_id
+        WHERE location_id = @location_id
       `,
       location: BQ_LOCATION,
-      params: { clerk_user_id, location_id, auto_enriched_description: enrichedJson },
-      types: { clerk_user_id: "STRING", location_id: "STRING", auto_enriched_description: "STRING" },
+      params: { location_id, auto_enriched_description: enrichedJson },
+      types: { location_id: "STRING", auto_enriched_description: "STRING" },
     });
 
     logCrawl({

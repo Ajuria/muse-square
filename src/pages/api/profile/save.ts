@@ -74,11 +74,12 @@ async function getUserIdentityFromClerk(
 // ------------------------
 function normalizeAddressForKey(addr: string): string {
   return addr
-    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")   // strip accents (é -> e)
     .toUpperCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")  // drop ALL punctuation (was: kept '.,-)
     .replace(/\s+/g, " ")
-    .replace(/[']/g, "'")
-    .replace(/[^\p{L}\p{N}\s'.,-]/gu, "");
+    .trim();
 }
 
 function sha256Hex(s: string): string {

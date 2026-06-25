@@ -1511,6 +1511,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
  
     function buildChannelDropdown(currentCh, cardIdx) {
+      if (currentCh === "note_interne") currentCh = "internal";
       var ch = CHANNEL_DEFS[currentCh] || CHANNEL_DEFS.gbp;
       function chItems(list, heading) {
         return '<div style="padding:6px 14px 2px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;">' + heading + '</div>'
@@ -1537,6 +1538,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
  
     function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType) {
+      if (channel === "note_interne") channel = "internal";
       var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
       var showTitle = channel === "gbp" || channel === "email";
       var showHashtags = channel === "instagram" || channel === "gbp";
@@ -1619,6 +1621,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
  
     function updateCharCount(cardIdx, channel) {
+      if (channel === "note_interne") channel = "internal";
       var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
       var bodyEl = root.querySelector('[data-ws-body="' + cardIdx + '"]');
       var titleEl = root.querySelector('[data-ws-title="' + cardIdx + '"]');
@@ -2145,7 +2148,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
         var cards = '';
         for (var di = 0; di < drafts.length; di++) {
           var d = drafts[di];
-          var dCh = CHANNEL_DEFS[d.channel] || CHANNEL_DEFS.gbp;
+          var _dch = d.channel === "note_interne" ? "internal" : d.channel;
+          var dCh = CHANNEL_DEFS[_dch] || CHANNEL_DEFS.gbp;
           var sigLbl = SIGNAL_LABELS[d.signal_type] || d.signal_type || "";
           var isMatch = d.signal_type === payload.change_subtype && d.channel === channel;
           var preview = (d.body || "").substring(0, 120) + ((d.body || "").length > 120 ? "\u2026" : "");

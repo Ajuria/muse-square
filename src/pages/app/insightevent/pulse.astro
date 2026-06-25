@@ -1657,7 +1657,7 @@ if (!location_id) {
 
       // --- Agir dropdown (opens below) ---
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" class="ab-dd-item">'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" data-agir-intent="public" data-agir-has-pub="' + ((pubChannel === 'gbp' || pubChannel === 'instagram' || pubChannel === 'facebook' || pubChannel === 'website') ? '1' : '0') + '" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
           + '<div><div class="ab-dd-label">Communiquer</div><div class="ab-dd-desc">R\u00e9diger un post, email ou message</div></div>'
         + '</button>'
@@ -1665,9 +1665,9 @@ if (!location_id) {
           + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
           + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
         + '</button>' : '')
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" class="ab-dd-item">'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-send">\u2197\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Envoyer \u00e0 votre \u00e9quipe</div></div>'
+          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Email, message ou note interne</div></div>'
         + '</button>'
         + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
@@ -1815,6 +1815,7 @@ if (!location_id) {
     var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
  
     function buildChannelDropdown(currentCh, cardIdx) {
+      if (currentCh === "note_interne") currentCh = "internal";
       var ch = CHANNEL_DEFS[currentCh] || CHANNEL_DEFS.gbp;
       function chItems(list, heading) {
         return '<div style="padding:6px 14px 2px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;">' + heading + '</div>'
@@ -1841,6 +1842,7 @@ if (!location_id) {
     }
  
     function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType, isOffer) {
+      if (channel === "note_interne") channel = "internal";
       var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
       var showTitle = channel === "gbp" || channel === "email";
       var showHashtags = channel === "instagram" || channel === "gbp";
@@ -2026,11 +2028,19 @@ if (!location_id) {
         var cardIdx = btn.getAttribute("data-agir-comm");
         var channel = btn.getAttribute("data-agir-channel") || "note_interne";
         var artifactMode = btn.getAttribute("data-agir-mode") || "post";
+        var agirIntent = btn.getAttribute("data-agir-intent") || "";
+        var agirHasPub = btn.getAttribute("data-agir-has-pub") || "";
         var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
         if (menu) menu.style.display = "none";
 
         var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
         if (!workspace) return;
+
+        if (agirIntent === "public" && agirHasPub === "0") {
+          workspace.style.display = "block";
+          workspace.innerHTML = "<div style='padding:14px;font-size:12px;color:#374151;line-height:1.6;'><div style='font-weight:600;margin-bottom:4px;'>Aucun canal public connect\u00e9</div>Pour communiquer publiquement (post, r\u00e9seaux sociaux), connectez d\u2019abord un canal. En attendant, vous pouvez utiliser \u00ab Faire suivre \u00bb pour envoyer une note \u00e0 votre \u00e9quipe.<div style='margin-top:10px;'><a href='/profile' style='display:inline-block;font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;border:1px solid #1D3BB3;border-radius:6px;padding:6px 12px;'>Connecter un canal \u2192</a></div></div>";
+          return;
+        }
 
         // Close any other open workspace
         root.querySelectorAll(".ab-workspace").forEach(function(ws) {

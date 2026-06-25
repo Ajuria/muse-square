@@ -254,6 +254,8 @@ function buildSystemPrompt(
   if (channel === "instagram" && instagram) identityLines.push(`Instagram : ${instagram}`);
   if ((channel === "gbp" || channel === "email") && website) identityLines.push(`Site web : ${website}`);
 
+  const hasRealIdentity = Boolean(effectiveDesc || autoServices || autoProgramming || autoDiff || eventTypes.length || audLine || objective);
+
   const offerStructure = artifactMode === "offer"
     ? `
 
@@ -275,7 +277,9 @@ Tu rédiges un ${cfg.label} en français, prêt à publier.
 
 Règles :
 - Écris comme si tu ÉTAIS l'établissement — utilise "nous", "notre", "chez nous"
-- Mentionne des éléments concrets et spécifiques à cet établissement (activité, type d'événements, public cible) — ne reste JAMAIS générique
+${hasRealIdentity
+  ? `- Mentionne des éléments concrets et spécifiques à cet établissement (activité, type d'événements, public cible) — ne reste JAMAIS générique`
+  : `- Tu ne disposes d'AUCUNE information sur l'identité, l'activité réelle, le positionnement ou le modèle de cet établissement. N'INVENTE RIEN : aucune description d'activité, aucun avantage concurrentiel, aucun produit ou service, aucune équipe, aucun prospect, aucune stratégie commerciale. Rédige une note strictement opérationnelle fondée UNIQUEMENT sur les faits fournis ci-dessous. Toute action recommandée doit rester générique et sûre (surveiller la situation, adapter les effectifs, vérifier la signalétique) — jamais une initiative commerciale ou marketing inventée`}
 - Ton professionnel mais accessible — pas de jargon marketing, pas de superlatifs vides
 - Maximum ${cfg.maxChars} caractères
 - ${cfg.rules}

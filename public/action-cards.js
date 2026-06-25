@@ -75,6 +75,11 @@
     return 'alerte m\u00e9t\u00e9o';
   }
 
+  function hazardPhrase(d) {
+    var h = hazardLabel(d);
+    return h === 'alerte m\u00e9t\u00e9o' ? h : 'alerte ' + h;
+  }
+
   function topComp(d) {
     var tc = d.top_competitors || d.top_competition_events;
     return (Array.isArray(tc) && tc.length > 0) ? (tc[0].e || tc[0]) : {};
@@ -1252,7 +1257,7 @@
     function(a, p, d) {
       var pctSame = samePct(a, d) || 0;
       var alert = Number(a.weather_alert || d.alert_level_max || 0);
-      var line = 'Double risque : alerte m\u00e9t\u00e9o (niveau ' + alert + ') et ' + Math.round(pctSame) + '% du secteur en comp\u00e9tition directe.';
+      var line = 'Double risque : ' + hazardPhrase(d) + ' (niveau ' + alert + ') et ' + Math.round(pctSame) + '% du secteur en comp\u00e9tition directe.';
       if (weatherSens(p)) line += ' Site sensible m\u00e9t\u00e9o.';
       line += ' R\u00e9duisez vos co\u00fbts ou reportez.';
       return line;
@@ -1341,11 +1346,16 @@
   // C9 — commercial_event_match
   reg('commercial_event_match', 'Temps fort commercial \u2014 activez', 'OPPORTUNIT\u00c9', '\ud83d\udecd\ufe0f', '#2E7D32', 'action', 'pulse#radar-changes',
     function(a, p, d) {
-      var evName = a.commercial_event_name || a.event_label || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_name : null) || '';
+      var ev0 = (d.commercial_events && d.commercial_events[0]) ? d.commercial_events[0] : {};
+      var evName = a.commercial_event_name || a.event_label || ev0.event_name || '';
+      var evCode = a.commercial_event_code || ev0.event_code || '';
+      var isDiscount = evCode
+        ? /sales|black-friday|cyber-monday/.test(String(evCode))
+        : /soldes|black friday|cyber monday|nouvel an|no\u00ebl/i.test(String(evName));
       var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      if (pr > 1.3) line += ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.';
-      else line += ' Concurrence mod\u00e9r\u00e9e \u2014 fen\u00eatre favorable.';
+      if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
+      else line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.' : ' Fen\u00eatre favorable \u2014 captez le flux.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1374,7 +1384,7 @@
   reg('extended_bad_weather_3d', 'M\u00e9t\u00e9o d\u00e9grad\u00e9e 3+ jours', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var alert = Number(a.alert_level || d.alert_level_max || 0);
-      var line = '3+ jours cons\u00e9cutifs de mauvais temps (niveau ' + alert + ').';
+      var line = '3+ jours cons\u00e9cutifs de mauvais temps \u2014 ' + hazardPhrase(d) + ' (niveau ' + alert + ').';
       if (weatherSens(p)) line += ' Site sensible \u2014 impact prolong\u00e9 sur la fr\u00e9quentation.';
       if (isOutdoor(p)) line += ' Activez votre offre int\u00e9rieure.';
       else line += ' Positionnez-vous comme refuge.';
@@ -1389,7 +1399,9 @@
   reg('tourist_high_season', 'Haute saison touristique', 'OPPORTUNIT\u00c9', '\ud83c\udf0d', '#2E7D32', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Indice touristique \u00e9lev\u00e9 (' + Math.round(idx) + '). Afflux de visiteurs dans votre r\u00e9gion.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
+      var line = 'Indice touristique \u00e9lev\u00e9 (' + Math.round(idx) + st + '). Afflux de visiteurs dans votre r\u00e9gion.';
       var aud = audLabel(p); if (aud) line += ' Adaptez votre message pour ' + aud + ' et les touristes.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
@@ -1404,7 +1416,9 @@
   reg('tourist_surge_vacation', 'Afflux touristique en vacances', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') + vacances scolaires. Double flux de visiteurs.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') + vacances scolaires. Double flux de visiteurs.';
       var edge = userEdge(p); if (edge) line += ' Captez-les avec : ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1418,7 +1432,9 @@
   reg('tourism_peak_window', 'Pic touristique r\u00e9gional', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Pic touristique d\u00e9tect\u00e9 (indice ' + Math.round(idx) + '). Maximisez votre visibilit\u00e9.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
+      var line = 'Pic touristique d\u00e9tect\u00e9 (indice ' + Math.round(idx) + st + '). Maximisez votre visibilit\u00e9.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1432,7 +1448,9 @@
   reg('tourism_weather_vacation', 'Tourisme + beau temps + vacances', 'OPPORTUNIT\u00c9', '\ud83c\udf1f', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Triple signal : tourisme (' + Math.round(idx) + '), beau temps, vacances. Conditions exceptionnelles.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ' ' + ST[a.tourism_status] : '';
+      var line = 'Triple signal : tourisme (' + Math.round(idx) + st + '), beau temps, vacances. Conditions exceptionnelles.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1447,7 +1465,9 @@
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') mais pression \u00d7' + pr.toFixed(1) + '.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') mais pression \u00d7' + pr.toFixed(1) + '.';
       line += ' Les touristes ont le choix \u2014 d\u00e9marquez-vous.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
@@ -1462,7 +1482,9 @@
   reg('low_tourism_local_opp', 'Tourisme faible \u2014 ciblez les locaux', 'OPPORTUNIT\u00c9', '\ud83c\udfe0', '#1565C0', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Tourisme bas (' + Math.round(idx) + ') mais jour f\u00e9ri\u00e9. Les r\u00e9sidents sont disponibles.';
+      var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
+      var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
+      var line = 'Tourisme bas (' + Math.round(idx) + st + ') mais jour f\u00e9ri\u00e9. Les r\u00e9sidents sont disponibles.';
       var aud = audLabel(p); if (aud) line += ' Ciblez vos ' + aud.split(',')[0] + '.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
@@ -1477,8 +1499,9 @@
   reg('tourism_mobility_hit', 'Tourisme \u00e9lev\u00e9 mais mobilit\u00e9 perturb\u00e9e', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') mais acc\u00e8s perturb\u00e9. Risque de perte de trafic.';
-      line += ' Communiquez des itin\u00e9raires alternatifs.';
+      var stop = p.nearest_transit_stop_name || '';
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + ') mais acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + '. Risque de perte de trafic.';
+      line += stop ? ' Communiquez un itin\u00e9raire alternatif depuis ' + stop + '.' : ' Communiquez des itin\u00e9raires alternatifs.';
       return line;
     },
     {
@@ -1491,7 +1514,7 @@
   reg('weather_mobility_double', 'Double alerte : m\u00e9t\u00e9o + mobilit\u00e9', 'URGENT', '\u26a1', '#B71C1C', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var alert = Number(a.weather_alert || d.alert_level_max || 0);
-      var line = 'Double risque : alerte m\u00e9t\u00e9o (niveau ' + alert + ') et perturbation mobilit\u00e9.';
+      var line = 'Double risque : ' + hazardPhrase(d) + ' (niveau ' + alert + ') et perturbation mobilit\u00e9.';
       if (weatherSens(p)) line += ' Site sensible \u2014 impact direct.';
       line += ' Pr\u00e9venez votre \u00e9quipe et vos visiteurs.';
       return line;
@@ -1506,7 +1529,8 @@
   reg('mobility_comp_squeeze', 'Mobilit\u00e9 perturb\u00e9e + concurrence', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#carte',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      var line = 'Acc\u00e8s perturb\u00e9 et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
+      var stop = p.nearest_transit_stop_name || '';
+      var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 60) + '.';
       return line;
@@ -1521,7 +1545,8 @@
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
       var alert = Number(a.weather_alert || d.alert_level_max || 0);
-      var line = 'Ce jour est habituellement un pic de fr\u00e9quentation (rang ' + rank + ') mais la m\u00e9t\u00e9o est d\u00e9grad\u00e9e (niveau ' + alert + ').';
+      var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
+      var line = 'Ce jour est habituellement un pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + hazardPhrase(d) + ' (niveau ' + alert + ').';
       if (isOutdoor(p)) line += ' Activez votre offre int\u00e9rieure.';
       return line;
     },
@@ -1535,6 +1560,7 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + pr.toFixed(1) + ').';
+      if (a.ft_peak_busyness_pct != null) line += ' Pic habituel ' + (a.ft_peak_hour != null ? 'vers ' + Number(a.ft_peak_hour) + 'h ' : '') + '\u00e0 ' + Number(a.ft_peak_busyness_pct) + ' % d\u2019affluence.';
       line += ' Opportunit\u00e9 de capter du trafic suppl\u00e9mentaire.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
@@ -1550,7 +1576,8 @@
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
       var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
-      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') mais ' + Math.round(pctSame) + '% du secteur en concurrence directe.';
+      var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + Math.round(pctSame) + '% du secteur en concurrence directe.';
       var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1565,7 +1592,8 @@
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Fen\u00eatre en or.';
+      var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Fen\u00eatre en or.';
       var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1581,7 +1609,8 @@
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
-      var line = 'Triple signal : pic de fr\u00e9quentation (rang ' + rank + '), tourisme (' + Math.round(idx) + '), vacances. Affluence maximale attendue.';
+      var pk = (a.ft_peak_hour != null) ? ' vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
+      var line = 'Triple signal : pic de fr\u00e9quentation (rang ' + rank + pk + '), tourisme (' + Math.round(idx) + '), vacances. Affluence maximale attendue.';
       var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
       return line;
     },
@@ -1595,7 +1624,9 @@
   reg('ft_peak_mobility', 'Jour de pointe mais mobilit\u00e9 perturb\u00e9e', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
-      var line = 'Pic de fr\u00e9quentation (rang ' + rank + ') mais acc\u00e8s perturb\u00e9. Risque de perte de trafic significative.';
+      var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
+      var stop = p.nearest_transit_stop_name || '';
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + '. Risque de perte de trafic significative.';
       line += ' Communiquez des alternatives d\u2019acc\u00e8s.';
       return line;
     },
@@ -2311,7 +2342,7 @@
       var lvl = a.alert_level != null ? Number(a.alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
       var s = 'À adapter : météo dégradée sur au moins 2 jours';
-      if (lvl != null) s += ' (niveau ' + lvl + ')';
+      if (lvl != null) s += ' — ' + hazardPhrase(d) + ' (niveau ' + lvl + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Site sensible à la météo : repliez en intérieur si vous avez un espace couvert, sinon réduisez l\'effectif d\'accueil extérieur.';
       else s += 'Préparez une alternative couverte et réduisez l\'effectif extérieur sur ces jours.';
@@ -2359,7 +2390,7 @@
     'saturated_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
       var pct = a.pct_same_sector != null ? Math.round(Number(a.pct_same_sector)) : null;
-      var s = 'À adapter : météo dégradée' + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et secteur saturé' + (pct != null ? ' (' + pct + ' % des événements à 5 km dans votre secteur)' : '') + '. Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure fenêtre.';
+      var s = 'À adapter : ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et secteur saturé' + (pct != null ? ' (' + pct + ' % des événements à 5 km dans votre secteur)' : '') + '. Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure fenêtre.';
       return s;
     }, urgency: 'now' },
     'holiday_high_comp': { action: function(a, p, d) {
@@ -2386,8 +2417,15 @@
       return 'À pousser : week-end de vacances à faible concurrence' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Fenêtre rare — concentrez votre communication dessus.';
     }, urgency: 'now' },
     'commercial_event_match': { action: function(a, p, d) {
-      var ev = a.commercial_event_name || null;
-      return 'À capter : ' + (ev ? 'temps fort commercial « ' + ev + ' »' : 'temps fort commercial en cours') + '. Alignez une offre ou une communication sur l\'événement pour capter le flux d\'acheteurs.';
+      var ev = a.commercial_event_name || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_name : null) || null;
+      var evCode = a.commercial_event_code || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_code : '') || '';
+      var isDiscount = evCode
+        ? /sales|black-friday|cyber-monday/.test(String(evCode))
+        : /soldes|black friday|cyber monday|nouvel an|noël/i.test(String(ev || ''));
+      var head = 'À capter : ' + (ev ? 'temps fort commercial « ' + ev + ' »' : 'temps fort commercial en cours') + '. ';
+      return isDiscount
+        ? head + 'Le flux d\'acheteurs vient à vous : mettez en avant une offre signature ou une expérience différenciante plutôt qu\'une remise — sur un temps fort, une promotion non nécessaire érode la marge sans gagner de visiteurs.'
+        : head + 'Alignez une offre ou un accueil dédié sur l\'événement pour capter ce flux de passage, plutôt que de vous en tenir à votre programmation habituelle.';
     }, urgency: 'now' },
     'weather_window_after_bad': { action: function(a, p, d) {
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
@@ -2400,7 +2438,7 @@
       var lvl = a.alert_level != null ? Number(a.alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
       var s = 'À adapter : météo dégradée sur 3 jours ou plus';
-      if (lvl != null) s += ' (niveau ' + lvl + ')';
+      if (lvl != null) s += ' — ' + hazardPhrase(d) + ' (niveau ' + lvl + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Site très exposé : planifiez un repli intérieur sur toute la période et ajustez les horaires si la fréquentation chute.';
       else s += 'Planifiez des alternatives couvertes sur toute la période et adaptez vos effectifs.';
@@ -2441,7 +2479,7 @@
     }, urgency: 'now' },
     'weather_mobility_double': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
-      var s = 'À adapter : double contrainte — météo dégradée' + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et accès perturbé. Sécurisez l\'installation, anticipez un accès alternatif et ajustez l\'effectif au plus juste.';
+      var s = 'À adapter : double contrainte — ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et accès perturbé. Sécurisez l\'installation, anticipez un accès alternatif et ajustez l\'effectif au plus juste.';
       return s;
     }, urgency: 'now' },
     'mobility_comp_squeeze': { action: function(a, p, d) {
@@ -2451,7 +2489,7 @@
     }, urgency: 'now' },
     'ft_peak_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
-      var s = 'À adapter : jour habituellement fréquenté mais météo dégradée' + (lvl != null ? ' (niveau ' + lvl + ')' : '') + '. Prévoyez un repli couvert et un effectif d\'accueil suffisant : la fréquentation peut rester élevée malgré la météo.';
+      var s = 'À adapter : jour habituellement fréquenté mais ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + '. Prévoyez un repli couvert et un effectif d\'accueil suffisant : la fréquentation peut rester élevée malgré la météo.';
       return s;
     }, urgency: 'now' },
     'ft_quiet_good_weather': { action: function(a, p, d) {
