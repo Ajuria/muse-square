@@ -32,6 +32,38 @@
     return v != null ? Math.round(v * 100) : null;
   }
   function siteName(p) { return p.site_name || p.location_label || 'votre site'; }
+  // De-lever staffing language — agnostic across verticals (no RH-flex assumption).
+  // Runs on runtime strings (real accents). Ordered longest-match-first.
+  var _STAFF_REWRITES = [
+    [/adaptez vos effectifs en cons\u00e9quence/g, 'adaptez vos horaires et votre offre en cons\u00e9quence'],
+    [/R\u00e9duisez vos effectifs ou adaptez votre offre/g, 'Ajustez vos horaires ou adaptez votre offre'],
+    [/r\u00e9duisez l[\u2019']effectif d[\u2019']accueil ext\u00e9rieur/g, 'r\u00e9duisez votre exposition ext\u00e9rieure'],
+    [/r\u00e9duisez l[\u2019']effectif ext\u00e9rieur/g, 'r\u00e9duisez votre exposition ext\u00e9rieure'],
+    [/ajustez l[\u2019']effectif au plus juste/g, 'ajustez vos horaires au plus juste'],
+    [/r\u00e9duisez l[\u2019']effectif/g, 'ajustez vos horaires'],
+    [/ajustez l[\u2019']effectif/g, 'ajustez vos horaires'],
+    [/Renforcer effectif et comm/g, 'Pr\u00e9parer l\u2019accueil et la communication'],
+    [/Renforcer effectif/g, 'Pr\u00e9parer l\u2019accueil'],
+    [/Adapter effectif et programme/g, 'Adapter horaires et offre'],
+    [/Adapter effectif et publications/g, 'Adapter horaires et publications'],
+    [/Adapter effectif, signal\u00e9tique/g, 'Adapter horaires et signal\u00e9tique'],
+    [/adapter effectif, programme, s\u00e9curit\u00e9/g, 'adapter horaires, offre, s\u00e9curit\u00e9'],
+    [/Adapter effectif/g, 'Adapter horaires et offre'],
+    [/adapter effectif/g, 'adapter horaires et offre'],
+    [/Ajuster effectif/g, 'Ajuster horaires et communication'],
+    [/r\u00e9duction effectif/g, 'report des publications'],
+    [/effectif, amplitude horaire, communication/g, 'amplitude horaire, offre, communication'],
+    [/effectif, horaires, publications/g, 'horaires, offre, publications'],
+    [/effectif, horaires, communication/g, 'horaires, offre, communication'],
+    [/effectif en caisse, fluidit\u00e9 du parcours et mise en avant produit/g, 'fluidit\u00e9 du parcours et mise en avant produit'],
+    [/un effectif d[\u2019']accueil suffisant/g, 'un dispositif d\u2019accueil suffisant']
+  ];
+  function deLeverStaffing(s) {
+    if (!s) return s;
+    var out = String(s);
+    for (var i = 0; i < _STAFF_REWRITES.length; i++) out = out.replace(_STAFF_REWRITES[i][0], _STAFF_REWRITES[i][1]);
+    return out;
+  }
   function isOutdoor(p) {
     var t = String(p.location_type || p.cl_location_type || p.location_type_client || '').toLowerCase();
     return t === 'outdoor' || t === 'mixed';
@@ -1988,11 +2020,15 @@
 
   var PRIO_SCORE = { 4: 95, 3: 80, 2: 60, 1: 40 };
 
-  // ─── CHANNEL AVAILABILITY ────────────────────────────────────────────────
+  var AWARENESS_ONLY = { regime_c_warning:1, weather_worsened:1, weather_hazard_onset:1, extended_bad_weather:1, extended_bad_weather_3d:1, saturated_bad_weather:1, ft_peak_bad_weather:1, weather_mobility_double:1, mobility_comp_squeeze:1, tourism_mobility_hit:1, ft_peak_mobility:1 };
+  var RULE_ONLY = { sales_missed_opportunity:1, sales_surge:1, sales_traffic_not_converting:1, sales_discount_no_lift:1, sales_revenue_down_wow:1, footfall_vs_basket_decomposition:1, proven_action_replication:1, competitor_positioning_gap:1, offering_mix_shift:1 };
 
+  // ─── CHANNEL AVAILABILITY ────────────────────────────────────────────────
   function getAvailableChannels(actionType, prof, channelConfig) {
     var spec = SPECS[actionType];
     if (!spec || spec.card_type === 'notification') return [];
+    if (AWARENESS_ONLY[actionType]) return [];
+    if (RULE_ONLY[actionType]) return [];
     var seeds = spec.draft_seeds || {};
     var cc = channelConfig || {};
     var channels = [];
@@ -2017,7 +2053,7 @@
     var spec = SPECS[actionType];
     if (!spec) return null;
     var seeds = spec.draft_seeds || {};
-    if (seeds[channel]) { try { return seeds[channel](feedItem, prof, day); } catch (e) { return null; } }
+    if (seeds[channel]) { try { return deLeverStaffing(seeds[channel](feedItem, prof, day)); } catch (e) { return null; } }
     // Synthesized fallback: GBP/Facebook on a public-communicate card with no bespoke seed.
     if ((channel === 'gbp' || channel === 'facebook') && seeds.instagram && typeof spec.sowhat === 'function') {
       try {
@@ -2074,6 +2110,7 @@
         sowhatText = actionType + ' \u2014 type non reconnu.';
         whatText = actionType.replace(/_/g, ' ');
       }
+      sowhatText = deLeverStaffing(sowhatText); actionText = deLeverStaffing(actionText);
       var catLabel = spec ? spec.category_label_fr : (ac.action_category || 'INTELLIGENCE');
       var barClass = CAT_BAR[catLabel] || 'ab-info';
       var brandLabel = spec ? spec.category_label_fr : actionType.replace(/_/g, ' ');
@@ -2663,5 +2700,6 @@
   };
 
   window.ACTION_CARDS = SPECS;
+  window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
 
 })();
