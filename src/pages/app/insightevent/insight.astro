@@ -134,7 +134,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/action-cards.js?v=5"></script>
+    <script is:inline src="/action-cards.js?v=6"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -1449,7 +1449,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           if (showHashtags) html += '<div style="padding:0 16px 10px;"><input class="fs-ws-hashtags" id="fs-ws-hashtags" value="' + esc(hashText) + '" placeholder="#hashtags" /></div>';
           html += '<div style="padding:0 16px 10px;display:flex;align-items:center;gap:10px;" id="fs-charcount"></div>';
           html += '<div style="padding:6px 16px 10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;"><input class="fs-ws-adjust" id="fs-ws-adjust" placeholder="Ajuster : plus court, ajouter les horaires\u2026" /><button type="button" class="fs-ws-adjust-btn" id="fs-ws-adjust-btn">\u2192</button></div>';
-          html += '<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><button type="button" class="fs-ws-copy" id="fs-ws-copy">Copier</button><button type="button" class="fs-ws-save" id="fs-ws-save">Enregistrer</button><div style="flex:1;"></div><button type="button" id="fs-ws-publish" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button><button type="button" id="fs-ws-automate" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">\u26a1 Automatiser</button></div>';
+          html += '<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><button type="button" class="fs-ws-copy" id="fs-ws-copy">Copier</button><button type="button" class="fs-ws-save" id="fs-ws-save">Enregistrer</button><div style="flex:1;"></div><button type="button" id="fs-ws-publish" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' + ((function(){ var NO_AUTOMATE = {high_competition_density:1,weather_window:1,top_day_approaching:1,audience_shift_opportunity:1,foreign_tourism_signal:1,competitor_threat_direct:1,regime_c_warning:1,competition_proximity:1,low_competition_window:1,extended_bad_weather:1,weekend_opportunity:1,mobility_disruption_resolved:1,mega_event_activation:1,competitor_price_drop:1,competitor_offering_removed:1,review_solicitation:1,competitor_positioning_gap:1,perfect_storm:1,weather_comp_opportunity:1,saturated_bad_weather:1,holiday_high_comp:1,best_day_of_week:1,day_opportunity:1,same_bucket_saturation:1,weekend_vacation_low_comp:1,commercial_event_match:1,weather_window_after_bad:1,extended_bad_weather_3d:1,tourist_high_season:1,tourist_surge_vacation:1,tourism_peak_window:1,tourism_weather_vacation:1,tourism_comp_squeeze:1,low_tourism_local_opp:1,tourism_mobility_hit:1,weather_mobility_double:1,mobility_comp_squeeze:1,ft_peak_bad_weather:1,ft_quiet_good_weather:1,ft_peak_saturated:1,ft_peak_low_comp:1,ft_peak_tourism_vacation:1,ft_peak_mobility:1,sales_missed_opportunity:1,sales_surge:1,sales_traffic_not_converting:1,sales_discount_no_lift:1,sales_revenue_down_wow:1,footfall_vs_basket_decomposition:1,proven_action_replication:1,offering_mix_shift:1}; return NO_AUTOMATE[String(signal_type||"")] ? "" : '<button type="button" id="fs-ws-automate" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">\u26a1 Automatiser</button>'; })()) + '</div>';
 
           panel.innerHTML = html;
 
@@ -1530,7 +1530,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
           var autoBtn = document.getElementById("fs-ws-automate");
           if (autoBtn) autoBtn.addEventListener("click", function() {
-            var ROUTING_MAP = {weather_worsened:'weather',weather_hazard_onset:'weather',weather_improved:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity'};
+            var ROUTING_MAP = window.MS_ROUTING_MAP || {};
             var sigCat = ROUTING_MAP[signal_type] || 'competition';
             var r = document.getElementById("fs-recip-input");
             autoBtn.disabled = true; autoBtn.textContent = "\u26a1 ...";

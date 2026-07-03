@@ -282,7 +282,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=5"></script>
+    <script is:inline src="/action-cards.js?v=6"></script>
   
   <PiloterBottomBar active="evenements" />
 
@@ -1614,7 +1614,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
           + '<button type="button" data-ws-save="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
           + '<div style="flex:1;"></div>'
           + (function() { var hasConfig = _channelConfigsCache && _channelConfigsCache[channel]; return hasConfig ? '<button type="button" data-ws-publish="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' : '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Configurez ce canal dans vos param\u00e8tres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'; })()
-          + '<button type="button" data-ws-automate="' + cardIdx + '" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">&#9889; Automatiser</button>'
+          + ((function(){ var NO_AUTOMATE = {high_competition_density:1,weather_window:1,top_day_approaching:1,audience_shift_opportunity:1,foreign_tourism_signal:1,competitor_threat_direct:1,regime_c_warning:1,competition_proximity:1,low_competition_window:1,extended_bad_weather:1,weekend_opportunity:1,mobility_disruption_resolved:1,mega_event_activation:1,competitor_price_drop:1,competitor_offering_removed:1,review_solicitation:1,competitor_positioning_gap:1,perfect_storm:1,weather_comp_opportunity:1,saturated_bad_weather:1,holiday_high_comp:1,best_day_of_week:1,day_opportunity:1,same_bucket_saturation:1,weekend_vacation_low_comp:1,commercial_event_match:1,weather_window_after_bad:1,extended_bad_weather_3d:1,tourist_high_season:1,tourist_surge_vacation:1,tourism_peak_window:1,tourism_weather_vacation:1,tourism_comp_squeeze:1,low_tourism_local_opp:1,tourism_mobility_hit:1,weather_mobility_double:1,mobility_comp_squeeze:1,ft_peak_bad_weather:1,ft_quiet_good_weather:1,ft_peak_saturated:1,ft_peak_low_comp:1,ft_peak_tourism_vacation:1,ft_peak_mobility:1,sales_missed_opportunity:1,sales_surge:1,sales_traffic_not_converting:1,sales_discount_no_lift:1,sales_revenue_down_wow:1,footfall_vs_basket_decomposition:1,proven_action_replication:1,offering_mix_shift:1}; return NO_AUTOMATE[String(signalType||"")] ? "" : '<button type="button" data-ws-automate="' + cardIdx + '" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">&#9889; Automatiser</button>'; })())
         + '<div data-ws-auto-prompt="' + cardIdx + '" style="display:none;"></div>'
         + '</div>'
       + '</div>';
@@ -2218,7 +2218,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     function showAutoPrompt(container, cardIdx, channel, payload, triggerBtn) {
-      var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
+      var ROUTING_MAP = window.MS_ROUTING_MAP || {};
       var CAT_LABELS = {weather:"M\u00e9t\u00e9o",competition:"Concurrence",mobility:"Mobilit\u00e9",opportunity:"Opportunit\u00e9",calendar:"Calendrier"};
       var sigCat = ROUTING_MAP[payload.change_subtype] || "competition";
       var catLabel = CAT_LABELS[sigCat] || sigCat;

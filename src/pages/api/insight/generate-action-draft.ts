@@ -15,7 +15,7 @@ const ANTHROPIC_TEMPERATURE = 0.7;
 const BQ_PROJECT_ID = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
 const BQ_SEMANTIC_PROJECT = "muse-square-open-data";
 
-type Channel = "gbp" | "instagram" | "email" | "sms" | "internal" | "phone";
+type Channel = "gbp" | "instagram" | "email" | "sms" | "note_interne" | "slack" | "whatsapp";
 
 const CHANNEL_CONFIG: Record<
   string,
@@ -50,6 +50,18 @@ const CHANNEL_CONFIG: Record<
     maxChars: 800,
     rules:
       "Note opérationnelle destinée à l'équipe, jamais au public. Aucun émoji. Pas d'appel à l'action commercial, pas de lien de réservation, pas de formule promotionnelle. Ton factuel et direct : ce qui se passe, pourquoi c'est important, ce que l'équipe doit faire (effectif, horaires, accueil, signalétique).",
+  },
+  slack: {
+    label: "message Slack",
+    maxChars: 700,
+    rules:
+      "Message court destiné à l'équipe sur Slack, jamais au public. Aucun émoji. Pas d'appel à l'action commercial ni de lien de réservation. Ton factuel et direct, 1 à 3 phrases. Indiquer le lieu concerné et les chiffres clés, puis l'action à traiter.",
+  },
+  whatsapp: {
+    label: "message WhatsApp",
+    maxChars: 1000,
+    rules:
+      "Message direct WhatsApp, court et personnel. Identifie l'expéditeur (le lieu) en début. Une seule idée claire, ton chaleureux mais concis. Un lien est possible en fin de message.",
   },
 };
 
@@ -165,6 +177,130 @@ function frThreat(level: string): string {
 function buildFactsBlock(changeSubtype: string, payload: any, channel: string): string {
   if (!payload || typeof payload !== "object") return "";
   const isInternal = channel === "note_interne" || channel === "internal";
+
+  // ── Opportunity / favourable-window family (publishable, live) ──
+  const OPP_WINDOW = new Set([
+    "low_competition_window", "weekend_opportunity", "day_opportunity",
+    "best_day_of_week", "top_day_approaching", "perfect_storm",
+    "weather_comp_opportunity", "weekend_vacation_low_comp",
+  ]);
+  if (OPP_WINDOW.has(changeSubtype)) {
+    const pr = safeNum(payload.pressure_ratio);
+    const ev5 = safeNum(payload.events_5km);
+    const baseline = safeNum(payload.baseline_avg);
+    const regime = safeStr(payload.regime).toUpperCase();
+    const driverKey = safeStr(payload.driver).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const driverFr = driverKey === "concurrence" ? "Concurrence" : driverKey === "meteo" ? "Météo" : driverKey === "mobilite" ? "Mobilité" : driverKey === "calendrier" ? "Calendrier" : "";
+    const wxAlert = safeNum(payload.weather_alert);
+    const tour = safeNum(payload.tourism_index);
+    const isHol = payload.is_holiday === true || payload.is_holiday === "true";
+    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
+    const isWknd = payload.is_weekend === true || payload.is_weekend === "true";
+    const facts: string[] = [];
+    if (regime === "A" || regime === "B" || regime === "C") {
+      const rlabel = regime === "A" ? "favorable" : regime === "C" ? "défavorable" : "normal";
+      facts.push(`- Contexte du jour : ${rlabel} (régime ${regime}).`);
+    }
+    if (driverFr) facts.push(`- Facteur principal du signal : ${driverFr}.`);
+    if (pr !== null) {
+      const prlabel = pr < 0.9 ? "sous la normale" : pr > 1.1 ? "au-dessus de la normale" : "dans la normale";
+      facts.push(`- Pression concurrentielle : ×${pr.toFixed(1)} (${prlabel}).`);
+    }
+    if (baseline !== null && ev5 !== null) {
+      facts.push(`- Activité concurrente : ~${Math.round(baseline)} événement(s)/5 km habituellement, ${ev5} aujourd'hui.`);
+    } else if (ev5 !== null) {
+      facts.push(`- ${ev5} événement(s) concurrent(s) dans un rayon de 5 km.`);
+    }
+    if (wxAlert !== null) {
+      facts.push(wxAlert >= 1 ? `- Alerte météo de niveau ${wxAlert}.` : `- Pas d'alerte météo : conditions dégagées.`);
+    }
+    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
+    const occ: string[] = [];
+    if (isHol) occ.push("jour férié");
+    if (isVac) occ.push("vacances scolaires");
+    if (isWknd) occ.push("week-end");
+    if (occ.length) facts.push(`- Occasion : ${occ.join(", ")}.`);
+    if (facts.length === 0) return "";
+    return `CONTEXTE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Appuie-toi sur ces faits pour justifier l'opportunité — sans en ajouter d'autres.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité (offre, différenciants) adaptés à cette fenêtre ; si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un.\n3. Termine par un appel à l'action concret et daté quand c'est pertinent.`;
+  }
+
+  // ── Tourism family (publishable, live) ──
+  const TOURISM = new Set([
+    "tourism_peak_window", "tourist_high_season", "tourist_surge_vacation",
+    "tourism_weather_vacation", "low_tourism_local_opp", "tourism_comp_squeeze",
+    "ft_peak_tourism_vacation",
+  ]);
+  if (TOURISM.has(changeSubtype)) {
+    const tour = safeNum(payload.tourism_index);
+    const statusKey = safeStr(payload.tourism_status).toLowerCase();
+    const statusFr = statusKey === "high" ? "Forte affluence touristique" : statusKey === "normal" ? "Affluence touristique habituelle" : statusKey === "low" ? "Faible affluence touristique" : "";
+    const isPeak = payload.is_peak === true || payload.is_peak === "true";
+    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
+    const wxAlert = safeNum(payload.weather_alert);
+    const pr = safeNum(payload.pressure_ratio);
+    const facts: string[] = [];
+    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
+    if (statusFr) facts.push(`- ${statusFr}.`);
+    if (isPeak) facts.push(`- Période de pic touristique.`);
+    if (isVac) facts.push(`- Vacances scolaires en cours.`);
+    if (wxAlert !== null && wxAlert < 1) facts.push(`- Conditions météo dégagées.`);
+    if (pr !== null && pr < 0.9) facts.push(`- Pression concurrentielle sous la normale (×${pr.toFixed(1)}).`);
+    if (facts.length === 0) return "";
+    return `CONTEXTE TOURISTIQUE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Adapte le message à un public de passage / touristique, en t'appuyant uniquement sur ces faits.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité pertinents pour ce public ; si l'identité n'en fournit qu'un, n'en donne qu'un.\n3. Termine par un appel à l'action concret.`;
+  }
+
+  // ── Calendar / commercial-event family (publishable, live) ──
+  const CALENDAR = new Set([
+    "commercial_event_match", "audience_shift_opportunity",
+  ]);
+  if (CALENDAR.has(changeSubtype)) {
+    const evName = safeStr(payload.commercial_event_name);
+    const holName = safeStr(payload.holiday_name);
+    const vacName = safeStr(payload.vacation_name);
+    const audLabel = safeStr(payload.audience_availability_label);
+    const deltaAtt = safeNum(payload.delta_att_calendar_pct);
+    const pr = safeNum(payload.pressure_ratio);
+    const ev5 = safeNum(payload.events_5km);
+    const isHol = payload.is_holiday === true || payload.is_holiday === "true";
+    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
+    const facts: string[] = [];
+    if (evName) facts.push(`- Temps fort commercial : ${evName}.`);
+    if (holName) facts.push(`- Jour férié : ${holName}.`);
+    else if (isHol) facts.push(`- Jour férié.`);
+    if (vacName) facts.push(`- Vacances : ${vacName}.`);
+    else if (isVac) facts.push(`- Vacances scolaires en cours.`);
+    if (audLabel) facts.push(`- ${audLabel}`);
+    if (deltaAtt !== null) facts.push(`- Effet attendu sur la fréquentation : ${deltaAtt >= 0 ? "+" : ""}${Math.round(deltaAtt)} points (profil d'audience et calendrier).`);
+    if (pr !== null) {
+      const prlabel = pr < 0.9 ? "sous la normale" : pr > 1.1 ? "au-dessus de la normale" : "dans la normale";
+      facts.push(`- Pression concurrentielle : ×${pr.toFixed(1)} (${prlabel}).`);
+    }
+    if (ev5 !== null) facts.push(`- ${ev5} événement(s) concurrent(s) dans un rayon de 5 km.`);
+    if (facts.length === 0) return "";
+    return `CONTEXTE CALENDAIRE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Rattache le message au temps fort / à la période nommée ci-dessus, sans inventer d'autre date ni chiffre.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité pertinents pour cette occasion ; si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un.\n3. Termine par un appel à l'action concret et daté.`;
+  }
+
+  // ── Footfall-peak family (publishable, live) ──
+  const FT_PEAK = new Set([
+    "ft_peak_low_comp", "ft_quiet_good_weather", "ft_peak_tourism_vacation",
+  ]);
+  if (FT_PEAK.has(changeSubtype)) {
+    const peakHour = safeNum(payload.ft_peak_hour);
+    const peakPct = safeNum(payload.ft_peak_busyness_pct);
+    const pr = safeNum(payload.pressure_ratio);
+    const tour = safeNum(payload.tourism_index);
+    const wxAlert = safeNum(payload.weather_alert);
+    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
+    const facts: string[] = [];
+    if (peakHour !== null) facts.push(`- Heure de pointe habituelle : vers ${peakHour} h.`);
+    if (peakPct !== null) facts.push(`- Affluence à l'heure de pointe : ${Math.round(peakPct)}/100 (relatif au pic hebdomadaire de l'établissement).`);
+    if (pr !== null && pr < 0.9) facts.push(`- Pression concurrentielle sous la normale (×${pr.toFixed(1)}).`);
+    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
+    if (wxAlert !== null && wxAlert < 1) facts.push(`- Conditions météo dégagées.`);
+    if (isVac) facts.push(`- Vacances scolaires en cours.`);
+    if (facts.length === 0) return "";
+    return `CONTEXTE AFFLUENCE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Utilise l'heure de pic pour orienter le message (créneau à cibler), sans inventer d'autre chiffre.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité adaptés à ce créneau ; si l'identité n'en fournit qu'un, n'en donne qu'un.\n3. Termine par un appel à l'action concret.`;
+  }
 
   if (changeSubtype === "competition_proximity") {
     const e500 = safeNum(payload.events_500m);
@@ -517,8 +653,6 @@ ${ctx.channel === "instagram" ? "Hashtags locaux (" + safeStr(p.city_name) + ").
 ${ctx.channel === "gbp" && safeStr(p.website_url) ? "Lien : " + p.website_url : ""}`.trim();
 }
 
-TEMPLATES["_day_opportunity__gbp"] = opportunityPrompt;
-TEMPLATES["_day_opportunity__instagram"] = opportunityPrompt;
 TEMPLATES["score_up__gbp"] = opportunityPrompt;
 TEMPLATES["score_up__instagram"] = opportunityPrompt;
 
@@ -719,7 +853,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const OPPORTUNITY_SUBTYPES = new Set([
       "score_up",
-      "_day_opportunity",
     ]);
 
     const MOBILITY_SUBTYPES = new Set([
