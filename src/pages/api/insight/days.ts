@@ -4,6 +4,7 @@ import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
+import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -450,10 +451,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       expires_at
     FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
     WHERE location_id = @location_id
-      AND date IN UNNEST(ARRAY(
-        SELECT PARSE_DATE('%Y-%m-%d', d)
-        FROM UNNEST(@selected_dates) AS d
-      ))
+      AND (
+        date IN UNNEST(ARRAY(
+          SELECT PARSE_DATE('%Y-%m-%d', d)
+          FROM UNNEST(@selected_dates) AS d
+        ))
+        -- Performance cards carry an ingestion date (past); fetch them regardless of the
+        -- window. The client (renderActionCandidates) surfaces the latest per type on today.
+        OR action_type IN UNNEST(@perf_types)
+      )
     ORDER BY action_priority DESC, action_type ASC
   `;
 
@@ -514,8 +520,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }),
       bq.query({
         query: actionCandidatesQuery,
-        params: { location_id, selected_dates },
-        types: { selected_dates: ['STRING'] },
+        params: { location_id, selected_dates, perf_types: V1_ALERT_ACTION_TYPES },
+        types: { selected_dates: ['STRING'], perf_types: ['STRING'] },
       }),
       clerk_user_id ? bq.query({
         query: `
