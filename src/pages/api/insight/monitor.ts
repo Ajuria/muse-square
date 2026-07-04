@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
+import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -402,18 +403,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `
           SELECT
             date, location_id, action_type, card_instance_id, action_priority, action_category,
+            confidence_tier,
             data_payload,
             suppression_key, expires_at
           FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
           WHERE location_id = @location_id
-            AND date IN UNNEST(ARRAY(
-              SELECT PARSE_DATE('%Y-%m-%d', d)
-              FROM UNNEST(@selected_dates) AS d
-            ))
+            AND (
+              date IN UNNEST(ARRAY(
+                SELECT PARSE_DATE('%Y-%m-%d', d)
+                FROM UNNEST(@selected_dates) AS d
+              ))
+              -- Performance cards carry an ingestion date (past); fetch them regardless of the
+              -- window. The client (renderActionCandidates) surfaces the latest per type on today.
+              OR action_type IN UNNEST(@perf_types)
+            )
           ORDER BY action_priority DESC, action_type ASC
         `,
-        params: { location_id, selected_dates },
-        types: { selected_dates: ["STRING"] },
+        params: { location_id, selected_dates, perf_types: V1_ALERT_ACTION_TYPES },
+        types: { selected_dates: ["STRING"], perf_types: ["STRING"] },
         location: "EU",
       }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
     ]);
@@ -1020,6 +1027,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         card_instance_id: r?.card_instance_id ?? null,
         action_priority: r?.action_priority ?? null,
         action_category: r?.action_category ?? null,
+        confidence_tier: r?.confidence_tier ?? null,
         data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),

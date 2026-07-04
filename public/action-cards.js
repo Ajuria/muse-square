@@ -1779,11 +1779,13 @@
   // sales_surge — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver, is_holiday, is_vacation, events_5km.
   // €-rise T1; favourable context T1/T2; "à reproduire" is advice, not a claim.
-  reg('sales_surge', 'CA en hausse — reproduisez les conditions', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('sales_surge', 'CA au-dessus de son niveau habituel', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
       var pctUp = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+      var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+      var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var alert = Number(a.weather_alert || 0);
 
@@ -1791,12 +1793,16 @@
         ? 'CA ' + rev + ' € — ' + (pctUp != null ? '+' + pctUp + ' %' : 'en hausse') + ' vs votre moyenne 30j (' + avg + ' €).'
         : 'CA en hausse vs votre moyenne 30j.';
 
+      if (tx != null && bk != null) {
+        line += ' Porté par ' + (Math.abs(tx) >= Math.abs(bk) ? 'le volume de ventes' : 'le panier moyen') + ' (ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %).';
+      }
+
       if (pr != null && pr < 0.85) {
-        line += ' Contexte favorable : faible concurrence (×' + pr.toFixed(1) + '). À reproduire.';
+        line += ' Coïncide avec une faible concurrence (×' + pr.toFixed(1) + ').';
       } else if (a.is_holiday || a.is_vacation) {
-        line += ' Contexte porteur : ' + (a.is_holiday ? 'jour férié' : 'vacances scolaires') + '. Capitalisez sur ce type de jour.';
+        line += ' Coïncide avec un contexte calendaire porteur (' + (a.is_holiday ? 'jour férié' : 'vacances scolaires') + ').';
       } else if (alert === 0) {
-        line += ' Météo favorable. Renforcez la communication sur ces fenêtres.';
+        line += ' Coïncide avec une météo favorable.';
       }
       return line;
     },
@@ -1806,7 +1812,7 @@
         return 'Post Instagram pour ' + siteName(p) + '. Belle journée' + (pctUp != null ? ' (+' + pctUp + ' % vs habitude)' : '') + ' — capitalisez sur le momentum. Mettre en avant : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.';
       },
       note_interne: function(a, p, d) {
-        return 'Note interne ' + siteName(p) + '. Surcroît de CA. Documenter les conditions du jour (contexte, météo, calendrier) pour reproduire la routine sur les prochaines fenêtres comparables.';
+        return 'Note interne ' + siteName(p) + '. CA au-dessus du niveau habituel pour ce jour. Documenter les conditions du jour (contexte, météo, calendrier) ; coïncidence à confirmer avant d\'en faire une routine.';
       }
     }
   );
@@ -1853,14 +1859,12 @@
   reg('sales_traffic_not_converting', 'Trafic sans conversion', 'INTELLIGENCE', '🚶', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
-      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
+      var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
       var rate = a.conversion_rate != null ? (Number(a.conversion_rate) * 100).toFixed(1) : null;
       var vis = a.daily_visitors != null ? num(a.daily_visitors) : null;
       var line = 'Le public était là';
       if (foot != null) line += ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude)';
-      line += ' mais peu d\'achats';
-      if (conv != null) line += ' (conversion ' + conv + ' %' + (rate != null ? ', ' + rate + ' % des visiteurs' : '') + ')';
-      line += '.';
+      line += ' mais conversion ' + (cz != null ? Math.abs(cz).toFixed(1) + ' écarts-types sous votre norme du même jour' : 'en retrait') + (rate != null ? ' (' + rate + ' % des visiteurs achètent)' : '') + '.';
       if (vis != null) line += ' ' + vis + ' visiteurs comptés.';
       return line;
     },
@@ -1878,13 +1882,8 @@
   reg('sales_discount_no_lift', 'Remises sans effet', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
-      var ddelta = a.discount_rate_delta_pct != null ? Math.round(Number(a.discount_rate_delta_pct)) : null;
-      var rev30 = a.revenue_vs_30d_avg_pct != null ? Math.round(Number(a.revenue_vs_30d_avg_pct)) : null;
-      var line = 'Vous avez remisé plus que d\'habitude';
-      if (ddelta != null) line += ' (+' + ddelta + ' % d\'intensité' + (dr != null ? ', ' + dr + ' % du CA en remises' : '') + ')';
-      line += ' sans que le CA suive';
-      if (rev30 != null) line += ' (' + (rev30 >= 0 ? '+' : '') + rev30 + ' % vs moyenne 30j)';
-      line += '.';
+      var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
+      var line = 'Intensité de remise ' + (dz != null ? dz.toFixed(1) + ' écarts-types au-dessus de l\'habituel' : 'en hausse') + (dr != null ? ' (' + dr + ' % du CA en remises)' : '') + ' — le CA n\'a pas suivi.';
       return line;
     },
     {
@@ -1896,25 +1895,36 @@
     }
   );
 
-  // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_last_week_pct,
-  // daily_revenue, revenue_same_weekday_last_week, primary_revenue_driver.
-  reg('sales_revenue_down_wow', 'CA en baisse hebdo', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+  // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_avg_pct, avg_30d,
+  // daily_revenue, revenue_robust_z, primary_revenue_driver, transactions_delta_pct,
+  // basket_delta_pct, confidence_tier. Dow-band anomaly (not a same-weekday day-pair).
+  reg('sales_revenue_down_wow', 'CA sous son niveau habituel', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
-      var prev = a.revenue_same_weekday_last_week != null ? Math.round(Number(a.revenue_same_weekday_last_week)) : null;
-      var driver = ({footfall:'moins de trafic', basket:'panier plus faible', conversion:'conversion plus faible'})[a.primary_revenue_driver] || null;
-      var line = 'CA ' + (rev != null ? rev + ' € ' : '') + (wow != null ? (wow >= 0 ? '+' : '') + wow + ' % vs le même jour la semaine dernière' : 'en baisse vs la semaine dernière');
-      if (prev != null) line += ' (' + prev + ' €)';
-      line += '.';
-      if (driver) line += ' Cause dominante : ' + driver + '.';
+      var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
+      var pct = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+      var z = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
+      var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+      var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+      var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'panier moyen plus faible', conversion:'conversion plus faible'})[a.primary_revenue_driver] || null;
+      var line = 'CA ' + (rev != null ? rev + ' € ' : '') + (pct != null ? (pct >= 0 ? '+' : '') + pct + ' % vs votre moyenne 30j' : 'sous son niveau habituel') + (avg != null ? ' (' + avg + ' €)' : '') + (z != null ? ', ' + z.toFixed(1) + ' écarts-types sous vos mêmes jours' : '') + '.';
+      if (a.primary_revenue_driver === 'both' && tx != null && bk != null) {
+        line += ' Deux facteurs : ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.';
+      } else if (driver) {
+        line += ' Cause dominante : ' + driver + '.';
+      }
       return line;
     },
     {
       note_interne: function(a, p, d) {
-        var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
-        var driver = ({footfall:'trafic', basket:'panier moyen', conversion:'conversion'})[a.primary_revenue_driver] || 'plusieurs facteurs';
-        return 'Note interne ' + siteName(p) + '. CA ' + (wow != null ? wow + ' %' : 'en baisse') + ' vs le même jour la semaine dernière. Levier dominant : ' + driver + '. Identifier la cause et tracer pour comparer aux prochaines semaines.';
+        var pct = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+        var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+        var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+        var driverN = ({footfall:'trafic', transactions:'volume de ventes', basket:'panier moyen', conversion:'conversion'})[a.primary_revenue_driver];
+        var lever = (a.primary_revenue_driver === 'both')
+          ? 'ventes ' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ' et panier ' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?')
+          : (driverN || 'plusieurs facteurs');
+        return 'Note interne ' + siteName(p) + '. CA ' + (pct != null ? (pct >= 0 ? '+' : '') + pct + ' %' : 'en baisse') + ' vs votre moyenne 30j — sous votre niveau habituel pour ce jour. Levier dominant : ' + lever + '. Identifier la cause et tracer pour comparer aux prochaines semaines.';
       }
     }
   );
@@ -2144,7 +2154,7 @@
       actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
       var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
-      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
+      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;
       entries.push({ item: item, tmpl: tmpl, score: score });
     }
@@ -2219,7 +2229,7 @@
     }, urgency: 'plan' },
     'sales_surge': { action: function(a, p, d) {
       var pctUp = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
-      return 'À reproduire : ' + (pctUp != null ? '+' + pctUp + ' % vs habitude. ' : '') + 'Documentez les conditions du jour et rejouez cette routine sur les prochaines fenêtres comparables.';
+      return 'À noter : ' + (pctUp != null ? '+' + pctUp + ' % au-dessus de votre niveau habituel. ' : '') + 'Documentez les conditions du jour ; coïncidence à confirmer avant d\'en faire une routine.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
@@ -2581,16 +2591,16 @@
       return s;
     }, urgency: 'plan' },
     'sales_traffic_not_converting': { action: function(a, p, d) {
-      var conv = a.conversion_delta_pct != null ? Math.round(Number(a.conversion_delta_pct)) : null;
-      return 'À corriger : du trafic mais ' + (conv != null ? 'conversion ' + conv + ' % sous votre habitude' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
+      var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
+      return 'À corriger : du trafic mais ' + (cz != null ? 'conversion ' + Math.abs(cz).toFixed(1) + ' écarts-types sous votre norme' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
     }, urgency: 'soon' },
     'sales_discount_no_lift': { action: function(a, p, d) {
       return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
-      var wow = a.revenue_vs_last_week_pct != null ? Math.round(Number(a.revenue_vs_last_week_pct)) : null;
-      var driver = ({footfall:'le trafic', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
-      return 'À surveiller : CA ' + (wow != null ? wow + ' % ' : '') + 'sous le même jour de la semaine dernière' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
+      var pct = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+      var driver = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
+      return 'À surveiller : CA ' + (pct != null ? (pct >= 0 ? '+' : '') + pct + ' % ' : '') + 'sous votre niveau habituel pour ce jour' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
     }, urgency: 'soon' },
     'footfall_vs_basket_decomposition': { action: function(a, p, d) {
       var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;

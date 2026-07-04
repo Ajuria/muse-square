@@ -323,7 +323,7 @@ if (!location_id) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=8"></script>
+    <script is:inline src="/action-cards.js?v=12"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1382,6 +1382,23 @@ if (!location_id) {
     }
 
     // Context pass: fill up to 8 total (≈5 context after up to 3 goal cards).
+    // Performance pass: reserve up to 4 flagship performance cards (sales / footfall
+    // internal-alert signals) before the generic context pass, so they are not buried
+    // under environmental cards — notably in the merged "Tous mes sites" brief where
+    // non-primary sites' perf cards otherwise land at the tail of the priority tier.
+    var _perfCount = 0;
+    for (var _pj = 0; _pj < candidates.length && _perfCount < 4 && top.length < 8; _pj++) {
+      var _pc = candidates[_pj];
+      if (String(_pc.item.action_category || "").toLowerCase() !== "performance") continue;
+      var _psub = String(_pc.item.change_subtype || "").toLowerCase();
+      var _pdedup = _psub + "|" + normalizeYmd(_pc.item.affected_date);
+      if (seen[_pdedup]) continue;
+      seen[_pdedup] = true;
+      top.push(_pc);
+      _perfCount++;
+      _catCounts["performance"] = (_catCounts["performance"] || 0) + 1;
+    }
+
     for (var j = 0; j < candidates.length && top.length < 8; j++) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
@@ -1401,8 +1418,11 @@ if (!location_id) {
         if (catCount >= 1) continue;
       }
       var _acCat = String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
+      // Performance cards are the flagship internal-alert signals (the 5 in MS_INTERNAL_ALERT_TYPES);
+      // give them their own budget so co-occurring sales/footfall cards aren't capped at 2 like env cards.
+      var _catMax = _acCat === "performance" ? 5 : MAX_PER_CAT;
       _catCounts[_acCat] = (_catCounts[_acCat] || 0) + 1;
-      if (_catCounts[_acCat] > MAX_PER_CAT) continue;
+      if (_catCounts[_acCat] > _catMax) continue;
       top.push(c);
     }
 
@@ -1716,6 +1736,7 @@ if (!location_id) {
                     + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
+                    + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">signal ' + escapeHtml(t.confidence_tier) + '</span>' : '')
                   + '</div>'
                   + '<div class="ab-what">' + t.what + '</div>'
                   + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
