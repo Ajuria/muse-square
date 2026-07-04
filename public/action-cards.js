@@ -2027,7 +2027,6 @@
   function getAvailableChannels(actionType, prof, channelConfig) {
     var spec = SPECS[actionType];
     if (!spec || spec.card_type === 'notification') return [];
-    if (AWARENESS_ONLY[actionType]) return [];
     if (RULE_ONLY[actionType]) return [];
     var seeds = spec.draft_seeds || {};
     var cc = channelConfig || {};
@@ -2076,18 +2075,35 @@
     return s.slice(0, 10);
   }
 
-  window.renderActionCandidates = function(candidates, prof, currentDay, selectedDate, mode, channelConfig) {
+  window.renderActionCandidates = function(candidates, prof, currentDay, selectedDate, mode, channelConfig, today) {
     if (!Array.isArray(candidates) || candidates.length === 0) return [];
     var target = normalizeDate(selectedDate);
     var entries = [];
     prof = prof || {};
     currentDay = currentDay || {};
     channelConfig = channelConfig || {};
+    // Performance cards (the 5 in MS_INTERNAL_ALERT_TYPES) carry an INGESTION date (past, gap
+    // 1-30+ days), not an action date. They surface on TODAY's brief only, and only the latest
+    // ingestion row per action_type (so multiple ingestion dates don't produce duplicate cards).
+    var _perfTypes = window.MS_INTERNAL_ALERT_TYPES || [];
+    var _perfLatest = {};
+    for (var _pi = 0; _pi < candidates.length; _pi++) {
+      var _pat = candidates[_pi].action_type || '';
+      if (_perfTypes.indexOf(_pat) < 0) continue;
+      var _pd = normalizeDate(candidates[_pi].date);
+      if (!_perfLatest[_pat] || _pd > _perfLatest[_pat]) _perfLatest[_pat] = _pd;
+    }
+    var _todayN = today ? normalizeDate(today) : '';
     for (var i = 0; i < candidates.length; i++) {
       var ac = candidates[i];
       var acDate = normalizeDate(ac.date);
-      if (acDate !== target) continue;
       var actionType = ac.action_type || '';
+      if (_perfTypes.indexOf(actionType) >= 0) {
+        // Performance: render on today only, and only the latest ingestion row per type.
+        if (!_todayN || target !== _todayN || acDate !== _perfLatest[actionType]) continue;
+      } else if (acDate !== target) {
+        continue;
+      }
       var spec = SPECS[actionType];
       var feedItem = {};
       if (ac.data_payload) { var dp = ac.data_payload; for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; } }
@@ -2701,5 +2717,9 @@
 
   window.ACTION_CARDS = SPECS;
   window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
+
+  // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Alerter en interne".
+  // Keep in sync with src/lib/internalAlertCards.ts (backend Barrier 2).
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition'];
 
 })();

@@ -60,11 +60,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
     if (!userId) return new Response(JSON.stringify({ ok: false }), { status: 401, headers: { "content-type": "application/json" } });
     const body = await request.json().catch(() => null);
-    if (!body || !body.location_id || !body.action_type || !body.channel || !body.recipient) {
-      return new Response(JSON.stringify({ ok: false, error: "Champs requis : location_id, action_type, channel, recipient" }), { status: 400, headers: { "content-type": "application/json" } });
+    if (!body || !body.location_id || !body.action_type || !body.channel) {
+      return new Response(JSON.stringify({ ok: false, error: "Champs requis : location_id, action_type, channel" }), { status: 400, headers: { "content-type": "application/json" } });
     }
     const actionType = String(body.action_type).trim();
     const channel = String(body.channel).trim();
+    const recipient = String(body.recipient || "").trim();
     // Barrier 2 — reject any action_type outside the v1 allowlist.
     if (!V1_ALERT_ACTION_TYPE_SET.has(actionType)) {
       return new Response(JSON.stringify({ ok: false, error: "action_type non autorisé pour l'alerte interne : " + actionType }), { status: 400, headers: { "content-type": "application/json" } });
@@ -72,6 +73,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Barrier 3 — reject any channel that is not internal-only.
     if (!INTERNAL_CHANNELS.has(channel)) {
       return new Response(JSON.stringify({ ok: false, error: "Canal non interne interdit sur ce rail : " + channel }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    // note_interne is an internal write (no recipient); slack/email require one.
+    if ((channel === "slack" || channel === "email") && !recipient) {
+      return new Response(JSON.stringify({ ok: false, error: "Destinataire requis pour ce canal" }), { status: 400, headers: { "content-type": "application/json" } });
     }
     requireLocationOwnership(locals, body.location_id);
     const now = new Date().toISOString();
@@ -84,7 +89,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_id: String(body.location_id).trim(),
       action_type: actionType,
       channel: channel,
-      recipient: String(body.recipient).trim(),
+      recipient: recipient,
       enabled: body.enabled !== false,
       frequency: String(body.frequency || "first_occurrence").trim(),
       created_at: now,
