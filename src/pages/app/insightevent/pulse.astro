@@ -2294,9 +2294,9 @@ if (!location_id) {
         var _alCard = null;
         try { _alCard = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
         var ctx = {
-          actionType: parent ? (parent.getAttribute("data-ab-draft-sub") || "") : "",
+          actionType: (_alCard && _alCard.change_subtype) ? String(_alCard.change_subtype) : (parent ? (parent.getAttribute("data-ab-draft-sub") || "") : ""),
           affected: parent ? (parent.getAttribute("data-ab-draft-affected") || "") : "",
-          locationId: (parent ? (parent.getAttribute("data-ab-draft-location") || "") : "") || locationId,
+          locationId: (_alCard && _alCard.location_id) ? String(_alCard.location_id) : ((parent ? (parent.getAttribute("data-ab-draft-location") || "") : "") || locationId),
           what: parent ? (parent.getAttribute("data-ab-draft-what") || "") : "",
           sowhat: parent ? (parent.getAttribute("data-ab-draft-sowhat") || "") : "",
           card: _alCard,
@@ -2322,9 +2322,15 @@ if (!location_id) {
         var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
         var actionType = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
         var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
-        var cardLocId = (parent ? parent.getAttribute("data-ab-draft-location") : "") || locationId;
         var _ac = null;
         try { _ac = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
+        // Authoritative location = the tapped card object, not the DOM attribute.
+        // On a multi-venue feed the attribute could arrive empty and fall back to
+        // the page's current location, loading the WRONG venue's dossier (the
+        // empty-Décomposition bug). The card object always carries its own venue.
+        var cardLocId = (_ac && _ac.location_id) ? String(_ac.location_id) : ((parent ? parent.getAttribute("data-ab-draft-location") : "") || locationId);
+        var affectedLoc = (_ac && _ac.affected_date) ? normalizeYmd(_ac.affected_date) : affected;
+        if (affectedLoc) affected = affectedLoc;
         var _instId = (_ac && _ac.card_instance_id) ? String(_ac.card_instance_id) : "";
         // Store day + profile + the exact tapped candidate for an identity-correct load
         try {
