@@ -756,9 +756,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.competitor_name);
           src += '<a href="' + esc(mapsUrl) + '" target="_blank" rel="noopener" class="fs-source" style="margin-top:10px;text-decoration:none;"><span class="fs-source-icon">\ud83d\udccd</span> Voir ' + esc(m.competitor_name) + ' sur Google Maps \u2192</a>';
         }
+        // Analog / history layer — movement cards only (async fill post-render).
+        var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
+        if (_isMovement) {
+          html += zone('Historique · jours comparables',
+            '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
+        }
+
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
+
+        if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -771,6 +780,60 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         });
 
         wireActionBar(root, day, prof, feedItem);
+      }
+
+      // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
+      // Two honest branches: named comparable days when they exist; "situation nouvelle"
+      // when the day's condition configuration has no precedent in the recent history.
+      var ANALOG_DOW_FR = { 1:'Dimanche', 2:'Lundi', 3:'Mardi', 4:'Mercredi', 5:'Jeudi', 6:'Vendredi', 7:'Samedi' };
+      var ANALOG_WX_FR = { normal:'temps normal', calme:'temps calme', perturbe:'temps perturbé', severe:'temps sévère' };
+      function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
+      function loadAnalogs(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/analogs?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r) { return r.json(); })
+          .then(function(j) {
+            if (!j || !j.ok || !j.found || !j.analog) { container.innerHTML = analogEmptyHtml(); return; }
+            container.innerHTML = analogHtml(j.analog);
+          })
+          .catch(function() { container.innerHTML = analogEmptyHtml(); });
+      }
+      function analogEmptyHtml() {
+        return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Historique indisponible pour ce jour.</div>';
+      }
+      function analogHtml(a) {
+        var MUTE = '#9CA3AF', INK = '#111827', SUB = '#6B7280';
+        var cond = [];
+        if (a.dow != null && ANALOG_DOW_FR[a.dow]) cond.push(ANALOG_DOW_FR[a.dow]);
+        if (a.weather_band) cond.push(ANALOG_WX_FR[a.weather_band] || a.weather_band);
+        var condLabel = cond.join(', ');
+        if (a.is_unexplained || !a.analog_n) {
+          return '<div style="font-size:14px;font-weight:600;color:' + INK + ';margin-bottom:6px;">Situation nouvelle</div>'
+            + '<div style="font-size:13px;color:' + SUB + ';line-height:1.55;">'
+            + 'Aucun jour de configuration comparable' + (condLabel ? ' (' + esc(condLabel) + ')' : '')
+            + ' dans votre historique récent. Ce que vous observez aujourd’hui devient la première référence pour ce type de jour — à documenter.'
+            + '</div>';
+        }
+        var head = '<div style="font-size:13px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">'
+          + 'Ce type de jour' + (condLabel ? ' (' + esc(condLabel) + ')' : '') + ' s’est produit <strong>' + a.analog_n + '</strong> fois. '
+          + (a.analog_median_revenue != null ? 'CA médian ces jours-là : <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>. ' : '')
+          + (a.residual_vs_analog_pct != null ? 'Aujourd’hui : <strong>' + (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %</strong> vs ces jours.' : '')
+          + '</div>';
+        var list = '';
+        var arr = Array.isArray(a.analogs) ? a.analogs : [];
+        for (var i = 0; i < arr.length && i < 6; i++) {
+          var an = arr[i];
+          var wx = an.weather_band ? (ANALOG_WX_FR[an.weather_band] || an.weather_band) : '';
+          list += '<div style="padding:9px 0;border-bottom:0.5px solid #F3F4F6;display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
+            + '<div style="font-size:13px;color:' + INK + ';">' + esc(an.date || '') + '</div>'
+            + '<div style="font-size:13px;color:' + SUB + ';white-space:nowrap;">'
+              + (an.revenue != null ? analogFrInt(an.revenue) + ' €' : '—')
+              + (wx ? ' · ' + esc(wx) : '')
+              + (an.events != null ? ' · ' + an.events + ' évén.' : '')
+            + '</div>'
+          + '</div>';
+        }
+        return head + list;
       }
 
       function loadCompetitorDescriptif(competitorId, competitorName, panel, btn) {
