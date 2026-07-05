@@ -3,10 +3,19 @@ export const prerender = false;
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
 import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
-const location_id =
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+const _localsLoc =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
     ? (Astro.locals as any).location_id.trim()
     : null;
+// Honor the location_id from the Consulter link — a card may belong to a
+// different venue than the account's active one on a multi-venue feed. Only
+// accept it if the user owns that venue; otherwise keep the active venue.
+const _urlLoc = Astro.url?.searchParams?.get("location_id")?.trim() || null;
+let location_id = _localsLoc;
+if (_urlLoc) {
+  try { requireLocationOwnership(Astro.locals, _urlLoc); location_id = _urlLoc; } catch { /* not owned — keep active venue */ }
+}
 if (!location_id) {
   return Astro.redirect("/profile");
 }
