@@ -713,7 +713,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
           + '</div>';
 
-        var synth = '<p style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
+        var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
         if (_isMov) html += grp('La source');
         html += zone('Synth\u00e8se', synth);
@@ -807,6 +807,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       var ANALOG_WX_FR = { clair:'temps clair', normal:'temps normal', calme:'temps calme', perturbe:'temps perturbé', severe:'temps sévère' };
       var ANALOG_TIER_FR = { exact:'même configuration de conditions', dow_weather:'même jour + même météo', dow:'même jour de semaine' };
       function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
+      var ANALOG_MONTH_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+      function analogDateFr(iso) { try { var p = String(iso).split('-'); if (p.length !== 3) return String(iso); return parseInt(p[2], 10) + ' ' + ANALOG_MONTH_FR[parseInt(p[1], 10) - 1]; } catch(e) { return String(iso); } }
       function loadAnalogs(locId, date, container) {
         if (!container) return;
         fetch('/api/insight/analogs?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
@@ -814,39 +816,57 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           .then(function(j) {
             if (!j || !j.ok || !j.found || !j.analog) { container.innerHTML = analogEmptyHtml(); return; }
             container.innerHTML = analogHtml(j.analog);
+            injectAnalogIntoSynthese(j.analog);
           })
           .catch(function() { container.innerHTML = analogEmptyHtml(); });
+      }
+      // Make the Synthèse headline explicit once the analog data is in: swap the
+      // vague 'de vos jours comparables' for the real number + basis.
+      function injectAnalogIntoSynthese(a) {
+        try {
+          var sc = document.getElementById('fs-synth-ctx');
+          if (!sc || !a || a.is_unexplained || !a.analog_n || a.residual_vs_analog_pct == null) return;
+          var dayFr = (a.dow != null && ANALOG_DOW_FR[a.dow]) ? ANALOG_DOW_FR[a.dow].toLowerCase() : 'jour';
+          var pct = (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %';
+          var basis = a.analog_n + ' derniers ' + dayFr + 's comparables' + (a.analog_median_revenue != null ? ' (médian ' + analogFrInt(a.analog_median_revenue) + ' €)' : '');
+          sc.innerHTML = sc.innerHTML
+            .replace(/(?:nettement )?au-dessus de vos jours comparables/, pct + ' au-dessus de vos ' + basis)
+            .replace(/(?:nettement )?sous vos jours comparables/, pct + ' vs vos ' + basis);
+        } catch(e) {}
       }
       function analogEmptyHtml() {
         return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Historique indisponible pour ce jour.</div>';
       }
       function analogHtml(a) {
         var MUTE = '#9CA3AF', INK = '#111827', SUB = '#6B7280';
-        var cond = [];
-        if (a.dow != null && ANALOG_DOW_FR[a.dow]) cond.push(ANALOG_DOW_FR[a.dow]);
-        if (a.weather_band) cond.push(ANALOG_WX_FR[a.weather_band] || a.weather_band);
-        var condLabel = cond.join(', ');
+        var dayFr = (a.dow != null && ANALOG_DOW_FR[a.dow]) ? ANALOG_DOW_FR[a.dow].toLowerCase() : 'jour';
+        var wxFr = a.weather_band ? (ANALOG_WX_FR[a.weather_band] || a.weather_band) : '';
+        var n = a.analog_n;
+        // Basis reflects the ACTUAL match tier — never today's incidental weather.
+        var basis;
+        if (a.match_tier === 'exact') basis = 'vos ' + n + ' derniers ' + dayFr + 's à conditions identiques';
+        else if (a.match_tier === 'dow_weather') basis = 'vos ' + n + ' derniers ' + dayFr + 's' + (wxFr ? ' par ' + wxFr : '');
+        else basis = 'vos ' + n + ' derniers ' + dayFr + 's';
         if (a.is_unexplained || !a.analog_n) {
           return '<div style="font-size:14px;font-weight:600;color:' + INK + ';margin-bottom:6px;">Situation nouvelle</div>'
             + '<div style="font-size:13px;color:' + SUB + ';line-height:1.55;">'
-            + 'Aucun jour de configuration comparable' + (condLabel ? ' (' + esc(condLabel) + ')' : '')
-            + ' dans votre historique récent. Ce que vous observez aujourd’hui devient la première référence pour ce type de jour — à documenter.'
+            + 'Aucun ' + esc(dayFr) + ' comparable dans votre historique récent. Ce que vous observez aujourd’hui devient la première référence pour ce type de jour — à documenter.'
             + '</div>';
         }
-        var tierLabel = ANALOG_TIER_FR[a.match_tier] || 'jours comparables';
-        var head = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:8px;">Appariement : ' + esc(tierLabel) + (condLabel ? ' · ' + esc(condLabel) : '') + '</div>'
-          + '<div style="font-size:13px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">'
-          + '<strong>' + a.analog_n + '</strong> jours comparables. '
-          + (a.analog_median_revenue != null ? 'CA médian : <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>. ' : '')
-          + (a.residual_vs_analog_pct != null ? 'Aujourd’hui : <strong>' + (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %</strong> vs ces jours.' : '')
-          + '</div>';
+        var head = '<div style="font-size:13px;color:' + INK + ';line-height:1.6;margin-bottom:10px;">'
+          + 'Comparé à <strong>' + esc(basis) + '</strong>'
+          + (a.analog_median_revenue != null ? ' (CA médian <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>)' : '')
+          + ' : aujourd’hui <strong>' + (a.daily_revenue != null ? analogFrInt(a.daily_revenue) + ' €' : '—') + '</strong>'
+          + (a.residual_vs_analog_pct != null ? ', soit <strong>' + (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %</strong>' : '')
+          + '.</div>'
+          + '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:2px;">Le détail de ces journées (les plus récentes) :</div>';
         var list = '';
         var arr = Array.isArray(a.analogs) ? a.analogs : [];
         for (var i = 0; i < arr.length && i < 6; i++) {
           var an = arr[i];
           var wx = an.weather_band ? (ANALOG_WX_FR[an.weather_band] || an.weather_band) : '';
           list += '<div style="padding:9px 0;border-bottom:0.5px solid #F3F4F6;display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
-            + '<div style="font-size:13px;color:' + INK + ';">' + esc(an.date || '') + '</div>'
+            + '<div style="font-size:13px;color:' + INK + ';">' + esc(analogDateFr(an.date)) + '</div>'
             + '<div style="font-size:13px;color:' + SUB + ';white-space:nowrap;">'
               + (an.revenue != null ? analogFrInt(an.revenue) + ' €' : '—')
               + (wx ? ' · ' + esc(wx) : '')
