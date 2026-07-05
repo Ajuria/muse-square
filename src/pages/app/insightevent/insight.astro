@@ -134,7 +134,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/action-cards.js?v=6"></script>
+    <script is:inline src="/action-cards.js?v=15"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -960,10 +960,21 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var html = '';
 
         // ── Build feed item for sowhat ──
+        // Robust to both candidate shapes: monitor.ts hands data_payload as an
+        // object; the Pulse cache (__msCardByIdx) hands a card object with the
+        // payload flattened onto it (and no nested data_payload). Flatten a
+        // nested payload if present (object or JSON string), then copy any
+        // direct fields the candidate already carries.
         var feedItem = {};
-        if (actionCandidate && actionCandidate.data_payload) {
+        if (actionCandidate) {
           var dp = actionCandidate.data_payload;
-          for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; }
+          if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = null; } }
+          if (dp && typeof dp === 'object') { for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; } }
+          for (var ck in actionCandidate) {
+            if (actionCandidate.hasOwnProperty(ck) && ck !== 'data_payload' && !feedItem.hasOwnProperty(ck)) {
+              feedItem[ck] = actionCandidate[ck];
+            }
+          }
         }
         feedItem.change_subtype = signal_type;
 

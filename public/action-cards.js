@@ -1812,9 +1812,11 @@
         return 'Post Instagram pour ' + siteName(p) + '. Belle journée' + (pctUp != null ? ' (+' + pctUp + ' % vs habitude)' : '') + ' — capitalisez sur le momentum. Mettre en avant : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.';
       },
       note_interne: function(a, p, d) {
-        var pctUp = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+        var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
+        var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
+        var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
         var soft = (a.confidence_tier || 'possible') === 'possible';
-        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (pctUp != null ? ', CA +' + pctUp + ' % au-dessus de notre niveau habituel' : '') + '. ' + (soft ? 'Notons ce qui a marché aujourd\'hui (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines fenêtres comparables.');
+        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + '. ' + (soft ? 'Notons ce qui a marché aujourd\'hui (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines fenêtres comparables.');
       }
     }
   );
@@ -1921,7 +1923,8 @@
     },
     {
       note_interne: function(a, p, d) {
-        var pct = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
+        var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
+        var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
         var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
         var driverN = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver];
@@ -1929,7 +1932,7 @@
           ? 'le volume de ventes (' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ') et le panier (' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?') + ')'
           : (driverN || 'plusieurs facteurs');
         var soft = (a.confidence_tier || 'possible') === 'possible';
-        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'notre CA est passé sous son niveau habituel pour ce jour' + (pct != null ? ' (' + (pct >= 0 ? '+' : '') + pct + ' % vs moyenne 30j)' : '') + ', tiré par ' + lever + '. ' + (soft ? 'Confirmons si c\'est ponctuel avant d\'agir, et surveillons les prochains jours.' : 'Agissons sur ' + lever + ' cette semaine et suivons l\'effet.');
+        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'notre CA est passé sous l\'attendu pour ce jour' + (resid != null ? ' (' + Math.abs(resid) + ' % sous l\'attendu' + (exp != null ? ', ' + exp + ' € attendus' : '') + ')' : '') + ', tiré par ' + lever + '. ' + (soft ? 'Confirmons si c\'est ponctuel avant d\'agir, et surveillons les prochains jours.' : 'Agissons sur ' + lever + ' cette semaine et suivons l\'effet.');
       }
     }
   );
@@ -2233,8 +2236,7 @@
       return 'À noter : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et tracez la cause pour ne pas la répéter.';
     }, urgency: 'plan' },
     'sales_surge': { action: function(a, p, d) {
-      var pctUp = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
-      return 'À noter : ' + (pctUp != null ? '+' + pctUp + ' % au-dessus de votre niveau habituel. ' : '') + 'Documentez les conditions du jour ; coïncidence à confirmer avant d\'en faire une routine.';
+      return 'À noter : coïncidence à confirmer — documentez les conditions du jour (offre, météo, calendrier) avant d\'en faire une routine.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
@@ -2603,9 +2605,8 @@
       return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
-      var pct = a.revenue_vs_avg_pct != null ? Math.round(Number(a.revenue_vs_avg_pct)) : null;
       var driver = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
-      return 'À surveiller : CA ' + (pct != null ? (pct >= 0 ? '+' : '') + pct + ' % ' : '') + 'sous votre niveau habituel pour ce jour' + (driver ? ', porté par ' + driver : '') + '. Confirmez si c\'est ponctuel ou récurrent avant d\'agir.';
+      return 'À surveiller : confirmez si c\'est ponctuel ou récurrent' + (driver ? ' (levier : ' + driver + ')' : '') + ' avant d\'agir ; tracez la cause pour comparer aux prochaines semaines.';
     }, urgency: 'soon' },
     'footfall_vs_basket_decomposition': { action: function(a, p, d) {
       var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;

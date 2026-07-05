@@ -323,7 +323,7 @@ if (!location_id) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=14"></script>
+    <script is:inline src="/action-cards.js?v=15"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -2176,8 +2176,16 @@ if (!location_id) {
     }
 
     function buildAlertPanelHtml(cardIdx, ctx) {
-      var msg = ctx.what || '';
-      if (ctx.sowhat) msg = msg ? (msg + ' — ' + ctx.sowhat) : ctx.sowhat;
+      // Management-voice message from the SPEC note_interne channel (getDraftSeed).
+      // Same internal note whatever the delivery channel; fall back to what+sowhat.
+      var msg = '';
+      try {
+        if (window.getDraftSeed && ctx.card) {
+          var seed = window.getDraftSeed(ctx.actionType, 'note_interne', ctx.card, ctx.prof || {}, ctx.day || {});
+          if (seed) msg = (typeof seed === 'object') ? (seed.body || seed.full_text || '') : String(seed);
+        }
+      } catch(e) {}
+      if (!msg) { msg = ctx.what || ''; if (ctx.sowhat) msg = msg ? (msg + ' — ' + ctx.sowhat) : ctx.sowhat; }
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
       return '<div style="border-top:1px solid var(--color-border);padding:14px 16px 16px;background:var(--color-bg-recessed);">'
         + '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">Communiquer en interne</div>'
@@ -2283,12 +2291,17 @@ if (!location_id) {
           if (ws.id !== "ab-card-" + cardIdx + "-workspace") { ws.style.display = "none"; ws.innerHTML = ""; }
         });
         var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
+        var _alCard = null;
+        try { _alCard = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
         var ctx = {
           actionType: parent ? (parent.getAttribute("data-ab-draft-sub") || "") : "",
           affected: parent ? (parent.getAttribute("data-ab-draft-affected") || "") : "",
           locationId: (parent ? (parent.getAttribute("data-ab-draft-location") || "") : "") || locationId,
           what: parent ? (parent.getAttribute("data-ab-draft-what") || "") : "",
-          sowhat: parent ? (parent.getAttribute("data-ab-draft-sowhat") || "") : ""
+          sowhat: parent ? (parent.getAttribute("data-ab-draft-sowhat") || "") : "",
+          card: _alCard,
+          prof: (typeof data !== "undefined" && data && data.profile) ? data.profile : {},
+          day: (typeof currentDay !== "undefined" && currentDay) ? currentDay : {}
         };
         workspace.style.display = "block";
         workspace.innerHTML = '<div style="padding:16px;font-size:11px;color:#9ca3af;">Chargement…</div>';
