@@ -913,16 +913,20 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
       // ── Try sessionStorage first ──
       var cachedData = null;
+      var _dbgKey = "ms_signal_data_" + location_id + "_" + signal_date;
       try {
-        var key = "ms_signal_data_" + location_id + "_" + signal_date;
+        var key = _dbgKey;
         var raw = sessionStorage.getItem(key);
         if (raw) cachedData = JSON.parse(raw);
       } catch(e) {}
+      try { window.__msDbg2 = { location_id: location_id, signal_date: signal_date, signal_instance: signal_instance, isActionType: isActionType, cacheKey: _dbgKey, cachedData_present: !!cachedData, cached_ac_present: !!(cachedData && cachedData.actionCandidate) }; } catch(e) {}
 
       if (cachedData && !(isActionType && signal_instance && !cachedData.actionCandidate)) {
+        try { window.__msDbg2.branch = 'cache'; } catch(e) {}
         renderPage(cachedData.day, cachedData.prof, cachedData.actionCandidate);
       } else {
         var dates = signal_date || new Date().toISOString().slice(0,10);
+        try { window.__msDbg2.branch = 'fetch'; window.__msDbg2.fetchDates = dates; } catch(e) {}
         fetch("/api/insight/monitor?location_id=" + encodeURIComponent(location_id) + "&selected_dates=" + encodeURIComponent(dates))
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -939,9 +943,19 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               }
               if (!ac) ac = data.action_candidates.find(function(c) { return c.action_type === signal_type; }) || null;
             }
+            try {
+              var acs = (data && data.action_candidates) ? data.action_candidates : [];
+              window.__msDbg2.fetch_ok = !!(data && data.ok);
+              window.__msDbg2.ac_count = acs.length;
+              window.__msDbg2.ac_types = acs.map(function(c){ return c.action_type; });
+              window.__msDbg2.instance_match = !!acs.find(function(c){ return String(c.card_instance_id) === String(signal_instance); });
+              window.__msDbg2.type_match = !!acs.find(function(c){ return c.action_type === signal_type; });
+              window.__msDbg2.resolved_ac_present = !!ac;
+            } catch(e) {}
             renderPage(day, prof, ac);
           })
           .catch(function(err) {
+            try { window.__msDbg2.fetch_error = String(err && err.message || err); } catch(e) {}
             loader.innerHTML = '<span style="color:#B91C1C;">Erreur : ' + esc(err.message) + '</span>';
           });
       }
