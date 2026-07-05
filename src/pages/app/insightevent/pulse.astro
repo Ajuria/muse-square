@@ -195,7 +195,7 @@ if (!location_id) {
       .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:0; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
       .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
       .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:0; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
-      .disc { display:flex; align-items:center; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
+      .disc { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
       .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:0; padding:4px 10px; cursor:pointer; font-family:inherit; }
 
       /* ---- Eyebrow + Fil d'actualité timeline ---- */
@@ -1722,6 +1722,7 @@ if (!location_id) {
       var metricsHtml = buildMetricsStrip(entry, currentDay);
       var isAction = t._card_type === 'action' && commChannels.length > 0;
       var showAgir = isAction || (_isInternalAlert && commChannels.length === 0);
+      var consultOpen = (t._card_type === 'action') ? (' data-consult-open="' + cardIdx + '" style="cursor:pointer;"') : '';
 
       return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
         + '<div class="ab-card-row">'
@@ -1738,8 +1739,8 @@ if (!location_id) {
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
-                  + '<div class="ab-what">' + t.what + '</div>'
-                  + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
+                  + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
+                  + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
                 + '</div>'
               + '</div>'
@@ -2311,34 +2312,40 @@ if (!location_id) {
       });
     });
 
-    // Consulter — navigate to target view
+    // Consulter — shared navigation, fully sourced from the tapped card object
+    // (__msCardByIdx) so it works from the menu button OR a title/text click, and
+    // always carries the card's own venue (multi-venue safe — the empty-dossier fix).
+    function openConsultForCard(cardIdx) {
+      var _ac = null;
+      try { _ac = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
+      if (!_ac) return;
+      var actionType = String(_ac.change_subtype || "");
+      var affected = _ac.affected_date ? (normalizeYmd(_ac.affected_date) || "") : "";
+      var cardLocId = String(_ac.location_id || "") || locationId;
+      var _instId = _ac.card_instance_id ? String(_ac.card_instance_id) : "";
+      try {
+        var key = "ms_signal_data_" + cardLocId + "_" + affected;
+        sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: _ac }));
+      } catch(ex) {}
+      window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId) + (_instId ? "&card_instance_id=" + encodeURIComponent(_instId) : "");
+    }
+
+    // Consulter — menu button
     root.querySelectorAll("[data-agir-consult]").forEach(function(btn) {
       btn.addEventListener("click", function(e) {
         e.stopPropagation();
         var cardIdx = btn.getAttribute("data-agir-consult");
         var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
         if (menu) menu.style.display = "none";
-        // Get action type and date from parent
-        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
-        var actionType = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
-        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
-        var _ac = null;
-        try { _ac = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
-        // Authoritative location = the tapped card object, not the DOM attribute.
-        // On a multi-venue feed the attribute could arrive empty and fall back to
-        // the page's current location, loading the WRONG venue's dossier (the
-        // empty-Décomposition bug). The card object always carries its own venue.
-        var cardLocId = (_ac && _ac.location_id) ? String(_ac.location_id) : ((parent ? parent.getAttribute("data-ab-draft-location") : "") || locationId);
-        var affectedLoc = (_ac && _ac.affected_date) ? normalizeYmd(_ac.affected_date) : affected;
-        if (affectedLoc) affected = affectedLoc;
-        var _instId = (_ac && _ac.card_instance_id) ? String(_ac.card_instance_id) : "";
-        // Store day + profile + the exact tapped candidate for an identity-correct load
-        try {
-          var key = "ms_signal_data_" + cardLocId + "_" + affected;
-          sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: _ac }));
-        } catch(ex) {}
-        // Navigate to insight page
-        window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId) + (_instId ? "&card_instance_id=" + encodeURIComponent(_instId) : "");
+        openConsultForCard(cardIdx);
+      });
+    });
+
+    // Consulter — click on card title / text
+    root.querySelectorAll("[data-consult-open]").forEach(function(el) {
+      el.addEventListener("click", function(e) {
+        e.stopPropagation();
+        openConsultForCard(el.getAttribute("data-consult-open"));
       });
     });
 
