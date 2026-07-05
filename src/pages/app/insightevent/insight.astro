@@ -701,6 +701,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + inner + '</div>';
         }
 
+        function grp(label) {
+          return '<div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:' + BR + ';margin:26px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + BR + ';">' + esc(label) + '</div>';
+        }
+        var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
@@ -711,6 +715,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
         var synth = '<p style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
+        if (_isMov) html += grp('La source');
         html += zone('Synth\u00e8se', synth);
 
         var dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
@@ -768,6 +773,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         // Analog / history layer — movement cards only (async fill post-render).
         var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
         if (_isMovement) {
+          html += grp('Contexte & informations liées');
           html += zone('Historique · jours comparables',
             '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
           html += zone('Environnement du jour · agent web',
