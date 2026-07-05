@@ -42,7 +42,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const [rows] = await bq.query({
       query: `
         SELECT
-          dow, condition_key, weather_band,
+          dow, condition_key, weather_band, match_tier,
           daily_revenue,
           analog_n,
           analog_median_revenue,
@@ -79,6 +79,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         dow: r.dow != null ? Number(r.dow) : null,
         condition_key: r.condition_key ?? null,
         weather_band: r.weather_band ?? null,
+        match_tier: r.match_tier ?? null,
         daily_revenue: r.daily_revenue != null ? Math.round(Number(r.daily_revenue)) : null,
         analog_n: r.analog_n != null ? Number(r.analog_n) : 0,
         analog_median_revenue: r.analog_median_revenue != null ? Math.round(Number(r.analog_median_revenue)) : null,

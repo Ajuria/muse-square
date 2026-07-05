@@ -786,7 +786,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // Two honest branches: named comparable days when they exist; "situation nouvelle"
       // when the day's condition configuration has no precedent in the recent history.
       var ANALOG_DOW_FR = { 1:'Dimanche', 2:'Lundi', 3:'Mardi', 4:'Mercredi', 5:'Jeudi', 6:'Vendredi', 7:'Samedi' };
-      var ANALOG_WX_FR = { normal:'temps normal', calme:'temps calme', perturbe:'temps perturbé', severe:'temps sévère' };
+      var ANALOG_WX_FR = { clair:'temps clair', normal:'temps normal', calme:'temps calme', perturbe:'temps perturbé', severe:'temps sévère' };
+      var ANALOG_TIER_FR = { exact:'même configuration de conditions', dow_weather:'même jour + même météo', dow:'même jour de semaine' };
       function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
       function loadAnalogs(locId, date, container) {
         if (!container) return;
@@ -814,9 +815,11 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + ' dans votre historique récent. Ce que vous observez aujourd’hui devient la première référence pour ce type de jour — à documenter.'
             + '</div>';
         }
-        var head = '<div style="font-size:13px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">'
-          + 'Ce type de jour' + (condLabel ? ' (' + esc(condLabel) + ')' : '') + ' s’est produit <strong>' + a.analog_n + '</strong> fois. '
-          + (a.analog_median_revenue != null ? 'CA médian ces jours-là : <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>. ' : '')
+        var tierLabel = ANALOG_TIER_FR[a.match_tier] || 'jours comparables';
+        var head = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:8px;">Appariement : ' + esc(tierLabel) + (condLabel ? ' · ' + esc(condLabel) : '') + '</div>'
+          + '<div style="font-size:13px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">'
+          + '<strong>' + a.analog_n + '</strong> jours comparables. '
+          + (a.analog_median_revenue != null ? 'CA médian : <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>. ' : '')
           + (a.residual_vs_analog_pct != null ? 'Aujourd’hui : <strong>' + (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %</strong> vs ces jours.' : '')
           + '</div>';
         var list = '';
