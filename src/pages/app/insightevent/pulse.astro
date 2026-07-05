@@ -2285,6 +2285,7 @@ if (!location_id) {
       html += '<div data-al-err="' + cardIdx + '" style="display:none;color:#B91C1C;font-size:11px;margin-top:8px;"></div>'
         + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">'
           + '<button type="button" data-al-activate="' + cardIdx + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;padding:7px 14px;cursor:pointer;">' + (isNotify ? 'Activer la notification' : 'Envoyer maintenant') + '</button>'
+          + '<button type="button" data-al-savedraft="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:#1D3BB3;background:transparent;border:1px solid #1D3BB3;padding:7px 12px;cursor:pointer;">Enregistrer le brouillon</button>'
           + '<button type="button" data-al-cancel="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:var(--color-text-secondary);background:transparent;border:none;cursor:pointer;padding:7px 6px;">Annuler</button>'
           + '<span style="margin-left:auto;font-size:10.5px;color:var(--color-text-muted);">Interne — jamais publié</span>'
         + '</div>'
@@ -2325,6 +2326,17 @@ if (!location_id) {
       wireAlertRecip(cardIdx, ws);
       var cancel = ws.querySelector('[data-al-cancel]');
       if (cancel) cancel.addEventListener('click', function() { ws.style.display = 'none'; ws.innerHTML = ''; });
+      var saveDraftBtn = ws.querySelector('[data-al-savedraft]');
+      if (saveDraftBtn) saveDraftBtn.addEventListener('click', function() {
+        var mEl = ws.querySelector('[data-al-msg]'); var m2 = mEl ? mEl.value.trim() : '';
+        var rEl = ws.querySelector('[data-al-recip]'); var r2 = rEl ? rEl.value.trim() : '';
+        if (!m2) return;
+        saveDraftBtn.disabled = true; saveDraftBtn.textContent = 'Enregistrement…';
+        fetch('/api/analytics/save-draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: ctx.locationId, signal_type: ctx.actionType, channel: state.channel, card_what: ctx.what || '', card_sowhat: ctx.sowhat || '', affected_date: ctx.affected || '', title: ctx.what || '', body: m2, hashtags: '', recipient: r2, original_ai_text: m2, user_instruction: '' }) })
+          .then(function(r) { return r.json(); })
+          .then(function() { saveDraftBtn.textContent = 'Brouillon enregistré'; _savedDraftsCache = null; })
+          .catch(function() { saveDraftBtn.disabled = false; saveDraftBtn.textContent = 'Enregistrer le brouillon'; });
+      });
       var alLibBtn = ws.querySelector('[data-al-library]');
       if (alLibBtn) alLibBtn.addEventListener('click', function() {
         openBrouillonLibrary({
