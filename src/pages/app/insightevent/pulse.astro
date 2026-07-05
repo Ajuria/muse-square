@@ -1318,6 +1318,69 @@ if (!location_id) {
     return [];
   }
 
+  // Shared "Mes brouillons" drawer — used by the Communiquer workspace and the
+  // internal notification panel. onRaw(picked) loads the draft as-is; onAdapt(picked)
+  // (only when showAdapt) re-styles it to the current signal via generate-action-draft.
+  function openBrouillonLibrary(opts) {
+    var existing = document.getElementById("ms-draft-library");
+    if (existing) { existing.remove(); return; }
+    var drafts = opts.drafts || [];
+    var showAdapt = opts.showAdapt !== false;
+    var overlay = document.createElement("div");
+    overlay.id = "ms-draft-library";
+    overlay.style.cssText = "position:fixed;top:0;right:0;bottom:0;width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:9999;display:flex;flex-direction:column;font-family:inherit;";
+    var header = '<div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">'
+      + '<div><div style="font-weight:700;font-size:15px;color:#111827;">Mes brouillons</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + '</div></div>'
+      + '<button type="button" id="ms-lib-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;">×</button>'
+    + '</div>';
+    var SIGNAL_LABELS = {weather_worsened:"Météo dégradée",weather_improved:"Météo améliorée",weather_hazard_onset:"Alerte météo",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilité",score_up:"Score en hausse",_day_opportunity:"Opportunité jour",_best_day:"Meilleur jour",score_down:"Score en baisse",sales_surge:"CA au-dessus de l’attendu",sales_revenue_down_wow:"CA sous l’attendu",sales_traffic_not_converting:"Trafic sans conversion",sales_discount_no_lift:"Remise sans effet"};
+    var cards = '';
+    for (var di = 0; di < drafts.length; di++) {
+      var d = drafts[di];
+      var dCh = CHANNEL_DEFS[d.channel] || CHANNEL_DEFS.gbp;
+      var sigLbl = SIGNAL_LABELS[d.signal_type] || d.signal_type || "";
+      var isMatch = d.signal_type === opts.activeSignalType && d.channel === opts.activeChannel;
+      var preview = (d.body || "").substring(0, 120) + ((d.body || "").length > 120 ? "…" : "");
+      var dateLbl = d.created_at ? d.created_at.substring(0, 10) : "";
+      cards += '<div style="padding:12px 14px;border-radius:8px;margin-bottom:8px;border:' + (isMatch ? '1.5px solid #1D3BB3' : '1px solid #e5e7eb') + ';background:' + (isMatch ? '#F5F7FF' : '#fff') + ';cursor:pointer;">'
+        + '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'
+          + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;">' + escapeHtml(sigLbl) + '</span>'
+          + '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:' + dCh.color + '18;color:' + dCh.color + ';">' + escapeHtml(dCh.icon + ' ' + dCh.label) + '</span>'
+          + (isMatch ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Correspondance</span>' : '')
+          + '<span style="font-size:10px;color:#9ca3af;margin-left:auto;">' + escapeHtml(dateLbl) + '</span>'
+        + '</div>'
+        + (d.title ? '<div style="font-weight:600;font-size:12px;color:#111827;margin-bottom:3px;">' + escapeHtml(d.title) + '</div>' : '')
+        + '<div style="font-size:11px;color:#6b7280;line-height:1.4;">' + escapeHtml(preview) + '</div>'
+        + (d.tone ? '<div style="font-size:10px;color:#9ca3af;margin-top:6px;font-style:italic;">Ton : ' + escapeHtml(d.tone) + '</div>' : '')
+        + '<div style="display:flex;gap:6px;margin-top:8px;">'
+          + (showAdapt ? '<button type="button" data-lib-style="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Adapter au signal</button>' : '')
+          + '<button type="button" data-lib-raw="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Utiliser tel quel</button>'
+        + '</div>'
+      + '</div>';
+    }
+    overlay.innerHTML = header + '<div style="flex:1;overflow-y:auto;padding:12px 16px;">' + cards + '</div>';
+    document.body.appendChild(overlay);
+    document.getElementById("ms-lib-close").addEventListener("click", function() { overlay.remove(); });
+    overlay.querySelectorAll("[data-lib-raw]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var idx = parseInt(btn.getAttribute("data-lib-raw"), 10);
+        var picked = drafts[idx];
+        if (!picked) return;
+        overlay.remove();
+        if (opts.onRaw) opts.onRaw(picked);
+      });
+    });
+    if (showAdapt) overlay.querySelectorAll("[data-lib-style]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var idx = parseInt(btn.getAttribute("data-lib-style"), 10);
+        var picked = drafts[idx];
+        if (!picked) return;
+        overlay.remove();
+        if (opts.onAdapt) opts.onAdapt(picked);
+      });
+    });
+  }
+
   // ---- Render ----
   function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount, activeGoalKey) {
     var today = todayYmd();
@@ -2214,12 +2277,14 @@ if (!location_id) {
           + '<button type="button" data-al-ch="slack" style="' + segStyle(false, true) + '">Slack</button>'
         + '</div>'
         + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, 'note_interne') + '</div>'
-        + '<div style="' + lbl + '">Message</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+          + '<div style="' + lbl + 'margin-bottom:0;">Message</div>'
+          + ((_savedDraftsCache && _savedDraftsCache.length) ? '<button type="button" data-al-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
+        + '</div>'
         + '<textarea data-al-msg="' + cardIdx + '" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border);padding:8px 10px;font-size:12px;color:#111827;font-family:inherit;line-height:1.45;resize:vertical;min-height:52px;outline:none;background:#fff;">' + escapeHtml(msg) + '</textarea>';
       html += '<div data-al-err="' + cardIdx + '" style="display:none;color:#B91C1C;font-size:11px;margin-top:8px;"></div>'
         + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">'
           + '<button type="button" data-al-activate="' + cardIdx + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;padding:7px 14px;cursor:pointer;">' + (isNotify ? 'Activer la notification' : 'Envoyer maintenant') + '</button>'
-          + (isNotify ? ('<button type="button" data-al-savedraft="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:#1D3BB3;background:transparent;border:1px solid #1D3BB3;padding:7px 12px;cursor:pointer;">Enregistrer le brouillon</button>') : '')
           + '<button type="button" data-al-cancel="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:var(--color-text-secondary);background:transparent;border:none;cursor:pointer;padding:7px 6px;">Annuler</button>'
           + '<span style="margin-left:auto;font-size:10.5px;color:var(--color-text-muted);">Interne — jamais publié</span>'
         + '</div>'
@@ -2260,16 +2325,18 @@ if (!location_id) {
       wireAlertRecip(cardIdx, ws);
       var cancel = ws.querySelector('[data-al-cancel]');
       if (cancel) cancel.addEventListener('click', function() { ws.style.display = 'none'; ws.innerHTML = ''; });
-      var saveDraftBtn = ws.querySelector('[data-al-savedraft]');
-      if (saveDraftBtn) saveDraftBtn.addEventListener('click', function() {
-        var mEl = ws.querySelector('[data-al-msg]'); var m2 = mEl ? mEl.value.trim() : '';
-        var rEl = ws.querySelector('[data-al-recip]'); var r2 = rEl ? rEl.value.trim() : '';
-        if (!m2) return;
-        saveDraftBtn.disabled = true; saveDraftBtn.textContent = 'Enregistrement…';
-        fetch('/api/analytics/save-draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: ctx.locationId, signal_type: ctx.actionType, channel: state.channel, card_what: ctx.what || '', card_sowhat: ctx.sowhat || '', affected_date: ctx.affected || '', title: ctx.what || '', body: m2, hashtags: '', recipient: r2, original_ai_text: m2, user_instruction: '' }) })
-          .then(function(r) { return r.json(); })
-          .then(function() { saveDraftBtn.textContent = 'Brouillon enregistré'; })
-          .catch(function() { saveDraftBtn.disabled = false; saveDraftBtn.textContent = 'Enregistrer le brouillon'; });
+      var alLibBtn = ws.querySelector('[data-al-library]');
+      if (alLibBtn) alLibBtn.addEventListener('click', function() {
+        openBrouillonLibrary({
+          drafts: _savedDraftsCache || [],
+          activeSignalType: ctx.actionType,
+          activeChannel: state.channel,
+          showAdapt: false,
+          onRaw: function(picked) {
+            var mEl = ws.querySelector('[data-al-msg]');
+            if (mEl) mEl.value = picked.body || '';
+          }
+        });
       });
       var act = ws.querySelector('[data-al-activate]');
       if (act) act.addEventListener('click', function() {
@@ -2330,6 +2397,7 @@ if (!location_id) {
       workspace.style.display = "block";
       workspace.innerHTML = '<div style="padding:16px;font-size:11px;color:#9ca3af;">Chargement…</div>';
       try { await fetchTeamMembers(ctx.locationId); } catch (ex) {}
+      try { await fetchSavedDrafts(ctx.locationId); } catch (ex) {}
       workspace.innerHTML = buildAlertPanelHtml(cardIdx, ctx);
       wireAlertPanel(cardIdx, ctx);
     }
@@ -2746,65 +2814,20 @@ if (!location_id) {
         });
       });
 
-      // Library drawer
+      // Library drawer (shared openBrouillonLibrary \u2014 same drawer as the notification panel)
       var libBtn = workspace.querySelector('[data-ws-library="' + cardIdx + '"]');
       if (libBtn) libBtn.addEventListener("click", function() {
-        var existing = document.getElementById("ms-draft-library");
-        if (existing) { existing.remove(); return; }
-        var drafts = _savedDraftsCache || [];
-        var overlay = document.createElement("div");
-        overlay.id = "ms-draft-library";
-        overlay.style.cssText = "position:fixed;top:0;right:0;bottom:0;width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:9999;display:flex;flex-direction:column;font-family:inherit;";
-        var header = '<div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">'
-          + '<div><div style="font-weight:700;font-size:15px;color:#111827;">Mes brouillons</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + '</div></div>'
-          + '<button type="button" id="ms-lib-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;">\u00d7</button>'
-        + '</div>';
-        var SIGNAL_LABELS = {weather_worsened:"M\u00e9t\u00e9o d\u00e9grad\u00e9e",weather_improved:"M\u00e9t\u00e9o am\u00e9lior\u00e9e",weather_hazard_onset:"Alerte m\u00e9t\u00e9o",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilit\u00e9",score_up:"Score en hausse",_day_opportunity:"Opportunit\u00e9 jour",_best_day:"Meilleur jour",score_down:"Score en baisse",competitor_review_surge:"Avis en hausse",competitor_review_drop:"Note en baisse",competitor_hours_change:"Horaires modifi\u00e9s",competitor_new_offering:"Nouvelle offre",competitor_sold_out:"Complet",competitor_content_spike:"Contenu en hausse",competitor_content_silent:"Concurrent silencieux",institution_campaign_detected:"Campagne",media_mention_detected:"Mention m\u00e9dia"};
-        var cards = '';
-        for (var di = 0; di < drafts.length; di++) {
-          var d = drafts[di];
-          var dCh = CHANNEL_DEFS[d.channel] || CHANNEL_DEFS.gbp;
-          var sigLbl = SIGNAL_LABELS[d.signal_type] || d.signal_type || "";
-          var isMatch = d.signal_type === payload.change_subtype && d.channel === channel;
-          var preview = (d.body || "").substring(0, 120) + ((d.body || "").length > 120 ? "\u2026" : "");
-          var dateLbl = d.created_at ? d.created_at.substring(0, 10) : "";
-          cards += '<div style="padding:12px 14px;border-radius:8px;margin-bottom:8px;border:' + (isMatch ? '1.5px solid #1D3BB3' : '1px solid #e5e7eb') + ';background:' + (isMatch ? '#F5F7FF' : '#fff') + ';cursor:pointer;">'
-            + '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'
-              + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;">' + escapeHtml(sigLbl) + '</span>'
-              + '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:' + dCh.color + '18;color:' + dCh.color + ';">' + escapeHtml(dCh.icon + ' ' + dCh.label) + '</span>'
-              + (isMatch ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Correspondance</span>' : '')
-              + '<span style="font-size:10px;color:#9ca3af;margin-left:auto;">' + escapeHtml(dateLbl) + '</span>'
-            + '</div>'
-            + (d.title ? '<div style="font-weight:600;font-size:12px;color:#111827;margin-bottom:3px;">' + escapeHtml(d.title) + '</div>' : '')
-            + '<div style="font-size:11px;color:#6b7280;line-height:1.4;">' + escapeHtml(preview) + '</div>'
-            + (d.tone ? '<div style="font-size:10px;color:#9ca3af;margin-top:6px;font-style:italic;">Ton : ' + escapeHtml(d.tone) + '</div>' : '')
-            + '<div style="display:flex;gap:6px;margin-top:8px;">'
-              + '<button type="button" data-lib-style="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Adapter au signal</button>'
-              + '<button type="button" data-lib-raw="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Utiliser tel quel</button>'
-            + '</div>'
-          + '</div>';
-        }
-        overlay.innerHTML = header + '<div style="flex:1;overflow-y:auto;padding:12px 16px;">' + cards + '</div>';
-        document.body.appendChild(overlay);
-        document.getElementById("ms-lib-close").addEventListener("click", function() { overlay.remove(); });
-        // Wire library buttons
-        overlay.querySelectorAll("[data-lib-raw]").forEach(function(btn) {
-          btn.addEventListener("click", function() {
-            var idx = parseInt(btn.getAttribute("data-lib-raw"), 10);
-            var picked = drafts[idx];
-            if (!picked) return;
+        openBrouillonLibrary({
+          drafts: _savedDraftsCache || [],
+          activeSignalType: payload.change_subtype,
+          activeChannel: channel,
+          showAdapt: true,
+          onRaw: function(picked) {
             draft = { title: picked.title || null, body: picked.body || "", hashtags: picked.hashtags || null, full_text: picked.body || "" };
             workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
             wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-            overlay.remove();
-          });
-        });
-        overlay.querySelectorAll("[data-lib-style]").forEach(function(btn) {
-          btn.addEventListener("click", function() {
-            var idx = parseInt(btn.getAttribute("data-lib-style"), 10);
-            var picked = drafts[idx];
-            if (!picked) return;
-            overlay.remove();
+          },
+          onAdapt: function(picked) {
             workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Adaptation en cours\u2026</div>';
             var styledPayload = JSON.parse(JSON.stringify(payload));
             styledPayload.style_reference = picked.body;
@@ -2820,7 +2843,7 @@ if (!location_id) {
             }).catch(function(err) {
               workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
             });
-          });
+          }
         });
       });
 
