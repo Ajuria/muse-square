@@ -770,6 +770,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMovement) {
           html += zone('Historique · jours comparables',
             '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
+          html += zone('Environnement du jour · agent web',
+            '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
         }
 
         html += zone('Sources', src, true);
@@ -777,6 +779,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         root.innerHTML = html;
 
         if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
+        if (_isMovement) loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -846,6 +849,52 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '</div>';
         }
         return head + list;
+      }
+
+      // Environment crawl (agent web) — /api/insight/enrich-context. Explains the
+      // real-world context around the venue that day (events, commercial period, météo).
+      function loadContext(a, prof, day, container) {
+        if (!container) return;
+        var payload = {
+          location_id: location_id,
+          date: signal_date,
+          city_name: (prof && (prof.city_name || prof.location_city)) || (day && day.city_name) || null,
+          driver: (a && a.driver != null) ? a.driver : null,
+          is_vacation: (a && a.is_vacation != null) ? a.is_vacation : null,
+          is_holiday: (a && a.is_holiday != null) ? a.is_holiday : null,
+          commercial_event: (a && a.commercial_event_name) ? a.commercial_event_name : null,
+          events_5km: (a && a.events_5km != null) ? a.events_5km : null,
+          business_short_description: (prof && (prof.business_short_description || prof.company_activity_type)) || null
+        };
+        fetch('/api/insight/enrich-context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+          .then(function(r) { return r.json(); })
+          .then(function(j) {
+            if (!j || !j.ok || !j.data) { container.innerHTML = contextEmptyHtml(); return; }
+            container.innerHTML = contextHtml(j.data);
+          })
+          .catch(function() { container.innerHTML = contextEmptyHtml(); });
+      }
+      function contextEmptyHtml() {
+        return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Aucun contexte particulier trouvé pour cette journée.</div>';
+      }
+      function contextHost(u) { try { return String(u).replace(/^https?:\/\//, '').split('/')[0]; } catch(e) { return String(u); } }
+      function contextHtml(d) {
+        var INK = '#111827', SUB = '#6B7280', MUTE = '#9CA3AF';
+        if (!d.takeaway && (!d.key_factors || !d.key_factors.length)) return contextEmptyHtml();
+        var html = '';
+        if (d.takeaway) html += '<div style="font-size:14px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">' + esc(d.takeaway) + '</div>';
+        if (d.key_factors && d.key_factors.length) {
+          html += '<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;line-height:1.6;color:' + SUB + ';">';
+          for (var i = 0; i < d.key_factors.length; i++) html += '<li>' + esc(d.key_factors[i]) + '</li>';
+          html += '</ul>';
+        }
+        if (d.sources && d.sources.length) {
+          var links = [];
+          for (var s = 0; s < d.sources.length; s++) { var u = String(d.sources[s]); links.push('<a href="' + esc(u) + '" target="_blank" rel="noopener" style="color:#1D3BB3;text-decoration:none;">' + esc(contextHost(u)) + '</a>'); }
+          html += '<div style="font-size:11px;color:' + MUTE + ';">Sources : ' + links.join(' · ') + '</div>';
+        }
+        html += '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:' + MUTE + ';margin-top:8px;display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;"></span>Agent IA · web</div>';
+        return html;
       }
 
       function loadCompetitorDescriptif(competitorId, competitorName, panel, btn) {
