@@ -919,7 +919,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var raw = sessionStorage.getItem(key);
         if (raw) cachedData = JSON.parse(raw);
       } catch(e) {}
-      try { window.__msDbg2 = { location_id: location_id, signal_date: signal_date, signal_instance: signal_instance, isActionType: isActionType, cacheKey: _dbgKey, cachedData_present: !!cachedData, cached_ac_present: !!(cachedData && cachedData.actionCandidate) }; } catch(e) {}
+      try { window.__msDbg2 = { location_id: location_id, signal_date: signal_date, signal_instance: signal_instance, isActionType: isActionType, cacheKey: _dbgKey, cachedData_present: !!cachedData, cached_ac_present: !!(cachedData && cachedData.actionCandidate), consult_dbg: (function(){ try { return JSON.parse(sessionStorage.getItem("ms_consult_dbg") || "null"); } catch(e){ return null; } })() }; } catch(e) {}
 
       if (cachedData && !(isActionType && signal_instance && !cachedData.actionCandidate)) {
         try { window.__msDbg2.branch = 'cache'; } catch(e) {}
