@@ -143,7 +143,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/action-cards.js?v=16"></script>
+    <script is:inline src="/action-cards.js?v=17"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -525,10 +525,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
         var claims = [];
         if (a.daily_revenue != null) claims.push({ claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
-        if (a.expected_revenue != null) claims.push({ claim:'Attendu pour ce jour', value: frInt(Math.round(Number(a.expected_revenue))) + ' €', source:'Muse Square — modèle (jour, saison, tendance)' });
+        if (a.expected_revenue != null) claims.push({ claim:'Attendu par le modèle (jour, saison)', value: frInt(Math.round(Number(a.expected_revenue))) + ' €', source:'Muse Square — modèle' });
         if (a.residual_pct != null) {
           var rz = (a.residual_z != null) ? ' · ' + frDec(Math.abs(Number(a.residual_z)).toFixed(1)) + ' σ' : '';
-          claims.push({ claim: isDown ? 'Écart : sous l’attendu' : 'Écart : au-dessus de l’attendu', value: sgn(a.residual_pct) + rz, source:'Muse Square', computed:true });
+          claims.push({ claim:'Signal statistique (vs modèle)', value: sgn(a.residual_pct) + rz, source:'Muse Square', computed:true });
         }
         var tx = a.transactions_delta_pct, bk = a.basket_delta_pct;
         if (tx != null && bk != null) {
@@ -540,12 +540,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (a.pressure_ratio != null) claims.push({ claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
         if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
         if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
-        if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA sous l’attendu' : 'CA au-dessus de l’attendu', source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA sous vos jours comparables' : 'CA au-dessus de vos jours comparables', source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
         var badge = TIER[tier] || TIER.possible;
-        var cat = isDown ? 'Performance · CA sous l’attendu' : 'Performance · CA au-dessus de l’attendu';
-        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA sous son niveau attendu' : 'CA au-dessus de son niveau attendu');
+        var cat = isDown ? 'Performance · CA sous vos jours comparables' : 'Performance · CA au-dessus de vos jours comparables';
+        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA sous vos jours comparables' : 'CA au-dessus de vos jours comparables');
         return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — attendu conditionnel (résidu)'] };
       }
 

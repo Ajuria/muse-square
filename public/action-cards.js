@@ -1779,7 +1779,7 @@
   // sales_surge — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver, is_holiday, is_vacation, events_5km.
   // €-rise T1; favourable context T1/T2; "à reproduire" is advice, not a claim.
-  reg('sales_surge', 'CA au-dessus de son niveau attendu', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('sales_surge', 'CA au-dessus de vos jours comparables', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
@@ -1790,20 +1790,20 @@
       var alert = Number(a.weather_alert || 0);
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
 
-      var line = (rev != null && exp != null)
-        ? 'CA ' + rev + ' € — ' + (resid != null ? (resid >= 0 ? '+' : '') + resid + ' %' : 'au-dessus') + ' vs l\'attendu pour ce jour (attendu ' + exp + ' €' + (dz != null && dz >= 2 ? ', et nettement au-dessus de vos jours comparables' : ' compte tenu de vos conditions') + ').'
-        : 'CA au-dessus de son niveau attendu.';
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos jours comparables.';
 
       if (tx != null && bk != null) {
-        line += ' Porté par ' + (Math.abs(tx) >= Math.abs(bk) ? 'le volume de ventes' : 'le panier moyen') + ' (ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %).';
+        line += (Math.abs(tx) >= Math.abs(bk))
+          ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
+          : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %), pas du volume.';
       }
 
-      if (pr != null && pr < 0.85) {
-        line += ' Coïncide avec une faible concurrence (×' + pr.toFixed(1) + ').';
-      } else if (a.is_holiday || a.is_vacation) {
-        line += ' Coïncide avec un contexte calendaire porteur (' + (a.is_holiday ? 'jour férié' : 'vacances scolaires') + ').';
+      if (a.is_holiday || a.is_vacation) {
+        line += ' Contexte porteur : ' + (a.is_holiday ? 'jour férié' : 'vacances scolaires') + '.';
+      } else if (pr != null && pr < 0.85) {
+        line += ' Concurrence faible ce jour-là.';
       } else if (alert === 0) {
-        line += ' Coïncide avec une météo favorable.';
+        line += ' Météo favorable.';
       }
       return line;
     },
@@ -1905,7 +1905,7 @@
   // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_avg_pct, avg_30d,
   // daily_revenue, revenue_robust_z, primary_revenue_driver, transactions_delta_pct,
   // basket_delta_pct, confidence_tier. Dow-band anomaly (not a same-weekday day-pair).
-  reg('sales_revenue_down_wow', 'CA sous son niveau attendu', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+  reg('sales_revenue_down_wow', 'CA sous vos jours comparables', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
