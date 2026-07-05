@@ -524,22 +524,22 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var isDown = signal_type === 'sales_revenue_down_wow';
         function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
         var claims = [];
-        if (a.daily_revenue != null) claims.push({ claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
-        if (a.expected_revenue != null) claims.push({ claim:'Attendu par le modèle (jour, saison)', value: frInt(Math.round(Number(a.expected_revenue))) + ' €', source:'Muse Square — modèle' });
-        if (a.residual_pct != null) {
-          var rz = (a.residual_z != null) ? ' · ' + frDec(Math.abs(Number(a.residual_z)).toFixed(1)) + ' σ' : '';
-          claims.push({ claim:'Signal statistique (vs modèle)', value: sgn(a.residual_pct) + rz, source:'Muse Square', computed:true });
-        }
+        if (a.daily_revenue != null) claims.push({ group:'interne', claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
         var tx = a.transactions_delta_pct, bk = a.basket_delta_pct;
         if (tx != null && bk != null) {
           var dom = (a.dominant_factor === 'basket') ? 'porté par le panier moyen' : (a.dominant_factor === 'transactions') ? 'porté par le volume de ventes' : '';
-          claims.push({ claim:'Décomposition', value:'ventes ' + sgn(tx) + ', panier ' + sgn(bk) + (dom ? ' — ' + dom : ''), source:'Caisse' });
+          claims.push({ group:'interne', claim:'Décomposition', value:'ventes ' + sgn(tx) + ', panier ' + sgn(bk) + (dom ? ' — ' + dom : ''), source:'Caisse' });
         }
-        if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
-        if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ claim:'Jour férié', value:'Oui', source:'Calendrier' });
-        if (a.pressure_ratio != null) claims.push({ claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
-        if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
-        if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
+        if (a.expected_revenue != null) claims.push({ group:'interne', claim:'Attendu par le modèle (jour, saison)', value: frInt(Math.round(Number(a.expected_revenue))) + ' €', source:'Muse Square — modèle' });
+        if (a.residual_pct != null) {
+          var rz = (a.residual_z != null) ? ' · ' + frDec(Math.abs(Number(a.residual_z)).toFixed(1)) + ' σ' : '';
+          claims.push({ group:'interne', claim:'Signal statistique (vs modèle)', value: sgn(a.residual_pct) + rz, source:'Muse Square', computed:true });
+        }
+        if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ group:'contexte', claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
+        if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ group:'contexte', claim:'Jour férié', value:'Oui', source:'Calendrier' });
+        if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
+        if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
+        if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
         if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA sous vos jours comparables' : 'CA au-dessus de vos jours comparables', source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
@@ -718,10 +718,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMov) html += grp('La source');
         html += zone('Synth\u00e8se', synth);
 
-        var dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
-        for (var i = 0; i < m.claims.length; i++) {
-          var c = m.claims[i];
-          dec += '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
+        function claimRow(c) {
+          return '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
             + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
               + '<div style="font-size:13px;font-weight:600;color:' + INK + ';">' + esc(c.claim) + '</div>'
               + '<span style="font-size:10px;color:' + MUTE + ';white-space:nowrap;flex-shrink:0;">' + esc(c.source) + '</span>'
@@ -730,6 +728,23 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               + (c.computed ? '<span style="color:' + MUTE + ';margin-right:6px;">=</span>' : '') + esc(c.value)
             + '</div>'
           + '</div>';
+        }
+        function subHead(label, sub) {
+          return '<div style="margin:18px 0 2px;"><div style="font-size:12px;font-weight:700;color:' + INK + ';">' + esc(label) + '</div><div style="font-size:11px;color:' + MUTE + ';">' + esc(sub) + '</div></div>';
+        }
+        var _hasGroups = false;
+        for (var _gi = 0; _gi < m.claims.length; _gi++) { if (m.claims[_gi].group) { _hasGroups = true; break; } }
+        var dec = '';
+        if (_hasGroups) {
+          var _grpInt = m.claims.filter(function(c) { return c.group === 'interne'; });
+          var _grpCtx = m.claims.filter(function(c) { return c.group === 'contexte'; });
+          var _grpOther = m.claims.filter(function(c) { return c.group !== 'interne' && c.group !== 'contexte'; });
+          if (_grpInt.length) { dec += subHead('Signaux internes', 'vos ventes et leur lecture'); for (var _i1 = 0; _i1 < _grpInt.length; _i1++) dec += claimRow(_grpInt[_i1]); }
+          if (_grpCtx.length) { dec += subHead('Signaux contextuels', 'les conditions de la journ\u00e9e'); for (var _i2 = 0; _i2 < _grpCtx.length; _i2++) dec += claimRow(_grpCtx[_i2]); }
+          for (var _i3 = 0; _i3 < _grpOther.length; _i3++) dec += claimRow(_grpOther[_i3]);
+        } else {
+          dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
+          for (var i = 0; i < m.claims.length; i++) dec += claimRow(m.claims[i]);
         }
         html += zone('D\u00e9composition \u00b7 preuve', dec);
 
