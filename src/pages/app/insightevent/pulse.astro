@@ -2193,10 +2193,14 @@ if (!location_id) {
       if (!msg) { msg = ctx.what || ''; if (ctx.sowhat) msg = msg ? (msg + ' — ' + ctx.sowhat) : ctx.sowhat; }
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
       var isNotify = ctx.panelMode === 'notify';
+      var isResidual = !!(ctx.card && ctx.card.residual_pct != null);
       var html = '<div style="border-top:1px solid var(--color-border);padding:14px 16px 16px;background:var(--color-bg-recessed);">'
         + '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">' + (isNotify ? 'Créer une notification' : 'Communiquer en interne') + '</div>';
       if (isNotify) {
-        html += '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:14px;">Envoi automatique à vos destinataires quand ce signal se déclenche pour ce lieu. Le message est rédigé automatiquement.</div>'
+        html += '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:14px;">Envoi automatique du message ci-dessous à vos destinataires quand ce signal se déclenche pour ce lieu.</div>'
+          + '<div style="' + lbl + '">Déclencheur</div>'
+          + '<div style="font-size:12px;color:#111827;background:#fff;border:1px solid var(--color-border);padding:8px 10px;margin-bottom:' + (isResidual ? '8px' : '12px') + ';">Signal : <strong>' + escapeHtml(ctx.what || 'ce signal') + '</strong></div>'
+          + (isResidual ? ('<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">M’alerter quand l’écart dépasse <input type="number" data-al-threshold="' + cardIdx + '" min="0" step="1" value="20" style="width:56px;box-sizing:border-box;border:1px solid var(--color-border);padding:4px 6px;font-size:12px;font-family:inherit;text-align:right;" /> %</div>') : '')
           + '<div style="' + lbl + '">Fréquence</div>'
           + '<div style="display:inline-flex;border:1px solid #1D3BB3;margin-bottom:12px;">'
             + '<button type="button" data-al-freq="first_occurrence" style="' + segStyle(true, false) + '">Première fois</button>'
@@ -2209,14 +2213,13 @@ if (!location_id) {
           + '<button type="button" data-al-ch="email" style="' + segStyle(false, false) + '">Email</button>'
           + '<button type="button" data-al-ch="slack" style="' + segStyle(false, true) + '">Slack</button>'
         + '</div>'
-        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, 'note_interne') + '</div>';
-      if (!isNotify) {
-        html += '<div style="' + lbl + '">Message</div>'
-          + '<textarea data-al-msg="' + cardIdx + '" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border);padding:8px 10px;font-size:12px;color:#111827;font-family:inherit;line-height:1.45;resize:vertical;min-height:52px;outline:none;background:#fff;">' + escapeHtml(msg) + '</textarea>';
-      }
+        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, 'note_interne') + '</div>'
+        + '<div style="' + lbl + '">Message</div>'
+        + '<textarea data-al-msg="' + cardIdx + '" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border);padding:8px 10px;font-size:12px;color:#111827;font-family:inherit;line-height:1.45;resize:vertical;min-height:52px;outline:none;background:#fff;">' + escapeHtml(msg) + '</textarea>';
       html += '<div data-al-err="' + cardIdx + '" style="display:none;color:#B91C1C;font-size:11px;margin-top:8px;"></div>'
         + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">'
           + '<button type="button" data-al-activate="' + cardIdx + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;padding:7px 14px;cursor:pointer;">' + (isNotify ? 'Activer la notification' : 'Envoyer maintenant') + '</button>'
+          + (isNotify ? ('<button type="button" data-al-savedraft="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:#1D3BB3;background:transparent;border:1px solid #1D3BB3;padding:7px 12px;cursor:pointer;">Enregistrer le brouillon</button>') : '')
           + '<button type="button" data-al-cancel="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:var(--color-text-secondary);background:transparent;border:none;cursor:pointer;padding:7px 6px;">Annuler</button>'
           + '<span style="margin-left:auto;font-size:10.5px;color:var(--color-text-muted);">Interne — jamais publié</span>'
         + '</div>'
@@ -2257,6 +2260,17 @@ if (!location_id) {
       wireAlertRecip(cardIdx, ws);
       var cancel = ws.querySelector('[data-al-cancel]');
       if (cancel) cancel.addEventListener('click', function() { ws.style.display = 'none'; ws.innerHTML = ''; });
+      var saveDraftBtn = ws.querySelector('[data-al-savedraft]');
+      if (saveDraftBtn) saveDraftBtn.addEventListener('click', function() {
+        var mEl = ws.querySelector('[data-al-msg]'); var m2 = mEl ? mEl.value.trim() : '';
+        var rEl = ws.querySelector('[data-al-recip]'); var r2 = rEl ? rEl.value.trim() : '';
+        if (!m2) return;
+        saveDraftBtn.disabled = true; saveDraftBtn.textContent = 'Enregistrement…';
+        fetch('/api/analytics/save-draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: ctx.locationId, signal_type: ctx.actionType, channel: state.channel, card_what: ctx.what || '', card_sowhat: ctx.sowhat || '', affected_date: ctx.affected || '', title: ctx.what || '', body: m2, hashtags: '', recipient: r2, original_ai_text: m2, user_instruction: '' }) })
+          .then(function(r) { return r.json(); })
+          .then(function() { saveDraftBtn.textContent = 'Brouillon enregistré'; })
+          .catch(function() { saveDraftBtn.disabled = false; saveDraftBtn.textContent = 'Enregistrer le brouillon'; });
+      });
       var act = ws.querySelector('[data-al-activate]');
       if (act) act.addEventListener('click', function() {
         var recipEl = ws.querySelector('[data-al-recip]'); var recipient = recipEl ? recipEl.value.trim() : '';
@@ -2264,13 +2278,15 @@ if (!location_id) {
         var errEl = ws.querySelector('[data-al-err]');
         function showErr(m) { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } }
         if ((state.channel === 'slack' || state.channel === 'email') && !recipient) { showErr('Destinataire requis pour ce canal.'); return; }
-        if (!isNotify && !message) { showErr('Message requis.'); return; }
+        if (!message) { showErr('Message requis.'); return; }
         if (errEl) errEl.style.display = 'none';
         act.disabled = true; act.textContent = isNotify ? 'Activation…' : 'Envoi…';
         var url, body;
         if (isNotify) {
+          var thrEl = ws.querySelector('[data-al-threshold]');
+          var thr = (thrEl && thrEl.value !== '') ? Number(thrEl.value) : null;
           url = '/api/channels/internal-alert';
-          body = { location_id: ctx.locationId, action_type: ctx.actionType, channel: state.channel, recipient: recipient, enabled: true, frequency: state.frequency };
+          body = { location_id: ctx.locationId, action_type: ctx.actionType, channel: state.channel, recipient: recipient, enabled: true, frequency: state.frequency, threshold_pct: thr, message: message };
         } else {
           url = '/api/channels/internal-send';
           body = { location_id: ctx.locationId, action_type: ctx.actionType, channel: state.channel, recipient: recipient, title: ctx.what || '', body: message, affected_date: ctx.affected || '' };

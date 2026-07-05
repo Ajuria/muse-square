@@ -92,6 +92,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       recipient: recipient,
       enabled: body.enabled !== false,
       frequency: String(body.frequency || "first_occurrence").trim(),
+      threshold_pct: (body.threshold_pct != null && body.threshold_pct !== "") ? Number(body.threshold_pct) : null,
+      message: (body.message != null && String(body.message).trim() !== "") ? String(body.message) : null,
       created_at: now,
       updated_at: now,
     }]);
