@@ -1289,6 +1289,27 @@ if (!location_id) {
     return {};
   }
 
+  // Active internal-alert (notification) rules for the location. Keyed lookup by
+  // action_type so a card knows if a notification is armed on it.
+  var _alertRulesCache = null;
+  async function fetchAlertRules(locationId) {
+    if (_alertRulesCache !== null) return _alertRulesCache;
+    _alertRulesCache = [];
+    try {
+      var res = await fetch("/api/channels/internal-alert?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) _alertRulesCache = json.items;
+    } catch(e) {}
+    return _alertRulesCache;
+  }
+  function alertRuleForType(actionType) {
+    if (!_alertRulesCache || !_alertRulesCache.length) return null;
+    for (var i = 0; i < _alertRulesCache.length; i++) {
+      if (String(_alertRulesCache[i].action_type) === String(actionType) && _alertRulesCache[i].enabled !== false) return _alertRulesCache[i];
+    }
+    return null;
+  }
+
   var _pendingFeedbackCache = [];
   async function fetchPendingFeedback(locationId) {
     try {
@@ -1805,6 +1826,7 @@ if (!location_id) {
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
+                    + ((typeof alertRuleForType === 'function' && entry.item && alertRuleForType(entry.item.change_subtype)) ? '<span class="chip-n" style="background:#DCFCE7;color:#166534;border:0;font-weight:600;">Notification active</span>' : '')
                   + '</div>'
                   + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
                   + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
@@ -2257,26 +2279,32 @@ if (!location_id) {
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
       var isNotify = ctx.panelMode === 'notify';
       var isResidual = !!(ctx.card && ctx.card.residual_pct != null);
+      var rule = (isNotify && ctx.existingRule) ? ctx.existingRule : null;
+      var selCh = (rule && rule.channel) ? rule.channel : 'note_interne';
+      var selFreq = (rule && rule.frequency) ? rule.frequency : 'first_occurrence';
+      var thrVal = (rule && rule.threshold_pct != null) ? Math.round(Number(rule.threshold_pct)) : 20;
+      if (rule && rule.message) msg = rule.message;
       var html = '<div style="border-top:1px solid var(--color-border);padding:14px 16px 16px;background:var(--color-bg-recessed);">'
         + '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin-bottom:12px;">' + (isNotify ? 'Créer une notification' : 'Communiquer en interne') + '</div>';
       if (isNotify) {
-        html += '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:14px;">Envoi automatique du message ci-dessous à vos destinataires quand ce signal se déclenche pour ce lieu.</div>'
+        html += (rule ? '<div style="font-size:11.5px;color:#166534;background:#DCFCE7;border:1px solid #bbf7d0;padding:8px 10px;margin-bottom:12px;font-weight:600;">Notification active — modifiez ou désactivez ci-dessous.</div>' : '')
+          + '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:14px;">Envoi automatique du message ci-dessous à vos destinataires quand ce signal se déclenche pour ce lieu.</div>'
           + '<div style="' + lbl + '">Déclencheur</div>'
           + '<div style="font-size:12px;color:#111827;background:#fff;border:1px solid var(--color-border);padding:8px 10px;margin-bottom:' + (isResidual ? '8px' : '12px') + ';">Signal : <strong>' + escapeHtml(ctx.what || 'ce signal') + '</strong></div>'
-          + (isResidual ? ('<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">M’alerter quand l’écart dépasse <input type="number" data-al-threshold="' + cardIdx + '" min="0" step="1" value="20" style="width:56px;box-sizing:border-box;border:1px solid var(--color-border);padding:4px 6px;font-size:12px;font-family:inherit;text-align:right;" /> %</div>') : '')
+          + (isResidual ? ('<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">M’alerter quand l’écart dépasse <input type="number" data-al-threshold="' + cardIdx + '" min="0" step="1" value="' + thrVal + '" style="width:56px;box-sizing:border-box;border:1px solid var(--color-border);padding:4px 6px;font-size:12px;font-family:inherit;text-align:right;" /> %</div>') : '')
           + '<div style="' + lbl + '">Fréquence</div>'
           + '<div style="display:inline-flex;border:1px solid #1D3BB3;margin-bottom:12px;">'
-            + '<button type="button" data-al-freq="first_occurrence" style="' + segStyle(true, false) + '">Première fois</button>'
-            + '<button type="button" data-al-freq="every_occurrence" style="' + segStyle(false, true) + '">À chaque fois</button>'
+            + '<button type="button" data-al-freq="first_occurrence" style="' + segStyle(selFreq === 'first_occurrence', false) + '">Première fois</button>'
+            + '<button type="button" data-al-freq="every_occurrence" style="' + segStyle(selFreq === 'every_occurrence', true) + '">À chaque fois</button>'
           + '</div>';
       }
       html += '<div style="' + lbl + '">Canal interne</div>'
         + '<div style="display:inline-flex;border:1px solid #1D3BB3;margin-bottom:12px;">'
-          + '<button type="button" data-al-ch="note_interne" style="' + segStyle(true, false) + '">Note interne</button>'
-          + '<button type="button" data-al-ch="email" style="' + segStyle(false, false) + '">Email</button>'
-          + '<button type="button" data-al-ch="slack" style="' + segStyle(false, true) + '">Slack</button>'
+          + '<button type="button" data-al-ch="note_interne" style="' + segStyle(selCh === 'note_interne', false) + '">Note interne</button>'
+          + '<button type="button" data-al-ch="email" style="' + segStyle(selCh === 'email', false) + '">Email</button>'
+          + '<button type="button" data-al-ch="slack" style="' + segStyle(selCh === 'slack', true) + '">Slack</button>'
         + '</div>'
-        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, 'note_interne') + '</div>'
+        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, selCh) + '</div>'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
           + '<div style="' + lbl + 'margin-bottom:0;">Message</div>'
           + ((_savedDraftsCache && _savedDraftsCache.length) ? '<button type="button" data-al-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
@@ -2284,8 +2312,9 @@ if (!location_id) {
         + '<textarea data-al-msg="' + cardIdx + '" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border);padding:8px 10px;font-size:12px;color:#111827;font-family:inherit;line-height:1.45;resize:vertical;min-height:52px;outline:none;background:#fff;">' + escapeHtml(msg) + '</textarea>';
       html += '<div data-al-err="' + cardIdx + '" style="display:none;color:#B91C1C;font-size:11px;margin-top:8px;"></div>'
         + '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;">'
-          + '<button type="button" data-al-activate="' + cardIdx + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;padding:7px 14px;cursor:pointer;">' + (isNotify ? 'Activer la notification' : 'Envoyer maintenant') + '</button>'
+          + '<button type="button" data-al-activate="' + cardIdx + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;padding:7px 14px;cursor:pointer;">' + (isNotify ? (rule ? 'Modifier la notification' : 'Activer la notification') : 'Envoyer maintenant') + '</button>'
           + '<button type="button" data-al-savedraft="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:#1D3BB3;background:transparent;border:1px solid #1D3BB3;padding:7px 12px;cursor:pointer;">Enregistrer le brouillon</button>'
+          + (rule ? '<button type="button" data-al-disable="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:#B91C1C;background:transparent;border:1px solid #f0c0c0;padding:7px 12px;cursor:pointer;">Désactiver</button>' : '')
           + '<button type="button" data-al-cancel="' + cardIdx + '" style="font-size:12px;font-family:inherit;color:var(--color-text-secondary);background:transparent;border:none;cursor:pointer;padding:7px 6px;">Annuler</button>'
           + '<span style="margin-left:auto;font-size:10.5px;color:var(--color-text-muted);">Interne — jamais publié</span>'
         + '</div>'
@@ -2308,7 +2337,8 @@ if (!location_id) {
       var ws = document.getElementById("ab-card-" + cardIdx + "-workspace");
       if (!ws) return;
       var isNotify = ctx.panelMode === 'notify';
-      var state = { channel: 'note_interne', frequency: 'first_occurrence' };
+      var state = { channel: (ctx.existingRule && ctx.existingRule.channel) || 'note_interne', frequency: (ctx.existingRule && ctx.existingRule.frequency) || 'first_occurrence' };
+      if (ctx.existingRule && ctx.existingRule.recipient) { var _preR = ws.querySelector('[data-al-recip]'); if (_preR) _preR.value = ctx.existingRule.recipient; }
       ws.querySelectorAll('[data-al-freq]').forEach(function(b) {
         b.addEventListener('click', function() {
           state.frequency = b.getAttribute('data-al-freq');
@@ -2336,6 +2366,18 @@ if (!location_id) {
           .then(function(r) { return r.json(); })
           .then(function() { saveDraftBtn.textContent = 'Brouillon enregistré'; _savedDraftsCache = null; })
           .catch(function() { saveDraftBtn.disabled = false; saveDraftBtn.textContent = 'Enregistrer le brouillon'; });
+      });
+      var disableBtn = ws.querySelector('[data-al-disable]');
+      if (disableBtn) disableBtn.addEventListener('click', function() {
+        disableBtn.disabled = true; disableBtn.textContent = 'Désactivation…';
+        fetch('/api/channels/internal-alert', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: ctx.locationId, action_type: ctx.actionType, channel: state.channel }) })
+          .then(function(r) { return r.json(); })
+          .then(function(json) {
+            if (!json || !json.ok) throw new Error(json && json.error ? json.error : 'Erreur');
+            _alertRulesCache = null;
+            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Notification désactivée.</div>';
+          })
+          .catch(function() { disableBtn.disabled = false; disableBtn.textContent = 'Désactiver'; });
       });
       var alLibBtn = ws.querySelector('[data-al-library]');
       if (alLibBtn) alLibBtn.addEventListener('click', function() {
@@ -2374,10 +2416,11 @@ if (!location_id) {
           .then(function(r) { return r.json(); })
           .then(function(json) {
             if (!json || !json.ok) throw new Error(json && json.error ? json.error : 'Erreur');
-            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">' + (isNotify ? 'Notification activée.' : 'Message envoyé.') + '</div>';
+            if (isNotify) _alertRulesCache = null;
+            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">' + (isNotify ? (ctx.existingRule ? 'Notification mise à jour.' : 'Notification activée.') : 'Message envoyé.') + '</div>';
           })
           .catch(function(err) {
-            act.disabled = false; act.textContent = isNotify ? 'Activer la notification' : 'Envoyer maintenant';
+            act.disabled = false; act.textContent = isNotify ? (ctx.existingRule ? 'Modifier la notification' : 'Activer la notification') : 'Envoyer maintenant';
             showErr(err && err.message ? err.message : 'Erreur, réessayez.');
           });
       });
@@ -2410,6 +2453,8 @@ if (!location_id) {
       workspace.innerHTML = '<div style="padding:16px;font-size:11px;color:#9ca3af;">Chargement…</div>';
       try { await fetchTeamMembers(ctx.locationId); } catch (ex) {}
       try { await fetchSavedDrafts(ctx.locationId); } catch (ex) {}
+      try { await fetchAlertRules(ctx.locationId); } catch (ex) {}
+      ctx.existingRule = (panelMode === 'notify') ? alertRuleForType(ctx.actionType) : null;
       workspace.innerHTML = buildAlertPanelHtml(cardIdx, ctx);
       wireAlertPanel(cardIdx, ctx);
     }
@@ -5018,6 +5063,7 @@ if (!location_id) {
           fetchSavedDrafts(_locIdForSecondary),
           fetchChannelConfigs(_locIdForSecondary),
           fetchTeamMembers(_locIdForSecondary),
+          fetchAlertRules(_locIdForSecondary),
         ]);
         mergedData._competitor_signals = csResult.signals;
         mergedData._competitor_followed_count = csResult.followed_count;
@@ -5042,6 +5088,7 @@ if (!location_id) {
           fetchSavedDrafts(currentLocationId),
           fetchChannelConfigs(currentLocationId),
           fetchTeamMembers(currentLocationId),
+          fetchAlertRules(currentLocationId),
         ]);
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;
