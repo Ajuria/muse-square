@@ -977,6 +977,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           }
         }
         feedItem.change_subtype = signal_type;
+        try { window.__msDbg = { build: 'dbg-2026-07-05-a', signal_type: signal_type, feedItem_daily_revenue: feedItem.daily_revenue, feedItem_expected_revenue: feedItem.expected_revenue, ac_present: !!actionCandidate, ac_daily_revenue: actionCandidate ? actionCandidate.daily_revenue : 'NO_AC', ac_has_data_payload: actionCandidate ? ('data_payload' in actionCandidate) : null }; } catch(e) {}
 
         // ── Compute sowhat ──
         var sowhat = '';
