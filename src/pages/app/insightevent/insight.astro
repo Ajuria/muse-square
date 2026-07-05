@@ -143,7 +143,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/action-cards.js?v=15"></script>
+    <script is:inline src="/action-cards.js?v=16"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -541,9 +541,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
         if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
         if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA sous l’attendu' : 'CA au-dessus de l’attendu', source:'Muse Square' });
-        var tier = String(a.confidence_tier || 'possible').toLowerCase();
-        var TIER = { possible:{ label:'Signal possible', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Signal probable', bg:'#E1F5EE', fg:'#0F6E56' } };
-        var badge = TIER[tier] || (tier.indexOf('confirm') === 0 ? { label:'Signal confirmé', bg:'#E1F5EE', fg:'#0F6E56' } : TIER.possible);
+        var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
+        var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
+        var badge = TIER[tier] || TIER.possible;
         var cat = isDown ? 'Performance · CA sous l’attendu' : 'Performance · CA au-dessus de l’attendu';
         var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA sous son niveau attendu' : 'CA au-dessus de son niveau attendu');
         return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — attendu conditionnel (résidu)'] };

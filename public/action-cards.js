@@ -1788,9 +1788,10 @@
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var alert = Number(a.weather_alert || 0);
+      var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
 
       var line = (rev != null && exp != null)
-        ? 'CA ' + rev + ' € — ' + (resid != null ? (resid >= 0 ? '+' : '') + resid + ' %' : 'au-dessus') + ' vs l\'attendu pour ce jour (attendu ' + exp + ' € compte tenu de vos conditions).'
+        ? 'CA ' + rev + ' € — ' + (resid != null ? (resid >= 0 ? '+' : '') + resid + ' %' : 'au-dessus') + ' vs l\'attendu pour ce jour (attendu ' + exp + ' €' + (dz != null && dz >= 2 ? ', et nettement au-dessus de vos jours comparables' : ' compte tenu de vos conditions') + ').'
         : 'CA au-dessus de son niveau attendu.';
 
       if (tx != null && bk != null) {
@@ -1815,7 +1816,7 @@
         var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
         var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
-        var soft = (a.confidence_tier || 'possible') === 'possible';
+        var soft = msSalesConfidence(a) === 'possible';
         return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + '. ' + (soft ? 'Notons ce qui a marché aujourd\'hui (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines fenêtres comparables.');
       }
     }
@@ -1876,7 +1877,7 @@
       note_interne: function(a, p, d) {
         var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
         var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
-        var soft = (a.confidence_tier || 'possible') === 'possible';
+        var soft = msSalesConfidence(a) === 'possible';
         return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'du monde en boutique' + (foot != null ? ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' %)' : '') + ' mais peu d\'achats' + (cz != null ? ' (conversion ' + Math.abs(cz).toFixed(1) + ' écarts-types sous notre norme)' : '') + '. ' + (soft ? 'Regardons ensemble l\'accueil, la caisse et la mise en avant produit pour comprendre le blocage.' : 'Renforçons l\'accueil et la caisse aujourd\'hui, et mettons en place une routine pour les journées à fort passage.');
       }
     }
@@ -1895,7 +1896,7 @@
       note_interne: function(a, p, d) {
         var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
         var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
-        var soft = (a.confidence_tier || 'possible') === 'possible';
+        var soft = msSalesConfidence(a) === 'possible';
         return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dz != null ? ' (' + dz.toFixed(1) + ' écarts-types' + (dr != null ? ', ' + dr + ' % du CA' : '') + ')' : '') + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
       }
     }
@@ -1931,7 +1932,7 @@
         var lever = (a.primary_revenue_driver === 'both')
           ? 'le volume de ventes (' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ') et le panier (' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?') + ')'
           : (driverN || 'plusieurs facteurs');
-        var soft = (a.confidence_tier || 'possible') === 'possible';
+        var soft = msSalesConfidence(a) === 'possible';
         return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'notre CA est passé sous l\'attendu pour ce jour' + (resid != null ? ' (' + Math.abs(resid) + ' % sous l\'attendu' + (exp != null ? ', ' + exp + ' € attendus' : '') + ')' : '') + ', tiré par ' + lever + '. ' + (soft ? 'Confirmons si c\'est ponctuel avant d\'agir, et surveillons les prochains jours.' : 'Agissons sur ' + lever + ' cette semaine et suivons l\'effet.');
       }
     }
@@ -2066,6 +2067,21 @@
     return channels;
   }
 
+  // Corroboration-aware confidence for residual sales cards: the residual model
+  // AND the same-weekday (dow) baseline agreeing raises confidence. Keeps the
+  // tier KEYS (possible/probable/confirme) so note_interne soft-gating is intact.
+  function msSalesConfidence(a) {
+    var rz = (a && a.residual_z != null) ? Math.abs(Number(a.residual_z)) : null;
+    if (rz == null) return (a && a.confidence_tier) ? a.confidence_tier : 'possible';
+    var dz = (a && a.revenue_robust_z != null) ? Math.abs(Number(a.revenue_robust_z)) : null;
+    if (rz >= 2.5 || (rz >= 2 && dz != null && dz >= 2)) return 'confirme';
+    if (rz >= 2 || (dz != null && dz >= 2)) return 'probable';
+    return 'possible';
+  }
+  var MS_TIER_LABEL = { possible: 'À confirmer', probable: 'Probable', confirme: 'Confirmé', 'confirmé': 'Confirmé' };
+  window.msSalesConfidence = msSalesConfidence;
+  window.MS_TIER_LABEL = MS_TIER_LABEL;
+
   function getDraftSeed(actionType, channel, feedItem, prof, day) {
     var spec = SPECS[actionType];
     if (!spec) return null;
@@ -2162,7 +2178,7 @@
       actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
       var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
-      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
+      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;
       entries.push({ item: item, tmpl: tmpl, score: score });
     }
@@ -2236,7 +2252,14 @@
       return 'À noter : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et tracez la cause pour ne pas la répéter.';
     }, urgency: 'plan' },
     'sales_surge': { action: function(a, p, d) {
-      return 'À noter : coïncidence à confirmer — documentez les conditions du jour (offre, météo, calendrier) avant d\'en faire une routine.';
+      var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+      var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+      var byVol = (tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true;
+      var lever = byVol
+        ? ('le volume' + (tx != null ? ' (+' + tx + ' % de tickets' + (bk != null ? ', panier ' + (bk >= 0 ? '+' : '') + bk + ' %' : '') + ')' : ''))
+        : ('le panier moyen' + (bk != null ? ' (' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
+      var hook = a.is_vacation ? 'vacances scolaires' : (a.is_holiday ? 'jour férié' : (Number(a.weather_alert || 0) === 0 ? 'météo favorable' : 'contexte du jour'));
+      return 'À rejouer : porté par ' + lever + '. Repérez ce qui a amené le monde (' + hook + ', mise en avant, offre) et rejouez-le sur vos prochaines journées comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
