@@ -2338,7 +2338,6 @@ if (!location_id) {
           sessionStorage.setItem(key, JSON.stringify({ day: currentDay || {}, prof: data.profile || {}, actionCandidate: _ac }));
         } catch(ex) {}
         // Navigate to insight page
-        try { sessionStorage.setItem("ms_consult_dbg", JSON.stringify({ build: "loc-fix-1", cardLocId: cardLocId, ac_location: _ac ? _ac.location_id : null, cardIdx: cardIdx })); } catch(ex) {}
         window.location.href = "/app/insightevent/insight?type=" + encodeURIComponent(actionType) + "&date=" + encodeURIComponent(affected) + "&location_id=" + encodeURIComponent(cardLocId) + (_instId ? "&card_instance_id=" + encodeURIComponent(_instId) : "");
       });
     });
