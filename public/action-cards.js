@@ -2738,9 +2738,8 @@
       'foreign_tourism_signal'
     ],
     augmenter_panier: [
-      'sales_underperformance','sales_surge','sales_missed_opportunity','sales_competition_cannibalization',
-      'sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','offering_mix_shift',
-      'footfall_vs_basket_decomposition','proven_action_replication'
+      'sales_underperformance','sales_missed_opportunity','sales_competition_cannibalization',
+      'offering_mix_shift','proven_action_replication'
     ],
     plus_avis: [
       'competitor_review_surge','competitor_review_drop','competitor_reputation_strength','review_solicitation'
@@ -2752,6 +2751,21 @@
       'competitor_new_offering','competitor_price_increase','competitor_price_drop','competitor_offering_removed',
       'competitor_repricing_event','competitor_positioning_brief'
     ]
+  };
+
+  // Sales movement cards route to the priority they actually serve, by their driver —
+  // a volume-driven surge serves "Faire venir", a basket-driven one "Augmenter le panier".
+  // Returns the goal key a sales card serves, or null (ambiguous / not a sales card).
+  window.msSalesGoal = function(item) {
+    var t = String((item && item.change_subtype) || '');
+    if (t === 'sales_traffic_not_converting') return 'faire_venir';
+    if (t === 'sales_discount_no_lift') return 'augmenter_panier';
+    if (t === 'sales_surge' || t === 'sales_revenue_down_wow') {
+      var d = String((item && (item.dominant_factor || item.primary_revenue_driver)) || '');
+      if (d === 'basket') return 'augmenter_panier';
+      if (d === 'transactions' || d === 'footfall') return 'faire_venir';
+    }
+    return null;
   };
 
   window.ACTION_CARDS = SPECS;

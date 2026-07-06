@@ -323,7 +323,7 @@ if (!location_id) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=17"></script>
+    <script is:inline src="/action-cards.js?v=18"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1454,7 +1454,8 @@ if (!location_id) {
       for (var _gj = 0; _gj < candidates.length && _goalCount < 3; _gj++) {
         var _gc = candidates[_gj];
         var _gsub = String(_gc.item.change_subtype||"").toLowerCase();
-        if (!_goalSet[_gsub]) continue;
+        var _salesGoal = (window.msSalesGoal ? window.msSalesGoal(_gc.item) : null);
+        if (!_goalSet[_gsub] && _salesGoal !== activeGoalKey) continue;
         var _gDedupSub = (_gsub === "weather_hazard_onset" || _gsub === "weather_worsened") ? "weather_alert" : (_gsub === "high_competition_density" || _gsub === "competition_proximity") ? "competition_density" : _gsub;
         var _gDedup = _gDedupSub + "|" + normalizeYmd(_gc.item.affected_date);
         if (seen[_gDedup]) continue;
@@ -1465,13 +1466,12 @@ if (!location_id) {
       }
     }
 
-    // Context pass: fill up to 8 total (≈5 context after up to 3 goal cards).
-    // Performance pass: reserve up to 4 flagship performance cards (sales / footfall
-    // internal-alert signals) before the generic context pass, so they are not buried
-    // under environmental cards — notably in the merged "Tous mes sites" brief where
-    // non-primary sites' perf cards otherwise land at the tail of the priority tier.
+    // Performance pass: reserve ONE baseline sales/perf card so the operator always has a
+    // pulse on their numbers — without the feed being crowded by 4 sales cards regardless
+    // of priority. Priority-relevant sales cards come through the goal pass above (driver-
+    // routed via msSalesGoal); any extra through the context pass (capped low).
     var _perfCount = 0;
-    for (var _pj = 0; _pj < candidates.length && _perfCount < 4 && top.length < 8; _pj++) {
+    for (var _pj = 0; _pj < candidates.length && _perfCount < 1 && top.length < 8; _pj++) {
       var _pc = candidates[_pj];
       if (String(_pc.item.action_category || "").toLowerCase() !== "performance") continue;
       var _psub = String(_pc.item.change_subtype || "").toLowerCase();
@@ -1502,9 +1502,9 @@ if (!location_id) {
         if (catCount >= 1) continue;
       }
       var _acCat = String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
-      // Performance cards are the flagship internal-alert signals (the 5 in MS_INTERNAL_ALERT_TYPES);
-      // give them their own budget so co-occurring sales/footfall cards aren't capped at 2 like env cards.
-      var _catMax = _acCat === "performance" ? 5 : MAX_PER_CAT;
+      // Performance cards get a modest context budget (was 5 — too many). Priority-relevant
+      // sales cards are already surfaced by the goal pass; the context pass just tops up.
+      var _catMax = _acCat === "performance" ? 2 : MAX_PER_CAT;
       _catCounts[_acCat] = (_catCounts[_acCat] || 0) + 1;
       if (_catCounts[_acCat] > _catMax) continue;
       top.push(c);
