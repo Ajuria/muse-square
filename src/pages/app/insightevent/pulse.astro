@@ -171,6 +171,12 @@ if (!location_id) {
         font-size: 12px; font-weight: 600; color: #1D3BB3;
         background: none; border: none; cursor: pointer; padding: 0;
       }
+      .pls-site-select {
+        font-size: 13px; font-weight: 600; color: #111827;
+        background: #fff; border: 1px solid #E5E7EB; border-radius: 8px;
+        padding: 4px 8px; cursor: pointer; max-width: 240px;
+        margin-bottom: 2px;
+      }
 
       .pls-goal { position:relative; align-self:flex-start; }
       .pls-goal-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1D3BB3; background:#fff; border:1px solid #1D3BB3; border-radius:0; padding:6px 10px; cursor:pointer; font-family:inherit; }
@@ -293,6 +299,7 @@ if (!location_id) {
       <div class="pls-loc-row" style="margin-bottom:16px;">
         <div>
           <div class="pls-loc-name" id="pls-loc-name"></div>
+          <select id="pls-site-select" class="pls-site-select" style="display:none;" aria-label="Filtrer par site"></select>
           <div class="pls-loc-addr" id="pls-loc-addr"></div>
           <div id="pls-subtitle" style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;">Veille opérationnelle · 7 jours</div>
         </div>
@@ -302,10 +309,23 @@ if (!location_id) {
       </div>
 
       <div id="pls-root">
-        <div style="display:flex;align-items:center;justify-content:center;padding:24px 0;">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 0;">
           <img src="/icons/load/ms_load_icon.gif" alt="" style="height:120px;width:auto;" loading="lazy" />
+          <div id="pls-load-msg" style="font-size:13px;color:#6b7280;letter-spacing:0.01em;">Analyse de vos ventes…</div>
         </div>
       </div>
+      <script is:inline>
+        (function(){
+          var msgs = ['Analyse de vos ventes…','Recherche du contexte local (web)…','Comparaison à vos jours similaires…','Consolidation de votre environnement…'];
+          var i = 0;
+          var iv = setInterval(function(){
+            var el = document.getElementById('pls-load-msg');
+            if (!el) { clearInterval(iv); return; }
+            i = (i + 1) % msgs.length;
+            el.textContent = msgs[i];
+          }, 1500);
+        })();
+      </script>
     </div>
 
     <!-- Action Brief — concierge help overlay -->
@@ -323,7 +343,7 @@ if (!location_id) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=19"></script>
+    <script is:inline src="/action-cards.js?v=25"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -635,13 +655,16 @@ if (!location_id) {
     }
     if (sub === "calendar_audience_shift") return nv || "Changement d\u2019audience";
     if (sub === "regime_change") { var _rvMap = {"A":1,"B":2,"C":3,"D":4}; var _ovR = _rvMap[String(ov||"").toUpperCase()] || 0; var _nvR = _rvMap[String(nv||"").toUpperCase()] || 0; if (_nvR > _ovR) return "Environnement plus concurrentiel"; if (_nvR < _ovR) return "Environnement concurrentiel all\u00e9g\u00e9"; return "Changement de contexte"; }
-    if (sub === "ranking_up") { var _rd = Math.abs(Number(ov||0) - Number(nv||0)); return `Progresse de ${_rd} place${_rd > 1 ? "s" : ""}`; }
-    if (sub === "ranking_down") { var _rd = Math.abs(Number(ov||0) - Number(nv||0)); return `Recule de ${_rd} place${_rd > 1 ? "s" : ""}`; }
+    if (sub === "ranking_up") return "Date plus favorable";
+    if (sub === "ranking_down") return "Date moins favorable";
     if (sub === "baseline_validity_change") return null;
     if (sub === "medal_change") {
-      const oldVal = a?.old_value || '—';
-      const newVal = a?.new_value || '—';
-      return `Médaille ${oldVal} \u2192 ${newVal}`;
+      var _mMap = { A:1, B:2, C:3, D:4 };
+      var _mo = _mMap[String(ov||"").toUpperCase()] || 0;
+      var _mn = _mMap[String(nv||"").toUpperCase()] || 0;
+      if (_mo && _mn && _mn < _mo) return "Note de cette date en hausse";
+      if (_mo && _mn && _mn > _mo) return "Note de cette date en baisse";
+      return "Note de cette date révisée";
     }
     if (sub === "context_change") return null;
     if (sub === "event_removed") return null;
@@ -745,8 +768,8 @@ if (!location_id) {
       return "Acc\u00e8s au site potentiellement impact\u00e9";
     }
 
-    if (sub === "ranking_up")   return "Cette date gagne en attractivit\u00e9 relative dans votre r\u00e9gion.";
-    if (sub === "ranking_down") return "Cette date perd en attractivit\u00e9 relative dans votre r\u00e9gion.";
+    if (sub === "ranking_up")   { var _ru = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle monte de " + _ru + " place" + (_ru > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — meilleure fenêtre commerciale qu’avant."; }
+    if (sub === "ranking_down") { var _rd2 = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle recule de " + _rd2 + " place" + (_rd2 > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — fenêtre commerciale moins favorable qu’avant."; }
     if (sub === "competitor_event_launch") {
       return `\u00c9v\u00e9nement concurrent ouvert aujourd\u2019hui${km ? " \u00b7 " + km : ""}`;
     }
@@ -809,7 +832,14 @@ if (!location_id) {
       return "Analysez les \u00e9carts offre/prix avec vos concurrents.";
     }
     if (sub === "baseline_validity_change") return "";
-    if (sub === "medal_change") return "";
+    if (sub === "medal_change") {
+      var _mMap = { A:1, B:2, C:3, D:4 };
+      var _mo = _mMap[String(ov||"").toUpperCase()] || 0;
+      var _mn = _mMap[String(nv||"").toUpperCase()] || 0;
+      if (_mo && _mn && _mn < _mo) return "La note globale de cette date passe de " + ov + " à " + nv + " — conditions plus favorables qu’avant.";
+      if (_mo && _mn && _mn > _mo) return "La note globale de cette date passe de " + ov + " à " + nv + " — conditions moins favorables qu’avant.";
+      return "La note globale de cette date a été révisée.";
+    }
     if (sub === "context_change") return "";
     return "";
   }
@@ -1258,20 +1288,23 @@ if (!location_id) {
     return {};
   }
 
-  var _teamMembersCache = null;
+  // Per-venue caches. The feed aggregates cards from several venues, so a single flat cache
+  // would match a card against the wrong venue's team/rules. Keyed by location_id.
+  var _teamMembersByLoc = {};
   async function fetchTeamMembers(locationId) {
-    if (_teamMembersCache !== null) return _teamMembersCache;
+    if (!locationId) return [];
+    if (_teamMembersByLoc[locationId]) return _teamMembersByLoc[locationId];
+    var out = [];
     try {
       var res = await fetch("/api/channels/team?location_id=" + encodeURIComponent(locationId));
       var json = await res.json().catch(function() { return null; });
-      if (json && json.ok && Array.isArray(json.items)) {
-        _teamMembersCache = json.items;
-        return _teamMembersCache;
-      }
+      if (json && json.ok && Array.isArray(json.items)) out = json.items;
     } catch(e) {}
-    _teamMembersCache = [];
-    return [];
+    _teamMembersByLoc[locationId] = out;
+    return out;
   }
+  function teamMembersFor(locationId) { return _teamMembersByLoc[locationId] || []; }
+  function cardLocId(cardIdx) { try { var c = window.__msCardByIdx && window.__msCardByIdx[cardIdx]; return (c && c.location_id) ? String(c.location_id) : ''; } catch(e) { return ''; } }
 
   var _channelConfigsCache = null;
   async function fetchChannelConfigs(locationId) {
@@ -1289,25 +1322,92 @@ if (!location_id) {
     return {};
   }
 
-  // Active internal-alert (notification) rules for the location. Keyed lookup by
-  // action_type so a card knows if a notification is armed on it.
-  var _alertRulesCache = null;
+  // Active internal-alert (notification) rules per venue. Lookup by action_type + location_id
+  // so a card knows if a notification is armed on it.
+  var _alertRulesByLoc = {};
   async function fetchAlertRules(locationId) {
-    if (_alertRulesCache !== null) return _alertRulesCache;
-    _alertRulesCache = [];
+    if (!locationId) return [];
+    if (_alertRulesByLoc[locationId]) return _alertRulesByLoc[locationId];
+    var out = [];
     try {
       var res = await fetch("/api/channels/internal-alert?location_id=" + encodeURIComponent(locationId));
       var json = await res.json().catch(function() { return null; });
-      if (json && json.ok && Array.isArray(json.items)) _alertRulesCache = json.items;
+      if (json && json.ok && Array.isArray(json.items)) out = json.items;
     } catch(e) {}
-    return _alertRulesCache;
+    _alertRulesByLoc[locationId] = out;
+    return out;
   }
-  function alertRuleForType(actionType) {
-    if (!_alertRulesCache || !_alertRulesCache.length) return null;
-    for (var i = 0; i < _alertRulesCache.length; i++) {
-      if (String(_alertRulesCache[i].action_type) === String(actionType) && _alertRulesCache[i].enabled !== false) return _alertRulesCache[i];
+  function alertRuleForType(actionType, locationId) {
+    var arr = _alertRulesByLoc[locationId] || [];
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i].action_type) === String(actionType) && arr[i].enabled !== false) return arr[i];
     }
     return null;
+  }
+
+  // Active automation (act-automatically) rules per venue, keyed by signal_category.
+  // A card maps to a category via window.MS_ROUTING_MAP (action-cards.js).
+  var _automationByLoc = {};
+  async function fetchAutomationRules(locationId) {
+    if (!locationId) return [];
+    if (_automationByLoc[locationId]) return _automationByLoc[locationId];
+    var out = [];
+    try {
+      var res = await fetch("/api/channels/automation?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) out = json.items;
+    } catch(e) {}
+    _automationByLoc[locationId] = out;
+    return out;
+  }
+  function automationForCard(actionType, locationId, category) {
+    // Prefer the card's own action_category (authoritative, from the candidates view);
+    // fall back to the legacy action_type→category map for anything without one.
+    var cat = category || (window.MS_ROUTING_MAP || {})[String(actionType)];
+    if (!cat) return null;
+    var arr = _automationByLoc[locationId] || [];
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i].signal_category) === String(cat) && arr[i].enabled !== false) return arr[i];
+    }
+    return null;
+  }
+  // Resolve a rule's recipient (a channel address, e.g. an email or Slack handle) back to a
+  // team member's display name via channels_contact — automation member_id is often blank.
+  function memberNameForRecipient(recipient, channel, locationId) {
+    if (!recipient) return null;
+    var arr = _teamMembersByLoc[locationId] || [];
+    for (var i = 0; i < arr.length; i++) {
+      var cc = arr[i].channels_contact || {};
+      if (cc[channel] && String(cc[channel]) === String(recipient)) {
+        var nm = String(arr[i].first_name || '').trim();
+        return nm || null;
+      }
+    }
+    return null;
+  }
+
+  // Per-card outcome state (repondu / fait / ecarte), read back from action_log by
+  // (change_subtype, affected_date). Cards with no row default to "À traiter". Keyed by
+  // location_id like the other caches.
+  var _cardStatesByLoc = {};
+  async function fetchCardStates(locationId) {
+    if (!locationId) return {};
+    if (_cardStatesByLoc[locationId]) return _cardStatesByLoc[locationId];
+    var map = {};
+    try {
+      var res = await fetch("/api/analytics/card-states?location_id=" + encodeURIComponent(locationId));
+      var json = await res.json().catch(function() { return null; });
+      if (json && json.ok && Array.isArray(json.items)) {
+        json.items.forEach(function(it) { map[String(it.change_subtype) + '|' + String(it.affected_date)] = it.state; });
+      }
+    } catch(e) {}
+    _cardStatesByLoc[locationId] = map;
+    return map;
+  }
+  function cardStateFor(changeSubtype, affectedDate, locationId) {
+    var map = _cardStatesByLoc[locationId];
+    if (!map) return null;
+    return map[String(changeSubtype) + '|' + String(affectedDate)] || null;
   }
 
   var _pendingFeedbackCache = [];
@@ -1471,7 +1571,7 @@ if (!location_id) {
     // of priority. Priority-relevant sales cards come through the goal pass above (driver-
     // routed via msSalesGoal); any extra through the context pass (capped low).
     var _perfCount = 0;
-    for (var _pj = 0; _pj < candidates.length && _perfCount < 1 && top.length < 8; _pj++) {
+    for (var _pj = 0; _pj < candidates.length && _perfCount < 4 && top.length < 10; _pj++) {
       var _pc = candidates[_pj];
       if (String(_pc.item.action_category || "").toLowerCase() !== "performance") continue;
       var _psub = String(_pc.item.change_subtype || "").toLowerCase();
@@ -1483,7 +1583,7 @@ if (!location_id) {
       _catCounts["performance"] = (_catCounts["performance"] || 0) + 1;
     }
 
-    for (var j = 0; j < candidates.length && top.length < 8; j++) {
+    for (var j = 0; j < candidates.length && top.length < 10; j++) {
       var c = candidates[j];
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
       var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : (sub2 === "high_competition_density" || sub2 === "competition_proximity") ? "competition_density" : sub2;
@@ -1502,9 +1602,9 @@ if (!location_id) {
         if (catCount >= 1) continue;
       }
       var _acCat = String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
-      // Performance cards get a modest context budget (was 5 — too many). Priority-relevant
-      // sales cards are already surfaced by the goal pass; the context pass just tops up.
-      var _catMax = _acCat === "performance" ? 2 : MAX_PER_CAT;
+      // Sales/performance cards are now one-per-type (deduped in renderActionCandidates), so this
+      // budget = how many DISTINCT sales situations (surge, down, discount, traffic…) can show.
+      var _catMax = _acCat === "performance" ? 5 : MAX_PER_CAT;
       _catCounts[_acCat] = (_catCounts[_acCat] || 0) + 1;
       if (_catCounts[_acCat] > _catMax) continue;
       top.push(c);
@@ -1581,158 +1681,53 @@ if (!location_id) {
       'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
     };
 
+    // Operational meta pills (lower-left strip \u2014 replaces the old pression/\u00e9v\u00e9n/score pills):
+    // is a response automated on this signal, and who owns it. Read from the venue's active
+    // rules (fetchAutomationRules / fetchAlertRules). Automation rail (acts) wins over the
+    // internal-alert rail (notifies). Owner shows only when the recipient resolves to a
+    // named team member \u2014 never a raw address.
     function buildMetricsStrip(entry, currentDay) {
       var a = entry.item;
-      var dp = a.data_payload || {};
-      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
-      var metrics = [];
-      // Pressure ratio
-      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
-      if (pr > 0 && pr !== 1) {
-        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
+      var actionType = String(a.change_subtype || a.action_type || '');
+      var loc = String(a.location_id || '');
+      var pills = [];
+      var label = null, channel = null, recipient = null;
+      var au = automationForCard(actionType, loc, String(a.action_category || ''));
+      if (au) {
+        label = (au.require_approval === true || au.require_approval === 'true') ? 'Auto \u00b7 \u00e0 valider' : 'Automatis\u00e9';
+        channel = au.channel; recipient = au.recipient;
+      } else {
+        var al = alertRuleForType(actionType, loc);
+        if (al) {
+          label = (al.channel === 'note_interne') ? 'Note auto' : 'Alerte auto';
+          channel = al.channel; recipient = al.recipient;
+        }
       }
-      // Events count
-      var ev5km = Number(dp.events_5km || dp.events_500m || currentDay.events_within_5km_count || 0);
-      var ev500m = Number(dp.events_500m || 0);
-      if (ev500m > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
-      } else if (ev5km > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
+      if (label) {
+        // Automation status in a soft data-blue fill with a bolt glyph; the destination
+        // stays a quiet neutral pill. Prefer a named team member; else show channel type +
+        // address (e.g. "Slack #analytics_engineering"). note_interne has no recipient \u2192 no pill.
+        pills.push('<span class="ab-metric" style="background:#EEF2FF;color:#1D3BB3;font-weight:600;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>' + escapeHtml(label) + '</span>');
+        var ownerLabel = memberNameForRecipient(recipient, channel, loc);
+        if (!ownerLabel && recipient) {
+          var CH_LABEL = { slack:'Slack', email:'Email', sms:'SMS', whatsapp:'WhatsApp', phone:'T\u00e9l\u00e9phone' };
+          ownerLabel = (CH_LABEL[channel] || channel) + ' ' + recipient;
+        }
+        if (ownerLabel) pills.push('<span class="ab-metric">\u2192 ' + escapeHtml(ownerLabel) + '</span>');
+      } else {
+        // Not automated \u2192 outcome status pill in the same slot. "\u00c0 traiter" (amber, it needs
+        // attention) is the default when action_log has no completed-outcome row for this card.
+        var st = cardStateFor(actionType, normalizeYmd(a.affected_date), loc);
+        var OUT = {
+          repondu: { txt:'R\u00e9pondu', bg:'#DCFCE7', fg:'#166534', icon:'<path d="M20 6 9 17l-5-5"/>', strike:false },
+          fait:    { txt:'D\u00e9j\u00e0 fait', bg:'#DCFCE7', fg:'#166534', icon:'<path d="M20 6 9 17l-5-5"/>', strike:false },
+          ecarte:  { txt:'Pas pour moi', bg:'#F3F4F6', fg:'#9ca3af', icon:'<path d="M18 6 6 18"/><path d="M6 6 18 18"/>', strike:true }
+        };
+        var o = OUT[st] || { txt:'\u00c0 traiter', bg:'#FEF3E2', fg:'#B45309', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', strike:false };
+        var strikeCss = o.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '';
+        pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
       }
-      // Score
-      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
-      if (score > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
-      }
-      // Weather alert
-      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
-      if (alertLvl >= 2) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
-      }
-      // Tourism index
-      var tourism = Number(dp.tourism_index || 0);
-      if (tourism > 50) {
-        var tCls = tourism > 75 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
-      }
-      // Commercial event name
-      if (dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
-      }
-      // Holiday name
-      if (dp.holiday_name && !dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
-      }
-      // Competitor name
-      if (dp.competitor_name) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
-      }
-      return metrics.slice(0, 4).join('');
-    }
-
-    var CAT_ICON_MAP = {
-      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
-      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
-      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
-      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
-      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
-      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
-      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
-    };
-
-    function buildMetricsStrip(entry, currentDay) {
-      var a = entry.item;
-      var dp = a.data_payload || {};
-      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
-      var metrics = [];
-      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
-      if (pr > 0 && pr !== 1) {
-        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
-      }
-      var ev500m = Number(dp.events_500m || 0);
-      var ev5km = Number(dp.events_5km || currentDay.events_within_5km_count || 0);
-      if (ev500m > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
-      } else if (ev5km > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
-      }
-      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
-      if (score > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
-      }
-      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
-      if (alertLvl >= 2) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
-      }
-      var tourism = Number(dp.tourism_index || 0);
-      if (tourism > 50) {
-        var tCls = tourism > 75 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
-      }
-      if (dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
-      }
-      if (dp.holiday_name && !dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
-      }
-      if (dp.competitor_name) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
-      }
-      return metrics.slice(0, 4).join('');
-    }
-
-    var CAT_ICON_MAP = {
-      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
-      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
-      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
-      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
-      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
-      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
-      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
-    };
-
-    function buildMetricsStrip(entry, currentDay) {
-      var a = entry.item;
-      var dp = a.data_payload || {};
-      if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = {}; } }
-      var metrics = [];
-      var pr = Number(dp.pressure_ratio || currentDay.competition_pressure_ratio || 0);
-      if (pr > 0 && pr !== 1) {
-        var prCls = pr >= 1.3 ? 'ab-metric-warn' : pr < 0.8 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + prCls + '"><span class="ab-metric-val">\u00d7' + pr.toFixed(1) + '</span> pression</span>');
-      }
-      var ev500m = Number(dp.events_500m || 0);
-      var ev5km = Number(dp.events_5km || currentDay.events_within_5km_count || 0);
-      if (ev500m > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev500m + '</span> \u00e0 500m</span>');
-      } else if (ev5km > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + ev5km + '</span> \u00e9v\u00e9n.</span>');
-      }
-      var score = Number(dp.score || currentDay.opportunity_score_final_local || currentDay.opportunity_score || 0);
-      if (score > 0) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + Math.round(score) + '</span> score</span>');
-      }
-      var alertLvl = Number(dp.alert_level || dp.weather_alert || dp.today_alert || 0);
-      if (alertLvl >= 2) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">Niv. ' + alertLvl + '</span> alerte</span>');
-      }
-      var tourism = Number(dp.tourism_index || 0);
-      if (tourism > 50) {
-        var tCls = tourism > 75 ? 'ab-metric-good' : '';
-        metrics.push('<span class="ab-metric ' + tCls + '"><span class="ab-metric-val">' + Math.round(tourism) + '</span> tourisme</span>');
-      }
-      if (dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric ab-metric-good"><span class="ab-metric-val">' + escapeHtml(dp.commercial_event_name) + '</span></span>');
-      }
-      if (dp.holiday_name && !dp.commercial_event_name) {
-        metrics.push('<span class="ab-metric"><span class="ab-metric-val">' + escapeHtml(dp.holiday_name) + '</span></span>');
-      }
-      if (dp.competitor_name) {
-        metrics.push('<span class="ab-metric ab-metric-warn"><span class="ab-metric-val">' + escapeHtml(dp.competitor_name) + '</span></span>');
-      }
-      return metrics.slice(0, 4).join('');
+      return pills.join('');
     }
 
     var cardsHtml = top.map(function(entry, cardIdx) {
@@ -1826,7 +1821,6 @@ if (!location_id) {
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
-                    + ((typeof alertRuleForType === 'function' && entry.item && alertRuleForType(entry.item.change_subtype)) ? '<span class="chip-n" style="background:#DCFCE7;color:#166534;border:0;font-weight:600;">Notification active</span>' : '')
                   + '</div>'
                   + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
                   + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
@@ -1856,7 +1850,6 @@ if (!location_id) {
             + '</div>'
             + (t._card_type === 'action' ? ('<div class="disc" data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '">'
                 + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
-                + '<button type="button" data-ab-dispo-btn="card_done" class="disc-btn">Fait</button>'
                 + '<button type="button" data-ab-dispo-btn="card_already_done" class="disc-btn">Déjà fait</button>'
                 + '<button type="button" data-ab-dispo-btn="card_not_done" class="disc-btn">Pas pour moi</button>'
               + '</div>') : '')
@@ -1997,7 +1990,7 @@ if (!location_id) {
         + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
         + (ch.cat === "send" ? '<div style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>' : '')
         + (showRecipient ? (function() {
-          var members = (_teamMembersCache || []).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+          var members = teamMembersFor(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
           var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',score_down:'opportunity',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition'};
           var sigCat = ROUTING_MAP[signalType] || '';
           var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
@@ -2240,7 +2233,7 @@ if (!location_id) {
         return '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--color-border);">Enregistré dans vos notes internes — aucun destinataire.</div>';
       }
       var ph = channel === 'email' ? 'destinataire@email.com' : '#canal ou @nom';
-      var members = (_teamMembersCache || []).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+      var members = teamMembersFor(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
       var html = '<div style="position:relative;margin-bottom:12px;">'
         + '<div style="' + lbl + '">Destinataire</div>'
         + '<input data-al-recip="' + cardIdx + '" placeholder="' + escapeHtml(ph) + '" value="" autocomplete="off" style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" />';
@@ -2374,7 +2367,7 @@ if (!location_id) {
           .then(function(r) { return r.json(); })
           .then(function(json) {
             if (!json || !json.ok) throw new Error(json && json.error ? json.error : 'Erreur');
-            _alertRulesCache = null;
+            delete _alertRulesByLoc[ctx.locationId];
             ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Notification désactivée.</div>';
           })
           .catch(function() { disableBtn.disabled = false; disableBtn.textContent = 'Désactiver'; });
@@ -2416,7 +2409,7 @@ if (!location_id) {
           .then(function(r) { return r.json(); })
           .then(function(json) {
             if (!json || !json.ok) throw new Error(json && json.error ? json.error : 'Erreur');
-            if (isNotify) _alertRulesCache = null;
+            if (isNotify) delete _alertRulesByLoc[ctx.locationId];
             ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">' + (isNotify ? (ctx.existingRule ? 'Notification mise à jour.' : 'Notification activée.') : 'Message envoyé.') + '</div>';
           })
           .catch(function(err) {
@@ -2454,7 +2447,7 @@ if (!location_id) {
       try { await fetchTeamMembers(ctx.locationId); } catch (ex) {}
       try { await fetchSavedDrafts(ctx.locationId); } catch (ex) {}
       try { await fetchAlertRules(ctx.locationId); } catch (ex) {}
-      ctx.existingRule = (panelMode === 'notify') ? alertRuleForType(ctx.actionType) : null;
+      ctx.existingRule = (panelMode === 'notify') ? alertRuleForType(ctx.actionType, ctx.locationId) : null;
       workspace.innerHTML = buildAlertPanelHtml(cardIdx, ctx);
       wireAlertPanel(cardIdx, ctx);
     }
@@ -2566,7 +2559,7 @@ if (!location_id) {
           if (b === btn) { b.style.opacity = "1"; b.style.fontWeight = "700"; }
           else { b.style.opacity = "0.4"; }
         });
-        if (ev === "card_done") {
+        if (ev === "card_already_done") {
           var _cEl = root.querySelector("[data-actions-counter]");
           if (_cEl) { var _n = parseInt(_cEl.textContent, 10) || 0; _cEl.textContent = String(_n + 1); }
         }
@@ -2575,6 +2568,7 @@ if (!location_id) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ event: ev, location_id: locId, card_instance_id: instance, action_type: sub, action_category: cat, change_subtype: sub, affected_date: affected }),
         }).catch(function(){});
+        delete _cardStatesByLoc[locId]; // outcome changed — next render re-reads the state
       });
     });
 
@@ -2806,7 +2800,7 @@ if (!location_id) {
             var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
             var recipVal = rEl ? rEl.value.trim() : "";
             if (recipVal && channel !== "internal") {
-              var isKnown = (_teamMembersCache || []).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
+              var isKnown = teamMembersFor(locationId).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
               if (!isKnown) {
                 var savePrompt = document.createElement("div");
                 savePrompt.style.cssText = "margin:10px 0 0;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;";
@@ -2848,7 +2842,7 @@ if (!location_id) {
                     });
                     var json2 = await res.json();
                     if (json2 && json2.ok) {
-                      _teamMembersCache = null;
+                      delete _teamMembersByLoc[locationId];
                       await fetchTeamMembers(locationId);
                       savePrompt.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#166534;">\u2713</span><span style="font-size:12px;color:#166534;font-weight:500;">Destinataire enregistr\u00e9</span></div>';
                       setTimeout(function() { savePrompt.remove(); }, 2000);
@@ -2974,6 +2968,7 @@ if (!location_id) {
             }),
           }).then(function(ruleRes) { return ruleRes.json(); }).then(function(ruleJson) {
             if (!ruleJson || !ruleJson.ok) throw new Error(ruleJson?.error || "Erreur r\u00e8gle");
+            delete _automationByLoc[locId]; // new automation armed \u2014 force re-fetch so the card pill updates
 
             // Step 2: Publish or copy
             if (canPublish) {
@@ -3048,7 +3043,7 @@ if (!location_id) {
 
     function showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal) {
       if (!recipVal || channel === "internal" || channel === "gbp" || channel === "facebook" || channel === "instagram") return;
-      var isKnown = (_teamMembersCache || []).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
+      var isKnown = teamMembersFor(locId).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
       if (isKnown) return;
       var savePrompt = document.createElement("div");
       savePrompt.style.cssText = "margin:10px 0 0;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;";
@@ -3090,7 +3085,7 @@ if (!location_id) {
           });
           var json2 = await res.json();
           if (json2 && json2.ok) {
-            _teamMembersCache = null;
+            delete _teamMembersByLoc[locId];
             await fetchTeamMembers(locId);
             savePrompt.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#166534;">\u2713</span><span style="font-size:12px;color:#166534;font-weight:500;">Destinataire enregistr\u00e9</span></div>';
             setTimeout(function() { savePrompt.remove(); }, 2000);
@@ -3240,11 +3235,21 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Score detail (strip 1 expanded)
   // ----------------------------------------------------------------
+  // Verdict label from the SCORE (0-10), not just the regime — a 6.4 day is not "défavorable".
+  // Regime is only the fallback when the score is missing.
+  function scoreVerdict(score, regime) {
+    var s = (score != null && isFinite(Number(score))) ? Number(score) : null;
+    if (s == null) return regime === "A" ? { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534" } : regime === "C" ? { t: "Contexte à surveiller", bg: "#FEF3E2", fg: "#B45309" } : { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151" };
+    if (s >= 7) return { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534" };
+    if (s >= 5) return { t: "Contexte correct", bg: "#EEF2FF", fg: "#1D3BB3" };
+    if (s >= 3.5) return { t: "Contexte mitigé", bg: "#FEF3E2", fg: "#B45309" };
+    return { t: "Contexte défavorable", bg: "#fee2e2", fg: "#991b1b" };
+  }
+
   function renderScoreDetail(day, days) {
     const score = day.opportunity_score;
     const regime = String(day.opportunity_regime || "B").toUpperCase();
-    const regimeMap = { A: { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534" }, C: { t: "Contexte défavorable", bg: "#fee2e2", fg: "#991b1b" } };
-    const rd = regimeMap[regime] || { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151" };
+    const rd = scoreVerdict(score, regime);
 
     // weekRank: position of this day among all days sorted by score DESC
     const sorted = [...days].filter(d => d.opportunity_score != null).sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0));
@@ -3780,6 +3785,24 @@ if (!location_id) {
       }
     }
 
+    // Dedupe recurring/duplicate signals within each bucket: one entry per event (label+venue)
+    // or per signal (type+date), keeping the higher alert level, then the occurrence nearest today.
+    const feedDedupKey = (a) => { const lbl = String(a?.event_label || "").trim().toLowerCase(); return lbl ? ("e:" + lbl + "|" + String(a?.event_venue_name || "").trim().toLowerCase()) : ("s:" + String(a?.change_subtype || "") + "|" + normalizeYmd(a?.affected_date)); };
+    const _feedDateDist = (a) => { const d = parseYmdToDate(normalizeYmd(a?.affected_date)); const t = parseYmdToDate(todayYmd()); return (d && t) ? Math.abs((d - t) / 86400000) : 9999; };
+    for (const cat of CATEGORY_ORDER) {
+      const items = categoryBuckets.get(cat.key);
+      const m = new Map();
+      for (const a of items) {
+        const k = feedDedupKey(a);
+        const ex = m.get(k);
+        if (!ex) { m.set(k, a); continue; }
+        const lvlDiff = (Number(a?.alert_level) || 0) - (Number(ex?.alert_level) || 0);
+        if (lvlDiff > 0 || (lvlDiff === 0 && _feedDateDist(a) < _feedDateDist(ex))) m.set(k, a);
+      }
+      categoryBuckets.set(cat.key, Array.from(m.values()));
+    }
+    const dedupedTotal = CATEGORY_ORDER.reduce((n, cat) => n + categoryBuckets.get(cat.key).length, 0);
+
     const showAll = window.__plsV4FeedShowAll === true;
     const categoryEntries = CATEGORY_ORDER
       .map(cat => [cat, categoryBuckets.get(cat.key)])
@@ -3852,13 +3875,13 @@ if (!location_id) {
       const locLabels = new Set(catItems.map(a => a?.location_label).filter(Boolean));
       const showLocPill = isMultisite && locLabels.size > 1;
 
-      // Sort by alert_level DESC, then date DESC within category
+      // Sort by alert_level DESC, then soonest date first (date-aware, forward-looking).
       const sorted = [...catItems].sort((a, b) => {
         const lvlDiff = (Number(b?.alert_level)||0) - (Number(a?.alert_level)||0);
         if (lvlDiff !== 0) return lvlDiff;
-        return String(b?.affected_date||"").localeCompare(String(a?.affected_date||""));
+        return String(a?.affected_date||"").localeCompare(String(b?.affected_date||""));
       });
-      const maxVisible = showAll ? sorted.length : 5;
+      const maxVisible = showAll ? Math.min(sorted.length, 10) : 5;
       const visible = sorted.slice(0, maxVisible);
 
       const itemsHtml = visible.map((a, idx) => {
@@ -3914,14 +3937,14 @@ if (!location_id) {
 
     const hasHidden = !showAll && categoryEntries.some(([, items]) => items.length > 5);
     const showAllBtn = hasHidden
-      ? `<button type="button" id="pls-v4-feed-show-all" style="display:block;width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:500;color:#3b82f6;cursor:pointer;font-family:inherit;">Voir tout (${totalCount})</button>`
+      ? `<button type="button" id="pls-v4-feed-show-all" style="display:block;width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:500;color:#3b82f6;cursor:pointer;font-family:inherit;">Voir plus (top 10 par catégorie)</button>`
       : "";
 
     return `
       <div style="margin-top:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
           <span class="eb">Fil d'actualité</span>
-          <span style="font-size:11px;color:var(--color-text-muted);">${totalCount} ${totalCount > 1 ? "signaux" : "signal"}</span>
+          <span style="font-size:11px;color:var(--color-text-muted);">${dedupedTotal} ${dedupedTotal > 1 ? "signaux" : "signal"}</span>
         </div>
         <div>
           ${groupsHtml}
@@ -3933,10 +3956,24 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Main render — V4 REWRITE: pills → alerts → 3 radar strips → feed
   // ----------------------------------------------------------------
+  // Session goal state — ONE weekly goal across all sites (the aggregate and any
+  // site picked in the header dropdown). Sticky across reloads via localStorage;
+  // falls back to a genuine single-site server goal. Drives the "Goal pass" reorder.
+  var _activeGoalKey = "";
+  var _goalInit = false;
+  function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
   function renderPulse(data, selectedDate, activeView) {
     activeView = activeView || "radar";
     const root = document.getElementById("pls-root");
     if (!root) return;
+    if (!_goalInit) {
+      _goalInit = true;
+      var _lsGoal = null;
+      try { _lsGoal = localStorage.getItem(_goalStoreKey()); } catch (e) {}
+      if (_lsGoal) _activeGoalKey = _lsGoal;
+      else if (data.active_goal) _activeGoalKey = String((data.active_goal.goal != null ? data.active_goal.goal : data.active_goal) || "");
+    }
+    var _effGoalKey = _activeGoalKey || "";
 
     const days = Array.isArray(data.days) ? data.days : [];
     window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
@@ -4316,12 +4353,12 @@ if (!location_id) {
     }
 
     // Daily Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount, (data.active_goal && data.active_goal.goal) ? String(data.active_goal.goal) : "");
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount, _effGoalKey);
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
     const regime = String(currentDay.opportunity_regime || "B").toUpperCase();
-    const regimeLabel = regime === "A" ? "Contexte favorable" : regime === "C" ? "Contexte défavorable" : "Conditions normales";
+    const regimeLabel = scoreVerdict(score, regime).t;
 
     // weekRank
     const sortedDays = [...days].filter(d => d.opportunity_score != null).sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0));
@@ -4434,30 +4471,19 @@ if (!location_id) {
       + `</div>`
     + `</div>`;
 
-    // Weekly goal selector (single-site only — per-location goal is ambiguous when sites are merged)
+    // Weekly goal — ONE goal for the whole account; picking it reorders the cards live.
     var GOAL_OPTS = [
       { key: "faire_venir", label: "Faire venir" },
-      { key: "augmenter_panier", label: "Augmenter le panier" },
+      { key: "augmenter_panier", label: "Augmenter le CA" },
       { key: "plus_avis", label: "Plus d\u2019avis" },
       { key: "surveiller_marche", label: "Surveiller le march\u00e9" },
     ];
-    var activeGoalKey = data.active_goal ? String((data.active_goal.goal != null ? data.active_goal.goal : data.active_goal) || "") : "";
-    // Multisite: goal is per-site — pick a site, then a goal. The activeGoalKey
-    // highlight only applies single-site (data.active_goal is the merged goal).
-    var _goalSites = (isMultisite && Array.isArray(data._locations)) ? data._locations : null;
-    var _goalSitePickerHtml = _goalSites ? (
-      '<select data-goal-site style="font-size:12px;font-weight:600;padding:6px 10px;border:1px solid #E5E7EB;background:#fff;color:#374151;cursor:pointer;font-family:inherit;margin-bottom:8px;display:block;max-width:100%;">'
-      + _goalSites.map(function(s, i) {
-          var id = s.location_id;
-          var label = s.site_name || s.company_name || s.company_address || id;
-          return '<option value="' + escapeHtml(String(id)) + '"' + (i === 0 ? ' selected' : '') + '>' + escapeHtml(String(label)) + '</option>';
-        }).join("")
-      + '</select>'
-    ) : "";
-    // Multisite has no per-site goal read-back yet, so the chip states the action plainly (no count, no reflection).
-    var _goalChipLabel = isMultisite
-      ? "Objectifs par site"
-      : (activeGoalKey ? ("Objectif\u00a0: " + ((GOAL_OPTS.filter(function(g){ return g.key === activeGoalKey; })[0] || {}).label || "")) : "D\u00e9finir un objectif");
+    // One weekly goal for the whole account — the header dropdown handles which site
+    // you are looking at, so the goal no longer carries its own site picker.
+    var activeGoalKey = _effGoalKey;
+    var _goalChipLabel = activeGoalKey
+      ? ("Objectif\u00a0: " + ((GOAL_OPTS.filter(function(g){ return g.key === activeGoalKey; })[0] || {}).label || ""))
+      : "D\u00e9finir un objectif";
     var goalSelectorHtml = (
       '<div class="pls-goal" data-goal-selector>'
       + '<button type="button" class="pls-goal-chip" data-goal-chip-toggle aria-expanded="false">'
@@ -4465,11 +4491,11 @@ if (!location_id) {
         + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'
       + '</button>'
       + '<div class="pls-goal-pop" data-goal-popover hidden>'
-        + (isMultisite ? '<div class="eb" style="margin-bottom:8px;">Objectif par site</div>' : '')
-        + _goalSitePickerHtml
+        + '<div class="eb" style="margin-bottom:6px;">Objectif de la semaine</div>'
+        + '<div style="font-size:11px;color:#6B7280;margin-bottom:10px;line-height:1.4;">Les cartes qui servent cet objectif passent en t\u00eate de la liste.</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
         + GOAL_OPTS.map(function(g) {
-            var sel = (!isMultisite && g.key === activeGoalKey);
+            var sel = (g.key === activeGoalKey);
             return '<button type="button" data-goal-key="' + g.key + '" aria-pressed="' + (sel ? 'true' : 'false') + '" style="font-size:12px;font-weight:600;padding:6px 12px;border:1px solid ' + (sel ? '#1D3BB3' : '#E5E7EB') + ';background:' + (sel ? '#1D3BB3' : '#fff') + ';color:' + (sel ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escapeHtml(g.label) + '</button>';
           }).join("")
         + '</div>'
@@ -4537,35 +4563,22 @@ if (!location_id) {
       btn.addEventListener("click", function() {
         var key = btn.getAttribute("data-goal-key");
         var clear = btn.getAttribute("aria-pressed") === "true"; // re-tapping the active goal deselects
-        var rowEl = btn.closest("[data-goal-selector]");
-        if (rowEl) rowEl.querySelectorAll("[data-goal-key]").forEach(function(b) {
-          var on = (!clear && b === btn);
-          b.setAttribute("aria-pressed", on ? "true" : "false");
-          b.style.border = "1px solid " + (on ? "#1D3BB3" : "#E5E7EB");
-          b.style.background = on ? "#1D3BB3" : "#fff";
-          b.style.color = on ? "#fff" : "#6B7280";
-        });
-        var siteSel = rowEl ? rowEl.querySelector("[data-goal-site]") : null;
-        var goalLoc = siteSel ? siteSel.value : currentLocationId;
-        if (!goalLoc) return;
-        if (!isMultisite) data.active_goal = clear ? null : { goal: key };
-        // Single-site: reflect the new goal on the chip + close the popover
-        if (!isMultisite && rowEl) {
-          var GOAL_LABELS = { faire_venir: "Faire venir", augmenter_panier: "Augmenter le panier", plus_avis: "Plus d\u2019avis", surveiller_marche: "Surveiller le march\u00e9" };
-          var lbl = rowEl.querySelector("[data-goal-chip-label]");
-          if (lbl) lbl.textContent = clear ? "D\u00e9finir un objectif" : ("Objectif\u00a0: " + (GOAL_LABELS[key] || ""));
-          var pop2 = rowEl.querySelector("[data-goal-popover]");
-          if (pop2) pop2.setAttribute("hidden", "");
-          var chip2 = rowEl.querySelector("[data-goal-chip-toggle]");
-          if (chip2) chip2.setAttribute("aria-expanded", "false");
+        _activeGoalKey = clear ? "" : key;
+        // Sticky across reloads for every view (aggregate + single-site).
+        try { if (clear) localStorage.removeItem(_goalStoreKey()); else localStorage.setItem(_goalStoreKey(), key); } catch (e) {}
+        // Also persist server-side for genuine single-site accounts (per-location goal store).
+        if (Array.isArray(allLocations) && allLocations.length <= 1 && currentLocationId) {
+          data.active_goal = clear ? null : { goal: key };
+          fetch("/api/insight/set-goal", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(clear
+              ? { location_id: currentLocationId, scope: "weekly", clear: true }
+              : { location_id: currentLocationId, scope: "weekly", goal: key }),
+          }).catch(function(){});
         }
-        fetch("/api/insight/set-goal", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(clear
-            ? { location_id: goalLoc, scope: "weekly", clear: true }
-            : { location_id: goalLoc, scope: "weekly", goal: key }),
-        }).catch(function(){});
+        // Re-render so the Goal pass reorders the cards and the chip reflects the choice.
+        renderPulse(data, selectedDate, "radar");
       });
     });
 
@@ -5057,19 +5070,56 @@ if (!location_id) {
         renderPulse(mergedData, todayYmd(), "radar");
 
         var _locIdForSecondary = locs[0]?.location_id || currentLocationId;
+        // The aggregated feed shows cards from every venue, so rule/team caches must be
+        // fetched per venue — otherwise a card matches the wrong venue's rules (or none).
+        var _feedLocIds = (locs || []).map(function(l){ return l && l.location_id; }).filter(Boolean);
+        if (_locIdForSecondary && _feedLocIds.indexOf(_locIdForSecondary) < 0) _feedLocIds.push(_locIdForSecondary);
+        var _ruleFetches = [];
+        _feedLocIds.forEach(function(lid){ _ruleFetches.push(fetchTeamMembers(lid), fetchAlertRules(lid), fetchAutomationRules(lid), fetchCardStates(lid)); });
         const [csResult] = await Promise.all([
           fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0, top_threats: [] })),
           fetchPendingFeedback(_locIdForSecondary),
           fetchSavedDrafts(_locIdForSecondary),
           fetchChannelConfigs(_locIdForSecondary),
-          fetchTeamMembers(_locIdForSecondary),
-          fetchAlertRules(_locIdForSecondary),
-        ]);
+        ].concat(_ruleFetches));
         mergedData._competitor_signals = csResult.signals;
         mergedData._competitor_followed_count = csResult.followed_count;
         mergedData._top_threats = csResult.top_threats;
         mergedData._followed_competitors = csResult.followed_competitors || [];
         renderPulse(mergedData, todayYmd(), "radar");
+
+        // Site filter — switch between the aggregate ("Tous mes sites") and a single site.
+        // Re-renders from data already fetched (per-venue rule/team/card-state caches are
+        // populated for every site), so switching is instant and needs no re-fetch.
+        var siteSelect = document.getElementById("pls-site-select");
+        if (siteSelect) {
+          siteSelect.innerHTML = '<option value="__all__">Tous mes sites</option>'
+            + locs.map(function(l){ return '<option value="' + escapeHtml(l.location_id) + '">' + escapeHtml(l.company_name || l.location_id) + '</option>'; }).join("");
+          if (nameEl) nameEl.style.display = "none";
+          siteSelect.style.display = "";
+          siteSelect.addEventListener("change", function(){
+            var id = siteSelect.value;
+            if (!id || id === "__all__") {
+              if (addrEl) addrEl.textContent = locs.length + " sites surveillés";
+              if (subtitleEl) subtitleEl.textContent = "Veille opérationnelle · 7 jours · " + locs.length + " sites";
+              renderPulse(mergedData, todayYmd(), "radar");
+              return;
+            }
+            var hit = valid.find(function(v){ return v.loc.location_id === id; });
+            if (!hit) return;
+            if (addrEl) addrEl.textContent = hit.loc.company_address || "";
+            if (subtitleEl) subtitleEl.textContent = "Veille opérationnelle · 7 jours";
+            var d = Object.assign({}, hit.data);
+            d.all_feed = filterFeedByWindow((hit.data.all_feed || []).map(function(a){ return Object.assign({}, a, { location_id: hit.loc.location_id, location_label: hit.loc.company_name || hit.loc.location_id }); }), 0);
+            d.action_candidates = (hit.data.action_candidates || []).map(function(ac){ return Object.assign({}, ac, { location_id: ac.location_id || hit.loc.location_id, location_label: hit.loc.company_name || hit.loc.location_id }); });
+            d._locations = [];
+            d._competitor_signals = mergedData._competitor_signals;
+            d._competitor_followed_count = mergedData._competitor_followed_count;
+            d._top_threats = mergedData._top_threats;
+            d._followed_competitors = mergedData._followed_competitors;
+            renderPulse(d, todayYmd(), "radar");
+          });
+        }
 
       } else {
         const currentLoc = locs.find(l => l.location_id === currentLocationId);
@@ -5089,6 +5139,8 @@ if (!location_id) {
           fetchChannelConfigs(currentLocationId),
           fetchTeamMembers(currentLocationId),
           fetchAlertRules(currentLocationId),
+          fetchAutomationRules(currentLocationId),
+          fetchCardStates(currentLocationId),
         ]);
         data._competitor_signals = csResult.signals;
         data._competitor_followed_count = csResult.followed_count;

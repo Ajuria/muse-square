@@ -1776,6 +1776,13 @@
     }
   );
 
+  // Weekday named explicitly from a card's date — "vos samedis", never "vos jours comparables".
+  var MS_DOW_FR_PLURAL = ['dimanches', 'lundis', 'mardis', 'mercredis', 'jeudis', 'vendredis', 'samedis'];
+  window.msWeekdayFr = function (dateStr) {
+    try { return MS_DOW_FR_PLURAL[new Date(String(dateStr) + 'T00:00:00Z').getUTCDay()] || 'jours comparables'; }
+    catch (e) { return 'jours comparables'; }
+  };
+
   // sales_surge — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver, is_holiday, is_vacation, events_5km.
   // €-rise T1; favourable context T1/T2; "à reproduire" is advice, not a claim.
@@ -1790,7 +1797,8 @@
       var alert = Number(a.weather_alert || 0);
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
 
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos jours comparables.';
+      var jours = window.msWeekdayFr(a.affected_date);
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours + '.';
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
@@ -1865,12 +1873,16 @@
     function(a, p, d) {
       var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
       var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
-      var rate = a.conversion_rate != null ? (Number(a.conversion_rate) * 100).toFixed(1) : null;
+      var rateN = a.conversion_rate != null ? Number(a.conversion_rate) * 100 : null;
+      var cdp = a.conversion_delta_pct != null ? Number(a.conversion_delta_pct) : null;
+      var usual = (rateN != null && cdp != null && (100 + cdp) > 0) ? rateN * 100 / (100 + cdp) : null;
       var vis = a.daily_visitors != null ? num(a.daily_visitors) : null;
       var line = 'Le public était là';
-      if (foot != null) line += ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude)';
-      line += ' mais conversion ' + (cz != null ? Math.abs(cz).toFixed(1) + ' écarts-types sous votre norme du même jour' : 'en retrait') + (rate != null ? ' (' + rate + ' % des visiteurs achètent)' : '') + '.';
-      if (vis != null) line += ' ' + vis + ' visiteurs comptés.';
+      var _fb = [];
+      if (vis != null) _fb.push(vis + ' visiteurs');
+      if (foot != null) _fb.push('fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude');
+      if (_fb.length) line += ' (' + _fb.join(', ') + ')';
+      line += ' mais peu d\'achats : ' + (rateN != null ? Math.round(rateN) + ' % des visiteurs achètent aujourd\'hui' : 'conversion en retrait') + (usual != null ? ', contre ~' + Math.round(usual) + ' % d\'ordinaire' : ' (sous votre norme du même jour)') + '.';
       return line;
     },
     {
@@ -1878,7 +1890,7 @@
         var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
         var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'du monde en boutique' + (foot != null ? ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' %)' : '') + ' mais peu d\'achats' + (cz != null ? ' (conversion ' + Math.abs(cz).toFixed(1) + ' écarts-types sous notre norme)' : '') + '. ' + (soft ? 'Regardons ensemble l\'accueil, la caisse et la mise en avant produit pour comprendre le blocage.' : 'Renforçons l\'accueil et la caisse aujourd\'hui, et mettons en place une routine pour les journées à fort passage.');
+        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'du monde en boutique' + (foot != null ? ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' %)' : '') + ' mais peu d\'achats' + (cz != null ? ' (conversion nettement sous notre norme habituelle)' : '') + '. ' + (soft ? 'Regardons ensemble l\'accueil, la caisse et la mise en avant produit pour comprendre le blocage.' : 'Renforçons l\'accueil et la caisse aujourd\'hui, et mettons en place une routine pour les journées à fort passage.');
       }
     }
   );
@@ -1887,9 +1899,10 @@
   // discount_rate_delta_pct, revenue_vs_30d_avg_pct, daily_revenue.
   reg('sales_discount_no_lift', 'Remises sans effet', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
-      var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
-      var line = 'Intensité de remise ' + (dz != null ? dz.toFixed(1) + ' écarts-types au-dessus de l\'habituel' : 'en hausse') + (dr != null ? ' (' + dr + ' % du CA en remises)' : '') + ' — le CA n\'a pas suivi.';
+      var drN = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
+      var ddp = a.discount_rate_delta_pct != null ? Number(a.discount_rate_delta_pct) : null;
+      var drUsual = (drN != null && ddp != null && (100 + ddp) > 0) ? drN * 100 / (100 + ddp) : null;
+      var line = 'Vous avez remisé ' + (drN != null ? drN.toFixed(1) + ' % du CA aujourd\'hui' : 'plus que d\'habitude') + (drUsual != null ? ', contre ~' + drUsual.toFixed(1) + ' % d\'ordinaire' : '') + ' — sans que le CA suive.';
       return line;
     },
     {
@@ -1897,7 +1910,7 @@
         var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
         var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dz != null ? ' (' + dz.toFixed(1) + ' écarts-types' + (dr != null ? ', ' + dr + ' % du CA' : '') + ')' : '') + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
+        return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dr != null ? ' (' + dr + ' % du CA aujourd\'hui)' : '') + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
       }
     }
   );
@@ -1912,9 +1925,10 @@
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
       var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos jours comparables.';
+      var jours = window.msWeekdayFr(a.affected_date);
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours + '.';
       if (driver) {
-        line += ' Le recul vient de ' + driver + '.';
+        line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {
         line += ' Deux facteurs : ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.';
       }
@@ -2114,9 +2128,11 @@
     prof = prof || {};
     currentDay = currentDay || {};
     channelConfig = channelConfig || {};
-    // Performance cards (the 5 in MS_INTERNAL_ALERT_TYPES) carry an INGESTION date (past, gap
-    // 1-30+ days), not an action date. They surface on TODAY's brief only, and only the latest
-    // ingestion row per action_type (so multiple ingestion dates don't produce duplicate cards).
+    // Performance cards (in MS_INTERNAL_ALERT_TYPES) carry an INGESTION date (past, gap 1-30+
+    // days), not an action date. They surface on TODAY's brief only, and only the LATEST anomaly
+    // per action_type — so multiple anomaly dates of the same type don't produce duplicate-
+    // looking cards. The mart's 30-day window feeds the per-type pick; the brief cap sets how
+    // many distinct sales types show.
     var _perfTypes = window.MS_INTERNAL_ALERT_TYPES || [];
     var _perfLatest = {};
     for (var _pi = 0; _pi < candidates.length; _pi++) {
@@ -2131,7 +2147,6 @@
       var acDate = normalizeDate(ac.date);
       var actionType = ac.action_type || '';
       if (_perfTypes.indexOf(actionType) >= 0) {
-        // Performance: render on today only, and only the latest ingestion row per type.
         if (!_todayN || target !== _todayN || acDate !== _perfLatest[actionType]) continue;
       } else if (acDate !== target) {
         continue;
@@ -2154,6 +2169,9 @@
       if (spec) {
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = _s1.length > 200 ? _s1.slice(0, 197) + '...' : _s1; } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
+        // Name the actual weekday on the sales movement cards — never "jours comparables".
+        if (actionType === 'sales_surge') whatText = 'CA supérieur à vos ' + window.msWeekdayFr(feedItem.affected_date);
+        else if (actionType === 'sales_revenue_down_wow') whatText = 'CA inférieur à vos ' + window.msWeekdayFr(feedItem.affected_date);
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
         whatText = actionType.replace(/_/g, ' ');
@@ -2620,7 +2638,7 @@
     }, urgency: 'plan' },
     'sales_traffic_not_converting': { action: function(a, p, d) {
       var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
-      return 'À corriger : du trafic mais ' + (cz != null ? 'conversion ' + Math.abs(cz).toFixed(1) + ' écarts-types sous votre norme' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
+      return 'À corriger : du trafic mais ' + (cz != null ? 'conversion nettement sous votre norme' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
     }, urgency: 'soon' },
     'sales_discount_no_lift': { action: function(a, p, d) {
       return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';

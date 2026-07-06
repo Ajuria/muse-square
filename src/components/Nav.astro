@@ -44,7 +44,9 @@ if (isApp) {
 }
 const isMonitor = currentPath.startsWith("/app/insightevent/monitor") || currentPath.startsWith("/app/insightevent/events");
 const isPulse = currentPath === "/app/insightevent/pulse";
-const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse && !currentPath.startsWith("/app/insightevent/suivis");
+// The insight dossier ("Consulter la source") is a Piloter detail view, so it belongs to PILOTER, not PLANIFIER.
+const isInsight = currentPath.startsWith("/app/insightevent/insight");
+const isInsightEvent = currentPath.startsWith("/app/insightevent") && !isMonitor && !isPulse && !isInsight && !currentPath.startsWith("/app/insightevent/suivis");
 const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
@@ -111,7 +113,7 @@ const isAppShell = isApp;
               </li>
               
               <li>
-                <a href="/app/insightevent/pulse" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isMonitor || isPulse ? "after:bg-primary" : "after:bg-transparent"}`}>PILOTER</a>
+                <a href="/app/insightevent/pulse" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isMonitor || isPulse || isInsight ? "after:bg-primary" : "after:bg-transparent"}`}>PILOTER</a>
               </li>
 
               <li class="relative" id="compte-nav-item">

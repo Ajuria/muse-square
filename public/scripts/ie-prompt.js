@@ -584,7 +584,7 @@ if (!root) {
     CONVERSATION_HISTORY.push({ role: "user", content: q });
 
     const aiBubble = appendMsg("ai", "", "is-loading");
-    setBubbleHtml(aiBubble, `<div style="display:flex;justify-content:center;width:100%;min-width:0;box-sizing:border-box;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /></div>`);
+    setBubbleHtml(aiBubble, `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;min-width:0;box-sizing:border-box;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /><div class="ie-load-msg" style="font-size:13px;color:#6b7280;">Analyse en cours…</div></div>`);
 
     try {
       const currentMode = typeof window.__ieSetMode === 'function'

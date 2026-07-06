@@ -137,13 +137,25 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     </style>
 
     <div class="fs-wrap" id="fs-root">
-      <div class="fs-loading" id="fs-loader">
-        <span class="fs-loading-spin"></span>
-        Chargement du signal...
+      <div class="fs-loading" id="fs-loader" style="flex-direction:column;gap:14px;padding:80px 0;">
+        <img src="/icons/load/ms_load_icon.gif" alt="" style="height:110px;width:auto;" />
+        <div id="fs-load-msg" style="font-size:13px;color:#6b7280;">Lecture du signal…</div>
       </div>
     </div>
+    <script is:inline>
+      (function(){
+        var msgs = ['Lecture du signal…','Analyse de vos ventes…','Recherche de vos jours similaires…','Recherche du contexte local (web)…'];
+        var i = 0;
+        var iv = setInterval(function(){
+          var el = document.getElementById('fs-load-msg');
+          if (!el) { clearInterval(iv); return; }
+          i = (i + 1) % msgs.length;
+          el.textContent = msgs[i];
+        }, 1500);
+      })();
+    </script>
 
-    <script is:inline src="/action-cards.js?v=19"></script>
+    <script is:inline src="/action-cards.js?v=25"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -523,6 +535,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
         var isDown = signal_type === 'sales_revenue_down_wow';
         function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
+        // Weekday named explicitly from the signal date — "vos samedis", never "vos jours comparables".
+        var _DOWFR = ['dimanches','lundis','mardis','mercredis','jeudis','vendredis','samedis'];
+        var joursFr = 'jours comparables';
+        try { joursFr = _DOWFR[new Date(String(signal_date) + 'T00:00:00Z').getUTCDay()] || joursFr; } catch (e) {}
         var claims = [];
         if (a.daily_revenue != null) claims.push({ group:'interne', claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
         var tx = a.transactions_delta_pct, bk = a.basket_delta_pct;
@@ -530,23 +546,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var dom = (a.dominant_factor === 'basket') ? 'porté par le panier moyen' : (a.dominant_factor === 'transactions') ? 'porté par le volume de ventes' : '';
           claims.push({ group:'interne', claim:'Décomposition', value:'ventes ' + sgn(tx) + ', panier ' + sgn(bk) + (dom ? ' — ' + dom : ''), source:'Caisse' });
         }
-        if (a.expected_revenue != null) claims.push({ group:'interne', claim:'Attendu par le modèle (jour, saison)', value: frInt(Math.round(Number(a.expected_revenue))) + ' €', source:'Muse Square — modèle' });
-        if (a.residual_pct != null) {
-          var rz = (a.residual_z != null) ? ' · ' + frDec(Math.abs(Number(a.residual_z)).toFixed(1)) + ' σ' : '';
-          claims.push({ group:'interne', claim:'Signal statistique (vs modèle)', value: sgn(a.residual_pct) + rz, source:'Muse Square', computed:true });
-        }
         if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ group:'contexte', claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
         if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ group:'contexte', claim:'Jour férié', value:'Oui', source:'Calendrier' });
         if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
         if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
         if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
-        if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA inférieur à vos jours comparables' : 'CA supérieur à vos jours comparables', source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value: (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr, source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
         var badge = TIER[tier] || TIER.possible;
-        var cat = isDown ? 'Performance · CA inférieur à vos jours comparables' : 'Performance · CA supérieur à vos jours comparables';
-        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA inférieur à vos jours comparables' : 'CA supérieur à vos jours comparables');
-        return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — attendu conditionnel (résidu)'] };
+        var cat = 'Performance · ' + (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr;
+        var title = (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr;
+        return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — vos ' + joursFr + ' récents'] };
       }
 
       CLAIM_MAPS.weather_hazard_onset = weatherClaimMap;
@@ -790,22 +801,23 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.competitor_name);
           src += '<a href="' + esc(mapsUrl) + '" target="_blank" rel="noopener" class="fs-source" style="margin-top:10px;text-decoration:none;"><span class="fs-source-icon">\ud83d\udccd</span> Voir ' + esc(m.competitor_name) + ' sur Google Maps \u2192</a>';
         }
-        // Analog / history layer — movement cards only (async fill post-render).
+        // Comparable-day history is sales-specific, so it stays gated to movement cards; the
+        // environment crawl ("Environnement du jour · agent web") runs for every card type.
         var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
+        html += grp('Contexte & informations liées');
         if (_isMovement) {
-          html += grp('Contexte & informations liées');
           html += zone('Historique · jours comparables',
             '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
-          html += zone('Environnement du jour · agent web',
-            '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
         }
+        html += zone('Environnement du jour · agent web',
+          '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
 
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
 
         if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
-        if (_isMovement) loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -849,9 +861,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var dayFr = (a.dow != null && ANALOG_DOW_FR[a.dow]) ? ANALOG_DOW_FR[a.dow].toLowerCase() : 'jour';
           var pct = (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %';
           var basis = a.analog_n + ' derniers ' + dayFr + 's comparables' + (a.analog_median_revenue != null ? ' (médian ' + analogFrInt(a.analog_median_revenue) + ' €)' : '');
+          // The sowhat now names the weekday ("au-dessus de vos samedis") — match any weekday up to the period.
           sc.innerHTML = sc.innerHTML
-            .replace(/(?:nettement )?au-dessus de vos jours comparables/, pct + ' au-dessus de vos ' + basis)
-            .replace(/(?:nettement )?sous vos jours comparables/, pct + ' vs vos ' + basis);
+            .replace(/(?:nettement )?au-dessus de vos [^.]*/, pct + ' au-dessus de vos ' + basis)
+            .replace(/(?:nettement )?sous vos [^.]*/, pct + ' vs vos ' + basis);
         } catch(e) {}
       }
       function analogEmptyHtml() {
