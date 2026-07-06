@@ -1779,7 +1779,7 @@
   // sales_surge — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver, is_holiday, is_vacation, events_5km.
   // €-rise T1; favourable context T1/T2; "à reproduire" is advice, not a claim.
-  reg('sales_surge', 'CA au-dessus de vos jours comparables', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('sales_surge', 'CA supérieur à vos jours comparables', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
@@ -1905,20 +1905,18 @@
   // sales_revenue_down_wow — PERFORMANCE. Payload: revenue_vs_avg_pct, avg_30d,
   // daily_revenue, revenue_robust_z, primary_revenue_driver, transactions_delta_pct,
   // basket_delta_pct, confidence_tier. Dow-band anomaly (not a same-weekday day-pair).
-  reg('sales_revenue_down_wow', 'CA sous vos jours comparables', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
+  reg('sales_revenue_down_wow', 'CA inférieur à vos jours comparables', 'INTELLIGENCE', '📉', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
-      var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
-      var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
-      var z = a.residual_z != null ? Math.abs(Number(a.residual_z)) : null;
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-      var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'panier moyen plus faible', conversion:'conversion plus faible'})[a.primary_revenue_driver] || null;
-      var line = 'CA ' + (rev != null ? rev + ' € ' : '') + (resid != null ? Math.abs(resid) + ' % sous l\'attendu pour ce jour' : 'sous son niveau attendu') + (exp != null ? ' (attendu ' + exp + ' € compte tenu de vos conditions)' : '') + (z != null ? ', ' + z.toFixed(1) + ' écarts-types' : '') + '.';
-      if (a.primary_revenue_driver === 'both' && tx != null && bk != null) {
+      var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
+      var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos jours comparables.';
+      if (driver) {
+        line += ' Le recul vient de ' + driver + '.';
+      } else if (tx != null && bk != null) {
         line += ' Deux facteurs : ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.';
-      } else if (driver) {
-        line += ' Cause dominante : ' + driver + '.';
       }
       return line;
     },

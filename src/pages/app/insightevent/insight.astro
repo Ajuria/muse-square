@@ -143,7 +143,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/action-cards.js?v=18"></script>
+    <script is:inline src="/action-cards.js?v=19"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -540,12 +540,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
         if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
         if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
-        if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA sous vos jours comparables' : 'CA au-dessus de vos jours comparables', source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value: isDown ? 'CA inférieur à vos jours comparables' : 'CA supérieur à vos jours comparables', source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
         var badge = TIER[tier] || TIER.possible;
-        var cat = isDown ? 'Performance · CA sous vos jours comparables' : 'Performance · CA au-dessus de vos jours comparables';
-        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA sous vos jours comparables' : 'CA au-dessus de vos jours comparables');
+        var cat = isDown ? 'Performance · CA inférieur à vos jours comparables' : 'Performance · CA supérieur à vos jours comparables';
+        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : (isDown ? 'CA inférieur à vos jours comparables' : 'CA supérieur à vos jours comparables');
         return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — attendu conditionnel (résidu)'] };
       }
 
@@ -886,7 +886,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var an = arr[i];
           var wx = an.weather_band ? (ANALOG_WX_FR[an.weather_band] || an.weather_band) : '';
           list += '<div style="padding:9px 0;border-bottom:0.5px solid #F3F4F6;display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
-            + '<div style="font-size:13px;color:' + INK + ';">' + esc(analogDateFr(an.date)) + '</div>'
+            + '<div style="font-size:13px;color:' + INK + ';">' + esc(dayFr + ' ' + analogDateFr(an.date)) + '</div>'
             + '<div style="font-size:13px;color:' + SUB + ';white-space:nowrap;">'
               + (an.revenue != null ? analogFrInt(an.revenue) + ' €' : '—')
               + (wx ? ' · ' + esc(wx) : '')
