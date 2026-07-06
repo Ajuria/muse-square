@@ -408,6 +408,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
             suppression_key, expires_at
           FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
           WHERE location_id = @location_id
+            -- Retired: redundant with sales_surge (same volume-vs-basket read). Excluded
+            -- at the feed boundary; the dbt CTE removal is the permanent fix.
+            AND action_type != 'footfall_vs_basket_decomposition'
             AND (
               date IN UNNEST(ARRAY(
                 SELECT PARSE_DATE('%Y-%m-%d', d)

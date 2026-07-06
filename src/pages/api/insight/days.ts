@@ -452,6 +452,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       expires_at
     FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
     WHERE location_id = @location_id
+      -- Retired: redundant with sales_surge. Excluded at the feed boundary; dbt CTE removal is the permanent fix.
+      AND action_type != 'footfall_vs_basket_decomposition'
       AND (
         date IN UNNEST(ARRAY(
           SELECT PARSE_DATE('%Y-%m-%d', d)

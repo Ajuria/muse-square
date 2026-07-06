@@ -656,7 +656,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
         var cat = (spec && spec.category_label_fr) ? spec.category_label_fr : 'Signal';
         var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : String(signal_type).replace(/_/g, ' ');
-        var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1 };
+        var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1,
+          // Internal plumbing — never surface as an operator-facing claim. These leak
+          // in via the flattened candidate (action_type/location_id/instance/etc.).
+          action_type:1, location_id:1, card_instance_id:1, suppression_key:1, expires_at:1,
+          action_priority:1, action_category:1, date:1, affected_date:1, alert_level:1,
+          card_type:1, dominant_factor:1 };
         var LABELS = {
           events_500m:'\u00c9v\u00e9nements \u00e0 500 m', events_1km:'\u00c9v\u00e9nements \u00e0 1 km', events_5km:'\u00c9v\u00e9nements \u00e0 5 km', events_10km:'\u00c9v\u00e9nements \u00e0 10 km',
           pressure_ratio:'Pression vs moyenne', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
