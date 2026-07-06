@@ -119,7 +119,7 @@ export const GET: APIRoute = async ({ request }) => {
     //    not mis-fire). channel is part of the arm identity.
     const [rules] = await bq.query({
       query: `
-        SELECT rule_id, user_id, location_id, action_type, channel, recipient, frequency
+        SELECT rule_id, user_id, location_id, action_type, channel, recipient, frequency, threshold_pct, message
         FROM (
           SELECT *, ROW_NUMBER() OVER (PARTITION BY location_id, action_type, channel ORDER BY updated_at DESC) AS rn
           FROM \`${BQ_PROJECT}.analytics.internal_alert_rules\`
@@ -169,6 +169,18 @@ export const GET: APIRoute = async ({ request }) => {
         const cand = byType.get(String(rule.action_type));
         if (!cand) continue;
 
+        // 4b. Threshold gate — if the user tuned a threshold, fire only when the
+        //     signal's magnitude meets it (|residual_pct| for the residual cards).
+        //     No threshold set = fire on any occurrence (legacy behaviour).
+        if (rule.threshold_pct != null) {
+          let metricPct: number | null = null;
+          try {
+            const p = JSON.parse(String(cand.data_payload_json || "{}"));
+            if (p.residual_pct != null) metricPct = Math.abs(Number(p.residual_pct));
+          } catch {}
+          if (metricPct == null || metricPct < Number(rule.threshold_pct)) continue;
+        }
+
         // 5. first_occurrence dedup — skip if already alerted today for this exact arm
         //    (location_id, action_type, channel). Marker is written on successful send only.
         if (!rule.frequency || rule.frequency === "first_occurrence") {
@@ -188,9 +200,12 @@ export const GET: APIRoute = async ({ request }) => {
           if (existing && existing.length > 0) continue;
         }
 
-        // 6. Direct render
+        // 6. Body — the user's saved notification message if present, else the
+        //    direct auto-render from headline + payload.
         const title = String(cand.headline_fr || rule.action_type);
-        const body = renderInternalBody(String(cand.headline_fr || ""), String(cand.data_payload_json || "{}"));
+        const body = (rule.message && String(rule.message).trim())
+          ? String(rule.message)
+          : renderInternalBody(String(cand.headline_fr || ""), String(cand.data_payload_json || "{}"));
 
         // 7. Deliver on the internal channel — sealed sinks only, never publish.
         let sendResult: { ok: boolean; error?: string };

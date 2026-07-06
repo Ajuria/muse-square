@@ -45,3 +45,20 @@
 - Exact guidance, exact file locations, exact code.
 - No ballpark, no approximation.
 - If you don't know, say so — don't guess.
+
+## Data Path (trace before fixing)
+- "Why isn't X rendering/updating?" — trace the WHOLE path before any fix: BigQuery/view → API query+assembly (e.g. `src/pages/api/insight/days.ts`, watch `date IN @selected_dates` window filters that drop past-dated rows; `filterDisabledThemes`) → client fetch (`window._lastActionCandidates`) → render (`renderActionCandidates` in `public/action-cards.js`) → brief top-N / MAX_PER_CAT. Fixing the client without checking the server query is the #1 wasted-effort trap. (See skill: trace-data-path.)
+- `public/action-cards.js` is STATIC (served fresh, no build/HMR) but browser-cached by `?v=` — bump the cache-buster on the consuming surface (pulse.astro ~326, monitor ~285, insight ~137) + hard-refresh. Astro dev does NOT reliably hot-reload API-route `.ts` (e.g. `days.ts`) — restart the dev server after server-side edits.
+- Action-candidate / performance cards may carry an INGESTION date (past; `date = expires_at`), not an action date — they're surfaced on TODAY (days.ts widens the fetch; `renderActionCandidates` renders latest-per-type on today). Don't assume `date` = when actionable.
+- App is Clerk-gated; `MS_AUTH_BYPASS=1` only bypasses `/api/insight/prompt` — you can't curl pulse/days authed. E2E = user clicks, you query BigQuery.
+
+## Verify Before Done
+- `.astro` inline scripts and `public/action-cards.js` are plain JS — `node --check` them (extract the inline `<script>` for `.astro`) after edits; `.ts` → `npx tsc --noEmit`. Do this before claiming a change complete.
+- The Edit tool normalizes hand-typed `\uXXXX` back to the character. To write unicode escapes into an inline script, use a python pass building the escape from `chr(92)`, matching on the raw char.
+
+## App-repo Git flow (deploy)
+- Verify repo first (`git remote -v` → `Ajuria/muse-square`, the APP repo — not the dbt repo `ms_database`). Stage explicit files, never `git add .`.
+- dev→prod: commit on dev → `git push origin dev` → `git checkout main` → `git merge --ff-only origin/main` (guard, abort if diverged) → `git merge --no-ff dev` (merge commit, never squash) → `git push origin main` → `git checkout dev`.
+
+## Card Quality Bar
+- Every action card must tell the operator something TRUE they couldn't see themselves AND point at something they can MOVE — no 101 advice below their level. Robust baselines (noise band, not single day-pair), honest decomposition (no "mixed"), causal-safe attribution (confidence tier, no fabricated %), specific + €-quantified + non-obvious + controllable actions, vertical-correct vocabulary. (See skill: card-review; memory: card-quality-and-edge-roadmap, opportunity-cards-bespoke-vision.)

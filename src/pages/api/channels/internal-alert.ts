@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const [rows] = await bq.query({
       query: `
-        SELECT rule_id, action_type, channel, recipient, enabled, frequency
+        SELECT rule_id, action_type, channel, recipient, enabled, frequency, threshold_pct, message
         FROM (
           SELECT *, ROW_NUMBER() OVER (PARTITION BY location_id, action_type, channel ORDER BY updated_at DESC) AS rn
           FROM \`${BQ_PROJECT}.analytics.internal_alert_rules\`
@@ -48,6 +48,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       recipient: r.recipient,
       enabled: r.enabled,
       frequency: r.frequency,
+      threshold_pct: r.threshold_pct,
+      message: r.message,
     }));
     return new Response(JSON.stringify({ ok: true, items }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } });
   } catch (err: any) {
@@ -92,6 +94,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       recipient: recipient,
       enabled: body.enabled !== false,
       frequency: String(body.frequency || "first_occurrence").trim(),
+      threshold_pct: (body.threshold_pct != null && body.threshold_pct !== "") ? Number(body.threshold_pct) : null,
+      message: (body.message != null && String(body.message).trim() !== "") ? String(body.message) : null,
       created_at: now,
       updated_at: now,
     }]);

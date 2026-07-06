@@ -444,6 +444,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       action_priority,
       action_category,
       channel_hint,
+      confidence_tier,
       headline_fr,
       detail_fr,
       data_payload,
@@ -451,6 +452,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       expires_at
     FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
     WHERE location_id = @location_id
+      -- Retired: redundant with sales_surge. Excluded at the feed boundary; dbt CTE removal is the permanent fix.
+      AND action_type != 'footfall_vs_basket_decomposition'
       AND (
         date IN UNNEST(ARRAY(
           SELECT PARSE_DATE('%Y-%m-%d', d)
@@ -567,6 +570,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       action_priority:  r?.action_priority ?? null,
       action_category:  r?.action_category ?? null,
       channel_hint:     r?.channel_hint ?? null,
+      confidence_tier:  r?.confidence_tier ?? null,
       headline_fr:      r?.headline_fr ?? null,
       detail_fr:        r?.detail_fr ?? null,
       data_payload:     r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,

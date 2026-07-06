@@ -3,10 +3,19 @@ export const prerender = false;
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
 import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
-const location_id =
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+const _localsLoc =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
     ? (Astro.locals as any).location_id.trim()
     : null;
+// Honor the location_id from the Consulter link — a card may belong to a
+// different venue than the account's active one on a multi-venue feed. Only
+// accept it if the user owns that venue; otherwise keep the active venue.
+const _urlLoc = Astro.url?.searchParams?.get("location_id")?.trim() || null;
+let location_id = _localsLoc;
+if (_urlLoc) {
+  try { requireLocationOwnership(Astro.locals, _urlLoc); location_id = _urlLoc; } catch { /* not owned — keep active venue */ }
+}
 if (!location_id) {
   return Astro.redirect("/profile");
 }
@@ -128,13 +137,25 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     </style>
 
     <div class="fs-wrap" id="fs-root">
-      <div class="fs-loading" id="fs-loader">
-        <span class="fs-loading-spin"></span>
-        Chargement du signal...
+      <div class="fs-loading" id="fs-loader" style="flex-direction:column;gap:14px;padding:80px 0;">
+        <img src="/icons/load/ms_load_icon.gif" alt="" style="height:110px;width:auto;" />
+        <div id="fs-load-msg" style="font-size:13px;color:#6b7280;">Lecture du signal…</div>
       </div>
     </div>
+    <script is:inline>
+      (function(){
+        var msgs = ['Lecture du signal…','Analyse de vos ventes…','Recherche de vos jours similaires…','Recherche du contexte local (web)…'];
+        var i = 0;
+        var iv = setInterval(function(){
+          var el = document.getElementById('fs-load-msg');
+          if (!el) { clearInterval(iv); return; }
+          i = (i + 1) % msgs.length;
+          el.textContent = msgs[i];
+        }, 1500);
+      })();
+    </script>
 
-    <script is:inline src="/action-cards.js?v=6"></script>
+    <script is:inline src="/action-cards.js?v=25"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -505,6 +526,40 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         return { cat:'Ventes \u00b7 Positionnement', title:'\u00c9cart de positionnement produit', badge:{ label:'Intelligence', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Caisse \u2014 mix produit','Muse Square \u2014 concurrents suivis'] };
       }
 
+      // ── Sales residual (surge / revenue_down): realized vs conditional expectation ──
+      // Payload (verified live): daily_revenue, expected_revenue, residual_pct, residual_z,
+      // transactions_delta_pct, basket_delta_pct, dominant_factor, driver, is_holiday,
+      // is_vacation, pressure_ratio, weather_alert, events_5km, confidence_tier.
+      // Conditions are listed as CONTEXT, not attribution (résidu associatif, non causal).
+      function salesResidualClaimMap(a, prof, day) {
+        var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
+        var isDown = signal_type === 'sales_revenue_down_wow';
+        function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
+        // Weekday named explicitly from the signal date — "vos samedis", never "vos jours comparables".
+        var _DOWFR = ['dimanches','lundis','mardis','mercredis','jeudis','vendredis','samedis'];
+        var joursFr = 'jours comparables';
+        try { joursFr = _DOWFR[new Date(String(signal_date) + 'T00:00:00Z').getUTCDay()] || joursFr; } catch (e) {}
+        var claims = [];
+        if (a.daily_revenue != null) claims.push({ group:'interne', claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
+        var tx = a.transactions_delta_pct, bk = a.basket_delta_pct;
+        if (tx != null && bk != null) {
+          var dom = (a.dominant_factor === 'basket') ? 'porté par le panier moyen' : (a.dominant_factor === 'transactions') ? 'porté par le volume de ventes' : '';
+          claims.push({ group:'interne', claim:'Décomposition', value:'ventes ' + sgn(tx) + ', panier ' + sgn(bk) + (dom ? ' — ' + dom : ''), source:'Caisse' });
+        }
+        if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ group:'contexte', claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
+        if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ group:'contexte', claim:'Jour férié', value:'Oui', source:'Calendrier' });
+        if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
+        if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
+        if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
+        if (!claims.length) claims.push({ claim:'Signal', value: (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr, source:'Muse Square' });
+        var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
+        var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
+        var badge = TIER[tier] || TIER.possible;
+        var cat = 'Performance · ' + (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr;
+        var title = (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr;
+        return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — vos ' + joursFr + ' récents'] };
+      }
+
       CLAIM_MAPS.weather_hazard_onset = weatherClaimMap;
       CLAIM_MAPS.weather_worsened = weatherClaimMap;
       CLAIM_MAPS.weather_improved = weatherClaimMap;
@@ -520,6 +575,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       CLAIM_MAPS.foreign_tourism_signal = foreignTourismClaimMap;
       CLAIM_MAPS.competitor_positioning_brief = positioningBriefClaimMap;
       CLAIM_MAPS.competitor_positioning_gap = positioningGapClaimMap;
+      CLAIM_MAPS.sales_surge = salesResidualClaimMap;
+      CLAIM_MAPS.sales_revenue_down_wow = salesResidualClaimMap;
 
       // Single named-entity competitor cards. Verified live: competitor_event_launch.
       // Add a type here only after its data_payload is verified on
@@ -610,7 +667,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
         var cat = (spec && spec.category_label_fr) ? spec.category_label_fr : 'Signal';
         var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : String(signal_type).replace(/_/g, ' ');
-        var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1 };
+        var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1,
+          // Internal plumbing — never surface as an operator-facing claim. These leak
+          // in via the flattened candidate (action_type/location_id/instance/etc.).
+          action_type:1, location_id:1, card_instance_id:1, suppression_key:1, expires_at:1,
+          action_priority:1, action_category:1, date:1, affected_date:1, alert_level:1,
+          card_type:1, dominant_factor:1 };
         var LABELS = {
           events_500m:'\u00c9v\u00e9nements \u00e0 500 m', events_1km:'\u00c9v\u00e9nements \u00e0 1 km', events_5km:'\u00c9v\u00e9nements \u00e0 5 km', events_10km:'\u00c9v\u00e9nements \u00e0 10 km',
           pressure_ratio:'Pression vs moyenne', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
@@ -655,6 +717,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + inner + '</div>';
         }
 
+        function grp(label) {
+          return '<div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:' + BR + ';margin:26px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + BR + ';">' + esc(label) + '</div>';
+        }
+        var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
@@ -663,14 +729,13 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
           + '</div>';
 
-        var synth = '<p style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
+        var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
+        if (_isMov) html += grp('La source');
         html += zone('Synth\u00e8se', synth);
 
-        var dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
-        for (var i = 0; i < m.claims.length; i++) {
-          var c = m.claims[i];
-          dec += '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
+        function claimRow(c) {
+          return '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
             + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
               + '<div style="font-size:13px;font-weight:600;color:' + INK + ';">' + esc(c.claim) + '</div>'
               + '<span style="font-size:10px;color:' + MUTE + ';white-space:nowrap;flex-shrink:0;">' + esc(c.source) + '</span>'
@@ -679,6 +744,23 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               + (c.computed ? '<span style="color:' + MUTE + ';margin-right:6px;">=</span>' : '') + esc(c.value)
             + '</div>'
           + '</div>';
+        }
+        function subHead(label, sub) {
+          return '<div style="margin:18px 0 2px;"><div style="font-size:12px;font-weight:700;color:' + INK + ';">' + esc(label) + '</div><div style="font-size:11px;color:' + MUTE + ';">' + esc(sub) + '</div></div>';
+        }
+        var _hasGroups = false;
+        for (var _gi = 0; _gi < m.claims.length; _gi++) { if (m.claims[_gi].group) { _hasGroups = true; break; } }
+        var dec = '';
+        if (_hasGroups) {
+          var _grpInt = m.claims.filter(function(c) { return c.group === 'interne'; });
+          var _grpCtx = m.claims.filter(function(c) { return c.group === 'contexte'; });
+          var _grpOther = m.claims.filter(function(c) { return c.group !== 'interne' && c.group !== 'contexte'; });
+          if (_grpInt.length) { dec += subHead('Signaux internes', 'vos ventes et leur lecture'); for (var _i1 = 0; _i1 < _grpInt.length; _i1++) dec += claimRow(_grpInt[_i1]); }
+          if (_grpCtx.length) { dec += subHead('Signaux contextuels', 'les conditions de la journ\u00e9e'); for (var _i2 = 0; _i2 < _grpCtx.length; _i2++) dec += claimRow(_grpCtx[_i2]); }
+          for (var _i3 = 0; _i3 < _grpOther.length; _i3++) dec += claimRow(_grpOther[_i3]);
+        } else {
+          dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
+          for (var i = 0; i < m.claims.length; i++) dec += claimRow(m.claims[i]);
         }
         html += zone('D\u00e9composition \u00b7 preuve', dec);
 
@@ -719,9 +801,23 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.competitor_name);
           src += '<a href="' + esc(mapsUrl) + '" target="_blank" rel="noopener" class="fs-source" style="margin-top:10px;text-decoration:none;"><span class="fs-source-icon">\ud83d\udccd</span> Voir ' + esc(m.competitor_name) + ' sur Google Maps \u2192</a>';
         }
+        // Comparable-day history is sales-specific, so it stays gated to movement cards; the
+        // environment crawl ("Environnement du jour · agent web") runs for every card type.
+        var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
+        html += grp('Contexte & informations liées');
+        if (_isMovement) {
+          html += zone('Historique · jours comparables',
+            '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
+        }
+        html += zone('Environnement du jour · agent web',
+          '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
+
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
+
+        if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
+        loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -734,6 +830,130 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         });
 
         wireActionBar(root, day, prof, feedItem);
+      }
+
+      // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
+      // Two honest branches: named comparable days when they exist; "situation nouvelle"
+      // when the day's condition configuration has no precedent in the recent history.
+      var ANALOG_DOW_FR = { 1:'Dimanche', 2:'Lundi', 3:'Mardi', 4:'Mercredi', 5:'Jeudi', 6:'Vendredi', 7:'Samedi' };
+      var ANALOG_WX_FR = { clair:'temps clair', normal:'temps normal', calme:'temps calme', perturbe:'temps perturbé', severe:'temps sévère' };
+      var ANALOG_TIER_FR = { exact:'même configuration de conditions', dow_weather:'même jour + même météo', dow:'même jour de semaine' };
+      function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
+      var ANALOG_MONTH_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+      function analogDateFr(iso) { try { var p = String(iso).split('-'); if (p.length !== 3) return String(iso); return parseInt(p[2], 10) + ' ' + ANALOG_MONTH_FR[parseInt(p[1], 10) - 1]; } catch(e) { return String(iso); } }
+      function loadAnalogs(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/analogs?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r) { return r.json(); })
+          .then(function(j) {
+            if (!j || !j.ok || !j.found || !j.analog) { container.innerHTML = analogEmptyHtml(); return; }
+            container.innerHTML = analogHtml(j.analog);
+            injectAnalogIntoSynthese(j.analog);
+          })
+          .catch(function() { container.innerHTML = analogEmptyHtml(); });
+      }
+      // Make the Synthèse headline explicit once the analog data is in: swap the
+      // vague 'de vos jours comparables' for the real number + basis.
+      function injectAnalogIntoSynthese(a) {
+        try {
+          var sc = document.getElementById('fs-synth-ctx');
+          if (!sc || !a || a.is_unexplained || !a.analog_n || a.residual_vs_analog_pct == null) return;
+          var dayFr = (a.dow != null && ANALOG_DOW_FR[a.dow]) ? ANALOG_DOW_FR[a.dow].toLowerCase() : 'jour';
+          var pct = (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %';
+          var basis = a.analog_n + ' derniers ' + dayFr + 's comparables' + (a.analog_median_revenue != null ? ' (médian ' + analogFrInt(a.analog_median_revenue) + ' €)' : '');
+          // The sowhat now names the weekday ("au-dessus de vos samedis") — match any weekday up to the period.
+          sc.innerHTML = sc.innerHTML
+            .replace(/(?:nettement )?au-dessus de vos [^.]*/, pct + ' au-dessus de vos ' + basis)
+            .replace(/(?:nettement )?sous vos [^.]*/, pct + ' vs vos ' + basis);
+        } catch(e) {}
+      }
+      function analogEmptyHtml() {
+        return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Historique indisponible pour ce jour.</div>';
+      }
+      function analogHtml(a) {
+        var MUTE = '#9CA3AF', INK = '#111827', SUB = '#6B7280';
+        var dayFr = (a.dow != null && ANALOG_DOW_FR[a.dow]) ? ANALOG_DOW_FR[a.dow].toLowerCase() : 'jour';
+        var wxFr = a.weather_band ? (ANALOG_WX_FR[a.weather_band] || a.weather_band) : '';
+        var n = a.analog_n;
+        // Basis reflects the ACTUAL match tier — never today's incidental weather.
+        var basis;
+        if (a.match_tier === 'exact') basis = 'vos ' + n + ' derniers ' + dayFr + 's à conditions identiques';
+        else if (a.match_tier === 'dow_weather') basis = 'vos ' + n + ' derniers ' + dayFr + 's' + (wxFr ? ' par ' + wxFr : '');
+        else basis = 'vos ' + n + ' derniers ' + dayFr + 's';
+        if (a.is_unexplained || !a.analog_n) {
+          return '<div style="font-size:14px;font-weight:600;color:' + INK + ';margin-bottom:6px;">Situation nouvelle</div>'
+            + '<div style="font-size:13px;color:' + SUB + ';line-height:1.55;">'
+            + 'Aucun ' + esc(dayFr) + ' comparable dans votre historique récent. Ce que vous observez aujourd’hui devient la première référence pour ce type de jour — à documenter.'
+            + '</div>';
+        }
+        var head = '<div style="font-size:13px;color:' + INK + ';line-height:1.6;margin-bottom:10px;">'
+          + 'Comparé à <strong>' + esc(basis) + '</strong>'
+          + (a.analog_median_revenue != null ? ' (CA médian <strong>' + analogFrInt(a.analog_median_revenue) + ' €</strong>)' : '')
+          + ' : aujourd’hui <strong>' + (a.daily_revenue != null ? analogFrInt(a.daily_revenue) + ' €' : '—') + '</strong>'
+          + (a.residual_vs_analog_pct != null ? ', soit <strong>' + (a.residual_vs_analog_pct >= 0 ? '+' : '') + a.residual_vs_analog_pct + ' %</strong>' : '')
+          + '.</div>'
+          + '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:2px;">Le détail de ces journées (les plus récentes) :</div>';
+        var list = '';
+        var arr = Array.isArray(a.analogs) ? a.analogs : [];
+        for (var i = 0; i < arr.length && i < 6; i++) {
+          var an = arr[i];
+          var wx = an.weather_band ? (ANALOG_WX_FR[an.weather_band] || an.weather_band) : '';
+          list += '<div style="padding:9px 0;border-bottom:0.5px solid #F3F4F6;display:flex;align-items:baseline;justify-content:space-between;gap:12px;">'
+            + '<div style="font-size:13px;color:' + INK + ';">' + esc(dayFr + ' ' + analogDateFr(an.date)) + '</div>'
+            + '<div style="font-size:13px;color:' + SUB + ';white-space:nowrap;">'
+              + (an.revenue != null ? analogFrInt(an.revenue) + ' €' : '—')
+              + (wx ? ' · ' + esc(wx) : '')
+              + (an.events != null ? ' · ' + an.events + ' évén.' : '')
+            + '</div>'
+          + '</div>';
+        }
+        return head + list;
+      }
+
+      // Environment crawl (agent web) — /api/insight/enrich-context. Explains the
+      // real-world context around the venue that day (events, commercial period, météo).
+      function loadContext(a, prof, day, container) {
+        if (!container) return;
+        var payload = {
+          location_id: location_id,
+          date: signal_date,
+          city_name: (prof && (prof.city_name || prof.location_city)) || (day && day.city_name) || null,
+          driver: (a && a.driver != null) ? a.driver : null,
+          is_vacation: (a && a.is_vacation != null) ? a.is_vacation : null,
+          is_holiday: (a && a.is_holiday != null) ? a.is_holiday : null,
+          commercial_event: (a && a.commercial_event_name) ? a.commercial_event_name : null,
+          events_5km: (a && a.events_5km != null) ? a.events_5km : null,
+          business_short_description: (prof && (prof.business_short_description || prof.company_activity_type)) || null
+        };
+        fetch('/api/insight/enrich-context', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
+          .then(function(r) { return r.json(); })
+          .then(function(j) {
+            if (!j || !j.ok || !j.data) { container.innerHTML = contextEmptyHtml(); return; }
+            container.innerHTML = contextHtml(j.data);
+          })
+          .catch(function() { container.innerHTML = contextEmptyHtml(); });
+      }
+      function contextEmptyHtml() {
+        return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Aucun contexte particulier trouvé pour cette journée.</div>';
+      }
+      function contextHost(u) { try { return String(u).replace(/^https?:\/\//, '').split('/')[0]; } catch(e) { return String(u); } }
+      function contextHtml(d) {
+        var INK = '#111827', SUB = '#6B7280', MUTE = '#9CA3AF';
+        if (!d.takeaway && (!d.key_factors || !d.key_factors.length)) return contextEmptyHtml();
+        var html = '';
+        if (d.takeaway) html += '<div style="font-size:14px;color:' + INK + ';line-height:1.55;margin-bottom:10px;">' + esc(d.takeaway) + '</div>';
+        if (d.key_factors && d.key_factors.length) {
+          html += '<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;line-height:1.6;color:' + SUB + ';">';
+          for (var i = 0; i < d.key_factors.length; i++) html += '<li>' + esc(d.key_factors[i]) + '</li>';
+          html += '</ul>';
+        }
+        if (d.sources && d.sources.length) {
+          var links = [];
+          for (var s = 0; s < d.sources.length; s++) { var u = String(d.sources[s]); links.push('<a href="' + esc(u) + '" target="_blank" rel="noopener" style="color:#1D3BB3;text-decoration:none;">' + esc(contextHost(u)) + '</a>'); }
+          html += '<div style="font-size:11px;color:' + MUTE + ';">Sources : ' + links.join(' · ') + '</div>';
+        }
+        html += '<div style="font-size:10px;letter-spacing:0.07em;text-transform:uppercase;color:' + MUTE + ';margin-top:8px;display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:#059669;display:inline-block;"></span>Agent IA · web</div>';
+        return html;
       }
 
       function loadCompetitorDescriptif(competitorId, competitorName, panel, btn) {
@@ -857,10 +1077,21 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var html = '';
 
         // ── Build feed item for sowhat ──
+        // Robust to both candidate shapes: monitor.ts hands data_payload as an
+        // object; the Pulse cache (__msCardByIdx) hands a card object with the
+        // payload flattened onto it (and no nested data_payload). Flatten a
+        // nested payload if present (object or JSON string), then copy any
+        // direct fields the candidate already carries.
         var feedItem = {};
-        if (actionCandidate && actionCandidate.data_payload) {
+        if (actionCandidate) {
           var dp = actionCandidate.data_payload;
-          for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; }
+          if (typeof dp === 'string') { try { dp = JSON.parse(dp); } catch(e) { dp = null; } }
+          if (dp && typeof dp === 'object') { for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; } }
+          for (var ck in actionCandidate) {
+            if (actionCandidate.hasOwnProperty(ck) && ck !== 'data_payload' && !feedItem.hasOwnProperty(ck)) {
+              feedItem[ck] = actionCandidate[ck];
+            }
+          }
         }
         feedItem.change_subtype = signal_type;
 
