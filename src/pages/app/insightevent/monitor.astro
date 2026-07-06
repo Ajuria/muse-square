@@ -279,8 +279,8 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </div>
     </div>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+    <script is:inline src="/vendor/leaflet/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
     <script is:inline src="/action-cards.js?v=25"></script>
   
