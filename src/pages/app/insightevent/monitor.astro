@@ -2521,7 +2521,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
 
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
-  function renderRadarStrip(id, iconKey, primary, secondary, expandedHtml, isFirst) {
+  function renderRadarStrip(id, iconKey, primary, secondary, expandedHtml, isFirst, opts) {
+    opts = opts || {};
+    var _accent = opts.accent || "";
+    var _chip = opts.chip || null;
+    var _togglePad = _accent ? "13px 14px 13px 11px" : "13px 14px";
+    var _accentCss = _accent ? ("border-left:3px solid " + _accent + ";") : "";
+    var _chipHtml = _chip ? ('<span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;background:' + _chip.bg + ';color:' + _chip.fg + ';white-space:nowrap;flex-shrink:0;">' + _chip.label + '</span>') : "";
     const ICONS = {
       "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
       "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
@@ -2529,12 +2535,13 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     };
     const iconPaths = ICONS[iconKey] || "";
     return `<div style="${isFirst ? "" : "border-top:0.5px solid #E6E8EC;"}">`
-      + `<div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">`
+      + `<div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:11px;padding:${_togglePad};${_accentCss}cursor:pointer;">`
         + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:#565C66;flex-shrink:0;">${iconPaths}</svg>`
         + `<div style="flex:1;min-width:0;">`
           + `<p style="font-size:14px;color:#1A1D23;margin:0;">${primary}</p>`
           + (secondary ? `<p style="font-size:12px;color:#565C66;margin:1px 0 0;">${secondary}</p>` : "")
         + `</div>`
+        + _chipHtml
         + `<svg data-radar-chevron="${escapeHtml(id)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:#8A909A;flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>`
       + `</div>`
       + `<div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;">${expandedHtml}</div>`
@@ -2544,11 +2551,26 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
   // ----------------------------------------------------------------
   // V4 NEW — Score detail (strip 1 expanded)
   // ----------------------------------------------------------------
+  function scoreVerdict(score, regime) {
+    var sc = (score != null && isFinite(Number(score))) ? Number(score) : null;
+    if (sc == null) return regime === "A" ? { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" } : regime === "C" ? { t: "Contexte à surveiller", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" } : { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151", ac: "#94a3b8" };
+    if (sc >= 7) return { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" };
+    if (sc >= 5) return { t: "Contexte correct", bg: "#EEF2FF", fg: "#1D3BB3", ac: "#1D3BB3" };
+    if (sc >= 3.5) return { t: "Contexte mitigé", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" };
+    return { t: "Contexte défavorable", bg: "#fee2e2", fg: "#991b1b", ac: "#dc2626" };
+  }
+
+  function sevStyle(level) {
+    if (level === "favorable") return { ac: "#16a34a", bg: "#DCFCE7", fg: "#166534" };
+    if (level === "attention") return { ac: "#d97706", bg: "#FEF3C7", fg: "#92400E" };
+    if (level === "alerte")    return { ac: "#dc2626", bg: "#FEE2E2", fg: "#991B1B" };
+    return { ac: "#94a3b8", bg: "#F1F5F9", fg: "#475569" };
+  }
+
   function renderScoreDetail(day, days) {
     const score = day.opportunity_score;
     const regime = String(day.opportunity_regime || "B").toUpperCase();
-    const regimeMap = { A: { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534" }, C: { t: "Contexte défavorable", bg: "#fee2e2", fg: "#991b1b" } };
-    const rd = regimeMap[regime] || { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151" };
+    const rd = scoreVerdict(score, regime);
 
     // weekRank: position of this day among all days sorted by score DESC
     const sorted = [...days].filter(d => d.opportunity_score != null).sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0));
@@ -2556,9 +2578,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const rank = rankIdx >= 0 ? rankIdx + 1 : null;
     const total = sorted.length;
     let weekRankLabel = "";
-    if (rank === 1) weekRankLabel = "Meilleur jour";
-    else if (rank === total) weekRankLabel = "Jour le moins favorable";
-    else if (rank != null) weekRankLabel = `${rank}e sur ${total} jours`;
+    if (rank === 1) weekRankLabel = "Meilleure de vos dates";
+    else if (rank === total) weekRankLabel = "Moins favorable de vos dates";
+    else if (rank != null) weekRankLabel = `${rank}e sur ${total} dates`;
 
     const scoreColor = "#1D3BB3";
 
@@ -2738,7 +2760,17 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       + '</div>'
       : '';
 
+    var _pressHtml = "";
+    if (pressureLabel) {
+      _pressHtml = '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#8A909A;font-weight:600;margin-bottom:9px;">Pression pr\u00e9vue</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">'
+          + '<span style="font-size:12px;font-weight:500;padding:3px 10px;border-radius:20px;background:' + pressureBg + ';color:' + pressureFg + ';">' + pressureLabel + '</span>'
+          + '<span style="font-size:12px;color:#565C66;">' + (count500 > 0 ? count500 + ' \u00e0 moins de 500 m \u00b7 ' : '') + count5km + ' \u00e0 5 km</span>'
+        + '</div>';
+    }
     return '<div style="padding-top:12px;">'
+      + _pressHtml
+      + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#8A909A;font-weight:600;margin-bottom:9px;">Carte</div>'
       + '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid #E6E8EC;border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px;">'
         + '<div style="position:relative;height:120px;background:#EBEEF2;">'
           + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
@@ -3390,12 +3422,18 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const rank = rankIdx >= 0 ? rankIdx + 1 : null;
     const totalDays = sortedDays.length;
     let weekRankShort = "";
-    if (rank === 1) weekRankShort = "Meilleur jour de la semaine";
-    else if (rank === totalDays) weekRankShort = "Jour le moins favorable de la semaine";
-    else if (rank != null && totalDays > 0) weekRankShort = `${rank}e meilleur jour de la semaine`;
+    if (rank === 1) weekRankShort = "Meilleure de vos dates suivies";
+    else if (rank === totalDays) weekRankShort = "Moins favorable de vos dates";
+    else if (rank != null && totalDays > 0) weekRankShort = `${rank}e sur ${totalDays} dates suivies`;
 
-    const scorePrimary = (score != null && Number.isFinite(Number(score))) ? `Score ${Number(score).toFixed(1)} / 10` : "Score indisponible";
-    const scoreSecondary = (score != null) ? [weekRankShort ? escapeHtml(weekRankShort) : "", escapeHtml(regimeLabel)].filter(Boolean).join(" \u00b7 ") : "";
+    const _scoreSv = scoreVerdict(score, regime);
+    const _scoreWord = _scoreSv.t.replace("Contexte ", "").replace("Conditions ", "");
+    const scorePrimary = "Score prévu";
+    const scoreSecondary = (score != null) ? (weekRankShort ? escapeHtml(weekRankShort) : "") : "Score indisponible";
+    const scoreChip = (score != null && Number.isFinite(Number(score)))
+      ? { label: Number(score).toFixed(1) + "/10 · " + _scoreWord.charAt(0).toUpperCase() + _scoreWord.slice(1), bg: _scoreSv.bg, fg: _scoreSv.fg }
+      : null;
+    const scoreAccent = (score != null) ? _scoreSv.ac : "#94a3b8";
 
     // Strip 2: Threats — recap across ALL followed competitors
     const compByComp = new Map();
@@ -3420,18 +3458,24 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     }
 
     const THREAT_LABELS_FR = { high: "Menace \u00e9lev\u00e9e", moderate: "Menace mod\u00e9r\u00e9e", low: "Menace faible" };
-    let threatPrimary, threatSecondary;
+    let threatPrimary, threatSecondary, _threatLevel;
     if (totalComps > 0) {
       const _worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
       const _hasConflict = (worstThreatLevel === "high" || hasAnyAudOverlap);
       threatPrimary = _hasConflict ? escapeHtml(_worstLabel || "Conflit direct") : "Aucun conflit direct";
+      _threatLevel = _hasConflict ? (worstThreatLevel === "high" ? "alerte" : "attention") : "favorable";
       const _tp = [`${totalComps} concurrent${totalComps > 1 ? "s" : ""} suivi${totalComps > 1 ? "s" : ""}`];
       if (totalActiveEvents > 0) _tp.push(`${totalActiveEvents} \u00e9v\u00e9n. actif${totalActiveEvents > 1 ? "s" : ""}`);
       threatSecondary = _tp.join(" \u00b7 ");
     } else {
       threatPrimary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
+      _threatLevel = followedCount > 0 ? "favorable" : "neutre";
       threatSecondary = followedCount > 0 ? `${followedCount} concurrent${followedCount > 1 ? "s" : ""} suivi${followedCount > 1 ? "s" : ""}` : "";
     }
+    const _threatSev = sevStyle(_threatLevel);
+    const threatTitle = "Menaces concurrentielles";
+    const threatChip = { label: threatPrimary, bg: _threatSev.bg, fg: _threatSev.fg };
+    const threatAccent = _threatSev.ac;
 
     // Strip 3: Environnement concurrentiel — use competition_pressure_ratio for pressure label
     const envCount500 = Number(currentDay.events_within_500m_count || 0);
@@ -3440,28 +3484,30 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const _envRatioRaw = currentDay.competition_pressure_ratio;
     const _envRatio = Number(_envRatioRaw);
     const _envHasRatio = (_envRatioRaw != null && Number.isFinite(_envRatio) && _envRatio > 0);
-    let envPrimary, envSecondary;
+    let envTitle = "Environnement concurrentiel", envContext = "", envChip = null, envAccent = "#94a3b8";
     if (_envHasRatio) {
-      envPrimary = `Pression \u00d7${_envRatio.toFixed(1)}`;
-      let _envRel = "";
-      if (hasBaseline && _envRatio > 1.2) _envRel = "Sup\u00e9rieur \u00e0 la moyenne";
-      else if (hasBaseline && _envRatio < 0.8) _envRel = "Inf\u00e9rieur \u00e0 la moyenne";
-      else if (hasBaseline) _envRel = "Dans la moyenne";
-      envSecondary = [_envRel, `${envCount5km} \u00e9v\u00e9n. \u00e0 5 km`].filter(Boolean).join(" \u00b7 ");
+      const _envLvl = (hasBaseline && _envRatio > 1.2) ? "alerte" : (hasBaseline && _envRatio < 0.8) ? "favorable" : "neutre";
+      const _envSev = sevStyle(_envLvl);
+      const _envArrow = (hasBaseline && _envRatio > 1.2) ? "↑ " : (hasBaseline && _envRatio < 0.8) ? "↓ " : "";
+      envChip = { label: _envArrow + "Pression ×" + _envRatio.toFixed(1), bg: _envSev.bg, fg: _envSev.fg };
+      envAccent = _envSev.ac;
+      envContext = [ (envCount500 > 0 ? envCount500 + " à moins de 500 m" : ""), envCount5km + " à 5 km" ].filter(Boolean).join(" · ");
     } else {
-      envPrimary = `Autour de vous : ${envCount5km} \u00e9v\u00e9nement${envCount5km > 1 ? "s" : ""} \u00e0 5 km`;
-      envSecondary = "";
+      const _envSev = sevStyle("neutre");
+      envChip = envCount5km > 0 ? { label: envCount5km + " à 5 km", bg: _envSev.bg, fg: _envSev.fg } : null;
+      envAccent = _envSev.ac;
+      envContext = "Densité concurrentielle autour de vous";
     }
 
     // Build strips
     const strip1 = renderRadarStrip("score", "chart-line", scorePrimary, scoreSecondary,
-      renderScoreDetail(currentDay, days), true);
+      renderScoreDetail(currentDay, days), true, { accent: scoreAccent, chip: scoreChip });
 
-    const strip2 = renderRadarStrip("changes", "swords", envPrimary, envSecondary,
-      renderChangeDetail(currentDay, data._top_threats || []), false);
+    const strip2 = renderRadarStrip("changes", "swords", envTitle, envContext,
+      renderChangeDetail(currentDay, data._top_threats || []), false, { accent: envAccent, chip: envChip });
 
-    const strip3 = renderRadarStrip("threats", "target", threatPrimary, threatSecondary,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount), false);
+    const strip3 = renderRadarStrip("threats", "target", threatTitle, threatSecondary,
+      renderThreatSummary(competitorSignals, selectedDate, followedCount), false, { accent: threatAccent, chip: threatChip });
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
