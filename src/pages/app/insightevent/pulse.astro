@@ -1304,6 +1304,23 @@ if (!location_id) {
     return out;
   }
   function teamMembersFor(locationId) { return _teamMembersByLoc[locationId] || []; }
+  // Card-recipient pool: the card's own site if it has team members, otherwise every configured
+  // member across all sites (deduped) — so recipients are always proposed even for sites, or
+  // cards with no location_id, that have no team config of their own.
+  function teamMembersPool(locationId) {
+    var own = _teamMembersByLoc[locationId] || [];
+    if (own.length) return own;
+    var seen = {}, pool = [];
+    for (var k in _teamMembersByLoc) {
+      var arr = _teamMembersByLoc[k] || [];
+      for (var i = 0; i < arr.length; i++) {
+        var m = arr[i];
+        var id = m.member_id || (String(m.first_name || '') + '|' + JSON.stringify(m.channels_contact || {}));
+        if (!seen[id]) { seen[id] = true; pool.push(m); }
+      }
+    }
+    return pool;
+  }
   function cardLocId(cardIdx) { try { var c = window.__msCardByIdx && window.__msCardByIdx[cardIdx]; return (c && c.location_id) ? String(c.location_id) : ''; } catch(e) { return ''; } }
 
   var _channelConfigsCache = null;
@@ -1442,6 +1459,8 @@ if (!location_id) {
   // Shared "Mes brouillons" drawer — used by the Communiquer workspace and the
   // internal notification panel. onRaw(picked) loads the draft as-is; onAdapt(picked)
   // (only when showAdapt) re-styles it to the current signal via generate-action-draft.
+  // Shared channel metadata — module scope so openBrouillonLibrary (and others) can reference it.
+  var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel téléphonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
   function openBrouillonLibrary(opts) {
     var existing = document.getElementById("ms-draft-library");
     if (existing) { existing.remove(); return; }
@@ -1990,7 +2009,7 @@ if (!location_id) {
         + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
         + (ch.cat === "send" ? '<div style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>' : '')
         + (showRecipient ? (function() {
-          var members = teamMembersFor(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+          var members = teamMembersPool(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
           var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',score_down:'opportunity',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition'};
           var sigCat = ROUTING_MAP[signalType] || '';
           var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
@@ -2227,16 +2246,22 @@ if (!location_id) {
     });
 
     // Communiquer en interne — open the internal-alert panel in the card workspace
-    function buildAlertRecip(cardIdx, channel) {
+    function buildAlertRecip(cardIdx, channel, signalType) {
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
       if (channel === 'note_interne') {
         return '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--color-border);">Enregistré dans vos notes internes — aucun destinataire.</div>';
       }
       var ph = channel === 'email' ? 'destinataire@email.com' : '#canal ou @nom';
-      var members = teamMembersFor(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+      var members = teamMembersPool(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
+      // Propose a recipient by default: the member routed for this signal category, else the first
+      // configured one — so the operator isn't forced to remember their Slack channel or email.
+      var _sigCat = (window.MS_ROUTING_MAP || {})[String(signalType || '')] || '';
+      var _sugg = (_sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[_sigCat] === true || r[_sigCat] === 'true'; }) : null) || (members.length ? members[0] : null);
+      var _preVal = _sugg ? _sugg.channels_contact[channel] : '';
+      var _preName = _sugg ? (_sugg.first_name + (_sugg.last_name ? ' ' + _sugg.last_name : '') + ' · ' + _sugg.channels_contact[channel]) : '';
       var html = '<div style="position:relative;margin-bottom:12px;">'
         + '<div style="' + lbl + '">Destinataire</div>'
-        + '<input data-al-recip="' + cardIdx + '" placeholder="' + escapeHtml(ph) + '" value="" autocomplete="off" style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" />';
+        + '<input data-al-recip="' + cardIdx + '" placeholder="' + escapeHtml(ph) + '" value="' + escapeHtml(_preVal) + '" data-display-name="' + escapeHtml(_preName) + '" autocomplete="off" style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" />';
       if (members.length > 0) {
         html += '<div data-al-recipdd="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.06);z-index:100;margin-top:4px;overflow:hidden;">';
         members.forEach(function(m) {
@@ -2297,7 +2322,7 @@ if (!location_id) {
           + '<button type="button" data-al-ch="email" style="' + segStyle(selCh === 'email', false) + '">Email</button>'
           + '<button type="button" data-al-ch="slack" style="' + segStyle(selCh === 'slack', true) + '">Slack</button>'
         + '</div>'
-        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, selCh) + '</div>'
+        + '<div data-al-recipsection="' + cardIdx + '">' + buildAlertRecip(cardIdx, selCh, ctx.actionType) + '</div>'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
           + '<div style="' + lbl + 'margin-bottom:0;">Message</div>'
           + ((_savedDraftsCache && _savedDraftsCache.length) ? '<button type="button" data-al-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
@@ -2343,7 +2368,7 @@ if (!location_id) {
           state.channel = b.getAttribute('data-al-ch');
           ws.querySelectorAll('[data-al-ch]').forEach(function(x) { var on = x === b; x.style.background = on ? '#1D3BB3' : '#fff'; x.style.color = on ? '#fff' : '#1D3BB3'; });
           var sec = ws.querySelector('[data-al-recipsection]');
-          if (sec) { sec.innerHTML = buildAlertRecip(cardIdx, state.channel); wireAlertRecip(cardIdx, ws); }
+          if (sec) { sec.innerHTML = buildAlertRecip(cardIdx, state.channel, ctx.actionType); wireAlertRecip(cardIdx, ws); }
         });
       });
       wireAlertRecip(cardIdx, ws);
