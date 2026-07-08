@@ -23,8 +23,10 @@ export interface EvolutionExtras {
     foreign_visitors: string[];
     weather_assoc: { cool_avg: number | null; cool_n: number; mild_avg: number | null; mild_n: number; corr_rain: number | null } | null;
   };
-  provenance: { history_days: number; learned_actions: number | null }; // learned_actions null unless has_sufficient_sample
-  advice: { key: string; arg?: number; prefill?: { committed_action_text: string | null; origin_action_type: string | null; window_kind: string } }[];
+  // Type A track record for this action_type (fct_location_commitment_learning, source='commitment').
+  // null unless has_sufficient_sample (>=5 done). Operator track record — "N fois sur M", never a rate.
+  provenance: { history_days: number; track_record: { beat: number; done: number } | null };
+  advice: { key: string; arg?: number; track?: { beat: number; done: number }; prefill?: { committed_action_text: string | null; origin_action_type: string | null; window_kind: string } }[];
 }
 
 // snap = full CommitmentRow (has verdict, ctx_*, action_done_status, committed_action_text, origin_action_type)
@@ -89,10 +91,11 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
       query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id=@loc AND date <= @asof`,
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
-    // learning provenance — only surfaced when has_sufficient_sample
+    // Type A track record for THIS action_type (commitment learning, source='commitment'),
+    // aggregated across window_days. Only surfaced when >=5 done outcomes (min-N gate).
     bq.query({
-      query: `SELECT SUM(measurable_count) AS n, LOGICAL_OR(has_sufficient_sample) AS ok FROM \`${PROJECT}.mart.fct_location_action_learning\` WHERE location_id=@loc`,
-      params: { loc }, location: "EU",
+      query: `SELECT SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.mart.fct_location_commitment_learning\` WHERE location_id=@loc AND action_type=@at AND source='commitment'`,
+      params: { loc, at: snap.origin_action_type ?? "" }, location: "EU",
     }).catch(() => [[]]),
   ]);
 
@@ -101,8 +104,11 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
 
   const cx = (ctxRows[0] || [])[0] || {};
   const assoc = (assocRows[0] || [])[0] || {};
-  const learn = (learnRows?.[0] || [])[0] || {};
-  const learnedActions = flat(learn.ok) === true && flat(learn.n) != null ? Number(flat(learn.n)) : null;
+  const tr = (learnRows?.[0] || [])[0] || {};
+  const trDone = flat(tr.done) != null ? Number(flat(tr.done)) : 0;
+  const trBeat = flat(tr.beat) != null ? Number(flat(tr.beat)) : 0;
+  // min-N gate (>=5 done) — mirrors fct_location_commitment_learning.has_sufficient_sample.
+  const trackRecord = trDone >= 5 ? { beat: trBeat, done: trDone } : null;
 
   const context = {
     school_days: Number(flat(cx.school_days)) || 0,
@@ -121,17 +127,27 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
 
   const provenance = {
     history_days: Number(flat((histRows[0] || [])[0]?.history_days)) || 0,
-    learned_actions: learnedActions,
+    track_record: trackRecord,
   };
 
   // ③ advice — rule-based, returns KEYS (French in commitmentCopy.ts). §2c honesty.
   const prefill = { committed_action_text: snap.committed_action_text ?? null, origin_action_type: snap.origin_action_type ?? null, window_kind: "7d" };
   const advice: EvolutionExtras["advice"] = [];
+  // Type A track record is the strongest evidence-based signal for "reconduire?" — it LEADS when
+  // present, and replaces the generic met_hold/aim_higher. Beat-ratio thresholds (see
+  // docs/features/learning-engine.md): reconduire only on a clear majority AND enough N; a mixed
+  // record reads "résultats mitigés", never an endorsement.
+  if (trackRecord) {
+    const ratio = trackRecord.done > 0 ? trackRecord.beat / trackRecord.done : 0;
+    const key = (ratio >= 0.70 && trackRecord.beat >= 4) ? "advice_track_reconduire"
+      : (ratio <= 0.30) ? "advice_track_ne_pas" : "advice_track_mitige";
+    advice.push(key === "advice_track_reconduire" ? { key, track: trackRecord, prefill } : { key, track: trackRecord });
+  }
   if (snap.ctx_material_confound) {
     advice.push({ key: "advice_replay_offseason", prefill });
-  } else if (snap.verdict === "met" && snap.ctx_any_school_holiday && holiday_norm) {
+  } else if (!trackRecord && snap.verdict === "met" && snap.ctx_any_school_holiday && holiday_norm) {
     advice.push({ key: "advice_aim_higher", arg: holiday_norm.pct, prefill });
-  } else if (snap.verdict === "met") {
+  } else if (!trackRecord && snap.verdict === "met") {
     // clean win, no holiday confound → hold & reconduire (never an empty ③)
     advice.push({ key: "advice_met_hold", prefill });
   }

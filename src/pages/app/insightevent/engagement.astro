@@ -116,7 +116,11 @@ const id = Astro.url.searchParams.get("id") || "";
           advice_aim_higher: { text: function (a) { return t("advice_aim_higher", { pct: fr(a.arg) }); }, cta: true },
           advice_met_hold: { text: function () { return t("advice_met_hold"); }, cta: true },
           advice_missed_descriptive: { text: function () { return t("advice_missed_descriptive"); }, cta: false },
-          advice_replay_retest: { text: function () { return t("advice_replay_retest"); }, cta: true }
+          advice_replay_retest: { text: function () { return t("advice_replay_retest"); }, cta: true },
+          // Type A track record — "N fois sur M" from a.track (beat/done). reconduire gets the CTA.
+          advice_track_reconduire: { text: function (a) { return t("advice_track_reconduire", { beat: a.track.beat, done: a.track.done }); }, cta: true },
+          advice_track_mitige: { text: function (a) { return t("advice_track_mitige", { beat: a.track.beat, done: a.track.done }); }, cta: false },
+          advice_track_ne_pas: { text: function (a) { return t("advice_track_ne_pas", { beat: a.track.beat, done: a.track.done }); }, cta: false }
         };
         function adviceHtml(advice) {
           return advice.map(function (a, i) {
@@ -210,7 +214,7 @@ const id = Astro.url.searchParams.get("id") || "";
 
           // ── sources ──
           var srcRows = [t("src_caisse"), t("src_learning", { days: prov.history_days || 0 }), t("src_weather"), t("src_events"), t("src_tourism")];
-          if (prov.learned_actions != null) srcRows.push(t("src_learning_actions", { n: prov.learned_actions }));
+          srcRows.push(prov.track_record ? t("src_track_record", { beat: prov.track_record.beat, done: prov.track_record.done }) : t("src_track_pending"));
           var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">'+esc(t("sources_title"))+'</div>'
             + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">'+srcRows.map(function (s) { return '<div>· '+esc(s)+'</div>'; }).join("")+'</div></div>';
 

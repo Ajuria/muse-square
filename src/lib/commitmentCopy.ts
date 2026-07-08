@@ -66,6 +66,11 @@ export const EVOL_COPY = {
   advice_replay_offseason: "Réessayer hors vacances pour isoler l'effet.",
   advice_aim_higher: "En vacances, viser plus de +{pct} %.",
   advice_met_hold: "Objectif tenu — à reconduire.",
+  // Type A track record (fct_location_commitment_learning). "N fois sur M" only — NEVER "prouvé"
+  // ni "marche à X %" (self-selected operator track record, not an effectiveness rate).
+  advice_track_reconduire: "Menée {done} fois — le CA a battu l'attendu {beat} fois. À reconduire.",
+  advice_track_mitige: "Menée {done} fois — le CA a battu l'attendu {beat} fois. Résultats mitigés, à confirmer.",
+  advice_track_ne_pas: "Menée {done} fois — le CA a battu l'attendu {beat} fois seulement. À ne pas reconduire tel quel.",
   // §2c — missed & done: descriptive honest statement, no "revoir l'approche" filler
   advice_missed_descriptive: "Aucun effet visible sur le CA.",
   advice_replay_retest: "À retenter pour confirmer.",
@@ -90,8 +95,11 @@ export const EVOL_COPY = {
   src_events: "OpenAgenda & Agendas régionaux — événements à proximité",
   src_tourism: "INSEE & OpenHolidays — tourisme & vacances scolaires",
   src_learning: "Vos données — CA habituel appris sur vos {days} derniers jours",
-  // shown only when fct_location_action_learning.has_sufficient_sample (never a placeholder)
-  src_learning_actions: "Vos données — effet mesuré sur {n} engagements passés",
+  // shown only when the action has a sufficient commitment track record (never a placeholder).
+  // "N fois sur M" — never "prouvé" / "marche à X %".
+  src_track_record: "Vos données — CA au-dessus de l'attendu {beat} fois sur {done} pour cette action",
+  // Type A empty state — gated on commitment COUNT (not data ingestion). Honest + encourages use.
+  src_track_pending: "Bilan de vos actions — se construit au fil de vos engagements menés à terme",
 };
 
 export type EvolCopy = typeof EVOL_COPY;

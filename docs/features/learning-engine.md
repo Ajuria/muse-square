@@ -1,8 +1,9 @@
 # Learning engine — dbt model spec (commitment source)
 
-Status: **spec, not built.** Steps 1–2 are dbt Cloud IDE work (marts); step 3 is app wiring.
-Build order is gating: dbt models first → app consumers against real/seeded data → verify by
-behavior. Do NOT wire the app first (it would render empty against non-existent columns).
+Status: **as-built — dbt models built + behavior-verified in BigQuery (2026-07-08); app wiring
+(step 3) in progress.** Lineage is **source → staging → intermediate → mart** (marts never read the
+source directly). Build order was gating and honored: dbt first (done), then app consumers proven
+against seeded data (in progress). This doc describes what EXISTS, not a proposal.
 
 ## Goal
 Close the loop: turn **resolved engagements** into measured, per-location knowledge of which
@@ -20,81 +21,97 @@ The learning tables already EXIST but are wired to the **communication** source:
   avg/median_revenue_delta_vs_baseline_pct, avg_post_*, has_sufficient_sample, is_proven_lift`.
 
 The engagement feature captures the richer signal (verdict, window residual delta,
-`action_done_status`, origin, confound) in `analytics.action_commitments`, but **nothing carries
-it into the learning marts** — so `commitmentContext`'s provenance reads `has_sufficient_sample =
-false`. This spec **extends the loop** to ingest commitments as a source.
+`action_done_status`, origin, confound) in `analytics.action_commitments`; the models below carry
+it into a **separate** commitment lineage (the comm-only `fct_location_action_learning` is left
+untouched).
+
+## Lineage (as-built — source → staging → intermediate → mart)
+Marts NEVER read the source directly. The chain:
+- **source** `analytics.action_commitments` — app-owned append-only log (declared as a dbt source).
+- **staging** `stg_client_commitments` (view) — typed pass-through, raw event grain, **no dedup**.
+- **intermediate** `int_client_commitment_latest` (view) — latest snapshot per `commitment_id`
+  (dedup); the reusable "current state", consumed by any commitment mart.
+- **mart** `fct_client_commitment_outcomes` (table) — resolved+done outcome events (Model 1).
+- **mart** `fct_location_commitment_learning` (table) — per-location track record (Model 2).
+
+**Verified in BigQuery** on a seeded validation set: outcomes exclude `pas_encore` + `open`, flag
+`confounded`; the aggregate counts beat/done/missed, excludes confounded from both the counts AND
+`avg_effect_residual_pct`, and the min-N≥5 gate holds. Marts are **empty in production** until real
+resolved commitments accrue (the ramp).
 
 ## Design principle (locked guardrails)
 Commitments and communications are **separate sources with separate effect measures**, aggregated
-**per source**, unified only at the location-learning table with a `source` tag and **distinct
-effect columns** — never blended into one `positive_rate`. Commitment numbers are an **operator
+**per source into SEPARATE tables** (`fct_location_commitment_learning` vs the comm-only
+`fct_location_action_learning`) — the separation structurally enforces "never blend the two
+`positive_rate`s". Commitment numbers are an **operator
 track record** ("N fois sur M"), never a "proven" effectiveness rate.
 
 **Why a sibling model, not a union into `fct_action_outcomes`:** that table's grain is `publish_id`
 (one post, one outcome day, post metrics, naive 30-day-avg baseline). A commitment has no post,
 spans 7–14 days, and its effect is the **VIF-corrected dow+trend residual**. Forcing it into the
 post grain would mangle the grain or silently pool two incompatible deltas (guardrail 1). So:
-new `fct_commitment_outcomes` → union at `fct_location_action_learning`.
+new `fct_client_commitment_outcomes` → separate `fct_location_commitment_learning` (comm table untouched).
 
 ---
 
-## Model 1 — `fct_commitment_outcomes` (NEW)
-**Grain:** one row per **resolved, done, non-confounded** commitment.
-**Source:** latest snapshot per `commitment_id` from `analytics.action_commitments`
-(`ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) = 1`).
+## Model 1 — `fct_client_commitment_outcomes` (table)
+**Grain:** one row per **resolved, done** commitment (confounded kept but flagged, not dropped).
+**Reads:** `int_client_commitment_latest` (the deduped latest state) — **not** the source directly.
 
 **Inclusion filter (locked rules):**
 - `status = 'resolved'` (drop open/pending/expired/cancelled — no measured outcome)
-- `verdict IN ('met','missed')` — **exclude `confounded` and NULL entirely**
 - `action_done_status = 'fait'` — exclude `pas_encore`/NULL ("atteint + non menée" = luck)
-- net: **resolved ∧ done ∧ verdict∈{met,missed} ∧ ¬confounded**
-- Confounded-and-done rows are NOT dropped silently — counted into `confounded_count` at the
-  aggregate (a total, neither for nor against).
+- `verdict IN ('met','missed','confounded')` — keep confounded but **FLAG** it (`is_confounded`)
+  so the aggregate has one source: `met/missed` are the MEASURABLE outcomes; `confounded` is
+  excluded from effect/beat and counted separately (guardrail 3), never dropped silently.
+- net: **resolved ∧ done ∧ verdict∈{met,missed,confounded}**, confounded flagged.
 
 **Columns:**
 
 | column | source | note |
 |---|---|---|
-| `commitment_id` | grain key | |
+| `commitment_id` | grain key | unique |
 | `location_id`, `user_id` | commitment | `user_id` = authorship |
-| `source` = `'commitment'` | constant | for the union |
-| `authorship` = `'user_authored'` | constant | keeps it out of the unbiased pool |
-| `action_type` | `origin_action_type` | learning key (see driver note) |
+| `source` = `'commitment'` | constant | |
+| `authorship` = `'user_authored'` | constant | out of the unbiased pool |
+| `action_type` | `origin_action_type` | learning key |
+| `driver` | `origin_driver` | raw; fold `transactions→footfall` at read |
 | `window_days` | `window_days_expected` | |
 | `resolved_date` | `DATE(resolved_at)` | |
-| `verdict` | `met`/`missed` | |
-| `beat` | `verdict = 'met'` (bool) | |
-| **`effect_residual_pct`** | `window_residual_pct` | **the commitment effect — distinct column, NEVER `revenue_delta_vs_baseline_pct`** |
-| `effect_residual_z` | `window_residual_z` | kitchen; kept, not surfaced |
-| `material_holiday_share` | commitment | context |
+| `verdict` | `met`/`missed`/`confounded` | |
+| `is_confounded` | `verdict='confounded'` | flag; excluded from measurable counts |
+| `beat` | `met`→true, `missed`→false, `confounded`→**NULL** | measurable-win flag |
+| **`effect_residual_pct`** | `window_residual_pct` | **the Type A effect — distinct column, NEVER `revenue_delta_vs_baseline_pct`** |
+| `effect_residual_z` | `window_residual_z` | kitchen; not surfaced |
+| `window_actual_revenue`, `window_expected_revenue`, `material_holiday_share` | commitment | context |
 
 Explicitly **omit** post metrics and the naive `revenue_delta_vs_baseline_pct` — comm-only.
 
 ---
 
-## Model 2 — `fct_location_action_learning` (EXTEND with a `source` dimension)
-Keep the existing communication aggregate **unchanged** (`source='communication'`, its naive
-`revenue_delta_vs_baseline_pct`, post metrics, `positive_rate`, `is_proven_lift`). **Add** a
-commitment aggregate as new rows.
+## Model 2 — `fct_location_commitment_learning` (NEW, separate)
+A per-source aggregate kept **separate** from the comm-only `fct_location_action_learning` —
+cleanest per guardrail (a), and it avoids editing the existing comm model blind. The app consumer
+reads THIS table for Type A. `fct_location_action_learning` (communication) stays untouched.
 
-**Commitment aggregate — grain `(location_id, action_type, window_days)`, `source='commitment'`:**
+**Grain `(location_id, action_type, window_days)`, `source='commitment'`:**
 
 | column | definition |
 |---|---|
-| `done_count` | `COUNT(*)` over `fct_commitment_outcomes` |
-| `beat_count` | `COUNTIF(verdict='met')` |
-| `missed_count` | `COUNTIF(verdict='missed')` |
-| `confounded_count` | separate scan: resolved∧done∧confounded (logged only) |
-| `avg_effect_residual_pct` | `AVG(effect_residual_pct)` — **distinct from `avg_revenue_delta_vs_baseline_pct`** |
-| `median_effect_residual_pct` | median of the same |
+| `done_count` | `COUNTIF(NOT is_confounded)` — measurable done outcomes |
+| `beat_count` | `COUNTIF(NOT is_confounded AND verdict='met')` |
+| `missed_count` | `COUNTIF(NOT is_confounded AND verdict='missed')` |
+| `confounded_count` | `COUNTIF(is_confounded)` — logged, neither for nor against |
+| `avg_effect_residual_pct` | `AVG(IF(NOT is_confounded, effect_residual_pct, NULL))` — **distinct from the comm naive delta** |
+| `median_effect_residual_pct` | `APPROX_QUANTILES(..., 2)[OFFSET(1)]` over non-confounded (BigQuery has no `median()`) |
+| `last_resolved_date` | `MAX(resolved_date)` |
 | `has_sufficient_sample` | `done_count >= 5` (v1, **per-location, no shrinkage**) |
-| `authorship` | `'user_authored'` |
-| `is_proven_lift` | **NULL for commitment rows** — no "proven" language |
+| `is_proven_lift` | **NULL** — never "proven" for Type A |
+| `source` / `authorship` | `'commitment'` / `'user_authored'` |
 
-New nullable columns (populated only for `source='commitment'`): `source`, `done_count`,
-`beat_count`, `missed_count`, `confounded_count`, `avg_effect_residual_pct`,
-`median_effect_residual_pct`. Existing comm columns stay NULL on commitment rows and vice-versa.
-**No cross-source `positive_rate` is ever computed.**
+**Optional unification:** if you want ONE physical consumer table, add a `source` column to the
+existing `fct_location_action_learning` model and `UNION ALL` this aggregate (comm columns NULL on
+commitment rows and vice-versa). **Never compute a cross-source `positive_rate`.**
 
 ---
 
@@ -126,7 +143,7 @@ New nullable columns (populated only for `source='commitment'`): `source`, `done
 ## Validation (before organic N)
 Seed resolved-commitment fixtures across ~2 `action_types`: `met+fait`, `missed+fait`,
 `confounded+fait` (must be excluded from beat/missed), `met+pas_encore` (excluded), with enough
-`fait` on one type to cross **min-N ≥ 5**. Run the models → assert `fct_commitment_outcomes` rows
+`fait` on one type to cross **min-N ≥ 5**. Run the models → assert `fct_client_commitment_outcomes` rows
 + the aggregate (beat/done correct, confounded excluded, min-N gate) → drive the app consumer
 against it → prove provenance/advice render AND the empty state. Behavior-verified end-to-end
 before it ships.
@@ -179,7 +196,7 @@ column must exist in BigQuery before the code that references it deploys.
 ### 4. Canonicalization — at the consumer, NOT at capture
 Store the RAW driver (`conversion|basket|footfall|transactions`) — don't lose info. Fold to a
 canonical bucket only when reading, matching the reco's `_recoDriverKey` (`transactions →
-footfall`). So `fct_commitment_outcomes.driver` = raw; learning/KPI group on the folded bucket.
+footfall`). So `fct_client_commitment_outcomes.driver` = raw; learning/KPI group on the folded bucket.
 
 ### 5. Enables (downstream, separate builds)
 - **Per-driver learning:** the commitment aggregate in `fct_location_action_learning` can add
@@ -194,7 +211,9 @@ Drive `POST /api/commitments` with `origin_driver:'conversion'` → assert the r
 200 with `origin_driver=NULL`. One create with `both`/unknown → stored `null`, no 400.
 
 ## Sequence
-1. dbt — `fct_commitment_outcomes` (inclusion rules, authorship tag, residual-delta column).
-2. dbt — extend `fct_location_action_learning` (source-tagged commitment aggregate).
-3. app — wire consumers (provenance → reco ranking → ③ advice), verified on seeded data.
+1. ✅ dbt — `stg_client_commitments` → `int_client_commitment_latest` → `fct_client_commitment_outcomes`
+   (inclusion rules, authorship tag, residual-delta effect). Built + verified in BQ.
+2. ✅ dbt — `fct_location_commitment_learning` (separate commitment aggregate). Built + verified in BQ.
+3. ⏳ app — wire `commitmentContext` to read `fct_location_commitment_learning` (`source='commitment'`)
+   with the beat-ratio thresholds; verified on seeded data (empty + all four branches).
 4. (later, separate) per-driver decomposition for the KPI.
