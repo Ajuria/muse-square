@@ -116,11 +116,22 @@ vetted sensitivity:
   effects, not a web of interactions. Richer / interaction-level patterns need **cross-location
   pooling** (the deferred hierarchical model). Roadmap: **per-venue main effects now → pooled depth
   later.**
-- **Seed — not greenfield.** The rigorous form already exists dormant: the **multi-factor
-  challenger residual** (regress the residual on context features with controls, read the
-  coefficients as sensitivities; see [[sales-signal-architecture-map]]). **Verify what it actually
-  regresses on before building** — read the model, don't take the regressor list on faith. Promoted,
-  it is both the Type B engine AND the improved baseline (section A).
+- **Seed — a STARTING POINT, not a ready seed (read 2026-07-08).** The "dormant challenger" is
+  **hand-authored expert priors**, not a controlled regression: `open_data.{weather,event,mobility,
+  tourism}_impacts_coeffs` hold fixed `impact_pct` per level/band/status (+ prose `notes`/
+  `description`), combined by a heuristic `combine_rule` (`top2_decay_0p5_clamp`); the daily
+  `delta_att_<factor>_pct` are these priors applied. **It fails all three gates:** no dow/season/
+  holiday hold-out (not controlled), **no collinearity handling** (heuristic combine, no VIF/
+  regularization — total ≠ sum: heat −10 → total −14.52), and the fitted layer
+  `weather_impacts_coeffs_learned.beta_att_per_pct_impact` is **0-of-3 fit** (all NULL). Grain is
+  global/regional, not per-location; no context-adjusted `expected_revenue` exists (residual mart
+  has one dow+trend expected). **Reusable asset:** the per-factor feature taxonomy (→ `feature`/
+  `mechanism_tag` + the §C "plausible mechanism" gate), the empty `_learned` hook (where fitted
+  betas land), and the daily context marts (the design matrix). **Build = replace the priors with a
+  controlled, collinearity-handled fit** of that layer against the residual (dow/season/holiday held
+  out, per-location where N allows, validated) — which simultaneously emits the context-adjusted
+  baseline (§A). The challenger is the scaffold + design matrix, **not** the engine. See
+  [[sales-signal-architecture-map]].
 
 ## D. Consumers — honesty inherited from the store
 The honesty bar (above) is enforced at ingestion (§A), so every consumer inherits it. Representative:
