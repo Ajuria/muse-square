@@ -103,8 +103,12 @@ New nullable columns (populated only for `source='commitment'`): `source`, `done
   `WHERE location_id=@loc AND source='commitment' AND has_sufficient_sample`. Surface as
   *"Quand vous avez fait cette action, le CA a battu l'attendu {beat_count} fois sur {done_count}."*
   — never "marche à X %".
-- **③ advice:** strong `beat_count`/`done_count` + sufficient → "reconduire" with the track record;
-  missed-heavy → "à ne pas reconduire tel quel".
+- **③ advice — explicit beat-ratio threshold (don't endorse a coin flip):** with `n = done_count`,
+  `ratio = beat_count / done_count`, and `has_sufficient_sample` (n ≥ 5):
+  - **"reconduire"** ONLY on a clear majority AND enough N: `ratio ≥ 0.70 AND beat_count ≥ 4`
+    (so 3/5 does NOT qualify) → *"Vous avez fait cette action {beat_count} fois sur {done_count} — le CA a battu l'attendu. À reconduire."*
+  - **"à ne pas reconduire tel quel"** on a clear negative: `ratio ≤ 0.30` → the track record cuts the other way.
+  - **"résultats mitigés"** for everything between (mixed record) → *"{beat_count} fois sur {done_count} — résultats mitigés"*, **never** "cette action marche". The mart's honesty must not leak at the copy layer.
 - **Honest empty:** column exists but no `source='commitment'` rows or below min-N →
   *"pas encore assez de recul"*. That empty state is **not** "done" until proven with data.
   See [[prove-entry-point-by-behavior]].
@@ -126,6 +130,16 @@ Seed resolved-commitment fixtures across ~2 `action_types`: `met+fait`, `missed+
 + the aggregate (beat/done correct, confounded excluded, min-N gate) → drive the app consumer
 against it → prove provenance/advice render AND the empty state. Behavior-verified end-to-end
 before it ships.
+
+## Ramp — set expectations plainly
+Grain is `(location, action_type)` at **min-N = 5**: a venue must commit to the **same action
+type 5+ times, resolved-and-done**, before anything surfaces there. That is a **long organic
+ramp — months, not weeks** (matches [[measured-impact-engine-queued]]). What ships is *correctness*
+(proven now via seeded fixtures); *surfaced organic learning* is downstream. No false expectation
+of quick output — until then every consumer shows "pas encore assez de recul".
+**v2 grain note:** if per-`action_type` proves unreachable in practice (too few repeats per type),
+the first useful grain may be **per-driver** or **per-location** — v2 tuning. Start strict
+(per-action_type, N≥5); loosen only with evidence, never as a cold-start shortcut.
 
 ## Prerequisite spec — persist the driver at creation
 `analytics.action_commitments` stores `origin_action_type` but **not the driver**. The reco is
