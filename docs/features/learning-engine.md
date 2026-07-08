@@ -127,12 +127,57 @@ Seed resolved-commitment fixtures across ~2 `action_types`: `met+fait`, `missed+
 against it → prove provenance/advice render AND the empty state. Behavior-verified end-to-end
 before it ships.
 
-## Prerequisite to flag
-`analytics.action_commitments` stores `origin_action_type` but **not the driver**
-(conversion/basket/footfall) — the reco is driver-keyed, but the commitment doesn't persist which
-driver. v1 learning keys on `action_type` only. **Per-driver learning (and the per-driver KPI)
-needs the driver captured at creation** — a small addition to `POST /api/commitments` + a column.
-Not blocking v1; noted so driver-level learning isn't retrofitted blind.
+## Prerequisite spec — persist the driver at creation
+`analytics.action_commitments` stores `origin_action_type` but **not the driver**. The reco is
+driver-keyed and the card carries the attributed driver, but the commitment drops it, so learning
+can only key on `action_type` and the per-driver KPI stays blocked. Capture it — small, additive,
+non-breaking. **Not blocking the learning-loop v1** (which keys on `action_type`); do it before
+per-driver work so it isn't retrofitted blind.
+
+**Frozen-provenance semantics** (like `creation_residual_pct`): store the driver as the card
+attributed it at creation — never recomputed.
+
+**Ordering:** schema (DDL) first, then code — `COLUMN_SPEC` drives the INSERT column list, so the
+column must exist in BigQuery before the code that references it deploys.
+
+### 1. Schema — `analytics.action_commitments`
+- Add column **`origin_driver STRING`** (NULLABLE). One-time DDL (dbt/BQ console). NULL for
+  existing rows and non-sales origins.
+- Add to `COLUMN_SPEC` in `src/lib/actionCommitments.ts` right after `origin_action_type`
+  (line 41): `["origin_driver", "STRING"]`. This single edit auto-wires the INSERT column list +
+  typed-null param (the spec is the source of truth). Also add `origin_driver` to the
+  `CommitmentRow` interface (`string | null`).
+
+### 2. Create endpoint — `POST /api/commitments` (`src/pages/api/commitments/index.ts`)
+- Read `body.origin_driver`; add to the patch:
+  `origin_driver: body.origin_driver ? String(body.origin_driver).trim().toLowerCase() : null`.
+- **No hard validation / no 400** — driver is advisory metadata, not a gate. Optional soft
+  allowlist `{conversion, basket, footfall, transactions}`; on `both` or unknown → store `null`
+  (ambiguous driver is not a driver), never reject the create.
+
+### 3. Client — pass the card's driver
+- pulse commit form (`buildCommitFormHtml` submit, `pulse.astro`): add to the POST body
+  `origin_driver: card.primary_revenue_driver || card.dominant_factor || null`.
+- `public/commit-form.js` (`MSCommitForm`, used by évolution advice CTAs + Répliquer): thread
+  `origin.origin_driver` through so re-engagements carry it; for **Répliquer**, reuse the source
+  commitment's `origin_driver`.
+
+### 4. Canonicalization — at the consumer, NOT at capture
+Store the RAW driver (`conversion|basket|footfall|transactions`) — don't lose info. Fold to a
+canonical bucket only when reading, matching the reco's `_recoDriverKey` (`transactions →
+footfall`). So `fct_commitment_outcomes.driver` = raw; learning/KPI group on the folded bucket.
+
+### 5. Enables (downstream, separate builds)
+- **Per-driver learning:** the commitment aggregate in `fct_location_action_learning` can add
+  `driver` to the grain `(location, action_type, driver, window_days)`.
+- **Per-driver KPI:** ties `measured_metric` to the driver — but still needs the driver-decomposed
+  residual (conversion/basket residual marts), the separate decomposition build. Capturing the
+  driver is **necessary, not sufficient**.
+
+### Verify by behavior
+Drive `POST /api/commitments` with `origin_driver:'conversion'` → assert the row lands with
+`origin_driver='conversion'` (typed-null INSERT path intact). Existing creates (no driver) still
+200 with `origin_driver=NULL`. One create with `both`/unknown → stored `null`, no 400.
 
 ## Sequence
 1. dbt — `fct_commitment_outcomes` (inclusion rules, authorship tag, residual-delta column).
