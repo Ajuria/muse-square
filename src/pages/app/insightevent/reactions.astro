@@ -1,0 +1,59 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+// dev-only: ?src=seed proves the populated render against the seed fixture; ?loc overrides the venue.
+const src = Astro.url.searchParams.get("src") || "";
+const locParam = Astro.url.searchParams.get("loc") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Comment votre lieu réagit — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="rx-root" data-src={src} data-loc={locParam}>
+      <div id="rx-head">
+        <a href="/app/insightevent/prompt" id="rx-back">← Retour</a>
+        <h1 id="rx-title">Comment votre lieu réagit</h1>
+        <p id="rx-sub">Comment votre CA répond aux conditions récurrentes — météo, calendrier, tourisme. Effets mesurés, toutes choses égales.</p>
+      </div>
+      <div id="rx-status">Chargement…</div>
+      <div id="rx-body"></div>
+    </div>
+
+    <style is:global>
+      #rx-root { max-width: 760px; margin: 0 auto; padding: 20px 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #rx-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #rx-title { font-size: 22px; font-weight: 700; margin: 14px 0 6px; color: #111827; }
+      #rx-sub { font-size: 14px; color: #6b7280; margin: 0 0 22px; line-height: 1.55; }
+      #rx-status { padding: 48px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+    </style>
+
+    <script is:inline src="/reactions.js?v=1"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("rx-root");
+        var statusEl = document.getElementById("rx-status");
+        var body = document.getElementById("rx-body");
+        var src = root.getAttribute("data-src");
+        var loc = root.getAttribute("data-loc");
+        var qs = [];
+        if (loc) qs.push("location_id=" + encodeURIComponent(loc));
+        if (src) qs.push("src=" + encodeURIComponent(src));
+        fetch("/api/insight/sensitivities" + (qs.length ? "?" + qs.join("&") : ""), { headers: { accept: "application/json" } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            statusEl.style.display = "none";
+            window.MSReactions.render(body, data);
+          })
+          .catch(function () {
+            statusEl.textContent = "Impossible de charger les réactions.";
+          });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

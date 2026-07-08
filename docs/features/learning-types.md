@@ -1,8 +1,9 @@
 # Learning types — the A vs B contract
 
-Status: **contract, for review.** Type A (action-outcome) is **built + verified** (see
-[learning-engine.md](learning-engine.md)). **Type B (environmental-response) is NOT built** — this
-doc is the full contract it will be built against (architecture + engine discipline + output store
+Status: Type A (action-outcome) is **built + verified** (see
+[learning-engine.md](learning-engine.md)). **Type B (environmental-response) has a v1 engine
+built + validated on seeded ground-truth (2026-07-08), NOT yet live on real data** — see §C.1.
+This doc is the full contract it is built against (architecture + engine discipline + output store
 + LLM rule below). The two kinds of learning must never blur, in the data **or** the UI: separate
 subject, data, honesty model, table, grain, consumer, and copy.
 
@@ -112,10 +113,14 @@ vetted sensitivity:
   dow+trend-adjusted expected value *per metric* — the **decomposition build we don't have yet,**
   hooked by the driver we now capture (`origin_driver`). Interactions ("heat × weekend") explode the
   space and exceed one venue's data → **defer.**
-- **Data budget is the ceiling → pooling later.** One venue supports a handful of robust main
-  effects, not a web of interactions. Richer / interaction-level patterns need **cross-location
-  pooling** (the deferred hierarchical model). Roadmap: **per-venue main effects now → pooled depth
-  later.**
+- **Data budget is the ceiling → per-factor pooling pulled forward.** One venue supports a handful
+  of robust main effects, not a web of interactions. **Correction (2026-07-08): per-factor pooling
+  is not "later" — it is the small-N eligibility gate now.** A factor must clear the **pooled
+  (full-data) fit** before ANY per-location row is trusted; the pooled fit *licenses the factor*,
+  per-location data then *scopes and sizes* it (or the pooled effect is used as the scoped
+  fallback). This is what kills a lone-venue noise blip the global data doesn't support (see §C.1).
+  Interaction-level pooling (the hierarchical model) is still deferred. Roadmap: **pooled-licensed
+  per-venue main effects now → hierarchical interaction depth later.**
 - **Seed — a STARTING POINT, not a ready seed (read 2026-07-08).** The "dormant challenger" is
   **hand-authored expert priors**, not a controlled regression: `open_data.{weather,event,mobility,
   tourism}_impacts_coeffs` hold fixed `impact_pct` per level/band/status (+ prose `notes`/
@@ -132,6 +137,105 @@ vetted sensitivity:
   out, per-location where N allows, validated) — which simultaneously emits the context-adjusted
   baseline (§A). The challenger is the scaffold + design matrix, **not** the engine. See
   [[sales-signal-architecture-map]].
+
+## C.1 As-built engine (v1 — validated on seeded ground-truth 2026-07-08, not yet live)
+The engine is a **vetted offline BATCH → STORE → RETRIEVE** service, **never a live fitter.** The
+rigorous fit runs offline on a defined feature×metric grid; only survivors land in the store.
+KPIs / questions / the prompt page **retrieve** pre-vetted sensitivities — nothing triggers a fresh
+fit. A question running its own on-the-fly correlation is p-hacking to an answer; prohibited.
+
+**Step-1 factor cut (real data, per-location N over the 81-day residual span).** Only `tourism_peak`
+is per-location fittable at all venues. `heat` is fittable only where there is contrast (Occitanie;
+Paris has ~0 hot days → scoped out, never extrapolated). `school_holiday` / `rain` are thin →
+pooled. `cold / wind / snow / mobility / events / public_holiday` have ~0 contrast in the current
+window → **deferred** (tier-not-gate: they surface when data accrues, not on a calendar).
+
+**Model = OLS + standard errors + VIF pre-check (not ridge).** BQML gives regularization **XOR**
+standard errors (`calculate_p_values` requires `l2_reg=0`), so "ridge → SE → tier" is impossible in
+one BQML model. OLS is the honest choice anyway: it recovers effects unbiased (ridge shrinkage
+biases effects toward zero), and an **honest wide SE tells the truth about uncertainty** — which is
+what tier-not-gate needs. Collinearity is handled by a **VIF pre-check** (drop/merge severely
+collinear features; VIF = diagonal of the inverse correlation matrix); bootstrap-ridge SE is the
+documented upgrade if a real feature pair ever proves severely collinear. On seeded data OLS
+recovered the known coefficients within ~0.5 (tourism +8→+7.6, heat −12→−11.5, rain −6→−5.6,
+holiday +5→+4.6) despite injected heat↔tourism collinearity.
+
+**Scoping falls out of the SE — identifiability, not a calendar.** A factor surfaces for a venue
+only where that venue has real contrast: at ~5 heat days Paris's heat SE explodes (t≈1.3, estimate
+garbage) so it never clears the bar, while Nîmes (t≈10.8) and the pooled fit (t≈12.8) sail through.
+"Scope, don't extrapolate" is enforced by the math.
+
+**Gate stack (ALL must pass before anything surfaces — even préliminaire):**
+1. **Mechanism** — feature must be in the theory-constrained taxonomy for that metric (not a blind
+   sweep). Enforced a priori: un-tagged features are never fit.
+2. **Min qualifying-N** and **per-venue contrast** (both feature-on and feature-off days present).
+3. **Partial-residual consistency ≥ 60%** — share of qualifying days the effect held **net of the
+   other fitted factors** (`y − Σ_{g≠f} β_g·g`). Raw-residual consistency is confounded (a rainy day
+   that is also a tourism day nets positive) and understates real effects; it must be the
+   all-else-equal version — this is also the **cited** "cohérent M/N jours" number.
+4. **Benjamini-Hochberg multiple-comparison correction** across the *entire* batch (every
+   feature×scope×metric test), `p_adj < 0.10`. This is the teeth: raw |t|≥1.5 ≈ p<0.13 → noise
+   clears it, so BH is what stops "noise labeled préliminaire."
+5. **Pooled-eligibility** — a factor must clear the pooled (full-data) fit before any per-location
+   row is trusted (see the pooling correction in §C). This is what caught the validation's decoy: a
+   pure-noise feature (given a *plausible-sounding* mechanism tag on purpose) hit `p_adj=0.026` at
+   one venue by chance and would have surfaced — the pooled gate (pooled decoy `p_adj≈0.45`) killed
+   it everywhere. Conservative in the honest direction; a genuinely venue-specific effect that
+   cancels in the pool is deferred to the hierarchical upgrade.
+
+**Only after all five** → **tier by |t|** (`≥4 établi · ≥2.5 émergent · ≥1.5 préliminaire · else
+not surfaced`). Tier is confidence that scales with data, not a go/no-go. **The register moves with
+the tier** (see [[french-copy-voice]] / `sensitivityCopy.ts`): préliminaire reads "signal
+préliminaire … à confirmer", never "votre lieu réagit ainsi".
+
+**Baseline = do-no-harm, swapped on an out-of-sample beat (not tierable).** The fitted
+`expected_revenue` silently feeds Type A + commitment resolution, so it is used or it isn't — it
+can't carry a tier. Rule: `fitted_expected = dow+trend × (1 + Σ vetted effects)` (only stored
+survivors enter — nothing unvetted touches the baseline); swap in per venue **only if it beats
+dow+trend on held-out days** (RMSE). On seed it beat dow+trend by 4.6–23.5% OOS at all venues →
+swap. If it doesn't beat yet, dow+trend stays live and the fitted one runs in **shadow** until it
+earns the swap. Never ship a worse baseline downstream.
+
+**Target-agnostic — generalize by rerun, not rewrite.** The machinery is parameterized by metric
+(`revenue` now; `footfall / conversion / basket` when their per-metric residuals exist) and the
+factor set comes from the taxonomy gated by N/SE — nothing is hardcoded to "revenue + these 4."
+KPI-generality = rerunning the same vetted pipeline per metric, storing `(metric, feature)` rows.
+
+**Store + one typed accessor.** Batch output → `analytics.b_sensitivity_store` (dev; → mart
+`mart.fct_location_sensitivity` when the dbt/BQML batch model lands). The **one** typed accessor is
+`src/lib/sensitivityStore.ts` (`getSensitivities(loc, {metric, minTier})`); French citation +
+tier register in `src/lib/sensitivityCopy.ts`. Every surface imports the accessor — none queries
+the store or recomputes. Validated end-to-end on seed: accessor serves, consumer cites at tier, all
+three registers render, honesty asserts pass (préliminaire never asserts, decoy absent, Paris-heat
+scoped out).
+
+**Real run (81 days) + first consumer wired.** The engine ran on the real residual+context design
+matrix (`analytics.b_real_designmatrix`, `BMODE=real`): the **real store is empty** — nothing
+clears the full stack at 81 days (closest: Nîmes heat −11.8%, 27 days, 70% consistent, but raw
+p≈0.08 → fails BH even over the eligible family; `tourism_peak` shows no stable effect, pooled ≈0).
+That is the correct honest result; **no gate was loosened.** The baseline stays **dow+trend** at
+all venues (0 émergent+ effects → nothing to swap; the powered paired-difference CI machinery is
+ready for the first one). The **read-only consumer is wired now** (before beta, so the live path is
+proven off-customer): endpoint `src/pages/api/insight/sensitivities.ts` → page
+`src/pages/app/insightevent/reactions.astro` → shared render `public/reactions.js`. Both states are
+proven on the real render component (empty real store = "rien de notable"; seed store = tiered
+render with the correct register per tier). The page defaults to the **real (empty) store**; a
+dev-only `?src=seed` proves the populated path.
+
+**Four refinements applied (all corrections, none loosen a gate):**
+1. **Tier gates INFLUENCE, not just copy** — `préliminaire` is display-only (`canInfluence`); the
+   baseline sums émergent+ effects only. Even fully gated, a préliminaire can be noise; its blast
+   radius is bounded to an informational line.
+2. **Consistency is a tier INPUT** — `tier = min(|t|-ladder, consistency-ladder)`; a high-t effect
+   that only holds 60% of days can't wear "établi."
+3. **Baseline = do-no-harm on a POWERED beat** — reported as a paired-difference mean ± 95% CI + n
+   (not a point beat); swap only if the CI is entirely > 0. At 81 days (~17 OOS) this is
+   underpowered by construction → dow+trend stays live, fitted runs in shadow.
+4. **BH family = ELIGIBLE tests only** (post N+contrast) + **cited N/consistency match the estimate
+   used** (pooled evidence when the row uses the pooled fallback). Output-neutral at 81 days.
+
+**Still pending (post-beta gates):** store → mart + scheduled batch; the baseline swap and any
+high-stakes consumer wait for real **établi** signals and a **powered** OOS beat.
 
 ## D. Consumers — honesty inherited from the store
 The honesty bar (above) is enforced at ingestion (§A), so every consumer inherits it. Representative:
