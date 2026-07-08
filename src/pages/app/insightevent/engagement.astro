@@ -1,0 +1,300 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import { EVOL_COPY } from "../../../lib/commitmentCopy";
+
+const id = Astro.url.searchParams.get("id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Évolution de l'engagement — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="eng-root" data-id={id}>
+      <div id="eng-toolbar">
+        <a href="/app/insightevent/pulse" id="eng-back">← {EVOL_COPY.back}</a>
+      </div>
+      <div id="eng-status">Chargement de l'évolution…</div>
+      <div id="eng-doc" style="display:none;"></div>
+    </div>
+
+    <style is:global>
+      #eng-root { max-width: 820px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #eng-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      #eng-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #eng-status { padding: 60px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+      #eng-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 26px 28px; }
+      .eg-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 10px; }
+      .eg-sec { margin-bottom: 26px; }
+    </style>
+
+    <script is:inline src="/commit-form.js?v=1"></script>
+    <script is:inline define:vars={{ COPY: EVOL_COPY }}>
+      (function () {
+        var root = document.getElementById("eng-root");
+        var statusEl = document.getElementById("eng-status");
+        var docEl = document.getElementById("eng-doc");
+        var WIN_FR = { day_of:"Jour même", "7d":"7 jours", "14d":"14 jours" };
+        var LVL_FR = { modeste:"modeste", net:"net" };
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+        function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace(".", ","); }
+        function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
+        function t(key, vars) { var s = COPY[key] || ""; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split("{"+k+"}").join(vars[k]); return s; }
+        function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
+
+        // ── dual-line chart: CA réalisé (solid+area) vs CA habituel (dashed) ──
+        function chart(series) {
+          var pts = series.filter(function (d) { return d.has_data; });
+          if (pts.length < 2) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
+          var W = 760, H = 200, padL = 46, padT = 10, padB = 26, plotW = W - padL - 8, plotH = H - padT - padB;
+          var all = []; pts.forEach(function (d) { all.push(d.daily_revenue, d.expected_revenue); });
+          var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+          var span = (mx - mn) || 1; mn = Math.max(0, mn - span * 0.12); mx = mx + span * 0.12;
+          var n = series.length;
+          var xOf = function (i) { return padL + (n === 1 ? plotW / 2 : i * plotW / (n - 1)); };
+          var yOf = function (v) { return padT + plotH - (v - mn) / ((mx - mn) || 1) * plotH; };
+          // gridlines + € axis
+          var grid = "", ticks = 4;
+          for (var g = 0; g <= ticks; g++) { var val = mn + (mx - mn) * g / ticks, y = yOf(val); grid += '<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-8)+'" y2="'+y.toFixed(1)+'" stroke="#eef1f6" stroke-width="1"/><text x="'+(padL-6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="#9ca3af" text-anchor="end">'+Math.round(val).toLocaleString("fr-FR")+'</text>'; }
+          // habituel dashed (only on days with data)
+          var expSeg = [], realSeg = [];
+          series.forEach(function (d, i) { if (d.has_data) { expSeg.push(xOf(i).toFixed(1)+","+yOf(d.expected_revenue).toFixed(1)); realSeg.push(xOf(i).toFixed(1)+","+yOf(d.daily_revenue).toFixed(1)); } });
+          var realLine = realSeg.join(" ");
+          var area = "M" + realSeg[0].split(",")[0] + "," + (padT+plotH) + " L" + realSeg.join(" L") + " L" + realSeg[realSeg.length-1].split(",")[0] + "," + (padT+plotH) + " Z";
+          // best/worst by residual among received days
+          var bi = -1, wi = -1;
+          series.forEach(function (d, i) { if (!d.has_data) return; if (bi<0 || d.residual_pct > series[bi].residual_pct) bi = i; if (wi<0 || d.residual_pct < series[wi].residual_pct) wi = i; });
+          // day labels + "en attente" ticks for missing days
+          var lbl = "", step = Math.ceil(n / 8);
+          for (var i = 0; i < n; i += step) lbl += '<text x="'+xOf(i).toFixed(1)+'" y="'+(H-8)+'" font-size="9" fill="#9ca3af" text-anchor="middle">'+dnum(series[i].date)+'</text>';
+          var gaps = "";
+          series.forEach(function (d, i) { if (!d.has_data) gaps += '<line x1="'+xOf(i).toFixed(1)+'" y1="'+padT+'" x2="'+xOf(i).toFixed(1)+'" y2="'+(padT+plotH)+'" stroke="#f0f2f5" stroke-width="1" stroke-dasharray="2,3"/>'; });
+          var dots = "";
+          if (bi >= 0) dots += '<circle cx="'+xOf(bi).toFixed(1)+'" cy="'+yOf(series[bi].daily_revenue).toFixed(1)+'" r="3.5" fill="#059669"/>';
+          if (wi >= 0 && wi !== bi) dots += '<circle cx="'+xOf(wi).toFixed(1)+'" cy="'+yOf(series[wi].daily_revenue).toFixed(1)+'" r="3.5" fill="#b91c1c"/>';
+          var svg = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;">'+grid+gaps
+            + '<path d="'+area+'" fill="#1D3BB3" fill-opacity="0.07"/>'
+            + '<polyline points="'+expSeg.join(" ")+'" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/>'
+            + '<polyline points="'+realLine+'" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>'+dots+lbl+'</svg>';
+          var legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;">'
+            + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>'+esc(t("chart_realized"))+'</span>'
+            + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>'+esc(t("chart_habituel"))+'</span></div>'
+            + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">'+esc(t("chart_note"))+'</div>';
+          return svg + legend;
+        }
+
+        // ── ② context — MEASURED impact (weather assoc past the gate) PLUS the NAMED
+        //    observational context present on the window (holidays, tourism, foreign
+        //    visitors, nearby events). The named rows are honest "what's on the window",
+        //    not fabricated causes — the useful signal on a forward window. Per-driver
+        //    measured engine stays queued.
+        var COUNTRY_FR = { Portugal:"Portugal", Switzerland:"Suisse", Germany:"Allemagne", Spain:"Espagne", Italy:"Italie", Belgium:"Belgique", Netherlands:"Pays-Bas", "United Kingdom":"Royaume-Uni", "United States":"États-Unis", Ireland:"Irlande", Denmark:"Danemark", Sweden:"Suède", Austria:"Autriche", Luxembourg:"Luxembourg", Norway:"Norvège" };
+        var TOUR_FR = { high:"élevée", medium:"modérée", moderate:"modérée", low:"faible", normal:"normale" };
+        function weatherAssocOK(a) { return a && a.corr_rain != null && Math.abs(a.corr_rain) >= 0.2 && a.cool_n >= 3 && a.mild_n >= 3 && a.cool_avg > 0 && a.mild_avg > 0; }
+        function contextRows(ctx) {
+          var rows = [];
+          if (weatherAssocOK(ctx.weather_assoc)) rows.push(t("ctx_impact_weather", { cool: intfr(ctx.weather_assoc.cool_avg), mild: intfr(ctx.weather_assoc.mild_avg) }));
+          if (ctx.school_days > 0) rows.push(t("ctx_calendar_holiday", { n: ctx.school_days }));
+          if (ctx.tourism_status && ctx.tourism_status !== "normal") rows.push(t("ctx_tourism_high", { status: TOUR_FR[ctx.tourism_status] || ctx.tourism_status }));
+          if (ctx.foreign_visitors && ctx.foreign_visitors.length) rows.push(t("ctx_tourism_foreign", { list: esc(ctx.foreign_visitors.map(function (c) { return COUNTRY_FR[c] || c; }).join(", ")) }));
+          if (ctx.named_events && ctx.named_events.length) rows.push(t("ctx_events_named", { list: esc(ctx.named_events.map(function (e) { return e.label; }).join(", ")) }));
+          if (!rows.length) rows.push(t("ctx_none"));
+          return rows.map(function (r, i) {
+            return '<div style="padding:10px 14px;font-size:13px;color:#374151;line-height:1.5;'+(i?"border-top:1px solid #eef2f7;":"")+'">'+r+'</div>';
+          }).join("");
+        }
+        function intfr(n) { return (Number(n) || 0).toLocaleString("fr-FR"); }
+
+        // ── ③ advice → items with optional M'engager CTA ──
+        var ADVICE = {
+          advice_replay_offseason: { text: function () { return t("advice_replay_offseason"); }, cta: true },
+          advice_aim_higher: { text: function (a) { return t("advice_aim_higher", { pct: fr(a.arg) }); }, cta: true },
+          advice_met_hold: { text: function () { return t("advice_met_hold"); }, cta: true },
+          advice_missed_descriptive: { text: function () { return t("advice_missed_descriptive"); }, cta: false },
+          advice_replay_retest: { text: function () { return t("advice_replay_retest"); }, cta: true }
+        };
+        function adviceHtml(advice) {
+          return advice.map(function (a, i) {
+            var spec = ADVICE[a.key]; if (!spec) return "";
+            var body = spec.text(a);
+            return '<div data-adv="'+i+'" style="padding:12px 0;border-top:'+(i?"1px solid #f0f0f0":"none")+';">'
+              + '<div style="display:flex;gap:11px;align-items:flex-start;">'
+              + '<span style="width:20px;height:20px;border-radius:50%;background:#1D3BB3;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">'+(i+1)+'</span>'
+              + '<div style="flex:1;"><div style="font-size:14px;color:#111827;line-height:1.45;">'+esc(body)+'</div>'
+              + (spec.cta ? '<button type="button" data-adv-cta="'+i+'" style="margin-top:8px;font-size:12px;font-weight:600;color:#1D3BB3;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">'+esc(t("advice_cta"))+' →</button>' : "")
+              + '<div data-adv-form="'+i+'" style="display:none;margin-top:8px;border:1px solid #eef2f7;border-radius:8px;"></div>'
+              + '</div></div></div>';
+          }).join("");
+        }
+
+        function render(data) {
+          if (!data || !data.ok) { showError((data && data.error) || "Engagement introuvable."); return; }
+          var cm = data.commitment, series = data.series || [], ctx = data.context || {};
+          var hn = data.holiday_norm, prov = data.provenance || {}, advice = data.advice || [];
+          var open = cm.status === "open";
+          var received = series.filter(function (d) { return d.has_data; });
+          var windowHoliday = ctx.school_days > 0 || series.some(function (d) { return d.is_school_holiday; });
+
+          // aggregate % above/below habituel
+          var aggPct;
+          if (cm.window_residual_pct != null) aggPct = Number(cm.window_residual_pct);
+          else if (received.length) aggPct = received.reduce(function (s, d) { return s + d.residual_pct; }, 0) / received.length;
+          else aggPct = null;
+          var daysUp = received.filter(function (d) { return d.residual_pct >= 0; }).length;
+
+          // ── header ──
+          var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
+          var sub = t("subtitle", { level: LVL_FR[cm.threshold_level] || cm.threshold_level, window: winLbl, owner: esc(cm.owner_person_name || "—") });
+          var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
+            + '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement</div>'
+            + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">'+esc(cm.committed_action_text || "—")+'</div>'
+            + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">'+sub+'</div></div>';
+
+          // ── ① goal — open leads with TODAY (latest received day) + running count;
+          //    resolved leads with the full-window aggregate + days-above count. ──
+          var headline, big, main, sec;
+          if (!received.length) {
+            // No window day has data yet (window just started / mart lag) — show the
+            // measurable OBJECTIVE so the page is never empty, not a bare "en attente".
+            var _z = cm.threshold_level === "net" ? 1.5 : 1.0;
+            var _odays = cm.window_days_expected || 7;
+            var _ytgt = Math.max(1, Math.round(_z * 0.19 / Math.sqrt(_odays) * 100));
+            var _obase = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+            var _ouplift = _obase != null ? Math.round((_obase / _odays) * _ytgt / 100 / 10) * 10 : null;
+            var _obj = _ouplift != null
+              ? t("q1_objective_eur", { uplift: intfr(_ouplift), pct: _ytgt })
+              : t("q1_objective_pct", { pct: _ytgt });
+            headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">'+esc(_obj)+'</div>'
+              + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">'+esc(t("q1_window_started"))+'</div>';
+          }
+          else {
+            if (open) {
+              var todayPct = received[received.length - 1].residual_pct;
+              big = todayPct >= 0 ? "#059669" : "#b91c1c";
+              main = t(todayPct >= 0 ? "q1_today_pos" : "q1_today_neg", { pct: fr(todayPct) });
+              sec = t("q1_running", { up: daysUp, received: received.length });
+            } else {
+              big = (aggPct != null && aggPct >= 0) ? "#059669" : "#b91c1c";
+              main = t(aggPct >= 0 ? "q1_agg_pos" : "q1_agg_neg", { pct: fr(aggPct) });
+              sec = t("q1_days", { up: daysUp, total: received.length });
+            }
+            headline = '<div style="font-size:20px;font-weight:600;color:'+big+';">'+esc(main)+'</div>'
+              + '<div style="font-size:13px;color:#6b7280;margin-top:4px;">'+esc(sec)+'</div>';
+          }
+          // §2d holiday honesty
+          var holidayNote = "";
+          if (windowHoliday && hn && hn.pct != null) {
+            holidayNote = '<div style="margin-top:10px;font-size:12.5px;color:#92610a;background:#FFF8EC;border:1px solid #FBE8C3;border-radius:8px;padding:9px 12px;">'+esc(t("holiday_effect", { pct: fr(hn.pct) }));
+            if (cm.ctx_material_confound) holidayNote += ' <strong>'+esc(t("to_confirm_label"))+'.</strong> '+esc(t("to_confirm_holiday"));
+            holidayNote += '</div>';
+          }
+          var q1 = '<div class="eg-sec"><div class="eg-uc">'+esc(t("q1_title"))+'</div>'+headline+holidayNote
+            + '<div style="margin-top:16px;">'+chart(series)+'</div></div>';
+
+          // ── ② context ──
+          var q2 = '<div class="eg-sec"><div class="eg-uc">'+esc(t("q2_title"))+'</div>'
+            + '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">'+contextRows(ctx)+'</div>'
+            + '<div style="font-size:11px;color:#9ca3af;margin-top:7px;">'+esc(t("q2_caveat"))+'</div></div>';
+
+          // ── ③ advice — omitted entirely when no rule fires (never "rien à tenter";
+          //    on an open commitment there is nothing to prescribe yet) ──
+          var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">'+esc(t("q3_title"))+'</div>'+adviceHtml(advice)+'</div>' : "";
+
+          // ── ④ capture ──
+          var q4 = captureHtml(cm, open);
+
+          // ── sources ──
+          var srcRows = [t("src_caisse"), t("src_learning", { days: prov.history_days || 0 }), t("src_weather"), t("src_events"), t("src_tourism")];
+          if (prov.learned_actions != null) srcRows.push(t("src_learning_actions", { n: prov.learned_actions }));
+          var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">'+esc(t("sources_title"))+'</div>'
+            + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">'+srcRows.map(function (s) { return '<div>· '+esc(s)+'</div>'; }).join("")+'</div></div>';
+
+          docEl.innerHTML = head + q1 + q2 + q3 + q4 + sources;
+          docEl.style.display = "block";
+          statusEl.style.display = "none";
+          wireAdvice(cm, advice);
+          wireCapture(cm, open);
+        }
+
+        // ── ④ capture markup ──
+        function captureHtml(cm, open) {
+          var inner;
+          if (open) {
+            var st = cm.action_done_status;
+            inner = '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">'+esc(t("done_question"))+'</div>'
+              + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
+              + '<button type="button" data-done="fait" style="'+doneBtnStyle(st==="fait")+'">'+esc(t("done_yes"))+'</button>'
+              + '<button type="button" data-done="pas_encore" style="'+doneBtnStyle(st==="pas_encore")+'">'+esc(t("done_no"))+'</button></div>'
+              + '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;">'+esc(t("dispositif_label"))+'</div>'
+              + '<textarea data-dispositif placeholder="'+esc(t("dispositif_ph"))+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">'+esc(cm.dispositif_note || "")+'</textarea>';
+          } else {
+            var confirmed = cm.action_done_status === "fait" ? '<div style="font-size:12.5px;color:#166534;margin-bottom:12px;">'+esc(t("done_confirmed", { name: cm.owner_person_name || "—" }))+'</div>' : "";
+            inner = confirmed
+              + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">'+esc(t("retro_question"))+'</div>'
+              + '<textarea data-retro placeholder="'+esc(t("retro_ph"))+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:64px;box-sizing:border-box;">'+esc(cm.retro_note || "")+'</textarea>';
+          }
+          return '<div class="eg-sec"><div class="eg-uc">'+esc(t("q4_title"))+'</div>'+inner
+            + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;"><button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">'+esc(t("save"))+'</button><span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+        }
+        function doneBtnStyle(sel) { return "font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;" + (sel ? "background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;" : "background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;"); }
+
+        function wireCapture(cm, open) {
+          var doneState = { v: cm.action_done_status || null };
+          docEl.querySelectorAll("[data-done]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              doneState.v = b.getAttribute("data-done");
+              docEl.querySelectorAll("[data-done]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+            });
+          });
+          var save = docEl.querySelector("[data-cap-save]"); if (!save) return;
+          save.addEventListener("click", function () {
+            var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
+            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } };
+            if (open) {
+              var disp = (docEl.querySelector("[data-dispositif]") || {}).value || "";
+              if (!doneState.v) { done(false); return; }
+              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, action_done_status: doneState.v, dispositif_note: disp }) })
+                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
+            } else {
+              var retro = (docEl.querySelector("[data-retro]") || {}).value || "";
+              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, retro_note: retro }) })
+                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
+            }
+          });
+        }
+
+        function wireAdvice(cm, advice) {
+          docEl.querySelectorAll("[data-adv-cta]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var i = btn.getAttribute("data-adv-cta");
+              var slot = docEl.querySelector('[data-adv-form="'+i+'"]'); if (!slot || !window.MSCommitForm) return;
+              if (slot.style.display === "block") { slot.style.display = "none"; slot.innerHTML = ""; return; }
+              var a = advice[i], pre = (a && a.prefill) || {};
+              slot.style.display = "block";
+              slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" } });
+              window.MSCommitForm.wire(slot, {
+                location_id: cm.location_id,
+                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" },
+                origin: { origin_action_type: pre.origin_action_type || null },
+                onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
+                onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:'+(j&&j.ok?"#166534":"#b91c1c")+';">'+(j&&j.ok?"Engagement créé. Il sera évalué à l'échéance.":("Erreur : "+esc((j&&j.error)||"réessayez")))+'</div>'; }
+              });
+            });
+          });
+        }
+
+        var id = root.dataset.id;
+        if (!id) { showError("Engagement manquant dans l'adresse."); return; }
+        fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
+          .then(function (r) { return r.json(); })
+          .then(render)
+          .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

@@ -2784,6 +2784,28 @@
     return null;
   };
 
+  // Recommended actions per sales card — a real "à faire". CONTENT lives in the
+  // owner-editable window.MS_SALES_RECO_LIB (public/reco-library.js), loaded BEFORE
+  // this file on surfaces that show recos (pulse form, rapport). Here we only wire it:
+  //   spec.recos(item) -> up to 3 driver-matched actions (the M'engager form options)
+  //   spec.reco(item)  -> the top one as a string (the sales report, back-compat)
+  // Degrades to [] / '' when the library isn't loaded — never throws, never wrong text.
+  function _recoDriverKey(a) {
+    var d = String((a && (a.primary_revenue_driver || a.dominant_factor)) || '').toLowerCase();
+    return d === 'transactions' ? 'footfall' : d;
+  }
+  function _recosFor(cardType, a) {
+    var lib = (typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) ? window.MS_SALES_RECO_LIB[cardType] : null;
+    if (!lib) return [];
+    var arr = lib[_recoDriverKey(a)] || lib._default || [];
+    return Array.isArray(arr) ? arr.slice(0, 3) : [];
+  }
+  ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization'].forEach(function (_rt) {
+    if (!SPECS[_rt]) return;
+    SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
+    SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? r[0] : ''; }; })(_rt);
+  });
+
   window.ACTION_CARDS = SPECS;
   window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
 

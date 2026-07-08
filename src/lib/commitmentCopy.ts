@@ -1,0 +1,97 @@
+// ── Engagement / "Consulter l'évolution" — ALL user-facing French copy ──
+//
+// OWNER: this is your voice pass. Edit the words here; no French is hardcoded
+// anywhere else (page, endpoint, advice). Rules we agreed:
+//   • terse noun-phrases — "CA réalisé", "CA habituel" (NOT "votre habituel")
+//   • no robotic/abstract possessives, no hedge-sentences (a label, not a paragraph)
+//   • drafted from the app's own voice (rapport.astro, action cards) — refine freely
+//
+// MECHANISM (why these are strings, not functions): the évolution page runs an
+// `is:inline` script that cannot import TS, so this map is injected verbatim through
+// `define:vars`. Interpolated values use {tokens} the page fills in (numbers are
+// French-formatted — comma decimal — before substitution). Your WORDS are unchanged;
+// only function-values became {token} templates. Keys are stable; the only splits are
+// by sign (…_pos / …_neg) where the wording differs above vs below.
+
+export const EVOL_COPY = {
+  back: "Retour aux engagements",
+
+  // subtitle under the title (terms recap)
+  subtitle: "Objectif {level} · {window} · {owner}",
+
+  // ── ① Au-dessus / en-dessous de l'objectif ? ──
+  q1_title: "Situation par rapport à l'objectif ?",
+  q1_agg_pos: "+{pct} % au-dessus du CA habituel",
+  q1_agg_neg: "{pct} % en-dessous du CA habituel",
+  q1_window: "sur toute la fenêtre ({days} jours)",
+  q1_days: "{up} jours sur {total} au-dessus du CA habituel",
+  q1_best_worst: "meilleur : {bDate} (+{bPct} %) · moins bon : {wDate} ({wPct} %)",
+  // open state (mid-window)
+  q1_today_pos: "Aujourd'hui : +{pct} % au-dessus du CA habituel",
+  q1_today_neg: "Aujourd'hui : {pct} % en-dessous",
+  q1_running: "{up} / {received} jours reçus au-dessus",
+  day_awaiting: "en attente de données",
+  // shown before any window day has data — the measurable goal as a DAILY uplift (easy to read)
+  q1_objective_eur: "Augmenter le CA de +{uplift} €/jour (+{pct} % vs CA habituel)",
+  q1_objective_pct: "Augmenter le CA de +{pct} % vs votre CA habituel",
+  q1_window_started: "La fenêtre a démarré — le suivi jour par jour apparaîtra ici au fil des ventes.",
+
+  chart_realized: "CA réalisé",
+  chart_habituel: "CA habituel",
+  chart_note: "CA réalisé vs CA habituel (journée comparable). Au-dessus = mieux que d'habitude.",
+
+  // §2d — holiday-adjusted honesty. NO "norme/écart" jargon; the number stays, terse.
+  holiday_effect: "En vacances, le CA monte déjà de +{pct} % sans action.",
+  to_confirm_label: "À confirmer",
+  to_confirm_holiday: "Résultat mesuré pendant les vacances scolaires. L'effet de l'action n'est pas isolable. À réessayer hors période de vacances pour trancher définitivement.",
+
+  // ── ② Qu'est-ce qui a influencé ? ──
+  // Two kinds of rows: (1) MEASURED impact (a €/% figure over history) — the weather assoc
+  // when it passes the confidence gate; (2) NAMED observational context present on the
+  // window (holidays, tourism, foreign visitors, nearby events) — NOT a fabricated cause,
+  // just "what's happening / expected on the window", which is the useful signal on a
+  // forward window. The per-driver measured engine stays queued.
+  q2_title: "Qu'est-ce qui a influencé ?",
+  q2_caveat: "Signaux observés sur la fenêtre — corrélations, pas des causes établies.",
+  ctx_impact_weather: "Jours frais ou pluvieux — {cool} € en moyenne, vs {mild} € par temps doux (90 j).",
+  ctx_calendar_holiday: "Vacances scolaires — {n} jours sur la fenêtre.",
+  ctx_tourism_high: "Affluence touristique {status} sur la période.",
+  ctx_tourism_foreign: "Clientèle internationale attendue : {list}.",
+  ctx_events_named: "À proximité : {list}.",
+  ctx_none: "Rien de notable observé sur la période.",
+
+  // ── ③ Comment améliorer ? ──
+  q3_title: "Comment m'améliorer ?",
+  advice_cta: "M'engager sur cette action",
+  advice_replay_offseason: "Réessayer hors vacances pour isoler l'effet.",
+  advice_aim_higher: "En vacances, viser plus de +{pct} %.",
+  advice_met_hold: "Objectif tenu — à reconduire.",
+  // §2c — missed & done: descriptive honest statement, no "revoir l'approche" filler
+  advice_missed_descriptive: "Aucun effet visible sur le CA.",
+  advice_replay_retest: "À retenter pour confirmer.",
+
+  // ── ④ Action menée & retour ──
+  q4_title: "Action menée & retour",
+  done_question: "Action menée ?",
+  done_yes: "Fait",
+  done_no: "Pas encore",
+  done_confirmed: "Action menée · confirmé par {name}",
+  dispositif_label: "Votre dispositif",
+  dispositif_ph: "Offre, canal, timing…",
+  retro_question: "Qu'est-ce qui a marché, ou pas ?",
+  retro_ph: "Ce que vous garderiez, ce que vous changeriez",
+  save: "Enregistrer",
+  saved: "Enregistré",
+
+  // ── Sources & fiabilité ── (named providers = value + confidence)
+  sources_title: "Sources & fiabilité",
+  src_caisse: "Votre caisse — CA quotidien",
+  src_weather: "Météo-France — météo & alertes vigilance",
+  src_events: "OpenAgenda & Agendas régionaux — événements à proximité",
+  src_tourism: "INSEE & OpenHolidays — tourisme & vacances scolaires",
+  src_learning: "Vos données — CA habituel appris sur vos {days} derniers jours",
+  // shown only when fct_location_action_learning.has_sufficient_sample (never a placeholder)
+  src_learning_actions: "Vos données — effet mesuré sur {n} engagements passés",
+};
+
+export type EvolCopy = typeof EVOL_COPY;
