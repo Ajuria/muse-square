@@ -2259,6 +2259,7 @@ if (!location_id) {
         fetch('/api/commitments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
           location_id: card.location_id,
           origin_action_type: card.change_subtype || card.action_type,
+          origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
           origin_suppression_key: card.suppression_key || null,
           origin_card_instance_id: card.card_instance_id || null,
           origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
@@ -4309,7 +4310,7 @@ if (!location_id) {
     ws.style.display = 'block';
     ws.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
     window.MSCommitForm.wire(ws, {
-      location_id: r.location_id, prefill: pre, origin: { origin_action_type: r.origin_action_type || null },
+      location_id: r.location_id, prefill: pre, origin: { origin_action_type: r.origin_action_type || null, origin_driver: r.origin_driver || null },
       onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; },
       onDone: function(j){ ws.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#b91c1c') + ';">' + (j && j.ok ? 'Engagement créé.' : 'Erreur') + '</div>'; if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(e) {} } }
     });

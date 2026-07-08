@@ -99,6 +99,7 @@
         body: JSON.stringify({
           location_id: opts.location_id,
           origin_action_type: origin.origin_action_type || null,
+          origin_driver: origin.origin_driver || null,
           origin_suppression_key: origin.origin_suppression_key || null,
           origin_card_instance_id: origin.origin_card_instance_id || null,
           origin_affected_date: origin.origin_affected_date || null,

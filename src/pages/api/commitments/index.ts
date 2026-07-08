@@ -13,6 +13,9 @@ const BQ_PROJECT = "muse-square-open-data";
 
 const WINDOW_DAYS: Record<string, number> = { day_of: 1, "7d": 7, "14d": 14 };
 const THRESHOLD_Z: Record<string, number> = { modeste: 1.0, net: 1.5 };
+// Raw driver stored as-captured (frozen provenance); folded to a bucket at read time.
+// 'both'/unknown/absent -> null (an ambiguous driver is not a driver). Advisory, never a gate.
+const DRIVER_SET = new Set(["conversion", "basket", "footfall", "transactions"]);
 
 function ymd(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -111,6 +114,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       verdict: null,
       origin_kind: "action_card",
       origin_action_type: originActionType,
+      origin_driver: DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
+        ? String(body.origin_driver).trim().toLowerCase() : null,
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
