@@ -78,6 +78,7 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["ctx_max_event_count", "INT64"],
   ["ctx_max_tourism_index", "FLOAT64"],
   ["ctx_material_confound", "BOOL"],
+  ["window_active_factors", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -133,6 +134,8 @@ export interface CommitmentRow {
   ctx_max_event_count: number | null;
   ctx_max_tourism_index: number | null;
   ctx_material_confound: boolean | null;
+  window_active_factors: string | null; // CSV-encoded ARRAY of registry factor keys (comma-free) the
+                                         // action ran under, computed at resolution; dbt SPLIT()s to ARRAY
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

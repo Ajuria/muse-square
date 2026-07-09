@@ -10,3 +10,7 @@ export const MATERIAL_SHARE = 0.5;   // revenue-weighted school-holiday share th
                                      // flips a PROVISIONAL met -> confounded.
 export const GRACE_DAYS = 30;        // incomplete window past window_end + this -> expired.
 export const RHO_FLOOR = 0.40;       // floor on measured per-location lag-1 autocorr.
+export const WINDOW_FACTOR_SHARE = 0.50; // a registry factor must be active on >= this share of the
+                                     // commitment's window days to count as a condition the action ran
+                                     // under (window_active_factors). day_of = 1 day = 100%. 0.30 is the
+                                     // documented fallback if 0.50 surfaces nothing at this data volume.

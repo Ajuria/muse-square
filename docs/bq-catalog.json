@@ -6,7 +6,7 @@
 "region": "EU",
 "dbt_repo_sha_at_generation": "b5d8579",
 "table_count": 431,
-"column_count": 7454
+"column_count": 7455
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -414,6 +414,10 @@
 {
 "name": "origin_factor",
 "type": "STRING"
+},
+{
+"name": "window_active_factors",
+"type": "STRING"
 }
 ]
 },
@@ -596,7 +600,7 @@
 "type": "STRING"
 },
 {
-"name": "origin_factor",
+"name": "factor",
 "type": "STRING"
 },
 {

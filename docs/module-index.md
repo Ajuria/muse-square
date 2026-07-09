@@ -211,10 +211,10 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | Module | Key exports | Purpose | Data source |
 |---|---|---|---|
 | `commitmentConstants.ts` | `WINDOW_DAYS`, `THRESHOLD_Z`, `MATERIAL_SHARE`, `GRACE_DAYS`, `RHO_FLOOR` | Single-source resolution gate constants | none |
-| `commitmentContext.ts` | `assembleEvolutionExtras` | Evolution-page extras: holiday norm, context, advice | `mart.fct_client_day_residual`, `…location_context_features_daily`, `…location_events_topn_daily`, `…foreign_tourism_context_daily`, `…client_daily_performance`, `…location_commitment_learning` |
+| `commitmentContext.ts` | `assembleEvolutionExtras` | Evolution-page extras: holiday norm, context, advice. action_type track record reads the **pre-explode commitment-grain `fct_client_commitment_outcomes`** (COUNTIF, no double-count) — NOT the factor-exploded learning mart | `mart.fct_client_day_residual`, `…location_context_features_daily`, `…location_events_topn_daily`, `…foreign_tourism_context_daily`, `…client_daily_performance`, `mart.fct_client_commitment_outcomes` |
 | `commitmentCopy.ts` | `EVOL_COPY` | Canonical French copy for engagement UI | none |
 | `commitmentOrigins.ts` | `COMMITMENT_ORIGIN_ACTION_TYPES`, `isCommitmentOrigin` | Allowlist of action types that seed commitments | none |
-| `commitmentResolve.ts` | `resolveCommitment` | Statistical resolution: window metric, z w/ autocorr VIF, holiday gate | `mart.fct_client_day_residual`, `…location_context_features_daily` |
+| `commitmentResolve.ts` | `resolveCommitment` | Statistical resolution: window metric, z w/ autocorr VIF, holiday gate. Also computes `window_active_factors` (CSV) — registry factors active on ≥ `WINDOW_FACTOR_SHARE` (0.50) of window days, via the single-source registry predicates against its declared `context_table` | `mart.fct_client_day_residual`, `…location_context_features_daily`, `mart.fct_location_context_daily` (factor predicates), `src/lib/sensitivityFeatures.json` |
 
 ### Sensitivity (Type B)
 

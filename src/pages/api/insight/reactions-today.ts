@@ -106,9 +106,10 @@ async function assembleTiers(
   const activeFactorSet = new Set(activeFactors);
   const activeThemes = new Set(activeFactors.map(themeOf).filter(Boolean) as string[]);
   const TRACK_TABLE = devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
-  // roll up beat/done across window_days (and any sub-grain) per (origin_factor, action_type).
+  // roll up beat/done across window_days per (factor, action_type). `factor` = the window-context
+  // learning grain (window_active_factors), NOT origin_factor (card-theme provenance).
   const [trRows] = await bq.query({
-    query: `SELECT origin_factor AS factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done ` +
+    query: `SELECT factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done ` +
       `FROM \`${PROJECT}.${TRACK_TABLE}\` WHERE location_id=@loc${devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
     params: { loc }, location: 'EU',
   });

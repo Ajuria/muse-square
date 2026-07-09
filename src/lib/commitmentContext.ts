@@ -91,13 +91,13 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
       query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id=@loc AND date <= @asof`,
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
-    // Type A track record for THIS action_type (commitment learning, source='commitment'),
-    // aggregated across window_days AND the origin_factor dimension (the learning grain now includes
-    // origin_factor — this SUM rolls it up to the action_type total; each outcome is one factor row,
-    // so no double-count). Advice here is action_type-level; Tier-4 (reactions-today) is factor-level.
-    // Only surfaced when >=5 done outcomes (min-N gate).
+    // Type A track record for THIS action_type. Reads the PRE-EXPLODE commitment-grain outcomes
+    // (one row per commitment), NOT the factor-exploded learning mart — else a commitment tagged with
+    // N window_active_factors would be counted N times. Commitment-grain COUNTIF => no double-count,
+    // and factor-less commitments still count here (they only fall out of the factor-level learning).
+    // Tier-4 (reactions-today) is the factor-level view. Only surfaced when >=5 done (min-N gate).
     bq.query({
-      query: `SELECT SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.mart.fct_location_commitment_learning\` WHERE location_id=@loc AND action_type=@at AND source='commitment'`,
+      query: `SELECT COUNTIF(beat) AS beat, COUNTIF(NOT is_confounded) AS done FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\` WHERE location_id=@loc AND action_type=@at AND source='commitment'`,
       params: { loc, at: snap.origin_action_type ?? "" }, location: "EU",
     }).catch(() => [[]]),
   ]);

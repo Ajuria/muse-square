@@ -17,12 +17,19 @@
 //     created_at), NOT the UTC-anchored window_start. If no residual row exists for
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
-import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR } from "./commitmentConstants";
+import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
 import type { CommitmentRow } from "./actionCommitments";
+import featureRegistry from "./sensitivityFeatures.json";
 
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const RESIDUAL = `${BQ_PROJECT}.mart.fct_client_day_residual`;
 const CTX = `${BQ_PROJECT}.mart.fct_location_context_features_daily`;
+// window_active_factors is computed against the registry's DECLARED context_table with the SAME
+// single-source predicates the endpoint's ACTIVE_EXPR uses — so "ran under heat" (here) and "today is
+// heat" (endpoint) are one definition against one mart (verified identical to context_features_daily).
+const FACTOR_CTX = `${BQ_PROJECT}.${(featureRegistry as any).context_table}`;
+const FIT_FACTORS = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
+  .filter((f) => f.fittable && f.predicate);
 
 export interface ResolveResult {
   patch: Partial<CommitmentRow>;
@@ -163,6 +170,22 @@ export async function resolveCommitment(
   const materialShare = sumExp !== 0 ? holidayExp / sumExp : 0;
   const ctxMaterialConfound = materialShare >= MATERIAL_SHARE;
 
+  // 5b. window_active_factors — the registry factors the action ACTUALLY ran under (what conditions,
+  // not why the card fired). Reuse the single-source registry predicates against its declared
+  // context_table; keep factors active on >= WINDOW_FACTOR_SHARE of the window's context days. Stored
+  // CSV of comma-free registry keys (dbt SPLIT()s it to ARRAY<STRING>); null when none clear the bar.
+  const factorSel = FIT_FACTORS.map((f, i) => `COUNTIF(${f.predicate}) AS on_${i}`).join(", ");
+  const [frows] = await bq.query({
+    query: `SELECT COUNT(*) AS tot, ${factorSel} FROM \`${FACTOR_CTX}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
+    params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+    location: "EU",
+  });
+  const totFactorDays = Number(flat(frows[0]?.tot)) || 0;
+  const activeFactors = totFactorDays
+    ? FIT_FACTORS.filter((f, i) => (Number(flat(frows[0][`on_${i}`])) || 0) / totFactorDays >= WINDOW_FACTOR_SHARE).map((f) => f.key)
+    : [];
+  const windowActiveFactors = activeFactors.length ? activeFactors.join(",") : null;
+
   // 6. Provisional verdict + asymmetric gate (mets only).
   const provisional = zCorr >= Number(snap.threshold_value) ? "met" : "missed";
   const verdict = provisional === "met" && materialShare >= MATERIAL_SHARE ? "confounded" : provisional;
@@ -187,6 +210,7 @@ export async function resolveCommitment(
       ctx_max_event_count: maxEvent != null ? Math.round(maxEvent) : null,
       ctx_max_tourism_index: maxTour != null ? round3(maxTour) : null,
       ctx_material_confound: ctxMaterialConfound,
+      window_active_factors: windowActiveFactors,
     },
     note: `${verdict} — z=${zCorr.toFixed(2)} (raw ${zRaw.toFixed(2)}, ρ=${rho.toFixed(2)}, vif=${vifVal.toFixed(2)}), share=${materialShare.toFixed(2)}`,
   };
