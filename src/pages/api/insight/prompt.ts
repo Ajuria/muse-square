@@ -2385,11 +2385,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // on month horizon — the exact spot where misroutes happen.
     // Also replaces the old isEventLookupQuestion late override.
     // ------------------------------------
-    const needsHaikuClassification =
+    // A COMPARE_DATES that came only from the selected_days DEFAULT (no explicit dates, no
+    // comparison words) is often an entity/impact question — e.g. "impact de <lieu> sur mon
+    // activité". Let Haiku reclassify it instead of demanding 2 dates the user never implied.
+    const isDefaultedCompare =
       !force_compare &&
-      resolved_horizon === "month" &&
-      resolved_intent === "WINDOW_TOP_DAYS" &&
-      !isEventLookupQuestion(qRaw); // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
+      resolved_intent === "COMPARE_DATES" &&
+      resolved_horizon === "selected_days" &&
+      extracted_dates.length === 0 &&
+      !/(compar|entre ces|laquelle|difference|\bvs\b)/.test(qn);
+
+    const needsHaikuClassification =
+      (!force_compare &&
+        resolved_horizon === "month" &&
+        resolved_intent === "WINDOW_TOP_DAYS" &&
+        !isEventLookupQuestion(qRaw)) // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
+      || (isDefaultedCompare && !isEventLookupQuestion(qRaw));
 
     // Clear-cut lookup (deterministic) — keep existing behavior for unambiguous cases
     if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
@@ -2435,6 +2446,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
           // Month-level dimension question — keep month but change intent
           resolved_intent = "DAY_DIMENSION_DETAIL";
         }
+      } else if (isDefaultedCompare) {
+        // Defaulted-compare question that Haiku did not tag as entity/lookup/dimension:
+        // treat it as a month best-days question rather than demanding 2 dates.
+        resolved_intent = "WINDOW_TOP_DAYS";
+        resolved_horizon = "month";
       }
       // WINDOW_TOP_DAYS from Haiku = confirm default, no change needed
     }
