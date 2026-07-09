@@ -106,3 +106,25 @@ export function triggerDbtJobs(
     triggerOneJob(accountId, jobId, token, cause).catch(() => {});
   }
 }
+
+/**
+ * Refresh the client-sales chain after a sales-data upload so cards/report reflect
+ * the new rows: stg_client_transactions → int/fct_client_daily_performance →
+ * fct_client_sales_signals_daily → fct_location_daily_action_candidates (and offering).
+ * Configure a dedicated dbt Cloud job and set DBT_JOB_CLIENT_SALES_REFRESH.
+ *
+ * AWAITABLE (unlike triggerDbtJobs) so the POST completes before a serverless
+ * function freezes on return. Never throws — a trigger failure must not fail the
+ * upload (the data is already loaded). Returns whether a job was attempted.
+ */
+export async function triggerSalesRefresh(locationId: string, source: string): Promise<{ triggered: boolean }> {
+  const accountId = process.env.DBT_ACCOUNT_ID;
+  const token = process.env.DBT_API_TOKEN;
+  const jobId = process.env.DBT_JOB_CLIENT_SALES_REFRESH;
+  if (!accountId || !token || !jobId) {
+    console.warn('[dbt-trigger] sales refresh skipped — missing DBT_ACCOUNT_ID / DBT_API_TOKEN / DBT_JOB_CLIENT_SALES_REFRESH');
+    return { triggered: false };
+  }
+  await triggerOneJob(accountId, jobId, token, `sales_upload:${source}:${locationId}`.slice(0, 255));
+  return { triggered: true };
+}

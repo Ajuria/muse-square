@@ -1,0 +1,309 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const start = Astro.url.searchParams.get("start") || "";
+const end = Astro.url.searchParams.get("end") || "";
+const locParam = Astro.url.searchParams.get("loc") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Rapport de ventes — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="rapport-root" data-start={start} data-end={end} data-loc={locParam}>
+
+      <div id="rapport-toolbar">
+        <a href="/app/insightevent/prompt" id="rapport-back">← Retour</a>
+        <button id="rapport-print" type="button">Enregistrer en PDF</button>
+      </div>
+
+      <div id="rapport-status">Génération du rapport…</div>
+      <div id="rapport-doc" style="display:none;"></div>
+
+    </div>
+
+    <style is:global>
+      #rapport-root { max-width: 820px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #rapport-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      #rapport-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #rapport-print { background: #1D3BB3; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+      #rapport-status { padding: 60px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+      #rapport-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); padding: 30px 32px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .rp-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 10px; }
+      @media print {
+        #rapport-toolbar { display: none; }
+        #rapport-root { max-width: none; padding: 0; }
+        #rapport-doc { border: none; padding: 0; }
+        @page { margin: 14mm; }
+      }
+    </style>
+
+    <script is:inline src="/reco-library.js?v=1"></script>
+    <script is:inline src="/action-cards.js?v=26"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("rapport-root");
+        var statusEl = document.getElementById("rapport-status");
+        var docEl = document.getElementById("rapport-doc");
+        var printBtn = document.getElementById("rapport-print");
+        if (printBtn) printBtn.addEventListener("click", function () { window.print(); });
+
+        var MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+        function eur(n) { return Math.round(Number(n) || 0).toLocaleString("fr-FR") + " €"; }
+        function eur2(n) { return (Number(n) || 0).toFixed(2).replace(".", ",") + " €"; }
+        function intfr(n) { return (Number(n) || 0).toLocaleString("fr-FR"); }
+        function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
+        function fmtRange(s, e) {
+          var sm = parseInt(s.slice(5,7),10)-1, em = parseInt(e.slice(5,7),10)-1;
+          if (sm === em) return dnum(s) + " – " + dnum(e) + " " + MONTHS[em] + " " + e.slice(0,4);
+          return dnum(s)+" "+MONTHS[sm]+" – "+dnum(e)+" "+MONTHS[em]+" "+e.slice(0,4);
+        }
+        var ICON = {
+          sun: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1D3BB3" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>',
+          bag: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1D3BB3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+          pin: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1D3BB3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 0 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+        };
+        var DRIVER = { footfall: "la fréquentation", conversion: "la conversion", basket: "le panier moyen", transactions: "le nombre de transactions", both: "plusieurs facteurs" };
+        var TOURFR = { high: "élevé", medium: "modéré", moderate: "modéré", low: "faible" };
+        var COUNTRY_FR = { Portugal: "Portugal", Switzerland: "Suisse", Germany: "Allemagne", Spain: "Espagne", Italy: "Italie", Belgium: "Belgique", Netherlands: "Pays-Bas", "United Kingdom": "Royaume-Uni", "United States": "États-Unis", Ireland: "Irlande", Denmark: "Danemark", Sweden: "Suède", Austria: "Autriche", Luxembourg: "Luxembourg", Norway: "Norvège" };
+        function frCountry(c) { return COUNTRY_FR[c] || c; }
+
+        function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
+        function mapError(code) {
+          var m = { NO_DATA: "Aucune donnée de ventes sur cette période.", INVALID_RANGE: "Période invalide.", LOCATION_FORBIDDEN: "Établissement non autorisé.", NO_LOCATION: "Aucun établissement associé à votre compte.", UNAUTHORIZED: "Session expirée." };
+          return m[code] || ("Erreur : " + code);
+        }
+
+        function confWord(corr) { var a = Math.abs(corr); return a >= 0.5 ? "forte tendance" : a >= 0.3 ? "tendance nette" : "tendance légère"; }
+        function assocOK(a) { return a && a.corr != null && Math.abs(a.corr) >= 0.2 && a.with_n >= 5 && a.without_n >= 5 && a.with_avg > 0 && a.without_avg > 0; }
+
+        function weatherLine(c) {
+          var typ = [];
+          if (c.hot_days > 0) typ.push(c.hot_days + " journée" + (c.hot_days>1?"s":"") + " de forte chaleur" + (c.max_heat >= 3 ? " (pic niveau " + c.max_heat + ")" : ""));
+          if (c.rain_days > 0) typ.push(c.rain_days + " de pluie");
+          if (c.cold_days > 0) typ.push(c.cold_days + " de froid");
+          var a = c.assoc && c.assoc.heat;
+          if (assocOK(a)) {
+            var down = a.with_avg < a.without_avg;
+            return "<strong>Météo — </strong>vos <strong>" + a.with_n + "</strong> journées de forte chaleur tournent à <strong>" + eur(a.with_avg) + "</strong> en moyenne, " + (down ? "sous" : "au-dessus de") + " vos " + a.without_n + " journées tempérées (" + eur(a.without_avg) + ") — " + (down ? "la chaleur pèse sur vos ventes" : "la chaleur vous est favorable") + " (" + confWord(a.corr) + ").";
+          }
+          return "<strong>Météo — </strong>" + (typ.length ? typ.join(", ") + "." : "sans particularité notable.") + " Pas d'effet marqué sur vos ventes.";
+        }
+        function tourismLine(c) {
+          var bits = [];
+          if (c.tourism_status) bits.push("Pic touristique (" + c.tourism_peak_days + " j, statut « " + (TOURFR[c.tourism_status] || c.tourism_status) + " »)");
+          bits.push(c.school_days > 0 ? "pendant les vacances scolaires" : "hors vacances scolaires françaises");
+          var s = "<strong>Saison &amp; tourisme — </strong>" + bits.join(", ") + ".";
+          if (c.foreign_visitors && c.foreign_visitors.length) s += " Clientèle internationale présente sur la période : " + esc(c.foreign_visitors.map(frCountry).join(", ")) + ".";
+          return s;
+        }
+        function eventsLine(c) {
+          var a = c.assoc && c.assoc.events;
+          var s;
+          if (assocOK(a)) {
+            var up = a.with_avg > a.without_avg;
+            s = "<strong>Événements à proximité — </strong>vos <strong>" + a.with_n + "</strong> journées de forte activité (plus d'événements que la moyenne) tournent à <strong>" + eur(a.with_avg) + "</strong>, contre " + eur(a.without_avg) + " les " + a.without_n + " autres — " + (up ? "l'affluence à proximité profite à votre établissement, sans cannibalisation" : "cette activité ne se traduit pas dans vos ventes") + " (" + confWord(a.corr) + ").";
+          } else {
+            s = "<strong>Événements à proximité — </strong>~" + c.events_avg_5km + " événements/j en moyenne dans un rayon de 5 km, sans lien mesurable avec vos ventes sur la période.";
+          }
+          if (c.named_events && c.named_events.length) s += " À noter : <strong>" + esc(c.named_events.map(function (e) { return e.label; }).join(", ")) + "</strong>.";
+          s += c.mobility_days > 0 ? " " + c.mobility_days + " j de perturbation de mobilité." : " Aucune perturbation de mobilité.";
+          return s;
+        }
+
+        function lineChart(daily) {
+          var W=760,H=150,p=12,vals=daily.map(function(r){return r.rev;});
+          var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+          var xs=function(i){return p+i*(W-2*p)/(daily.length-1||1);}, ys=function(v){return H-24-(v-min)/((max-min)||1)*(H-38);};
+          var line=daily.map(function(r,i){return xs(i).toFixed(1)+","+ys(r.rev).toFixed(1);}).join(" ");
+          var area="M"+p+","+(H-24)+" L"+line.split(" ").join(" L")+" L"+(W-p)+","+(H-24)+" Z";
+          var bi=0,wi=0; daily.forEach(function(r,i){ if(r.rev>daily[bi].rev)bi=i; if(r.rev<daily[wi].rev)wi=i; });
+          var lbl="";for(var i=0;i<daily.length;i+=Math.ceil(daily.length/8)){lbl+='<text x="'+xs(i)+'" y="'+(H-6)+'" font-size="9" fill="#9ca3af" text-anchor="middle">'+dnum(daily[i].d)+'</text>';}
+          return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;"><path d="'+area+'" fill="#1D3BB3" fill-opacity="0.08"/><polyline points="'+line+'" fill="none" stroke="#1D3BB3" stroke-width="2"/><circle cx="'+xs(bi)+'" cy="'+ys(daily[bi].rev)+'" r="3.5" fill="#059669"/><circle cx="'+xs(wi)+'" cy="'+ys(daily[wi].rev)+'" r="3.5" fill="#b91c1c"/>'+lbl+'</svg>';
+        }
+        function weekdayChart(wd) {
+          var mx=Math.max.apply(null,wd.map(function(d){return d.avg;}))||1,bw=300/wd.length,h="";
+          wd.forEach(function(d,i){ var bh=(d.avg/mx)*105,x=i*bw+bw*0.18,y=120-bh;
+            h+='<rect x="'+x+'" y="'+y+'" width="'+(bw*0.64)+'" height="'+bh+'" rx="2" fill="#1D3BB3" fill-opacity="'+(0.45+0.55*d.avg/mx).toFixed(2)+'"/><text x="'+(i*bw+bw/2)+'" y="135" font-size="10" fill="#6b7280" text-anchor="middle">'+esc(d.label)+'</text>'; });
+          return '<svg viewBox="0 0 300 150" style="width:100%;height:auto;">'+h+'</svg>';
+        }
+        function catBars(cats) {
+          if (!cats.length) return '<div style="font-size:13px;color:#9ca3af;">Détail par catégorie non disponible pour cette source.</div>';
+          var mx=cats[0].revenue||1;
+          return cats.map(function(c){
+            return '<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:#374151;">'+esc(c.label)+'</span><span style="color:#111827;font-weight:500;">'+eur(c.revenue)+'</span></div><div style="height:7px;background:#eef1f6;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+(c.revenue/mx*100).toFixed(0)+'%;background:#1D3BB3;"></div></div></div>';
+          }).join("");
+        }
+
+        var CATCOL = ["#1D3BB3", "#2E7D32", "#B45309", "#7B1FA2", "#0891B2", "#9CA3AF"];
+        function niceMax(v) { if (v <= 0) return 1; var step = v > 10000 ? 1000 : v > 2000 ? 500 : 100; return Math.ceil(v / step) * step; }
+        function fmtBucket(key, gran) { if (gran === "month") { var m = parseInt(key.slice(5, 7), 10) - 1; return (MONTHS[m] || "").slice(0, 4); } return String(parseInt(key.slice(8, 10), 10)); }
+        function stackedChart(comp, daily) {
+          var cats = (comp && comp.categories) || [], buckets = (comp && comp.buckets) || [], gran = (comp && comp.granularity) || "day";
+          if (!buckets.length || !cats.length) { cats = ["Chiffre d'affaires"]; buckets = (daily || []).map(function (r) { return { label: r.d, values: [r.rev] }; }); gran = "day"; }
+          if (!buckets.length) return '<div style="font-size:13px;color:#9ca3af;">Données non disponibles.</div>';
+          var W = 760, H = 210, padL = 46, padT = 8, padB = 24, plotW = W - padL - 8, plotH = H - padT - padB;
+          var maxT = 0; buckets.forEach(function (b) { var t = 0; for (var i = 0; i < b.values.length; i++) t += b.values[i] || 0; if (t > maxT) maxT = t; });
+          var nm = niceMax(maxT), yOf = function (v) { return padT + plotH - (v / nm) * plotH; };
+          var grid = "", ticks = 4;
+          for (var g = 0; g <= ticks; g++) { var val = nm * g / ticks, y = yOf(val); grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + Math.round(val).toLocaleString("fr-FR") + '</text>'; }
+          var body = "", asBars = buckets.length <= 14;
+          if (asBars) {
+            var bw = plotW / buckets.length;
+            buckets.forEach(function (b, bi) {
+              var x = padL + bi * bw + bw * 0.15, w = bw * 0.7, yb = padT + plotH;
+              for (var ci = 0; ci < cats.length; ci++) { var v = b.values[ci] || 0; if (v <= 0) continue; var h = (v / nm) * plotH; yb -= h; body += '<rect x="' + x.toFixed(1) + '" y="' + yb.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + CATCOL[ci % CATCOL.length] + '"/>'; }
+              body += '<text x="' + (padL + bi * bw + bw / 2).toFixed(1) + '" y="' + (H - 7) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + esc(fmtBucket(b.label, gran)) + '</text>';
+            });
+          } else {
+            var n = buckets.length, xOf = function (i) { return padL + i * plotW / (n - 1); }, cum = buckets.map(function () { return 0; });
+            for (var ci = 0; ci < cats.length; ci++) {
+              var top = [], bot = [];
+              for (var i = 0; i < n; i++) { var prev = cum[i], cur = prev + (buckets[i].values[ci] || 0); bot.push([xOf(i), yOf(prev)]); top.push([xOf(i), yOf(cur)]); cum[i] = cur; }
+              var d = "M" + top.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" L") + " L" + bot.reverse().map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" L") + " Z";
+              body += '<path d="' + d + '" fill="' + CATCOL[ci % CATCOL.length] + '"/>';
+            }
+            var stp = Math.ceil(n / 8);
+            for (var i = 0; i < n; i += stp) { body += '<text x="' + xOf(i).toFixed(1) + '" y="' + (H - 7) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + esc(fmtBucket(buckets[i].label, gran)) + '</text>'; }
+          }
+          var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid + body + '</svg>';
+          var legend = cats.length > 1 ? '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;">' + cats.map(function (c, i) { return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;"><svg width="11" height="11" style="flex-shrink:0;"><rect width="11" height="11" rx="2" fill="' + CATCOL[i % CATCOL.length] + '"/></svg>' + esc(c) + '</span>'; }).join("") + '</div>' : "";
+          return svg + legend;
+        }
+
+        function totalChart(daily, gran) {
+          var monthly = gran === "month", map = {}, order = [];
+          (daily || []).forEach(function (r) { var k = monthly ? r.d.slice(0, 7) : r.d; if (!(k in map)) { map[k] = 0; order.push(k); } map[k] += r.rev; });
+          order.sort();
+          var buckets = order.map(function (k) { return { label: k, total: map[k] }; });
+          if (!buckets.length) return '<div style="font-size:13px;color:#9ca3af;">Données non disponibles.</div>';
+          var W = 760, H = 190, padL = 46, padT = 8, padB = 24, plotW = W - padL - 8, plotH = H - padT - padB;
+          var maxT = 0; buckets.forEach(function (b) { if (b.total > maxT) maxT = b.total; });
+          var nm = niceMax(maxT), yOf = function (v) { return padT + plotH - (v / nm) * plotH; };
+          var grid = "", ticks = 4;
+          for (var g = 0; g <= ticks; g++) { var val = nm * g / ticks, y = yOf(val); grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + Math.round(val).toLocaleString("fr-FR") + '</text>'; }
+          var body = "", asBars = buckets.length <= 14;
+          if (asBars) {
+            var bw = plotW / buckets.length;
+            buckets.forEach(function (b, bi) { var h = (b.total / nm) * plotH, x = padL + bi * bw + bw * 0.2, w = bw * 0.6, y = padT + plotH - h; body += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" fill="#1D3BB3"/><text x="' + (padL + bi * bw + bw / 2).toFixed(1) + '" y="' + (H - 7) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + esc(fmtBucket(b.label, gran)) + '</text>'; });
+          } else {
+            var n = buckets.length, xOf = function (i) { return padL + i * plotW / (n - 1); };
+            var pts = buckets.map(function (b, i) { return xOf(i).toFixed(1) + "," + yOf(b.total).toFixed(1); }).join(" ");
+            body += '<path d="M' + padL + ',' + (padT + plotH) + ' L' + pts.split(" ").join(" L") + ' L' + (W - 8) + ',' + (padT + plotH) + ' Z" fill="#1D3BB3" fill-opacity="0.10"/><polyline points="' + pts + '" fill="none" stroke="#1D3BB3" stroke-width="2"/>';
+            var stp = Math.ceil(n / 8);
+            for (var i = 0; i < n; i += stp) { body += '<text x="' + xOf(i).toFixed(1) + '" y="' + (H - 7) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + esc(fmtBucket(buckets[i].label, gran)) + '</text>'; }
+          }
+          return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid + body + '</svg>';
+        }
+        function mixBars(mix) {
+          mix = mix || [];
+          if (!mix.length) return '<div style="font-size:13px;color:#9ca3af;">Détail par catégorie non disponible pour cette source.</div>';
+          var total = 0; mix.forEach(function (m) { total += m.revenue || 0; });
+          var mx = Math.max.apply(null, mix.map(function (m) { return m.revenue || 0; })) || 1;
+          return mix.map(function (m) {
+            var share = total > 0 ? Math.round((m.revenue || 0) / total * 100) : 0;
+            return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span style="color:#374151;">' + esc(m.label) + '</span><span style="color:#111827;"><strong>' + eur(m.revenue) + '</strong> <span style="color:#9ca3af;">· ' + share + ' %</span></span></div><svg width="100%" height="9" style="display:block;"><rect width="100%" height="9" rx="2" fill="#eef1f6"/><rect width="' + ((m.revenue || 0) / mx * 100).toFixed(1) + '%" height="9" rx="2" fill="#1D3BB3"/></svg></div>';
+          }).join("");
+        }
+
+        function render(data) {
+          if (!data || !data.ok) { showError(mapError(data && data.error)); return; }
+          var s = data.summary, c = data.context;
+          var prevChip = s.vs_prev_pct != null
+            ? '<span style="font-size:12px;color:#374151;background:#ECFDF5;border:1px solid #05966922;border-radius:20px;padding:5px 12px;">vs période précédente : <strong style="color:'+(s.vs_prev_pct>=0?"#059669":"#b91c1c")+';">'+(s.vs_prev_pct>=0?"+":"")+String(s.vs_prev_pct).replace(".",",")+' %</strong></span>' : "";
+          var yoyChip = s.yoy_available
+            ? '<span style="font-size:12px;color:#374151;background:#ECFDF5;border:1px solid #05966922;border-radius:20px;padding:5px 12px;">vs année précédente : <strong style="color:'+(s.vs_yoy_pct>=0?"#059669":"#b91c1c")+';">'+(s.vs_yoy_pct>=0?"+":"")+String(s.vs_yoy_pct).replace(".",",")+' %</strong></span>'
+            : '<span style="font-size:12px;color:#9ca3af;background:#f3f4f6;border:1px dashed #d1d5db;border-radius:20px;padding:5px 12px;">vs année précédente : <strong>—</strong> (historique à venir)</span>';
+
+          var cards = [["Chiffre d'affaires", eur(s.revenue), fmtRange(data.period.start, data.period.end)],
+            ["Transactions", intfr(s.transactions), "sur la période"],
+            ["Panier moyen", eur2(s.avg_basket), "par transaction"],
+            ["Meilleure journée", eur(data.best_day.revenue), String(dnum(data.best_day.date))+" "+MONTHS[parseInt(data.best_day.date.slice(5,7),10)-1]]];
+
+          var takeaways = [];
+          if (s.vs_prev_pct != null)
+            takeaways.push("<strong>"+eur(s.revenue)+"</strong> de chiffre d'affaires, "+(s.vs_prev_pct>=0?"en hausse de ":"en baisse de ")+"<strong style=\"color:"+(s.vs_prev_pct>=0?"#059669":"#b91c1c")+";\">"+String(Math.abs(s.vs_prev_pct)).replace(".",",")+" %</strong> par rapport à la période précédente.");
+          else
+            takeaways.push("<strong>"+eur(s.revenue)+"</strong> de chiffre d'affaires sur la période.");
+          if (((data.signals.surge_days||0)+(data.signals.down_days||0)) > 0) {
+            var ap = [];
+            if (data.signals.surge_days>0) ap.push(data.signals.surge_days+" journée"+(data.signals.surge_days>1?"s":"")+" nettement au-dessus de vos habitudes");
+            if (data.signals.down_days>0) ap.push(data.signals.down_days+" en-dessous");
+            takeaways.push(ap.join(", ")+".");
+          }
+          if (data.weekday && data.weekday.length) {
+            var wdSorted = data.weekday.slice().sort(function(a,b){return b.avg-a.avg;});
+            takeaways.push("Votre meilleur jour de la semaine : le <strong>"+esc(wdSorted[0].label)+"</strong> ("+eur(wdSorted[0].avg)+" en moyenne) ; le plus calme, le "+esc(wdSorted[wdSorted.length-1].label)+".");
+          }
+          if (data.signals.driver) takeaways.push("Sur la période, les variations de CA tiennent surtout à <strong>"+(DRIVER[data.signals.driver]||esc(data.signals.driver))+"</strong>.");
+
+          // Render actions through the SAME motor as pulse/monitor (window.ACTION_CARDS),
+          // mirroring insight.astro: flatten data_payload onto a feedItem, use brand_label_fr +
+          // the note_interne recommendation (falls back to sowhat). No duplicate copy here.
+          var prof = { site_name: data.location_label, location_label: data.location_label };
+          var actionItems = (data.actions || []).map(function (a) {
+            var spec = window.ACTION_CARDS ? window.ACTION_CARDS[a.action_type] : null;
+            if (!spec) return null;
+            var feedItem = { action_type: a.action_type, affected_date: a.affected_date, change_subtype: a.action_type };
+            try { var dp = JSON.parse(a.data_payload || "{}"); for (var k in dp) if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; } catch (e) {}
+            // the card's recommended action (reco) from the motor — a real CTA
+            var body = "";
+            try { if (typeof spec.reco === "function") body = String(spec.reco(feedItem) || ""); } catch (e) {}
+            return { title: spec.brand_label_fr || a.action_type, body: body };
+          }).filter(Boolean);
+          var actions = actionItems.length ? actionItems.map(function (a, i) {
+            return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:'+(i?"1px solid #f0f0f0":"none")+';">'
+              + '<span style="width:20px;height:20px;border-radius:50%;background:#1D3BB3;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">'+(i+1)+'</span>'
+              + '<div style="flex:1;"><div style="font-size:14px;font-weight:500;color:#111827;line-height:1.4;">'+esc(a.title)+'</div>'
+              + (a.body ? '<div style="font-size:13px;color:#374151;line-height:1.5;margin-top:3px;">'+esc(a.body)+'</div>' : '')
+              + '</div></div>';
+          }).join("") : '<div style="font-size:13px;color:#9ca3af;">Aucun signal de vente à traiter sur la période.</div>';
+
+          var midSection = (data.weekday && data.weekday.length)
+            ? '<div style="margin-bottom:24px;break-inside:avoid;max-width:380px;"><div class="rp-uc">Profil par jour de semaine</div>'+weekdayChart(data.weekday)+'</div>'
+            : '';
+
+          var html = ''
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:20px;">'
+          +   '<div><div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Rapport de ventes</div><div style="font-size:22px;font-weight:600;margin-top:4px;">'+esc(data.location_label)+'</div></div>'
+          +   '<div style="text-align:right;font-size:13px;color:#6b7280;line-height:1.5;">Période<br><strong style="color:#111827;">'+fmtRange(data.period.start,data.period.end)+'</strong></div>'
+          + '</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">'
+          +   cards.map(function(cc){return '<div style="background:#f8f9fa;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#6b7280;margin-bottom:4px;">'+cc[0]+'</div><div style="font-size:19px;font-weight:600;">'+cc[1]+'</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">'+cc[2]+'</div></div>';}).join("")
+          + '</div>'
+          + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">'+prevChip+yoyChip+'</div>'
+          + '<div class="rp-uc">Points clés</div><ul style="margin:0 0 24px;padding-left:20px;font-size:14px;line-height:1.7;color:#374151;list-style:disc;">'+takeaways.map(function(t){return '<li style="margin-bottom:2px;">'+t+"</li>";}).join("")+'</ul>'
+          + '<div style="margin-bottom:24px;break-inside:avoid;"><div class="rp-uc">Chiffre d\'affaires</div>'+totalChart(data.daily, data.composition && data.composition.granularity)+'</div>'
+          + '<div style="margin-bottom:24px;break-inside:avoid;max-width:520px;"><div class="rp-uc">Répartition par catégorie</div>'+mixBars(data.category_mix)+'</div>'
+          + midSection
+          + '<div style="break-inside:avoid;margin-bottom:22px;"><div class="rp-uc">Contexte externe</div>'
+          +   '<div style="border:1px solid #B5D4F4;border-radius:8px;overflow:hidden;margin-bottom:8px;">'
+          +     '<div style="display:flex;gap:12px;padding:11px 14px;background:#F4F8FE;border-bottom:1px solid #dbe8fb;"><span>'+ICON.sun+'</span><div style="font-size:13px;color:#374151;line-height:1.55;">'+weatherLine(c)+'</div></div>'
+          +     '<div style="display:flex;gap:12px;padding:11px 14px;border-bottom:1px solid #eef2f7;"><span>'+ICON.bag+'</span><div style="font-size:13px;color:#374151;line-height:1.55;">'+tourismLine(c)+'</div></div>'
+          +     '<div style="display:flex;gap:12px;padding:11px 14px;"><span>'+ICON.pin+'</span><div style="font-size:13px;color:#374151;line-height:1.55;">'+eventsLine(c)+'</div></div>'
+          +   '</div>'
+          +   '<div style="font-size:11px;color:#9ca3af;">Associations observées sur la période, non des causes établies (jour de semaine et autres facteurs non encore isolés).</div>'
+          + '</div>'
+          + '<div style="break-inside:avoid;"><div class="rp-uc">Actions recommandées</div>'+actions+'</div>';
+
+          docEl.innerHTML = html;
+          docEl.style.display = "block";
+          statusEl.style.display = "none";
+        }
+
+        var start = root.dataset.start, end = root.dataset.end, loc = root.dataset.loc;
+        if (!start || !end) { showError("Période manquante dans l'adresse du rapport."); return; }
+        fetch("/api/insight/sales-report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date_start: start, date_end: end, location_id: loc || undefined }) })
+          .then(function (r) { return r.json(); })
+          .then(render)
+          .catch(function () { showError("Erreur lors de la génération du rapport."); });
+      })();
+    </script>
+  </BaseLayout>
+</Show>
