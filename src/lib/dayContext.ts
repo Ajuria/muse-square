@@ -250,29 +250,33 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
   if (!opts.devSeed) {
     const fitFactors = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
       .filter((f) => f.fittable && f.predicate && f.predicate !== 'FALSE');
+    // n = INDEPENDENT engagements (distinct commitment windows overlapping factor-days), NOT the
+    // autocorrelated day count. cw = commitment×date; ctx/net are daily means, nc is the independent unit.
     const sel = fitFactors.map((f, i) =>
-      `AVG(IF((${f.predicate}) AND date NOT IN (SELECT d FROM ad), residual_pct, NULL)) AS ctx_${i}, ` +
-      `AVG(IF((${f.predicate}) AND date IN (SELECT d FROM ad), residual_pct, NULL)) AS net_${i}, ` +
-      `COUNTIF((${f.predicate}) AND date IN (SELECT d FROM ad)) AS n_${i}`).join(', ');
+      `AVG(IF((${f.predicate}) AND NOT is_action, residual_pct, NULL)) AS ctx_${i}, ` +
+      `AVG(IF((${f.predicate}) AND is_action, residual_pct, NULL)) AS net_${i}, ` +
+      `(SELECT COUNT(DISTINCT commitment_id) FROM cw JOIN resid rr ON cw.d=rr.date WHERE (${f.predicate})) AS nc_${i}`).join(', ');
     const [drows] = await bq.query({
       query:
-        `WITH ad AS (SELECT DISTINCT d FROM \`${PROJECT}.analytics.action_commitments\` ac, UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
+        `WITH cw AS (SELECT ac.commitment_id, d FROM \`${PROJECT}.analytics.action_commitments\` ac, ` +
+        `UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
         `WHERE ac.location_id=@loc AND ac.status='resolved' AND ac.action_done_status='fait'), ` +
         `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
-        `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc) ` +
-        `SELECT ${sel} FROM resid`,
+        `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc), ` +
+        `rj AS (SELECT resid.*, resid.date IN (SELECT d FROM cw) AS is_action FROM resid) ` +
+        `SELECT ${sel} FROM rj`,
       params: { loc }, location: 'EU',
     }).catch(() => [[{}]] as any[]);
     const dr = (drows || [])[0] || {};
-    const DECOMP_MIN_N = 10; // min action-days to surface a decomposition (honest-absence below it;
-                             // days autocorrelate so this stays préliminaire — never a proven %).
+    const DECOMP_MIN_ENGAGEMENTS = 2; // need >= 2 independent engagements to surface (honest-absence below).
     fitFactors.forEach((f, i) => {
-      const n = Number(flatVal(dr[`n_${i}`])) || 0;
-      if (n < DECOMP_MIN_N) return;
+      const n = Number(flatVal(dr[`nc_${i}`])) || 0; // INDEPENDENT engagements
+      if (n < DECOMP_MIN_ENGAGEMENTS) return;
       const ctx = +(Number(flatVal(dr[`ctx_${i}`])) || 0).toFixed(2);
       const net = +(Number(flatVal(dr[`net_${i}`])) || 0).toFixed(2);
       const action_delta = +(net - ctx).toFixed(2);
-      decomposition.push({ factor: f.key, context_effect: ctx, action_delta, net, n, tier: 'preliminaire', claim_type: 'observed_difference', cite_fr: decompositionLine({ factor: f.key, action_delta, n }) });
+      const tier = n >= 8 ? 'emergent' : 'preliminaire'; // driven off independent-N, never day count
+      decomposition.push({ factor: f.key, context_effect: ctx, action_delta, net, n, tier, claim_type: 'observed_difference', cite_fr: decompositionLine({ factor: f.key, action_delta, n }) });
     });
   }
 

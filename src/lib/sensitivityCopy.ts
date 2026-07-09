@@ -87,10 +87,12 @@ export function citeSensitivity(s: Sensitivity): string {
 
 // Engine 1 × Engine 2 decomposition — an OBSERVED DIFFERENCE, never a proven cause. The line states
 // the gap between action-days and no-action-days on this factor; it NEVER says "your action generated".
+// `n` is the INDEPENDENT unit (number of engagements/commitment windows) — never the inflated day count,
+// so the operator judges representativeness himself.
 export interface DecompositionCite { factor: string; action_delta: number; n: number }
 export function decompositionLine(d: DecompositionCite): string {
   const pts = Math.round(Math.abs(d.action_delta));
   const dir = d.action_delta >= 0 ? "au-dessus" : "en-dessous";
   const feat = de((FEATURE_FR[d.factor] || d.factor).toLowerCase());
-  return `Les jours ${feat} où vous avez agi, vous étiez ${d.action_delta >= 0 ? "+" : "−"}${pts} pts ${dir} de vos journées ${feat} sans action (${d.n} jours, à confirmer).`;
+  return `Les jours ${feat} où vous avez agi, vous étiez ${d.action_delta >= 0 ? "+" : "−"}${pts} pts ${dir} de vos journées ${feat} sans action — sur ${d.n} engagement${d.n > 1 ? "s" : ""}, à confirmer.`;
 }
