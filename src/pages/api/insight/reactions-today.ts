@@ -3,6 +3,7 @@ import { makeBQClient } from '../../../lib/bq';
 import { getSensitivities, type Sensitivity } from '../../../lib/sensitivityStore';
 import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies, type TrackRecord } from '../../../lib/sensitivityCopy';
 import featureRegistry from '../../../lib/sensitivityFeatures.json';
+import { assembleDayContext, type DayContextFact } from '../../../lib/dayContext';
 
 export const prerender = false;
 const PROJECT = 'muse-square-open-data';
@@ -15,8 +16,92 @@ const json = (b: unknown, s = 200): Response => new Response(JSON.stringify(b), 
 // this map can never drift from them. The predicate is evaluated against fct_location_context_daily
 // below. (major_event's predicate is FALSE while it is an A3 placeholder -> never active.)
 const ACTIVE_EXPR: Record<string, string> = Object.fromEntries(
-  (featureRegistry.revenue as Array<{ key: string; predicate: string }>).map((f) => [f.key, f.predicate]),
+  (featureRegistry.revenue as Array<{ key: string; predicate?: string }>).filter((f) => f.predicate).map((f) => [f.key, f.predicate as string]),
 );
+
+// ── Four-tier context-decision assembly (see docs/features/context-decision-service.md) ──
+// Four provenance-labelled tiers, NEVER merged. Numbers are pulled from marts, never blended.
+type RegEntry = { key: string; label_key?: string; tier?: number[]; fittable?: boolean; predicate?: string; impact_col?: string };
+const REG = featureRegistry.revenue as RegEntry[];
+const IMPACT_TABLE = (featureRegistry as any).impact_table as string; // fct_location_opportunity_components_daily
+const labelKey = (k: string): string => REG.find((f) => f.key === k)?.label_key || k;
+
+async function assembleTiers(
+  bq: any, loc: string, date: string, sens: Sensitivity[], active: Sensitivity[],
+  trackByFeature: Record<string, TrackRecord>, devSeed: boolean,
+) {
+  // Tier 1 — Mesuré (learned, active today). effect as a signed % — the copy layer words it.
+  const mesure = active.map((s) => ({
+    tier: 1, feature: s.feature, label_key: labelKey(s.feature), direction: s.direction,
+    effect_pct: +(s.effect_size * 100).toFixed(1), n_days: s.n_days, consistency_pct: s.consistency_pct,
+    period_start: s.period_start, period_end: s.period_end,
+    provenance: 'mesure', source: 'analytics.b_sensitivity_store',
+  }));
+
+  // suppress-in-2 (per venue × factor): any factor MEASURED for this venue hides its Tier-2 prior.
+  const measuredFeatures = new Set(sens.map((s) => s.feature));
+
+  // FACT-FIRST: reuse the app's existing French facts (dayContext) — delta_att is only the impact
+  // appended. Never a bare number. devSeed skips the real marts.
+  let estimation: any[] = [];
+  const concurrence: any[] = [];
+  let summary: { takeaway: string | null; driver: string | null } = { takeaway: null, driver: null };
+  const t2 = REG.filter((f) => (f.tier || []).includes(2) && f.impact_col);
+  if (!devSeed) {
+    const [ocRows] = await bq.query({
+      query: `SELECT ${[...new Set(t2.map((f) => f.impact_col as string))].join(',')} FROM \`${PROJECT}.${IMPACT_TABLE}\` WHERE location_id=@loc AND date=@d LIMIT 1`,
+      params: { loc, d: bq.date(date) }, location: 'EU',
+    });
+    const oc = (ocRows || [])[0] || {};
+    const dc = await assembleDayContext(bq, loc, date);
+    summary = { takeaway: dc.takeaway, driver: dc.driver };
+
+    // each estimation factor's FACT comes from the existing layer; delta_att is the impact appended.
+    const eventsFact: DayContextFact = { fact_text: null, fact_data: { events: dc.events }, source: 'mart.fct_location_events_topn_daily' };
+    const factOf = (key: string): DayContextFact =>
+      (['heat', 'rain', 'cold', 'wind', 'snow'].includes(key)) ? dc.weather
+        : key === 'mobility_disruption' ? dc.mobility
+          : key === 'calendar' ? dc.calendar
+            : key === 'events' ? eventsFact
+              : { fact_text: null, fact_data: {}, source: IMPACT_TABLE };
+
+    estimation = t2
+      .filter((f) => !measuredFeatures.has(f.key)) // suppress-in-2
+      .map((f) => ({ f, v: Number(flat(oc[f.impact_col as string])) || 0 }))
+      .filter((x) => x.v !== 0)
+      .map(({ f, v }) => {
+        const fact = factOf(f.key);
+        return {
+          tier: 2, feature: f.key, label_key: labelKey(f.key), fact_text: fact.fact_text, fact_data: fact.fact_data,
+          impact_pct: +v.toFixed(1), provenance: 'estimation', source: fact.source,
+        };
+      });
+
+    // Tier 3 — Concurrence (observed facts; NO impact number). Top-3 proximity-aware, reused via
+    // dayContext (name/distance/threat/rating/enriched + offering-change / rating-trend where populated).
+    concurrence.push(...dc.competitors.map((c) => ({
+      tier: 3, kind: 'competitor', label_key: 'concurrence_competitor', name: c.name, distance_km: c.distance_km,
+      threat_level: c.threat_level, google_rating: c.google_rating, google_rating_count: c.google_rating_count,
+      enriched: c.enriched, offering_change: c.offering_change, rating_trend: c.rating_trend,
+      provenance: 'observe', source: c.source,
+    })));
+  }
+
+  // Tier 4 — Ce qui a marché pour vous (measured action). devSeed shows the fixture; prod = labelled-absent
+  // (origin_factor bridge + resolved commitments not in place; fct_location_commitment_learning empty).
+  const trackKeys = Object.keys(trackByFeature);
+  const action = (devSeed && trackKeys.length)
+    ? trackKeys.map((k) => {
+        const tr = trackByFeature[k];
+        return {
+          tier: 4, feature: k, label_key: labelKey(k), action_type: tr.action_type, beat: tr.beat, done: tr.done,
+          qualifies: trackRecordQualifies(tr), provenance: 'mesure_action', source: 'analytics.b_demo_commitment',
+        };
+      })
+    : { present: false, reason: 'bridge_absent', source: 'mart.fct_location_commitment_learning' };
+
+  return { summary, mesure, estimation, concurrence, action };
+}
 
 // Type B (environment) × Type A (your action track record), joined to TODAY's active factors.
 // Two labeled registers, never merged. The move fires only when a real Type A track record
@@ -84,7 +169,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
         move: tr && trackRecordQualifies(tr) ? moveLine(tr) : null, // the move (gated)
       };
     });
-    return json({ ok: true, empty: factors.length === 0, location_id: loc, date, factors });
+    // Four-tier context-decision payload (the close-out). Additive: legacy `factors` stays for the
+    // current insight/engagement renders until they migrate to `tiers`.
+    const tiers = await assembleTiers(bq, loc, date, sens, active, trackByFeature, devSeed);
+    return json({ ok: true, empty: factors.length === 0, location_id: loc, date, factors, tiers });
   } catch (e: any) {
     return json({ ok: false, error: 'QUERY_FAILED', detail: e?.message ?? String(e) }, 500);
   }

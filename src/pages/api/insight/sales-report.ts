@@ -1,17 +1,11 @@
 import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
+// Named-context assembly is shared with reactions-today via dayContext (one source, no fork).
+import { namedEventsRange, foreignVisitorsRange } from '../../../lib/dayContext';
 
 export const prerender = false;
 
 const PROJECT = 'muse-square-open-data';
-
-// Curated tourist-origin countries so the "visiteurs étrangers" signal never lists
-// implausible ones (Belarus, Moldova…) surfaced by raw school-holiday overlap.
-const TOURIST_COUNTRIES = [
-  'Germany', 'United Kingdom', 'Netherlands', 'Belgium', 'Spain', 'Italy',
-  'Switzerland', 'Portugal', 'United States', 'Ireland', 'Denmark', 'Sweden',
-  'Luxembourg', 'Austria', 'Norway',
-];
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -96,18 +90,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
          FROM \`${PROJECT}.mart.fct_location_context_daily\`
          WHERE location_id=@loc AND date BETWEEN @s AND @e`,
         { loc, s: start, e: end }),
-      // named nearby events (5km), most-present first
-      q(`SELECT ev.event_label AS label, COUNT(DISTINCT t.date) AS days
-         FROM \`${PROJECT}.mart.fct_location_events_topn_daily\` t, UNNEST(t.top_events_5km) ev
-         WHERE t.location_id=@loc AND t.date BETWEEN @s AND @e
-         GROUP BY 1 ORDER BY days DESC LIMIT 4`,
-        { loc, s: start, e: end }),
-      // foreign visitors on holiday during the window (filtered to plausible tourist origins)
-      q(`SELECT c.country_name_en AS country, COUNT(DISTINCT date) AS days
-         FROM \`${PROJECT}.mart.fct_foreign_tourism_context_daily\` t, UNNEST(t.countries_on_school_holiday) c
-         WHERE date BETWEEN @s AND @e AND c.country_name_en IN UNNEST(@tc)
-         GROUP BY 1 ORDER BY days DESC LIMIT 4`,
-        { loc, s: start, e: end, tc: TOURIST_COUNTRIES }),
+      // named nearby events (5km) + foreign visitors — shared with reactions-today via dayContext
+      namedEventsRange(bq, loc, start, end),
+      foreignVisitorsRange(bq, loc, start, end),
       // pre-written French action candidates for the window
       // Real actions = the client's own sales signals (category 'performance'), each
       // carrying a CTA in detail_fr. Exclude competition-density observations (context,
@@ -256,8 +241,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         tourism_status: ctx[0]?.tourism_status ?? null,
         events_avg_5km: Number(radius[0]?.avg5) || 0,
         events_peak_5km: Number(radius[0]?.peak5) || 0,
-        named_events: namedEvents.map((e) => ({ label: e.label, days: Number(e.days) || 0 })),
-        foreign_visitors: foreign.map((f) => f.country),
+        named_events: namedEvents.map((e: { label: string; days: number }) => ({ label: e.label, days: Number(e.days) || 0 })),
+        foreign_visitors: foreign,
         assoc: {
           heat: {
             with_avg: Number(assoc[0]?.hot_avg) || 0, with_n: Number(assoc[0]?.hot_n) || 0,

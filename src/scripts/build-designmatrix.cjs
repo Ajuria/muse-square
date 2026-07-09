@@ -30,9 +30,11 @@ const argv = process.argv.slice(2);
 const dryIdx = argv.indexOf("--dry");
 const TARGET = dryIdx >= 0 && argv[dryIdx + 1] ? `${DS}.${argv[dryIdx + 1]}` : `${DS}.analytics.b_real_designmatrix`;
 
-// feature SELECT list from the registry: one CAST(predicate AS INT64) AS <key> per feature.
-// Same registry the engine's TAXONOMY_REAL and the endpoint's ACTIVE_EXPR read (single source).
-const FEATURE_SELECT = REG.revenue.map((f) => `    CAST(${f.predicate} AS INT64) AS ${f.key}`).join(",\n");
+// feature SELECT list from the registry: one CAST(predicate AS INT64) AS <key> per FITTABLE feature
+// (Tier-1 environment factors). Estimation/concurrence/action entries are excluded from the matrix.
+// Same registry the engine's fit list and the endpoint's ACTIVE_EXPR read (single source).
+const FIT_FEATURES = REG.revenue.filter((f) => f.fittable);
+const FEATURE_SELECT = FIT_FEATURES.map((f) => `    CAST(${f.predicate} AS INT64) AS ${f.key}`).join(",\n");
 
 const BUILD_SQL = `
 CREATE OR REPLACE TABLE \`${TARGET}\` AS
@@ -65,7 +67,7 @@ ORDER BY location_id, date`;
 (async () => {
   console.log(`Build design matrix -> ${TARGET}`);
   console.log(`  residual: ${RESIDUAL}\n  context:  ${CONTEXT}`);
-  console.log(`  features (${REG.revenue.length}): ${REG.revenue.map((f) => f.key).join(", ")}`);
+  console.log(`  features (${FIT_FEATURES.length}): ${FIT_FEATURES.map((f) => f.key).join(", ")}`);
   await bq.query({ location: "EU", query: BUILD_SQL });
 
   // verification summary — row universe, is_oos split, per-feature contrast
@@ -75,12 +77,12 @@ ORDER BY location_id, date`;
       COUNT(*) n, COUNT(DISTINCT location_id) locs,
       CAST(MIN(date) AS STRING) mn, CAST(MAX(date) AS STRING) mx,
       COUNTIF(is_oos) oos,
-      ${REG.revenue.map((f) => `SUM(${f.key}) AS on_${f.key}`).join(", ")}
+      ${FIT_FEATURES.map((f) => `SUM(${f.key}) AS on_${f.key}`).join(", ")}
     FROM \`${TARGET}\``,
   });
   const r = rows[0];
   console.log(`\nrows=${num(r.n)}  venues=${num(r.locs)}  span=${r.mn}..${r.mx}  oos=${num(r.oos)}`);
   console.log("feature on-days:");
-  for (const f of REG.revenue) console.log(`  ${f.key.padEnd(20)} ${String(num(r[`on_${f.key}`])).padStart(4)}`);
+  for (const f of FIT_FEATURES) console.log(`  ${f.key.padEnd(20)} ${String(num(r[`on_${f.key}`])).padStart(4)}`);
   console.log("\nDONE.");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });

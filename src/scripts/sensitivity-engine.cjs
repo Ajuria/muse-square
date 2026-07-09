@@ -45,8 +45,10 @@ const TAXONOMY_SEED = {
 // to drop out on the N/contrast/variance gates — deferral by identifiability, NOT suppression
 // here (tier-not-gate). Weekend/dow/season are NOT features: already removed in the residual.
 const REG = require("../lib/sensitivityFeatures.json");
+// FIT LIST = `fittable` entries only (Tier-1 environment factors). Estimation/concurrence/action
+// entries live in the same registry but are structurally excluded from the regression here.
 const taxonomyFromRegistry = (metric) =>
-  Object.fromEntries((REG[metric] || []).map((f) => [f.key, f.mechanism]));
+  Object.fromEntries((REG[metric] || []).filter((f) => f.fittable).map((f) => [f.key, f.mechanism]));
 const TAXONOMY_REAL = { revenue: taxonomyFromRegistry("revenue") };
 const TAXONOMY = MODE === "real" ? TAXONOMY_REAL : TAXONOMY_SEED;
 // each metric -> its dow+trend residual col + naive-expected col + actual col in the seed
