@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
-import { getSensitivities, type Tier } from '../../../lib/sensitivityStore';
+import { type Tier } from '../../../lib/sensitivityStore';
 import { citeSensitivity, TIER_SECTION } from '../../../lib/sensitivityCopy';
+import { assembleDayContext } from '../../../lib/dayContext';
 
 export const prerender = false;
 
@@ -30,11 +31,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
     loc = reqLoc;
   } else if (activeLoc) { loc = activeLoc; } else { return json({ ok: false, error: 'NO_LOCATION' }, 400); }
 
-  const storeTable = devSeed ? 'analytics.b_sensitivity_store' : undefined; // prod = real store (empty)
-
+  const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
   const bq = makeBQClient(PROJECT);
   try {
-    const rows = await getSensitivities(bq, loc, { metric: 'revenue', storeTable });
+    // Read the venue's sensitivity profile from the ONE brain (never the store directly). This is the
+    // full vetted list (all tiers, date-agnostic); active_today is ignored here.
+    const dc = await assembleDayContext(bq, loc, date, { devSeed });
+    const rows = dc.sensitivities;
     const ORDER: Tier[] = ['etabli', 'emergent', 'preliminaire'];
     const sections = ORDER
       .map((tier) => ({

@@ -7,6 +7,8 @@
 // structured data for owner copy); it authors NO French of its own.
 
 import { formatDisruption } from './contextCopy';
+import { getSensitivities, type Sensitivity } from './sensitivityStore';
+import featureRegistry from './sensitivityFeatures.json';
 
 const PROJECT = 'muse-square-open-data';
 export const flatVal = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);
@@ -57,16 +59,26 @@ export interface DayCompetitor {
   google_rating: number | null; google_rating_count: number | null; enriched: string | null;
   offering_change: string | null; rating_trend: number | null; source: string;
 }
+export type SensitivityToday = Sensitivity & { active_today: boolean };  // Engine 2
+export interface CommitmentFactorTrack { factor: string; action_type: string; beat: number; done: number }
 export interface DayContext {
   weather: DayContextFact; mobility: DayContextFact; calendar: DayContextFact;
   events: Array<{ event_label: string; distance_m: number | null; event_start_date: string | null }>;
   tourism: { status: string | null; peak: boolean };
   foreign: string[]; takeaway: string | null; driver: string | null;
   competitors: DayCompetitor[];
+  // Engines + context tiers folded into the brain — consumers read these from the payload, never from
+  // the store / learning / opportunity marts.
+  sensitivities: SensitivityToday[];                                  // Engine 2 (measured); filter active_today as needed
+  actionTrackByFactor: CommitmentFactorTrack[];                       // Engine 1 factor-level (Tier 4), from the dbt learning mart
+  actionTrackByType: Record<string, { beat: number; done: number }>; // Engine 1 action_type-level (évolution ③), pre-explode outcomes
+  impacts: Record<string, number>;                                    // Tier-2 estimation priors (delta_att_*) keyed by factor (non-zero only)
 }
 
-// Assemble today's reused French facts for one venue. Single date (range helpers above serve windows).
-export async function assembleDayContext(bq: any, loc: string, date: string): Promise<DayContext> {
+// Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
+// above serve windows). opts.devSeed swaps the store/learning to demo fixtures (?src=seed). This is the
+// ONE brain: every consumer reads its payload; none reads the sensitivity store or learning marts directly.
+export async function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean } = {}): Promise<DayContext> {
   const d = bq.date(date);
   const one = async (query: string, params: Record<string, any>) => {
     const [rows] = await bq.query({ query, params, location: 'EU' });
@@ -163,6 +175,54 @@ export async function assembleDayContext(bq: any, loc: string, date: string): Pr
     ? { fact_text: formatDisruption(disParts), fact_data: disParts, source: 'mart.fct_location_mobility_disruption_changes' }
     : { fact_text: null, fact_data: { traffic_customer_lvl: trafficLvl }, source: 'mart.fct_location_impact_daily_mobility' };
 
+  // ── Engines folded in: consumers read these from the payload; NONE reads the store/learning marts. ──
+  // Engine 2 — measured sensitivities (Tier 1), via the one typed accessor.
+  const sensRaw = await getSensitivities(bq, loc, { metric: 'revenue', storeTable: opts.devSeed ? 'analytics.b_demo_sensitivity' : undefined });
+  // active-today flag: the single-source registry predicate against context_daily (this mart).
+  const REG = featureRegistry.revenue as Array<{ key: string; predicate?: string }>;
+  let activeSet = new Set<string>();
+  if (opts.devSeed) activeSet = new Set(sensRaw.map((s) => s.feature)); // demo: seeded factors are "active today"
+  else {
+    const feats = sensRaw.filter((s) => REG.find((f) => f.key === s.feature)?.predicate);
+    if (feats.length) {
+      const checks = feats.map((s) => `${REG.find((f) => f.key === s.feature)!.predicate} AS f_${s.feature}`);
+      const r = await one(`SELECT ${checks.join(',')} FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
+      activeSet = new Set(feats.filter((s) => flatVal(r[`f_${s.feature}`]) === true).map((s) => s.feature));
+    }
+  }
+  const sensitivities: SensitivityToday[] = sensRaw.map((s) => ({ ...s, active_today: activeSet.has(s.feature) }));
+
+  // Engine 1 factor-level (Tier 4) — the dbt learning mart, factor-keyed (NOT re-exploded in TS).
+  const learnTable = opts.devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
+  const [lrows] = await bq.query({
+    query: `SELECT factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.${learnTable}\` ` +
+      `WHERE location_id=@loc${opts.devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
+    params: { loc }, location: 'EU',
+  });
+  const actionTrackByFactor: CommitmentFactorTrack[] = (lrows || [])
+    .map((r: any) => ({ factor: flatVal(r.factor), action_type: flatVal(r.action_type), beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }))
+    .filter((x: CommitmentFactorTrack) => x.factor);
+
+  // Engine 1 action_type-level (évolution ③) — pre-explode commitment-grain outcomes (no double-count).
+  const actionTrackByType: Record<string, { beat: number; done: number }> = {};
+  if (!opts.devSeed) {
+    const [orows] = await bq.query({
+      query: `SELECT action_type, COUNTIF(beat) AS beat, COUNTIF(NOT is_confounded) AS done ` +
+        `FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\` WHERE location_id=@loc AND source='commitment' GROUP BY 1`,
+      params: { loc }, location: 'EU',
+    }).catch(() => [[]] as any[]);
+    (orows || []).forEach((r: any) => { actionTrackByType[flatVal(r.action_type)] = { beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }; });
+  }
+
+  // Tier-2 estimation priors (delta_att) — folded in so consumers never read opportunity_components directly.
+  const t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
+  const impacts: Record<string, number> = {};
+  if (!opts.devSeed && t2feats.length) {
+    const cols = [...new Set(t2feats.map((f) => f.impact_col as string))];
+    const r = await one(`SELECT ${cols.join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
+    t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0) impacts[f.key] = v; });
+  }
+
   const wHead = flatVal(weatherHead.headline_fr);
   return {
     weather: { fact_text: isCleanFrench(wHead) ? wHead : null, fact_data: {}, source: 'mart.fct_location_daily_action_candidates' },
@@ -172,5 +232,6 @@ export async function assembleDayContext(bq: any, loc: string, date: string): Pr
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
     foreign, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
     competitors,
+    sensitivities, actionTrackByFactor, actionTrackByType, impacts,
   };
 }

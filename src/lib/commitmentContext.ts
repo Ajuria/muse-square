@@ -5,6 +5,8 @@
 // Context queries are LIFTED from sales-report.ts (range-based, BETWEEN @s AND @e)
 // so named context stays consistent with the report — Météo-France/OpenAgenda/INSEE.
 
+import { assembleDayContext } from "./dayContext";
+
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 
@@ -91,15 +93,11 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
       query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id=@loc AND date <= @asof`,
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
-    // Type A track record for THIS action_type. Reads the PRE-EXPLODE commitment-grain outcomes
-    // (one row per commitment), NOT the factor-exploded learning mart — else a commitment tagged with
-    // N window_active_factors would be counted N times. Commitment-grain COUNTIF => no double-count,
-    // and factor-less commitments still count here (they only fall out of the factor-level learning).
-    // Tier-4 (reactions-today) is the factor-level view. Only surfaced when >=5 done (min-N gate).
-    bq.query({
-      query: `SELECT COUNTIF(beat) AS beat, COUNTIF(NOT is_confounded) AS done FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\` WHERE location_id=@loc AND action_type=@at AND source='commitment'`,
-      params: { loc, at: snap.origin_action_type ?? "" }, location: "EU",
-    }).catch(() => [[]]),
+    // Type A action_type track record — from the ONE brain (never the outcomes mart directly). The
+    // brain reads the pre-explode commitment-grain outcomes (COUNTIF, no double-count); we pull the
+    // rollup for THIS action_type. Factor-less commitments still count (they only drop from the
+    // factor-level learning); Tier-4 is the factor view. min-N gate below mirrors has_sufficient_sample.
+    assembleDayContext(bq, loc, asOfDate).then((dc) => dc.actionTrackByType).catch(() => ({} as Record<string, { beat: number; done: number }>)),
   ]);
 
   const nr = (normRows?.[0] || [])[0];
@@ -107,9 +105,9 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
 
   const cx = (ctxRows[0] || [])[0] || {};
   const assoc = (assocRows[0] || [])[0] || {};
-  const tr = (learnRows?.[0] || [])[0] || {};
-  const trDone = flat(tr.done) != null ? Number(flat(tr.done)) : 0;
-  const trBeat = flat(tr.beat) != null ? Number(flat(tr.beat)) : 0;
+  const trMap = (learnRows || {}) as Record<string, { beat: number; done: number }>;
+  const tr = trMap[snap.origin_action_type ?? ""] || { beat: 0, done: 0 };
+  const trDone = Number(tr.done) || 0, trBeat = Number(tr.beat) || 0;
   // min-N gate (>=5 done) — mirrors fct_location_commitment_learning.has_sufficient_sample.
   const trackRecord = trDone >= 5 ? { beat: trBeat, done: trDone } : null;
 
