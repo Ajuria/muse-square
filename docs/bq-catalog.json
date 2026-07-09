@@ -6,7 +6,7 @@
 "region": "EU",
 "dbt_repo_sha_at_generation": "b5d8579",
 "table_count": 431,
-"column_count": 7455
+"column_count": 7456
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -10527,6 +10527,10 @@
 "type": "STRING"
 },
 {
+"name": "window_active_factors",
+"type": "ARRAY<STRING>"
+},
+{
 "name": "window_days",
 "type": "INT64"
 },
@@ -11928,7 +11932,7 @@
 "type": "STRING"
 },
 {
-"name": "origin_factor",
+"name": "factor",
 "type": "STRING"
 },
 {
