@@ -21,7 +21,7 @@ const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const MODE = process.env.BMODE || "seed";     // 'seed' (synthetic validation) | 'real' (81-day residual)
 const DS = "muse-square-open-data.analytics";
 const SEED = MODE === "real" ? `${DS}.b_real_designmatrix` : `${DS}.b_v1_seed`; // "source table"
-const STORE = MODE === "real" ? `${DS}.b_sensitivity_store_real` : `${DS}.b_sensitivity_store`;
+const STORE = MODE === "real" ? `${DS}.b_sensitivity_store` : `${DS}.b_sensitivity_store_seedtest`;
 const num = (v) => (v && typeof v === "object" && "value" in v ? Number(v.value) : Number(v));
 
 // ── config ──────────────────────────────────────────────────────────────────
@@ -186,6 +186,15 @@ const canInfluence = (tier) => tier === "etabli" || tier === "emergent"; // pré
   console.log(`MODE=${MODE}  source=${SEED}  store=${STORE}`);
   const [locsRows] = await bq.query({ location: "EU", query: `SELECT DISTINCT location_id FROM \`${SEED}\` ORDER BY 1` });
   const LOCS = locsRows.map((r) => r.location_id);
+
+  // Observation period = the date span of the TRAINING design matrix the sample was drawn from
+  // (per-location for a per_location row; global for the pooled fallback). Stored so the copy can
+  // show representativeness ("pour la période …") — the operator judges the window himself.
+  const [pspan] = await bq.query({ location: "EU", query: `SELECT location_id, CAST(MIN(date) AS STRING) ps, CAST(MAX(date) AS STRING) pe FROM \`${SEED}\` WHERE NOT is_oos GROUP BY location_id` });
+  const periodByLoc = {}; pspan.forEach((r) => (periodByLoc[r.location_id] = { ps: r.ps, pe: r.pe }));
+  const [gspan] = await bq.query({ location: "EU", query: `SELECT CAST(MIN(date) AS STRING) ps, CAST(MAX(date) AS STRING) pe FROM \`${SEED}\` WHERE NOT is_oos` });
+  const globalPeriod = { ps: gspan[0].ps, pe: gspan[0].pe };
+
   const candidates = []; // {metric, scope, location, feature, mechanism, coef, se, t, p, n_on, consistency, contrast_ok}
 
   for (const metric of Object.keys(TAXONOMY)) {
@@ -230,7 +239,16 @@ const canInfluence = (tier) => tier === "etabli" || tier === "emergent"; // pré
   const eligibleSet = candidates.filter((c) => c.eligible);
   benjaminiHochberg(eligibleSet, GATES.fdrAlpha);
   candidates.forEach((c) => { if (!c.eligible) { c.p_adj = null; c.bh_reject = false; } });
-  for (const c of candidates) c.survives = c.eligible && c.bh_reject && c.passConsistency && c.tier != null;
+  // Tier-not-gate: émergent+ REQUIRE BH significance; préliminaire surfaces a plausible candidate
+  // WITHOUT BH (that is what "à confirmer" concedes). Noise is kept out by the pooled directional
+  // lean applied in the store loop (a real factor leans the same way in the full data; noise ~0).
+  const RANK = { etabli: 3, emergent: 2, preliminaire: 1 };
+  for (const c of candidates) {
+    const rank = c.tier ? RANK[c.tier] : 0;
+    c.survivesStrong = c.eligible && c.passConsistency && c.bh_reject && rank >= 2;
+    c.survivesPrelim = c.eligible && c.passConsistency && rank === 1;
+    c.survives = c.survivesStrong || c.survivesPrelim;
+  }
 
   // print the batch audit
   console.log("\n=== BATCH AUDIT (every test; survives = BH ∧ N ∧ consistency ∧ tier) ===");
@@ -252,18 +270,24 @@ const canInfluence = (tier) => tier === "etabli" || tier === "emergent"; // pré
     for (const loc of LOCS) {
       const tag = loc.replace(/[^a-z0-9]/gi, "");
       for (const feature of Object.keys(TAXONOMY[metric])) {
-        // POOLED-ELIGIBILITY GATE: a factor must clear the full-data fit before any
-        // per-location row is trusted. Kills lone-venue noise blips (the decoy) that the
-        // global evidence doesn't support; principled partial-pooling (global licenses the
-        // factor, local data scopes it). Conservative in the honest direction: a genuinely
-        // venue-specific effect that cancels in the pool is DEFERRED to the hierarchical upgrade.
-        if (!pooledByFeat[feature] || !pooledByFeat[feature].survives) continue;
+        const pooled = pooledByFeat[feature];
         const perLoc = candidates.find((c) => c.metric === metric && c.scope === tag && c.feature === feature);
         if (!perLoc || !perLoc.contrast_ok) continue;          // SCOPING: no contrast here -> no row (Paris heat)
+        // POOLED DIRECTIONAL LEAN: the factor leans the same way in the full data (weak global
+        // support). A real weak signal (Nîmes heat: pooled also negative) clears it; noise (pooled
+        // ~0, no consistent sign) does not — the licence for a préliminaire per-venue signal
+        // WITHOUT requiring BH. Émergent+ still need BH (survivesStrong). Global licenses, local scopes.
+        const poolLean = pooled && Math.sign(pooled.coef) === Math.sign(perLoc.coef) && Math.abs(pooled.t) >= 0.5;
         let used = null, estScope = null;
-        if (perLoc.survives) { used = perLoc; estScope = "per_location"; }
-        else if (pooledByFeat[feature] && pooledByFeat[feature].survives) { used = pooledByFeat[feature]; estScope = "pooled"; }
+        if (perLoc.survivesStrong && pooled && (pooled.survivesStrong || poolLean)) {
+          used = perLoc; estScope = "per_location";
+        } else if (perLoc.survivesPrelim && poolLean) {
+          used = perLoc; estScope = "per_location";            // préliminaire: weak global lean, no BH
+        } else if (pooled && pooled.survivesStrong) {
+          used = pooled; estScope = "pooled";                  // pooled fallback (strong only)
+        }
         if (!used) continue;                                    // survived nowhere -> not stored
+        const period = estScope === "pooled" ? globalPeriod : (periodByLoc[loc] || globalPeriod);
         store.push({
           location_id: loc, feature, metric, direction: used.direction,
           effect_size: +(used.coef / 100).toFixed(4),          // % -> fraction
@@ -273,6 +297,7 @@ const canInfluence = (tier) => tier === "etabli" || tier === "emergent"; // pré
           n_days: used.n_on, consistency_pct: +(used.consistency * 100).toFixed(1),
           controlled_for: CONTROLLED_FOR, mechanism_tag: used.mechanism,
           confidence_tier: used.tier, estimate_scope: estScope,
+          period_start: period.ps, period_end: period.pe,    // date span the sample was drawn from
         });
       }
     }
@@ -289,9 +314,10 @@ const canInfluence = (tier) => tier === "etabli" || tier === "emergent"; // pré
       location_id STRING, feature STRING, metric STRING, direction STRING,
       effect_size FLOAT64, se FLOAT64, t_stat FLOAT64, p_adj FLOAT64,
       n_days INT64, consistency_pct FLOAT64, controlled_for STRING,
-      mechanism_tag STRING, confidence_tier STRING, estimate_scope STRING )` });
-  const insertSql = `INSERT INTO \`${STORE}\` (location_id,feature,metric,direction,effect_size,se,t_stat,p_adj,n_days,consistency_pct,controlled_for,mechanism_tag,confidence_tier,estimate_scope) VALUES ` +
-    store.map((r) => `('${r.location_id}','${r.feature}','${r.metric}','${r.direction}',${r.effect_size},${r.se},${r.t_stat},${r.p_adj},${r.n_days},${r.consistency_pct},'${r.controlled_for}','${r.mechanism_tag}','${r.confidence_tier}','${r.estimate_scope}')`).join(",");
+      mechanism_tag STRING, confidence_tier STRING, estimate_scope STRING,
+      period_start DATE, period_end DATE )` });
+  const insertSql = `INSERT INTO \`${STORE}\` (location_id,feature,metric,direction,effect_size,se,t_stat,p_adj,n_days,consistency_pct,controlled_for,mechanism_tag,confidence_tier,estimate_scope,period_start,period_end) VALUES ` +
+    store.map((r) => `('${r.location_id}','${r.feature}','${r.metric}','${r.direction}',${r.effect_size},${r.se},${r.t_stat},${r.p_adj},${r.n_days},${r.consistency_pct},'${r.controlled_for}','${r.mechanism_tag}','${r.confidence_tier}','${r.estimate_scope}',${r.period_start ? `DATE '${r.period_start}'` : "NULL"},${r.period_end ? `DATE '${r.period_end}'` : "NULL"})`).join(",");
   if (store.length) await bq.query({ location: "EU", query: insertSql });
 
   // ── 6. BASELINE SHADOW (do-no-harm): fitted uses ONLY influence-eligible (émergent+) effects

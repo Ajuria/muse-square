@@ -6,7 +6,7 @@
 "region": "EU",
 "dbt_repo_sha_at_generation": "b5d8579",
 "table_count": 430,
-"column_count": 7441
+"column_count": 7445
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -667,6 +667,14 @@
 {
 "name": "estimate_scope",
 "type": "STRING"
+},
+{
+"name": "period_start",
+"type": "DATE"
+},
+{
+"name": "period_end",
+"type": "DATE"
 }
 ]
 },
@@ -797,6 +805,14 @@
 {
 "name": "estimate_scope",
 "type": "STRING"
+},
+{
+"name": "period_start",
+"type": "DATE"
+},
+{
+"name": "period_end",
+"type": "DATE"
 }
 ]
 },

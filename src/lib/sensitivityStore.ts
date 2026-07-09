@@ -11,10 +11,10 @@
 // lands — change STORE_TABLE only, no consumer touches the path.
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
-// PROD/default = the real batch output (empty at 81 days — honest). `analytics.b_sensitivity_store`
-// (the seed store) is a DEV-ONLY fixture used to prove the populated render path; a caller may
-// override via opts.storeTable, gated to dev by the consumer. -> mart.fct_location_sensitivity in prod.
-const STORE_TABLE = "analytics.b_sensitivity_store_real";
+// PROD/default = the real batch output of the offline engine (src/scripts/sensitivity-engine.cjs
+// BMODE=real): analytics.b_sensitivity_store, populated from the real residual × context. A caller
+// may override via opts.storeTable (dev fixtures only). -> mart.fct_location_sensitivity in prod.
+const STORE_TABLE = "analytics.b_sensitivity_store";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 
 export type Tier = "preliminaire" | "emergent" | "etabli";
@@ -33,6 +33,8 @@ export interface Sensitivity {
   confidence_tier: Tier;    // after mechanism + N + consistency + BH + eligibility gate
   mechanism_tag: string;    // the plausible mechanism (theory-constrained, not a blind sweep)
   estimate_scope: "per_location" | "pooled"; // whether the number is this venue's fit or the pooled fallback
+  period_start: string | null; // ISO date — start of the window the sample was drawn from
+  period_end: string | null;   // ISO date — end of that window (copy renders "pour la période …")
 }
 
 const TIER_RANK: Record<Tier, number> = { etabli: 3, emergent: 2, preliminaire: 1 };
@@ -63,7 +65,8 @@ export async function getSensitivities(
   const [rows] = await bq.query({
     query:
       `SELECT location_id, feature, metric, direction, effect_size, se, t_stat, n_days, ` +
-      `consistency_pct, confidence_tier, mechanism_tag, estimate_scope ` +
+      `consistency_pct, confidence_tier, mechanism_tag, estimate_scope, ` +
+      `CAST(period_start AS STRING) AS period_start, CAST(period_end AS STRING) AS period_end ` +
       `FROM \`${PROJECT}.${table}\` WHERE ${conds.join(" AND ")} ` +
       `ORDER BY ABS(effect_size) DESC`,
     params, location: "EU",
@@ -76,6 +79,7 @@ export async function getSensitivities(
       se: Number(flat(r.se)), t_stat: Number(flat(r.t_stat)), n_days: Number(flat(r.n_days)),
       consistency_pct: Number(flat(r.consistency_pct)), confidence_tier: flat(r.confidence_tier),
       mechanism_tag: flat(r.mechanism_tag), estimate_scope: flat(r.estimate_scope),
+      period_start: flat(r.period_start) ?? null, period_end: flat(r.period_end) ?? null,
     }))
     .filter((s: Sensitivity) => TIER_RANK[s.confidence_tier] >= min)
     .filter((s: Sensitivity) => !opts.influencingOnly || canInfluence(s.confidence_tier));

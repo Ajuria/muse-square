@@ -336,6 +336,6 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 
 ## Truth B — live column catalog
 
-- [`bq-catalog.json`](bq-catalog.json) — every table+view in `muse-square-open-data` (EU) with columns + types. 430 tables, 7441 columns. Snapshot 2026-07-09, dbt SHA `b5d8579`.
+- [`bq-catalog.json`](bq-catalog.json) — every table+view in `muse-square-open-data` (EU) with columns + types. 430 tables, 7445 columns. Snapshot 2026-07-09, dbt SHA `b5d8579`. Includes `analytics.b_sensitivity_store` (Type B store, app-write) with `period_start`/`period_end` (observation window).
 - [`bq-catalog.allowlist.json`](bq-catalog.allowlist.json) — compact `dataset.table → [column names]` sidecar (allowlist for the `bq-guard` hook).
 - Regenerate with [`refresh-bq-catalog.sh`](refresh-bq-catalog.sh). For any query, re-verify the exact column against live `INFORMATION_SCHEMA` via the `bq-verify` skill. Run BQ with `--location=EU`; always `DATE()`-cast.
