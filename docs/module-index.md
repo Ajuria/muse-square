@@ -38,7 +38,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `insight/monitor.ts` | GET | Monitoring dashboard: profile, signals, risk matrix, change feed, action candidates, BestTime traffic | `semantic.vw_insight_event_ai_location_context`, `…_day_surface`, `…_change_feed`, `…_competitor_alerts`, `…_action_candidates`, `…_user_active_goal`, `…_user_activity`, `raw.saved_items`, `raw.watched_competitors`, `analytics.channel_configs` |
 | `insight/month.ts` | GET | 30-day window summary + AI window/special-days narration, deterministic fallback | `semantic.vw_insight_event_30d_window_surface`, `…_30d_surface`, `…_ai_location_context`, `…_ai_region_context` |
 | `insight/prompt.ts` | POST | **Core AI prompt endpoint** (3800+ lines): month/days/selected-days narrative + entity web-search. `MS_AUTH_BYPASS=1` bypasses auth here only. | `semantic.vw_insight_event_selected_days_surface`, `…_day_surface`, `…_30d_surface`, `…_30d_window_surface`, `…_ai_location_context`, `…_competitor_signals`, `…_mobility_disruptions`, `…_eventcalendar_event_lookup`, `semantic.vw_ms_insight_ai_decision_policy_rules`, `raw.saved_items`, `raw.saved_item_dates`, Anthropic API |
-| `insight/reactions-today.ts` | GET | Type B: today's active env factors + sensitivity reactions, optional track record + recommended moves | `mart.fct_location_context_daily`, `analytics.b_sensitivity_store` (real Type B store, via `sensitivityStore` accessor); dev fallback `analytics.b_demo_sensitivity` + `analytics.b_demo_commitment` (`?src=seed`) |
+| `insight/reactions-today.ts` | GET | Type B: today's active env factors + sensitivity reactions, optional track record + recommended moves. `ACTIVE_EXPR` (today-activation) built from the single-source registry `src/lib/sensitivityFeatures.json` (no hardcoded list) | `mart.fct_location_context_daily`, `analytics.b_sensitivity_store` (real Type B store, via `sensitivityStore` accessor), `src/lib/sensitivityFeatures.json` (activation map); dev fallback `analytics.b_demo_sensitivity` + `analytics.b_demo_commitment` (`?src=seed`) |
 | `insight/sales-report.ts` | POST | Sales report: daily series, comparison periods, category mix, context, action candidates, correlations | `mart.fct_client_daily_performance`, `…_client_sales_signals_daily`, `…_client_offering_daily`, `…_location_context_daily`, `…_location_events_topn_daily`, `…_foreign_tourism_context_daily`, `…_location_daily_action_candidates`, `…_location_events_radius_daily`, `dims.dim_client_location` |
 | `insight/sensitivities.ts` | GET | Returns venue sensitivity profiles (Type B) at tier level | `analytics.b_sensitivity_store` (real Type B store, via `sensitivityStore` accessor) |
 | `insight/set-goal.ts` | POST | Creates/clears operational goal (acquisition/revenue/reputation/veille) | `analytics.goal_state` |
@@ -220,6 +220,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Module | Key exports | Purpose | Data source |
 |---|---|---|---|
+| `sensitivityFeatures.json` | `revenue[]` (feature → `predicate` → `mechanism` → `fit_type`/`stage`) | Type B SINGLE-SOURCE feature registry — one map drives the engine fit list/mechanism gate, the design-matrix build, AND the endpoint today-activation (`ACTIVE_EXPR`); no second list. Predicates are SQL over `fct_location_context_daily` | none (data map) |
 | `sensitivityCopy.ts` | `FEATURE_FR`, `TIER_SECTION`, `envTodayLine`, `envPeriodLine`, `actionLine`, `citeSensitivity` | Type B French copy, tier-register aware | none |
 | `sensitivityStore.ts` | `getSensitivities`, `canInfluence`, `TIER_INFLUENCE` | Typed accessor for vetted sensitivity store (tier + influence gate) | `analytics.b_sensitivity_store` (→ `mart.fct_location_sensitivity` in prod) |
 
@@ -313,7 +314,8 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 
 | Script | Purpose | Data source |
 |---|---|---|
-| `sensitivity-engine.cjs` | Type B offline engine: OLS+BQML fit, VIF pre-check, per-venue contrast + consistency gates, BH FDR, tier ladders, pooled lean | `analytics.b_v1_seed` / `b_real_designmatrix` (in) → `b_sensitivity_store` / `_seedtest` (out) |
+| `build-designmatrix.cjs` | Type B COMMITTED design-matrix build: residual × context → `b_real_designmatrix` (the engine's fit source). Features driven by the single-source registry `src/lib/sensitivityFeatures.json`; `is_oos` = most-recent 20%/venue. `--dry <table>` writes a scratch copy | `mart.fct_client_day_residual` + `mart.fct_location_context_daily` + `src/lib/sensitivityFeatures.json` (in) → `analytics.b_real_designmatrix` (out) |
+| `sensitivity-engine.cjs` | Type B offline engine: OLS+BQML fit, VIF pre-check, per-venue contrast + consistency gates, BH FDR, tier ladders, pooled lean. REAL factor set/mechanism gate = `src/lib/sensitivityFeatures.json` (single source) | `analytics.b_v1_seed` / `b_real_designmatrix` + `src/lib/sensitivityFeatures.json` (in) → `b_sensitivity_store` / `_seedtest` (out) |
 | `ai_runtime_smoke.mjs` | Smoke test for AI packager runtime (`runAIPackagerClaude`) | needs ANTHROPIC_API_KEY |
 | `print_env.mjs` | Diagnostic: prints ANTHROPIC_API_KEY prefix/len + CLAUDE_MODEL | none |
 | `prompt.ts` | Client-side in-page AI prompt rendering (calls `/api/insight/prompt`) | none |

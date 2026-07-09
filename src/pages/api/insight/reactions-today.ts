@@ -2,20 +2,21 @@ import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
 import { getSensitivities, type Sensitivity } from '../../../lib/sensitivityStore';
 import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies, type TrackRecord } from '../../../lib/sensitivityCopy';
+import featureRegistry from '../../../lib/sensitivityFeatures.json';
 
 export const prerender = false;
 const PROJECT = 'muse-square-open-data';
 const flat = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);
 const json = (b: unknown, s = 200): Response => new Response(JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } });
 
-// feature -> the today's-context expression that means "the factor is active today".
-// This is the today-conditional join: only factors present today surface (contract).
-const ACTIVE_EXPR: Record<string, string> = {
-  heat: 'COALESCE(lvl_heat,0)>=1', cold: 'COALESCE(lvl_cold,0)>=1', rain: 'COALESCE(lvl_rain,0)>=1',
-  wind: 'COALESCE(lvl_wind,0)>=1', snow: 'COALESCE(lvl_snow,0)>=1',
-  tourism_peak: 'COALESCE(tourism_peak_flag_region,false)', school_holiday: 'COALESCE(is_school_holiday_flag,false)',
-  public_holiday: 'COALESCE(is_public_holiday_flag,false)', mobility_disruption: 'COALESCE(mobility_disruption_flag_region,false)',
-};
+// feature -> the today's-context expression that means "the factor is active today". This is the
+// today-conditional join: only factors present today surface (contract). SINGLE SOURCE: the same
+// registry (src/lib/sensitivityFeatures.json) drives the engine fit list and the matrix build, so
+// this map can never drift from them. The predicate is evaluated against fct_location_context_daily
+// below. (major_event's predicate is FALSE while it is an A3 placeholder -> never active.)
+const ACTIVE_EXPR: Record<string, string> = Object.fromEntries(
+  (featureRegistry.revenue as Array<{ key: string; predicate: string }>).map((f) => [f.key, f.predicate]),
+);
 
 // Type B (environment) × Type A (your action track record), joined to TODAY's active factors.
 // Two labeled registers, never merged. The move fires only when a real Type A track record

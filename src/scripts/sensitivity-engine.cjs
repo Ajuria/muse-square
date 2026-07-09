@@ -39,17 +39,15 @@ const TAXONOMY_SEED = {
     school_holiday: "calendar_demand", weak_signal: "calendar_demand", decoy_promo: "marketing",
   },
 };
-// REAL factor set from the context taxonomy; low-contrast ones (cold/wind/snow/public_holiday/
-// mobility/major_event at 81 days) are expected to drop out on the N/contrast gates — deferral,
-// not suppression. Weekend/dow/season are NOT features: already removed in the residual.
-const TAXONOMY_REAL = {
-  revenue: {
-    tourism_peak: "tourist_footfall", school_holiday: "calendar_demand", public_holiday: "calendar_demand",
-    rain: "weather_footfall", heat: "weather_footfall", cold: "weather_footfall",
-    wind: "weather_footfall", snow: "weather_footfall",
-    mobility_disruption: "access_friction", major_event: "local_demand",
-  },
-};
+// REAL factor set = the SINGLE-SOURCE feature registry (src/lib/sensitivityFeatures.json), the
+// same map the design-matrix build and the endpoint's today-activation read — no second list.
+// Low-contrast ones (cold/wind/snow/public_holiday/mobility/major_event at 81 days) are expected
+// to drop out on the N/contrast/variance gates — deferral by identifiability, NOT suppression
+// here (tier-not-gate). Weekend/dow/season are NOT features: already removed in the residual.
+const REG = require("../lib/sensitivityFeatures.json");
+const taxonomyFromRegistry = (metric) =>
+  Object.fromEntries((REG[metric] || []).map((f) => [f.key, f.mechanism]));
+const TAXONOMY_REAL = { revenue: taxonomyFromRegistry("revenue") };
 const TAXONOMY = MODE === "real" ? TAXONOMY_REAL : TAXONOMY_SEED;
 // each metric -> its dow+trend residual col + naive-expected col + actual col in the seed
 const METRIC_COLS = { revenue: { y: "residual_pct", expected: "expected_dow_trend", actual: "actual_revenue" } };
