@@ -1,10 +1,10 @@
 {
 "_meta": {
-"purpose": "SNAPSHOT of live BigQuery schema for muse-square-open-data (EU). Allowlist source for enforcement hooks. NOT a substitute for live verification — incremental models drop new columns without --full-refresh; ALWAYS re-verify a column via bq-verify / INFORMATION_SCHEMA before trusting it.",
+"purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
 "generated_date": "2026-07-09",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "5d36af2",
+"dbt_repo_sha_at_generation": "b5d8579",
 "table_count": 430,
 "column_count": 7441
 },
