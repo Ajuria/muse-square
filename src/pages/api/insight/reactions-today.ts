@@ -4,6 +4,10 @@ import { getSensitivities, type Sensitivity } from '../../../lib/sensitivityStor
 import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies, type TrackRecord } from '../../../lib/sensitivityCopy';
 import featureRegistry from '../../../lib/sensitivityFeatures.json';
 import { assembleDayContext, type DayContextFact } from '../../../lib/dayContext';
+import { fillContextFallback, CONTEXT_LABELS } from '../../../lib/contextCopy';
+
+// French distance formatting (JJ/MM style number rules — comma decimal). Formatting, not copy.
+const frKm = (km: number | null): string => km == null ? '' : (km < 10 ? String(Math.round(km * 10) / 10).replace('.', ',') : String(Math.round(km))) + ' km';
 
 export const prerender = false;
 const PROJECT = 'muse-square-open-data';
@@ -21,20 +25,24 @@ const ACTIVE_EXPR: Record<string, string> = Object.fromEntries(
 
 // ── Four-tier context-decision assembly (see docs/features/context-decision-service.md) ──
 // Four provenance-labelled tiers, NEVER merged. Numbers are pulled from marts, never blended.
-type RegEntry = { key: string; label_key?: string; tier?: number[]; fittable?: boolean; predicate?: string; impact_col?: string };
+type RegEntry = { key: string; label_key?: string; tier?: number[]; fittable?: boolean; predicate?: string; impact_col?: string; mechanism?: string };
 const REG = featureRegistry.revenue as RegEntry[];
 const IMPACT_TABLE = (featureRegistry as any).impact_table as string; // fct_location_opportunity_components_daily
 const labelKey = (k: string): string => REG.find((f) => f.key === k)?.label_key || k;
+// Fine registry factor -> its coarse theme (the granularity a commitment's origin_factor carries).
+// Derived from the registry's own `mechanism` (single source) — matches recoThemeMap theme ids.
+const MECHANISM_THEME: Record<string, string> = { weather_footfall: 'meteo', access_friction: 'mobilite', tourist_footfall: 'tourisme', calendar_demand: 'calendrier', local_demand: 'fenetres' };
+const themeOf = (k: string): string | null => MECHANISM_THEME[REG.find((f) => f.key === k)?.mechanism || ''] || null;
 
 async function assembleTiers(
-  bq: any, loc: string, date: string, sens: Sensitivity[], active: Sensitivity[],
-  trackByFeature: Record<string, TrackRecord>, devSeed: boolean,
+  bq: any, loc: string, date: string, sens: Sensitivity[], active: Sensitivity[], devSeed: boolean,
 ) {
   // Tier 1 — Mesuré (learned, active today). effect as a signed % — the copy layer words it.
   const mesure = active.map((s) => ({
     tier: 1, feature: s.feature, label_key: labelKey(s.feature), direction: s.direction,
     effect_pct: +(s.effect_size * 100).toFixed(1), n_days: s.n_days, consistency_pct: s.consistency_pct,
     period_start: s.period_start, period_end: s.period_end,
+    display: envTodayLine(s), // owner copy (sensitivityCopy)
     provenance: 'mesure', source: 'analytics.b_sensitivity_store',
   }));
 
@@ -73,6 +81,7 @@ async function assembleTiers(
         const fact = factOf(f.key);
         return {
           tier: 2, feature: f.key, label_key: labelKey(f.key), fact_text: fact.fact_text, fact_data: fact.fact_data,
+          display: fact.fact_text ?? fillContextFallback(labelKey(f.key)) ?? fillContextFallback(f.key), // reused mart fact, else owner fallback
           impact_pct: +v.toFixed(1), provenance: 'estimation', source: fact.source,
         };
       });
@@ -83,22 +92,34 @@ async function assembleTiers(
       tier: 3, kind: 'competitor', label_key: 'concurrence_competitor', name: c.name, distance_km: c.distance_km,
       threat_level: c.threat_level, google_rating: c.google_rating, google_rating_count: c.google_rating_count,
       enriched: c.enriched, offering_change: c.offering_change, rating_trend: c.rating_trend,
+      display: fillContextFallback('concurrence_competitor', { distance: frKm(c.distance_km), nom: c.name }) ?? c.name, // owner template
       provenance: 'observe', source: c.source,
     })));
   }
 
-  // Tier 4 — Ce qui a marché pour vous (measured action). devSeed shows the fixture; prod = labelled-absent
-  // (origin_factor bridge + resolved commitments not in place; fct_location_commitment_learning empty).
-  const trackKeys = Object.keys(trackByFeature);
-  const action = (devSeed && trackKeys.length)
-    ? trackKeys.map((k) => {
-        const tr = trackByFeature[k];
-        return {
-          tier: 4, feature: k, label_key: labelKey(k), action_type: tr.action_type, beat: tr.beat, done: tr.done,
-          qualifies: trackRecordQualifies(tr), provenance: 'mesure_action', source: 'analytics.b_demo_commitment',
-        };
-      })
-    : { present: false, reason: 'bridge_absent', source: 'mart.fct_location_commitment_learning' };
+  // Tier 4 — Ce qui a marché pour vous (measured ACTION track record, Engine 1), factor-keyed via
+  // origin_factor. DEFAULT = the real mart.fct_location_commitment_learning (empty until real
+  // resolved+done commitments flow → honest labelled-absent). Dev fallback only = the seed fixture.
+  // Matched to today's factors (Tiers 1–2), tolerant on granularity (exact fine key OR the factor's
+  // theme, since a commitment's origin_factor is theme-level), reconduire-gated (never "prouvé").
+  const activeFactors = [...new Set<string>([...mesure.map((m) => m.feature), ...estimation.map((e: any) => e.feature)])];
+  const activeFactorSet = new Set(activeFactors);
+  const activeThemes = new Set(activeFactors.map(themeOf).filter(Boolean) as string[]);
+  const TRACK_TABLE = devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
+  // roll up beat/done across window_days (and any sub-grain) per (origin_factor, action_type).
+  const [trRows] = await bq.query({
+    query: `SELECT origin_factor AS factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done ` +
+      `FROM \`${PROJECT}.${TRACK_TABLE}\` WHERE location_id=@loc${devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
+    params: { loc }, location: 'EU',
+  });
+  const actionLines = (trRows || [])
+    .map((r: any) => ({ factor: flat(r.factor) as string, tr: { action_type: flat(r.action_type), beat: Number(flat(r.beat)), done: Number(flat(r.done)) } as TrackRecord }))
+    .filter((x: any) => x.factor && (activeFactorSet.has(x.factor) || activeThemes.has(x.factor)) && trackRecordQualifies(x.tr))
+    .map((x: any) => ({
+      tier: 4, feature: x.factor, label_key: labelKey(x.factor), action_type: x.tr.action_type, beat: x.tr.beat, done: x.tr.done,
+      display: actionLine(x.tr), move: moveLine(x.tr), provenance: 'mesure_action', source: TRACK_TABLE,
+    }));
+  const action = actionLines.length ? actionLines : { present: false, reason: 'bridge_absent', source: 'mart.fct_location_commitment_learning' };
 
   return { summary, mesure, estimation, concurrence, action };
 }
@@ -171,8 +192,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
     });
     // Four-tier context-decision payload (the close-out). Additive: legacy `factors` stays for the
     // current insight/engagement renders until they migrate to `tiers`.
-    const tiers = await assembleTiers(bq, loc, date, sens, active, trackByFeature, devSeed);
-    return json({ ok: true, empty: factors.length === 0, location_id: loc, date, factors, tiers });
+    const tiers = await assembleTiers(bq, loc, date, sens, active, devSeed);
+    return json({ ok: true, empty: factors.length === 0, location_id: loc, date, factors, tiers, labels: CONTEXT_LABELS });
   } catch (e: any) {
     return json({ ok: false, error: 'QUERY_FAILED', detail: e?.message ?? String(e) }, 500);
   }

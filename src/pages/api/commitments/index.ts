@@ -7,6 +7,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
+import { themeForActionType } from "../../../lib/recoThemeMap";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -116,9 +117,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_action_type: originActionType,
       origin_driver: DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
         ? String(body.origin_driver).trim().toLowerCase() : null,
-      // Engine-1 A↔B bridge: the environmental factor the card was about (heat, rain, tourism_peak…).
-      // Advisory metadata, not a gate (like origin_driver) — normalize, else null.
-      origin_factor: body.origin_factor ? String(body.origin_factor).trim().toLowerCase() : null,
+      // Engine-1 A↔B bridge: the factor/theme the card was about. Advisory, not a gate. The client
+      // may send it explicitly; otherwise we DERIVE it server-side from the action_type's theme
+      // (recoThemeMap) — the granularity a card reliably carries — so commitments never land NULL.
+      origin_factor: body.origin_factor
+        ? String(body.origin_factor).trim().toLowerCase()
+        : themeForActionType(originActionType),
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,

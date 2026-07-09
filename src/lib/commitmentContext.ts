@@ -92,7 +92,10 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
     // Type A track record for THIS action_type (commitment learning, source='commitment'),
-    // aggregated across window_days. Only surfaced when >=5 done outcomes (min-N gate).
+    // aggregated across window_days AND the origin_factor dimension (the learning grain now includes
+    // origin_factor — this SUM rolls it up to the action_type total; each outcome is one factor row,
+    // so no double-count). Advice here is action_type-level; Tier-4 (reactions-today) is factor-level.
+    // Only surfaced when >=5 done outcomes (min-N gate).
     bq.query({
       query: `SELECT SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.mart.fct_location_commitment_learning\` WHERE location_id=@loc AND action_type=@at AND source='commitment'`,
       params: { loc, at: snap.origin_action_type ?? "" }, location: "EU",

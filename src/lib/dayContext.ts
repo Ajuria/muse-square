@@ -6,6 +6,8 @@
 // docs/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
 // structured data for owner copy); it authors NO French of its own.
 
+import { formatDisruption } from './contextCopy';
+
 const PROJECT = 'muse-square-open-data';
 export const flatVal = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);
 
@@ -80,7 +82,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string): Pr
     one(`SELECT traffic_customer_lvl AS traffic_lvl, transit_lvl
          FROM \`${PROJECT}.mart.fct_location_impact_daily_mobility\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // named disruption (French title_merged) when one is active today
-    one(`SELECT title_merged, short_name AS line, delay_minutes, severity
+    one(`SELECT title_merged, short_name AS line, stop_name, delay_minutes, severity
          FROM \`${PROJECT}.mart.fct_location_mobility_disruption_changes\`
          WHERE location_id=@loc AND current_disruption_date=@d AND is_active_flag ORDER BY delay_minutes DESC NULLS LAST LIMIT 1`, { loc, d }),
     // weather fact = clean French action-candidate headline (gated), category context/weather
@@ -151,8 +153,14 @@ export async function assembleDayContext(bq: any, loc: string, date: string): Pr
   // mobility fact: named disruption (reused French) OR interpretable traffic level (owner copy via fact_data)
   const disTitle = flatVal(disruption.title_merged);
   const trafficLvl = flatVal(mob.traffic_lvl) == null ? null : Number(flatVal(mob.traffic_lvl));
-  const mobility: DayContextFact = disTitle
-    ? { fact_text: isCleanFrench(disTitle) ? disTitle : null, fact_data: { severity: flatVal(disruption.severity), line: flatVal(disruption.line), delay_minutes: disruption.delay_minutes == null ? null : Number(flatVal(disruption.delay_minutes)) }, source: 'mart.fct_location_mobility_disruption_changes' }
+  const disParts = {
+    title: disTitle, line: flatVal(disruption.line), stop_name: flatVal(disruption.stop_name),
+    delay_minutes: disruption.delay_minutes == null ? null : Number(flatVal(disruption.delay_minutes)), severity: flatVal(disruption.severity),
+  };
+  // Full disruption fact (title + line/stop + delay + severity), never the bare title. No named
+  // disruption -> null so the endpoint falls back to the traffic-level owner string (contextCopy).
+  const mobility: DayContextFact = (disTitle && isCleanFrench(disTitle))
+    ? { fact_text: formatDisruption(disParts), fact_data: disParts, source: 'mart.fct_location_mobility_disruption_changes' }
     : { fact_text: null, fact_data: { traffic_customer_lvl: trafficLvl }, source: 'mart.fct_location_impact_daily_mobility' };
 
   const wHead = flatVal(weatherHead.headline_fr);

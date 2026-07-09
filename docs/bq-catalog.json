@@ -5,8 +5,8 @@
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "b5d8579",
-"table_count": 430,
-"column_count": 7445
+"table_count": 431,
+"column_count": 7454
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -410,6 +410,10 @@
 {
 "name": "origin_driver",
 "type": "STRING"
+},
+{
+"name": "origin_factor",
+"type": "STRING"
 }
 ]
 },
@@ -584,6 +588,31 @@
 }
 ]
 },
+"analytics.b_commitment_learning_seed": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "origin_factor",
+"type": "STRING"
+},
+{
+"name": "action_type",
+"type": "STRING"
+},
+{
+"name": "beat_count",
+"type": "INT64"
+},
+{
+"name": "done_count",
+"type": "INT64"
+}
+]
+},
 "analytics.b_demo_commitment": {
 "type": "BASE TABLE",
 "columns": [
@@ -706,11 +735,7 @@
 "type": "INT64"
 },
 {
-"name": "school_holiday",
-"type": "INT64"
-},
-{
-"name": "public_holiday",
+"name": "heat",
 "type": "INT64"
 },
 {
@@ -718,7 +743,11 @@
 "type": "INT64"
 },
 {
-"name": "heat",
+"name": "school_holiday",
+"type": "INT64"
+},
+{
+"name": "public_holiday",
 "type": "INT64"
 },
 {
@@ -10490,6 +10519,10 @@
 "type": "STRING"
 },
 {
+"name": "origin_factor",
+"type": "STRING"
+},
+{
 "name": "window_days",
 "type": "INT64"
 },
@@ -11888,6 +11921,10 @@
 "columns": [
 {
 "name": "location_id",
+"type": "STRING"
+},
+{
+"name": "origin_factor",
 "type": "STRING"
 },
 {
@@ -26564,6 +26601,10 @@
 },
 {
 "name": "origin_driver",
+"type": "STRING"
+},
+{
+"name": "origin_factor",
 "type": "STRING"
 },
 {

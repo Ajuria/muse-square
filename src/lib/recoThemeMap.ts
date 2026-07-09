@@ -71,6 +71,13 @@ const ACTION_TYPE_TO_THEME: Record<string, string> = (() => {
   return m;
 })();
 
+// action_type -> its theme (meteo / mobilite / tourisme / calendrier / concurrence …). The theme is
+// the granularity a card reliably carries, so it is what a commitment stores as `origin_factor`
+// (Engine-1 A↔B bridge). Returns null for uncovered action_types.
+export function themeForActionType(actionType: string | null | undefined): string | null {
+  return (actionType && ACTION_TYPE_TO_THEME[actionType]) || null;
+}
+
 // Drop candidates whose action_type belongs to a disabled theme.
 // Uncovered action_types (not in any theme) always pass.
 export function filterDisabledThemes<T extends { action_type?: string | null }>(
