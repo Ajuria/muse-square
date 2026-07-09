@@ -9,6 +9,8 @@
 - Repo: git@github.com:Ajuria/muse-square.git, branch: `dev`
 
 ## Code Discipline
+- SINGLE SOURCE OF TRUTH (code): `docs/module-index.md` maps every endpoint, lib, script and surface. Before creating ANY new API route, lib module, or client script, grep it for the capability (`sales`, `competitor`, `commitment`, `sensitivity`, …) and extend the existing file instead of duplicating. When you change a file's handlers or data sources, update its row in the same commit.
+- SINGLE SOURCE OF TRUTH (data): `docs/data-model-index.md` maps every dbt model (grain, lineage, columns) + the live BQ catalog (`docs/bq-catalog.json`). Before creating a new dbt model or writing a query, grep it so you don't fork an existing mart/view. The BQ catalog is a SNAPSHOT — still re-verify exact columns live via `bq-verify` before querying (incremental models drop new columns without `--full-refresh`).
 - Before writing ANY column name, table name, or field reference, verify it exists in the codebase or schema. Zero tolerance for guessing.
 - Read files before writing. State field mappings before coding.
 - One function per message/commit — no sprawling multi-function changes.
@@ -39,6 +41,12 @@
 - Browser console testing between each step.
 - Design tokens in `src/styles/design-tokens.css`. Brand blue: `--color-brand-blue: #0b37e5`. Data blue: `#1D3BB3`. Severity = alerts color.
 - Dividers: `ms-divider my-[6px] sm:my-[8px] lg:my-[12px]`.
+
+## Localization (France — non-negotiable)
+- The product is French, based in France. ALL user-facing dates render `JJ/MM/AAAA` (day/month/year) — NEVER US `YYYY-MM-DD` or `MM/DD/YYYY`. Keep ISO `Y-m-d` only as the internal/API value (store it in `data-iso` or a hidden field); display the French form.
+- Numbers/currency: French formatting (comma decimal, € after the number) via the existing `frDec`/`frInt` helpers — never raw JS `toString()`.
+- No US-centric defaults anywhere in user-facing copy or inputs.
+- Do NOT depend on a CDN for formatting/UX libs (flatpickr, Leaflet, etc.) — CDNs fail under VPN/CSP and silently fall back to broken output. Self-host the lib (Leaflet is already self-hosted) OR make the feature work without it. A date/format fix that only works when a CDN loads is not a fix.
 
 ## Communication Style
 - Be direct. No options or rationale unless explicitly asked.
