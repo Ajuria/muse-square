@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/block-git-add-all.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking git add scope"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/bq-guard.py\"",
+            "timeout": 10,
+            "statusMessage": "Verifying BigQuery references"
+          }
+        ]
+      }
+    ]
+  }
+}

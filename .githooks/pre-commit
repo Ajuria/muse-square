@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Freshness gate for the SINGLE-SOURCE-OF-TRUTH index (docs/module-index.md).
+# If a commit ADDS or DELETES an indexed code file (endpoint / lib / script /
+# static client JS) without also staging docs/module-index.md, the index has
+# drifted — block. Modified-only files get a soft reminder (non-blocking).
+# Bypass a genuine false positive with:  git commit --no-verify
+#
+# Enable per clone:  git config core.hooksPath .githooks
+set -uo pipefail
+
+staged_status=$(git diff --cached --name-status 2>/dev/null) || exit 0
+[ -z "$staged_status" ] && exit 0
+
+# Files whose existence/handlers the index tracks.
+INDEXED='^(src/pages/api/|src/lib/|src/scripts/).*\.(ts|tsx|js|cjs|mjs)$|^public/(scripts/)?[^/]+\.js$'
+INDEX='docs/module-index.md'
+
+index_staged=$(printf '%s\n' "$staged_status" | awk '{print $2}' | grep -qx "$INDEX" && echo yes || echo no)
+
+# Added (A) or deleted (D) indexed files → index MUST change.
+newdel=$(printf '%s\n' "$staged_status" | awk '$1 ~ /^[AD]/ {print $2}' | grep -E "$INDEXED" || true)
+# Modified (M/R) indexed files → data sources may have changed → remind.
+modified=$(printf '%s\n' "$staged_status" | awk '$1 ~ /^[MR]/ {print $2}' | grep -E "$INDEXED" || true)
+
+if [ -n "$newdel" ] && [ "$index_staged" = no ]; then
+  {
+    echo "✗ Commit blocked: an endpoint/lib/script/client-JS file was added or removed,"
+    echo "  but docs/module-index.md is not staged — the index would drift from the code."
+    echo "  Added/removed:"
+    printf '    %s\n' $newdel
+    echo "  → Update docs/module-index.md (add/remove the row) and stage it, then re-commit."
+    echo "  → If this genuinely needs no index change:  git commit --no-verify"
+  } >&2
+  exit 1
+fi
+
+if [ -n "$modified" ] && [ "$index_staged" = no ]; then
+  {
+    echo "• Reminder: you changed indexed code without touching docs/module-index.md."
+    echo "  If a handler or data source changed, update its row (this is a warning, not a block):"
+    printf '    %s\n' $modified
+  } >&2
+fi
+exit 0
