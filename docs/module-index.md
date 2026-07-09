@@ -96,7 +96,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `commitments/disposition.ts` | POST | Update disposition (fait/pas_encore) + note | `analytics.action_commitments` |
 | `commitments/edit.ts` | POST | Edit committed action text + owner | `analytics.action_commitments` |
 | `commitments/evolution.ts` | GET | Day-grain revenue/context/residual series for commitment window | `mart.fct_client_day_residual`, `…location_context_features_daily` |
-| `commitments/index.ts` | GET/POST/DELETE | List / create / soft-cancel commitments | `analytics.action_commitments` |
+| `commitments/index.ts` | GET/POST/DELETE | List / create / soft-cancel commitments. Captures `origin_factor` (env factor the card was about — Engine-1 A↔B bridge, advisory, non-gating) | `analytics.action_commitments` |
 | `commitments/retro.ts` | POST | Record post-resolution reflection | `analytics.action_commitments` |
 
 ### `analytics/` — logging, drafts, admin metrics
@@ -189,7 +189,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Module | Key exports | Purpose | Data source |
 |---|---|---|---|
-| `actionCommitments.ts` | `readLatestSnapshot`, `readMergeWrite`, `assertTermsPresent` | Read-merge-write core for commitments (CAS-retry) | `analytics.action_commitments` |
+| `actionCommitments.ts` | `readLatestSnapshot`, `readMergeWrite`, `assertTermsPresent` | Read-merge-write core for commitments (CAS-retry). `COLUMN_SPEC` includes `origin_factor` (Engine-1 A↔B bridge) — drives INSERT column list + typed nulls | `analytics.action_commitments` |
 | `admins.ts` | `ADMIN_USER_IDS`, `isAdmin` | Admin allowlist + checker | none |
 | `bq.ts` | `makeBQClient` | BigQuery client factory (SA key / keyfile) | client setup |
 | `dbt-trigger.ts` | `triggerDbtJobs`, `triggerSalesRefresh` | Fire-and-forget dbt Cloud job triggers | dbt Cloud API |

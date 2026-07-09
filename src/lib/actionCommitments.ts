@@ -40,6 +40,7 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["origin_kind", "STRING"],
   ["origin_action_type", "STRING"],
   ["origin_driver", "STRING"],
+  ["origin_factor", "STRING"],
   ["origin_suppression_key", "STRING"],
   ["origin_card_instance_id", "STRING"],
   ["origin_affected_date", "DATE"],
@@ -94,6 +95,7 @@ export interface CommitmentRow {
   origin_kind: string | null;
   origin_action_type: string | null;
   origin_driver: string | null;
+  origin_factor: string | null;      // environmental factor the card was about (heat, rain…) — Engine-1 A↔B bridge
   origin_suppression_key: string | null;
   origin_card_instance_id: string | null;
   origin_affected_date: string | null;   // 'YYYY-MM-DD'
