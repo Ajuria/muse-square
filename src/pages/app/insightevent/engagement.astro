@@ -205,6 +205,11 @@ const id = Astro.url.searchParams.get("id") || "";
             + '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">'+contextRows(ctx)+'</div>'
             + '<div style="font-size:11px;color:#9ca3af;margin-top:7px;">'+esc(t("q2_caveat"))+'</div></div>';
 
+          // ── A+B synthesis — "Comment votre lieu réagit" (today-conditional; async-filled
+          //    below via loadReactions → /api/insight/reactions-today). Hidden until it has
+          //    content (empty store → stays hidden). Same accessor + endpoint as insight. ──
+          var qReactions = '<div class="eg-sec" id="eng-reactions-section" style="display:none;"><div class="eg-uc">Comment votre lieu réagit</div><div id="eng-reactions-zone"></div></div>';
+
           // ── ③ advice — omitted entirely when no rule fires (never "rien à tenter";
           //    on an open commitment there is nothing to prescribe yet) ──
           var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">'+esc(t("q3_title"))+'</div>'+adviceHtml(advice)+'</div>' : "";
@@ -218,11 +223,44 @@ const id = Astro.url.searchParams.get("id") || "";
           var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">'+esc(t("sources_title"))+'</div>'
             + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">'+srcRows.map(function (s) { return '<div>· '+esc(s)+'</div>'; }).join("")+'</div></div>';
 
-          docEl.innerHTML = head + q1 + q2 + q3 + q4 + sources;
+          docEl.innerHTML = head + q1 + q2 + qReactions + q3 + q4 + sources;
           docEl.style.display = "block";
           statusEl.style.display = "none";
           wireAdvice(cm, advice);
           wireCapture(cm, open);
+          var _rz = document.getElementById('eng-reactions-zone');
+          if (_rz) loadReactions(cm.location_id, new Date().toISOString().slice(0,10), _rz);
+        }
+
+        // Type B × Type A synthesis — reads /api/insight/reactions-today (one accessor, no
+        // re-derivation). Two labeled registers, never merged; move only on a real track record.
+        function loadReactions(locId, date, container) {
+          var section = document.getElementById('eng-reactions-section');
+          var src = new URLSearchParams(location.search).get('src');
+          var url = '/api/insight/reactions-today?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date) + (src ? '&src=' + encodeURIComponent(src) : '');
+          fetch(url, { headers: { accept: 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (!d || !d.ok || d.empty || !d.factors || !d.factors.length) { if (section) section.style.display = 'none'; return; }
+              var acts = d.factors.filter(function (f) { return f.action; });
+              var moves = d.factors.filter(function (f) { return f.move; });
+              var html = '';
+              for (var i = 0; i < d.factors.length; i++) {
+                html += '<div style="margin-bottom:9px;line-height:1.5;font-size:13px;color:#4a4d5e;">' + esc(d.factors[i].env) + '</div>';
+              }
+              if (acts.length) {
+                html += '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin:14px 0 8px;">Ce qui a marché pour vous</div>';
+                for (var j = 0; j < acts.length; j++) {
+                  html += '<div style="font-size:13px;color:#4a4d5e;margin-bottom:8px;line-height:1.5;">' + esc(acts[j].action) + '</div>';
+                }
+              }
+              for (var k = 0; k < moves.length; k++) {
+                html += '<div style="display:flex;gap:8px;align-items:flex-start;background:#eef2ff;border:1px solid #d6ddfb;border-radius:9px;padding:10px 12px;margin-top:12px;font-size:13px;line-height:1.5;color:#2f3aa3;"><span style="font-weight:700;">→</span><span>' + esc(moves[k].move) + '</span></div>';
+              }
+              container.innerHTML = html;
+              if (section) section.style.display = '';
+            })
+            .catch(function () { if (section) section.style.display = 'none'; });
         }
 
         // ── ④ capture markup ──
