@@ -5,7 +5,7 @@
 // Context queries are LIFTED from sales-report.ts (range-based, BETWEEN @s AND @e)
 // so named context stays consistent with the report — Météo-France/OpenAgenda/INSEE.
 
-import { assembleDayContext } from "./dayContext";
+import { getActionRollup } from "./dayContext";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -93,11 +93,11 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
       query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id=@loc AND date <= @asof`,
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
-    // Type A action_type track record — from the ONE brain (never the outcomes mart directly). The
-    // brain reads the pre-explode commitment-grain outcomes (COUNTIF, no double-count); we pull the
-    // rollup for THIS action_type. Factor-less commitments still count (they only drop from the
-    // factor-level learning); Tier-4 is the factor view. min-N gate below mirrors has_sufficient_sample.
-    assembleDayContext(bq, loc, asOfDate).then((dc) => dc.actionTrackByType).catch(() => ({} as Record<string, { beat: number; done: number }>)),
+    // Type A action_type track record — via the brain's scoped sub-accessor (the ONE outcomes read,
+    // pre-explode commitment-grain, no double-count). Not the full assemble — évolution ③ only needs
+    // the rollup. Factor-less commitments still count (they only drop from the factor-level learning);
+    // Tier-4 is the factor view. min-N gate below mirrors has_sufficient_sample.
+    getActionRollup(bq, loc).catch(() => ({} as Record<string, { beat: number; done: number }>)),
   ]);
 
   const nr = (normRows?.[0] || [])[0];

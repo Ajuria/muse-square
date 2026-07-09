@@ -8,6 +8,7 @@
 
 import { formatDisruption } from './contextCopy';
 import { getSensitivities, type Sensitivity } from './sensitivityStore';
+import { envTodayLine, decompositionLine } from './sensitivityCopy';
 import featureRegistry from './sensitivityFeatures.json';
 
 const PROJECT = 'muse-square-open-data';
@@ -53,6 +54,27 @@ export async function foreignVisitorsRange(bq: any, loc: string, start: string, 
   return (rows || []).map((f: any) => flatVal(f.country));
 }
 
+// Scoped sub-accessor — the ONE action_type-rollup read (pre-explode commitment-grain outcomes, no
+// double-count). Used inside the brain AND by évolution ③ so it stops paying for a full assemble;
+// same composition, never a parallel read path.
+export async function getActionRollup(bq: any, loc: string): Promise<Record<string, { beat: number; done: number }>> {
+  const [orows] = await bq.query({
+    query: `SELECT action_type, COUNTIF(beat) AS beat, COUNTIF(NOT is_confounded) AS done ` +
+      `FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\` WHERE location_id=@loc AND source='commitment' GROUP BY 1`,
+    params: { loc }, location: 'EU',
+  }).catch(() => [[]] as any[]);
+  const out: Record<string, { beat: number; done: number }> = {};
+  (orows || []).forEach((r: any) => { out[flatVal(r.action_type)] = { beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }; });
+  return out;
+}
+
+// Engine 1 × Engine 2 decomposition — an OBSERVED DIFFERENCE, computed once in the brain, claim-typed.
+// context_effect = the no-action subset of factor-days (verified: action days stay OUT of the baseline).
+export interface DecompositionRecord {
+  factor: string; context_effect: number; action_delta: number; net: number; n: number;
+  tier: string; claim_type: 'observed_difference'; cite_fr: string;
+}
+
 export interface DayContextFact { fact_text: string | null; fact_data: Record<string, any>; source: string }
 export interface DayCompetitor {
   competitor_id: string; name: string; distance_km: number | null; threat_level: string | null;
@@ -72,7 +94,9 @@ export interface DayContext {
   sensitivities: SensitivityToday[];                                  // Engine 2 (measured); filter active_today as needed
   actionTrackByFactor: CommitmentFactorTrack[];                       // Engine 1 factor-level (Tier 4), from the dbt learning mart
   actionTrackByType: Record<string, { beat: number; done: number }>; // Engine 1 action_type-level (évolution ③), pre-explode outcomes
-  impacts: Record<string, number>;                                    // Tier-2 estimation priors (delta_att_*) keyed by factor (non-zero only)
+  impacts: Record<string, number>;                                    // Tier-2 estimation priors (delta_att_*) keyed by factor — SUPPRESS-IN-2 applied (measured factors dropped)
+  decomposition: DecompositionRecord[];                               // Engine 1 × Engine 2, pre-computed + claim-typed
+  llm: { citable_facts: string[]; forbidden: string[] };              // the LLM contract: only sayable strings + the envelope
 }
 
 // Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
@@ -203,25 +227,69 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     .map((r: any) => ({ factor: flatVal(r.factor), action_type: flatVal(r.action_type), beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }))
     .filter((x: CommitmentFactorTrack) => x.factor);
 
-  // Engine 1 action_type-level (évolution ③) — pre-explode commitment-grain outcomes (no double-count).
-  const actionTrackByType: Record<string, { beat: number; done: number }> = {};
-  if (!opts.devSeed) {
-    const [orows] = await bq.query({
-      query: `SELECT action_type, COUNTIF(beat) AS beat, COUNTIF(NOT is_confounded) AS done ` +
-        `FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\` WHERE location_id=@loc AND source='commitment' GROUP BY 1`,
-      params: { loc }, location: 'EU',
-    }).catch(() => [[]] as any[]);
-    (orows || []).forEach((r: any) => { actionTrackByType[flatVal(r.action_type)] = { beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }; });
-  }
+  // Engine 1 action_type-level (évolution ③) — via the ONE sub-accessor (pre-explode outcomes).
+  const actionTrackByType = opts.devSeed ? {} : await getActionRollup(bq, loc);
 
-  // Tier-2 estimation priors (delta_att) — folded in so consumers never read opportunity_components directly.
+  // Tier-2 estimation priors (delta_att) — folded in, with SUPPRESS-IN-2 applied HERE (measured
+  // supersedes the estimated prior per venue×factor), so the payload ships reconciled: no factor in
+  // both `sensitivities` (measured) and `impacts` (estimated). Consumers never re-suppress.
+  const measuredFeatures = new Set(sensitivities.map((s) => s.feature));
   const t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
   const impacts: Record<string, number> = {};
   if (!opts.devSeed && t2feats.length) {
     const cols = [...new Set(t2feats.map((f) => f.impact_col as string))];
     const r = await one(`SELECT ${cols.join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
-    t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0) impacts[f.key] = v; });
+    t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0 && !measuredFeatures.has(f.key)) impacts[f.key] = v; });
   }
+
+  // Engine 1 × Engine 2 decomposition — computed ONCE, claim-typed 'observed_difference'. For each
+  // fittable factor: context_effect = mean residual on NO-ACTION factor-days (verified baseline),
+  // net = mean residual on ACTION factor-days (any resolved+done commitment window), action_delta =
+  // net − context_effect. Directional/préliminaire at current N; never a proven %.
+  const decomposition: DecompositionRecord[] = [];
+  if (!opts.devSeed) {
+    const fitFactors = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
+      .filter((f) => f.fittable && f.predicate && f.predicate !== 'FALSE');
+    const sel = fitFactors.map((f, i) =>
+      `AVG(IF((${f.predicate}) AND date NOT IN (SELECT d FROM ad), residual_pct, NULL)) AS ctx_${i}, ` +
+      `AVG(IF((${f.predicate}) AND date IN (SELECT d FROM ad), residual_pct, NULL)) AS net_${i}, ` +
+      `COUNTIF((${f.predicate}) AND date IN (SELECT d FROM ad)) AS n_${i}`).join(', ');
+    const [drows] = await bq.query({
+      query:
+        `WITH ad AS (SELECT DISTINCT d FROM \`${PROJECT}.analytics.action_commitments\` ac, UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
+        `WHERE ac.location_id=@loc AND ac.status='resolved' AND ac.action_done_status='fait'), ` +
+        `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
+        `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc) ` +
+        `SELECT ${sel} FROM resid`,
+      params: { loc }, location: 'EU',
+    }).catch(() => [[{}]] as any[]);
+    const dr = (drows || [])[0] || {};
+    const DECOMP_MIN_N = 10; // min action-days to surface a decomposition (honest-absence below it;
+                             // days autocorrelate so this stays préliminaire — never a proven %).
+    fitFactors.forEach((f, i) => {
+      const n = Number(flatVal(dr[`n_${i}`])) || 0;
+      if (n < DECOMP_MIN_N) return;
+      const ctx = +(Number(flatVal(dr[`ctx_${i}`])) || 0).toFixed(2);
+      const net = +(Number(flatVal(dr[`net_${i}`])) || 0).toFixed(2);
+      const action_delta = +(net - ctx).toFixed(2);
+      decomposition.push({ factor: f.key, context_effect: ctx, action_delta, net, n, tier: 'preliminaire', claim_type: 'observed_difference', cite_fr: decompositionLine({ factor: f.key, action_delta, n }) });
+    });
+  }
+
+  // The LLM contract — the sayable universe. citable_facts = canonical strings the LLM uses verbatim
+  // or stays within (measured Engine-2 lines + decomposition lines). forbidden = the envelope.
+  const llm = {
+    citable_facts: [
+      ...sensitivities.filter((s) => s.active_today).map((s) => envTodayLine(s)),
+      ...decomposition.map((d) => d.cite_fr),
+    ],
+    forbidden: [
+      'Ne calcule, n’agrège ni ne réconcilie aucun nombre : cite uniquement les champs du payload.',
+      'Ne modifie aucun tier (préliminaire reste préliminaire ; ne dis jamais « prouvé »).',
+      'Aucune causalité au-delà de claim_type : « observed_difference » = écart observé, jamais « a généré / a causé ».',
+      'N’invente aucun facteur, chiffre ou concurrent absent du payload ; à défaut, dis « pas encore assez de recul ».',
+    ],
+  };
 
   const wHead = flatVal(weatherHead.headline_fr);
   return {
@@ -232,6 +300,6 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
     foreign, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
     competitors,
-    sensitivities, actionTrackByFactor, actionTrackByType, impacts,
+    sensitivities, actionTrackByFactor, actionTrackByType, impacts, decomposition, llm,
   };
 }

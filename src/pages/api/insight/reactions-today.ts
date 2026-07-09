@@ -35,7 +35,6 @@ function assembleTiers(dc: DayContext, devSeed: boolean) {
     display: envTodayLine(s), // owner copy (sensitivityCopy)
     provenance: 'mesure', source: 'analytics.b_sensitivity_store',
   }));
-  const measuredFeatures = new Set(dc.sensitivities.map((s) => s.feature)); // suppress-in-2 (per venue × factor)
   const summary = { takeaway: dc.takeaway, driver: dc.driver };
 
   // Tier 2 — Estimation (delta_att prior from the brain + the app's existing French fact). Never a
@@ -47,8 +46,7 @@ function assembleTiers(dc: DayContext, devSeed: boolean) {
         : key === 'calendar' ? dc.calendar
           : key === 'events' ? eventsFact
             : { fact_text: null, fact_data: {}, source: IMPACT_TABLE };
-  const estimation = Object.entries(dc.impacts)
-    .filter(([f]) => !measuredFeatures.has(f))
+  const estimation = Object.entries(dc.impacts) // already suppress-in-2'd by the brain
     .map(([f, v]) => {
       const fact = factOf(f);
       return {

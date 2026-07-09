@@ -84,3 +84,13 @@ export function trackRecordQualifies(a: TrackRecord): boolean {
 export function citeSensitivity(s: Sensitivity): string {
   return `${FEATURE_FR[s.feature] || s.feature} : les jours comme aujourd'hui, CA ~${pctInt(s)} % ${higherLower(s)} que d'habitude — ${sampleFr(s)}.`;
 }
+
+// Engine 1 × Engine 2 decomposition — an OBSERVED DIFFERENCE, never a proven cause. The line states
+// the gap between action-days and no-action-days on this factor; it NEVER says "your action generated".
+export interface DecompositionCite { factor: string; action_delta: number; n: number }
+export function decompositionLine(d: DecompositionCite): string {
+  const pts = Math.round(Math.abs(d.action_delta));
+  const dir = d.action_delta >= 0 ? "au-dessus" : "en-dessous";
+  const feat = de((FEATURE_FR[d.factor] || d.factor).toLowerCase());
+  return `Les jours ${feat} où vous avez agi, vous étiez ${d.action_delta >= 0 ? "+" : "−"}${pts} pts ${dir} de vos journées ${feat} sans action (${d.n} jours, à confirmer).`;
+}
