@@ -12,6 +12,8 @@ export const CONTEXT_FALLBACK_FR: Record<string, string> = {
   mobility_disruption: "Trafic dense aujourd'hui — accès au lieu perturbé",
   events: "Événements à proximité cette semaine",
   concurrence_competitor: "Concurrent à {distance} · {nom}",
+  commercial_event: "Période commerciale : {nom}",                       // observed presence (soldes/foire)
+  foreign_origins: "Visiteurs étrangers possibles (jours fériés / vacances) : {pays}", // observed presence
 };
 
 // Tier headings (verbatim from the four-tier spec) + chip labels + the honest-empty state.
@@ -37,6 +39,16 @@ export function formatDisruption(p: { title?: string | null; line?: string | nul
   else if (p.stop_name) bits.push(String(p.stop_name));
   if (p.delay_minutes != null && p.delay_minutes > 0) bits.push(`+${p.delay_minutes} min`);
   if (p.severity) bits.push(`sévérité ${String(p.severity).toLowerCase()}`);
+  return bits.length ? `${head} — ${bits.join(', ')}` : head;
+}
+
+// Compose the ACUTE weather fact (operational trigger — distinct register from the measured heat
+// sensitivity, never merged). Level + apparent temp + strong gusts. Owner-final wording.
+export function formatWeatherAlert(p: { level: number | null; apparent_temp_max: number | null; wind_gusts: number | null }): string {
+  const bits: string[] = [];
+  if (p.apparent_temp_max != null) bits.push(`${Math.round(p.apparent_temp_max)} °C ressenti`);
+  if (p.wind_gusts != null && p.wind_gusts >= 60) bits.push(`rafales ${Math.round(p.wind_gusts)} km/h`);
+  const head = p.level != null ? `Alerte météo niveau ${p.level} aujourd'hui` : "Conditions météo marquées aujourd'hui";
   return bits.length ? `${head} — ${bits.join(', ')}` : head;
 }
 

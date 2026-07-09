@@ -6,7 +6,7 @@
 // docs/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
 // structured data for owner copy); it authors NO French of its own.
 
-import { formatDisruption, fillContextFallback } from './contextCopy';
+import { formatDisruption, fillContextFallback, formatWeatherAlert } from './contextCopy';
 import { getSensitivities, type Sensitivity } from './sensitivityStore';
 import { envTodayLine, decompositionLine } from './sensitivityCopy';
 import featureRegistry from './sensitivityFeatures.json';
@@ -100,7 +100,9 @@ export interface DayContext {
   weather: DayContextFact; mobility: DayContextFact; calendar: DayContextFact;
   events: Array<{ event_label: string; distance_m: number | null; event_start_date: string | null }>;
   tourism: { status: string | null; peak: boolean };
-  foreign: string[]; takeaway: string | null; driver: string | null;
+  foreign: string[]; takeaway: string | null; driver: string | null; // foreign = deduped union (school ∪ public holiday origins)
+  commercial_events: string[];                                        // named soldes/foires today (deduped vs named events)
+  weather_alert: { level: number; apparent_temp_max: number | null; wind_gusts: number | null } | null; // acute/operational register
   competitors: DayCompetitor[];
   // Engines + context tiers folded into the brain — consumers read these from the payload, never from
   // the store / learning / opportunity marts.
@@ -112,7 +114,7 @@ export interface DayContext {
   decomposition: DecompositionRecord[];                               // Engine 1 × Engine 2, pre-computed + claim-typed
   // the LLM contract: every citable fact carries its claim_type; driver is a salience RANKING (not a cause).
   llm: {
-    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' }>;
+    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' }>;
     driver: { value: string | null; claim_type: 'observed_ranking' };
     forbidden: string[];
   };
@@ -128,7 +130,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     return (rows || [])[0] || {};
   };
 
-  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow] = await Promise.all([
+  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows] = await Promise.all([
     // day_surface — the mart's own French facts + "what's driving today"
     one(`SELECT key_takeaway, primary_score_driver_label AS driver, audience_availability_label AS cal_label,
            holiday_name, vacation_name
@@ -166,6 +168,15 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
            besttime_rating, besttime_dwell_time_min, besttime_dwell_time_max, top_item_description, top_item_revenue_share,
            business_short_description
          FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`, { loc }),
+    // commercial events (region annotations) for today — named soldes/foires (observed presence)
+    (async () => { const [r] = await bq.query({ query: `SELECT ev.event_name AS name FROM \`${PROJECT}.mart.fct_region_day_annotations_daily\` a JOIN \`${PROJECT}.dims.dim_client_location\` dl ON dl.region_name=a.region_name CROSS JOIN UNNEST(a.commercial_events) ev WHERE dl.location_id=@loc AND a.date=@d`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
+    // acute weather (operational trigger) — alert level + apparent temp + gusts. Distinct register.
+    one(`SELECT al.alert_level_max AS level, f.apparent_temperature_max AS atemp, f.wind_gusts_10m_max AS gusts
+         FROM \`${PROJECT}.mart.fct_location_weather_alerts_daily\` al
+         LEFT JOIN \`${PROJECT}.mart.fct_location_weather_forecast_daily_detail\` f ON f.location_id=al.location_id AND f.date=al.date
+         WHERE al.location_id=@loc AND al.date=@d LIMIT 1`, { loc, d }),
+    // public-holiday foreign origins today (union+dedup with the school-holiday origins below)
+    (async () => { const [r] = await bq.query({ query: `SELECT c.country_name_en AS country FROM \`${PROJECT}.mart.fct_foreign_tourism_context_daily\` t, UNNEST(t.countries_on_public_holiday) c WHERE t.date=@d AND c.country_name_en IN UNNEST(@tc)`, params: { d, tc: TOURIST_COUNTRIES }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
   ]);
 
   // Top-3 followed competitors, proximity-aware (threat_score is NOT distance-weighted), + rating/enriched.
@@ -306,14 +317,31 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     });
   }
 
+  // Reservoir facts (observed, claim-typed, honest-absent when empty):
+  // commercial events (soldes/foires) — deduped against the named topn events so a foire never shows twice.
+  const topnNames = new Set((events || []).map((e: any) => String(flatVal(e.label) ?? '').toLowerCase()));
+  const commercial_events = [...new Set((commRows || []).map((r: any) => flatVal(r.name)).filter(Boolean) as string[])]
+    .filter((n) => !topnNames.has(String(n).toLowerCase()));
+  // acute weather — operational trigger, only for a meaningful alert (>=3). DISTINCT register from the
+  // measured heat sensitivity; NOT suppress-in-2'd against it (complementary, not two heat numbers).
+  const wLevel = weatherAcute.level == null ? null : Number(flatVal(weatherAcute.level));
+  const weather_alert = (wLevel != null && wLevel >= 3)
+    ? { level: wLevel, apparent_temp_max: weatherAcute.atemp == null ? null : Number(flatVal(weatherAcute.atemp)), wind_gusts: weatherAcute.gusts == null ? null : Number(flatVal(weatherAcute.gusts)) }
+    : null;
+  // foreign origins — deduped UNION of school-holiday (foreign) + public-holiday origins.
+  const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])];
+
   // The LLM contract — the sayable universe. EVERY citable fact carries its claim_type so the model
   // can never upgrade an observed fact into a cause. Context facts are observed (proximity/presence/
-  // ranking), never causal; the only causal-SHAPED statement allowed is a decomposition observed_difference.
+  // acute/ranking), never causal; the only causal-SHAPED statement allowed is a decomposition observed_difference.
   const llm = {
     citable_facts: [
       ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const })),
       ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const })),
       ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const })),
+      ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const })),
+      ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const }] : []),
+      ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const }] : []),
     ],
     driver: { value: flatVal(surface.driver) ?? null, claim_type: 'observed_ranking' as const }, // salience, NOT a cause
     forbidden: [
@@ -322,6 +350,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
       'AUCUN verbe causal sur AUCUN fait — y compris driver, concurrents, tourisme : jamais « a pesé / a causé / a fait baisser / a réduit / a généré la fréquentation ». Un concurrent proche = fait de proximité, pas d’impact ; le driver = classement de saillance, pas une cause ; le tourisme = présence observée.',
       'Le SEUL énoncé de forme causale autorisé est un « observed_difference » de la décomposition, formulé comme un écart observé (jamais « votre action a généré »).',
       'profile.declared_weather_sensitivity / seasonality sont des attributs DÉCLARÉS du lieu, jamais l’effet mesuré : la vérité est la sensibilité mesurée (Engine 2). Ne les présente pas comme un effet observé sur le CA.',
+      'profile.activity_type / location_type / event_types sont des descripteurs DÉCLARÉS, PEU FIABLES (souvent génériques ou erronés) : ne produis jamais de conseil au mauvais vertical à partir d’eux. La justesse verticale vient des concurrents nommés, pas du profil.',
       'N’invente aucun facteur, chiffre ou concurrent absent du payload ; à défaut, dis « pas encore assez de recul ».',
     ],
   };
@@ -347,7 +376,8 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     calendar: { fact_text: flatVal(surface.cal_label) ?? null, fact_data: { vacation_name: flatVal(surface.vacation_name) ?? null, holiday_name: flatVal(surface.holiday_name) ?? null }, source: 'semantic.vw_insight_event_day_surface' },
     events: (events || []).map((e: any) => ({ event_label: flatVal(e.label), distance_m: e.dist == null ? null : Number(flatVal(e.dist)), event_start_date: flatVal(e.start_date) })),
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
-    foreign, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
+    foreign: foreignUnion, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
+    commercial_events, weather_alert,
     competitors, profile,
     sensitivities, actionTrackByFactor, actionTrackByType, impacts, decomposition, llm,
   };
