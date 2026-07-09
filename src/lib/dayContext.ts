@@ -6,13 +6,15 @@
 // docs/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
 // structured data for owner copy); it authors NO French of its own.
 
-import { formatDisruption } from './contextCopy';
+import { formatDisruption, fillContextFallback } from './contextCopy';
 import { getSensitivities, type Sensitivity } from './sensitivityStore';
 import { envTodayLine, decompositionLine } from './sensitivityCopy';
 import featureRegistry from './sensitivityFeatures.json';
 
 const PROJECT = 'muse-square-open-data';
 export const flatVal = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);
+// French distance (comma decimal). Formatting, not copy.
+const frKmFmt = (km: number | null): string => km == null ? '' : (km < 10 ? String(Math.round(km * 10) / 10).replace('.', ',') : String(Math.round(km))) + ' km';
 
 // Curated tourist-origin countries (moved here from sales-report so both share one list).
 export const TOURIST_COUNTRIES = [
@@ -75,6 +77,17 @@ export interface DecompositionRecord {
   tier: string; claim_type: 'observed_difference'; cite_fr: string;
 }
 
+// Static per-location venue profile ("user context"). Declared attributes — declared_weather_sensitivity
+// / seasonality are the venue's PROFILE, NEVER the measured Engine-2 effect (the learned engine is truth).
+export interface VenueProfile {
+  activity_type: string | null; location_type: string | null; audience: string[];
+  capacity_sensitivity: string | null; declared_weather_sensitivity: number | null; seasonality: string | null;
+  operating_hours: string | null; venue_capacity: number | null; event_types: string[];
+  besttime: { rating: number | null; dwell_min: number | null; dwell_max: number | null };
+  top_item: { description: string | null; revenue_share: number | null };
+  business_description: string | null;
+}
+
 export interface DayContextFact { fact_text: string | null; fact_data: Record<string, any>; source: string }
 export interface DayCompetitor {
   competitor_id: string; name: string; distance_km: number | null; threat_level: string | null;
@@ -95,8 +108,14 @@ export interface DayContext {
   actionTrackByFactor: CommitmentFactorTrack[];                       // Engine 1 factor-level (Tier 4), from the dbt learning mart
   actionTrackByType: Record<string, { beat: number; done: number }>; // Engine 1 action_type-level (évolution ③), pre-explode outcomes
   impacts: Record<string, number>;                                    // Tier-2 estimation priors (delta_att_*) keyed by factor — SUPPRESS-IN-2 applied (measured factors dropped)
+  profile: VenueProfile;                                              // static per-location venue profile (user context)
   decomposition: DecompositionRecord[];                               // Engine 1 × Engine 2, pre-computed + claim-typed
-  llm: { citable_facts: string[]; forbidden: string[] };              // the LLM contract: only sayable strings + the envelope
+  // the LLM contract: every citable fact carries its claim_type; driver is a salience RANKING (not a cause).
+  llm: {
+    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' }>;
+    driver: { value: string | null; claim_type: 'observed_ranking' };
+    forbidden: string[];
+  };
 }
 
 // Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
@@ -109,7 +128,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     return (rows || [])[0] || {};
   };
 
-  const [surface, mob, disruption, weatherHead, events, foreign, tour] = await Promise.all([
+  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow] = await Promise.all([
     // day_surface — the mart's own French facts + "what's driving today"
     one(`SELECT key_takeaway, primary_score_driver_label AS driver, audience_availability_label AS cal_label,
            holiday_name, vacation_name
@@ -140,6 +159,13 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     // tourism status
     one(`SELECT tourism_status_region AS status, COALESCE(tourism_peak_flag_region,false) AS peak
          FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
+    // venue profile — STATIC per-location "user context". Complementary, NOT a fork. Its declared
+    // weather_sensitivity/seasonality are attributes, NEVER the measured Engine-2 effect (guard below).
+    one(`SELECT company_activity_type, location_type, primary_audience_1, primary_audience_2, capacity_sensitivity,
+           weather_sensitivity, seasonality, operating_hours, venue_capacity, event_type_1, event_type_2, event_type_3,
+           besttime_rating, besttime_dwell_time_min, besttime_dwell_time_max, top_item_description, top_item_revenue_share,
+           business_short_description
+         FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`, { loc }),
   ]);
 
   // Top-3 followed competitors, proximity-aware (threat_score is NOT distance-weighted), + rating/enriched.
@@ -280,19 +306,38 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     });
   }
 
-  // The LLM contract — the sayable universe. citable_facts = canonical strings the LLM uses verbatim
-  // or stays within (measured Engine-2 lines + decomposition lines). forbidden = the envelope.
+  // The LLM contract — the sayable universe. EVERY citable fact carries its claim_type so the model
+  // can never upgrade an observed fact into a cause. Context facts are observed (proximity/presence/
+  // ranking), never causal; the only causal-SHAPED statement allowed is a decomposition observed_difference.
   const llm = {
     citable_facts: [
-      ...sensitivities.filter((s) => s.active_today).map((s) => envTodayLine(s)),
-      ...decomposition.map((d) => d.cite_fr),
+      ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const })),
+      ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const })),
+      ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const })),
     ],
+    driver: { value: flatVal(surface.driver) ?? null, claim_type: 'observed_ranking' as const }, // salience, NOT a cause
     forbidden: [
       'Ne calcule, n’agrège ni ne réconcilie aucun nombre : cite uniquement les champs du payload.',
       'Ne modifie aucun tier (préliminaire reste préliminaire ; ne dis jamais « prouvé »).',
-      'Aucune causalité au-delà de claim_type : « observed_difference » = écart observé, jamais « a généré / a causé ».',
+      'AUCUN verbe causal sur AUCUN fait — y compris driver, concurrents, tourisme : jamais « a pesé / a causé / a fait baisser / a réduit / a généré la fréquentation ». Un concurrent proche = fait de proximité, pas d’impact ; le driver = classement de saillance, pas une cause ; le tourisme = présence observée.',
+      'Le SEUL énoncé de forme causale autorisé est un « observed_difference » de la décomposition, formulé comme un écart observé (jamais « votre action a généré »).',
+      'profile.declared_weather_sensitivity / seasonality sont des attributs DÉCLARÉS du lieu, jamais l’effet mesuré : la vérité est la sensibilité mesurée (Engine 2). Ne les présente pas comme un effet observé sur le CA.',
       'N’invente aucun facteur, chiffre ou concurrent absent du payload ; à défaut, dis « pas encore assez de recul ».',
     ],
+  };
+
+  const pr = profileRow || {};
+  const num = (v: any): number | null => (v == null ? null : Number(flatVal(v)));
+  const profile: VenueProfile = {
+    activity_type: flatVal(pr.company_activity_type) ?? null, location_type: flatVal(pr.location_type) ?? null,
+    audience: [flatVal(pr.primary_audience_1), flatVal(pr.primary_audience_2)].filter(Boolean) as string[],
+    capacity_sensitivity: flatVal(pr.capacity_sensitivity) ?? null,
+    declared_weather_sensitivity: num(pr.weather_sensitivity), seasonality: flatVal(pr.seasonality) ?? null,
+    operating_hours: flatVal(pr.operating_hours) ?? null, venue_capacity: num(pr.venue_capacity),
+    event_types: [flatVal(pr.event_type_1), flatVal(pr.event_type_2), flatVal(pr.event_type_3)].filter(Boolean) as string[],
+    besttime: { rating: num(pr.besttime_rating), dwell_min: num(pr.besttime_dwell_time_min), dwell_max: num(pr.besttime_dwell_time_max) },
+    top_item: { description: flatVal(pr.top_item_description) ?? null, revenue_share: num(pr.top_item_revenue_share) },
+    business_description: flatVal(pr.business_short_description) ?? null,
   };
 
   const wHead = flatVal(weatherHead.headline_fr);
@@ -303,7 +348,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     events: (events || []).map((e: any) => ({ event_label: flatVal(e.label), distance_m: e.dist == null ? null : Number(flatVal(e.dist)), event_start_date: flatVal(e.start_date) })),
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
     foreign, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
-    competitors,
+    competitors, profile,
     sensitivities, actionTrackByFactor, actionTrackByType, impacts, decomposition, llm,
   };
 }
