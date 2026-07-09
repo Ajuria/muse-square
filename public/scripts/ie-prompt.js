@@ -544,10 +544,72 @@ if (!root) {
     return false;
   }
 
+  // ── On-demand report detection ("génère le rapport de juin", "rapport semaine dernière") ──
+  function repIso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function repMonthRange(year, m0) { return [repIso(new Date(year, m0, 1)), repIso(new Date(year, m0 + 1, 0))]; }
+  var REP_MONTHS = ["janvier", "fevrier|février", "mars", "avril", "mai", "juin", "juillet", "aout|août", "septembre", "octobre", "novembre", "decembre|décembre"];
+  function parseFrPeriod(q) {
+    var s = q.toLowerCase(), now = new Date(), m;
+    if ((m = s.match(/du\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+au\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/)))
+      return [m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0"), m[6] + "-" + m[5].padStart(2, "0") + "-" + m[4].padStart(2, "0")];
+    if ((m = s.match(/du\s+(\d{4}-\d{2}-\d{2})\s+au\s+(\d{4}-\d{2}-\d{2})/))) return [m[1], m[2]];
+    if ((m = s.match(/(\d{1,3})\s+derniers?\s+jours/))) { var e = new Date(now); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - (parseInt(m[1], 10) - 1)); return [repIso(st), repIso(e)]; }
+    if (/semaine\s+(derni[eè]re|pass[eé]e)/.test(s)) { var e2 = new Date(now); e2.setDate(e2.getDate() - 1); var s2 = new Date(e2); s2.setDate(s2.getDate() - 6); return [repIso(s2), repIso(e2)]; }
+    if (/mois\s+(derni[eè]r|pass[eé])/.test(s)) return repMonthRange(now.getFullYear(), now.getMonth() - 1);
+    if (/ce\s+mois|mois\s+en\s+cours|mois-ci/.test(s)) return [repIso(new Date(now.getFullYear(), now.getMonth(), 1)), repIso(now)];
+    for (var i = 0; i < 12; i++) { if (new RegExp("\\b(" + REP_MONTHS[i] + ")\\b").test(s)) { var ym = s.match(/\b(20\d{2})\b/); return repMonthRange(ym ? parseInt(ym[1], 10) : now.getFullYear(), i); } }
+    return null;
+  }
+  function reportPeriodFromText(q) {
+    var s = q.toLowerCase();
+    if (!/\brapports?\b|\breports?\b/.test(s)) return null;
+    var genVerb = /\b(g[eéè]n[eéè]r|cr[eé]e|produi|t[eéè]l[eéè]charg|export|sor[st]\b)/.test(s);
+    var r = parseFrPeriod(q);
+    if (!r && !genVerb) return null; // "quel rapport entre X et Y" → not a report request
+    if (!r) { var e = new Date(); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - 29); r = [repIso(st), repIso(e)]; }
+    return r;
+  }
+  function navReport(period, loc) {
+    window.location.href = "/app/insightevent/rapport?start=" + encodeURIComponent(period[0]) + "&end=" + encodeURIComponent(period[1]) + (loc ? "&loc=" + encodeURIComponent(loc) : "");
+  }
+  async function startReport(period, originalText) {
+    qs("ie-prompt-empty")?.setAttribute("hidden", "true");
+    qs("ie-thread")?.removeAttribute("hidden");
+    appendMsg("user", originalText);
+    var locs = [];
+    try { var res = await fetch("/api/import/locations"); var j = await res.json().catch(function () { return null; }); if (j && j.ok && Array.isArray(j.locations)) locs = j.locations; } catch (e) {}
+    if (locs.length > 1) {
+      var rows = locs.map(function (l) {
+        return '<label class="ie-report-loc-opt" data-loc="' + escapeHtml(l.location_id) + '" data-start="' + escapeHtml(period[0]) + '" data-end="' + escapeHtml(period[1]) + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;"><span class="ie-import-radio" style="width:16px;height:16px;border-radius:50%;border:1.5px solid #9ca3af;flex-shrink:0;box-sizing:border-box;"></span><span style="font-size:14px;color:#111827;">' + escapeHtml(l.label) + '</span></label>';
+      }).join("");
+      var b = appendMsg("ai", "");
+      if (b) setBubbleHtml(b, '<div class="ie-confirm-block"><div class="ie-confirm-msg">Pour quel établissement ?</div><div style="display:flex;flex-direction:column;gap:2px;">' + rows + '</div></div>');
+    } else {
+      navReport(period, locs.length === 1 ? locs[0].location_id : null);
+    }
+  }
+  document.addEventListener("click", function (e) {
+    var opt = e.target.closest(".ie-report-loc-opt");
+    if (!opt) return;
+    e.preventDefault();
+    var block = opt.closest(".ie-confirm-block");
+    if (block) {
+      block.style.pointerEvents = "none";
+      var rr = block.querySelectorAll(".ie-import-radio");
+      for (var i = 0; i < rr.length; i++) rr[i].style.border = "1.5px solid #9ca3af";
+      var rad = opt.querySelector(".ie-import-radio");
+      if (rad) rad.style.border = "5px solid #1D3BB3";
+    }
+    navReport([opt.getAttribute("data-start"), opt.getAttribute("data-end")], opt.getAttribute("data-loc"));
+  });
+
   async function submitQuestion(overrideQ, confirmedParams) {
     const ta = qs("ie-prompt-input");
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
+
+    var __rp = reportPeriodFromText(q);
+    if (__rp) { startReport(__rp, q); return; }
 
     // Smart routing: questions → AI prompt, keywords → competitor search
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
@@ -790,8 +852,12 @@ if (!root) {
     async function submitFinder() {
       setFinderError("");
 
-      const start = document.getElementById("ie-finder-date-start")?.value ?? "";
-      const end = document.getElementById("ie-finder-date-end")?.value ?? "";
+      // Read ISO for the API: flatpickr keeps Y-m-d in .value; the CDN-fallback keeps it in
+      // data-iso (while .value shows JJ/MM/AAAA). Prefer an ISO-shaped .value, else data-iso.
+      const _dsEl = document.getElementById("ie-finder-date-start");
+      const _deEl = document.getElementById("ie-finder-date-end");
+      const start = _dsEl ? (/^\d{4}-\d{2}-\d{2}$/.test(_dsEl.value) ? _dsEl.value : (_dsEl.dataset.iso || _dsEl.value)) : "";
+      const end = _deEl ? (/^\d{4}-\d{2}-\d{2}$/.test(_deEl.value) ? _deEl.value : (_deEl.dataset.iso || _deEl.value)) : "";
       const weekday = document.getElementById("ie-finder-weekday")?.checked ?? true;
       const weekend = document.getElementById("ie-finder-weekend")?.checked ?? true;
       const exclSchool = document.getElementById("ie-finder-excl-school")?.checked ?? false;
@@ -850,8 +916,11 @@ if (!root) {
     const in30Str = in30.toISOString().slice(0, 10);
     const dsEl = document.getElementById("ie-finder-date-start");
     const deEl = document.getElementById("ie-finder-date-end");
-    if (dsEl && !dsEl.value) dsEl.value = todayStr;
-    if (deEl && !deEl.value) deEl.value = in30Str;
+    // French display (JJ/MM/AAAA) with ISO kept in data-iso for the API. This is the fallback
+    // when the flatpickr CDN fails to load (VPN/CSP) — when flatpickr IS active it owns .value
+    // (Y-m-d) and these branches skip because .value is already set.
+    if (dsEl && !dsEl.value) { dsEl.value = todayStr.split('-').reverse().join('/'); dsEl.dataset.iso = todayStr; }
+    if (deEl && !deEl.value) { deEl.value = in30Str.split('-').reverse().join('/'); deEl.dataset.iso = in30Str; }
 
     syncInputWrapHeight();
 
@@ -889,4 +958,231 @@ if (!root) {
         chipsEl.innerHTML = chips.join('');
       }
     });
+
+    // ---- Import ventes (CSV / Excel) via dépôt de fichier ----
+    (function setupCsvImport() {
+      var fileInput = document.getElementById("ie-import-file-input");
+      var attachBtn = document.getElementById("ie-import-attach");
+      var wrap = document.getElementById("ie-prompt-input-wrap");
+      var bar = document.getElementById("ie-prompt-input-bar");
+      var ta = document.getElementById("ie-prompt-input");
+      if (!fileInput) return;
+
+      var SOURCES = [
+        { id: "isavigne", label: "ISAVIGNE" },
+        { id: "tpvin", label: "TP'vin" },
+        { id: "sumup", label: "SumUp" },
+        { id: "generic", label: "Autre" }
+      ];
+      var attachedFile = null; // staged, waiting for send
+      var chipEl = null;
+      var pending = null; // flow in progress after send
+
+      function fileSvg() {
+        return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:18px;height:18px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px;flex-shrink:0;"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>';
+      }
+
+      function showChip(file) {
+        if (!chipEl) {
+          chipEl = document.createElement("div");
+          chipEl.id = "ie-import-chip";
+          chipEl.style.cssText = "margin:0 0 8px 4px;";
+          if (wrap && bar) wrap.insertBefore(chipEl, bar);
+          else if (wrap) wrap.appendChild(chipEl);
+        }
+        chipEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;max-width:100%;background:#eef1f6;border-radius:10px;padding:7px 12px;font-size:13px;color:#111827;">'
+          + '<span style="color:#1D3BB3;display:inline-flex;">' + fileSvg() + '</span>'
+          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(file.name || "fichier") + '</span>'
+          + '<button type="button" id="ie-import-chip-x" aria-label="Retirer le fichier" style="border:none;background:transparent;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;">&times;</button></span>';
+        chipEl.style.display = "block";
+        var x = document.getElementById("ie-import-chip-x");
+        if (x) x.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); removeAttachment(); });
+      }
+      function removeAttachment() {
+        attachedFile = null;
+        if (chipEl) { chipEl.innerHTML = ""; chipEl.style.display = "none"; }
+      }
+      function showChipError(msg) {
+        if (!chipEl) {
+          chipEl = document.createElement("div");
+          chipEl.id = "ie-import-chip";
+          chipEl.style.cssText = "margin:0 0 8px 4px;";
+          if (wrap && bar) wrap.insertBefore(chipEl, bar);
+          else if (wrap) wrap.appendChild(chipEl);
+        }
+        chipEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;background:#fef2f2;color:#b91c1c;border-radius:10px;padding:7px 12px;font-size:13px;">' + escapeHtml(msg) + '</span>';
+        chipEl.style.display = "block";
+      }
+      function attachFile(file) {
+        if (!file) return;
+        if (file.size > 4 * 1024 * 1024) { showChipError("Fichier trop volumineux (max 4 Mo)."); attachedFile = null; return; }
+        attachedFile = file;
+        showChip(file);
+        if (ta) ta.focus();
+      }
+
+      function revealThread() {
+        qs("ie-prompt-empty")?.setAttribute("hidden", "true");
+        qs("ie-thread")?.removeAttribute("hidden");
+      }
+      function aiBlock(html) {
+        var b = appendMsg("ai", "");
+        if (b) setBubbleHtml(b, html);
+        return b;
+      }
+      function radioRows(kind, items) {
+        var rows = "";
+        for (var i = 0; i < items.length; i++) {
+          rows += '<label class="ie-import-opt" data-kind="' + kind + '" data-id="' + escapeHtml(items[i].id) + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;">'
+            + '<span class="ie-import-radio" style="width:16px;height:16px;border-radius:50%;border:1.5px solid #9ca3af;flex-shrink:0;box-sizing:border-box;"></span>'
+            + '<span style="font-size:14px;color:#111827;">' + escapeHtml(items[i].label) + '</span></label>';
+        }
+        return '<div style="display:flex;flex-direction:column;gap:2px;">' + rows + '</div>';
+      }
+      function confirmBlock(msg, kind, items) {
+        return '<div class="ie-confirm-block"><div class="ie-confirm-msg">' + escapeHtml(msg) + '</div>' + radioRows(kind, items) + '</div>';
+      }
+
+      function beginImport() {
+        if (!attachedFile || pending) return;
+        var file = attachedFile;
+        var note = (ta && ta.value ? ta.value : "").trim();
+        removeAttachment();
+        if (ta) {
+          ta.value = "";
+          if (typeof autoResizeTextarea === "function") autoResizeTextarea(ta);
+          if (typeof syncInputWrapHeight === "function") syncInputWrapHeight();
+        }
+        pending = { file: file, location_id: null, source: null };
+        revealThread();
+        var ub = appendMsg("user", "");
+        if (ub) {
+          var html = '<span style="display:inline-flex;align-items:center;gap:8px;">' + fileSvg() + escapeHtml(file.name || "fichier") + '</span>';
+          if (note) html += '<div style="margin-top:6px;">' + escapeHtml(note) + '</div>';
+          setBubbleHtml(ub, html);
+        }
+        askLocationOrSource();
+      }
+
+      async function askLocationOrSource() {
+        var locs = [];
+        try {
+          var res = await fetch("/api/import/locations");
+          var j = await res.json().catch(function () { return null; });
+          if (j && j.ok && Array.isArray(j.locations)) locs = j.locations;
+        } catch (e) {}
+        if (locs.length > 1) {
+          aiBlock(confirmBlock("Pour quel établissement ?", "loc", locs.map(function (l) { return { id: l.location_id, label: l.label }; })));
+        } else {
+          if (locs.length === 1) pending.location_id = locs[0].location_id;
+          askSource();
+        }
+      }
+      function askSource() {
+        aiBlock(confirmBlock("De quel logiciel provient l'export ?", "src", SOURCES));
+      }
+
+      function mapError(code) {
+        var m = {
+          FILE_TOO_LARGE: "Fichier trop volumineux (max 5 Mo).",
+          NO_FILE: "Aucun fichier reçu.",
+          EMPTY_FILE: "Le fichier est vide.",
+          UNREADABLE_FILE: "Fichier illisible ou corrompu.",
+          LOCATION_FORBIDDEN: "Cet établissement n'est pas rattaché à votre compte.",
+          NO_LOCATION: "Aucun établissement rattaché à votre compte.",
+          INVALID_FORM: "Fichier illisible.",
+          UNAUTHORIZED: "Session expirée. Reconnectez-vous."
+        };
+        return m[code] || ("Erreur : " + code);
+      }
+      function summaryHtml(out, locId) {
+        if (!out) return '<p style="color:#b91c1c;">Erreur réseau lors de l\'import. Réessayez.</p>';
+        var st = out.status;
+        var accent = st === "ok" ? "#059669" : st === "partial" ? "#B45309" : "#b91c1c";
+        var title = st === "ok" ? "Import réussi" : st === "partial" ? "Import partiel" : "Import impossible";
+        var h = '<div style="font-weight:600;color:' + accent + ';margin-bottom:6px;">' + title + '</div>';
+        if (typeof out.rows_total === "number") {
+          var acc = out.rows_accepted || 0, rej = out.rows_rejected || 0;
+          h += '<div style="font-size:15px;line-height:1.6;">' + acc + ' ligne' + (acc > 1 ? 's' : '') + ' importée' + (acc > 1 ? 's' : '') + ' · ' + rej + ' rejetée' + (rej > 1 ? 's' : '') + ' sur ' + (out.rows_total || 0) + '.';
+          if (out.date_range && out.date_range[0]) h += '<br>Période : ' + escapeHtml(out.date_range[0]) + ' → ' + escapeHtml(out.date_range[1]) + '.';
+          h += '</div>';
+        } else if (out.error) {
+          h += '<div style="font-size:15px;">' + escapeHtml(mapError(out.error)) + '</div>';
+        }
+        if (Array.isArray(out.errors) && out.errors.length) {
+          var shown = out.errors.slice(0, 10);
+          h += '<ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:#6b7280;line-height:1.6;">';
+          for (var i = 0; i < shown.length; i++) h += '<li>Ligne ' + escapeHtml(shown[i].row) + ' — ' + escapeHtml(shown[i].reason) + '</li>';
+          h += '</ul>';
+          if (out.errors.length > shown.length) h += '<div style="font-size:13px;color:#9ca3af;margin-top:4px;">… et ' + (out.errors.length - shown.length) + ' autre(s).</div>';
+        }
+        if (out.refresh_requested) h += '<div style="font-size:12px;color:#6b7280;margin-top:8px;">Vos indicateurs et cartes seront actualisés sous peu.</div>';
+        if ((st === "ok" || st === "partial") && out.date_range && out.date_range[0]) {
+          var url = "/app/insightevent/rapport?start=" + encodeURIComponent(out.date_range[0]) + "&end=" + encodeURIComponent(out.date_range[1]) + (locId ? "&loc=" + encodeURIComponent(locId) : "");
+          h += '<a href="' + url + '" style="display:inline-block;margin-top:14px;background:#1D3BB3;color:#fff;text-decoration:none;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:600;">Générer le rapport pour cette période →</a>';
+        }
+        return h;
+      }
+
+      async function doImport() {
+        var loading = aiBlock('<div style="font-size:13px;color:#6b7280;">Import en cours…</div>');
+        var fd = new FormData();
+        fd.append("file", pending.file);
+        fd.append("source", pending.source || "generic");
+        if (pending.location_id) fd.append("location_id", pending.location_id);
+        var out = null;
+        try {
+          var res = await fetch("/api/import/sales-csv", { method: "POST", body: fd });
+          out = await res.json().catch(function () { return null; });
+        } catch (e) {}
+        if (loading && loading.parentElement) loading.parentElement.remove();
+        aiBlock(summaryHtml(out, pending && pending.location_id));
+        pending = null;
+      }
+
+      document.addEventListener("click", function (e) {
+        var opt = e.target.closest(".ie-import-opt");
+        if (!opt || !pending) return;
+        var block = opt.closest(".ie-confirm-block");
+        if (!block || block.getAttribute("data-done") === "1") return;
+        block.setAttribute("data-done", "1");
+        block.style.pointerEvents = "none";
+        var radios = block.querySelectorAll(".ie-import-radio");
+        for (var i = 0; i < radios.length; i++) radios[i].style.border = "1.5px solid #9ca3af";
+        var r = opt.querySelector(".ie-import-radio");
+        if (r) r.style.border = "5px solid #1D3BB3";
+        var kind = opt.getAttribute("data-kind");
+        if (kind === "loc") { pending.location_id = opt.getAttribute("data-id"); askSource(); }
+        else if (kind === "src") { pending.source = opt.getAttribute("data-id"); doImport(); }
+      });
+
+      // Attach only — drop / paperclip stage the file; the flow starts on send.
+      function handleFiles(files) { if (files && files[0]) attachFile(files[0]); }
+      if (attachBtn) attachBtn.addEventListener("click", function (e) { e.preventDefault(); fileInput.click(); });
+      fileInput.addEventListener("change", function () { handleFiles(fileInput.files); fileInput.value = ""; });
+
+      var dropZone = document.getElementById("ie-prompt-root") || wrap;
+      function hasFiles(e) {
+        return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") !== -1;
+      }
+      if (dropZone) {
+        ["dragenter", "dragover"].forEach(function (ev) {
+          dropZone.addEventListener(ev, function (e) { if (hasFiles(e)) { e.preventDefault(); if (wrap) { wrap.style.outline = "2px dashed #1D3BB3"; wrap.style.outlineOffset = "4px"; } } });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+          dropZone.addEventListener(ev, function (e) { e.preventDefault(); if (wrap) wrap.style.outline = ""; });
+        });
+        dropZone.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files) handleFiles(e.dataTransfer.files); });
+      }
+
+      // Send with a staged file → start the import instead of the AI prompt.
+      // Capture phase + stopImmediatePropagation pre-empts the existing submit handlers.
+      var sendBtn = document.getElementById("ie-prompt-submit-btn");
+      if (sendBtn) sendBtn.addEventListener("click", function (e) {
+        if (attachedFile) { e.preventDefault(); e.stopImmediatePropagation(); beginImport(); }
+      }, true);
+      if (ta) ta.addEventListener("keydown", function (e) {
+        if (attachedFile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); beginImport(); }
+      }, true);
+    })();
   }
