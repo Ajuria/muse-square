@@ -17,19 +17,20 @@ export const GET: APIRoute = async ({ request, locals }) => {
   if (!userId) return json({ ok: false, error: 'UNAUTHORIZED' }, 401);
 
   const url = new URL(request.url);
+  // DEV-ONLY: ?src=seed reads the seed fixture store (prod ignores it) AND relaxes the
+  // location-ownership check, so the populated render can be eyeballed on a seed venue
+  // (e.g. V_nimes) the dev user doesn't own. Both concessions gated to import.meta.env.DEV.
+  const devSeed = import.meta.env.DEV && url.searchParams.get('src') === 'seed';
   const owned: string[] = Array.isArray((locals as any).all_location_ids) ? (locals as any).all_location_ids : [];
   const activeLoc = ((locals as any).location_id as string | undefined) ?? null;
   const reqLoc = url.searchParams.get('location_id');
   let loc: string;
   if (reqLoc) {
-    if (reqLoc !== activeLoc && !owned.includes(reqLoc)) return json({ ok: false, error: 'LOCATION_FORBIDDEN' }, 403);
+    if (!devSeed && reqLoc !== activeLoc && !owned.includes(reqLoc)) return json({ ok: false, error: 'LOCATION_FORBIDDEN' }, 403);
     loc = reqLoc;
   } else if (activeLoc) { loc = activeLoc; } else { return json({ ok: false, error: 'NO_LOCATION' }, 400); }
 
-  // DEV-ONLY store override to prove the populated render path against the seed fixture.
-  // Prod/default = the real store (empty at 81 days). Ignored outside dev.
-  const storeTable = (import.meta.env.DEV && url.searchParams.get('src') === 'seed')
-    ? 'analytics.b_sensitivity_store' : undefined;
+  const storeTable = devSeed ? 'analytics.b_sensitivity_store' : undefined; // prod = real store (empty)
 
   const bq = makeBQClient(PROJECT);
   try {
