@@ -1192,6 +1192,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '</div>';
         }
 
+        // ── Lead: top-salience specific facts + the real action card, above the (now supporting) sections. ──
+        html += buildLeadSignals(day, prof, actionCandidate);
+
         // ════════════════════════════════════════════════════════════
         // MODE: MÉTÉO
         // ════════════════════════════════════════════════════════════
@@ -1367,16 +1370,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '</div>';
           }
 
-          // Day KPIs — relevant for intelligence
-          html += '<div class="fs-section">'
-            + '<div class="fs-section-title">Donn\u00e9es du jour</div>'
-            + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">R\u00e9gime</div><div class="fs-metric-value">' + esc(day.opportunity_regime || '\u2014') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Facteur</div><div class="fs-metric-value sm">' + esc(day.primary_score_driver_label_fr || '\u2014') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9daille</div><div class="fs-metric-value">' + esc(day.opportunity_medal || '\u2014') + '</div></div>'
-            + '</div>'
-          + '</div>';
+          // (Removed the "Donn\u00e9es du jour" grid — score / r\u00e9gime / m\u00e9daille are internal
+          // jargon, never shown to the user. The lead + specific-fact sections carry the real info.)
         }
 
         // ════════════════════════════════════════════════════════════
@@ -1390,7 +1385,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Conditions du jour</div>'
             + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value" style="color:#16a34a;">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Concurrence</div><div class="fs-metric-value sm" style="color:' + pressureColor + ';">' + esc(pressureLabel) + '</div><div class="fs-metric-sub">' + num(day.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9t\u00e9o</div><div class="fs-metric-value sm" style="color:' + (Number(day.alert_level_max || 0) === 0 ? '#16a34a' : '#92400e') + ';">' + esc(day.weather_label_fr || '\u2014') + '</div><div class="fs-metric-sub">' + (day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) + '\u00b0C' : '') + '</div></div>'
             + '</div>'
@@ -1474,7 +1468,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '<div class="fs-grid">'
               + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value sm" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + esc((day.attribution_fr && day.attribution_fr.mobility) ? day.attribution_fr.mobility : '\u2014') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Distance station</div><div class="fs-metric-value">' + (tDist > 0 ? tDist : '\u2014') + ' <span class="fs-metric-unit">m</span></div><div class="fs-metric-sub">de ' + esc(prof.site_name || 'votre site') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score du jour</div><div class="fs-metric-value">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
             + '</div>'
           + '</div>';
         }
@@ -1662,7 +1655,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var prOpp = Number(day.competition_pressure_ratio || 0);
           if (prOpp > 0 && prOpp < 0.8) facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km \u2014 bien en dessous de la moyenne' });
           else facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km' });
-          facts.push({ label: 'Score', value: score10(day.opportunity_score_final_local) + '/10', text: '\u2014 conditions favorables' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         } else if (mode === 'mobilite') {
           var tName = prof.nearest_transit_stop_name || '';
@@ -1675,14 +1667,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var megaN = day.active_mega_event_name || feedItem.new_value || 'M\u00e9ga-\u00e9v\u00e9nement';
           if (megaN === 'true' || megaN === 'false') megaN = 'M\u00e9ga-\u00e9v\u00e9nement';
           facts.push({ label: '\u00c9v\u00e9nement', value: megaN, text: 'dans votre zone' });
-          facts.push({ label: 'Score jour', value: score10(day.opportunity_score_final_local) + '/10' });
           if (Number(day.events_within_5km_count || 0) > 0) facts.push({ label: '\u00c9v\u00e9nements \u00e0 5 km', value: num(day.events_within_5km_count), text: 'dont ' + num(day.events_within_5km_same_bucket_count) + ' m\u00eame secteur' });
           if (audStr) facts.push({ label: 'Votre cible', value: audStr, text: '\u2014 pr\u00e9sente parmi les visiteurs de l\u2019\u00e9v\u00e9nement' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         } else {
           // Intelligence / default
           if (Number(day.competition_pressure_ratio || 0) > 0) facts.push({ label: 'Pression', value: ratio(day.competition_pressure_ratio), text: 'niveau actuel' });
-          facts.push({ label: 'Score', value: score10(day.opportunity_score_final_local) + '/10' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         }
 
@@ -1692,6 +1682,40 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // ════════════════════════════════════════════════════════════════
       // QUE FAIRE BUILDER — mode-specific action hint
       // ════════════════════════════════════════════════════════════════
+
+      // Lead: the top-salience SPECIFIC facts, ranked most-important-first — every specific stays
+      // concrete (no synthesis into a takeaway sentence), plus the REAL fired action card (never an
+      // invented suggestion). No régime / medal / score. Honest-absence when nothing salient.
+      function buildLeadSignals(day, prof, actionCandidate) {
+        var facts = [];
+        if (day.weather_alert_fr) facts.push({ s: 100, t: esc(day.weather_alert_fr) });
+        var fc = (day.followed_competitors || [])[0];
+        if (fc && fc.name) {
+          var ct = esc(fc.name);
+          if (fc.google_rating != null) ct += ' · ⭐ ' + frDec(fc.google_rating);
+          if (fc.rating_trend != null && Math.round(Number(fc.rating_trend) * 10) !== 0) ct += ' (' + (fc.rating_trend > 0 ? '↑' : '↓') + ' ' + frDec(Math.abs(Math.round(Number(fc.rating_trend) * 10) / 10)) + ' ce mois)';
+          if (fc.distance_km != null) ct += ' · ' + frDec(Math.round(Number(fc.distance_km) * 10) / 10) + ' km';
+          facts.push({ s: 85, t: ct });
+        }
+        if (day.commercial_events && day.commercial_events.length) { var ce = day.commercial_events[0]; facts.push({ s: 75, t: esc(typeof ce === 'string' ? ce : (ce.event_name || '')) }); }
+        if (day.foreign_visitors && day.foreign_visitors.length) facts.push({ s: 55, t: 'Visiteurs étrangers possibles : ' + esc(day.foreign_visitors.slice(0, 5).join(', ')) });
+        if (!facts.length && day.weather_label_fr) facts.push({ s: 40, t: esc(day.weather_label_fr) + (day.temperature_2m_max != null ? ' · ' + Math.round(Number(day.temperature_2m_max)) + '°C' : '') });
+        if (!facts.length) return '';
+        facts.sort(function(a, b) { return b.s - a.s; });
+        var h = '<div class="fs-section" style="border-left:3px solid #0b37e5;padding-left:14px;">'
+          + '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:8px;">L\'essentiel du jour</div>';
+        for (var i = 0; i < Math.min(facts.length, 4); i++) {
+          h += '<div style="display:flex;gap:8px;padding:4px 0;font-size:14px;color:#1a1d2e;line-height:1.5;"><span style="color:#0b37e5;flex:none;">•</span><span>' + facts[i].t + '</span></div>';
+        }
+        var card = actionCandidate && (actionCandidate.headline_fr || actionCandidate.detail_fr);
+        if (card) {
+          h += '<div style="margin-top:12px;background:#eef2ff;padding:12px 14px;border-radius:8px;">'
+            + '<span style="display:block;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:4px;">Action à mener</span>'
+            + '<span style="font-size:13.5px;color:#1e3a8a;line-height:1.6;">' + esc(card) + '</span></div>';
+        }
+        h += '</div>';
+        return h;
+      }
 
       function buildQueFaire(mode, spec, day, prof) {
         if (mode === 'meteo') {
