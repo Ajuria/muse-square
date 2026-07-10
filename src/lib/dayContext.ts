@@ -6,7 +6,7 @@
 // docs/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
 // structured data for owner copy); it authors NO French of its own.
 
-import { formatDisruption, fillContextFallback, formatWeatherAlert } from './contextCopy';
+import { formatDisruption, fillContextFallback, formatWeatherAlert, frCountry } from './contextCopy';
 import { getSensitivities, type Sensitivity } from './sensitivityStore';
 import { envTodayLine, decompositionLine } from './sensitivityCopy';
 import featureRegistry from './sensitivityFeatures.json';
@@ -86,6 +86,9 @@ export interface VenueProfile {
   besttime: { rating: number | null; dwell_min: number | null; dwell_max: number | null };
   top_item: { description: string | null; revenue_share: number | null };
   business_description: string | null;
+  site_name: string | null;
+  transit: { stop_name: string | null; line_name: string | null; stop_distance_m: number | null };
+  enriched: { key_differentiators: string | null; current_offering: string | null }; // parsed auto_enriched_description
 }
 
 export interface DayContextFact { fact_text: string | null; fact_data: Record<string, any>; source: string }
@@ -94,6 +97,25 @@ export interface DayCompetitor {
   google_rating: number | null; google_rating_count: number | null; enriched: string | null;
   offering_change: string | null; rating_trend: number | null; source: string;
 }
+// The day_surface projection — every field monitor.ts renders from `vw_insight_event_day_surface`,
+// so consumers read them here instead of re-querying the view. Four rendered groups.
+export interface DaySurface {
+  opportunity: {
+    score: number | null; regime: string | null; medal: string | null;   // opportunity_score_final_local / regime / medal
+    driver_label_fr: string | null;                                       // primary_score_driver_label_fr (French)
+    alert_level_max: number | null; major_realization_risk: boolean;      // alert_level_max / is_major_realization_risk_flag
+    mega_event_name: string | null; signal_summary_fr: string[];          // active_mega_event_name / daily_signal_summary_fr
+  };
+  competition: {
+    events_500m: number | null; events_1km: number | null; events_5km: number | null; events_5km_same_bucket: number | null;
+    pressure_ratio: number | null; index_local: number | null;
+    top_competitors: Array<{ event_uid: string | null; event_label: string | null; organizer_name: string | null; theme: string | null; distance_m: number | null; estimated_attendance: number | null; event_url: string | null }>;
+  };
+  weather_surface: { label_fr: string | null; temp_max: number | null; temp_min: number | null; code: number | null };
+  // The mart's delta_att_* attribution (dow+trend decomposition) — RENDER-ONLY. Distinct register from
+  // the measured sensitivity store (`impacts`): never merged, never a citable causal fact.
+  attribution: { weather_pct: number | null; mobility_pct: number | null; events_pct: number | null; calendar_pct: number | null; impact_weather_pct: number | null };
+}
 export type SensitivityToday = Sensitivity & { active_today: boolean };  // Engine 2
 export interface CommitmentFactorTrack { factor: string; action_type: string; beat: number; done: number }
 export interface DayContext {
@@ -101,6 +123,13 @@ export interface DayContext {
   events: Array<{ event_label: string; distance_m: number | null; event_start_date: string | null }>;
   tourism: { status: string | null; peak: boolean };
   foreign: string[]; takeaway: string | null; driver: string | null; // foreign = deduped union (school ∪ public holiday origins)
+  day_surface: DaySurface;                                            // opportunity/competition/weather-surface/attribution projection (monitor's `day`)
+  // Phase-1 compatibility bridge: the RAW view rows (unflattened, BQ {value} shapes intact) so monitor
+  // re-sources its legacy `days[]`/`data.profile` from the brain instead of re-querying the two views.
+  // The single reader of day_surface + ai_location_context is now the brain. Curated fields above are the
+  // claim-typed truth; these raw rows exist only to keep monitor's existing render/derivation working.
+  day_surface_raw: Record<string, any> | null;                        // full vw_insight_event_day_surface row
+  profile_raw: Record<string, any> | null;                            // full vw_insight_event_ai_location_context row
   commercial_events: string[];                                        // named soldes/foires today (deduped vs named events)
   weather_alert: { level: number; apparent_temp_max: number | null; wind_gusts: number | null } | null; // acute/operational register
   competitors: DayCompetitor[];
@@ -126,10 +155,40 @@ export interface DayContext {
   };
 }
 
+// In-process memo of the assembled payload. It is a pure function of the warehouse state for a given
+// (location, date, slice, devSeed), and the warehouse only advances on daily / detection refresh — so a
+// short TTL dedupes the several consumers that assemble the same day in one request cycle (monitor +
+// reactions-today + sensitivities) without staling intra-day detection updates. Concurrent callers share
+// the in-flight promise; a rejection is evicted so a transient failure is never cached.
+const _ctxCache = new Map<string, { p: Promise<DayContext>; ts: number }>();
+const CTX_TTL_MS = 120_000; // 2 min
+
 // Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
 // above serve windows). opts.devSeed swaps the store/learning to demo fixtures (?src=seed). This is the
 // ONE brain: every consumer reads its payload; none reads the sensitivity store or learning marts directly.
-export async function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
+export function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
+  const slice = opts.slice ?? 'full';
+  const seed = opts.devSeed ? 1 : 0;
+  const now = Date.now();
+  // Slice-aware: a BROADER cached payload supersets a narrower request (full ⊇ context ⊇ signals), so a
+  // 'context' request reuses a live 'full' entry. Narrower never serves broader. SCOPE: in-process only.
+  // The GUARANTEED win is within a single invocation (monitor's multi-date calls + repeat reads in a warm
+  // process). On Vercel, monitor / reactions-today / sensitivities are SEPARATE invocations, so cross-
+  // endpoint collapse is best-effort (only if they land on the same warm instance) — a shared cache
+  // (Redis/KV) is the path to guaranteed cross-endpoint sharing, deferred.
+  const superset: Record<string, string[]> = { signals: ['full', 'context', 'signals'], context: ['full', 'context'], full: ['full'] };
+  for (const s of superset[slice]) {
+    const hit = _ctxCache.get(`${loc}|${date}|${s}|${seed}`);
+    if (hit && now - hit.ts < CTX_TTL_MS) return hit.p;
+  }
+  const key = `${loc}|${date}|${slice}|${seed}`;
+  const p = assembleDayContextUncached(bq, loc, date, opts);
+  _ctxCache.set(key, { p, ts: now });
+  p.catch(() => { if (_ctxCache.get(key)?.p === p) _ctxCache.delete(key); });
+  return p;
+}
+
+async function assembleDayContextUncached(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
   // Scoped slices from the ONE composition (no parallel read path). A light surface skips the
   // expensive reads: 'signals' = signals[] + driver only; 'context' = context{} (no Engine-1/decomp);
   // 'full' (default) = everything. Grains stay separate regardless of slice.
@@ -142,9 +201,12 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
   };
 
   const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows, changeRows, cardRows] = await Promise.all([
-    // day_surface — the mart's own French facts + "what's driving today"
-    one(`SELECT key_takeaway, primary_score_driver_label AS driver, audience_availability_label AS cal_label,
-           holiday_name, vacation_name
+    // day_surface — the mart's own French facts + "what's driving today". This is the SAME view
+    // monitor.ts builds its entire `day` object from. SELECT * so the brain is the single reader: its
+    // curated projection (opportunity/competition/weather-surface/attribution) reads named fields off the
+    // row, and the whole row is exposed as `day_surface_raw` for monitor's legacy passthrough (Phase 1).
+    // The two aliases (driver/cal_label) are added alongside * for the brain's own reads.
+    one(`SELECT *, primary_score_driver_label AS driver, audience_availability_label AS cal_label
          FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // mobility scalars (traffic level is interpretable: lvl 3->~-8%, lvl 4->~-12% car access)
     one(`SELECT traffic_customer_lvl AS traffic_lvl, transit_lvl
@@ -174,10 +236,11 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
          FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // venue profile — STATIC per-location "user context". Complementary, NOT a fork. Its declared
     // weather_sensitivity/seasonality are attributes, NEVER the measured Engine-2 effect (guard below).
-    one(`SELECT company_activity_type, location_type, primary_audience_1, primary_audience_2, capacity_sensitivity,
-           weather_sensitivity, seasonality, operating_hours, venue_capacity, event_type_1, event_type_2, event_type_3,
-           besttime_rating, besttime_dwell_time_min, besttime_dwell_time_max, top_item_description, top_item_revenue_share,
-           business_short_description
+    // SELECT * so the brain is the single reader of this view too: the curated VenueProfile reads named
+    // fields, and the whole row is exposed as `profile_raw` (monitor's legacy `data.profile`). EXCEPT+alias
+    // reproduces monitor's scalar transform on the ARRAY column nearest_transit_line_name.
+    one(`SELECT * EXCEPT(nearest_transit_line_name),
+           nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name
          FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`, { loc }),
     // commercial events (region annotations) for today — named soldes/foires (observed presence)
     (async () => { const [r] = await bq.query({ query: `SELECT ev.event_name AS name FROM \`${PROJECT}.mart.fct_region_day_annotations_daily\` a JOIN \`${PROJECT}.dims.dim_client_location\` dl ON dl.region_name=a.region_name CROSS JOIN UNNEST(a.commercial_events) ev WHERE dl.location_id=@loc AND a.date=@d`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
@@ -344,7 +407,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     ? { level: wLevel, apparent_temp_max: weatherAcute.atemp == null ? null : Number(flatVal(weatherAcute.atemp)), wind_gusts: weatherAcute.gusts == null ? null : Number(flatVal(weatherAcute.gusts)) }
     : null;
   // foreign origins — deduped UNION of school-holiday (foreign) + public-holiday origins.
-  const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])];
+  const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])].map(frCountry);
 
   // signals — reused from detection, claim-typed, DISTINCT grain from context{} (change-grain).
   const changes = (changeRows || []).map((r: any) => ({
@@ -391,6 +454,10 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
 
   const pr = profileRow || {};
   const num = (v: any): number | null => (v == null ? null : Number(flatVal(v)));
+  // parse the enriched crawl blob (JSON string on the profile row) — same shape insight.astro reads.
+  const enrichedRaw = flatVal(pr.auto_enriched_description);
+  let enrichedObj: any = {};
+  try { enrichedObj = typeof enrichedRaw === 'string' ? JSON.parse(enrichedRaw) : (enrichedRaw || {}); } catch { enrichedObj = {}; }
   const profile: VenueProfile = {
     activity_type: flatVal(pr.company_activity_type) ?? null, location_type: flatVal(pr.location_type) ?? null,
     audience: [flatVal(pr.primary_audience_1), flatVal(pr.primary_audience_2)].filter(Boolean) as string[],
@@ -401,6 +468,50 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     besttime: { rating: num(pr.besttime_rating), dwell_min: num(pr.besttime_dwell_time_min), dwell_max: num(pr.besttime_dwell_time_max) },
     top_item: { description: flatVal(pr.top_item_description) ?? null, revenue_share: num(pr.top_item_revenue_share) },
     business_description: flatVal(pr.business_short_description) ?? null,
+    site_name: flatVal(pr.site_name) ?? null,
+    transit: {
+      stop_name: flatVal(pr.nearest_transit_stop_name) ?? null,
+      line_name: flatVal(pr.nearest_transit_line_name) ?? null,
+      stop_distance_m: num(pr.nearest_transit_stop_distance_m),
+    },
+    enriched: {
+      key_differentiators: enrichedObj?.key_differentiators ?? null,
+      current_offering: enrichedObj?.current_offering ?? null,
+    },
+  };
+
+  // day_surface projection — shape the rendered groups from the (already-fetched) surface row.
+  const sNum = (v: any): number | null => { const x = flatVal(v); return x == null || x === '' ? null : Number(x); };
+  const day_surface: DaySurface = {
+    opportunity: {
+      score: sNum(surface.opportunity_score_final_local), regime: flatVal(surface.opportunity_regime) ?? null,
+      medal: flatVal(surface.opportunity_medal) ?? null, driver_label_fr: flatVal(surface.primary_score_driver_label_fr) ?? null,
+      alert_level_max: sNum(surface.alert_level_max), major_realization_risk: flatVal(surface.is_major_realization_risk_flag) === true,
+      mega_event_name: flatVal(surface.active_mega_event_name) ?? null,
+      signal_summary_fr: (flatVal(surface.daily_signal_summary_fr) || []).map((x: any) => flatVal(x)).filter(Boolean) as string[],
+    },
+    competition: {
+      events_500m: sNum(surface.events_within_500m_count), events_1km: sNum(surface.events_within_1km_count),
+      events_5km: sNum(surface.events_within_5km_count), events_5km_same_bucket: sNum(surface.events_within_5km_same_bucket_count),
+      pressure_ratio: sNum(surface.competition_pressure_ratio), index_local: sNum(surface.competition_index_local),
+      top_competitors: (flatVal(surface.top_competitors) || []).map((r: any) => {
+        const e = flatVal(r?.e) ?? r?.e ?? {};
+        return {
+          event_uid: flatVal(e.event_uid) ?? null, event_label: flatVal(e.event_label) ?? null,
+          organizer_name: flatVal(e.organizer_name) ?? null, theme: flatVal(e.theme) ?? null,
+          distance_m: sNum(e.distance_m), estimated_attendance: sNum(e.estimated_attendance), event_url: flatVal(e.event_url) ?? null,
+        };
+      }),
+    },
+    weather_surface: {
+      label_fr: flatVal(surface.weather_label_fr) ?? null, temp_max: sNum(surface.temperature_2m_max),
+      temp_min: sNum(surface.temperature_2m_min), code: sNum(surface.weather_code),
+    },
+    attribution: {
+      weather_pct: sNum(surface.delta_att_weather_total_pct), mobility_pct: sNum(surface.delta_att_mobility_pct),
+      events_pct: sNum(surface.delta_att_events_pct), calendar_pct: sNum(surface.delta_att_calendar_pct),
+      impact_weather_pct: sNum(surface.impact_weather_pct),
+    },
   };
 
   const wHead = flatVal(weatherHead.headline_fr);
@@ -411,6 +522,9 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     events: (events || []).map((e: any) => ({ event_label: flatVal(e.label), distance_m: e.dist == null ? null : Number(flatVal(e.dist)), event_start_date: flatVal(e.start_date) })),
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
     foreign: foreignUnion, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
+    day_surface,
+    day_surface_raw: wantContext ? (surface && Object.keys(surface).length ? surface : null) : null,
+    profile_raw: profileRow && Object.keys(profileRow).length ? profileRow : null,
     commercial_events, weather_alert,
     competitors, profile, signals,
     sensitivities, actionTrackByFactor, actionTrackByType, impacts, decomposition, llm,

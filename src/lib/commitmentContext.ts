@@ -6,6 +6,7 @@
 // so named context stays consistent with the report — Météo-France/OpenAgenda/INSEE.
 
 import { getActionRollup } from "./dayContext";
+import { frCountry } from "./contextCopy";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -116,7 +117,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
     mobility_days: Number(flat(cx.mobility_days)) || 0,
     tourism_status: flat(cx.tourism_status) ?? null,
     named_events: (evRows[0] || []).map((r: any) => ({ label: flat(r.label), days: Number(flat(r.days)) || 0 })),
-    foreign_visitors: (foreignRows[0] || []).map((r: any) => flat(r.country)),
+    foreign_visitors: (foreignRows[0] || []).map((r: any) => frCountry(flat(r.country))),
     weather_assoc: assoc && (assoc.cool_n != null || assoc.mild_n != null) ? {
       cool_avg: assoc.cool_avg != null ? Number(flat(assoc.cool_avg)) : null,
       cool_n: Number(flat(assoc.cool_n)) || 0,

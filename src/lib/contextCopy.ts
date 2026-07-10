@@ -53,6 +53,17 @@ export function formatWeatherAlert(p: { level: number | null; apparent_temp_max:
   return bits.length ? `${head} — ${bits.join(', ')}` : head;
 }
 
+// English→French country names for the foreign-origins fact (the mart carries only country_name_en /
+// country_iso_code — no French). Keyed on the TOURIST_COUNTRIES whitelist in dayContext.ts. OWNER-FINAL:
+// factual names, confirm wording (e.g. "Royaume-Uni" vs "Grande-Bretagne"). Unknown → English passthrough.
+export const COUNTRY_FR: Record<string, string> = {
+  Germany: "Allemagne", "United Kingdom": "Royaume-Uni", Netherlands: "Pays-Bas", Belgium: "Belgique",
+  Spain: "Espagne", Italy: "Italie", Switzerland: "Suisse", Portugal: "Portugal",
+  "United States": "États-Unis", Ireland: "Irlande", Denmark: "Danemark", Sweden: "Suède",
+  Luxembourg: "Luxembourg", Austria: "Autriche", Norway: "Norvège",
+};
+export const frCountry = (en: string): string => COUNTRY_FR[en] ?? en;
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];
