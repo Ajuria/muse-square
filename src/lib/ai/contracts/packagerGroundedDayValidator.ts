@@ -3,37 +3,10 @@
 // The forbidden envelope stops being hope and becomes enforced here.
 
 import { groundedFactStrings, type GroundedDayPayload } from "../groundedPayload";
+import { extractNumbers, norm, makeEntityRegex, CAUSAL_PATTERNS } from "./groundingChecks";
 
-// Pull numeric values out of French text: join thousands spaces ("95 349"→"95349"), then every number.
-function extractNumbers(text: string): Set<string> {
-  const joined = String(text ?? "").replace(/(\d)[  ](?=\d{3}\b)/g, "$1");
-  const out = new Set<string>();
-  const re = /-?\d+(?:[.,]\d+)?/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(joined))) {
-    const n = Number(m[0].replace(",", "."));
-    if (Number.isFinite(n)) out.add(String(Math.round(n * 100) / 100));
-  }
-  return out;
-}
 
-const norm = (s: string): string =>
-  String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 
-// Causal constructions the forbidden envelope bans on facts (competitor/driver/tourism/signals/weather),
-// PLUS predicted-outcome constructions banned on the suggested_action ("X augmentera/boostera vos ventes").
-// "Vu X, envisagez Y" (advice, no promised outcome) is NOT here — it's allowed. Conservative list.
-const CAUSAL_PATTERNS = [
-  // causal attribution on a fact
-  "a cause", "ont cause", "a genere", "ont genere", "a fait baisser", "ont fait baisser",
-  "a fait grimper", "a fait chuter", "a reduit la frequentation", "a dope", "a booste",
-  "responsable de la baisse", "responsable de la hausse", "explique la baisse", "explique la hausse",
-  "a provoque", "a entraine une baisse", "a entraine une hausse", "fait exploser", "grace a la concurrence",
-  // predicted OUTCOME on the action (a promise, not grounded advice)
-  "augmentera", "augmenteront", "boostera", "boosteront", "dopera", "doperont", "rapportera",
-  "rapporteront", "generera", "genereront", "fera grimper", "fera gagner", "permettra de gagner",
-  "vous fera gagner", "fera venir", "attirera", "doublera", "augmentera vos", "boostera vos",
-];
 
 export function validate_packager_output_grounded_day(output: any, row: any): [boolean, string[], string[]?] {
   const errors: string[] = [];
@@ -83,10 +56,7 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
     groundedText + " " + JSON.stringify(payload.signals ?? {}) + " " + JSON.stringify(payload.engines ?? {}) + " " +
     (payload.venue?.site_name ?? "") + " " + (payload.venue?.business_description ?? "")
   );
-  // Uppercase start = [A-Z] + uppercase accented (U+00C0..U+00DD, minus × U+00D7); continuation lowercase.
-  const U = "A-Z\\u00C0-\\u00D6\\u00D8-\\u00DD";
-  const L = "a-z\\u00DF-\\u00FF\\w'’-";
-  const entityRe = new RegExp(`[${U}][${L}]+(?:\\s+(?:de|des|du|d['’]|la|le|les|the|of|von)?\\s*[${U}][${L}]+)+`, "g");
+  const entityRe = makeEntityRegex();
   const seenEnt = new Set<string>();
   // Per SEGMENT (never across the join) so an entity can't straddle two facts ("Portugal  Contexte").
   const segments = [output.headline, output.answer, ...output.key_facts, ...reasons, suggestedAction].map((x: any) => String(x ?? ""));

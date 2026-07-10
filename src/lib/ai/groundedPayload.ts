@@ -55,9 +55,14 @@ function frDate(iso: string): string {
 // the facts still flow through the same grounding + validation. Never pass ungrounded/derived strings.
 export function toGroundedDayPayload(
   dc: DayContext,
-  opts: { question: string; date: string; extraFacts?: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"] }> },
+  opts: { question: string; date: string; extraFacts?: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"] }>; excludeEngines?: boolean },
 ): GroundedDayPayload {
-  const base = [...(dc.llm?.citable_facts ?? []), ...(opts.extraFacts ?? [])];
+  // Drafts (customer-facing copy) exclude MEASURED engine facts entirely — a revenue sensitivity
+  // ("votre CA −12 % les jours de chaleur") is operator intel, never Instagram/GBP/email copy. The
+  // forecast context (heat/tourism/events) stays; the internal measured effect + decomposition drop.
+  const ENGINE_TYPES = new Set(["measured", "observed_difference"]);
+  const rawFacts = (dc.llm?.citable_facts ?? []).filter((f) => !(opts.excludeEngines && ENGINE_TYPES.has(f.claim_type)));
+  const base = [...rawFacts, ...(opts.extraFacts ?? [])];
   const citable_facts: CitableFact[] = base.map((f, i) => ({
     id: `f${i}`,
     fact_fr: f.fact_fr,
@@ -74,11 +79,13 @@ export function toGroundedDayPayload(
       cards: dc.signals?.cards ?? [],
     },
     driver: dc.llm?.driver ?? { value: null, claim_type: "observed_ranking" },
-    engines: {
-      sensitivities: (dc.sensitivities ?? []).filter((s) => s.active_today),
-      decomposition: dc.decomposition ?? [],
-      track_record: dc.actionTrackByType ?? {},
-    },
+    engines: opts.excludeEngines
+      ? { sensitivities: [], decomposition: [], track_record: {} }
+      : {
+        sensitivities: (dc.sensitivities ?? []).filter((s) => s.active_today),
+        decomposition: dc.decomposition ?? [],
+        track_record: dc.actionTrackByType ?? {},
+      },
     forbidden: dc.llm?.forbidden ?? [],
     venue: {
       site_name: dc.profile?.site_name ?? null,

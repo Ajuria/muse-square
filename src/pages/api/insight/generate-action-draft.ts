@@ -2,6 +2,10 @@ import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { makeBQClient } from "../../../lib/bq";
+import { assembleDayContext } from "../../../lib/dayContext";
+import { toGroundedDayPayload, type GroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { validate_grounded_draft } from "../../../lib/ai/contracts/packagerGroundedDraftValidator";
 
 export const prerender = false;
 
@@ -164,184 +168,35 @@ function competitorIntelBlock(comps: any[] | null): string {
 }
 
 // ────────────────────────────────────────────────────────────
-// Facts block (ground truth from card data_payload)
-// ────────────────────────────────────────────────────────────
-
-function frThreat(level: string): string {
-  const l = level.toLowerCase();
-  if (l === "high") return "élevée";
-  if (l === "medium" || l === "moderate") return "modérée";
-  if (l === "low") return "faible";
-  return level || "à surveiller";
+// The "CONTEXTE VÉRIFIÉ" block — the brain's claim-typed citable_facts (engines already excluded).
+// The ONLY external facts the copy may assert. Honest-absence when nothing external is notable.
+export function buildGroundedFactsBlock(g: GroundedDayPayload): string {
+  const lines = g.citable_facts.map((f) => `- ${f.fact_fr}`);
+  return lines.length
+    ? `\n\nCONTEXTE VÉRIFIÉ (les SEULS faits externes que tu peux affirmer) :\n${lines.join("\n")}`
+    : `\n\nCONTEXTE VÉRIFIÉ : aucun signal externe notable aujourd'hui — appuie-toi sur l'identité de l'établissement et la consigne utilisateur, n'invente aucun fait externe.`;
 }
 
-function buildFactsBlock(changeSubtype: string, payload: any, channel: string): string {
-  if (!payload || typeof payload !== "object") return "";
-  const isInternal = channel === "note_interne" || channel === "internal";
-
-  // ── Opportunity / favourable-window family (publishable, live) ──
-  const OPP_WINDOW = new Set([
-    "low_competition_window", "weekend_opportunity", "day_opportunity",
-    "best_day_of_week", "top_day_approaching", "perfect_storm",
-    "weather_comp_opportunity", "weekend_vacation_low_comp",
-  ]);
-  if (OPP_WINDOW.has(changeSubtype)) {
-    const pr = safeNum(payload.pressure_ratio);
-    const ev5 = safeNum(payload.events_5km);
-    const baseline = safeNum(payload.baseline_avg);
-    const regime = safeStr(payload.regime).toUpperCase();
-    const driverKey = safeStr(payload.driver).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const driverFr = driverKey === "concurrence" ? "Concurrence" : driverKey === "meteo" ? "Météo" : driverKey === "mobilite" ? "Mobilité" : driverKey === "calendrier" ? "Calendrier" : "";
-    const wxAlert = safeNum(payload.weather_alert);
-    const tour = safeNum(payload.tourism_index);
-    const isHol = payload.is_holiday === true || payload.is_holiday === "true";
-    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
-    const isWknd = payload.is_weekend === true || payload.is_weekend === "true";
-    const facts: string[] = [];
-    if (regime === "A" || regime === "B" || regime === "C") {
-      const rlabel = regime === "A" ? "favorable" : regime === "C" ? "défavorable" : "normal";
-      facts.push(`- Contexte du jour : ${rlabel} (régime ${regime}).`);
-    }
-    if (driverFr) facts.push(`- Facteur principal du signal : ${driverFr}.`);
-    if (pr !== null) {
-      const prlabel = pr < 0.9 ? "sous la normale" : pr > 1.1 ? "au-dessus de la normale" : "dans la normale";
-      facts.push(`- Pression concurrentielle : ×${pr.toFixed(1)} (${prlabel}).`);
-    }
-    if (baseline !== null && ev5 !== null) {
-      facts.push(`- Activité concurrente : ~${Math.round(baseline)} événement(s)/5 km habituellement, ${ev5} aujourd'hui.`);
-    } else if (ev5 !== null) {
-      facts.push(`- ${ev5} événement(s) concurrent(s) dans un rayon de 5 km.`);
-    }
-    if (wxAlert !== null) {
-      facts.push(wxAlert >= 1 ? `- Alerte météo de niveau ${wxAlert}.` : `- Pas d'alerte météo : conditions dégagées.`);
-    }
-    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
-    const occ: string[] = [];
-    if (isHol) occ.push("jour férié");
-    if (isVac) occ.push("vacances scolaires");
-    if (isWknd) occ.push("week-end");
-    if (occ.length) facts.push(`- Occasion : ${occ.join(", ")}.`);
-    if (facts.length === 0) return "";
-    return `CONTEXTE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Appuie-toi sur ces faits pour justifier l'opportunité — sans en ajouter d'autres.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité (offre, différenciants) adaptés à cette fenêtre ; si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un.\n3. Termine par un appel à l'action concret et daté quand c'est pertinent.`;
-  }
-
-  // ── Tourism family (publishable, live) ──
-  const TOURISM = new Set([
-    "tourism_peak_window", "tourist_high_season", "tourist_surge_vacation",
-    "tourism_weather_vacation", "low_tourism_local_opp", "tourism_comp_squeeze",
-    "ft_peak_tourism_vacation",
-  ]);
-  if (TOURISM.has(changeSubtype)) {
-    const tour = safeNum(payload.tourism_index);
-    const statusKey = safeStr(payload.tourism_status).toLowerCase();
-    const statusFr = statusKey === "high" ? "Forte affluence touristique" : statusKey === "normal" ? "Affluence touristique habituelle" : statusKey === "low" ? "Faible affluence touristique" : "";
-    const isPeak = payload.is_peak === true || payload.is_peak === "true";
-    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
-    const wxAlert = safeNum(payload.weather_alert);
-    const pr = safeNum(payload.pressure_ratio);
-    const facts: string[] = [];
-    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
-    if (statusFr) facts.push(`- ${statusFr}.`);
-    if (isPeak) facts.push(`- Période de pic touristique.`);
-    if (isVac) facts.push(`- Vacances scolaires en cours.`);
-    if (wxAlert !== null && wxAlert < 1) facts.push(`- Conditions météo dégagées.`);
-    if (pr !== null && pr < 0.9) facts.push(`- Pression concurrentielle sous la normale (×${pr.toFixed(1)}).`);
-    if (facts.length === 0) return "";
-    return `CONTEXTE TOURISTIQUE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Adapte le message à un public de passage / touristique, en t'appuyant uniquement sur ces faits.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité pertinents pour ce public ; si l'identité n'en fournit qu'un, n'en donne qu'un.\n3. Termine par un appel à l'action concret.`;
-  }
-
-  // ── Calendar / commercial-event family (publishable, live) ──
-  const CALENDAR = new Set([
-    "commercial_event_match", "audience_shift_opportunity",
-  ]);
-  if (CALENDAR.has(changeSubtype)) {
-    const evName = safeStr(payload.commercial_event_name);
-    const holName = safeStr(payload.holiday_name);
-    const vacName = safeStr(payload.vacation_name);
-    const audLabel = safeStr(payload.audience_availability_label);
-    const deltaAtt = safeNum(payload.delta_att_calendar_pct);
-    const pr = safeNum(payload.pressure_ratio);
-    const ev5 = safeNum(payload.events_5km);
-    const isHol = payload.is_holiday === true || payload.is_holiday === "true";
-    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
-    const facts: string[] = [];
-    if (evName) facts.push(`- Temps fort commercial : ${evName}.`);
-    if (holName) facts.push(`- Jour férié : ${holName}.`);
-    else if (isHol) facts.push(`- Jour férié.`);
-    if (vacName) facts.push(`- Vacances : ${vacName}.`);
-    else if (isVac) facts.push(`- Vacances scolaires en cours.`);
-    if (audLabel) facts.push(`- ${audLabel}`);
-    if (deltaAtt !== null) facts.push(`- Effet attendu sur la fréquentation : ${deltaAtt >= 0 ? "+" : ""}${Math.round(deltaAtt)} points (profil d'audience et calendrier).`);
-    if (pr !== null) {
-      const prlabel = pr < 0.9 ? "sous la normale" : pr > 1.1 ? "au-dessus de la normale" : "dans la normale";
-      facts.push(`- Pression concurrentielle : ×${pr.toFixed(1)} (${prlabel}).`);
-    }
-    if (ev5 !== null) facts.push(`- ${ev5} événement(s) concurrent(s) dans un rayon de 5 km.`);
-    if (facts.length === 0) return "";
-    return `CONTEXTE CALENDAIRE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Rattache le message au temps fort / à la période nommée ci-dessus, sans inventer d'autre date ni chiffre.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité pertinents pour cette occasion ; si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un.\n3. Termine par un appel à l'action concret et daté.`;
-  }
-
-  // ── Footfall-peak family (publishable, live) ──
-  const FT_PEAK = new Set([
-    "ft_peak_low_comp", "ft_quiet_good_weather", "ft_peak_tourism_vacation",
-  ]);
-  if (FT_PEAK.has(changeSubtype)) {
-    const peakHour = safeNum(payload.ft_peak_hour);
-    const peakPct = safeNum(payload.ft_peak_busyness_pct);
-    const pr = safeNum(payload.pressure_ratio);
-    const tour = safeNum(payload.tourism_index);
-    const wxAlert = safeNum(payload.weather_alert);
-    const isVac = payload.is_vacation === true || payload.is_vacation === "true";
-    const facts: string[] = [];
-    if (peakHour !== null) facts.push(`- Heure de pointe habituelle : vers ${peakHour} h.`);
-    if (peakPct !== null) facts.push(`- Affluence à l'heure de pointe : ${Math.round(peakPct)}/100 (relatif au pic hebdomadaire de l'établissement).`);
-    if (pr !== null && pr < 0.9) facts.push(`- Pression concurrentielle sous la normale (×${pr.toFixed(1)}).`);
-    if (tour !== null && tour > 0) facts.push(`- Indice de fréquentation touristique : ${Math.round(tour)}/100.`);
-    if (wxAlert !== null && wxAlert < 1) facts.push(`- Conditions météo dégagées.`);
-    if (isVac) facts.push(`- Vacances scolaires en cours.`);
-    if (facts.length === 0) return "";
-    return `CONTEXTE AFFLUENCE (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :\n${facts.join("\n")}\nConsignes de rédaction pour ce contexte :\n1. Utilise l'heure de pic pour orienter le message (créneau à cibler), sans inventer d'autre chiffre.\n2. Mets en avant 1 à 3 éléments concrets de NOTRE identité adaptés à ce créneau ; si l'identité n'en fournit qu'un, n'en donne qu'un.\n3. Termine par un appel à l'action concret.`;
-  }
-
-  if (changeSubtype === "competition_proximity") {
-    const e500 = safeNum(payload.events_500m);
-    const e1km = safeNum(payload.events_1km);
-    const overlap = safeNum(payload.top_competitor_overlap_pct); // déjà un pourcentage (0–100), ne pas multiplier
-    const distKm = safeNum(payload.top_competitor_distance_km);
-    const threat = safeStr(payload.top_threat_level);
-    const compName = safeStr(payload.top_competitor);
-
-    const facts: string[] = [];
-    if (e500 !== null || e1km !== null) {
-      facts.push(`- Pression : ${e500 ?? "?"} événements concurrents à moins de 500 m, ${e1km ?? "?"} à 1 km.`);
-    }
-    if (overlap !== null && distKm !== null) {
-      facts.push(`- Recoupement d'audience avec le concurrent le plus proche : ${Math.round(overlap)} % de votre public cible, à ${distKm} km. Menace ${frThreat(threat)}.`);
-    }
-    if (isInternal && compName) {
-      facts.push(`- Concurrent concerné : ${compName}.`);
-    }
-    if (facts.length === 0) return "";
-
-    return `
-
-CONTEXTE CONCURRENTIEL (faits vérifiés — n'invente aucun chiffre, n'en ajoute aucun) :
-${facts.join("\n")}
-
-Consignes de rédaction pour ce contexte :
-1. Nomme la pression concurrentielle et quantifie-la (recoupement d'audience, proximité) — sans la minimiser.
-2. Propose 1 à 3 leviers de différenciation, tirés EXCLUSIVEMENT de NOTRE identité ci-dessus (différenciants, services, offre actuelle). Si l'identité n'en fournit qu'un seul de concret, n'en donne qu'un — n'invente jamais pour atteindre trois. Interdiction de généralités type "améliorer la visibilité" ou "renforcer l'accueil" si elles ne sont pas ancrées dans un fait d'identité.
-3. Termine par une action concrète et mesurable.${isInternal ? "" : "\nNe nomme JAMAIS le concurrent ni aucun établissement tiers."}`;
-  }
-
-  return "";
+// The venue's own identity as a whitelist string for the validator (self-reference is a legal source):
+// name / city / offerings / differentiators / event types / channels.
+export function buildIdentityWhitelist(profile: any): string {
+  let ae: any = {};
+  try { ae = JSON.parse(safeStr(profile?.auto_enriched_description) || "{}"); } catch {}
+  return [
+    safeStr(profile?.site_name), safeStr(profile?.location_label), safeStr(profile?.city_name),
+    safeStr(profile?.region_name), safeStr(profile?.business_short_description),
+    safeStr(ae?.business_description), safeStr(ae?.services_and_amenities), safeStr(ae?.current_offering),
+    safeStr(ae?.key_differentiators), safeStr(profile?.company_activity_type),
+    safeStr(profile?.event_type_1), safeStr(profile?.event_type_2), safeStr(profile?.event_type_3),
+    safeStr(profile?.main_event_objective), safeStr(profile?.website_url), safeStr(profile?.instagram_url),
+  ].filter(Boolean).join("  ");
 }
 
 // ────────────────────────────────────────────────────────────
 // System prompt builder
 // ────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   profile: any,
   channel: string,
   artifactMode: string,
@@ -422,6 +277,7 @@ ${hasRealIdentity
 - ${cfg.rules}
 - Ne mentionne JAMAIS Muse Square, ni le fait que cette information vient d'une plateforme d'intelligence
 - Le texte doit pouvoir être publié tel quel sans modification
+- GROUNDING — pour tout élément EXTERNE (concurrent, événement voisin, météo, chiffre d'affluence), appuie-toi UNIQUEMENT sur le CONTEXTE VÉRIFIÉ ci-dessous : n'invente AUCUN concurrent, événement, température ni statistique absent de ce contexte. Les prix, remises, horaires et offres que tu annonces viennent de la consigne de l'utilisateur (message ci-dessous), jamais d'une invention. Ne promets AUCUN résultat chiffré ni superlatif d'affluence (« +X % de visites », « à guichets fermés », « record d'affluence »)
 - Inclus un appel à l'action concret quand pertinent
 - Pas d'émoji excessifs — 1 ou 2 maximum, en début de post si pertinent${offerStructure}${facts}
 
@@ -444,7 +300,7 @@ type PromptContext = {
   user_instruction: string;
 };
 
-function buildUserPrompt(ctx: PromptContext): string {
+export function buildUserPrompt(ctx: PromptContext): string {
   const sub = safeStr(ctx.signal?.change_subtype).toLowerCase();
   const ch = ctx.channel;
   // Try specific template first
@@ -802,12 +658,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return rows ?? [];
     }
 
-    // ── Fetch profile (always) ──
-    const profile = await bqOne(
-      `SELECT * FROM \`${BQ_SEMANTIC_PROJECT}.semantic.vw_insight_event_ai_location_context\`
-       WHERE location_id = @location_id LIMIT 1`,
-      { location_id: locationId }
-    );
+    // ── Phase 3b: the brain (brief slice) is the ONE source of context. Engines EXCLUDED — a measured
+    //    revenue sensitivity is operator intel, NEVER customer copy. Profile comes from the brain's
+    //    profile_raw (no separate fetch); external facts come from citable_facts (no conditional forks).
+    const affectedDate = safeStr(signal.affected_date) || new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
+    const dc = await assembleDayContext(bq, locationId, affectedDate, { slice: "brief" });
+    const grounded: GroundedDayPayload = toGroundedDayPayload(dc, {
+      question: `Rédige un contenu ${channel} : ${cardWhat || changeSubtype}`,
+      date: affectedDate,
+      excludeEngines: true,
+    });
+    const profile = dc.profile_raw;
 
     if (!profile) {
       return new Response(
@@ -842,63 +703,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     }
 
-    // ── Conditional data fetches ──
-    const affectedDate = safeStr(signal.affected_date);
-
-    const COMPETITION_SUBTYPES = new Set([
-      "competitor_event_launch",
-      "competitor_audience_conflict",
-      "competition_pressure_spike",
-      "competitor_event_ending",
-    ]);
-
-    const OPPORTUNITY_SUBTYPES = new Set([
-      "score_up",
-    ]);
-
-    const MOBILITY_SUBTYPES = new Set([
-      "mobility_disruption",
-      "mobility_disruption_planned",
-    ]);
-
-    let competitorContext: any[] | null = null;
-    let dayContext: any | null = null;
-    let mobilityContext: any[] | null = null;
-
-    if (COMPETITION_SUBTYPES.has(changeSubtype) && affectedDate) {
-      competitorContext = await bqAll(
-        `SELECT * FROM \`${BQ_SEMANTIC_PROJECT}.semantic.vw_insight_event_competitor_signals\`
-         WHERE location_id = @location_id
-           AND DATE(event_date) = DATE(@affected_date)
-         ORDER BY conflict_score DESC
-         LIMIT 5`,
-        { location_id: locationId, affected_date: affectedDate }
-      );
-    }
-
-    if (OPPORTUNITY_SUBTYPES.has(changeSubtype) && affectedDate) {
-      dayContext = await bqOne(
-        `SELECT * FROM \`${BQ_SEMANTIC_PROJECT}.semantic.vw_insight_event_day_surface\`
-         WHERE location_id = @location_id
-           AND date = DATE(@affected_date)
-         LIMIT 1`,
-        { location_id: locationId, affected_date: affectedDate }
-      );
-    }
-
-    if (MOBILITY_SUBTYPES.has(changeSubtype) && affectedDate) {
-      mobilityContext = await bqAll(
-        `SELECT * FROM \`${BQ_SEMANTIC_PROJECT}.semantic.vw_insight_event_mobility_disruptions\`
-         WHERE location_id = @location_id
-           AND disruption_date = DATE(@affected_date)
-         ORDER BY perturbation_lvl DESC
-         LIMIT 5`,
-        { location_id: locationId, affected_date: affectedDate }
-      );
-    }
+    // Conditional competitor/day/mobility fetches DELETED — external facts now come from the brain's
+    // citable_facts (the CONTEXTE VÉRIFIÉ block). The per-signal templates keep their framing; the facts
+    // they used to inject are grounded in the system prompt instead.
+    const competitorContext = null;
+    const dayContext = null;
+    const mobilityContext = null;
 
     // ── Build prompts ──
-    const facts = buildFactsBlock(changeSubtype, dataPayload, channel);
+    const facts = buildGroundedFactsBlock(grounded);
     let systemPrompt = buildSystemPrompt(profile, channel, artifactMode, facts);
     if (styleReference) {
       systemPrompt += "\n\n---\nR\u00c9F\u00c9RENCE DE STYLE (brouillon pr\u00e9c\u00e9dent de l'utilisateur) :\n\"\"\"\n" + styleReference + "\n\"\"\"\nReprends le ton, la structure et le style de ce brouillon. Adapte le contenu aux nouvelles donn\u00e9es fournies dans le message utilisateur. Ne copie pas le texte mot pour mot \u2014 r\u00e9\u00e9cris avec les informations actuelles tout en conservant la voix de l'utilisateur.";
@@ -924,59 +737,38 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return TEMPLATES[key] ? key : `generic__${channel}`;
     })();
 
-    // ── Call Anthropic ──
-    const apiKey = import.meta.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "ANTHROPIC_API_KEY manquante" }),
-        { status: 500, headers: { "content-type": "application/json" } }
-      );
-    }
-
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: ANTHROPIC_MAX_TOKENS,
-        temperature: ANTHROPIC_TEMPERATURE,
+    // ── Generate via the one client (registry model + prompt caching), then GROUND-VALIDATE. ──
+    //    Regenerate once on a grounding failure; never hand back ungrounded copy for a publishable draft.
+    const identityText = buildIdentityWhitelist(profile);
+    const genDraft = async (): Promise<string> => {
+      const call = await callClaudeMessagesAPI({
         system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+        userText: userPrompt,
+        model: ANTHROPIC_MODEL,
+        maxTokens: ANTHROPIC_MAX_TOKENS,
+        temperature: ANTHROPIC_TEMPERATURE,
+        cacheSystem: false,
+      });
+      return call.ok ? safeStr(call.rawText) : "";
+    };
 
-    const anthropicJson = await anthropicRes.json().catch(() => null);
-    if (!anthropicJson) {
+    let draftText = await genDraft();
+    let [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction });
+    if (draftText && !gok) {
+      console.warn("[generate-action-draft] grounding rejected, regenerating:", gerrs);
+      draftText = await genDraft();
+      [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction });
+    }
+    if (draftText && !gok) {
+      console.error("[generate-action-draft] grounding failed twice:", gerrs);
       return new Response(
-        JSON.stringify({ ok: false, error: "Réponse Anthropic invalide" }),
-        { status: 502, headers: { "content-type": "application/json" } }
+        JSON.stringify({ ok: false, error: "Brouillon non fondé : un fait externe n'est pas vérifiable. Réessayez ou précisez votre consigne.", grounding_errors: gerrs }),
+        { status: 200, headers: { "content-type": "application/json" } }
       );
     }
-
-    // Surface the real API error instead of masking it as "Draft vide"
-    if (!anthropicRes.ok || anthropicJson.type === "error") {
-      const apiErr = anthropicJson?.error?.message || `HTTP ${anthropicRes.status}`;
-      console.error("[generate-action-draft] Anthropic error:", anthropicRes.status, JSON.stringify(anthropicJson));
-      return new Response(
-        JSON.stringify({ ok: false, error: "Anthropic: " + apiErr }),
-        { status: 502, headers: { "content-type": "application/json" } }
-      );
-    }
-
-    const textBlock = anthropicJson.content?.find((b: any) => b.type === "text");
-    const draftText = safeStr(textBlock?.text);
 
     if (!draftText) {
-      console.error(
-        "[generate-action-draft] empty draft:",
-        "stop_reason=", anthropicJson?.stop_reason,
-        "content=", JSON.stringify(anthropicJson?.content),
-        "usage=", JSON.stringify(anthropicJson?.usage)
-      );
+      console.error("[generate-action-draft] empty draft (model returned no text)");
       return new Response(
         JSON.stringify({ ok: false, error: "Draft vide" }),
         { status: 200, headers: { "content-type": "application/json" } }
