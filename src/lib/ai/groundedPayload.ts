@@ -95,49 +95,6 @@ export function toGroundedDayPayload(
   };
 }
 
-// The forbidden envelope for surfaces without a per-venue brain (multi-day window): the core rules,
-// same spirit as dc.llm.forbidden. No causal verbs on facts, no invented numbers, honest-absence.
-export const FORBIDDEN_BASE: string[] = [
-  "Ne calcule, n'agrège ni ne réconcilie aucun nombre : cite uniquement les faits fournis.",
-  "AUCUN verbe causal sur un fait (jamais « a causé / a fait baisser / a généré »). Un concurrent = proximité ; une date bien classée = un classement, pas une promesse.",
-  "N'invente aucune date, aucun concurrent, aucun chiffre absent des faits ; à défaut, dis « pas assez de recul ».",
-  "L'action proposée est un conseil ancré (« Vu X, envisagez Y ») — jamais un résultat chiffré ni une cause.",
-];
-
-// Multi-day WINDOW → a GroundedDayPayload (reuses the SAME validator + prompt as the day answer). Each
-// day's row is claim-typed into date-prefixed facts; the answer leads with a takeaway, ranks the days,
-// and ends on one grounded action. Engines honest-absent (forecast). NOT a period-brain — just claim-typing
-// the rows already bulk-queried.
-export function toGroundedWindowPayload(
-  days: Array<{
-    date: string; score?: number | null; regime?: string | null; weather_alert_level?: number | null;
-    weather_label?: string | null; events_5km_same_bucket?: number | null; is_weekend?: boolean | null;
-    is_holiday?: boolean | null; commercial?: boolean | null;
-  }>,
-  opts: { question: string; windowLabel: string },
-): GroundedDayPayload {
-  const facts: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"] }> = [];
-  for (const d of days) {
-    const dd = frDate(d.date);
-    if (d.score != null) facts.push({ fact_fr: `${dd} : score ${String(d.score).replace(".", ",")}/10${d.regime ? ` (régime ${d.regime})` : ""}`, claim_type: "observed" });
-    if (d.events_5km_same_bucket != null) facts.push({ fact_fr: `${dd} : ${d.events_5km_same_bucket} concurrents directs à 5 km`, claim_type: "observed_proximity" });
-    if (d.weather_alert_level != null && d.weather_alert_level > 0) facts.push({ fact_fr: `${dd} : alerte météo niveau ${d.weather_alert_level}`, claim_type: "observed_acute" });
-    else if (d.weather_label) facts.push({ fact_fr: `${dd} : ${d.weather_label}`, claim_type: "observed" });
-    if (d.is_holiday) facts.push({ fact_fr: `${dd} : jour férié`, claim_type: "observed_presence" });
-    else if (d.is_weekend) facts.push({ fact_fr: `${dd} : week-end`, claim_type: "observed" });
-    if (d.commercial) facts.push({ fact_fr: `${dd} : temps fort commercial`, claim_type: "observed_presence" });
-  }
-  const citable_facts: CitableFact[] = facts.map((f, i) => ({ id: `f${i}`, fact_fr: f.fact_fr, claim_type: f.claim_type }));
-  return {
-    horizon: "day", question: opts.question, date: days[0]?.date ?? "", display_date: opts.windowLabel,
-    citable_facts, signals: { changes: [], cards: [] },
-    driver: { value: null, claim_type: "observed_ranking" },
-    engines: { sensitivities: [], decomposition: [], track_record: {} },
-    forbidden: FORBIDDEN_BASE,
-    venue: { site_name: null, location_type: null, business_description: null },
-  };
-}
-
 // The set of exact strings the model is allowed to surface as facts — the validator's whitelist.
 // Includes the citable_fact strings + the fired-signal labels (event_label / headline_fr) so a named
 // change/card the model references still traces to a source. Numbers/entities not appearing in any of
