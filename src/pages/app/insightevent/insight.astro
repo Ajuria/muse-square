@@ -1223,13 +1223,24 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '</div>'
           + '</div>';
 
+          // Acute weather alert — OPERATIONAL register (observed_acute): today's felt temp / gusts.
+          // Distinct from the measured heat sensitivity (async "Comment votre lieu réagit" block) and
+          // from the declared "Sensibilité météo" below — the three are never merged. Server-formatted
+          // via contextCopy; present only when level >= 3, so hidden otherwise (honest-absence).
+          if (day.weather_alert_fr) {
+            html += '<div class="fs-section" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;">'
+              + '<div style="font-size:13px;font-weight:600;color:#991b1b;">' + esc(day.weather_alert_fr) + '</div>'
+              + '<div style="font-size:11px;color:#9a3412;margin-top:3px;">Condition du jour — à ne pas confondre avec votre sensibilité mesurée</div>'
+            + '</div>';
+          }
+
           // Impact KPIs
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Impact sur votre site</div>'
             + '<div class="fs-grid">'
               + '<div class="fs-metric"><div class="fs-metric-label">Sensibilit\u00e9 m\u00e9t\u00e9o</div><div class="fs-metric-value" style="color:' + (Number(prof.weather_sensitivity || 0) >= 3 ? '#dc2626' : '#1a1d2e') + ';">' + (prof.weather_sensitivity || '\u2014') + ' <span class="fs-metric-unit">/5</span></div><div class="fs-metric-sub">' + (Number(prof.weather_sensitivity || 0) >= 3 ? '\u00e9lev\u00e9e' : 'mod\u00e9r\u00e9e') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Type d\u2019espace</div><div class="fs-metric-value sm">' + esc(LOC_FR[String(prof.location_type || '').toLowerCase()] || prof.location_type || '\u2014') + '</div><div class="fs-metric-sub">' + (String(prof.location_type || '').toLowerCase() === 'mixed' || String(prof.location_type || '').toLowerCase() === 'outdoor' ? 'impact ext\u00e9rieur' : 'couvert') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Variation trafic</div><div class="fs-metric-value" style="color:' + (deltaW < -5 ? '#dc2626' : '#1a1d2e') + ';">' + (deltaW > 0 ? '+' : '') + Math.round(deltaW) + ' <span class="fs-metric-unit">%</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Variation trafic</div><div class="fs-metric-value sm" style="color:' + (deltaW < -5 ? '#dc2626' : '#1a1d2e') + ';">' + esc((day.attribution_fr && day.attribution_fr.weather) ? day.attribution_fr.weather : '—') + '</div></div>'
             + '</div>'
           + '</div>';
         }
@@ -1261,8 +1272,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               if (c.watched_event_id) watched.push(c); else notWatched.push(c);
             }
             var allComp = watched.concat(notWatched);
+            // Header labels the EVENTS grain (\u00e0 proximit\u00e9). "suivis" belongs to the followed-VENUES
+            // block below (ratings/trend), never to the events list \u2014 two grains, never conflated.
             html += '<div class="fs-section">'
-              + '<div class="fs-section-title">Concurrents' + (watched.length > 0 ? ' \u2014 ' + watched.length + ' suivi' + (watched.length > 1 ? 's' : '') : '') + '</div>';
+              + '<div class="fs-section-title">Concurrents \u00e0 proximit\u00e9</div>';
             for (var ci2 = 0; ci2 < Math.min(allComp.length, 5); ci2++) {
               var cc = allComp[ci2];
               var isWatched = !!cc.watched_event_id;
@@ -1283,6 +1296,39 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             html += '<a href="/app/insightevent/map?location_id=' + encodeURIComponent(location_id) + '&date=' + encodeURIComponent(signal_date) + '&embed=1" class="fs-map-link">'
               + '\ud83d\uddfa Voir sur la carte \u2192'
             + '</a>';
+            html += '</div>';
+          }
+
+          // Concurrents suivis \u2014 followed VENUES with Google rating + this-month trend. Distinct grain
+          // from the events list above (never the same entity rendered twice). Hidden when none followed.
+          var fc = day.followed_competitors || [];
+          if (fc.length > 0) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Concurrents suivis \u2014 ' + fc.length + ' suivi' + (fc.length > 1 ? 's' : '') + '</div>';
+            for (var fci = 0; fci < Math.min(fc.length, 5); fci++) {
+              var fcv = fc[fci];
+              var ratingStr = (fcv.google_rating != null)
+                ? ('\u2b50 ' + frDec(fcv.google_rating) + (fcv.google_rating_count != null ? ' \u00b7 ' + frInt(fcv.google_rating_count) + ' avis' : ''))
+                : '';
+              var trendVal = (fcv.rating_trend != null) ? Number(fcv.rating_trend) : null;
+              var trendStr = '';
+              if (trendVal != null && Math.round(trendVal * 10) !== 0) {
+                var up = trendVal > 0;
+                trendStr = '<span style="font-size:11px;color:' + (up ? '#16a34a' : '#dc2626') + ';margin-left:8px;">'
+                  + (up ? '\u2191 +' : '\u2193 \u2212') + frDec(Math.abs(Math.round(trendVal * 10) / 10)) + ' ce mois</span>';
+              }
+              var distStr = (fcv.distance_km != null) ? (frDec(Math.round(Number(fcv.distance_km) * 10) / 10) + ' km') : '';
+              html += '<div class="fs-comp-card">'
+                + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">'
+                  + '<div style="flex:1;min-width:0;">'
+                    + '<div class="fs-comp-org">' + esc(fcv.name || '\u2014') + '</div>'
+                    + (ratingStr || trendStr ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + ratingStr + trendStr + '</div>' : '')
+                    + (fcv.offering_change ? '<div class="fs-comp-theme">' + esc(fcv.offering_change) + '</div>' : '')
+                  + '</div>'
+                  + (distStr ? '<div class="fs-comp-dist">' + distStr + '</div>' : '')
+                + '</div>'
+              + '</div>';
+            }
             html += '</div>';
           }
         }
@@ -1350,13 +1396,24 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '</div>'
           + '</div>';
 
+          // Acute weather alert (observed_acute) \u2014 operational register, distinct from the measured
+          // sensitivity. Present only at level >= 3, hidden otherwise (honest-absence).
+          if (day.weather_alert_fr) {
+            html += '<div class="fs-section" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;">'
+              + '<div style="font-size:13px;font-weight:600;color:#991b1b;">' + esc(day.weather_alert_fr) + '</div>'
+            + '</div>';
+          }
+
           // Calendar context if present
           var calItems = [];
           if (day.holiday_name) calItems.push(day.holiday_name);
           if (day.vacation_name) calItems.push(day.vacation_name);
+          // Brain sends commercial_events as a deduped string[] of names (soldes/foires),
+          // already deduped against the named-events list. Render the string directly.
           if (day.commercial_events && day.commercial_events.length > 0) {
             for (var ei = 0; ei < day.commercial_events.length; ei++) {
-              calItems.push(day.commercial_events[ei].event_name || '');
+              var _ce = day.commercial_events[ei];
+              if (_ce) calItems.push(typeof _ce === 'string' ? _ce : (_ce.event_name || ''));
             }
           }
           if (calItems.length > 0) {
@@ -1365,6 +1422,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
             for (var cli = 0; cli < calItems.length; cli++) {
               html += '<span style="font-size:12px;padding:6px 12px;background:#f7f8fb;border-radius:8px;color:#374151;font-weight:500;">' + esc(calItems[cli]) + '</span>';
+            }
+            html += '</div></div>';
+          }
+
+          // Nationalities (observed_presence) — foreign origins, already French (frCountry). Hidden when none.
+          var fv = day.foreign_visitors || [];
+          if (fv.length > 0) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Visiteurs étrangers possibles</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            for (var fvi = 0; fvi < fv.length; fvi++) {
+              html += '<span style="font-size:12px;padding:6px 12px;background:#eef2ff;border-radius:8px;color:#1D3BB3;font-weight:500;">' + esc(fv[fvi]) + '</span>';
             }
             html += '</div></div>';
           }
@@ -1403,7 +1472,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Impact sur votre site</div>'
             + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + Math.round(mobImpact) + ' <span class="fs-metric-unit">%</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value sm" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + esc((day.attribution_fr && day.attribution_fr.mobility) ? day.attribution_fr.mobility : '\u2014') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Distance station</div><div class="fs-metric-value">' + (tDist > 0 ? tDist : '\u2014') + ' <span class="fs-metric-unit">m</span></div><div class="fs-metric-sub">de ' + esc(prof.site_name || 'votre site') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Score du jour</div><div class="fs-metric-value">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
             + '</div>'

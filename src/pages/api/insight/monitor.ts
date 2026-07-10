@@ -5,6 +5,7 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
+import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -252,6 +253,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .filter(Boolean)
       .sort((a: any, b: any) => String(a?.date?.value ?? a?.date ?? "").localeCompare(String(b?.date?.value ?? b?.date ?? "")));
     const profile = dcs.find((dc) => dc.profile_raw)?.profile_raw ?? null;
+    // Phase 1b — map each date back to its full brain payload so the day object can carry the
+    // additive-rich context (competitors w/ ratings, acute weather alert, commercial events, nationalities,
+    // estimé attribution) the page renders. Keyed on the ISO date of the day_surface row.
+    const dcByDate = new Map<string, (typeof dcs)[number]>();
+    for (const dc of dcs) {
+      const k = String((dc.day_surface_raw as any)?.date?.value ?? (dc.day_surface_raw as any)?.date ?? "").slice(0, 10);
+      if (k) dcByDate.set(k, dc);
+    }
 
     // Fetch BestTime foot traffic if venue is registered
     const btVenueId = profile?.besttime_venue_id ?? null;
@@ -473,6 +482,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const isOutdoor = String(profile?.location_type || "").toLowerCase() === "outdoor";
 
     const days = (signalRows || []).map((r: any) => {
+      const _dc = dcByDate.get(String(r.date?.value ?? r.date ?? "").slice(0, 10));
       const risks: {
         block: "attendance" | "operations" | "installation" | "context";
         severity: "A" | "B" | "C" | "D";
@@ -690,8 +700,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // Audience likelihood
         audience_likelihood: audienceLikelihood,
 
-        // Top competitors (pass through)
+        // Top competitors (pass through) — competitor EVENTS grain (day_surface). Distinct from
+        // `followed_competitors` below (followed VENUES w/ ratings). Two grains, never conflated.
         top_competitors: Array.isArray(r.top_competitors) ? r.top_competitors.slice(0, 3) : [],
+
+        // Phase 1b — additive-rich brain context (all nullable → page renders honest-absence).
+        // followed_competitors = VENUES the operator follows, with Google rating + this-month trend
+        // (context.competitors, observed_proximity). NOT the same as top_competitors (events).
+        followed_competitors: (_dc?.competitors ?? []).map((c) => ({
+          name: c.name, distance_km: c.distance_km, threat_level: c.threat_level,
+          google_rating: c.google_rating, google_rating_count: c.google_rating_count,
+          rating_trend: c.rating_trend, offering_change: c.offering_change,
+        })),
+        weather_alert: _dc?.weather_alert ?? null,                 // acute/operational register (observed_acute), raw
+        weather_alert_fr: _dc?.weather_alert ? formatWeatherAlert(_dc.weather_alert) : null, // owner-final French (contextCopy)
+        commercial_events: _dc?.commercial_events ?? [],           // named soldes/foires (observed_presence, deduped vs events)
+        foreign_visitors: _dc?.foreign ?? [],                      // nationalities, French (observed_presence)
+        attribution: _dc?.day_surface?.attribution ?? null,        // delta_att_* — ESTIMÉ register, never merged w/ measured
+        attribution_fr: {                                          // ESTIMÉ chips via contextCopy (never a bare number); null → hide
+          weather: formatEstimatePct(_dc?.day_surface?.attribution?.weather_pct),
+          mobility: formatEstimatePct(_dc?.day_surface?.attribution?.mobility_pct),
+          events: formatEstimatePct(_dc?.day_surface?.attribution?.events_pct),
+          calendar: formatEstimatePct(_dc?.day_surface?.attribution?.calendar_pct),
+        },
 
         // Context
         holiday_name: r.holiday_name ?? null,

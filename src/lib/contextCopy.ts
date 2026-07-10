@@ -64,6 +64,17 @@ export const COUNTRY_FR: Record<string, string> = {
 };
 export const frCountry = (en: string): string => COUNTRY_FR[en] ?? en;
 
+// Tier-2 ESTIMÉ chip for an attribution delta (delta_att_*). ALWAYS carries the "estimé" label — the
+// mart's dow+trend attribution is an estimate, a distinct register from the measured sensitivity store,
+// never a bare "−6". Returns null for null/zero (honest-absence). Format per the four-tier spec: "≈ −6 % estimé".
+export function formatEstimatePct(pct: number | null | undefined): string | null {
+  if (pct == null || !isFinite(Number(pct))) return null;
+  const n = Math.round(Number(pct));
+  if (n === 0) return null;
+  const sign = n > 0 ? "+" : "−"; // U+2212 minus
+  return `≈ ${sign}${Math.abs(n)} % ${CONTEXT_LABELS.impact_suffix}`;
+}
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];
