@@ -78,6 +78,8 @@ type AiResponseV1 = {
   key_facts: string[];
   actions: ApiActions;
   caveats: string[];
+  suggested_action: string;   // grounded "geste" (same register as the Point du jour); "" when none
+
   meta: {
     horizon: ResolvedHorizon;
     intent: Intent;
@@ -181,6 +183,8 @@ function normalizeAiOutput(
   actions: ApiActions
 ): AiResponseV1 {
   const out = ai?.output;
+  const suggestedAction = out && typeof out === "object" && typeof (out as any).suggested_action === "string"
+    ? (out as any).suggested_action.trim() : "";
 
   const metaWithDecisionRef: AiResponseV1["meta"] = {
     ...meta,
@@ -213,6 +217,7 @@ function normalizeAiOutput(
       key_facts: asStringArray(out.key_facts),
       actions,
       caveats: asStringArray(out.caveats),
+      suggested_action: suggestedAction,
       meta: metaWithDecisionRef,
     };
   }
@@ -278,6 +283,7 @@ function normalizeAiOutput(
       key_facts: key_facts,
       actions,
       caveats,
+      suggested_action: suggestedAction,
       meta: metaWithDecisionRef,
     };
   }
@@ -292,6 +298,7 @@ function normalizeAiOutput(
       key_facts: [],
       actions,
       caveats: [],
+      suggested_action: "",
       meta: metaWithDecisionRef,
     };
   }
@@ -307,6 +314,7 @@ function normalizeAiOutput(
     key_facts: [],
     actions,
     caveats: raw ? ["Sortie AI brute utilisée (raw_text)."] : ["Sortie AI vide ou illisible."],
+    suggested_action: "",
     meta: metaWithDecisionRef,
   };
 }
