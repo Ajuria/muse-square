@@ -166,7 +166,7 @@ const CTX_TTL_MS = 120_000; // 2 min
 // Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
 // above serve windows). opts.devSeed swaps the store/learning to demo fixtures (?src=seed). This is the
 // ONE brain: every consumer reads its payload; none reads the sensitivity store or learning marts directly.
-export function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
+export function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'brief' | 'signals' } = {}): Promise<DayContext> {
   const slice = opts.slice ?? 'full';
   const seed = opts.devSeed ? 1 : 0;
   const now = Date.now();
@@ -176,7 +176,7 @@ export function assembleDayContext(bq: any, loc: string, date: string, opts: { d
   // process). On Vercel, monitor / reactions-today / sensitivities are SEPARATE invocations, so cross-
   // endpoint collapse is best-effort (only if they land on the same warm instance) — a shared cache
   // (Redis/KV) is the path to guaranteed cross-endpoint sharing, deferred.
-  const superset: Record<string, string[]> = { signals: ['full', 'context', 'signals'], context: ['full', 'context'], full: ['full'] };
+  const superset: Record<string, string[]> = { signals: ['full', 'context', 'brief', 'signals'], brief: ['full', 'context', 'brief'], context: ['full', 'context'], full: ['full'] };
   for (const s of superset[slice]) {
     const hit = _ctxCache.get(`${loc}|${date}|${s}|${seed}`);
     if (hit && now - hit.ts < CTX_TTL_MS) return hit.p;
@@ -188,12 +188,18 @@ export function assembleDayContext(bq: any, loc: string, date: string, opts: { d
   return p;
 }
 
-async function assembleDayContextUncached(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
+async function assembleDayContextUncached(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'brief' | 'signals' } = {}): Promise<DayContext> {
   // Scoped slices from the ONE composition (no parallel read path). A light surface skips the
   // expensive reads: 'signals' = signals[] + driver only; 'context' = context{} (no Engine-1/decomp);
   // 'full' (default) = everything. Grains stay separate regardless of slice.
-  const wantContext = opts.slice !== 'signals';                 // Engine 2 (measured) + competitors + estimation + context facts
+  const wantContext = opts.slice !== 'signals';                 // Engine 2 (measured) + competitors + context facts
   const wantEngines = (opts.slice ?? 'full') === 'full';        // Engine 1 (learning/outcomes) + decomposition (the heavy reads)
+  // 'brief' (Point du jour / cron) = context minus the heaviest extras: skips competitor ENRICHMENT
+  // (rating/offering/snapshot — 2 live reads) and the delta_att estimation, keeping driver + signals +
+  // key context facts + measured sensitivity. Fewer BQ reads per location = affordable across all users.
+  const heavyCtx = opts.slice === 'full' || opts.slice === 'context';
+  const wantCompEnrich = heavyCtx;                              // competitor ratings/offering/snapshot (Phase 1b extras)
+  const wantEstimation = heavyCtx;                              // delta_att Tier-2 estimation (impacts)
   const d = bq.date(date);
   const one = async (query: string, params: Record<string, any>) => {
     const [rows] = await bq.query({ query, params, location: 'EU' });
@@ -281,7 +287,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   // offering changes + rating trends for those competitors (live tables; empty for offering-less verticals)
   const offeringByCid: Record<string, string> = {};
   const trendByCid: Record<string, number> = {};
-  if (cids.length) {
+  if (cids.length && wantCompEnrich) {
     const [off] = await bq.query({
       query: `SELECT competitor_id AS cid, item, change_type, ROUND(price_pct_change,0) AS pct
         FROM \`${PROJECT}.intermediate.int_competitor_offering_changes\` WHERE competitor_id IN UNNEST(@cids)
@@ -359,7 +365,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   const measuredFeatures = new Set(sensitivities.map((s) => s.feature));
   const t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
   const impacts: Record<string, number> = {};
-  if (wantContext && !opts.devSeed && t2feats.length) {
+  if (wantContext && wantEstimation && !opts.devSeed && t2feats.length) {
     const cols = [...new Set(t2feats.map((f) => f.impact_col as string))];
     const r = await one(`SELECT ${cols.join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
     t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0 && !measuredFeatures.has(f.key)) impacts[f.key] = v; });

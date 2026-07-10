@@ -50,8 +50,15 @@ function frDate(iso: string): string {
 }
 
 // dc (the brain payload) + the day question → the grounded payload. Pure; no I/O.
-export function toGroundedDayPayload(dc: DayContext, opts: { question: string; date: string }): GroundedDayPayload {
-  const citable_facts: CitableFact[] = (dc.llm?.citable_facts ?? []).map((f, i) => ({
+// `extraFacts` appends caller-supplied claim-typed facts to the whitelist (e.g. Point du jour's
+// yesterday-vs-today score delta — one extra read, made citable). A DESIGNED extension, not a fork:
+// the facts still flow through the same grounding + validation. Never pass ungrounded/derived strings.
+export function toGroundedDayPayload(
+  dc: DayContext,
+  opts: { question: string; date: string; extraFacts?: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"] }> },
+): GroundedDayPayload {
+  const base = [...(dc.llm?.citable_facts ?? []), ...(opts.extraFacts ?? [])];
+  const citable_facts: CitableFact[] = base.map((f, i) => ({
     id: `f${i}`,
     fact_fr: f.fact_fr,
     claim_type: f.claim_type,

@@ -10,6 +10,7 @@
 
 export type ModelRole =
   | "packager"     // narrative packaging (day/month) — the grounded prompt output
+  | "briefing"     // grounded daily Point du jour (cron over every user) — cheap tier, validator is the net
   | "classifier"   // fast intent classification
   | "enrichment"   // context/event enrichment, search, sowhat (cheap/fast)
   | "web_search"   // web-search-tool-backed lookups
@@ -17,6 +18,7 @@ export type ModelRole =
 
 const REGISTRY: Record<ModelRole, string> = {
   packager: "claude-sonnet-4-5-20250929",
+  briefing: "claude-haiku-4-5-20251001",   // Haiku: runs daily per user; grounding validator is the safety net
   classifier: "claude-haiku-4-5-20251001",
   enrichment: "claude-haiku-4-5-20251001",
   web_search: "claude-sonnet-4-6",

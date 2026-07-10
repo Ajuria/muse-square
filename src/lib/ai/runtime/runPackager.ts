@@ -49,6 +49,7 @@ export async function runAIPackagerClaude(args: {
   aiLocationContextRow?: Record<string, any>;
   submode?: MonthSubMode; // required iff mode === "month"
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  model?: string;   // registry-resolved model override (e.g. modelFor("briefing") for the daily cron)
 }): Promise<{
   ok: boolean;
   mode: Mode;
@@ -233,6 +234,7 @@ export async function runAIPackagerClaude(args: {
   const call = await callClaudeMessagesAPI({
     system: system_prompt,
     userPayload: payload,
+    model: args.model,
     temperature: 0,
     maxTokens: 2048,
     timeoutMs: 30_000,
