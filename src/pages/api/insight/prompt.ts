@@ -7,6 +7,8 @@ import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { assembleDayContext } from "../../../lib/dayContext";
+import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
 import { buildUiPackagingV3Month } from "../../../lib/ai/ui_packaging_v3/buildUiPackagingV3Month";
@@ -3161,7 +3163,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let window_aggregates_v3: WindowAggregatesV3 | null = null;
     let ui_packaging_v3: any = null;
 
-    type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic";
+    type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic" | "grounded_day_claude";
     let producer: ProducerMeta = "deterministic";
 
     const isUnknownIntent =
@@ -4041,169 +4043,37 @@ Règles :
         // ------------------------------------
         // V3 Day → Claude narration
         // ------------------------------------
-        const avg_same_bucket_5km_window_day = await (async () => {
-          const ws = effective_date.slice(0, 7) + "-01";
-          const rows = await bqAll(
-            `
-            WITH win AS (
-              SELECT
-                DATE(@window_start_date) AS window_start_date,
-                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
-            )
-            SELECT events_within_5km_same_bucket_count
-            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-            WHERE location_id = @location_id
-              AND date BETWEEN (SELECT window_start_date FROM win)
-                          AND (SELECT window_end_date FROM win)
-            `,
-            bqParams({ location_id, window_start_date: ws })
-          );
-          const vals = rows
-            .map((r: any) => {
-              const n = typeof r?.events_within_5km_same_bucket_count === "number"
-                ? r.events_within_5km_same_bucket_count
-                : Number(r?.events_within_5km_same_bucket_count);
-              return Number.isFinite(n) ? n : null;
-            })
-            .filter((n): n is number => n !== null);
-          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-        })();
-        
-        const saved_item_context = await (async () => {
-          if (!effective_date || !location_id) return null;
-          try {
-            const rows = await bqAll(
-              `
-              SELECT i.title, i.description, i.event_type
-              FROM \`${projectId}.raw.saved_item_dates\` d
-              JOIN \`${projectId}.raw.saved_items\` i
-                ON i.saved_item_id = d.saved_item_id
-              WHERE DATE(d.date) = DATE(@effective_date)
-                AND d.location_id = @location_id
-                ${clerk_user_id ? "AND d.clerk_user_id = @clerk_user_id" : ""}
-              LIMIT 1
-              `,
-              bqParams({
-                effective_date,
-                location_id,
-                ...(clerk_user_id ? { clerk_user_id } : {}),
-              })
-            );
-            return rows.length ? rows[0] : null;
-          } catch (e) {
-            return null;
-          }
-        })();
-        
-        const narrative_input_day = {
-          horizon: "day",
-          intent: resolved_intent,
-          user_question: qRaw,
-          date: effective_date,
-          display_label: day_row?.display_label ?? effective_date,
-          scoring: {
-            regime: day_row?.opportunity_regime ?? null,
-            score: day_row?.opportunity_score_final_local ?? null,
-            medal: day_row?.opportunity_medal ?? null,
-            events_score: day_row?.events_score ?? null,
-            weather_score: day_row?.weather_score ?? null,
-            calendar_score: day_row?.calendar_score ?? null,
-            mobility_score: day_row?.mobility_score ?? null,
-          },
-          primary_driver: {
-            label_fr: day_row?.primary_score_driver_label_fr ?? null,
-            confidence_fr: day_row?.primary_driver_confidence_fr ?? null,
-          },
-          weather: {
-            label_fr: day_row?.weather_label_fr ?? null,
-            alert_level_max: day_row?.alert_level_max ?? null,
-            wind_speed_10m_max: day_row?.wind_speed_10m_max ?? null,
-            precipitation_probability_max_pct: day_row?.precipitation_probability_max_pct ?? null,
-            impact_weather_pct: day_row?.impact_weather_pct ?? null,
-            lvl_wind: day_row?.lvl_wind ?? null,
-            lvl_rain: day_row?.lvl_rain ?? null,
-          },
-          competition: {
-            events_within_5km_count: day_row?.events_within_5km_count ?? null,
-            events_within_10km_count: day_row?.events_within_10km_count ?? null,
-            events_within_50km_count: day_row?.events_within_50km_count ?? null,
-            delta_att_events_pct: day_row?.delta_att_events_pct ?? null,
-            events_within_5km_same_bucket_count: day_row?.events_within_5km_same_bucket_count ?? null,
-            events_within_10km_same_bucket_count: day_row?.events_within_10km_same_bucket_count ?? null,
-            pct_same_bucket_5km: day_row?.pct_same_bucket_5km ?? null,
-            avg_same_bucket_5km_window: avg_same_bucket_5km_window_day,
-            has_valid_baseline: avg_same_bucket_5km_window_day !== null,
-            baseline_comp_avg: day_row?.baseline_comp_avg ?? null,
-            has_valid_baseline_flag: day_row?.has_valid_baseline_flag ?? null,
-            top_competitors: Array.isArray(day_row?.top_competitors)
-              ? day_row.top_competitors.slice(0, 10).map((tc: any) => ({
-                  name: tc?.e?.event_label ?? null,
-                  distance_m: tc?.e?.distance_m ?? null,
-                  radius_bucket: tc?.e?.radius_bucket ?? null,
-                  industry_code: tc?.e?.industry_code ?? null,
-                  theme: tc?.e?.theme ?? null,
-                  description: typeof tc?.e?.description === "string"
-                    ? tc.e.description.trim().slice(0, 150)
-                    : null,
-                }))
-              : [],
-          },
-          audience: {
-            availability_label: day_row?.audience_availability_label ?? null,
-            is_weekend: day_row?.is_weekend ?? null,
-            is_public_holiday_fr_flag: day_row?.is_public_holiday_fr_flag ?? null,
-            is_school_holiday_flag: day_row?.is_school_holiday_flag ?? null,
-            is_commercial_event_flag: day_row?.is_commercial_event_flag ?? null,
-          },
-          signals_fr: Array.isArray(day_row?.daily_signal_summary_fr)
-            ? day_row.daily_signal_summary_fr
-            : [],
-          is_major_realization_risk: day_row?.is_major_realization_risk_flag ?? null,
-          major_realization_risk_driver: day_row?.major_realization_risk_driver ?? null,
-          business_profile: {
-            location_type: internal_context?.location_type ?? null,
-            company_activity_type: internal_context?.company_activity_type ?? null,
-            business_short_description: internal_context?.business_short_description ?? null,
-            event_time_profile: internal_context?.event_time_profile ?? null,
-            primary_audience_1: internal_context?.primary_audience_1 ?? null,
-            primary_audience_2: internal_context?.primary_audience_2 ?? null,
-            main_event_objective: internal_context?.main_event_objective ?? null,
-            venue_capacity: internal_context?.venue_capacity ?? null,
-          },
-
-          user_event: saved_item_context ? {
-            title: saved_item_context.title ?? null,
-            description: saved_item_context.description ?? null,
-            event_type: saved_item_context.event_type ?? null,
-          } : null,
-        };
-
-        console.log("[DAY_WHY payload] competition:", JSON.stringify(narrative_input_day.competition));
-        console.log("[DAY_WHY payload] user_event:", JSON.stringify(narrative_input_day.user_event));
-
+        // Grounded day answer — the brain (assembleDayContext) is the fact source. The adapter turns its
+        // claim-typed llm envelope into the packager payload; the packager cites ONLY citable_facts and the
+        // grounded validator rejects anything ungrounded. On reject → regenerate once → deterministic IR
+        // (renderDayWhyV1), a grounded-by-construction floor. Never ships ungrounded LLM text.
+        const dc_day = await assembleDayContext(bigquery, location_id, effective_date, {});
+        const grounded_payload = toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date });
+        const callGrounded = () => runAIPackagerClaude({
+          mode: "grounded_day",
+          row: { ...grounded_payload, _conversation_history: conversation_history },
+        });
         try {
-          ai = await runAIPackagerClaude({
-            mode: "v3_narrative",
-            submode: resolved_intent as any,
-            row: { ...narrative_input_day, _conversation_history: conversation_history },
-          });
-          producer = "v3_claude";
+          ai = await callGrounded();
+          if (!ai.ok) {
+            console.warn("[DAY_WHY grounded] rejected, regenerating:", ai.errors);
+            ai = await callGrounded();
+          }
+          producer = ai.ok ? "grounded_day_claude" : "v3_fallback_deterministic";
         } catch (e) {
+          console.error("[DAY_WHY grounded] threw:", e);
+          ai = { ok: false } as any;
+          producer = "v3_fallback_deterministic";
+        }
+        if (!ai || !ai.ok) {
           ai = {
             ok: true,
             mode: "deterministic_daywhy_ir_v1",
-            output: {
-              headline: det_headline,
-              answer: "",
-              key_facts: det_key_facts,
-              reasons: [],
-              caveats: [],
-            },
+            output: { headline: det_headline, answer: "", key_facts: det_key_facts, reasons: [], caveats: [] },
             raw_text: "",
             errors: [],
             warnings: [],
           };
-          producer = "v3_fallback_deterministic";
         }
 
         break;

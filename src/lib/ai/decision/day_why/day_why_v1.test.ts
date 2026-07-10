@@ -20,8 +20,9 @@ describe("renderDayWhyV1 — v1 stub", () => {
     });
 
     expect(out).not.toBeNull();
-    expect(out!.headline).toContain("2026-01-21");
-    expect(Array.isArray(out!.bullets)).toBe(true);
-    expect(out!.bullets.length).toBeGreaterThan(0);
+    // Current IR shape: headline_fr + facts[] + line_items[] (was headline/bullets).
+    expect(out!.headline_fr).toContain("2026-01-21");
+    expect(Array.isArray(out!.line_items)).toBe(true);
+    expect(Array.isArray(out!.facts)).toBe(true);
   });
 });
