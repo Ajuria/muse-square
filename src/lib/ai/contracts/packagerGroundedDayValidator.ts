@@ -20,14 +20,19 @@ function extractNumbers(text: string): Set<string> {
 const norm = (s: string): string =>
   String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 
-// Causal constructions the forbidden envelope bans on facts (competitor/driver/tourism/signals/weather).
-// Conservative list — the egregious "X a causé/généré/fait baisser la fréquentation" patterns.
+// Causal constructions the forbidden envelope bans on facts (competitor/driver/tourism/signals/weather),
+// PLUS predicted-outcome constructions banned on the suggested_action ("X augmentera/boostera vos ventes").
+// "Vu X, envisagez Y" (advice, no promised outcome) is NOT here — it's allowed. Conservative list.
 const CAUSAL_PATTERNS = [
+  // causal attribution on a fact
   "a cause", "ont cause", "a genere", "ont genere", "a fait baisser", "ont fait baisser",
   "a fait grimper", "a fait chuter", "a reduit la frequentation", "a dope", "a booste",
   "responsable de la baisse", "responsable de la hausse", "explique la baisse", "explique la hausse",
-  "a provoque", "a entraine une baisse", "a entraine une hausse",
-  "booste votre", "dope votre", "boostera votre", "dopera votre", "fait exploser", "grace a la concurrence",
+  "a provoque", "a entraine une baisse", "a entraine une hausse", "fait exploser", "grace a la concurrence",
+  // predicted OUTCOME on the action (a promise, not grounded advice)
+  "augmentera", "augmenteront", "boostera", "boosteront", "dopera", "doperont", "rapportera",
+  "rapporteront", "generera", "genereront", "fera grimper", "fera gagner", "permettra de gagner",
+  "vous fera gagner", "fera venir", "attirera", "doublera", "augmentera vos", "boostera vos",
 ];
 
 export function validate_packager_output_grounded_day(output: any, row: any): [boolean, string[], string[]?] {
@@ -39,16 +44,21 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   if (!output || typeof output !== "object") return [false, ["grounded_day: output is not an object"]];
   if (typeof output.headline !== "string" || !output.headline.trim()) errors.push("grounded_day: missing headline");
   if (typeof output.answer !== "string" || !output.answer.trim()) errors.push("grounded_day: missing answer");
-  for (const k of ["key_facts", "reasons", "caveats", "cited_fact_ids"]) {
+  for (const k of ["key_facts", "caveats", "cited_fact_ids"]) {
     if (!Array.isArray(output[k])) errors.push(`grounded_day: ${k} must be an array`);
   }
+  if (output.reasons !== undefined && !Array.isArray(output.reasons)) errors.push("grounded_day: reasons must be an array");
+  if (output.suggested_action !== undefined && typeof output.suggested_action !== "string") errors.push("grounded_day: suggested_action must be a string");
   if (errors.length) return [false, errors];
 
   const factStrings = groundedFactStrings(payload);
   const groundedText = factStrings.join("  ");
 
-  // all surfaced text (what the operator will read)
-  const surfaced = [output.headline, output.answer, ...output.key_facts, ...output.reasons]
+  // all surfaced text (what the operator will read) — incl. reasons (optional) + the suggested_action.
+  // The action is advice but its numbers/entities must still be grounded and it may promise no outcome.
+  const reasons: string[] = Array.isArray(output.reasons) ? output.reasons : [];
+  const suggestedAction: string = typeof output.suggested_action === "string" ? output.suggested_action : "";
+  const surfaced = [output.headline, output.answer, ...output.key_facts, ...reasons, suggestedAction]
     .map((x: any) => String(x ?? ""))
     .join("  ");
 
@@ -79,7 +89,7 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   const entityRe = new RegExp(`[${U}][${L}]+(?:\\s+(?:de|des|du|d['’]|la|le|les|the|of|von)?\\s*[${U}][${L}]+)+`, "g");
   const seenEnt = new Set<string>();
   // Per SEGMENT (never across the join) so an entity can't straddle two facts ("Portugal  Contexte").
-  const segments = [output.headline, output.answer, ...output.key_facts, ...output.reasons].map((x: any) => String(x ?? ""));
+  const segments = [output.headline, output.answer, ...output.key_facts, ...reasons, suggestedAction].map((x: any) => String(x ?? ""));
   for (const seg of segments) {
     for (const ent of seg.match(entityRe) ?? []) {
       const e = norm(ent);

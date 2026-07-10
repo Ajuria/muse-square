@@ -327,17 +327,28 @@ function renderGroundedNarrative(g: any): string {
     return `<p style="margin:0;color:#6b7280;">Rien de majeur à signaler aujourd'hui — conditions dans la norme.</p>`;
   }
   let h = "";
-  if (g.headline) h += `<p style="margin:0 0 12px 0;font-weight:600;color:#111827;">${esc(g.headline)}</p>`;
-  if (g.answer) h += `<p style="margin:0 0 14px 0;">${esc(g.answer)}</p>`;
+  // Lead: the synthesized takeaway (why today matters).
+  if (g.headline) h += `<p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#111827;line-height:1.5;">${esc(g.headline)}</p>`;
+  // The 2-3 salient facts behind it.
+  if (g.answer) h += `<p style="margin:0 0 12px 0;">${esc(g.answer)}</p>`;
   const kf = Array.isArray(g.key_facts) ? g.key_facts.filter(Boolean) : [];
   if (kf.length) {
     h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 8px 0;">` +
-      kf.slice(0, 6).map((f: string) =>
+      kf.slice(0, 3).map((f: string) =>
         `<tr><td width="14" valign="top" style="color:#0b37e5;font-size:13px;line-height:1.7;">•</td><td style="font-size:13.5px;color:#374151;line-height:1.7;padding-bottom:3px;">${esc(f)}</td></tr>`
       ).join("") + `</table>`;
   }
+  // The move: one grounded action, highlighted (honest-absence — hidden when the model found none).
+  const action = typeof g.suggested_action === "string" ? g.suggested_action.trim() : "";
+  if (action) {
+    h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 4px 0;"><tr>
+      <td width="5" style="background:#0b37e5;font-size:1px;">&nbsp;</td>
+      <td style="background:#eef2ff;padding:13px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13.5px;color:#1e3a8a;line-height:1.6;">
+        <span style="display:block;font-weight:700;letter-spacing:0.06em;font-size:10px;text-transform:uppercase;color:#0b37e5;margin-bottom:5px;">Le geste</span>${esc(action)}
+      </td></tr></table>`;
+  }
   const cav = Array.isArray(g.caveats) ? g.caveats.filter(Boolean) : [];
-  if (cav.length) h += `<p style="margin:6px 0 0 0;font-size:12.5px;color:#9ca3af;">${esc(cav.join(" · "))}</p>`;
+  if (cav.length) h += `<p style="margin:10px 0 0 0;font-size:12.5px;color:#9ca3af;">${esc(cav.join(" · "))}</p>`;
   return h;
 }
 

@@ -263,8 +263,8 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | Module | Purpose |
 |---|---|
 | `packagePromptV3.ts` | V3 narrative system prompt (window_top_days / compare_dates / day_why) |
-| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2)** — model cites ONLY the brain's `citable_facts`; no invented numbers/entities, no causal verbs, honest-absence |
-| `packagerGroundedDayValidator.ts` | **Grounding validator (Phase 2)** — HARD-rejects any surfaced number / named entity / causal construction not tracing to the payload (planted-fabrication proof); never warn-and-pass |
+| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2 + action layer)** — cites ONLY the brain's `citable_facts`; LEADS with one synthesized takeaway, ranks by salience (driver > alert_level > acute), keeps 2-3 facts, ends on ONE grounded `suggested_action` ("Vu X, envisagez Y" — no promised outcome/number/cause). No invented numbers/entities/causes; honest-absence |
+| `packagerGroundedDayValidator.ts` | **Grounding validator (Phase 2 + action layer)** — HARD-rejects any surfaced number / named entity / causal construction **or predicted outcome on the action** (augmentera/boostera…) not tracing to the payload; advice imperatives (envisagez/activez) allowed; never warn-and-pass |
 | `packagerMonthPrompt.ts` | Month orchestration prompt (window_summary vs special_days) |
 | `packagerMonthSpecialDaysPrompt.ts` | Special-days narration prompt |
 | `packagerMonthWindowSummaryPrompt.ts` | Month window-summary prompt |
