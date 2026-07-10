@@ -921,6 +921,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // Type B × Type A synthesis — reads /api/insight/reactions-today (one accessor, no
       // re-derivation). Two labeled registers, never merged: "Votre environnement" (Engine 2) /
       // "Ce qui a marché pour vous" (Engine 1) → the move (only when a real track record fired).
+      // Four-tier context-as-decision surface — reads /api/insight/reactions-today (d.tiers).
+      // Four provenance-labelled groups, NEVER merged: Mesuré (learned) / Estimation (prior+fact) /
+      // Concurrence (observed) / Ce qui a marché (action). All French comes from the endpoint
+      // (owner copy + reused mart facts) via `display`/`labels`; this render authors no words.
       function loadReactions(locId, date, container) {
         var section = document.getElementById('fs-reactions-section');
         var src = new URLSearchParams(location.search).get('src');
@@ -928,22 +932,40 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         fetch(url, { headers: { accept: 'application/json' } })
           .then(function(r) { return r.json(); })
           .then(function(d) {
-            if (!d || !d.ok || d.empty || !d.factors || !d.factors.length) { if (section) section.style.display = 'none'; return; }
-            var acts = d.factors.filter(function(f) { return f.action; });
-            var moves = d.factors.filter(function(f) { return f.move; });
+            if (!d || !d.ok || !d.tiers) { if (section) section.style.display = 'none'; return; }
+            var t = d.tiers, TH = (d.labels && d.labels.tiers) || {}, SUF = (d.labels && d.labels.impact_suffix) || 'estimé';
+            var DATA = '#1D3BB3', SUB = '#6B7280', MUTE = '#9CA3AF';
+            function heading(x) { return '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin:16px 0 8px;">' + esc(x) + '</div>'; }
+            function chip(x, c) { return '<span style="flex:none;font-size:11px;font-weight:600;color:' + c + ';white-space:nowrap;">' + esc(x) + '</span>'; }
+            function line(txt, right) { return '<div class="fs-pourquoi-fact" style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;"><span class="fs-pourquoi-text" style="margin-left:0;">' + esc(txt) + '</span>' + (right || '') + '</div>'; }
+            function frPct(n) { var s = (Math.round(Math.abs(n) * 10) / 10).toString().replace('.', ','); return (n < 0 ? '−' : '+') + s + ' %'; }
             var html = '';
-            for (var i = 0; i < d.factors.length; i++) {
-              html += '<div class="fs-pourquoi-fact"><span class="fs-pourquoi-text" style="margin-left:0;">' + esc(d.factors[i].env) + '</span></div>';
+            if (t.mesure && t.mesure.length) {
+              html += heading(TH.mesure || 'Mesuré sur vos ventes');
+              for (var i = 0; i < t.mesure.length; i++) html += line(t.mesure[i].display, chip('mesuré', DATA));
             }
-            if (acts.length) {
-              html += '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin:16px 0 8px;">Ce qui a marché pour vous</div>';
-              for (var j = 0; j < acts.length; j++) {
-                html += '<div class="fs-pourquoi-fact"><span class="fs-pourquoi-text" style="margin-left:0;">' + esc(acts[j].action) + '</span></div>';
+            if (t.estimation && t.estimation.length) {
+              html += heading(TH.estimation || 'Contexte du jour');
+              for (var j = 0; j < t.estimation.length; j++) { var e = t.estimation[j]; html += line(e.display || '', chip('≈ ' + frPct(e.impact_pct) + ' ' + SUF, SUB)); }
+            }
+            if (t.concurrence && t.concurrence.length) {
+              html += heading(TH.concurrence || 'Concurrence');
+              for (var k = 0; k < t.concurrence.length; k++) {
+                var c = t.concurrence[k], meta = [];
+                if (c.google_rating != null) meta.push('★ ' + String(c.google_rating).replace('.', ',') + (c.google_rating_count != null ? ' (' + c.google_rating_count + ')' : ''));
+                if (c.rating_trend != null && c.rating_trend !== 0) meta.push((c.rating_trend < 0 ? '▼' : '▲') + ' ' + Math.abs(c.rating_trend));
+                if (c.offering_change) meta.push(c.offering_change);
+                html += line(c.display || c.name, meta.length ? chip(meta.join(' · '), MUTE) : '');
+                if (c.enriched) html += '<div style="font-size:12px;color:' + MUTE + ';line-height:1.5;margin:2px 0 6px;">' + esc(c.enriched.length > 140 ? c.enriched.slice(0, 140) + '…' : c.enriched) + '</div>';
               }
             }
-            for (var k = 0; k < moves.length; k++) {
-              html += '<div style="display:flex;gap:8px;align-items:flex-start;background:#eef2ff;border:1px solid #d6ddfb;border-radius:9px;padding:10px 12px;margin-top:14px;font-size:13px;line-height:1.5;color:#2f3aa3;"><span style="font-weight:700;">→</span><span>' + esc(moves[k].move) + '</span></div>';
+            html += heading(TH.action || 'Ce qui a marché pour vous');
+            if (Array.isArray(t.action) && t.action.length) {
+              for (var m = 0; m < t.action.length; m++) html += line(t.action[m].display || (t.action[m].beat + ' / ' + t.action[m].done), chip('mesuré', DATA));
+            } else {
+              html += '<div style="font-size:13px;color:' + MUTE + ';">' + esc((d.labels && d.labels.action_absent) || 'Pas encore assez de recul') + '</div>';
             }
+            if (!html) { if (section) section.style.display = 'none'; return; }
             container.innerHTML = html;
             if (section) section.style.display = '';
           })

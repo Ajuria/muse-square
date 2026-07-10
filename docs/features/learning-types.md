@@ -234,6 +234,21 @@ dev-only `?src=seed` proves the populated path.
 4. **BH family = ELIGIBLE tests only** (post N+contrast) + **cited N/consistency match the estimate
    used** (pooled evidence when the row uses the pooled fallback). Output-neutral at 81 days.
 
+**A2 as-built — committed matrix build + single-source registry (reproducibility, no fit change).**
+`b_real_designmatrix` was an ORPHAN (built ad-hoc, never in source control → the pipeline was not
+reproducible). It is now built by the committed **`src/scripts/build-designmatrix.cjs`**
+(`mart.fct_client_day_residual` × `mart.fct_location_context_daily`, `is_oos` = most-recent 20%/venue,
+universe inherited from the residual mart — never hardcoded). The factor set is a **single-source
+registry `src/lib/sensitivityFeatures.json`** (feature → context predicate → mechanism) driving the
+engine's mechanism gate, the build's feature columns, AND the endpoint's today-activation — killing
+the prior two-list drift (engine `TAXONOMY_REAL` vs endpoint `ACTIVE_EXPR`). All 10 binary features
+reproduce the frozen matrix exactly; `major_event` is an inert placeholder (`predicate: FALSE`) whose
+honest form is the **continuous `event_count_region` regressor, deferred to A3** (graded-feature
+support). Refitting the committed matrix reproduces the one préliminaire (Nîmes heat, per-location,
+now −12.2% / 28 j / 68% — the small shift is residual-mart drift + 3 new days, not a gate change).
+**No gate loosened; no new signal.** Graded/continuous factors (`tourism_index_region`,
+`competition_index_local`, events) are A3.
+
 **Still pending (post-beta gates):** store → mart + scheduled batch; the baseline swap and any
 high-stakes consumer wait for real **établi** signals and a **powered** OOS beat.
 
@@ -247,6 +262,42 @@ The honesty bar (above) is enforced at ingestion (§A), so every consumer inheri
   narrator constrained to the store — it MUST NOT invent its own correlations or extrapolate beyond
   what the store says.** The honesty win: no "c'était probablement la météo" guessing — only vetted
   facts, cited. This constraint is part of the contract, not a prompt nicety.
+
+### D.1 The governing rule — every surface is DISPLAY or INFLUENCE
+- **Display** (insight "why today", report, prompt citation, the reactions panel) — *shows*
+  sensitivities in the honest register. **All tiers allowed**; préliminaire reads "à confirmer".
+  Even a noise préliminaire is bounded to an informational line. Safe.
+- **Influence** (daily-score weighting, action-card recommendations, alerts, **the baseline
+  itself**) — *acts on* sensitivities; consequential. **`établi` only** (the `canInfluence` gate;
+  émergent+ for the baseline), and waits for real signals + powered validation. **préliminaire
+  never touches these.**
+
+**Display first, influence last.** The store is empty at 81 days, so ordering is about
+**wiring-readiness for beta, not payoff** — do NOT wire every surface now (surface area against an
+empty store). Wire the highest-value *display* consumers before beta with the proven accessor
+pattern; defer the rest.
+
+**Consumer roadmap:**
+- **Wave 1 (now, before beta — read-only, reuse accessor + `sensitivityCopy`):**
+  1. `reactions.astro` — authed eyeball, both states (the reference harness; see the design flag).
+  2. **`insight.astro` — "why today matters"** (do next). Cheapest, no LLM, core anticipation
+     surface where a sensitivity naturally explains the day; de-risks the *embedded* consumer pattern.
+  3. **Prompt-page citation** — flagship "ask a question"; context assembly injects vetted store
+     rows, LLM cites verbatim, constrained to the store, never fabricates/extrapolates. Empty store
+     → LLM silent on sensitivities. Higher value + care → after insight.
+- **Wave 2 (after data proves out):** reports (`rapport` / `sales-report`) — natural add to the
+  existing context assembly, but a **durable/shared artifact** (a wrong sensitivity persists) → after
+  display surfaces prove out and real signals exist.
+- **Wave 3 (hold for real `établi` + powered validation):** score weighting, action-card so-what
+  recommendations, alerts, **the baseline swap** — all consequential, établi-only.
+
+**Design flag:** reconsider whether standalone `reactions.astro` is the permanent home or just the
+reference harness — sensitivities are most valuable **embedded where the user already is** (insight,
+report, prompt). Don't over-invest in the standalone page as the destination.
+
+**Discipline for every new consumer:** call the accessor, render through shared `sensitivityCopy` —
+**never** re-query the store, re-derive an effect, or re-phrase. Display shows all tiers; influence
+takes établi only.
 
 ## UI separation
 Two sections, two registers, never mixed:
