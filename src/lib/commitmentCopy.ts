@@ -36,6 +36,19 @@ export const EVOL_COPY = {
   q1_objective_pct: "Augmenter le CA de +{pct} % vs votre CA habituel",
   q1_window_started: "La fenêtre a démarré — le suivi jour par jour apparaîtra ici au fil des ventes.",
 
+  // ── ① LEAD = THE DECISION (Engine-1/2 contrast, not "situation"). NEW — OWNER: voice-pass these.
+  // Causal-safe: the effect ABOVE what the context explains, never "votre action a généré". {pct}
+  // arrives PRE-SIGNED. Honest on N: the verdict hedges to "à confirmer" while the sample is thin.
+  q1_title_decision: "Votre action paie-t-elle ?",
+  q1_lead_holiday: "{pct} % au-dessus de ce que les vacances seules expliquent",
+  q1_lead_plain: "{pct} % au-dessus du CA habituel",
+  q1_days_measured: "{up}/{n} jours mesurés",
+  q1_split_inputs: "Situation {sit} % · dont vacances {hol} % sans action",
+  q1_verdict_pays: "à ce stade, ça paie",
+  q1_verdict_confirm: "à confirmer sur plus de jours",
+  q1_verdict_flat: "l'effet de l'action n'est pas encore visible",
+  q1_verdict_down: "à ce stade, l'action ne paie pas",
+
   chart_realized: "CA réalisé",
   chart_habituel: "CA habituel",
   chart_note: "CA réalisé vs CA habituel (journée comparable). Au-dessus = mieux que d'habitude.",

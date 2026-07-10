@@ -387,8 +387,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           cat = 'M\u00e9t\u00e9o \u00b7 \u00c9pisode prolong\u00e9'; title = 'M\u00e9t\u00e9o d\u00e9grad\u00e9e \u2014 3 jours ou plus';
           badge = { label:'\u00c9pisode prolong\u00e9', bg:'#FCEBEB', fg:'#A32D2D' };
           claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
-          if (lvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + lvl, source:'Muse Square' });
-          if (a.site_sensitivity != null) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: Number(a.site_sensitivity) + ' / 5', source:'Muse Square' });
         } else {
           var oldLvl = wxLevel(a.old_value), newLvl = wxLevel(a.new_value), hazard = wxHazard(a.new_value);
           if (signal_type === 'weather_improved') {
@@ -400,12 +398,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             badge = (newLvl != null && newLvl >= 3) ? { label:'Alerte s\u00e9v\u00e8re', bg:'#FCEBEB', fg:'#A32D2D' } : { label:'Alerte', bg:'#FAEEDA', fg:'#854F0B' };
           }
           claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
-          if (oldLvl != null && newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + oldLvl + ' \u2192 ' + newLvl, source:'Muse Square' });
-          else if (newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + newLvl, source:'Muse Square' });
-          if (day.impact_weather_pct != null && Number(day.impact_weather_pct) !== 0) claims.push({ claim:'Impact fr\u00e9quentation', value: Math.round(Number(day.impact_weather_pct)) + ' %', source:'Muse Square' });
-          if (prof && Number(prof.weather_sensitivity || 0) >= 3) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: prof.weather_sensitivity + ' / 5', source:'Muse Square' });
         }
-        return { cat:cat, title:title, badge:badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['M\u00e9t\u00e9o-France \u2014 pr\u00e9visions', 'Muse Square \u2014 niveau d\u2019alerte et impact estim\u00e9'] };
+        return { cat:cat, title:title, badge:badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['M\u00e9t\u00e9o-France \u2014 pr\u00e9visions'] };
       }
 
       // ── Calendar (narrative old/new strings) ──
@@ -736,6 +730,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           return '<div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:' + BR + ';margin:26px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + BR + ';">' + esc(label) + '</div>';
         }
         var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
+        var _isWeather = (signal_type === 'weather_hazard_onset' || signal_type === 'weather_worsened' || signal_type === 'weather_improved' || signal_type === 'extended_bad_weather_3d');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
@@ -784,6 +779,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
           for (var i = 0; i < m.claims.length; i++) dec += claimRow(m.claims[i]);
         }
+        if (_isWeather) html += zone('Votre réponse à la météo', '<div id="fs-weather-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Lecture de votre réponse mesurée…</div></div>');
         html += zone('D\u00e9composition \u00b7 preuve', dec);
 
         if (m.enriched_inline) {
@@ -831,7 +827,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += zone('Historique · jours comparables',
             '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
         }
-        if (!_isMovement) html += zone('Environnement du jour · agent web',
+        if (!_isMovement && !_isWeather) html += zone('Environnement du jour · agent web',
           '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
 
         html += zone('Sources', src, true);
@@ -841,6 +837,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMovement) {
           loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
           loadSalesBreakdown(location_id, signal_date, document.getElementById('fs-whatsold-zone'), signal_type);
+        } else if (_isWeather) {
+          loadWeatherSensitivity(location_id, signal_date, document.getElementById('fs-weather-zone'));
         } else {
           loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
         }
@@ -856,6 +854,41 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         });
 
         wireActionBar(root, day, prof, feedItem);
+      }
+
+      // Weather card — the venue's MEASURED weather response (Engine 2), from /api/insight/weather-sensitivity.
+      // Card-specific depth: your own measured reaction to this weather, not a raw vigilance level or a 3/5.
+      // Measured -> lead with it + a quantified, forecast-grounded levier; absent -> honest-absence + forecast.
+      var WX_COND_FR = { heat:'forte chaleur', rain:'pluie', cold:'grand froid', wind:'vent fort', snow:'neige' };
+      var WX_TIER_FR = { preliminaire:'préliminaire, à confirmer', emergent:'émergent', etabli:'établi' };
+      function wxAbsent(condFr) {
+        var c = condFr ? ('la ' + condFr) : 'ce type de météo';
+        return '<div style="font-size:13px;line-height:1.55;color:#374151;">Pas encore d\'effet chiffré mesuré pour ' + esc(c) + ' sur votre CA — l\'historique est trop court pour trancher. On ne fabrique pas d\'estimation : la journée nourrira la mesure.</div>';
+      }
+      function loadWeatherSensitivity(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/weather-sensitivity?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            var condFr = (j && j.condition) ? (WX_COND_FR[j.condition.feature] || j.condition.feature) : null;
+            if (!j || !j.ok || !j.measured) { container.innerHTML = wxAbsent(condFr); return; }
+            var m = j.measured;
+            var down = m.effect_pct < 0;
+            var col = down ? '#B91C1C' : '#0F6E56';
+            var eff = (down ? '-' : '+') + String(Math.abs(m.effect_pct)).replace('.', ',') + ' %';
+            var onOfM = Math.round(m.consistency_pct / 100 * m.n_days);
+            var lead = 'Les jours de ' + esc(condFr || 'ce type de météo') + ', votre CA a été '
+              + '<span style="color:' + col + ';font-weight:700;">' + eff + '</span> vs d\'habitude — mesuré sur '
+              + m.n_days + ' jours, l\'effet a tenu ~' + onOfM + ' fois sur ' + m.n_days + ' (' + m.consistency_pct + ' %). '
+              + '<span style="color:#9CA3AF;">Effet ' + esc(WX_TIER_FR[m.tier] || m.tier) + '.</span>';
+            var stake = (m.eur_per_day != null) ? ' (≈ ' + (m.eur_per_day < 0 ? '-' : '+') + frInt(Math.abs(m.eur_per_day)) + ' €/jour)' : '';
+            var lev = (condFr ? ('La ' + condFr) : 'Cette météo') + ' vous ' + (down ? 'coûte' : 'rapporte') + ' ~' + Math.abs(Math.round(m.effect_pct)) + ' %' + stake
+              + ' — un schéma récurrent, pas un hasard. Sur les jours à venir, adaptez offre et communication à la météo plutôt que de subir l\'écart.';
+            var out = '<div style="font-size:14px;line-height:1.55;color:#111827;">' + lead + '</div>'
+              + '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;"><span style="font-weight:700;">Le levier —</span> ' + esc(lev) + '</div>';
+            container.innerHTML = out;
+          })
+          .catch(function(){ container.innerHTML = wxAbsent(null); });
       }
 
       // Sales "what sold" — category movers from /api/insight/sales-breakdown (the category mart).
