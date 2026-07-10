@@ -748,6 +748,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
         if (_isMov) html += grp('La source');
         html += zone('Synth\u00e8se', synth);
+        // Card-SPECIFIC (sales): "what sold" — the category movers that made the day, filled async
+        // from /api/insight/sales-breakdown (the new category mart), NOT the universal brain.
+        if (_isMov) html += zone('Ce qui a fait la journ\u00e9e',
+          '<div id="fs-whatsold-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse du mix produit\u2026</div></div>');
 
         function claimRow(c) {
           return '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
@@ -769,6 +773,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_hasGroups) {
           var _grpInt = m.claims.filter(function(c) { return c.group === 'interne'; });
           var _grpCtx = m.claims.filter(function(c) { return c.group === 'contexte'; });
+          // Sales deep page: cut the universal context (weather / competition) — keep only
+          // footfall-relevant calendar context. The "what sold" section carries the page.
+          if (_isMov) _grpCtx = _grpCtx.filter(function(c) { return c.claim === 'Vacances scolaires' || c.claim === 'Jour f\u00e9ri\u00e9'; });
           var _grpOther = m.claims.filter(function(c) { return c.group !== 'interne' && c.group !== 'contexte'; });
           if (_grpInt.length) { dec += subHead('Signaux internes', 'vos ventes et leur lecture'); for (var _i1 = 0; _i1 < _grpInt.length; _i1++) dec += claimRow(_grpInt[_i1]); }
           if (_grpCtx.length) { dec += subHead('Signaux contextuels', 'les conditions de la journ\u00e9e'); for (var _i2 = 0; _i2 < _grpCtx.length; _i2++) dec += claimRow(_grpCtx[_i2]); }
@@ -824,15 +831,19 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += zone('Historique · jours comparables',
             '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
         }
-        html += zone('Environnement du jour · agent web',
+        if (!_isMovement) html += zone('Environnement du jour · agent web',
           '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
 
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
 
-        if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
-        loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        if (_isMovement) {
+          loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
+          loadSalesBreakdown(location_id, signal_date, document.getElementById('fs-whatsold-zone'), signal_type);
+        } else {
+          loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        }
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -845,6 +856,55 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         });
 
         wireActionBar(root, day, prof, feedItem);
+      }
+
+      // Sales "what sold" — category movers from /api/insight/sales-breakdown (the category mart).
+      // Card-specific depth the universal brain can't give: which categories made or broke the day
+      // vs the usual weekday. The levier is a SALES lever (r\u00e9assort / mise en avant), never "communiquez".
+      var WS_DOW_FR = { 0:'dimanches',1:'lundis',2:'mardis',3:'mercredis',4:'jeudis',5:'vendredis',6:'samedis' };
+      function loadSalesBreakdown(locId, date, container, sigType) {
+        if (!container) return;
+        var isDown = sigType === 'sales_revenue_down_wow';
+        fetch('/api/insight/sales-breakdown?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            if (!j || !j.ok || !j.found || !j.movers || !j.movers.length) {
+              container.innerHTML = '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Mix produit indisponible pour ce jour \u2014 lecture au volume et au panier ci-dessous.</div>';
+              return;
+            }
+            var jour = WS_DOW_FR[new Date(String(date) + 'T00:00:00Z').getUTCDay()] || 'jours comparables';
+            var out = '<div style="font-size:11.5px;color:#9CA3AF;margin-bottom:10px;">Chaque cat\u00e9gorie ce jour vs la m\u00e9diane de vos ' + esc(jour) + ' (n=' + (j.n_comparable_days||0) + ').</div>';
+            for (var i=0;i<j.movers.length;i++){
+              var mv=j.movers[i];
+              var up = mv.delta_eur >= 0;
+              var col = up ? '#0F6E56' : '#B91C1C';
+              var pct = (mv.delta_pct==null) ? '' : ' (' + (up?'+':'-') + Math.abs(mv.delta_pct) + ' %)';
+              out += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:0.5px solid #F3F4F6;">'
+                + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(mv.category) + '</div>'
+                + '<div style="font-size:13px;color:#374151;white-space:nowrap;">' + frInt(mv.day_eur) + ' \u20ac <span style="color:#9CA3AF;">\u00b7 habituel ' + frInt(mv.median_eur) + ' \u20ac</span> <span style="color:' + col + ';font-weight:600;">' + (up?'+':'-') + frInt(Math.abs(mv.delta_eur)) + ' \u20ac' + pct + '</span></div>'
+                + '</div>';
+            }
+            var lev = salesLevier(j.movers, isDown, jour);
+            if (lev) out += '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;"><span style="font-weight:700;">Le levier \u2014</span> ' + esc(lev) + '</div>';
+            container.innerHTML = out;
+          })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Mix produit indisponible.</div>'; });
+      }
+      function salesLevier(movers, isDown, jour){
+        var neg = movers.filter(function(m){return m.delta_eur < 0;}).sort(function(a,b){return a.delta_eur-b.delta_eur;});
+        var pos = movers.filter(function(m){return m.delta_eur > 0;}).sort(function(a,b){return b.delta_eur-a.delta_eur;});
+        function eur(n){ return frInt(Math.abs(n)) + ' \u20ac'; }
+        if (isDown) {
+          if (!neg.length) return '';
+          var s = 'La baisse vient surtout de ' + neg[0].category + ' (-' + eur(neg[0].delta_eur) + ')';
+          if (neg[1]) s += ' et de ' + neg[1].category + ' (-' + eur(neg[1].delta_eur) + ')';
+          if (pos.length) s += ' \u2014 ' + pos[0].category + ' a tenu';
+          return s + '. V\u00e9rifiez la disponibilit\u00e9 et la mise en avant de ' + neg[0].category + '.';
+        }
+        if (!pos.length) return '';
+        var s2 = 'La hausse est port\u00e9e par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
+        if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
+        return s2 + '. S\u00e9curisez le r\u00e9assort de ' + pos[0].category + ' et mettez-la en avant sur vos prochains ' + jour + '.';
       }
 
       // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).

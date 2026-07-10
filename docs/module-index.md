@@ -28,6 +28,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `insight/action-log.ts` | POST | Records user action-log events | `analytics.action_log` |
 | `insight/action-request.ts` | POST | Logs user action requests + webhook notify | `insight_event.action_requests` |
 | `insight/analogs.ts` | GET | Historical similar-day revenue comparison | `mart.fct_client_day_analogs` |
+| `insight/sales-breakdown.ts` 🆕 | GET | **Card-specific** sales drill-down ("Ce qui a fait la journée") — top category MOVERS: signal-day vs same-weekday trailing median (n≥3). Reads ONLY the category mart; **no `assembleDayContext`**; honest-absence (empty `item_category` → `found:false`) | `mart.fct_client_sales_by_category_daily` |
 | `insight/days.ts` | GET | Composes multi-day surface: signals, alerts feed, action candidates, points clés | `semantic.vw_insight_event_selected_days_surface`, `…_ai_location_context`, `…_change_feed`, `…_action_candidates`, `analytics.channel_configs` |
 | `insight/enrich-context.ts` | POST | Claude web_search real-world context for a day; caches 30d | `analytics.context_enrichment` |
 | `insight/enrich-event.ts` | POST | Claude web_search competitor-event enrichment; caches 30d | `dims.dim_event_enrichment` |
