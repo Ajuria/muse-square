@@ -1192,9 +1192,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '</div>';
         }
 
-        // ── Takeaway lead: key point + one action, ABOVE the (now supporting) context sections. ──
-        html += buildTakeawayLead(day, prof, mode, spec, feedItem);
-
         // ════════════════════════════════════════════════════════════
         // MODE: MÉTÉO
         // ════════════════════════════════════════════════════════════
@@ -1695,32 +1692,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // ════════════════════════════════════════════════════════════════
       // QUE FAIRE BUILDER — mode-specific action hint
       // ════════════════════════════════════════════════════════════════
-
-      // Deterministic takeaway lead — ranks the single most salient fact off the brain's own salience
-      // (acute weather_alert > alert_level >= 2 > high competition > commercial moment > weather), leads
-      // with driver + that fact, and surfaces the one action. No LLM. Honest-absence: "" when nothing salient.
-      function buildTakeawayLead(day, prof, mode, spec, feedItem) {
-        var driver = day.primary_score_driver_label_fr || '';
-        var topFact = '';
-        if (day.weather_alert_fr) topFact = day.weather_alert_fr;
-        else if (Number(day.alert_level_max || 0) >= 2) topFact = 'Alerte météo niveau ' + Number(day.alert_level_max);
-        else if (mode === 'concurrence' && Number(day.competition_pressure_ratio || 0) >= 1.5) topFact = 'Pression concurrentielle élevée';
-        else if (day.commercial_events && day.commercial_events.length) { var ce = day.commercial_events[0]; topFact = (typeof ce === 'string' ? ce : (ce.event_name || '')); }
-        else if (day.weather_label_fr) topFact = day.weather_label_fr + (day.temperature_2m_max != null ? ' · ' + Math.round(Number(day.temperature_2m_max)) + '°C' : '');
-        var takeawayRaw = driver ? (driver + (topFact ? ' · ' + topFact : '')) : topFact;
-        if (!takeawayRaw) return '';
-        var move = buildQueFaire(mode, spec, day, prof);
-        var h = '<div class="fs-section" style="border-left:3px solid #0b37e5;padding-left:14px;">'
-          + '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:6px;">Le point clé</div>'
-          + '<div style="font-size:16px;font-weight:600;color:#111827;line-height:1.5;">' + esc(takeawayRaw) + '</div>';
-        if (move) {
-          h += '<div style="margin-top:12px;background:#eef2ff;padding:12px 14px;border-radius:8px;">'
-            + '<span style="display:block;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:4px;">Le geste</span>'
-            + '<span style="font-size:13.5px;color:#1e3a8a;line-height:1.6;">' + esc(move) + '</span></div>';
-        }
-        h += '</div>';
-        return h;
-      }
 
       function buildQueFaire(mode, spec, day, prof) {
         if (mode === 'meteo') {
