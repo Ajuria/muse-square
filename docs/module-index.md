@@ -264,8 +264,8 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | Module | Purpose |
 |---|---|
 | `packagePromptV3.ts` | V3 narrative system prompt (window_top_days / compare_dates / day_why) |
-| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2 + action layer)** — cites ONLY the brain's `citable_facts`; LEADS with one synthesized takeaway, ranks by salience (driver > alert_level > acute), keeps 2-3 facts, ends on ONE grounded `suggested_action` ("Vu X, envisagez Y" — no promised outcome/number/cause). No invented numbers/entities/causes; honest-absence |
-| `packagerGroundedDayValidator.ts` | **Grounding validator (Phase 2 + action layer)** — HARD-rejects any surfaced number / named entity / causal construction **or predicted outcome on the action** (augmentera/boostera…) not tracing to the payload; advice imperatives (envisagez/activez) allowed; never warn-and-pass |
+| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2)** — cites ONLY the brain's `citable_facts`; LEADS with a headline, ranks facts by salience, keeps 2-3, NO action/advice (the real fired action card is attached in code). No invented numbers/entities/causes; honest-absence |
+| `packagerGroundedDayValidator.ts` | **Grounding validator (Phase 2)** — HARD-rejects any surfaced number / named entity / causal construction / predicted outcome not tracing to the payload; never warn-and-pass |
 | `groundingChecks.ts` | `extractNumbers`, `norm`, `makeEntityRegex`, `CAUSAL_PATTERNS`, `DRAFT_OUTCOME_PATTERNS` | Shared anti-fabrication primitives for both grounded validators. Numbers grounded by MAGNITUDE (normalizes −/–/— dashes; "−20 %" == "20 %") |
 | `packagerGroundedDraftValidator.ts` | `validate_grounded_draft` | **Grounding validator for DRAFTS (Phase 3b)** — free-text channel copy; rejects a fabricated external fact (competitor/event/weather/attendance/outcome). THREE legal sources: citable_facts + venue identity + user instruction (operator's own prices/hours pass); creative voice/CTA free |
 | `packagerMonthPrompt.ts` | Month orchestration prompt (window_summary vs special_days) |

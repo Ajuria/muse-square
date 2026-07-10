@@ -238,10 +238,15 @@ export const GET: APIRoute = async ({ request }) => {
         const deltaFact = (scoreToday != null && scoreYesterday != null && scoreDelta != null)
           ? [{ fact_fr: `Score du jour ${frNum(scoreToday)} — ${scoreDelta >= 0 ? "+" : ""}${frNum(scoreDelta)} vs hier (${frNum(scoreYesterday)})`, claim_type: "observed" as const }]
           : [];
-        const grounded = toGroundedDayPayload(dc, { question: "Votre point du jour : qu'est-ce qui compte aujourd'hui et que faire ?", date: today, extraFacts: deltaFact });
+        const grounded = toGroundedDayPayload(dc, { question: "Votre point du jour : qu'est-ce qui compte aujourd'hui ?", date: today, extraFacts: deltaFact });
         let g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
         if (!g.ok) g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
         const grounded_out = g.ok ? g.output : null;
+        // The action is the REAL fired action card (top action_candidate), never an LLM-invented geste.
+        if (grounded_out) {
+          const topCard = (dc.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
+          grounded_out.suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
+        }
 
         // ── Subject line ──
         const urgentEvent = savedEvents.find((e) => e.days_until <= 3);
@@ -332,13 +337,13 @@ function renderGroundedNarrative(g: any): string {
         `<tr><td width="14" valign="top" style="color:#0b37e5;font-size:13px;line-height:1.7;">•</td><td style="font-size:13.5px;color:#374151;line-height:1.7;padding-bottom:3px;">${esc(f)}</td></tr>`
       ).join("") + `</table>`;
   }
-  // The move: one grounded action, highlighted (honest-absence — hidden when the model found none).
+  // The action: the REAL fired action card, highlighted (honest-absence — hidden when none fired).
   const action = typeof g.suggested_action === "string" ? g.suggested_action.trim() : "";
   if (action) {
     h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 4px 0;"><tr>
       <td width="5" style="background:#0b37e5;font-size:1px;">&nbsp;</td>
       <td style="background:#eef2ff;padding:13px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13.5px;color:#1e3a8a;line-height:1.6;">
-        <span style="display:block;font-weight:700;letter-spacing:0.06em;font-size:10px;text-transform:uppercase;color:#0b37e5;margin-bottom:5px;">Le geste</span>${esc(action)}
+        <span style="display:block;font-weight:700;letter-spacing:0.06em;font-size:10px;text-transform:uppercase;color:#0b37e5;margin-bottom:5px;">Action à mener</span>${esc(action)}
       </td></tr></table>`;
   }
   const cav = Array.isArray(g.caveats) ? g.caveats.filter(Boolean) : [];

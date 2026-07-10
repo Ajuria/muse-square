@@ -21,17 +21,16 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
     if (!Array.isArray(output[k])) errors.push(`grounded_day: ${k} must be an array`);
   }
   if (output.reasons !== undefined && !Array.isArray(output.reasons)) errors.push("grounded_day: reasons must be an array");
-  if (output.suggested_action !== undefined && typeof output.suggested_action !== "string") errors.push("grounded_day: suggested_action must be a string");
   if (errors.length) return [false, errors];
 
   const factStrings = groundedFactStrings(payload);
   const groundedText = factStrings.join("  ");
 
-  // all surfaced text (what the operator will read) — incl. reasons (optional) + the suggested_action.
-  // The action is advice but its numbers/entities must still be grounded and it may promise no outcome.
+  // all surfaced text (what the operator reads) — headline + answer + facts (+ reasons). No synthesized
+  // action: the operator sees the REAL fired action card, attached in code, never LLM-invented. All the
+  // fabrication guards below (number / entity / causal-outcome) still apply to this text.
   const reasons: string[] = Array.isArray(output.reasons) ? output.reasons : [];
-  const suggestedAction: string = typeof output.suggested_action === "string" ? output.suggested_action : "";
-  const surfaced = [output.headline, output.answer, ...output.key_facts, ...reasons, suggestedAction]
+  const surfaced = [output.headline, output.answer, ...output.key_facts, ...reasons]
     .map((x: any) => String(x ?? ""))
     .join("  ");
 
@@ -59,7 +58,7 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   const entityRe = makeEntityRegex();
   const seenEnt = new Set<string>();
   // Per SEGMENT (never across the join) so an entity can't straddle two facts ("Portugal  Contexte").
-  const segments = [output.headline, output.answer, ...output.key_facts, ...reasons, suggestedAction].map((x: any) => String(x ?? ""));
+  const segments = [output.headline, output.answer, ...output.key_facts, ...reasons].map((x: any) => String(x ?? ""));
   for (const seg of segments) {
     for (const ent of seg.match(entityRe) ?? []) {
       const e = norm(ent);

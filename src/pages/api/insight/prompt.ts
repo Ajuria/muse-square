@@ -78,7 +78,7 @@ type AiResponseV1 = {
   key_facts: string[];
   actions: ApiActions;
   caveats: string[];
-  suggested_action: string;   // grounded "geste" (same register as the Point du jour); "" when none
+  suggested_action: string;   // the REAL fired action card headline (attached in code); "" when none
 
   meta: {
     horizon: ResolvedHorizon;
@@ -4082,6 +4082,13 @@ Règles :
             errors: [],
             warnings: [],
           };
+        }
+
+        // The operator-facing action is the REAL fired action card (top action_candidate), never an
+        // LLM-invented geste. Attach it to the response; "" when no card fired (honest-absence).
+        if (ai && ai.output && typeof ai.output === "object") {
+          const topCard = (grounded_payload.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
+          (ai.output as any).suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
         }
 
         break;
