@@ -14,6 +14,7 @@ export const CONTEXT_FALLBACK_FR: Record<string, string> = {
   concurrence_competitor: "Concurrent à {distance} · {nom}",
   commercial_event: "Période commerciale : {nom}",                       // observed presence (soldes/foire)
   foreign_origins: "Visiteurs étrangers possibles (jours fériés / vacances) : {pays}", // observed presence
+  signal_change: "Changement détecté : {label}",                         // observed_change (a named change fired today)
 };
 
 // Tier headings (verbatim from the four-tier spec) + chip labels + the honest-empty state.

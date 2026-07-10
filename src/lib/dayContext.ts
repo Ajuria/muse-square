@@ -112,9 +112,15 @@ export interface DayContext {
   impacts: Record<string, number>;                                    // Tier-2 estimation priors (delta_att_*) keyed by factor — SUPPRESS-IN-2 applied (measured factors dropped)
   profile: VenueProfile;                                              // static per-location venue profile (user context)
   decomposition: DecompositionRecord[];                               // Engine 1 × Engine 2, pre-computed + claim-typed
+  // signals[] = the "what fired / what changed" register — DISTINCT grain from context{} (change-grain,
+  // not day-grain). Reused from detection (never re-detected). Two sub-registers, both claim-typed.
+  signals: {
+    changes: Array<{ change_type: string | null; change_subtype: string | null; alert_level: number | null; score_delta: number | null; direction: string | null; event_label: string | null; distance_m: number | null; claim_type: 'observed_change' }>;
+    cards: Array<{ action_type: string | null; action_category: string | null; action_priority: number | null; confidence_tier: string | null; headline_fr: string | null; detail_fr: string | null; claim_type: 'observed' }>;
+  };
   // the LLM contract: every citable fact carries its claim_type; driver is a salience RANKING (not a cause).
   llm: {
-    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' }>;
+    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' | 'observed_change' | 'observed' }>;
     driver: { value: string | null; claim_type: 'observed_ranking' };
     forbidden: string[];
   };
@@ -123,14 +129,19 @@ export interface DayContext {
 // Assemble today's reused French facts + Engine 1/2 records for one venue. Single date (range helpers
 // above serve windows). opts.devSeed swaps the store/learning to demo fixtures (?src=seed). This is the
 // ONE brain: every consumer reads its payload; none reads the sensitivity store or learning marts directly.
-export async function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean } = {}): Promise<DayContext> {
+export async function assembleDayContext(bq: any, loc: string, date: string, opts: { devSeed?: boolean; slice?: 'full' | 'context' | 'signals' } = {}): Promise<DayContext> {
+  // Scoped slices from the ONE composition (no parallel read path). A light surface skips the
+  // expensive reads: 'signals' = signals[] + driver only; 'context' = context{} (no Engine-1/decomp);
+  // 'full' (default) = everything. Grains stay separate regardless of slice.
+  const wantContext = opts.slice !== 'signals';                 // Engine 2 (measured) + competitors + estimation + context facts
+  const wantEngines = (opts.slice ?? 'full') === 'full';        // Engine 1 (learning/outcomes) + decomposition (the heavy reads)
   const d = bq.date(date);
   const one = async (query: string, params: Record<string, any>) => {
     const [rows] = await bq.query({ query, params, location: 'EU' });
     return (rows || [])[0] || {};
   };
 
-  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows] = await Promise.all([
+  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows, changeRows, cardRows] = await Promise.all([
     // day_surface — the mart's own French facts + "what's driving today"
     one(`SELECT key_takeaway, primary_score_driver_label AS driver, audience_availability_label AS cal_label,
            holiday_name, vacation_name
@@ -177,10 +188,14 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
          WHERE al.location_id=@loc AND al.date=@d LIMIT 1`, { loc, d }),
     // public-holiday foreign origins today (union+dedup with the school-holiday origins below)
     (async () => { const [r] = await bq.query({ query: `SELECT c.country_name_en AS country FROM \`${PROJECT}.mart.fct_foreign_tourism_context_daily\` t, UNNEST(t.countries_on_public_holiday) c WHERE t.date=@d AND c.country_name_en IN UNNEST(@tc)`, params: { d, tc: TOURIST_COUNTRIES }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
+    // SIGNALS — reused from DETECTION (never re-detected). change feed (the delta / what changed):
+    (async () => { const [r] = await bq.query({ query: `SELECT change_type, change_subtype, alert_level, score_delta, direction, event_label, distance_m FROM \`${PROJECT}.semantic.vw_insight_event_change_feed\` WHERE location_id=@loc AND affected_date=@d ORDER BY alert_level DESC, ABS(score_delta) DESC LIMIT 12`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
+    // action candidates (the detected cards, claim-safe headline_fr/detail_fr):
+    (async () => { const [r] = await bq.query({ query: `SELECT action_type, action_category, action_priority, confidence_tier, headline_fr, detail_fr FROM \`${PROJECT}.semantic.vw_insight_event_action_candidates\` WHERE location_id=@loc AND date=@d ORDER BY action_priority DESC LIMIT 12`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
   ]);
 
   // Top-3 followed competitors, proximity-aware (threat_score is NOT distance-weighted), + rating/enriched.
-  const [compRows] = await bq.query({
+  const [compRows] = wantContext ? await bq.query({
     query:
       `SELECT tp.competitor_id AS cid, tp.competitor_name AS name, tp.distance_km AS km, tp.threat_level AS threat_level, ` +
       `dir.google_rating AS rating, dir.google_rating_count AS rating_count, ` +
@@ -190,7 +205,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
       `WHERE tp.is_followed AND tp.location_id=@loc AND tp.distance_km IS NOT NULL ` +
       `ORDER BY tp.threat_score/(1+tp.distance_km/5) DESC LIMIT 3`,
     params: { loc }, location: 'EU',
-  });
+  }) : [[]] as any[];
   const cids = (compRows || []).map((c: any) => flatVal(c.cid));
   // offering changes + rating trends for those competitors (live tables; empty for offering-less verticals)
   const offeringByCid: Record<string, string> = {};
@@ -237,8 +252,8 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     : { fact_text: null, fact_data: { traffic_customer_lvl: trafficLvl }, source: 'mart.fct_location_impact_daily_mobility' };
 
   // ── Engines folded in: consumers read these from the payload; NONE reads the store/learning marts. ──
-  // Engine 2 — measured sensitivities (Tier 1), via the one typed accessor.
-  const sensRaw = await getSensitivities(bq, loc, { metric: 'revenue', storeTable: opts.devSeed ? 'analytics.b_demo_sensitivity' : undefined });
+  // Engine 2 — measured sensitivities (Tier 1), via the one typed accessor. Part of context{} (cheap store read).
+  const sensRaw = wantContext ? await getSensitivities(bq, loc, { metric: 'revenue', storeTable: opts.devSeed ? 'analytics.b_demo_sensitivity' : undefined }) : [];
   // active-today flag: the single-source registry predicate against context_daily (this mart).
   const REG = featureRegistry.revenue as Array<{ key: string; predicate?: string }>;
   let activeSet = new Set<string>();
@@ -255,17 +270,17 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
 
   // Engine 1 factor-level (Tier 4) — the dbt learning mart, factor-keyed (NOT re-exploded in TS).
   const learnTable = opts.devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
-  const [lrows] = await bq.query({
+  const [lrows] = wantEngines ? await bq.query({
     query: `SELECT factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.${learnTable}\` ` +
       `WHERE location_id=@loc${opts.devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
     params: { loc }, location: 'EU',
-  });
+  }) : [[]] as any[];
   const actionTrackByFactor: CommitmentFactorTrack[] = (lrows || [])
     .map((r: any) => ({ factor: flatVal(r.factor), action_type: flatVal(r.action_type), beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }))
     .filter((x: CommitmentFactorTrack) => x.factor);
 
   // Engine 1 action_type-level (évolution ③) — via the ONE sub-accessor (pre-explode outcomes).
-  const actionTrackByType = opts.devSeed ? {} : await getActionRollup(bq, loc);
+  const actionTrackByType = (wantEngines && !opts.devSeed) ? await getActionRollup(bq, loc) : {};
 
   // Tier-2 estimation priors (delta_att) — folded in, with SUPPRESS-IN-2 applied HERE (measured
   // supersedes the estimated prior per venue×factor), so the payload ships reconciled: no factor in
@@ -273,7 +288,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
   const measuredFeatures = new Set(sensitivities.map((s) => s.feature));
   const t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
   const impacts: Record<string, number> = {};
-  if (!opts.devSeed && t2feats.length) {
+  if (wantContext && !opts.devSeed && t2feats.length) {
     const cols = [...new Set(t2feats.map((f) => f.impact_col as string))];
     const r = await one(`SELECT ${cols.join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
     t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0 && !measuredFeatures.has(f.key)) impacts[f.key] = v; });
@@ -284,7 +299,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
   // net = mean residual on ACTION factor-days (any resolved+done commitment window), action_delta =
   // net − context_effect. Directional/préliminaire at current N; never a proven %.
   const decomposition: DecompositionRecord[] = [];
-  if (!opts.devSeed) {
+  if (wantEngines && !opts.devSeed) {
     const fitFactors = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
       .filter((f) => f.fittable && f.predicate && f.predicate !== 'FALSE');
     // n = INDEPENDENT engagements (distinct commitment windows overlapping factor-days), NOT the
@@ -331,6 +346,22 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
   // foreign origins — deduped UNION of school-holiday (foreign) + public-holiday origins.
   const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])];
 
+  // signals — reused from detection, claim-typed, DISTINCT grain from context{} (change-grain).
+  const changes = (changeRows || []).map((r: any) => ({
+    change_type: flatVal(r.change_type) ?? null, change_subtype: flatVal(r.change_subtype) ?? null,
+    alert_level: r.alert_level == null ? null : Number(flatVal(r.alert_level)),
+    score_delta: r.score_delta == null ? null : Number(flatVal(r.score_delta)), direction: flatVal(r.direction) ?? null,
+    event_label: flatVal(r.event_label) ?? null, distance_m: r.distance_m == null ? null : Number(flatVal(r.distance_m)),
+    claim_type: 'observed_change' as const,
+  }));
+  const cards = (cardRows || []).map((r: any) => ({
+    action_type: flatVal(r.action_type) ?? null, action_category: flatVal(r.action_category) ?? null,
+    action_priority: r.action_priority == null ? null : Number(flatVal(r.action_priority)),
+    confidence_tier: flatVal(r.confidence_tier) ?? null, headline_fr: flatVal(r.headline_fr) ?? null,
+    detail_fr: flatVal(r.detail_fr) ?? null, claim_type: 'observed' as const,
+  }));
+  const signals = { changes, cards };
+
   // The LLM contract — the sayable universe. EVERY citable fact carries its claim_type so the model
   // can never upgrade an observed fact into a cause. Context facts are observed (proximity/presence/
   // acute/ranking), never causal; the only causal-SHAPED statement allowed is a decomposition observed_difference.
@@ -342,6 +373,8 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
       ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const })),
       ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const }] : []),
       ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const }] : []),
+      ...cards.filter((c: typeof cards[number]) => isCleanFrench(c.headline_fr)).map((c: typeof cards[number]) => ({ fact_fr: c.headline_fr as string, claim_type: 'observed' as const })), // detected cards (claim-safe headline)
+      ...changes.filter((c: typeof changes[number]) => c.event_label).map((c: typeof changes[number]) => ({ fact_fr: fillContextFallback('signal_change', { label: c.event_label as string }) ?? (c.event_label as string), claim_type: 'observed_change' as const })), // named changes
     ],
     driver: { value: flatVal(surface.driver) ?? null, claim_type: 'observed_ranking' as const }, // salience, NOT a cause
     forbidden: [
@@ -351,6 +384,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
       'Le SEUL énoncé de forme causale autorisé est un « observed_difference » de la décomposition, formulé comme un écart observé (jamais « votre action a généré »).',
       'profile.declared_weather_sensitivity / seasonality sont des attributs DÉCLARÉS du lieu, jamais l’effet mesuré : la vérité est la sensibilité mesurée (Engine 2). Ne les présente pas comme un effet observé sur le CA.',
       'profile.activity_type / location_type / event_types sont des descripteurs DÉCLARÉS, PEU FIABLES (souvent génériques ou erronés) : ne produis jamais de conseil au mauvais vertical à partir d’eux. La justesse verticale vient des concurrents nommés, pas du profil.',
+      'signals (change_feed + cartes) sont des faits OBSERVÉS (ex: un concurrent a baissé son prix, une carte s’est déclenchée), JAMAIS une cause de ton résultat : ne dis jamais « ce qui a causé votre baisse ». Un changement détecté (grain change) est distinct du contexte (grain jour) — ne les fusionne pas.',
       'N’invente aucun facteur, chiffre ou concurrent absent du payload ; à défaut, dis « pas encore assez de recul ».',
     ],
   };
@@ -378,7 +412,7 @@ export async function assembleDayContext(bq: any, loc: string, date: string, opt
     tourism: { status: flatVal(tour.status) ?? null, peak: flatVal(tour.peak) === true },
     foreign: foreignUnion, takeaway: flatVal(surface.key_takeaway) ?? null, driver: flatVal(surface.driver) ?? null,
     commercial_events, weather_alert,
-    competitors, profile,
+    competitors, profile, signals,
     sensitivities, actionTrackByFactor, actionTrackByType, impacts, decomposition, llm,
   };
 }
