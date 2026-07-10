@@ -1,31 +1,57 @@
+import { modelFor } from "../models";
+
 console.log("[env] ANTHROPIC_API_KEY present:", Boolean(process.env.ANTHROPIC_API_KEY));
 
 type ClaudeBlock = { type: string; text?: string };
-type ClaudeResponse = { content?: ClaudeBlock[] };
+type ClaudeUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+};
+type ClaudeResponse = { content?: ClaudeBlock[]; usage?: ClaudeUsage };
+
+export type ClaudeCallUsage = {
+  input: number | null;
+  output: number | null;
+  cache_read: number | null;
+  cache_creation: number | null;
+};
 
 export async function callClaudeMessagesAPI(args: {
   system: string;
-  userPayload: Record<string, any>;
+  // Structured payload (packager) — stringified as the user message. Ignored when `userText` is set.
+  userPayload?: Record<string, any>;
+  // Raw-text user message (classifiers/lookups that want plain text, not JSON). Takes precedence.
+  userText?: string;
   model?: string;
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
-}): Promise<{ ok: boolean; rawText: string; errors: string[] }> {
+  // Cache the system prompt as an ephemeral prefix (Anthropic prompt caching). The system prompt is the
+  // large, stable per-mode packager instruction — caching it makes repeat day-horizon calls cheaper/faster.
+  // Default true; only the stable system is cached (variable payload + history stay uncached).
+  cacheSystem?: boolean;
+}): Promise<{ ok: boolean; rawText: string; errors: string[]; usage: ClaudeCallUsage | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { ok: false, rawText: "", errors: ["Missing ANTHROPIC_API_KEY."] };
+    return { ok: false, rawText: "", errors: ["Missing ANTHROPIC_API_KEY."], usage: null };
   }
 
-  const model = args.model ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5-20250929";
+  const model = args.model ?? modelFor("packager");
   const max_tokens = args.maxTokens ?? Number(process.env.AI_MAX_TOKENS ?? 3000);
   const temperature = args.temperature ?? 0;
+  const cacheSystem = args.cacheSystem !== false;
 
   const body = {
     model,
     max_tokens,
     temperature,
-    system: args.system.trim(),
+    // Cache-controlled system block (stable prefix) when enabled; plain string otherwise.
+    system: cacheSystem
+      ? [{ type: "text", text: args.system.trim(), cache_control: { type: "ephemeral" } }]
+      : args.system.trim(),
     messages: [
       ...((args.conversationHistory ?? (args.userPayload as any)?._conversation_history) ?? []).map((m: any) => ({
         role: m.role as "user" | "assistant",
@@ -33,11 +59,13 @@ export async function callClaudeMessagesAPI(args: {
       })),
       {
         role: "user" as const,
-        content: JSON.stringify(
-          Object.fromEntries(
-            Object.entries(args.userPayload).filter(([k]) => k !== "_conversation_history")
-          )
-        ),
+        content: typeof args.userText === "string"
+          ? args.userText
+          : JSON.stringify(
+              Object.fromEntries(
+                Object.entries(args.userPayload ?? {}).filter(([k]) => k !== "_conversation_history")
+              )
+            ),
       },
     ],
   };
@@ -59,7 +87,7 @@ export async function callClaudeMessagesAPI(args: {
 
     const text = await r.text();
     if (r.status >= 400) {
-      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 3000)}`] };
+      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 3000)}`], usage: null };
     }
 
     const data = JSON.parse(text) as ClaudeResponse;
@@ -67,9 +95,18 @@ export async function callClaudeMessagesAPI(args: {
     const texts: string[] = [];
     for (const b of blocks) if (b && b.type === "text" && typeof b.text === "string") texts.push(b.text);
 
-    return { ok: true, rawText: texts.join("\n").trim(), errors: [] };
+    const u = data.usage ?? {};
+    const usage: ClaudeCallUsage = {
+      input: u.input_tokens ?? null,
+      output: u.output_tokens ?? null,
+      cache_read: u.cache_read_input_tokens ?? null,
+      cache_creation: u.cache_creation_input_tokens ?? null,
+    };
+    console.log(`[claude] usage input=${usage.input} output=${usage.output} cache_read=${usage.cache_read} cache_creation=${usage.cache_creation}`);
+
+    return { ok: true, rawText: texts.join("\n").trim(), errors: [], usage };
   } catch (e: any) {
-    return { ok: false, rawText: "", errors: [`Claude call failed: ${e?.message ?? String(e)}`] };
+    return { ok: false, rawText: "", errors: [`Claude call failed: ${e?.message ?? String(e)}`], usage: null };
   } finally {
     clearTimeout(timeout);
   }

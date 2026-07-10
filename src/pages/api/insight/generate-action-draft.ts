@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { modelFor } from "../../../lib/ai/models";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { makeBQClient } from "../../../lib/bq";
 
@@ -8,7 +9,7 @@ export const prerender = false;
 // Constants
 // ────────────────────────────────────────────────────────────
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+const ANTHROPIC_MODEL = modelFor("drafting");
 const ANTHROPIC_MAX_TOKENS = 500;
 const ANTHROPIC_TEMPERATURE = 0.7;
 

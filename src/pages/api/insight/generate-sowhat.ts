@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { modelFor } from "../../../lib/ai/models";
 import { rateLimit } from "../../../lib/rate-limit";
 
 export const prerender = false;
@@ -25,7 +26,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    const model = process.env.CLAUDE_MODEL_ENRICHMENT || "claude-haiku-4-5-20251001";
+    const model = modelFor("enrichment");
     if (!apiKey) return json(500, { ok: false, error: "Missing API key" });
 
     const signalDescriptions = signals.map((s: any, i: number) => {

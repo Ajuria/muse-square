@@ -5,6 +5,8 @@ import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/compare_dates";
 import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1";
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
 import { buildUiPackagingV3Month } from "../../../lib/ai/ui_packaging_v3/buildUiPackagingV3Month";
@@ -692,18 +694,13 @@ async function classifyIntentWithHaiku(qRaw: string): Promise<{
 }> {
   const fallback = { intent: "WINDOW_TOP_DAYS" as const, horizon: "month" as const, detected_day: null };
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 256,
-        temperature: 0,
-        system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
+    const call = await callClaudeMessagesAPI({
+      model: modelFor("classifier"),
+      maxTokens: 256,
+      temperature: 0,
+      cacheSystem: false,
+      userText: qRaw,
+      system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
 Réponds UNIQUEMENT en JSON strict, sans markdown, sans commentaire.
 
 Classifie la question utilisateur :
@@ -722,12 +719,9 @@ Règles :
 - Si la question cherche quand a lieu un événement, ou liste des événements → LOOKUP_EVENT
 - Si la question demande les meilleurs/pires jours, quand organiser → WINDOW_TOP_DAYS
 - detected_day : si un jour de la semaine est mentionné (lundi, mardi...), extrais-le. Sinon null.`,
-        messages: [{ role: "user", content: qRaw }],
-      }),
     });
-    const data = await res.json();
-    const text = data?.content?.[0]?.text ?? "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    if (!call.ok) return fallback;
+    const clean = call.rawText.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
     const validIntents = ["WINDOW_TOP_DAYS", "DAY_DIMENSION_DETAIL", "ENTITY_IMPACT", "LOOKUP_EVENT"];
     if (!validIntents.includes(parsed?.intent)) return fallback;
@@ -3226,7 +3220,7 @@ Règles :
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
+          model: modelFor("web_search"),
           max_tokens: 2048,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           system: systemPrompt,
@@ -3845,7 +3839,7 @@ Règles :
                 "anthropic-version": "2023-06-01",
               },
               body: JSON.stringify({
-                model: "claude-sonnet-4-6",
+                model: modelFor("web_search"),
                 max_tokens: 1024,
                 tools: [{ type: "web_search_20250305", name: "web_search" }],
                 system: entitySystemPrompt,

@@ -1,4 +1,5 @@
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import { randomUUID } from "crypto";
 
 export async function POST({ request }: { request: Request }) {
@@ -130,7 +131,7 @@ export async function POST({ request }: { request: Request }) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.CLAUDE_MODEL_ENRICHMENT ?? "claude-haiku-4-5-20251001",
+      model: modelFor("enrichment"),
       max_tokens: 3000,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       system,

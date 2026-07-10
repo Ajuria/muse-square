@@ -374,5 +374,6 @@ export async function runAIPackagerClaude(args: {
     errors: [],
     warnings: v_warnings,
     raw_text: normalized,
+    debug: { usage: call.usage },   // token usage incl. cache_read / cache_creation (prompt caching)
   };
 }

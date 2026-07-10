@@ -251,8 +251,9 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | `msAsterContract.ts` | `MS_ASTER_CONTRACT_VERSION`, `MS_ASTER_CONTRACT` | Global non-negotiable AI invariants (MS ASTER constitution) |
 | `assertions/assertions_v1.ts` | `assertNoSentenceWithoutFactIdV1` | Enforce: no surfaced sentence without a known fact_id |
 | `contracts/facts_v1.ts` | `FactV1`, `LineItemV1`, `RenderLineV1`, `CoverageBlockV1` | V1 fact / line-item / coverage contract types |
+| `models.ts` | `modelFor`, `ModelRole` | **SINGLE model-ID registry** — kills scattered literals + `CLAUDE_MODEL*` env reads; roles: packager/classifier/enrichment/web_search/drafting. Sonnet 5 flagged for schema-native packager validation |
 | `runtime/allowlist.ts` | `ALLOWED_INPUT_FIELDS`, `pickAllowedPayload`, `assertPayloadCoverage` | Restrict Claude visibility to semantic+decision fields |
-| `runtime/claude.ts` | `callClaudeMessagesAPI` | Wrapper for Claude `v1/messages` |
+| `runtime/claude.ts` | `callClaudeMessagesAPI`, `ClaudeCallUsage` | Wrapper for Claude `v1/messages` — model via `modelFor`; **prompt caching** on the system prefix (`cacheSystem`, returns `usage` incl. `cache_read`); `userText` for raw-text (classifier) calls |
 | `runtime/json.ts` | `parseJsonObjectStrict`, `stripMdCodeFence` | Strict JSON parse (strips md fences) |
 | `runtime/runPackager.ts` | `runAIPackagerClaude`, `Mode`, `MonthSubMode` | Orchestrator: mode → prompt → Claude → validator |
 

@@ -5,6 +5,7 @@
 // that could explain the signal. Mirrors enrich-event's Claude+web_search+cache
 // pattern; cached in analytics.context_enrichment keyed by (location_id, date), 30-day TTL.
 import type { APIRoute } from "astro";
+import { modelFor } from "../../../lib/ai/models";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { randomUUID } from "crypto";
@@ -84,7 +85,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.CLAUDE_MODEL_ENRICHMENT ?? "claude-haiku-4-5-20251001",
+        model: modelFor("enrichment"),
         max_tokens: 2000,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         system,
