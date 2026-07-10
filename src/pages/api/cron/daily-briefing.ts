@@ -26,6 +26,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { modelFor } from "../../../lib/ai/models";
+import { isMaterialBriefing } from "../../../lib/ai/briefingGate";
 
 // French decimal: 7.4 -> "7,4" (never a raw JS toString on user-facing numbers)
 const frNum = (n: number): string => String(Math.round(n * 10) / 10).replace(".", ",");
@@ -227,16 +228,9 @@ export const GET: APIRoute = async ({ request }) => {
         // Competitor changes = the brain's fired signals (change feed), NOT the ad-hoc crawl read.
         const competitorChanges = dc.signals.changes.filter((c: any) => c.event_label && c.change_type !== "opportunity" && c.change_type !== "planning");
 
-        // ── Material-signal gate (re-sourced from the brain). No email on genuinely quiet days.
-        //    v1 tunable: acute weather, commercial moment, competitor change, >=0.3 score move, or a
-        //    saved-event milestone (J-7/J-3/J-0). NOT "a card exists" (cards fire almost everywhere).
-        const alertLevel = Number(dc.day_surface?.opportunity?.alert_level_max ?? 0);
-        const hasWeatherAlert = alertLevel >= 2 || !!dc.weather_alert;
-        const hasCommercialEvent = dc.commercial_events.length > 0;
-        const hasCompetitorChange = competitorChanges.length > 0;
-        const hasScoreChange = scoreDelta != null && Math.abs(scoreDelta) >= 0.3;
-        const hasEventMilestone = savedEvents.some((e) => [0, 3, 7].includes(e.days_until));
-        const material = hasWeatherAlert || hasCommercialEvent || hasCompetitorChange || hasScoreChange || hasEventMilestone;
+        // ── Material-signal gate (re-sourced from the brain). No email on genuinely quiet days. ──
+        //    Pure, unit-tested logic in briefingGate.ts (see briefingGate.test.ts).
+        const material = isMaterialBriefing({ dc, competitorChanges, scoreDelta, savedEvents });
         if (!material) { results.skipped++; continue; }
 
         // ── Grounded Point du jour (adapter -> grounded packager @ Haiku). Regenerate once on reject,
@@ -254,7 +248,7 @@ export const GET: APIRoute = async ({ request }) => {
         const scoreLabel = scoreToday != null ? `${frNum(scoreToday)}/10` : "";
         const subject = urgentEvent
           ? `J-${urgentEvent.days_until} ${urgentEvent.title}${scoreLabel ? " · " + scoreLabel : ""}`
-          : hasCompetitorChange
+          : competitorChanges.length > 0
             ? `Mouvement concurrent${scoreLabel ? " · " + scoreLabel : ""}`
             : `${esc(user.city_name ?? "Votre zone")}${scoreLabel ? " · " + scoreLabel : ""}${scoreDelta != null && scoreDelta >= 0.3 ? " ↑" : scoreDelta != null && scoreDelta <= -0.3 ? " ↓" : ""}`;
 
