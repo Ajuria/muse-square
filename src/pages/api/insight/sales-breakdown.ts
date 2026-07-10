@@ -1,8 +1,9 @@
 // src/pages/api/insight/sales-breakdown.ts
 // Card-SPECIFIC drill-down for sales movement cards ("Ce qui a fait la journée").
 // Given (location_id, date), returns the top category MOVERS: each category's revenue on the
-// signal day vs the median of the venue's comparable days (same weekday, trailing), from
-// mart.fct_client_sales_by_category_daily. This is the "what sold" the universal brain can't give.
+// signal day vs the median of the venue's comparable days (same weekday, trailing), from the
+// existing mart.fct_client_offering_daily (grain location_id × transaction_date × item_category;
+// carries revenue, revenue_share, revenue_rank). This is the "what sold" the universal brain can't give.
 //
 // Deliberately NARROW: reads ONLY the category mart. No assembleDayContext, no weather/competitor/
 // events/tourism. Comparable days = same weekday (how the card frames them to the operator, "vos
@@ -45,27 +46,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // Per-category: signal-day revenue vs same-weekday trailing median (+ how many comparable days).
     const [rows] = await bq.query({
       query: `
-        WITH ct AS (
-          SELECT transaction_date AS d, item_category AS category, category_revenue AS rev
-          FROM \`${PROJECT}.mart.fct_client_sales_by_category_daily\`
-          WHERE location_id = @location_id
-        ),
-        sig AS (
-          SELECT category, rev AS sig_rev FROM ct WHERE d = PARSE_DATE('%Y-%m-%d', @date)
+        WITH day AS (
+          SELECT item_category AS category, revenue AS sig_rev, revenue_share, revenue_rank
+          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+          WHERE location_id = @location_id AND transaction_date = PARSE_DATE('%Y-%m-%d', @date)
         ),
         base AS (
-          SELECT category,
-                 APPROX_QUANTILES(rev, 2)[OFFSET(1)] AS med_rev,
+          SELECT item_category AS category,
+                 APPROX_QUANTILES(revenue, 2)[OFFSET(1)] AS med_rev,
                  COUNT(*) AS n_days
-          FROM ct
-          WHERE EXTRACT(DAYOFWEEK FROM d) = EXTRACT(DAYOFWEEK FROM PARSE_DATE('%Y-%m-%d', @date))
-            AND d < PARSE_DATE('%Y-%m-%d', @date)
+          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+          WHERE location_id = @location_id
+            AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM PARSE_DATE('%Y-%m-%d', @date))
+            AND transaction_date < PARSE_DATE('%Y-%m-%d', @date)
           GROUP BY category
         )
-        SELECT s.category, s.sig_rev, b.med_rev, b.n_days
-        FROM sig s
-        LEFT JOIN base b ON s.category = b.category
-        ORDER BY ABS(s.sig_rev - COALESCE(b.med_rev, 0)) DESC
+        SELECT d.category, d.sig_rev, d.revenue_share, d.revenue_rank, b.med_rev, b.n_days
+        FROM day d
+        LEFT JOIN base b ON d.category = b.category
+        ORDER BY ABS(d.sig_rev - COALESCE(b.med_rev, 0)) DESC
       `,
       params: { location_id, date },
       types: { location_id: "STRING", date: "STRING" },
@@ -87,12 +86,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const n_days = num(r.n_days) ?? 0;
         if (day_eur == null || median_eur == null || n_days < MIN_COMPARABLE_DAYS) return null;
         const delta_eur = day_eur - median_eur;
+        const share = num(r.revenue_share);
         return {
           category: String(r.category),
           day_eur: Math.round(day_eur),
           median_eur: Math.round(median_eur),
           delta_eur: Math.round(delta_eur),
           delta_pct: median_eur > 0 ? Math.round((delta_eur / median_eur) * 100) : null,
+          // From the mart directly: this category's share of the day's revenue (0-1 -> %) and its rank.
+          share_pct: share != null ? Math.round(share * 100) : null,
+          rank: num(r.revenue_rank),
         };
       })
       .filter(Boolean)

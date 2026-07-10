@@ -28,7 +28,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `insight/action-log.ts` | POST | Records user action-log events | `analytics.action_log` |
 | `insight/action-request.ts` | POST | Logs user action requests + webhook notify | `insight_event.action_requests` |
 | `insight/analogs.ts` | GET | Historical similar-day revenue comparison | `mart.fct_client_day_analogs` |
-| `insight/sales-breakdown.ts` 🆕 | GET | **Card-specific** sales drill-down ("Ce qui a fait la journée") — top category MOVERS: signal-day vs same-weekday trailing median (n≥3). Reads ONLY the category mart; **no `assembleDayContext`**; honest-absence (empty `item_category` → `found:false`) | `mart.fct_client_sales_by_category_daily` |
+| `insight/sales-breakdown.ts` 🆕 | GET | **Card-specific** sales drill-down ("Ce qui a fait la journée") — top category MOVERS: signal-day vs same-weekday trailing median (n≥3), plus `revenue_share` (mix %) + `revenue_rank`. Reads ONLY the offering mart; **no `assembleDayContext`**; honest-absence (no category rows → `found:false`) | `mart.fct_client_offering_daily` |
 | `insight/days.ts` | GET | Composes multi-day surface: signals, alerts feed, action candidates, points clés | `semantic.vw_insight_event_selected_days_surface`, `…_ai_location_context`, `…_change_feed`, `…_action_candidates`, `analytics.channel_configs` |
 | `insight/enrich-context.ts` | POST | Claude web_search real-world context for a day; caches 30d | `analytics.context_enrichment` |
 | `insight/enrich-event.ts` | POST | Claude web_search competitor-event enrichment; caches 30d | `dims.dim_event_enrichment` |
@@ -346,7 +346,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 
 | Script | Purpose | Calls |
 |---|---|---|
-| `action-cards.js` (2815 ln) | **Single source of truth** for action-card branding, personalized sowhat, per-channel draft seeds, Agir dropdown. Does ALL rendering client-side from `day_surface` + `location_context`. | (rendered from data passed in) |
+| `action-cards.js` (2815 ln) | **Single source of truth** for action-card branding, personalized sowhat, per-channel draft seeds, Agir dropdown. Does ALL rendering client-side from `day_surface` + `location_context`. TODO (when rolling the card-specific pattern): the `sales_surge` sowhat infers the driver from `dominant_factor`+delta fallback; the **authoritative** field is `primary_revenue_driver` (conversion/footfall/basket) on `fct_client_sales_signals_daily` — repoint then. | (rendered from data passed in) |
 | `scripts/ie-prompt.js` (1188 ln) | Insight-event prompt UI harness | `/api/insight/prompt`, `/api/insight/monitor`, `/api/insight/find-dates`, `/api/import/locations`, `/api/import/sales-csv`, `/api/competitive/competitor-signals` |
 | `map-markers.js` (543 ln) | Leaflet marker rendering for the Insight Event map (`createVenueMarker`, `createEventMarker`, `createRoadMarker`, …) | (Leaflet layers) |
 | `reco-library.js` (125 ln) | **Owner-editable** source of the 3 recommended sales actions (`window.MS_SALES_RECO_LIB`); loaded before `action-cards.js` on pulse + rapport | — |

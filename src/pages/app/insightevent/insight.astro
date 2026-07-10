@@ -880,7 +880,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               var col = up ? '#0F6E56' : '#B91C1C';
               var pct = (mv.delta_pct==null) ? '' : ' (' + (up?'+':'-') + Math.abs(mv.delta_pct) + ' %)';
               out += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:0.5px solid #F3F4F6;">'
-                + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(mv.category) + '</div>'
+                + '<div><div style="font-size:13px;font-weight:600;color:#111827;">' + esc(mv.category) + '</div>' + (mv.share_pct != null ? '<div style="font-size:10.5px;color:#9CA3AF;">n°' + mv.rank + ' · ' + mv.share_pct + ' % du CA du jour</div>' : '') + '</div>'
                 + '<div style="font-size:13px;color:#374151;white-space:nowrap;">' + frInt(mv.day_eur) + ' \u20ac <span style="color:#9CA3AF;">\u00b7 habituel ' + frInt(mv.median_eur) + ' \u20ac</span> <span style="color:' + col + ';font-weight:600;">' + (up?'+':'-') + frInt(Math.abs(mv.delta_eur)) + ' \u20ac' + pct + '</span></div>'
                 + '</div>';
             }
