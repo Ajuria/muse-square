@@ -155,7 +155,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       })();
     </script>
 
-    <script is:inline src="/action-cards.js?v=25"></script>
+    <script is:inline src="/action-cards.js?v=27"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -548,9 +548,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
         if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ group:'contexte', claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
         if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ group:'contexte', claim:'Jour férié', value:'Oui', source:'Calendrier' });
-        if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
-        if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
-        if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
+        // Competitive pressure as WORDS, not a bare ratio, and only when meaningfully elevated
+        // (>= 1.2x — the app's own density band in high_competition_density); x-normal is noise.
+        // Source = the upstream events provider, not "Muse Square" (the product isn't a data source).
+        if (a.pressure_ratio != null) {
+          var _pr = Number(a.pressure_ratio);
+          var _pw = _pr >= 1.8 ? 'forte' : _pr >= 1.2 ? 'élevée' : '';
+          if (_pw) claims.push({ group:'contexte', claim:'Pression concurrentielle', value: _pw, source:'OpenAgenda' });
+        }
+        // Weather alert gated to vigilance >= 3 (orange/rouge). Levels 1-2 are noise, not context.
+        if (a.weather_alert != null && Number(a.weather_alert) >= 3) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Météo-France' });
+        // Raw "N évén. à 5 km" DROPPED — a count with no per-venue baseline ("334 évén.") is
+        // meaningless to the operator; the elevated-pressure line above is the honest density signal.
         if (!claims.length) claims.push({ claim:'Signal', value: (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr, source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };

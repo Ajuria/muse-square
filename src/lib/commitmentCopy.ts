@@ -42,6 +42,9 @@ export const EVOL_COPY = {
 
   // §2d — holiday-adjusted honesty. NO "norme/écart" jargon; the number stays, terse.
   holiday_effect: "En vacances, le CA monte déjà de +{pct} % sans action.",
+  // Decomposition line: situation − effet vacances = effet net attribuable à l'action.
+  // {pct} arrives PRE-SIGNED (+/−). OWNER: voice-pass this wording if you'd phrase it differently.
+  q1_decomp_action: "Effet de votre action, hors vacances : {pct} %",
   to_confirm_label: "À confirmer",
   to_confirm_holiday: "Résultat mesuré pendant les vacances scolaires. L'effet de l'action n'est pas isolable. À réessayer hors période de vacances pour trancher définitivement.",
 

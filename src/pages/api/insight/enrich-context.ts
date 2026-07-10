@@ -14,6 +14,12 @@ export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// The web_search agent wraps cited spans in <cite ...>…</cite> markup. It must NEVER reach the
+// UI — strip it from EVERY rendered field (takeaway, key_factors, sources), on both the fresh
+// parse and the cache-read path (older cached rows stored key_factors/sources unstripped).
+const CITE_RE = /<\/?cite[^>]*>/gi;
+const stripCite = (s: any): string => String(s ?? "").replace(CITE_RE, "").replace(/\s{2,}/g, " ").trim();
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const body = await request.json().catch(() => null);
   const {
@@ -46,9 +52,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (rows?.length) {
       const c: any = rows[0];
       return json200({
-        takeaway: c.takeaway ?? null,
-        key_factors: safeArr(c.key_factors),
-        sources: safeArr(c.sources),
+        takeaway: c.takeaway ? stripCite(c.takeaway) || null : null,
+        key_factors: safeArr(c.key_factors).map(stripCite).filter(Boolean),
+        sources: safeArr(c.sources).map(stripCite).filter(Boolean),
         cached: true,
       });
     }
@@ -102,9 +108,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     parsed = {};
   }
 
-  const takeaway = typeof parsed.takeaway === "string" ? parsed.takeaway.replace(/<cite[^>]*>|<\/cite>/g, "").trim() || null : null;
-  const key_factors = Array.isArray(parsed.key_factors) ? parsed.key_factors.map((x: any) => String(x)).slice(0, 3) : [];
-  const sources = Array.isArray(parsed.sources) ? parsed.sources.map((x: any) => String(x)).slice(0, 4) : [];
+  const takeaway = typeof parsed.takeaway === "string" ? stripCite(parsed.takeaway) || null : null;
+  const key_factors = Array.isArray(parsed.key_factors) ? parsed.key_factors.map(stripCite).filter(Boolean).slice(0, 3) : [];
+  const sources = Array.isArray(parsed.sources) ? parsed.sources.map(stripCite).filter(Boolean).slice(0, 4) : [];
 
   // 3. Cache write (fire and forget)
   if (takeaway || key_factors.length) {

@@ -59,12 +59,21 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
         `FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date BETWEEN @s AND @e`,
       params: { loc, s: bq.date(s), e: bq.date(e) }, location: "EU",
     }),
-    // named nearby events (5km), most present first
+    // named nearby events (5km), most present first — RELEVANCE-GATED. The raw top_events_5km
+    // carries always-on administrative listings ("Permanences dans les lycées du Gard" = 347-day
+    // duration, "ouverture des inscriptions" = 385 d, standing "permanences" >= 93 d) that are NOT
+    // dated footfall events. We drop standing listings by duration (> 90 d) and the education-admin
+    // theme, while KEEPING genuine multi-week exhibitions (e.g. a 63-day expo near a museum).
+    // (Cancelled already excluded, as in dayContext.namedEventsRange.)
     bq.query({
       query:
         `SELECT ev.event_label AS label, COUNT(DISTINCT t.date) AS days ` +
         `FROM \`${PROJECT}.mart.fct_location_events_topn_daily\` t, UNNEST(t.top_events_5km) ev ` +
-        `WHERE t.location_id=@loc AND t.date BETWEEN @s AND @e GROUP BY 1 ORDER BY days DESC LIMIT 4`,
+        `WHERE t.location_id=@loc AND t.date BETWEEN @s AND @e ` +
+        `AND NOT COALESCE(ev.is_cancelled_bool, false) ` +
+        `AND COALESCE(ev.event_duration_days, 1) <= 90 ` +
+        `AND COALESCE(ev.theme, '') != 'Education / Formation' ` +
+        `GROUP BY 1 ORDER BY days DESC LIMIT 4`,
       params: { loc, s: bq.date(s), e: bq.date(e) }, location: "EU",
     }),
     // foreign visitors (whitelisted tourist origins)

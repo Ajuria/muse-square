@@ -2270,12 +2270,17 @@
     'sales_surge': { action: function(a, p, d) {
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-      var byVol = (tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true;
-      var lever = byVol
-        ? ('le volume' + (tx != null ? ' (+' + tx + ' % de tickets' + (bk != null ? ', panier ' + (bk >= 0 ? '+' : '') + bk + ' %' : '') + ')' : ''))
-        : ('le panier moyen' + (bk != null ? ' (' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
-      var hook = a.is_vacation ? 'vacances scolaires' : (a.is_holiday ? 'jour férié' : (Number(a.weather_alert || 0) === 0 ? 'météo favorable' : 'contexte du jour'));
-      return 'À rejouer : porté par ' + lever + '. Repérez ce qui a amené le monde (' + hook + ', mise en avant, offre) et rejouez-le sur vos prochaines journées comparables.';
+      // Real driver = the caisse decomposition (dominant_factor when present; else the larger delta).
+      // This is arithmetic FACT, not "repérez ce qui a marché" filler. Numbers stay verbatim.
+      var byVol = a.dominant_factor ? (a.dominant_factor === 'transactions')
+                : ((tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true);
+      var driver = byVol ? 'du volume' : 'du panier moyen';
+      var detail = (tx != null && bk != null)
+        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
+        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
+      // Named co-occurring context — observed, not asserted as the sole cause; omitted when nothing specific.
+      var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour férié' : (Number(a.weather_alert || 0) === 0 ? 'une météo favorable' : ''));
+      return 'La hausse vient ' + driver + detail + (hook ? ', porté par ' + hook : '') + '. À rejouer sur vos prochaines journées comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;

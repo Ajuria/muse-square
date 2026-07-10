@@ -211,7 +211,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | Module | Key exports | Purpose | Data source |
 |---|---|---|---|
 | `commitmentConstants.ts` | `WINDOW_DAYS`, `THRESHOLD_Z`, `MATERIAL_SHARE`, `GRACE_DAYS`, `RHO_FLOOR` | Single-source resolution gate constants | none |
-| `commitmentContext.ts` | `assembleEvolutionExtras` | Evolution-page extras: holiday norm, context, advice. action_type track record via the brain's **`getActionRollup`** scoped sub-accessor (the ONE outcomes read, pre-explode commitment-grain COUNTIF, no double-count) — not the full assemble. Range-based named-context queries stay (legit period view) | `mart.fct_client_day_residual`, `…location_context_features_daily`, `…location_events_topn_daily`, `…foreign_tourism_context_daily`, `…client_daily_performance`, `src/lib/dayContext` (`getActionRollup`) |
+| `commitmentContext.ts` | `assembleEvolutionExtras` | Evolution-page extras: holiday norm, context, advice. action_type track record via the brain's **`getActionRollup`** scoped sub-accessor (the ONE outcomes read, pre-explode commitment-grain COUNTIF, no double-count) — not the full assemble. Range-based named-context queries stay (legit period view); named_events are RELEVANCE-GATED (drop standing admin listings: `event_duration_days > 90` / theme `Education / Formation`) | `mart.fct_client_day_residual`, `…location_context_features_daily`, `…location_events_topn_daily`, `…foreign_tourism_context_daily`, `…client_daily_performance`, `src/lib/dayContext` (`getActionRollup`) |
 | `commitmentCopy.ts` | `EVOL_COPY` | Canonical French copy for engagement UI | none |
 | `commitmentOrigins.ts` | `COMMITMENT_ORIGIN_ACTION_TYPES`, `isCommitmentOrigin` | Allowlist of action types that seed commitments | none |
 | `commitmentResolve.ts` | `resolveCommitment` | Statistical resolution: window metric, z w/ autocorr VIF, holiday gate. Also computes `window_active_factors` (CSV) — registry factors active on ≥ `WINDOW_FACTOR_SHARE` (0.50) of window days, via the single-source registry predicates against its declared `context_table` | `mart.fct_client_day_residual`, `…location_context_features_daily`, `mart.fct_location_context_daily` (factor predicates), `src/lib/sensitivityFeatures.json` |
@@ -264,7 +264,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | Module | Purpose |
 |---|---|
 | `packagePromptV3.ts` | V3 narrative system prompt (window_top_days / compare_dates / day_why) |
-| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2)** — cites ONLY the brain's `citable_facts`; LEADS with a headline, ranks facts by salience, keeps 2-3, NO action/advice (the real fired action card is attached in code). No invented numbers/entities/causes; honest-absence |
+| `packagerGroundedDayPrompt.ts` | **Grounded day-horizon prompt (Phase 2, VERDICT-FIRST)** — cites ONLY the brain's `citable_facts`; LEADS with a one-sentence verdict (état du jour + raison dominante), then the 2-3 facts that carry it, ranked by salience. NO action/advice (the real fired action card is attached in code). No invented numbers/entities/causes; honest-absence |
 | `packagerGroundedDayValidator.ts` | **Grounding validator (Phase 2)** — HARD-rejects any surfaced number / named entity / causal construction / predicted outcome not tracing to the payload; never warn-and-pass |
 | `groundingChecks.ts` | `extractNumbers`, `norm`, `makeEntityRegex`, `CAUSAL_PATTERNS`, `DRAFT_OUTCOME_PATTERNS` | Shared anti-fabrication primitives for both grounded validators. Numbers grounded by MAGNITUDE (normalizes −/–/— dashes; "−20 %" == "20 %") |
 | `packagerGroundedDraftValidator.ts` | `validate_grounded_draft` | **Grounding validator for DRAFTS (Phase 3b)** — free-text channel copy; rejects a fabricated external fact (competitor/event/weather/attendance/outcome). THREE legal sources: citable_facts + venue identity + user instruction (operator's own prices/hours pass); creative voice/CTA free |
@@ -339,7 +339,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 
 `insightevent/` route group: `pulse.astro`, `monitor.astro`, `insight.astro`, `days.astro`, `month.astro`, `map.astro`, `prompt.astro`, `engagement.astro`, `events.astro`, `competitor.astro`, `suivis.astro`, `reactions.astro`, `rapport.astro`. Plus `admin/admin.astro`, `index.astro`, and `insightmarketing/prompt.astro`.
 
-> Per CLAUDE.md: `public/action-cards.js` is browser-cached by `?v=` — bump the cache-buster on the consuming surface (pulse ~326, monitor ~285, insight ~137) and hard-refresh after edits. Astro dev does **not** reliably hot-reload API-route `.ts` — restart the dev server after server-side edits.
+> Per CLAUDE.md: `public/action-cards.js` is browser-cached by `?v=` — bump the cache-buster on the consuming surface (pulse ~348, monitor ~285, rapport ~47, insight ~158 — currently `?v=27`) and hard-refresh after edits. Astro dev does **not** reliably hot-reload API-route `.ts` — restart the dev server after server-side edits.
 
 ### Static client scripts (`public/`) — served fresh, no build/HMR, cache-busted by `?v=`
 
