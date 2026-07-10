@@ -236,11 +236,19 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
          FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // venue profile — STATIC per-location "user context". Complementary, NOT a fork. Its declared
     // weather_sensitivity/seasonality are attributes, NEVER the measured Engine-2 effect (guard below).
-    // SELECT * so the brain is the single reader of this view too: the curated VenueProfile reads named
-    // fields, and the whole row is exposed as `profile_raw` (monitor's legacy `data.profile`). EXCEPT+alias
-    // reproduces monitor's scalar transform on the ARRAY column nearest_transit_line_name.
-    one(`SELECT * EXCEPT(nearest_transit_line_name),
-           nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name
+    // The brain is the single reader of this view: the curated VenueProfile reads named fields and the row
+    // is exposed as `profile_raw` (monitor's legacy `data.profile`). Explicit projection = the USED-column
+    // union (monitor's 40 + the brain's top_item extras) to trim the cold path; SAFE_OFFSET reproduces
+    // monitor's scalar transform on the ARRAY column nearest_transit_line_name.
+    one(`SELECT location_id, location_type, client_industry_code, location_access_pattern, origin_city_ids,
+           company_activity_type, event_time_profile, primary_audience_1, primary_audience_2, capacity_sensitivity,
+           geographic_catchment, company_industry, business_short_description, website_url, instagram_url,
+           facebook_url, review_link, latitude, longitude, city_name, region_name, nearest_transit_stop_name,
+           nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name, nearest_transit_stop_distance_m,
+           is_primary, site_name, venue_capacity, event_type_1, event_type_2, event_type_3, weather_sensitivity,
+           seasonality, main_event_objective, operating_hours, auto_enriched_description, besttime_venue_id,
+           besttime_venue_type, besttime_rating, besttime_dwell_time_min, besttime_dwell_time_max,
+           top_item_description, top_item_revenue_share
          FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`, { loc }),
     // commercial events (region annotations) for today — named soldes/foires (observed presence)
     (async () => { const [r] = await bq.query({ query: `SELECT ev.event_name AS name FROM \`${PROJECT}.mart.fct_region_day_annotations_daily\` a JOIN \`${PROJECT}.dims.dim_client_location\` dl ON dl.region_name=a.region_name CROSS JOIN UNNEST(a.commercial_events) ev WHERE dl.location_id=@loc AND a.date=@d`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
