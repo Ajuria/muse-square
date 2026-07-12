@@ -16,7 +16,9 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 const PROJECT = "muse-square-open-data";
 // Robust baseline floor: with fewer than this many comparable weekdays, we don't claim a median.
 const MIN_COMPARABLE_DAYS = 3;
-const MAX_MOVERS = 6;
+// Return the full category set (a café has ~9) so the client tool can sort by revenue for a real
+// "best sellers" view — not just the top movers by delta. Cap is a generous safety bound only.
+const MAX_MOVERS = 20;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

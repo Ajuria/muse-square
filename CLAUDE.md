@@ -19,6 +19,12 @@
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
 
+## Working Method (before ANY code — non-negotiable)
+- **Test against the REAL local account, always.** The owner tests one account only — **Muse Square**, `location_id f10c3e58-326e-4e38-947c-d59fcbe51df5`. Verify every data claim AND every rendered card against THIS location and the exact card URL the owner uses (`/app/insightevent/insight?type=<card>&date=<date>&location_id=f10c3e58…`). NEVER verify against a different demo location (e.g. ff2aeb35) — its data differs and "works for me" then breaks for the owner.
+- **ADD, don't REPLACE.** When the ask is to *add* to a page/card, EXTEND it — never remove, replace, or restyle working content as a side effect. Dropping or reformatting something the owner already approved is a hard fail, even if the new thing is better. If a change would remove existing behavior, stop and confirm first.
+- **Verify absence across the whole stack.** Before claiming "we don't have X", search `INFORMATION_SCHEMA.COLUMNS` across `semantic` (the `vw_*` the app reads) + `mart` + `intermediate` (bq-verify) — never from one table's schema.
+- **A UI change is "done" only after tracing the real output.** For the exact card URL + `f10c3e58`, run the endpoint's query and confirm the rendered result (numbers rounded, sections present, nothing vanished) — `tsc`/`node --check` prove syntax, not behavior. The card-detail deep pages render via the SHARED `public/card-kit.js` (`window.MSCardKit`); VERIFY changes by rendering real `f10c3e58` JSON through it in `public/card-harness.html` (serve `public/`, open in the browser, screenshot) — the page runs the same kit, so the harness IS the page.
+
 ## Diagnosis Before Fix
 - Diagnose first, fix second. Confirm root cause from evidence before proposing code changes.
 - Never propose a find-and-replace without first confirming the exact text exists in the target file.

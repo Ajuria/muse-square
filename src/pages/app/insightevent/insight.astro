@@ -156,6 +156,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     </script>
 
     <script is:inline src="/action-cards.js?v=27"></script>
+    <script is:inline src="/commit-form.js?v=1"></script>
+    <script is:inline src="/card-kit.js?v=8"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -731,6 +733,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
         var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
         var _isWeather = (signal_type === 'weather_hazard_onset' || signal_type === 'weather_worsened' || signal_type === 'weather_improved' || signal_type === 'extended_bad_weather_3d');
+        var _isEvent = (signal_type === 'commercial_event_match' || signal_type === 'mega_event_activation' || signal_type === 'mega_event_end');
+        var _isCompetitor = (signal_type === 'competition_proximity' || signal_type === 'high_competition_density' || signal_type === 'competitor_threat_direct' || signal_type === 'competition_pressure_spike' || signal_type === 'same_bucket_saturation' || signal_type === 'competitor_price_drop' || signal_type === 'competitor_price_increase' || signal_type === 'competitor_new_offering' || signal_type === 'competitor_offering_removed');
+        var _isTourism = (signal_type === 'tourist_high_season' || signal_type === 'tourist_surge_vacation' || signal_type === 'tourism_peak_window' || signal_type === 'tourism_weather_vacation' || signal_type === 'tourism_comp_squeeze' || signal_type === 'low_tourism_local_opp' || signal_type === 'foreign_tourism_signal');
+        var _isFootfall = (signal_type === 'best_day_of_week' || signal_type === 'ft_peak_bad_weather' || signal_type === 'ft_quiet_good_weather' || signal_type === 'ft_peak_saturated' || signal_type === 'ft_peak_low_comp' || signal_type === 'ft_peak_tourism_vacation' || signal_type === 'ft_peak_mobility');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
@@ -780,7 +786,11 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           for (var i = 0; i < m.claims.length; i++) dec += claimRow(m.claims[i]);
         }
         if (_isWeather) html += zone('Votre réponse à la météo', '<div id="fs-weather-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Lecture de votre réponse mesurée…</div></div>');
-        html += zone('D\u00e9composition \u00b7 preuve', dec);
+        if (_isEvent) html += zone('Paysage événementiel', '<div id="fs-events-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse du paysage événementiel…</div></div>');
+        if (_isCompetitor) html += zone('Concurrence', '<div id="fs-competitor-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse concurrentielle…</div></div>');
+        if (_isTourism) html += zone('Tourisme dans votre région', '<div id="fs-tourism-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse touristique…</div></div>');
+        if (_isFootfall) html += zone('Fréquentation · votre horloge du CA', '<div id="fs-footfall-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse de fréquentation…</div></div>');
+        if (!_isMov && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall) html += zone('D\u00e9composition \u00b7 preuve', dec);
 
         if (m.enriched_inline) {
           var d = m.enriched_inline;
@@ -822,25 +832,38 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         // Comparable-day history is sales-specific, so it stays gated to movement cards; the
         // environment crawl ("Environnement du jour · agent web") runs for every card type.
         var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
-        html += grp('Contexte & informations liées');
-        if (_isMovement) {
-          html += zone('Historique · jours comparables',
-            '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
-        }
-        if (!_isMovement && !_isWeather) html += zone('Environnement du jour · agent web',
-          '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
+        var _spin = '<div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Chargement\u2026</div>';
+        var _ctx = '';
+        if (_isMovement || _isWeather) _ctx += zone('Historique \u00b7 jours comparables', '<div id="fs-analog-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
+        if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
+        if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
 
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
 
         if (_isMovement) {
-          loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
           loadSalesBreakdown(location_id, signal_date, document.getElementById('fs-whatsold-zone'), signal_type);
         } else if (_isWeather) {
-          loadWeatherSensitivity(location_id, signal_date, document.getElementById('fs-weather-zone'));
+          loadWeatherSensitivity(location_id, signal_date, document.getElementById('fs-weather-zone'), signal_type);
+        } else if (_isEvent) {
+          loadEvents(location_id, signal_date, document.getElementById('fs-events-zone'));
+        } else if (_isCompetitor) {
+          loadCompetitor(location_id, signal_date, document.getElementById('fs-competitor-zone'));
+        } else if (_isTourism) {
+          loadTourism(location_id, signal_date, document.getElementById('fs-tourism-zone'));
+        } else if (_isFootfall) {
+          loadFootfall(location_id, signal_date, document.getElementById('fs-footfall-zone'));
         } else {
           loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        }
+        // Comparable-day history — sales AND weather. Only sales injects the number into its Synthèse.
+        if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) {
+          loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
+          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'));
         }
 
         var descBtn = document.getElementById('fs-desc-btn');
@@ -856,88 +879,65 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         wireActionBar(root, day, prof, feedItem);
       }
 
-      // Weather card — the venue's MEASURED weather response (Engine 2), from /api/insight/weather-sensitivity.
-      // Card-specific depth: your own measured reaction to this weather, not a raw vigilance level or a 3/5.
-      // Measured -> lead with it + a quantified, forecast-grounded levier; absent -> honest-absence + forecast.
-      var WX_COND_FR = { heat:'forte chaleur', rain:'pluie', cold:'grand froid', wind:'vent fort', snow:'neige' };
-      var WX_TIER_FR = { preliminaire:'préliminaire, à confirmer', emergent:'émergent', etabli:'établi' };
-      function wxAbsent(condFr) {
-        var c = condFr ? ('la ' + condFr) : 'ce type de météo';
-        return '<div style="font-size:13px;line-height:1.55;color:#374151;">Pas encore d\'effet chiffré mesuré pour ' + esc(c) + ' sur votre CA — l\'historique est trop court pour trancher. On ne fabrique pas d\'estimation : la journée nourrira la mesure.</div>';
-      }
-      function loadWeatherSensitivity(locId, date, container) {
+      // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
+      // (public/card-kit.js), the SINGLE source verified by the render harness
+      // (public/card-harness.html). What renders here == what the harness verifies.
+      function loadFootfall(locId, date, container) {
         if (!container) return;
-        fetch('/api/insight/weather-sensitivity?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+        fetch('/api/insight/footfall?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
           .then(function(r){ return r.json(); })
-          .then(function(j){
-            var condFr = (j && j.condition) ? (WX_COND_FR[j.condition.feature] || j.condition.feature) : null;
-            if (!j || !j.ok || !j.measured) { container.innerHTML = wxAbsent(condFr); return; }
-            var m = j.measured;
-            var down = m.effect_pct < 0;
-            var col = down ? '#B91C1C' : '#0F6E56';
-            var eff = (down ? '-' : '+') + String(Math.abs(m.effect_pct)).replace('.', ',') + ' %';
-            var onOfM = Math.round(m.consistency_pct / 100 * m.n_days);
-            var lead = 'Les jours de ' + esc(condFr || 'ce type de météo') + ', votre CA a été '
-              + '<span style="color:' + col + ';font-weight:700;">' + eff + '</span> vs d\'habitude — mesuré sur '
-              + m.n_days + ' jours, l\'effet a tenu ~' + onOfM + ' fois sur ' + m.n_days + ' (' + m.consistency_pct + ' %). '
-              + '<span style="color:#9CA3AF;">Effet ' + esc(WX_TIER_FR[m.tier] || m.tier) + '.</span>';
-            var stake = (m.eur_per_day != null) ? ' (≈ ' + (m.eur_per_day < 0 ? '-' : '+') + frInt(Math.abs(m.eur_per_day)) + ' €/jour)' : '';
-            var lev = (condFr ? ('La ' + condFr) : 'Cette météo') + ' vous ' + (down ? 'coûte' : 'rapporte') + ' ~' + Math.abs(Math.round(m.effect_pct)) + ' %' + stake
-              + ' — un schéma récurrent, pas un hasard. Sur les jours à venir, adaptez offre et communication à la météo plutôt que de subir l\'écart.';
-            var out = '<div style="font-size:14px;line-height:1.55;color:#111827;">' + lead + '</div>'
-              + '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;"><span style="font-weight:700;">Le levier —</span> ' + esc(lev) + '</div>';
-            container.innerHTML = out;
-          })
-          .catch(function(){ container.innerHTML = wxAbsent(null); });
+          .then(function(j){ container.innerHTML = MSCardKit.renderFootfall(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse de fréquentation indisponible.</div>'; });
       }
-
-      // Sales "what sold" — category movers from /api/insight/sales-breakdown (the category mart).
-      // Card-specific depth the universal brain can't give: which categories made or broke the day
-      // vs the usual weekday. The levier is a SALES lever (r\u00e9assort / mise en avant), never "communiquez".
-      var WS_DOW_FR = { 0:'dimanches',1:'lundis',2:'mardis',3:'mercredis',4:'jeudis',5:'vendredis',6:'samedis' };
+      function loadTourism(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/tourism?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderTourism(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse touristique indisponible.</div>'; });
+      }
+      function loadCompetitor(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/competitor?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderCompetitor(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse concurrentielle indisponible.</div>'; });
+      }
+      function loadEvents(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/events?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderEvents(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse événementielle indisponible.</div>'; });
+      }
+      function loadWeatherSensitivity(locId, date, container, sigType) {
+        if (!container) return;
+        fetch('/api/insight/weather-sensitivity?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date) + '&signal_type=' + encodeURIComponent(sigType || ''))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderWeather(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse météo indisponible.</div>'; });
+      }
       function loadSalesBreakdown(locId, date, container, sigType) {
         if (!container) return;
         var isDown = sigType === 'sales_revenue_down_wow';
         fetch('/api/insight/sales-breakdown?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
           .then(function(r){ return r.json(); })
-          .then(function(j){
-            if (!j || !j.ok || !j.found || !j.movers || !j.movers.length) {
-              container.innerHTML = '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Mix produit indisponible pour ce jour \u2014 lecture au volume et au panier ci-dessous.</div>';
-              return;
-            }
-            var jour = WS_DOW_FR[new Date(String(date) + 'T00:00:00Z').getUTCDay()] || 'jours comparables';
-            var out = '<div style="font-size:11.5px;color:#9CA3AF;margin-bottom:10px;">Chaque cat\u00e9gorie ce jour vs la m\u00e9diane de vos ' + esc(jour) + ' (n=' + (j.n_comparable_days||0) + ').</div>';
-            for (var i=0;i<j.movers.length;i++){
-              var mv=j.movers[i];
-              var up = mv.delta_eur >= 0;
-              var col = up ? '#0F6E56' : '#B91C1C';
-              var pct = (mv.delta_pct==null) ? '' : ' (' + (up?'+':'-') + Math.abs(mv.delta_pct) + ' %)';
-              out += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:0.5px solid #F3F4F6;">'
-                + '<div><div style="font-size:13px;font-weight:600;color:#111827;">' + esc(mv.category) + '</div>' + (mv.share_pct != null ? '<div style="font-size:10.5px;color:#9CA3AF;">n°' + mv.rank + ' · ' + mv.share_pct + ' % du CA du jour</div>' : '') + '</div>'
-                + '<div style="font-size:13px;color:#374151;white-space:nowrap;">' + frInt(mv.day_eur) + ' \u20ac <span style="color:#9CA3AF;">\u00b7 habituel ' + frInt(mv.median_eur) + ' \u20ac</span> <span style="color:' + col + ';font-weight:600;">' + (up?'+':'-') + frInt(Math.abs(mv.delta_eur)) + ' \u20ac' + pct + '</span></div>'
-                + '</div>';
-            }
-            var lev = salesLevier(j.movers, isDown, jour);
-            if (lev) out += '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;"><span style="font-weight:700;">Le levier \u2014</span> ' + esc(lev) + '</div>';
-            container.innerHTML = out;
-          })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSales(j, isDown, date); })
           .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Mix produit indisponible.</div>'; });
       }
-      function salesLevier(movers, isDown, jour){
-        var neg = movers.filter(function(m){return m.delta_eur < 0;}).sort(function(a,b){return a.delta_eur-b.delta_eur;});
-        var pos = movers.filter(function(m){return m.delta_eur > 0;}).sort(function(a,b){return b.delta_eur-a.delta_eur;});
-        function eur(n){ return frInt(Math.abs(n)) + ' \u20ac'; }
-        if (isDown) {
-          if (!neg.length) return '';
-          var s = 'La baisse vient surtout de ' + neg[0].category + ' (-' + eur(neg[0].delta_eur) + ')';
-          if (neg[1]) s += ' et de ' + neg[1].category + ' (-' + eur(neg[1].delta_eur) + ')';
-          if (pos.length) s += ' \u2014 ' + pos[0].category + ' a tenu';
-          return s + '. V\u00e9rifiez la disponibilit\u00e9 et la mise en avant de ' + neg[0].category + '.';
-        }
-        if (!pos.length) return '';
-        var s2 = 'La hausse est port\u00e9e par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
-        if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
-        return s2 + '. S\u00e9curisez le r\u00e9assort de ' + pos[0].category + ' et mettez-la en avant sur vos prochains ' + jour + '.';
+      function loadAudience(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/audience?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderAudience(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>'; });
+      }
+      function loadTrackRecord(locId, actionType, container) {
+        if (!container) return;
+        fetch('/api/insight/track-record?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderTrackRecord(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Suivi indisponible.</div>'; });
       }
 
       // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
@@ -949,14 +949,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
       var ANALOG_MONTH_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
       function analogDateFr(iso) { try { var p = String(iso).split('-'); if (p.length !== 3) return String(iso); return parseInt(p[2], 10) + ' ' + ANALOG_MONTH_FR[parseInt(p[1], 10) - 1]; } catch(e) { return String(iso); } }
-      function loadAnalogs(locId, date, container) {
+      function loadAnalogs(locId, date, container, injectSynth) {
         if (!container) return;
         fetch('/api/insight/analogs?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
           .then(function(r) { return r.json(); })
           .then(function(j) {
             if (!j || !j.ok || !j.found || !j.analog) { container.innerHTML = analogEmptyHtml(); return; }
             container.innerHTML = analogHtml(j.analog);
-            injectAnalogIntoSynthese(j.analog);
+            if (injectSynth) injectAnalogIntoSynthese(j.analog);
           })
           .catch(function() { container.innerHTML = analogEmptyHtml(); });
       }
@@ -1861,10 +1861,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '<div class="fs-action-bar-inner">'
             + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
             + '<button type="button" class="fs-btn-send" id="fs-btn-send">\u2197\ufe0f Faire suivre</button>'
+            + '<button type="button" id="fs-btn-act" style="flex:1;padding:12px 0;border-radius:10px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cr\u00e9er une action</button>'
           + '</div>'
         + '</div>'
         + '<div class="fs-ws-overlay" id="fs-ws-overlay">'
           + '<div class="fs-ws-panel" id="fs-ws-panel"></div>'
+        + '</div>'
+        + '<div class="fs-ws-overlay" id="fs-cm-overlay">'
+          + '<div class="fs-ws-panel" id="fs-cm-panel"></div>'
         + '</div>';
         root.insertAdjacentHTML('afterend', barHtml);
 
@@ -1899,6 +1903,31 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
         document.getElementById("fs-btn-comm").addEventListener("click", function() { openWorkspace("comm"); });
         document.getElementById("fs-btn-send").addEventListener("click", function() { openWorkspace("send"); });
+
+        // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card
+        // (origin_action_type = signal_type; allowlisted in commitmentOrigins.ts). The user sets the
+        // goal — window + threshold — inside the form. Same form the pulse feed + évolution page use.
+        var cmOverlay = document.getElementById("fs-cm-overlay");
+        var cmPanel = document.getElementById("fs-cm-panel");
+        function closeCommit() { if (cmOverlay) cmOverlay.classList.remove("is-open"); if (cmPanel) cmPanel.innerHTML = ""; }
+        if (cmOverlay) cmOverlay.addEventListener("click", function(e) { if (e.target === cmOverlay) closeCommit(); });
+        var actBtn = document.getElementById("fs-btn-act");
+        if (actBtn) actBtn.addEventListener("click", function() {
+          if (!window.MSCommitForm || !cmPanel || !cmOverlay) return;
+          var pre = { committed_action_text: "", window_kind: "7d" };
+          cmPanel.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
+          window.MSCommitForm.wire(cmPanel, {
+            location_id: location_id,
+            prefill: pre,
+            origin: { origin_action_type: signal_type || null },
+            fetchOwners: fetchTeam,
+            onCancel: closeCommit,
+            onDone: function(j) {
+              cmPanel.innerHTML = '<div style="padding:16px;font-size:13px;color:' + (j && j.ok ? '#166534' : '#b91c1c') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l’échéance.' : ('Erreur : ' + ((j && j.error) || 'réessayez'))) + '</div>';
+            }
+          });
+          cmOverlay.classList.add("is-open");
+        });
 
         function generateDraft(ch) {
           currentChannel = ch;

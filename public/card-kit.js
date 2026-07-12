@@ -1,0 +1,363 @@
+// public/card-kit.js — SHARED render kit for the card-specific deep pages ("Consulter la source").
+// SINGLE SOURCE of the card-detail components + renderers, loaded BOTH by insight.astro AND by the
+// offline render harness (scratchpad/card-harness.html) — so what I verify is exactly what ships.
+// Each render*(json) is PURE: returns an HTML string, no fetch, no DOM writes. The page loaders do
+// the fetch and set container.innerHTML = MSCardKit.render*(json). Numbers arrive pre-rounded from the
+// endpoints; the kit only formats (fr locale) and lays out.
+(function () {
+  "use strict";
+  function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function frInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch (e) { return String(n); } }
+
+  var WX_DOW_FR = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  function wxDayLabel(iso) {
+    try { var p = String(iso).split('-'); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+      return WX_DOW_FR[d.getUTCDay()] + ' ' + p[2] + '/' + p[1]; } catch (e) { return String(iso); }
+  }
+  function msPct(n) { return n == null ? '' : ((n >= 0 ? '+' : '−') + String(Math.abs(n)).replace('.', ',') + ' %'); }
+  function msRate(n) { return n == null ? '—' : ((Number(n) * 100).toFixed(1).replace('.', ',') + ' %'); }
+  function msEur2(n) { return n == null ? '—' : (Number(n).toFixed(2).replace('.', ',') + ' €'); }
+  function msDateFr(iso) { try { var pp = String(iso).split('-'); return pp[2] + '/' + pp[1] + '/' + pp[0]; } catch (e) { return String(iso); } }
+  function msDeltaCell(pct, eurDelta) {
+    if (pct == null && eurDelta == null) return { v: 'stable', color: '#9CA3AF' };
+    var up = (eurDelta != null ? eurDelta : pct) >= 0;
+    var v = eurDelta != null ? ((up ? '+' : '−') + frInt(Math.abs(eurDelta)) + ' €/j') : msPct(pct);
+    return { v: v, color: up ? '#0F6E56' : '#B91C1C', bold: true };
+  }
+  function msTable(cols, rows) {
+    var h = '<thead><tr style="font-size:11px;color:#9CA3AF;">';
+    for (var c = 0; c < cols.length; c++) h += '<th style="text-align:' + (cols[c].align || (c === 0 ? 'left' : 'right')) + ';font-weight:400;padding:0 0 2px' + (c === 0 ? '' : ' 0 14px') + ';">' + esc(cols[c].label || '') + '</th>';
+    h += '</tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      var cells = (rows[r] && rows[r].cells) || [];
+      h += '<tr style="border-top:0.5px solid #F3F4F6;">';
+      for (var k = 0; k < cells.length; k++) {
+        var cell = cells[k] || {};
+        var align = cols[k] ? (cols[k].align || (k === 0 ? 'left' : 'right')) : 'left';
+        var color = cell.color || (cell.bold ? '#111827' : (k === 0 ? '#111827' : '#6B7280'));
+        h += '<td style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + align + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + '">'
+          + esc(cell.v == null ? '' : String(cell.v))
+          + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + '</div>' : '')
+          + '</td>';
+      }
+      h += '</tr>';
+    }
+    return '<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:10px;">' + h + '</tbody></table>';
+  }
+  function msMovers(up, down, upLabel, downLabel) {
+    function col(items, label, bg, lc, tc) {
+      if (!items || !items.length) return '';
+      var t = items.map(function (p) { return esc(p.category) + ' ' + msPct(p.pct); }).join(' · ');
+      return '<div style="flex:1;min-width:150px;background:' + bg + ';border-radius:8px;padding:9px 11px;"><div style="font-size:11px;color:' + lc + ';">' + esc(label) + '</div><div style="font-size:12.5px;color:' + tc + ';margin-top:3px;line-height:1.6;">' + t + '</div></div>';
+    }
+    if ((!up || !up.length) && (!down || !down.length)) return '';
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+      + col(up, upLabel || 'Portent la hausse', '#ECFDF5', '#0F6E56', '#065F46')
+      + col(down, downLabel || 'Ne suit pas', '#FEF2F2', '#B91C1C', '#7F1D1D')
+      + '</div>';
+  }
+  // Shared dated timeline strip (weather forecast, event calendar). cells:[{top,mid,highlight,tone}]
+  // tone: 'danger'|'ok'|'warn'|'default'. Horizontal, scrolls on overflow.
+  function msStrip(cells) {
+    if (!cells || !cells.length) return '';
+    var TONE = { danger:{bg:'#FEF2F2',bd:'#FECACA',top:'#B91C1C',mid:'#B91C1C'}, ok:{bg:'#ECFDF5',bd:'#A7F3D0',top:'#0F6E56',mid:'#0F6E56'}, warn:{bg:'#FFFBEB',bd:'#FDE68A',top:'#B45309',mid:'#B45309'}, default:{bg:'',bd:'',top:'#9CA3AF',mid:'#B45309'} };
+    var out = '<div style="display:flex;gap:5px;margin-bottom:16px;overflow-x:auto;">';
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i] || {}, t = TONE[c.tone] || TONE.default;
+      var box = c.highlight ? ('background:' + t.bg + ';border:0.5px solid ' + t.bd + ';') : '';
+      out += '<div style="flex:1;min-width:54px;text-align:center;padding:8px 2px;border-radius:8px;' + box + '">'
+        + '<div style="font-size:10.5px;color:' + (c.highlight ? t.top : '#9CA3AF') + ';">' + esc(c.top || '') + '</div>'
+        + '<div style="font-size:13px;font-weight:600;color:' + (c.highlight ? t.mid : '#B45309') + ';margin-top:5px;">' + esc(c.mid == null ? '' : String(c.mid)) + '</div>'
+      + '</div>';
+    }
+    return out + '</div>';
+  }
+  var _msSortSeq = 0, _msSortReg = {};
+  function msSortTable(cols, rows, defaultKey) {
+    var id = 'mss' + (++_msSortSeq);
+    _msSortReg[id] = { cols: cols, rows: rows || [], sortKey: defaultKey || null, dir: -1 };
+    return '<div data-mss="' + id + '">' + _msSortRender(id) + '</div>';
+  }
+  function _msSortRender(id) {
+    var st = _msSortReg[id]; if (!st) return '';
+    var cols = st.cols, rows = st.rows.slice();
+    if (st.sortKey) rows.sort(function (x, y) { var a = x[st.sortKey], b = y[st.sortKey]; a = (a == null ? -Infinity : a); b = (b == null ? -Infinity : b); return (a < b ? -1 : (a > b ? 1 : 0)) * st.dir; });
+    var h = '<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:10px;"><thead><tr style="font-size:11px;color:#9CA3AF;">';
+    for (var c = 0; c < cols.length; c++) {
+      var col = cols[c], al = col.align || (c === 0 ? 'left' : 'right'), sortable = !!col.key;
+      var arrow = (sortable && st.sortKey === col.key) ? (st.dir < 0 ? ' ▾' : ' ▴') : (sortable ? ' ⇅' : '');
+      h += '<th style="text-align:' + al + ';font-weight:400;padding:0 0 4px' + (c === 0 ? '' : ' 0 14px') + ';' + (sortable ? 'cursor:pointer;user-select:none;' : '') + '"' + (sortable ? (' data-mss-sort="' + id + '" data-mss-key="' + col.key + '"') : '') + '>' + esc(col.label || '') + arrow + '</th>';
+    }
+    h += '</tr></thead><tbody>';
+    for (var r = 0; r < rows.length; r++) {
+      h += '<tr style="border-top:0.5px solid #F3F4F6;">';
+      for (var k = 0; k < cols.length; k++) {
+        var cc = cols[k], al2 = cc.align || (k === 0 ? 'left' : 'right');
+        var cell = cc.render ? cc.render(rows[r]) : { v: rows[r][cc.key] };
+        var color = cell.color || (cell.bold ? '#111827' : (k === 0 ? '#111827' : '#6B7280'));
+        h += '<td style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + al2 + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + '">' + esc(cell.v == null ? '' : String(cell.v)) + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + '</div>' : '') + '</td>';
+      }
+      h += '</tr>';
+    }
+    return h + '</tbody></table>';
+  }
+  if (typeof document !== 'undefined') document.addEventListener('click', function (e) {
+    var th = (e.target && e.target.closest) ? e.target.closest('[data-mss-sort]') : null;
+    if (!th) return;
+    var id = th.getAttribute('data-mss-sort'), key = th.getAttribute('data-mss-key'), st = _msSortReg[id];
+    if (!st) return;
+    if (st.sortKey === key) st.dir = -st.dir; else { st.sortKey = key; st.dir = -1; }
+    var wrap = document.querySelector('[data-mss="' + id + '"]');
+    if (wrap) wrap.innerHTML = _msSortRender(id);
+  });
+  function msDecision(title, lines) {
+    var inner = '';
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i] || {};
+      inner += '<div style="' + (i > 0 ? 'margin-top:7px;' : '') + '">'
+        + (l.head ? '<span style="font-weight:700;">' + esc(l.head) + ' — </span>' : '')
+        + esc(l.body || '') + '</div>';
+    }
+    var head = title ? '<div style="font-weight:700;margin-bottom:6px;">' + esc(title) + '</div>' : '';
+    return '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;">' + head + inner + '</div>';
+  }
+  var WS_DOW_FR = { 0: 'dimanches', 1: 'lundis', 2: 'mardis', 3: 'mercredis', 4: 'jeudis', 5: 'vendredis', 6: 'samedis' };
+  function salesLevier(movers, isDown, jour) {
+    var neg = movers.filter(function (m) { return m.delta_eur < 0; }).sort(function (a, b) { return a.delta_eur - b.delta_eur; });
+    var pos = movers.filter(function (m) { return m.delta_eur > 0; }).sort(function (a, b) { return b.delta_eur - a.delta_eur; });
+    function eur(n) { return frInt(Math.abs(n)) + ' €'; }
+    if (isDown) {
+      if (!neg.length) return '';
+      var s = 'La baisse vient surtout de ' + neg[0].category + ' (-' + eur(neg[0].delta_eur) + ')';
+      if (neg[1]) s += ' et de ' + neg[1].category + ' (-' + eur(neg[1].delta_eur) + ')';
+      if (pos.length) s += ' — ' + pos[0].category + ' a tenu';
+      return s + '. Vérifiez la disponibilité et la mise en avant de ' + neg[0].category + '.';
+    }
+    if (!pos.length) return '';
+    var s2 = 'La hausse est portée par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
+    if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
+    return s2 + '. Sécurisez le réassort de ' + pos[0].category + ' et mettez-la en avant sur vos prochains ' + jour + '.';
+  }
+
+  // ---- Renderers (pure: json -> HTML) ----
+  function renderWeather(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de condition météo marquée ce jour.</div>';
+    var condFr = (j.condition && j.condition.label_fr) ? j.condition.label_fr : 'cette météo';
+    var html = '';
+    if (j.forecast && j.forecast.length) {
+      var _feat = (j.condition && j.condition.feature) || 'heat';
+      var wxStripVal = function (f) {
+        if (_feat === 'wind') return f.wind != null ? Math.round(f.wind) + ' km/h' : '';
+        if (_feat === 'rain' || _feat === 'snow') return f.rain_prob != null ? Math.round(f.rain_prob) + ' %' : '';
+        return f.tmax != null ? Math.round(f.tmax) + '°' : '';
+      };
+      html += msStrip(j.forecast.map(function (f) { return { top: wxDayLabel(f.date), mid: wxStripVal(f), highlight: !!f.is_extreme, tone: 'danger' }; }));
+    }
+    if (j.chain) {
+      var ch = j.chain;
+      html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;">Vos journées de ' + esc(condFr) + ' (niveau 2+, ' + ch.n_cond + ' j) vs votre jour type :</div>'
+        + msTable(
+            [{ label: '' }, { label: 'jours ' + condFr }, { label: 'jour type' }, { label: 'écart' }],
+            [
+              { cells: [{ v: 'Fréquentation', bold: true }, { v: frInt(ch.visitors.cond), bold: true }, { v: frInt(ch.visitors.typical), color: '#9CA3AF' }, msDeltaCell(ch.visitors.pct, null)] },
+              { cells: [{ v: 'Conversion' }, { v: msRate(ch.conversion.cond) }, { v: msRate(ch.conversion.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
+              { cells: [{ v: 'Panier moyen' }, { v: msEur2(ch.basket.cond) }, { v: msEur2(ch.basket.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
+              { cells: [{ v: 'CA', bold: true }, { v: frInt(ch.revenue.cond) + ' €', bold: true }, { v: frInt(ch.revenue.typical) + ' €', color: '#9CA3AF' }, msDeltaCell(ch.revenue.pct, ch.revenue.eur_per_day)] }
+            ]
+          )
+        + '<div style="font-size:11px;color:#9CA3AF;margin-top:7px;line-height:1.5;">L\'effet passe par la fréquentation, pas le panier. ' + ch.n_cond + ' jours mesurés' + (ch.n_extreme < 5 ? ' · palier extrême quasi sans historique (' + ch.n_extreme + ' j)' : '') + '.</div>';
+    } else {
+      html += '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Historique trop court pour chiffrer l\'effet de ' + esc(condFr) + ' — prévisions seules ci-dessus.</div>';
+    }
+    var up = (j.products && j.products.up) ? j.products.up.slice(0, 3) : [];
+    var down = (j.products && j.products.down) ? j.products.down.slice(0, 2) : [];
+    if (up.length || down.length) {
+      var _cav = (j.cond_days != null && j.cond_days < 5) ? ' (sur ' + j.cond_days + ' jours ' + esc(condFr) + ' — indicatif)' : '';
+      html += '<div style="font-size:12px;color:#6B7280;margin:18px 0 8px;">Ce qui bouge dans la vente' + _cav + ' :</div>' + msMovers(up, down);
+    }
+    var peakExtreme = j.peak && j.peak.lvl >= 3;
+    var decLines = [];
+    if (j.condition && j.condition.feature === 'heat') decLines.push({ head: 'Testez une offre froide', body: 'Une boisson fraîche capte une demande que votre carte chaude ignore — quasi pas d\'historique, à tester.' });
+    if (down.length) decLines.push({ head: 'Activez ' + down[0].category, body: 'Ne profite pas de ' + condFr + ' (' + msPct(down[0].pct) + ') : remise ou mise en avant plutôt que stagnation.' });
+    if (peakExtreme && j.chain && j.chain.n_extreme < 5) decLines.push({ head: 'Le ' + wxDayLabel(j.peak.date) + ' (' + (j.peak.tmax != null ? Math.round(j.peak.tmax) + '°' : '') + ')', body: 'Votre palier le plus chaud, quasi sans historique (' + j.chain.n_extreme + ' j) — n\'extrapolez pas.' });
+    if (decLines.length) html += msDecision('La décision', decLines);
+    return html;
+  }
+  function renderSales(j, isDown, date) {
+    if (!j || !j.ok || !j.found || !j.movers || !j.movers.length) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Mix produit indisponible pour ce jour — lecture au volume et au panier ci-dessous.</div>';
+    }
+    var jour = WS_DOW_FR[new Date(String(date) + 'T00:00:00Z').getUTCDay()] || 'jours comparables';
+    var out = '<div style="font-size:11.5px;color:#9CA3AF;margin-bottom:10px;">Chaque catégorie ce jour vs la médiane de vos ' + esc(jour) + ' (n=' + (j.n_comparable_days || 0) + ').</div>';
+    var scols = [
+      { label: 'Catégorie', render: function (mv) { return { v: mv.category, bold: true, sub: (mv.share_pct != null ? ('n°' + mv.rank + ' · ' + mv.share_pct + ' % du CA') : null) }; } },
+      { label: 'CA (€)', key: 'day_eur', render: function (mv) { return { v: frInt(mv.day_eur) + ' €', bold: true }; } },
+      { label: 'Habituel', render: function (mv) { return { v: frInt(mv.median_eur) + ' €', color: '#9CA3AF' }; } },
+      { label: 'Évolution', key: 'delta_pct', render: function (mv) { var up = (mv.delta_eur >= 0); return { v: (mv.delta_pct == null ? '—' : msPct(mv.delta_pct)), color: up ? '#0F6E56' : '#B91C1C', bold: true }; } }
+    ];
+    out += msSortTable(scols, j.movers, 'day_eur');
+    var lev = salesLevier(j.movers, isDown, jour);
+    if (lev) out += msDecision('', [{ head: 'Le levier', body: lev }]);
+    return out;
+  }
+  function renderAudience(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>';
+    var a = j.audience, rows = [];
+    if (a.who && a.who.length) rows.push(['Qui', a.who.join(', ')]);
+    if (a.catchment) rows.push(['Zone de chalandise', a.catchment]);
+    if (a.peak_hour != null) rows.push(['Heure de pointe', a.peak_hour + 'h' + (a.avg_busyness_pct != null ? ' · affluence moy. ' + a.avg_busyness_pct + ' %' : '')]);
+    if (a.dwell_max != null) rows.push(['Durée de visite', (a.dwell_min != null ? a.dwell_min + '–' : '') + a.dwell_max + ' min']);
+    if (a.availability_label) rows.push(['Disponibilité du jour', a.availability_label]);
+    if (!rows.length) return '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>';
+    var out = '';
+    for (var i = 0; i < rows.length; i++) out += '<div style="display:flex;gap:12px;padding:7px 0;' + (i ? 'border-top:0.5px solid #F3F4F6;' : '') + '"><div style="font-size:12px;color:#6B7280;min-width:130px;">' + esc(rows[i][0]) + '</div><div style="font-size:13px;color:#111827;">' + esc(rows[i][1]) + '</div></div>';
+    return out;
+  }
+  function renderTrackRecord(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune action passée mesurée sur ce type — votre premier engagement nourrira ce suivi.</div>';
+    var beat = j.beat || 0, done = j.done || 0;
+    var effTxt = (j.avg_effect_pct != null) ? (', effet moyen ' + (j.avg_effect_pct >= 0 ? '+' : '−') + String(Math.abs(j.avg_effect_pct)).replace('.', ',') + ' %') : '';
+    var col = (beat >= (done - beat)) ? '#0F6E56' : '#B91C1C';
+    var out = '<div style="font-size:13px;line-height:1.55;color:#111827;">Sur ce type d’action, vous avez tenu ' + done + ' engagement' + (done > 1 ? 's' : '') + ' — <span style="font-weight:700;color:' + col + ';">' + beat + '/' + done + '</span> ont battu la référence' + effTxt + '.</div>';
+    if (j.last_resolved) out += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Dernière mesure : ' + esc(msDateFr(j.last_resolved)) + '.</div>';
+    return out;
+  }
+
+  function eventDist(m) {
+    if (m == null) return '—';
+    return m >= 1000 ? ((Math.round(m / 100) / 10).toString().replace('.', ',') + ' km') : (Math.round(m) + ' m');
+  }
+  function renderEvents(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de signal événementiel à proximité.</div>';
+    var TAG = { cannibalise: { label: 'cannibalise', color: '#B91C1C' }, capitaliser: { label: 'à capitaliser', color: '#0F6E56' }, neutre: { label: 'neutre', color: '#9CA3AF' } };
+    var html = '';
+    if (j.commercial_event) {
+      html += '<div style="font-size:13px;color:#374151;margin-bottom:10px;line-height:1.55;"><span style="font-weight:600;color:#0F6E56;">Temps fort « ' + esc(j.commercial_event.name) + ' » en cours</span> — le flux est là. Autour de vous :</div>';
+      if (j.contest_lead) html += '<div style="font-size:12.5px;color:#6B7280;margin-bottom:6px;line-height:1.5;">' + esc(j.contest_lead) + '</div>';
+    } else if (j.contest_lead) {
+      html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.contest_lead) + '</div>';
+    }
+    if (j.competitors && j.competitors.length) {
+      var rows = j.competitors.map(function (e) {
+        var tg = TAG[e.tag] || TAG.neutre;
+        return { cells: [
+          { v: e.name, bold: true, sub: e.venue || null },
+          { v: e.date ? msDateFr(e.date) : '—', color: '#6B7280' },
+          { v: eventDist(e.distance_m), color: '#6B7280' },
+          { v: tg.label, color: tg.color, bold: true, sub: e.overlap_pct != null ? ('aud. ' + e.overlap_pct + ' %') : null }
+        ] };
+      });
+      html += msTable([{ label: 'Événement' }, { label: 'Date' }, { label: 'Distance' }, { label: 'Statut' }], rows);
+    }
+    html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Comme les vôtres</div>';
+    var lm = j.like_mine || {};
+    if (lm.found && lm.events && lm.events.length) {
+      var lrows = lm.events.map(function (e) { return { cells: [{ v: e.name, bold: true, sub: e.venue || null }, { v: e.date ? msDateFr(e.date) : '—', color: '#6B7280' }, { v: e.scale || '—', color: '#6B7280' }] }; });
+      html += msTable([{ label: 'Événement comparable' }, { label: 'Date' }, { label: 'Ampleur' }], lrows);
+    } else {
+      html += '<div style="font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.5;">' + esc(lm.note || 'Aucun événement comparable détecté à proximité.') + '</div>';
+    }
+    if (lm.my_types && lm.my_types.length) html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + lm.my_types.map(function (t) { return '<span style="font-size:11px;background:#F3F4F6;color:#374151;padding:3px 9px;border-radius:999px;">' + esc(t) + '</span>'; }).join('') + '</div>';
+    if (lm.benchmark_note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(lm.benchmark_note) + '</div>';
+    if (j.calendar && j.calendar.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Fenêtres de calendrier</div>'
+        + '<div style="font-size:11px;color:#9CA3AF;margin:4px 0 8px;line-height:1.5;">Densité d\'événements concurrents — visez les fenêtres calmes pour capter l\'attention.</div>'
+        + msStrip(j.calendar.map(function (w) { return { top: w.label, mid: (w.count != null ? w.count : ''), highlight: (w.state === 'quiet' || w.state === 'busy'), tone: (w.state === 'quiet' ? 'ok' : (w.state === 'busy' ? 'warn' : 'default')) }; }));
+    }
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    return html;
+  }
+
+  // Competitor (Bucket B) — "what are my competitors DOING that impacts me, and what do I do".
+  // Truth-first: no meaningful overlap -> say it plainly (honest empty state), never fabricate rivalry.
+  function renderCompetitor(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune donnée concurrentielle.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:8px;">' + esc(j.lead) + '</div>';
+    if (j.positioning) {
+      var pg = j.positioning, inner = '';
+      function _pl(label, val, col) { return '<div style="font-size:12.5px;line-height:1.6;color:#374151;"><span style="font-weight:600;color:' + col + ';">' + esc(label) + ' — </span>' + esc(val) + '</div>'; }
+      if (pg.common_ground) inner += _pl('Terrain commun', pg.common_ground, '#111827');
+      if (pg.my_edge) inner += _pl('Votre atout', pg.my_edge, '#0F6E56');
+      if (pg.their_strength) inner += _pl('Le leur', pg.their_strength, '#B45309');
+      if (inner) html += '<div style="background:#F9FAFB;border:0.5px solid #F3F4F6;border-radius:10px;padding:11px 13px;margin-bottom:8px;">' + inner + '</div>';
+    }
+    var moves = j.moves || [];
+    for (var i = 0; i < moves.length; i++) {
+      var m = moves[i] || {};
+      html += '<div style="padding:11px 0;border-top:0.5px solid #F3F4F6;">'
+        + '<div style="font-size:13px;"><span style="font-weight:600;color:#111827;">' + esc(m.competitor) + '</span><span style="color:#9CA3AF;">'
+          + (m.overlap_pct != null ? ' · aud. ' + m.overlap_pct + ' %' : '') + (m.date ? ' · ' + esc(msDateFr(m.date)) : '') + '</span></div>'
+        + '<div style="font-size:13px;color:#374151;margin-top:3px;line-height:1.5;">' + esc(m.what) + '</div>'
+        + (m.response ? '<div style="font-size:13px;color:#1D3BB3;margin-top:4px;line-height:1.5;"><span style="font-weight:700;">→ </span>' + esc(m.response) + '</div>' : '')
+      + '</div>';
+    }
+    if (j.note) html += '<div style="font-size:12.5px;color:#6B7280;margin-top:' + (moves.length ? '14px' : '4px') + ';line-height:1.5;">' + esc(j.note) + '</div>';
+    if (j.next_step) html += '<div style="font-size:13px;color:#1D3BB3;margin-top:10px;line-height:1.5;"><span style="font-weight:700;">Prochaine étape — </span>' + esc(j.next_step) + '</div>';
+    return html;
+  }
+
+  // Tourism (Bucket B) — "who visits my region, who's surging, how do I capture them". Regional
+  // foreign-nationality profile (volume + YoY) + in-season signal. Frames as "votre région", not "vos visiteurs".
+  function tourNights(k) {
+    if (k == null) return '—';
+    return k >= 1000 ? ((Math.round(k / 100) / 10).toString().replace('.', ',') + ' M nuitées') : (frInt(Math.round(k)) + ' k nuitées');
+  }
+  function renderTourism(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de données touristiques pour votre région.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    if (j.countries_intro) html += '<div style="font-size:12px;color:#6B7280;margin:8px 0 0;line-height:1.5;">' + esc(j.countries_intro) + '</div>';
+    if (j.countries && j.countries.length) {
+      var rows = j.countries.map(function (c) {
+        var hot = c.yoy_pct != null && c.yoy_pct >= 20;
+        var yoyStr = c.yoy_pct != null ? ((c.yoy_pct >= 0 ? '+' : '−') + Math.abs(Math.round(c.yoy_pct)) + ' %') : '—';
+        var yoyCol = c.yoy_pct == null ? '#6B7280' : (c.yoy_pct < 0 ? '#B91C1C' : (hot ? '#0F6E56' : '#6B7280'));
+        return { cells: [
+          { v: c.name, bold: true },
+          { v: tourNights(c.nights_k), color: '#6B7280' },
+          { v: yoyStr, color: yoyCol, bold: hot }
+        ] };
+      });
+      html += msTable([{ label: 'Pays' }, { label: 'Nuitées (saison)' }, { label: 'Tendance (an.)' }], rows);
+    }
+    if (j.growing && j.growing.length) {
+      var g = j.growing.map(function (c) { return esc(c.name) + ' +' + Math.round(c.yoy_pct) + ' %'; }).join(' · ');
+      html += '<div style="font-size:12.5px;color:#0F6E56;margin-top:10px;line-height:1.5;"><span style="font-weight:600;">En forte croissance — </span>' + g + '</div>';
+    }
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    return html;
+  }
+
+  // Footfall (Bucket A) — the "when" of your business, SALES-ANCHORED. Leads on hourly revenue (your
+  // money-clock), with BestTime as a secondary cross-check that gets flagged when it diverges.
+  function renderFootfall(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de données de ventes horaires pour ce lieu.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    if (j.hourly && j.hourly.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:10px 0 0;">Votre CA par heure (semaine) :</div>'
+        + msStrip(j.hourly.map(function (h) {
+          var pk = (j.peak_hour != null && h.hour === j.peak_hour);
+          return { top: h.hour + 'h', mid: (h.revenue != null ? frInt(Math.round(h.revenue)) + ' €' : ''), highlight: pk, tone: 'warn' };
+        }));
+    }
+    if (j.besttime_note) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:6px;line-height:1.5;">' + esc(j.besttime_note) + '</div>';
+    if (j.weekly && j.weekly.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:10px 0 0;">CA par jour :</div>'
+        + msStrip(j.weekly.map(function (d) {
+          return { top: d.day, mid: (d.revenue != null ? frInt(Math.round(d.revenue)) + ' €' : ''), highlight: (d.state === 'busy' || d.state === 'quiet'), tone: (d.state === 'quiet' ? 'ok' : (d.state === 'busy' ? 'warn' : 'default')) };
+        }));
+    }
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    return html;
+  }
+
+  window.MSCardKit = {
+    esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
+    salesLevier: salesLevier, wxDayLabel: wxDayLabel,
+    renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall
+  };
+})();

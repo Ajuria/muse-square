@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card kit — render harness</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F3F4F6; margin: 0; padding: 24px; color: #111827; }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+    .note { font-size: 12px; color: #6B7280; margin: 0 0 20px; }
+    .zone { background: #fff; border: 0.5px solid #E5E7EB; border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+    .zh { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1D3BB3; margin: 0 0 10px; }
+    .fix { font-size: 10.5px; color: #9CA3AF; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Card kit — render harness</h1>
+    <p class="note">Renders <code>/card-kit.js</code> (the exact code the page ships) with real f10c3e58 JSON. Verify: numbers formatted, sections present, honest-absence branches, sortable headers.</p>
+
+    <div class="zone"><div class="zh">Ce qui a fait la journée (sales · f10c3e58 · 10/07/2026)</div><div class="fix">renderSales — click "CA (€)" or "Évolution" to re-sort</div><div id="sales"></div></div>
+    <div class="zone"><div class="zh">Votre réponse à la météo — chaîne présente (rich)</div><div class="fix">renderWeather — forecast + chain + movers + décision</div><div id="wx-rich"></div></div>
+    <div class="zone"><div class="zh">Votre réponse à la météo — historique court (f10c3e58 · 12/07)</div><div class="fix">renderWeather — forecast + honest-absence (chain null)</div><div id="wx-thin"></div></div>
+    <div class="zone"><div class="zh">Votre audience (f10c3e58)</div><div class="fix">renderAudience — busyness must read "41 %", not a raw float</div><div id="aud"></div></div>
+    <div class="zone"><div class="zh">Ce qui a marché — avec historique</div><div class="fix">renderTrackRecord — found:true</div><div id="tr-yes"></div></div>
+    <div class="zone"><div class="zh">Ce qui a marché — honest-absence</div><div class="fix">renderTrackRecord — found:false</div><div id="tr-no"></div></div>
+    <div class="zone"><div class="zh">Événements à proximité (PROTOTYPE · f10c3e58 · Paris 7)</div><div class="fix">renderEvents — named events + sector + density + decision</div><div id="events"></div></div>
+    <div class="zone"><div class="zh">Concurrence — État A : pas de concurrent réel (f10c3e58, RÉEL)</div><div class="fix">renderCompetitor — truth-first honest empty state</div><div id="competitor"></div></div>
+    <div class="zone"><div class="zh">Concurrence — État B : concurrents qui bougent (illustratif)</div><div class="fix">renderCompetitor — moves → responses</div><div id="competitor2"></div></div>
+    <div class="zone"><div class="zh">Tourisme (PROTOTYPE · Île-de-France, RÉEL)</div><div class="fix">renderTourism — nationality profile (volume + YoY) + in-season</div><div id="tourism"></div></div>
+    <div class="zone"><div class="zh">Fréquentation / BestTime (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderFootfall — hourly curve + weekly pattern + decision</div><div id="footfall"></div></div>
+  </div>
+
+  <script src="card-kit.js"></script>
+  <script>
+    var FORECAST = [
+      { date: '2026-07-12', tmax: 37, wind: 16, rain_prob: 0, is_extreme: true },
+      { date: '2026-07-13', tmax: 36, wind: 19, rain_prob: 3, is_extreme: true },
+      { date: '2026-07-14', tmax: 36, wind: 17, rain_prob: 3, is_extreme: true },
+      { date: '2026-07-15', tmax: 31, wind: 12, rain_prob: 29, is_extreme: false },
+      { date: '2026-07-16', tmax: 31, wind: 10, rain_prob: 42, is_extreme: false },
+      { date: '2026-07-17', tmax: 30, wind: 14, rain_prob: 48, is_extreme: false },
+      { date: '2026-07-18', tmax: 26, wind: 10, rain_prob: 39, is_extreme: false }
+    ];
+
+    var SALES = { ok: true, found: true, n_comparable_days: 14, movers: [
+      { category: 'Coffee', day_eur: 531, median_eur: 369, delta_eur: 162, delta_pct: 44, share_pct: 36, rank: 1 },
+      { category: 'Tea', day_eur: 325, median_eur: 254, delta_eur: 71, delta_pct: 28, share_pct: 22, rank: 2 },
+      { category: 'Branded', day_eur: 178, median_eur: 14, delta_eur: 164, delta_pct: 1171, share_pct: 12, rank: 3 },
+      { category: 'Drinking Chocolate', day_eur: 134, median_eur: 86, delta_eur: 49, delta_pct: 57, share_pct: 9, rank: 4 },
+      { category: 'Bakery', day_eur: 123, median_eur: 108, delta_eur: 15, delta_pct: 14, share_pct: 8, rank: 5 },
+      { category: 'Loose Tea', day_eur: 81, median_eur: 9, delta_eur: 72, delta_pct: 777, share_pct: 6, rank: 6 },
+      { category: 'Coffee beans', day_eur: 75, median_eur: 66, delta_eur: 9, delta_pct: 14, share_pct: 5, rank: 7 },
+      { category: 'Packaged Chocolate', day_eur: 13, median_eur: 8, delta_eur: 6, delta_pct: 75, share_pct: 1, rank: 8 },
+      { category: 'Flavours', day_eur: 5, median_eur: 24, delta_eur: -19, delta_pct: -80, share_pct: 0, rank: 9 }
+    ] };
+
+    var WX_RICH = { ok: true, found: true, condition: { feature: 'heat', level: 4, label_fr: 'forte chaleur' },
+      forecast: FORECAST, peak: { date: '2026-07-12', tmax: 37, lvl: 4 },
+      chain: { n_cond: 27, n_all: 84, n_extreme: 4,
+        visitors: { cond: 657, typical: 570, pct: 15 }, conversion: { cond: 0.45, typical: 0.44 },
+        basket: { cond: 4.6, typical: 4.7 }, revenue: { cond: 1109, typical: 1004, pct: 10, eur_per_day: 105 } },
+      products: { up: [{ category: 'Coffee', pct: 21 }, { category: 'Tea', pct: 16 }, { category: 'Bakery', pct: 26 }],
+        down: [{ category: 'Coffee beans', pct: -16 }, { category: 'Branded', pct: -15 }] } };
+
+    var WX_THIN = { ok: true, found: true, condition: { feature: 'heat', level: 4, label_fr: 'forte chaleur' },
+      forecast: FORECAST, peak: { date: '2026-07-12', tmax: 37, lvl: 4 }, chain: null, cond_days: 2,
+      products: { up: [{ category: 'Coffee', pct: 17 }, { category: 'Tea', pct: 55 }, { category: 'Bakery', pct: 51 }],
+        down: [{ category: 'Loose Tea', pct: -43 }, { category: 'Packaged Chocolate', pct: -23 }] } };
+
+    var AUD = { ok: true, found: true, audience: { who: ['clientèle locale', 'professionnels'], catchment: null,
+      peak_hour: 18, avg_busyness_pct: 41, dwell_min: null, dwell_max: null,
+      availability_label: "Certains résidents partent en vacances d'autres restent en ville" } };
+
+    var TR_YES = { ok: true, found: true, done: 3, beat: 2, missed: 1, avg_effect_pct: 12.2, last_resolved: '2026-06-20' };
+    var TR_NO = { ok: true, found: false };
+
+    document.getElementById('sales').innerHTML = MSCardKit.renderSales(SALES, false, '2026-07-10');
+    document.getElementById('wx-rich').innerHTML = MSCardKit.renderWeather(WX_RICH);
+    document.getElementById('wx-thin').innerHTML = MSCardKit.renderWeather(WX_THIN);
+    document.getElementById('aud').innerHTML = MSCardKit.renderAudience(AUD);
+    var EVENTS = { ok: true, found: true,
+      commercial_event: { name: "Soldes d'été", note: "Le flux d'acheteurs est dans votre zone — captez-le avec une offre signature plutôt qu'une remise." },
+      contest_lead: 'votre public est peu disputé, les événements du secteur ne visent pas votre audience.',
+      competitors: [
+        { name: 'K-Music : Fête de la musique K-arrément Corée', venue: 'Musée Guimet', date: '2026-06-21', distance_m: 2366, tag: 'neutre', overlap_pct: 33 },
+        { name: 'Raoul Dufy, la mélodie du bonheur', venue: 'Les Franciscaines', date: '2026-06-27', distance_m: 6200, tag: 'neutre', overlap_pct: 0 },
+        { name: 'Projet pour une révolution Vasarely et l’architecture', venue: 'Fondation Vasarely', date: '2026-06-16', distance_m: 6200, tag: 'neutre', overlap_pct: 0 },
+        { name: 'La mer est ton miroir', venue: 'Abbaye Saint-Germain', date: '2026-06-20', distance_m: 6200, tag: 'neutre', overlap_pct: 0 }
+      ],
+      like_mine: { found: false,
+        note: 'Aucun événement de votre catégorie détecté à proximité — catégorie non disputée localement.',
+        my_types: ['Ouverture de point de vente', 'Lancement de produit', 'Promotion en magasin', "Convention d'entreprise", 'Séminaire'],
+        benchmark_note: "Ampleur non comparable : ces événements n'exposent pas leur fréquentation. Un flux billetterie/CRM débloquerait le benchmark." },
+      calendar: [],
+      decision_lines: [
+        { head: "Activez pendant Soldes d'été", body: "Le flux d'acheteurs est là — misez sur une offre signature ou une expérience, pas une remise (elle érode la marge sans gagner de visiteurs)." },
+        { head: 'Public non ciblé localement', body: 'Les événements du secteur visent une autre audience — peu de risque de dispersion; concentrez-vous sur vos propres canaux.' }
+      ] };
+
+    document.getElementById('tr-yes').innerHTML = MSCardKit.renderTrackRecord(TR_YES);
+    document.getElementById('tr-no').innerHTML = MSCardKit.renderTrackRecord(TR_NO);
+    document.getElementById('events').innerHTML = MSCardKit.renderEvents(EVENTS);
+    var COMP_A = { ok: true, found: true,
+      lead: "Aucun concurrent n'a d'impact mesurable sur vous en ce moment.",
+      moves: [],
+      note: "Vos entités suivies (musées voisins) plafonnent à 33 % d'audience commune — trop faible pour vous concurrencer réellement.",
+      next_step: "Suivez de vrais concurrents (organisateurs, agences événementielles) pour activer cette veille." };
+    var COMP_B = { ok: true, found: true,
+      lead: '2 de vos concurrents ont bougé récemment — voici quoi faire.',
+      positioning: { common_ground: 'même public (professionnels) et même créneau (lancements produit)', my_edge: 'mesure d’audience contextuelle (ils ne l’ont pas)', their_strength: 'notoriété · note 4,7 (3 200 avis)' },
+      moves: [
+        { competitor: 'Agence Événementiel X (exemple)', overlap_pct: 71, date: '2026-06-12', what: 'A lancé une offre « clé en main » à −15 % pour les lancements produit.', response: "Ne suivez pas la remise : mettez en avant votre mesure d'audience comme preuve de valeur, ou proposez un format hybride." },
+        { competitor: 'Studio Corporate Y (exemple)', overlap_pct: 64, date: '2026-06-20', what: 'Note Google en hausse : 4,3 → 4,7 (+40 avis en un mois).', response: 'Sollicitez des avis auprès de vos clients récents pour ne pas décrocher sur la preuve sociale.' }
+      ] };
+    document.getElementById('competitor').innerHTML = MSCardKit.renderCompetitor(COMP_A);
+    document.getElementById('competitor2').innerHTML = MSCardKit.renderCompetitor(COMP_B);
+    var TOUR = { ok: true, found: true, region_name: 'Île-de-France', relevance: 'low',
+      lead: "Le tourisme afflue en Île-de-France (pleine saison), mais votre cœur de cible (clientèle locale, professionnels) n'est pas ce public — impact direct limité.",
+      countries_intro: 'Qui visite la région, pour contexte :',
+      countries: [
+        { name: 'États-Unis', nights_k: 4611, yoy_pct: 12.2 },
+        { name: 'Royaume-Uni', nights_k: 2586, yoy_pct: 2.1 },
+        { name: 'Allemagne', nights_k: 1816, yoy_pct: 25.2 },
+        { name: 'Espagne', nights_k: 1574, yoy_pct: 15.1 },
+        { name: 'Italie', nights_k: 1268, yoy_pct: 17.5 },
+        { name: 'Proche et Moyen-Orient', nights_k: 1041, yoy_pct: 57.2 }
+      ],
+      growing: [],
+      decision_lines: [
+        { head: "N'y investissez pas par défaut", body: 'Ces visiteurs (loisir) ne correspondent pas à votre audience (clientèle locale, professionnels).' },
+        { head: 'Pour capter ce flux, une offre dédiée', body: "Il faudrait un format pensé pour eux (ex. événements en anglais pour États-Unis) — un choix stratégique, pas un réflexe. Sinon, restez concentré sur votre audience." }
+      ] };
+    document.getElementById('tourism').innerHTML = MSCardKit.renderTourism(TOUR);
+    var FOOT = { ok: true, found: true, peak_hour: 6,
+      lead: "Votre CA culmine le matin — pic à 6h (176 €), puis l'activité décroche l'après-midi.",
+      hourly: [
+        { hour: 6, revenue: 176 }, { hour: 7, revenue: 139 }, { hour: 8, revenue: 154 }, { hour: 9, revenue: 152 },
+        { hour: 10, revenue: 175 }, { hour: 11, revenue: 72 }, { hour: 12, revenue: 77 }, { hour: 13, revenue: 65 },
+        { hour: 14, revenue: 75 }, { hour: 15, revenue: 82 }, { hour: 16, revenue: 74 }, { hour: 17, revenue: 72 },
+        { hour: 18, revenue: 43 }, { hour: 19, revenue: 66 }, { hour: 20, revenue: 25 }
+      ],
+      besttime_note: "L'affluence BestTime situe le pic à 18h — à l'opposé de vos ventes. Fiez-vous à votre CA, pas à l'affluence externe.",
+      weekly: [
+        { day: 'Lun', revenue: 1366 }, { day: 'Mar', revenue: 1447 }, { day: 'Mer', revenue: 1422 }, { day: 'Jeu', revenue: 1464 },
+        { day: 'Ven', revenue: 1348, state: 'quiet' }, { day: 'Sam', revenue: 1501, state: 'busy' }, { day: 'Dim', revenue: 1414 }
+      ],
+      decision_lines: [
+        { head: 'Jouez le pic de 6h', body: "C'est là que se fait votre chiffre — staff, réassort et offres calés sur ce créneau." },
+        { head: "Ne pilotez pas sur l'affluence externe", body: "Elle pointe le soir (18h), mais vos ventes sont le matin — suivez votre CA." },
+        { head: 'Votre meilleur jour : Sam', body: '1 501 € en moyenne — concentrez-y vos temps forts.' }
+      ] };
+    document.getElementById('footfall').innerHTML = MSCardKit.renderFootfall(FOOT);
+  </script>
+</body>
+</html>
