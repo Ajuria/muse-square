@@ -353,11 +353,174 @@
     return html;
   }
 
+  // ── USER-GENERATED card family: the commitment's "Consulter l'évolution" page.
+  //    PURE render (chart + decision headline + advice + capture markup + sources).
+  //    Self-contained helpers — the page's exact esc/fr semantics (0 -> "0"), NOT the
+  //    kit globals (whose esc nulls 0). The page keeps the wiring (wireCapture/wireAdvice,
+  //    fetch, MSCommitForm); this returns ONLY the document HTML. COPY = EVOL_COPY.
+  function renderEvolution(data, COPY) {
+    var WIN_FR = { day_of: 'Jour même', '7d': '7 jours', '14d': '14 jours' };
+    var LVL_FR = { modeste: 'modeste', net: 'net' };
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace('.', ','); }
+    function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR'); }
+    function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
+    function t(key, vars) { var s = COPY[key] || ''; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split('{' + k + '}').join(vars[k]); return s; }
+
+    // dual-line chart: CA réalisé (solid+area) vs CA habituel (dashed)
+    function chart(series) {
+      var pts = series.filter(function (d) { return d.has_data; });
+      if (pts.length < 2) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
+      var W = 760, H = 200, padL = 46, padT = 10, padB = 26, plotW = W - padL - 8, plotH = H - padT - padB;
+      var all = []; pts.forEach(function (d) { all.push(d.daily_revenue, d.expected_revenue); });
+      var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+      var span = (mx - mn) || 1; mn = Math.max(0, mn - span * 0.12); mx = mx + span * 0.12;
+      var n = series.length;
+      var xOf = function (i) { return padL + (n === 1 ? plotW / 2 : i * plotW / (n - 1)); };
+      var yOf = function (v) { return padT + plotH - (v - mn) / ((mx - mn) || 1) * plotH; };
+      var grid = '', ticks = 4;
+      for (var g = 0; g <= ticks; g++) { var val = mn + (mx - mn) * g / ticks, y = yOf(val); grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + Math.round(val).toLocaleString('fr-FR') + '</text>'; }
+      var expSeg = [], realSeg = [];
+      series.forEach(function (d, i) { if (d.has_data) { expSeg.push(xOf(i).toFixed(1) + ',' + yOf(d.expected_revenue).toFixed(1)); realSeg.push(xOf(i).toFixed(1) + ',' + yOf(d.daily_revenue).toFixed(1)); } });
+      var realLine = realSeg.join(' ');
+      var area = 'M' + realSeg[0].split(',')[0] + ',' + (padT + plotH) + ' L' + realSeg.join(' L') + ' L' + realSeg[realSeg.length - 1].split(',')[0] + ',' + (padT + plotH) + ' Z';
+      var bi = -1, wi = -1;
+      series.forEach(function (d, i) { if (!d.has_data) return; if (bi < 0 || d.residual_pct > series[bi].residual_pct) bi = i; if (wi < 0 || d.residual_pct < series[wi].residual_pct) wi = i; });
+      var lbl = '', step = Math.ceil(n / 8);
+      for (var i = 0; i < n; i += step) lbl += '<text x="' + xOf(i).toFixed(1) + '" y="' + (H - 8) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + dnum(series[i].date) + '</text>';
+      var gaps = '';
+      series.forEach(function (d, i) { if (!d.has_data) gaps += '<line x1="' + xOf(i).toFixed(1) + '" y1="' + padT + '" x2="' + xOf(i).toFixed(1) + '" y2="' + (padT + plotH) + '" stroke="#f0f2f5" stroke-width="1" stroke-dasharray="2,3"/>'; });
+      var dots = '';
+      if (bi >= 0) dots += '<circle cx="' + xOf(bi).toFixed(1) + '" cy="' + yOf(series[bi].daily_revenue).toFixed(1) + '" r="3.5" fill="#059669"/>';
+      if (wi >= 0 && wi !== bi) dots += '<circle cx="' + xOf(wi).toFixed(1) + '" cy="' + yOf(series[wi].daily_revenue).toFixed(1) + '" r="3.5" fill="#b91c1c"/>';
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid + gaps
+        + '<path d="' + area + '" fill="#1D3BB3" fill-opacity="0.07"/>'
+        + '<polyline points="' + expSeg.join(' ') + '" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/>'
+        + '<polyline points="' + realLine + '" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>' + dots + lbl + '</svg>';
+      var legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;">'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>' + esc(t('chart_realized')) + '</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>' + esc(t('chart_habituel')) + '</span></div>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
+      return svg + legend;
+    }
+
+    // advice -> items with optional M'engager CTA (wiring attached page-side)
+    var ADVICE = {
+      advice_replay_offseason: { text: function () { return t('advice_replay_offseason'); }, cta: true },
+      advice_aim_higher: { text: function (a) { return t('advice_aim_higher', { pct: fr(a.arg) }); }, cta: true },
+      advice_met_hold: { text: function () { return t('advice_met_hold'); }, cta: true },
+      advice_missed_descriptive: { text: function () { return t('advice_missed_descriptive'); }, cta: false },
+      advice_replay_retest: { text: function () { return t('advice_replay_retest'); }, cta: true },
+      advice_track_reconduire: { text: function (a) { return t('advice_track_reconduire', { beat: a.track.beat, done: a.track.done }); }, cta: true },
+      advice_track_mitige: { text: function (a) { return t('advice_track_mitige', { beat: a.track.beat, done: a.track.done }); }, cta: false },
+      advice_track_ne_pas: { text: function (a) { return t('advice_track_ne_pas', { beat: a.track.beat, done: a.track.done }); }, cta: false }
+    };
+    function adviceHtml(advice) {
+      return advice.map(function (a, i) {
+        var spec = ADVICE[a.key]; if (!spec) return '';
+        var body = spec.text(a);
+        return '<div data-adv="' + i + '" style="padding:12px 0;border-top:' + (i ? '1px solid #f0f0f0' : 'none') + ';">'
+          + '<div style="display:flex;gap:11px;align-items:flex-start;">'
+          + '<span style="width:20px;height:20px;border-radius:50%;background:#1D3BB3;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + (i + 1) + '</span>'
+          + '<div style="flex:1;"><div style="font-size:14px;color:#111827;line-height:1.45;">' + esc(body) + '</div>'
+          + (spec.cta ? '<button type="button" data-adv-cta="' + i + '" style="margin-top:8px;font-size:12px;font-weight:600;color:#1D3BB3;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">' + esc(t('advice_cta')) + ' →</button>' : '')
+          + '<div data-adv-form="' + i + '" style="display:none;margin-top:8px;border:1px solid #eef2f7;border-radius:8px;"></div>'
+          + '</div></div></div>';
+      }).join('');
+    }
+
+    // capture markup (done/dispositif when open, retro when resolved)
+    function doneBtnStyle(sel) { return 'font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;' + (sel ? 'background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;' : 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'); }
+    function captureHtml(cm, open) {
+      var inner;
+      if (open) {
+        var st = cm.action_done_status;
+        inner = '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">' + esc(t('done_question')) + '</div>'
+          + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
+          + '<button type="button" data-done="fait" style="' + doneBtnStyle(st === 'fait') + '">' + esc(t('done_yes')) + '</button>'
+          + '<button type="button" data-done="pas_encore" style="' + doneBtnStyle(st === 'pas_encore') + '">' + esc(t('done_no')) + '</button></div>'
+          + '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;">' + esc(t('dispositif_label')) + '</div>'
+          + '<textarea data-dispositif placeholder="' + esc(t('dispositif_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(cm.dispositif_note || '') + '</textarea>';
+      } else {
+        var confirmed = cm.action_done_status === 'fait' ? '<div style="font-size:12.5px;color:#166534;margin-bottom:12px;">' + esc(t('done_confirmed', { name: cm.owner_person_name || '—' })) + '</div>' : '';
+        inner = confirmed
+          + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">' + esc(t('retro_question')) + '</div>'
+          + '<textarea data-retro placeholder="' + esc(t('retro_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:64px;box-sizing:border-box;">' + esc(cm.retro_note || '') + '</textarea>';
+      }
+      return '<div class="eg-sec"><div class="eg-uc">' + esc(t('q4_title')) + '</div>' + inner
+        + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;"><button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button><span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+    }
+
+    var cm = data.commitment, series = data.series || [], ctx = data.context || {};
+    var hn = data.holiday_norm, prov = data.provenance || {}, advice = data.advice || [];
+    var open = cm.status === 'open';
+    var received = series.filter(function (d) { return d.has_data; });
+    var windowHoliday = ctx.school_days > 0 || series.some(function (d) { return d.is_school_holiday; });
+
+    var aggPct;
+    if (cm.window_residual_pct != null) aggPct = Number(cm.window_residual_pct);
+    else if (received.length) aggPct = received.reduce(function (s, d) { return s + d.residual_pct; }, 0) / received.length;
+    else aggPct = null;
+    var daysUp = received.filter(function (d) { return d.residual_pct >= 0; }).length;
+
+    var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
+    var sub = t('subtitle', { level: LVL_FR[cm.threshold_level] || cm.threshold_level, window: winLbl, owner: esc(cm.owner_person_name || '—') });
+    var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
+      + '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement</div>'
+      + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
+      + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div></div>';
+
+    var headline, big;
+    if (!received.length) {
+      var _z = cm.threshold_level === 'net' ? 1.5 : 1.0;
+      var _odays = cm.window_days_expected || 7;
+      var _ytgt = Math.max(1, Math.round(_z * 0.19 / Math.sqrt(_odays) * 100));
+      var _obase = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+      var _ouplift = _obase != null ? Math.round((_obase / _odays) * _ytgt / 100 / 10) * 10 : null;
+      var _obj = _ouplift != null
+        ? t('q1_objective_eur', { uplift: intfr(_ouplift), pct: _ytgt })
+        : t('q1_objective_pct', { pct: _ytgt });
+      headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">' + esc(_obj) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + esc(t('q1_window_started')) + '</div>';
+    } else {
+      var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
+      var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;
+      var _actionPct = _basePct - _ctxPct;
+      big = _actionPct >= 0 ? '#059669' : '#b91c1c';
+      var _lead = t(_ctxPct !== 0 ? 'q1_lead_holiday' : 'q1_lead_plain', { pct: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
+      var _verdict = (_actionPct >= 2) ? t('q1_verdict_pays') : (_actionPct <= -2) ? t('q1_verdict_down') : t('q1_verdict_flat');
+      if (Math.abs(_actionPct) >= 2 && received.length < 5) _verdict += ', ' + t('q1_verdict_confirm');
+      headline = '<div style="font-size:20px;font-weight:600;color:' + big + ';">' + esc(_lead) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;margin-top:4px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + ' — ' + esc(_verdict) + '</div>';
+    }
+    var holidayNote = '';
+    if (windowHoliday && hn && hn.pct != null) {
+      var _sitPct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
+      holidayNote = '<div style="margin-top:10px;font-size:12.5px;color:#92610a;background:#FFF8EC;border:1px solid #FBE8C3;border-radius:8px;padding:9px 12px;">'
+        + esc(t('q1_split_inputs', { sit: (_sitPct >= 0 ? '+' : '') + fr(_sitPct), hol: (hn.pct >= 0 ? '+' : '') + fr(hn.pct) }));
+      if (cm.ctx_material_confound) holidayNote += '<div style="margin-top:6px;"><strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
+      holidayNote += '</div>';
+    }
+    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote
+      + '<div style="margin-top:16px;">' + chart(series) + '</div></div>';
+
+    var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
+    var q4 = captureHtml(cm, open);
+
+    var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
+    srcRows.push(prov.track_record ? t('src_track_record', { beat: prov.track_record.beat, done: prov.track_record.done }) : t('src_track_pending'));
+    var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
+      + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
+
+    return head + q1 + q3 + q4 + sources;
+  }
+
+
   window.MSCardKit = {
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderEvolution: renderEvolution
   };
 })();
