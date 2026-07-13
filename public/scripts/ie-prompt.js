@@ -349,6 +349,17 @@ if (!root) {
         : null;
     if (!n || typeof n !== "object") return "";
 
+    // Family-led answer → render the FULL family card INLINE (the report content, in the chat), via the
+    // shared MSCardKit. The card IS the detailed answer — no LLM summarizer, no click-through report.
+    if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
+      const fc = out.family_card;
+      const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé")
+        ? `<div class="ie-why-headline">${escapeHtml(n.headline.trim())}</div>` : "";
+      // renderX expects the endpoint shape { ok, found, ... }; provider data has `found` but not `ok`.
+      const card = window.MSCardKit[fc.render](Object.assign({ ok: true }, fc.data));
+      return `${lead}<div class="ie-family-card">${card}</div>`;
+    }
+
     const intent = typeof out?.meta?.resolved_intent === "string" ? out.meta.resolved_intent : "";
     const horizon = typeof out?.meta?.resolved_horizon === "string" ? out.meta.resolved_horizon : "";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";

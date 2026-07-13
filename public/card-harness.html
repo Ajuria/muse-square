@@ -32,6 +32,7 @@
     <div class="zone"><div class="zh">Concurrence — État B : concurrents qui bougent (illustratif)</div><div class="fix">renderCompetitor — moves → responses</div><div id="competitor2"></div></div>
     <div class="zone"><div class="zh">Tourisme (PROTOTYPE · Île-de-France, RÉEL)</div><div class="fix">renderTourism — nationality profile (volume + YoY) + in-season</div><div id="tourism"></div></div>
     <div class="zone"><div class="zh">Fréquentation / BestTime (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderFootfall — hourly curve + weekly pattern + decision</div><div id="footfall"></div></div>
+    <div class="zone"><div class="zh">Rapport famille — SIMULATION page (provider.data sans ok → page ajoute ok:true)</div><div class="fix">renderFootfall(Object.assign({ok:true}, providerData)) — the family-report.astro render path</div><div id="freport-sim"></div></div>
     <div class="zone"><div class="zh">Consulter l’évolution — engagement OUVERT (fixture · vacances)</div><div class="fix">renderEvolution(data, EVOL_COPY) — MOVED onto the shared kit; wiring stays page-side</div><div id="evolution"></div></div>
   </div>
 
@@ -280,6 +281,11 @@
       provenance: { history_days: 81, track_record: { beat: 2, done: 3 } },
       advice: [ { key: 'advice_track_reconduire', track: { beat: 2, done: 3 }, prefill: { committed_action_text: 'Menu brunch le dimanche matin', origin_action_type: 'best_day_of_week', window_kind: '7d' } } ] };
     document.getElementById('evolution').innerHTML = MSCardKit.renderEvolution(EVOL, EVOL_COPY);
+
+    // family-report page simulation: provider.data has NO ok (see lib/insightFamilies/footfall.ts);
+    // the page reconstructs { ok:true, ...data } before calling the renderer.
+    var FOOT_PROVIDER_DATA = { found: true, date: '2026-07-14', lead: FOOT.lead, hourly: FOOT.hourly, peak_hour: FOOT.peak_hour, besttime_note: FOOT.besttime_note, weekly: FOOT.weekly, decision_lines: FOOT.decision_lines };
+    document.getElementById('freport-sim').innerHTML = MSCardKit.renderFootfall(Object.assign({ ok: true }, FOOT_PROVIDER_DATA));
   </script>
 </body>
 </html>
