@@ -435,24 +435,57 @@
 
     // capture markup (done/dispositif when open, retro when resolved)
     function doneBtnStyle(sel) { return 'font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;' + (sel ? 'background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;' : 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'); }
+    // read-only summary row (view mode)
+    function roRow(label, value) {
+      return '<div style="padding:8px 0;border-top:0.5px solid #F3F4F6;"><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(label) + '</div><div style="font-size:13px;color:#111827;line-height:1.5;margin-top:3px;white-space:pre-wrap;">' + esc(value) + '</div></div>';
+    }
+    // Read/edit mode (remark #2): once saved, render read-only with an "Éditer" toggle. Editing RIGHTS
+    // are deferred — this is the view-mode UI only. hasData default = read; empty = edit.
     function captureHtml(cm, open) {
-      var inner;
+      var inner, title, hasData, readInner;
       if (open) {
+        title = t('q4_title');
         var st = cm.action_done_status;
+        hasData = (st != null);
         inner = '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">' + esc(t('done_question')) + '</div>'
           + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
           + '<button type="button" data-done="fait" style="' + doneBtnStyle(st === 'fait') + '">' + esc(t('done_yes')) + '</button>'
           + '<button type="button" data-done="pas_encore" style="' + doneBtnStyle(st === 'pas_encore') + '">' + esc(t('done_no')) + '</button></div>'
           + '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;">' + esc(t('dispositif_label')) + '</div>'
           + '<textarea data-dispositif placeholder="' + esc(t('dispositif_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(cm.dispositif_note || '') + '</textarea>';
+        readInner = roRow(t('done_question'), st === 'fait' ? t('done_yes') : st === 'pas_encore' ? t('done_no') : '—')
+          + roRow(t('dispositif_label'), cm.dispositif_note || t('not_dispositioned'));
       } else {
-        var confirmed = cm.action_done_status === 'fait' ? '<div style="font-size:12.5px;color:#166534;margin-bottom:12px;">' + esc(t('done_confirmed', { name: cm.owner_person_name || '—' })) + '</div>' : '';
-        inner = confirmed
-          + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">' + esc(t('retro_question')) + '</div>'
-          + '<textarea data-retro placeholder="' + esc(t('retro_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:64px;box-sizing:border-box;">' + esc(cm.retro_note || '') + '</textarea>';
+        // Documenter — structured retro (Spec 2): worked / would-change / repeat oui-non. The
+        // reusable knowledge-base entry that seeds Spec 1's "Plan à reprendre".
+        title = t('q4_title_doc');
+        hasData = (cm.retro_worked != null || cm.retro_change != null || cm.retro_repeat != null);
+        var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
+        var qStyle = 'font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;';
+        var rep = cm.retro_repeat;
+        inner = '<div style="font-size:12px;color:#9ca3af;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_worked_q')) + '</div>'
+          + '<textarea data-retro-worked placeholder="' + esc(t('retro_worked_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || '') + '</textarea>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_change_q')) + '</div>'
+          + '<textarea data-retro-change placeholder="' + esc(t('retro_change_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_change || '') + '</textarea>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_repeat_q')) + '</div>'
+          + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
+          + '<button type="button" data-retro-repeat="oui" style="' + doneBtnStyle(rep === true) + '">' + esc(t('repeat_yes')) + '</button>'
+          + '<button type="button" data-retro-repeat="non" style="' + doneBtnStyle(rep === false) + '">' + esc(t('repeat_no')) + '</button></div>';
+        readInner = (cm.retro_worked ? roRow(t('retro_worked_q'), cm.retro_worked) : '')
+          + (cm.retro_change ? roRow(t('retro_change_q'), cm.retro_change) : '')
+          + roRow(t('retro_repeat_q'), rep === true ? t('repeat_yes') : rep === false ? t('repeat_no') : '—');
       }
-      return '<div class="eg-sec"><div class="eg-uc">' + esc(t('q4_title')) + '</div>' + inner
-        + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;"><button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button><span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+      var editBtn = 'margin-top:12px;padding:7px 14px;font-size:12.5px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:6px;cursor:pointer;font-family:inherit;';
+      var cancelBtn = 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
+      var readView = '<div data-cap-read style="display:' + (hasData ? 'block' : 'none') + ';">' + readInner
+        + '<button type="button" data-cap-edit-btn style="' + editBtn + '">' + esc(t('edit')) + '</button></div>';
+      var editView = '<div data-cap-edit style="display:' + (hasData ? 'none' : 'block') + ';">' + inner
+        + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;">'
+        + '<button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button>'
+        + (hasData ? '<button type="button" data-cap-cancel style="' + cancelBtn + '">' + esc(t('cancel')) + '</button>' : '')
+        + '<span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+      return '<div class="eg-sec"><div class="eg-uc">' + esc(title) + '</div>' + readView + editView + '</div>';
     }
 
     var cm = data.commitment, series = data.series || [], ctx = data.context || {};
@@ -469,10 +502,19 @@
 
     var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
     var sub = t('subtitle', { level: LVL_FR[cm.threshold_level] || cm.threshold_level, window: winLbl, owner: esc(cm.owner_person_name || '—') });
+    // Owner + when (remark #1): who committed and when, + when the action was marked done.
+    var _ownerDate = '';
+    if (cm.owner_person_name || cm.created_at) {
+      var _cd = cm.created_at ? msDateFr(String(cm.created_at).slice(0, 10)) : '—';
+      _ownerDate = t('owner_line', { name: esc(cm.owner_person_name || '—'), date: esc(_cd) });
+      if (cm.action_done_at) _ownerDate += t('done_suffix', { date: esc(msDateFr(String(cm.action_done_at).slice(0, 10))) });
+    }
     var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
       + '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
-      + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div></div>';
+      + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
+      + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
+      + '</div>';
 
     var headline, big;
     if (!received.length) {
@@ -540,7 +582,6 @@
     }
     if (j.trend && j.trend.note) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(j.trend.note) + '</div>';
     if (j.scale) html += msScale(j.scale);
-    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     return html;
   }
 
@@ -576,7 +617,6 @@
     }
     if (j.window && j.window.n) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">Sur ' + j.window.n + ' jours — remise moyenne ' + String(j.window.avg_disc_pct).replace('.', ',') + ' %.</div>';
     if (j.scale) html += msScale(j.scale);
-    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     if (j.caveat) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">' + esc(j.caveat) + '</div>';
     return html;
   }

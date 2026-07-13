@@ -92,7 +92,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       window_residual_pct: snap.window_residual_pct, material_holiday_share: snap.material_holiday_share,
       ctx_any_school_holiday: snap.ctx_any_school_holiday, ctx_material_confound: snap.ctx_material_confound,
       action_done_status: snap.action_done_status, dispositif_note: snap.dispositif_note, retro_note: snap.retro_note,
+      // Documenter (Spec 2) structured retro — so the capture UI pre-fills saved answers.
+      retro_worked: snap.retro_worked, retro_change: snap.retro_change, retro_repeat: snap.retro_repeat,
       resolved_at: flat(snap.resolved_at),
+      // owner + when (header) and the goal reference for "vs objectif".
+      created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
+      threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)

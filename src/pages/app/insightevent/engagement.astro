@@ -33,7 +33,7 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=14"></script>
+    <script is:inline src="/card-kit.js?v=18"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -68,18 +68,35 @@ const id = Astro.url.searchParams.get("id") || "";
               docEl.querySelectorAll("[data-done]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
             });
           });
+          // Documenter (Spec 2) — "À reproduire ?" oui/non toggle (resolved state).
+          var repeatState = { v: cm.retro_repeat === true ? "oui" : cm.retro_repeat === false ? "non" : null };
+          docEl.querySelectorAll("[data-retro-repeat]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              repeatState.v = b.getAttribute("data-retro-repeat");
+              docEl.querySelectorAll("[data-retro-repeat]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x.getAttribute("data-retro-repeat") === repeatState.v)); });
+            });
+          });
+          // Read/edit mode (remark #2): Éditer flips to the form; Annuler flips back. Editing rights TBD.
+          var readEl = docEl.querySelector("[data-cap-read]"), editEl = docEl.querySelector("[data-cap-edit]");
+          function showEdit(on) { if (readEl) readEl.style.display = on ? "none" : "block"; if (editEl) editEl.style.display = on ? "block" : "none"; }
+          var editBtn = docEl.querySelector("[data-cap-edit-btn]"); if (editBtn) editBtn.addEventListener("click", function () { showEdit(true); });
+          var cancelBtn = docEl.querySelector("[data-cap-cancel]"); if (cancelBtn) cancelBtn.addEventListener("click", function () { showEdit(false); });
           var save = docEl.querySelector("[data-cap-save]"); if (!save) return;
           save.addEventListener("click", function () {
             var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
-            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } };
+            // On success, reload → the page re-renders in read mode with the saved values.
+            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } if (ok) setTimeout(load, 400); };
             if (open) {
               var disp = (docEl.querySelector("[data-dispositif]") || {}).value || "";
               if (!doneState.v) { done(false); return; }
               fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, action_done_status: doneState.v, dispositif_note: disp }) })
                 .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
             } else {
-              var retro = (docEl.querySelector("[data-retro]") || {}).value || "";
-              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, retro_note: retro }) })
+              var worked = (docEl.querySelector("[data-retro-worked]") || {}).value || "";
+              var change = (docEl.querySelector("[data-retro-change]") || {}).value || "";
+              var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id, retro_worked: worked, retro_change: change };
+              if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
+              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
                 .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
             }
           });
@@ -107,10 +124,13 @@ const id = Astro.url.searchParams.get("id") || "";
 
         var id = root.dataset.id;
         if (!id) { showError("Engagement manquant dans l'adresse."); return; }
-        fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
-          .then(function (r) { return r.json(); })
-          .then(render)
-          .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+        function load() {
+          fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
+            .then(function (r) { return r.json(); })
+            .then(render)
+            .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+        }
+        load();
       })();
     </script>
   </BaseLayout>

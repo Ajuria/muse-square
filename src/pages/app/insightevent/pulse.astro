@@ -343,9 +343,9 @@ if (!location_id) {
     <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
     <script is:inline src="/vendor/leaflet/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/reco-library.js?v=1"></script>
+    <script is:inline src="/reco-library.js?v=4"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=27"></script>
+    <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1761,7 +1761,10 @@ if (!location_id) {
         // Empty array when the card type has no reco, so the field is never wrong.
         var _akey = (t && t._spec_action_type) || entry.item.change_subtype || entry.item.action_type;
         var _sp = (window.ACTION_CARDS && _akey) ? window.ACTION_CARDS[_akey] : null;
-        entry.item.__suggested_actions = (_sp && typeof _sp.recos === 'function') ? (_sp.recos(entry.item) || []) : [];
+        // Industry-aware recos: expose the location's industry (from the day) so _recosFor picks the
+        // vertical override (reco-library MS_SALES_RECO_LIB_BY_INDUSTRY) over the café-flavoured default.
+        try { if (typeof window !== 'undefined' && currentDay && currentDay.client_industry_code) window.MS_INDUSTRY_CODE = currentDay.client_industry_code; } catch (e) {}
+        entry.item.__suggested_actions = (_sp && typeof _sp.recos === 'function') ? (_sp.recos(entry.item) || []).map(function (p) { return window.MS_planText ? window.MS_planText(p) : p; }) : [];
         window.__msCardByIdx[cardIdx] = entry.item;
       } catch(e) {}
       var cardId = "ab-card-" + cardIdx;

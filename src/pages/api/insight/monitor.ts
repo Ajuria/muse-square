@@ -830,6 +830,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
     console.log(`[monitor] response build: ${_t4 - _t3}ms`);
     console.log(`[monitor] TOTAL: ${_t4 - _t0}ms`);
 
+    // Phase 1 — suppress action cards already picked up. A card's suppression_key is stamped onto the
+    // commitment as origin_suppression_key at M'engager; hide the card while a commitment is ACTIVE
+    // (open/pending). The key is date-scoped, so a re-fire on a new date — or a cancelled commitment
+    // (status leaves active) — brings the card back automatically. No new key, no hard delete.
+    const [activeSuppRows] = await bq.query({
+      query: `SELECT DISTINCT origin_suppression_key AS k
+              FROM (
+                SELECT origin_suppression_key, status,
+                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                FROM \`muse-square-open-data.analytics.action_commitments\`
+                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
+              )
+              WHERE rn = 1 AND status IN ('open','pending')`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    const activeSuppressionKeys = new Set((activeSuppRows as any[]).map((r) => String(r.k)));
+
     return json(200, {
       ok: true,
       profile: profile
@@ -874,7 +891,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,
-      action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes).map((r: any) => ({
+      action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
+        .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
+        .map((r: any) => ({
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,

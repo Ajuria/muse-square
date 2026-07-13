@@ -16,8 +16,10 @@
 export const EVOL_COPY = {
   back: "Retour aux engagements",
 
-  // subtitle under the title (terms recap)
-  subtitle: "Objectif {level} · {window} · {owner}",
+  // subtitle under the title (goal terms recap; owner + date get their own line)
+  subtitle: "Objectif {level} · {window}",
+  owner_line: "Engagé par {name} · le {date}",
+  done_suffix: " · action menée le {date}",
 
   // ── ① Au-dessus / en-dessous de l'objectif ? ──
   q1_title: "Situation par rapport à l'objectif ?",
@@ -101,6 +103,20 @@ export const EVOL_COPY = {
   dispositif_ph: "Offre, canal, timing…",
   retro_question: "Qu'est-ce qui a marché, ou pas ?",
   retro_ph: "Ce que vous garderiez, ce que vous changeriez",
+  // ── Documenter (Spec 2) — structured retro = the reusable knowledge-base entry.
+  q4_title_doc: "Documenter",
+  doc_hint: "Ce retour reste attaché à l'action — repère pour la prochaine fois et pour l'équipe.",
+  edit: "Éditer",
+  cancel: "Annuler",
+  not_documented: "Pas encore documenté.",
+  not_dispositioned: "Pas encore renseigné.",
+  retro_worked_q: "Qu'est-ce qui a marché ?",
+  retro_worked_ph: "Ce qui a porté le résultat",
+  retro_change_q: "Qu'est-ce que je changerais ?",
+  retro_change_ph: "Ce que vous ajusteriez la prochaine fois",
+  retro_repeat_q: "À reproduire ?",
+  repeat_yes: "Oui",
+  repeat_no: "Non",
   save: "Enregistrer",
   saved: "Enregistré",
 
