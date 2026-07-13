@@ -50,6 +50,20 @@ export const EVOL_COPY = {
   q1_verdict_confirm: "à confirmer sur plus de jours",
   q1_verdict_flat: "l'effet de l'action n'est pas encore visible",
   q1_verdict_down: "à ce stade, l'action ne paie pas",
+  // vs objectif — position of the effect against the owner's COMMITTED goal (not just vs habituel).
+  // Resolved → the authoritative verdict; open → the % target the owner set + current position.
+  q1_objectif_line: "Objectif : +{pct} % vs habituel",
+  q1_objectif_above: "au-dessus à ce stade",
+  q1_objectif_below: "en-dessous à ce stade",
+  q1_objectif_met: "Objectif atteint",
+  q1_objectif_missed: "Objectif non atteint",
+  q1_objectif_confounded: "Objectif non mesurable (vacances)",
+  // Lead hierarchy (goal-first): primary status + progress-to-goal bar + attribution.
+  q1_ontrack: "Sur la bonne voie",
+  q1_below: "En-dessous de l'objectif",
+  q1_bar_goal: "objectif +{pct} %",
+  q1_attrib_split: "Dont {action} % attribuable à votre action, hors effet vacances ({ctx} %).",
+  q1_attrib_solo: "Votre action : {action} % au-dessus du CA habituel.",
 
   chart_realized: "CA réalisé",
   chart_habituel: "CA habituel",

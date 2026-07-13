@@ -529,15 +529,39 @@
       headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">' + esc(_obj) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + esc(t('q1_window_started')) + '</div>';
     } else {
-      var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
-      var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;
-      var _actionPct = _basePct - _ctxPct;
-      big = _actionPct >= 0 ? '#059669' : '#b91c1c';
-      var _lead = t(_ctxPct !== 0 ? 'q1_lead_holiday' : 'q1_lead_plain', { pct: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
-      var _verdict = (_actionPct >= 2) ? t('q1_verdict_pays') : (_actionPct <= -2) ? t('q1_verdict_down') : t('q1_verdict_flat');
-      if (Math.abs(_actionPct) >= 2 && received.length < 5) _verdict += ', ' + t('q1_verdict_confirm');
-      headline = '<div style="font-size:20px;font-weight:600;color:' + big + ';">' + esc(_lead) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;margin-top:4px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + ' — ' + esc(_verdict) + '</div>';
+      var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0); // situation (total residual)
+      var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;                                // holiday/context portion
+      var _actionPct = _basePct - _ctxPct;                                                               // action-attributed
+      var _gz = cm.threshold_level === 'net' ? 1.5 : 1.0;
+      var _goalPct = Math.max(1, Math.round(_gz * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100)); // goal as % uplift
+      // PRIMARY status — resolved: authoritative verdict; open: SITUATION vs goal (threshold is on the total residual).
+      var _stTxt, _stCol;
+      if (!open && cm.verdict === 'met') { _stTxt = t('q1_objectif_met'); _stCol = '#059669'; }
+      else if (!open && cm.verdict === 'missed') { _stTxt = t('q1_objectif_missed'); _stCol = '#b91c1c'; }
+      else if (!open && cm.verdict === 'confounded') { _stTxt = t('q1_objectif_confounded'); _stCol = '#92610a'; }
+      else if (_basePct >= _goalPct) { _stTxt = t('q1_ontrack'); _stCol = '#059669'; }
+      else { _stTxt = t('q1_below'); _stCol = '#92610a'; }
+      // Progress-to-goal bar: track = 0..goal (goal is the END); fill = situation capped at goal; two-tone action + holiday.
+      var _actW = _goalPct > 0 ? Math.max(0, Math.min(_actionPct / _goalPct, 1)) : 0;
+      var _fill = _goalPct > 0 ? Math.max(0, Math.min(_basePct / _goalPct, 1)) : 0;
+      var _ctxW = Math.max(0, _fill - _actW);
+      var _bar = '<div style="margin-top:14px;">'
+        + '<div style="position:relative;height:9px;background:#f0f2f5;">'
+          + '<div style="position:absolute;left:0;top:0;height:9px;width:' + (_actW * 100).toFixed(1) + '%;background:#1D3BB3;"></div>'
+          + '<div style="position:absolute;left:' + (_actW * 100).toFixed(1) + '%;top:0;height:9px;width:' + (_ctxW * 100).toFixed(1) + '%;background:#c3cbe6;"></div>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#6b7280;">'
+          + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs habituel</span>'
+          + '<span>' + esc(t('q1_bar_goal', { pct: _goalPct })) + '</span>'
+        + '</div></div>';
+      // SECONDARY attribution — split when a holiday effect is present (causal-safe: never counts vacances as the action).
+      var _attrib = (_ctxPct !== 0)
+        ? t('q1_attrib_split', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct), ctx: (_ctxPct >= 0 ? '+' : '') + fr(_ctxPct) })
+        : t('q1_attrib_solo', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
+      headline = '<div style="font-size:16px;font-weight:600;color:' + _stCol + ';">' + esc(_stTxt) + '</div>'
+        + _bar
+        + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:14px;">' + esc(_attrib) + '</div>'
+        + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';
     }
     var holidayNote = '';
     if (windowHoliday && hn && hn.pct != null) {
