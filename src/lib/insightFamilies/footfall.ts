@@ -93,9 +93,26 @@ export async function footfallFamily(bq: any, location_id: string, date: string)
   const sources = ["Votre caisse — CA par heure (transaction_hour)"];
   if (btPeak != null) sources.push("BestTime — affluence prévue");
 
+  // Ampleur — the morning's share of CA and what it represents per year (DESCRIPTIVE: this is what the
+  // window IS, not an uplift claim). Annual CA ≈ one week of average daily CA × 52.
+  const weeklyTotal = weekly.reduce((s: number, w: any) => s + w.revenue, 0);
+  const annualCA = Math.round(weeklyTotal * 52);
+  const allRev = rows.reduce((s: number, r: any) => s + (r.revenue as number), 0);
+  const morningAll = rows.filter((r: any) => r.hour < 12).reduce((s: number, r: any) => s + (r.revenue as number), 0);
+  const morningShareAll = allRev ? Math.round((morningAll / allRev) * 100) : morningPct;
+  // Footfall reads the hourly PROFILE (avg-per-weekday-hour), which is fine for SHARES but inflates any
+  // absolute annual total — so the Ampleur leads with the robust SHARE, not a shaky €. (annualCA kept for
+  // reference only.) void the estimate to keep the intent explicit.
+  void annualCA;
+  const scale = (morningShareAll != null) ? {
+    headline: `${morningShareAll} % du CA · le matin`,
+    recurrence: "Pic matinal présent toute la semaine — structurel, pas ponctuel.",
+    enjeu: `Le matin (avant 12h) concentre ${morningShareAll} % de votre CA — c'est là que se joue votre chiffre, avant midi.`,
+  } : null;
+
   return {
     found: true,
-    data: { found: true, date, lead, hourly, peak_hour: peakHour, besttime_note, weekly, decision_lines },
+    data: { found: true, date, lead, hourly, peak_hour: peakHour, besttime_note, weekly, decision_lines, scale },
     facts,
     sources,
   };

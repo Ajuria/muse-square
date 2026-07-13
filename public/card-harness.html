@@ -32,6 +32,9 @@
     <div class="zone"><div class="zh">Concurrence — État B : concurrents qui bougent (illustratif)</div><div class="fix">renderCompetitor — moves → responses</div><div id="competitor2"></div></div>
     <div class="zone"><div class="zh">Tourisme (PROTOTYPE · Île-de-France, RÉEL)</div><div class="fix">renderTourism — nationality profile (volume + YoY) + in-season</div><div id="tourism"></div></div>
     <div class="zone"><div class="zh">Fréquentation / BestTime (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderFootfall — hourly curve + weekly pattern + decision</div><div id="footfall"></div></div>
+    <div class="zone"><div class="zh">Décomposition ventes/panier (PROTOTYPE · f10c3e58 · 13/07, RÉEL)</div><div class="fix">renderSalesDecomp — trafic vs panier, dominant + trend + decision</div><div id="salesdecomp"></div></div>
+    <div class="zone"><div class="zh">Remises sans effet (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderSalesDiscount — high vs low discount days, no-lift verdict + caveat</div><div id="salesdiscount"></div></div>
+    <div class="zone"><div class="zh">Météo prolongée — fenêtre (PROTOTYPE · f10c3e58 canicule, RÉEL)</div><div class="fix">renderWeatherWindow — window strip + measured CA impact + decision</div><div id="wwindow"></div></div>
     <div class="zone"><div class="zh">Rapport famille — SIMULATION page (provider.data sans ok → page ajoute ok:true)</div><div class="fix">renderFootfall(Object.assign({ok:true}, providerData)) — the family-report.astro render path</div><div id="freport-sim"></div></div>
     <div class="zone"><div class="zh">Consulter l’évolution — engagement OUVERT (fixture · vacances)</div><div class="fix">renderEvolution(data, EVOL_COPY) — MOVED onto the shared kit; wiring stays page-side</div><div id="evolution"></div></div>
   </div>
@@ -286,6 +289,34 @@
     // the page reconstructs { ok:true, ...data } before calling the renderer.
     var FOOT_PROVIDER_DATA = { found: true, date: '2026-07-14', lead: FOOT.lead, hourly: FOOT.hourly, peak_hour: FOOT.peak_hour, besttime_note: FOOT.besttime_note, weekly: FOOT.weekly, decision_lines: FOOT.decision_lines };
     document.getElementById('freport-sim').innerHTML = MSCardKit.renderFootfall(Object.assign({ ok: true }, FOOT_PROVIDER_DATA));
+
+    var SDECOMP = { ok:true, found:true, date:'2026-07-13', driver:'transactions',
+      lead: "Votre CA du jour est en hausse de 33 % vs vos 30 derniers jours — porté par le trafic (nombre de ventes).",
+      point: { rev: 1513, avg30: 1136, rev_vs_pct: 33.1 },
+      split: [ { label:'Ventes (trafic)', delta_pct: 39.6, value:'327 ventes', dominant:true }, { label:'Panier moyen', delta_pct: -4.7, value:'4,63 €', dominant:false } ],
+      trend: { n:46, txn_days:21, basket_days:11, both_days:14, basket_avg_delta:-0.4, note:"Sur vos 46 derniers jours, le mouvement vient surtout du trafic (21 j trafic · 11 j panier · 14 j les deux). Panier moyen stable sur la période." },
+      decision_lines: [ { head:'Votre croissance vient du volume', body:"Vous attirez plus de clients, mais la dépense par client stagne — le panier moyen n'a pas suivi le trafic." }, { head:'Le panier est votre marge inexploitée', body:"Un menu, un produit d'appoint en caisse ou une offre combinée agit là où le trafic ne joue pas — sans dépendre d'attirer encore plus de monde." } ] };
+    document.getElementById('salesdecomp').innerHTML = MSCardKit.renderSalesDecomp(SDECOMP);
+
+    var SDISC = { ok:true, found:true, date:'2026-07-13', no_lift:true,
+      lead: "Vous remisez en moyenne 2,3 % — mais vos jours de remise ne rapportent pas plus. Les promos ne vous achètent pas de CA en plus.",
+      point: { disc_pct: 2.3, base_pct: 2.3, disc_delta: 0, rev_vs_pct: 33.1 },
+      window: { n: 91, high_ca: 1.3, low_ca: 12.0, avg_disc_pct: 2.3 },
+      compare: [ { label:'Jours à forte remise', value:'CA +1,3 % vs habituel', dominant:false, bad:true }, { label:'Jours à faible remise', value:'CA +12,0 % vs habituel', dominant:true, bad:false } ],
+      decision_lines: [ { head:'Vos promos de masse ne paient pas', body:'Sur 90 jours, vos jours les plus remisés ne font pas mieux que vos jours les moins remisés — la remise part en marge sans CA en retour.' }, { head:'Réservez la remise à la valeur', body:"Ciblez vos clients fidèles / gros paniers plutôt qu'une promo générale ; testez un jour sans remise et comparez le CA." } ],
+      scale: { annual_eur: 8121, annual_label: 'de remises par an', recurrence: 'Vous remisez presque tous les jours (2,3 % en moyenne) — structurel, pas ponctuel.', enjeu: 'Vos jours très remisés ne rapportent pas plus — une partie part en marge sans retour mesurable.' },
+      caveat: "Association observée sur la période, pas une preuve : un jour peut être remisé PARCE QU'il est calme. À confirmer par un jour-test sans remise." };
+    document.getElementById('salesdiscount').innerHTML = MSCardKit.renderSalesDiscount(SDISC);
+
+    var WWIN = { ok:true, found:true, date:'2026-07-13', feature:'heat', feature_label:'forte chaleur', window_noun:'canicule',
+      lead: "Canicule de 7 jours (13/07 → 19/07) (pic 37 °C ressenti le 14/07) — et pour VOUS, forte chaleur rime avec CA +29 % (mesuré sur 11 jours). À capitaliser.",
+      window: { start:'2026-07-13', end:'2026-07-19', length:7, within_horizon:7, peak_date:'2026-07-14', peak_level:4, peak_feels:37,
+        strip: [ {day:'13/07',level:3,temp:'34°',peak:false}, {day:'14/07',level:4,temp:'37°',peak:true}, {day:'15/07',level:3,temp:'34°',peak:false}, {day:'16/07',level:3,temp:'35°',peak:false}, {day:'17/07',level:2,temp:'29°',peak:false}, {day:'18/07',level:3,temp:'34°',peak:false}, {day:'19/07',level:2,temp:'30°',peak:false} ] },
+      measured:true, opportunity:true,
+      impact: { ca_delta:29, txns_delta:18, basket_delta:8, n:11 },
+      decision_lines: [ { head:'Forte chaleur = votre fenêtre', body:'Ces jours-là votre CA monte de +29 % (fréquentation +18 %, panier +8 %) — préparez l\'offre et le réassort AVANT, pas pendant.' }, { head:'Jouez le chaud', body:'Boissons fraîches / glaces en avant, terrasse ombragée, eau offerte — captez le flux que la chaleur vous amène.' } ],
+      caveat: "Association observée sur vos jours comparables passés, pas une garantie — la fenêtre au-delà de 6 jours reste une prévision. Notez vos actions pour affiner." };
+    document.getElementById('wwindow').innerHTML = MSCardKit.renderWeatherWindow(WWIN);
   </script>
 </body>
 </html>

@@ -157,7 +157,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
     <script is:inline src="/action-cards.js?v=27"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=8"></script>
+    <script is:inline src="/card-kit.js?v=14"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -565,6 +565,19 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — vos ' + joursFr + ' récents'] };
       }
 
+      // footfall_vs_basket_decomposition — header/source block (payload from fct_client_sales_signals_daily).
+      function salesDecompClaimMap(a, prof, day) {
+        function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
+        var claims = [];
+        if (a.daily_revenue != null) claims.push({ group:'interne', claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
+        if (a.revenue_vs_30d_avg_pct != null) claims.push({ group:'interne', claim:'vs 30 derniers jours', value: sgn(a.revenue_vs_30d_avg_pct), source:'Caisse' });
+        if (a.transactions_delta_pct != null) claims.push({ group:'interne', claim:'Ventes (trafic)', value: sgn(a.transactions_delta_pct), source:'Caisse' });
+        if (a.basket_delta_pct != null) claims.push({ group:'interne', claim:'Panier moyen', value: sgn(a.basket_delta_pct), source:'Caisse' });
+        var drv = a.primary_revenue_driver || a.dominant_factor;
+        if (drv) { var DFR = { transactions:'le trafic', basket:'le panier', both:'trafic et panier' }; claims.push({ group:'interne', claim:'Facteur dominant', value: DFR[drv] || drv, source:'Caisse' }); }
+        if (!claims.length) claims.push({ claim:'Signal', value:"D’où vient le mouvement de votre CA", source:'Muse Square' });
+        return { cat:'Performance · d’où vient le mouvement', title:'Ventes ou panier — d’où vient le mouvement', badge:{ label:'À surveiller', bg:'#EEF2FF', fg:'#6B7280' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — ventes & panier quotidiens'] };
+      }
       CLAIM_MAPS.weather_hazard_onset = weatherClaimMap;
       CLAIM_MAPS.weather_worsened = weatherClaimMap;
       CLAIM_MAPS.weather_improved = weatherClaimMap;
@@ -582,6 +595,17 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       CLAIM_MAPS.competitor_positioning_gap = positioningGapClaimMap;
       CLAIM_MAPS.sales_surge = salesResidualClaimMap;
       CLAIM_MAPS.sales_revenue_down_wow = salesResidualClaimMap;
+      // sales_discount_no_lift — header block (payload from fct_client_sales_signals_daily).
+      function salesDiscountClaimMap(a, prof, day) {
+        return { cat:'Performance · remises', title:'Remises sans effet — le CA suit-il ?', badge:{ label:'À surveiller', bg:'#EEF2FF', fg:'#6B7280' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:[], sources:['Caisse — remises & CA quotidiens'] };
+      }
+      // extended_bad_weather — header block (window card; content from /api/insight/weather-window).
+      function weatherWindowClaimMap(a, prof, day) {
+        return { cat:'Météo · fenêtre prolongée', title:'Météo prolongée — votre fenêtre', badge:{ label:'À anticiper', bg:'#FFF4E5', fg:'#B45309' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:[], sources:['Météo-France — prévisions', 'Caisse — CA sur conditions comparables'] };
+      }
+      CLAIM_MAPS.footfall_vs_basket_decomposition = salesDecompClaimMap;
+      CLAIM_MAPS.extended_bad_weather = weatherWindowClaimMap;
+      CLAIM_MAPS.sales_discount_no_lift = salesDiscountClaimMap;
 
       // Single named-entity competitor cards. Verified live: competitor_event_launch.
       // Add a type here only after its data_payload is verified on
@@ -736,6 +760,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _isEvent = (signal_type === 'commercial_event_match' || signal_type === 'mega_event_activation' || signal_type === 'mega_event_end');
         var _isCompetitor = (signal_type === 'competition_proximity' || signal_type === 'high_competition_density' || signal_type === 'competitor_threat_direct' || signal_type === 'competition_pressure_spike' || signal_type === 'same_bucket_saturation' || signal_type === 'competitor_price_drop' || signal_type === 'competitor_price_increase' || signal_type === 'competitor_new_offering' || signal_type === 'competitor_offering_removed');
         var _isTourism = (signal_type === 'tourist_high_season' || signal_type === 'tourist_surge_vacation' || signal_type === 'tourism_peak_window' || signal_type === 'tourism_weather_vacation' || signal_type === 'tourism_comp_squeeze' || signal_type === 'low_tourism_local_opp' || signal_type === 'foreign_tourism_signal');
+        var _isDecomp = (signal_type === 'footfall_vs_basket_decomposition');
+        var _isDiscount = (signal_type === 'sales_discount_no_lift');
+        var _isWeatherWindow = (signal_type === 'extended_bad_weather');
         var _isFootfall = (signal_type === 'best_day_of_week' || signal_type === 'ft_peak_bad_weather' || signal_type === 'ft_quiet_good_weather' || signal_type === 'ft_peak_saturated' || signal_type === 'ft_peak_low_comp' || signal_type === 'ft_peak_tourism_vacation' || signal_type === 'ft_peak_mobility');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
@@ -748,7 +775,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
         if (_isMov) html += grp('La source');
-        html += zone('Synth\u00e8se', synth);
+        // _isDecomp: skip the qualitative sowhat Synth\u00e8se \u2014 the "D'o\u00f9 vient le mouvement" section below
+        // IS the synthesis (magnitude-rich + correct driver from the live endpoint), so the generic
+        // sowhat (payload-dependent, defaults to the wrong driver on an empty payload) is redundant noise.
+        if (!_isDecomp && !_isDiscount && !_isWeatherWindow) html += zone('Synth\u00e8se', synth);
         // Card-SPECIFIC (sales): "what sold" — the category movers that made the day, filled async
         // from /api/insight/sales-breakdown (the new category mart), NOT the universal brain.
         if (_isMov) html += zone('Ce qui a fait la journ\u00e9e',
@@ -790,7 +820,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isCompetitor) html += zone('Concurrence', '<div id="fs-competitor-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse concurrentielle…</div></div>');
         if (_isTourism) html += zone('Tourisme dans votre région', '<div id="fs-tourism-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse touristique…</div></div>');
         if (_isFootfall) html += zone('Fréquentation · votre horloge du CA', '<div id="fs-footfall-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse de fréquentation…</div></div>');
-        if (!_isMov && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall) html += zone('D\u00e9composition \u00b7 preuve', dec);
+        if (_isDecomp) html += zone('D’où vient le mouvement', '<div id="fs-decomp-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Décomposition ventes / panier…</div></div>');
+        if (_isDiscount) html += zone('Remises — le CA suit-il ?', '<div id="fs-discount-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse des remises…</div></div>');
+        if (_isWeatherWindow) html += zone('Météo prolongée — votre fenêtre', '<div id="fs-wwindow-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse de la fenêtre météo…</div></div>');
+        if (!_isMov && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) html += zone('D\u00e9composition \u00b7 preuve', dec);
 
         if (m.enriched_inline) {
           var d = m.enriched_inline;
@@ -835,9 +868,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _spin = '<div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Chargement\u2026</div>';
         var _ctx = '';
         if (_isMovement || _isWeather) _ctx += zone('Historique \u00b7 jours comparables', '<div id="fs-analog-zone">' + _spin + '</div>');
-        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
-        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
-        if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
+        if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
         if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
 
         html += zone('Sources', src, true);
@@ -856,12 +889,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           loadTourism(location_id, signal_date, document.getElementById('fs-tourism-zone'));
         } else if (_isFootfall) {
           loadFootfall(location_id, signal_date, document.getElementById('fs-footfall-zone'));
+        } else if (_isDecomp) {
+          loadSalesDecomp(location_id, signal_date, document.getElementById('fs-decomp-zone'));
+        } else if (_isDiscount) {
+          loadSalesDiscount(location_id, signal_date, document.getElementById('fs-discount-zone'));
+        } else if (_isWeatherWindow) {
+          loadWeatherWindow(location_id, signal_date, document.getElementById('fs-wwindow-zone'));
         } else {
           loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
         }
         // Comparable-day history — sales AND weather. Only sales injects the number into its Synthèse.
         if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
-        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall) {
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
           loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'));
         }
@@ -882,6 +921,27 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
       // (public/card-kit.js), the SINGLE source verified by the render harness
       // (public/card-harness.html). What renders here == what the harness verifies.
+      function loadWeatherWindow(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/weather-window?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderWeatherWindow(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse de la fenêtre météo indisponible.</div>'; });
+      }
+      function loadSalesDiscount(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/sales-discount?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSalesDiscount(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse des remises indisponible.</div>'; });
+      }
+      function loadSalesDecomp(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/sales-decomp?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSalesDecomp(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Décomposition indisponible.</div>'; });
+      }
       function loadFootfall(locId, date, container) {
         if (!container) return;
         fetch('/api/insight/footfall?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))

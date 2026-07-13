@@ -23,7 +23,8 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "weather_hazard_onset",
   "weather_worsened",
   "weather_improved",
-  "extended_bad_weather_3d",
+  "extended_bad_weather",          // → renderWeatherWindow (the extended-window deep page)
+  "extended_bad_weather_3d",       // legacy/phantom key kept for back-compat; the real SPECS type is above
 
   // Events / calendar — verified present in public/action-cards.js SPECS (the types that route to
   // the events deep page / "Paysage événementiel" in insight.astro `_isEvent`).
@@ -53,7 +54,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "foreign_tourism_signal",
 
   // footfall family (→ renderFootfall, the venue's own hourly/weekly CA clock).
-  // footfall_vs_basket_decomposition is a PERFORMANCE/sales card (→ renderSales), listed above.
+  // footfall_vs_basket_decomposition is a PERFORMANCE/sales card (→ renderSalesDecomp, its own deep page).
   "best_day_of_week",
   "ft_peak_bad_weather",
   "ft_quiet_good_weather",

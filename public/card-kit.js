@@ -205,7 +205,10 @@
     var a = j.audience, rows = [];
     if (a.who && a.who.length) rows.push(['Qui', a.who.join(', ')]);
     if (a.catchment) rows.push(['Zone de chalandise', a.catchment]);
-    if (a.peak_hour != null) rows.push(['Heure de pointe', a.peak_hour + 'h' + (a.avg_busyness_pct != null ? ' · affluence moy. ' + a.avg_busyness_pct + ' %' : '')]);
+    // "Pic d'affluence" (foot traffic / BestTime) — deliberately NOT "Heure de pointe": this is when the
+    // most PEOPLE are around, not when you SELL. For many venues the two diverge (e.g. café: sales peak
+    // in the morning, affluence in the evening), so the label must never imply a selling peak.
+    if (a.peak_hour != null) rows.push(['Pic d’affluence', a.peak_hour + 'h' + (a.avg_busyness_pct != null ? ' · fréquentation moy. ' + a.avg_busyness_pct + ' %' : '')]);
     if (a.dwell_max != null) rows.push(['Durée de visite', (a.dwell_min != null ? a.dwell_min + '–' : '') + a.dwell_max + ' min']);
     if (a.availability_label) rows.push(['Disponibilité du jour', a.availability_label]);
     if (!rows.length) return '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>';
@@ -349,6 +352,7 @@
           return { top: d.day, mid: (d.revenue != null ? frInt(Math.round(d.revenue)) + ' €' : ''), highlight: (d.state === 'busy' || d.state === 'quiet'), tone: (d.state === 'quiet' ? 'ok' : (d.state === 'busy' ? 'warn' : 'default')) };
         }));
     }
+    if (j.scale) html += msScale(j.scale);
     if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     return html;
   }
@@ -516,11 +520,98 @@
   }
 
 
+  // footfall_vs_basket_decomposition — "d'où vient le mouvement" : trafic (ventes) vs panier moyen,
+  // the dominant driver highlighted, + the persistent trend and the next steps.
+  function renderSalesDecomp(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Décomposition ventes / panier indisponible pour ce jour.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    if (j.point && j.point.rev != null) {
+      html += '<div style="font-size:12px;color:#9CA3AF;margin-bottom:10px;">CA du jour ' + frInt(j.point.rev) + ' €'
+        + (j.point.avg30 != null ? ' · habituel (30 j) ' + frInt(j.point.avg30) + ' €' : '')
+        + (j.point.rev_vs_pct != null ? ' (' + msPct(j.point.rev_vs_pct) + ')' : '') + '</div>';
+    }
+    if (j.split && j.split.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">D’où vient le mouvement :</div>'
+        + msStrip(j.split.map(function (s) {
+          var mid = (s.delta_pct != null ? msPct(s.delta_pct) : '—') + (s.value ? ' · ' + s.value : '');
+          return { top: s.label, mid: mid, highlight: !!s.dominant, tone: (s.dominant ? 'warn' : 'default') };
+        }));
+    }
+    if (j.trend && j.trend.note) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(j.trend.note) + '</div>';
+    if (j.scale) html += msScale(j.scale);
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    return html;
+  }
+
+  // Shared "Ampleur" block — is this a pattern (recurrence) and is it worth acting on (€/an at stake)?
+  // The € is DESCRIPTIVE (what you spend / what these days represent), never a causal "acting earns +X".
+  function msScale(s) {
+    if (!s || (s.annual_eur == null && !s.headline && !s.enjeu && !s.recurrence)) return '';
+    var out = '<div style="margin:14px 0 0;padding:12px 14px;background:#F8FAFC;border:0.5px solid #E5E7EB;border-radius:10px;">'
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Ampleur</div>';
+    if (s.annual_eur != null) out += '<div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">≈ ' + frInt(Math.round(s.annual_eur)) + ' €'
+      + (s.annual_label ? ' <span style="font-size:12px;font-weight:500;color:#6B7280;">' + esc(s.annual_label) + '</span>' : '') + '</div>';
+    else if (s.headline) out += '<div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">' + esc(s.headline) + '</div>';
+    if (s.enjeu) out += '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(s.enjeu) + '</div>';
+    if (s.recurrence) out += '<div style="font-size:12px;color:#9CA3AF;line-height:1.5;margin-top:6px;">' + esc(s.recurrence) + '</div>';
+    return out + '</div>';
+  }
+
+  // sales_discount_no_lift — "Remises sans effet" : do discount days actually earn more? Compares CA on
+  // high- vs low-discount days; when they don't outperform, the promos are wasted margin.
+  function renderSalesDiscount(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Analyse des remises indisponible pour ce lieu.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    if (j.point && j.point.disc_pct != null) {
+      html += '<div style="font-size:12px;color:#9CA3AF;margin-bottom:10px;">Remise ce jour ' + String(j.point.disc_pct).replace('.', ',') + ' %'
+        + (j.point.base_pct != null ? ' · habituel ' + String(j.point.base_pct).replace('.', ',') + ' %' : '') + '</div>';
+    }
+    if (j.compare && j.compare.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">La remise fait-elle vendre plus ?</div>'
+        + msStrip(j.compare.map(function (c) {
+          return { top: c.label, mid: (c.value || ''), highlight: !!c.dominant, tone: (c.dominant ? 'ok' : (c.bad ? 'danger' : 'default')) };
+        }));
+    }
+    if (j.window && j.window.n) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">Sur ' + j.window.n + ' jours — remise moyenne ' + String(j.window.avg_disc_pct).replace('.', ',') + ' %.</div>';
+    if (j.scale) html += msScale(j.scale);
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    if (j.caveat) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">' + esc(j.caveat) + '</div>';
+    return html;
+  }
+
+  // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
+  // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
+  function renderWeatherWindow(j) {
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de fenêtre météo prolongée à venir.</div>';
+    var html = '';
+    if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    if (j.window && j.window.strip && j.window.strip.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:8px 0 0;">La fenêtre :</div>'
+        + msStrip(j.window.strip.map(function (s) {
+          return { top: s.day, mid: (s.temp || ('niv. ' + s.level)), highlight: !!s.peak, tone: 'warn' };
+        }));
+    }
+    if (j.measured && j.impact) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:12px 0 0;">Votre CA sur ces conditions (mesuré, n=' + j.impact.n + ') :</div>'
+        + msStrip([
+          { top: 'CA', mid: msPct(j.impact.ca_delta), highlight: true, tone: (j.impact.ca_delta >= 0 ? 'ok' : 'danger') },
+          { top: 'Fréquentation', mid: (j.impact.txns_delta != null ? msPct(j.impact.txns_delta) : '—'), tone: 'default' },
+          { top: 'Panier', mid: (j.impact.basket_delta != null ? msPct(j.impact.basket_delta) : '—'), tone: 'default' }
+        ]);
+    }
+    if (j.scale) html += msScale(j.scale);
+    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
+    if (j.caveat) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">' + esc(j.caveat) + '</div>';
+    return html;
+  }
+
   window.MSCardKit = {
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
-    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderEvolution: renderEvolution
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow
   };
 })();
