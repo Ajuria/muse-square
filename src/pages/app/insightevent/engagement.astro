@@ -33,7 +33,7 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=20"></script>
+    <script is:inline src="/card-kit.js?v=21"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -58,6 +58,34 @@ const id = Astro.url.searchParams.get("id") || "";
           var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
           wireAdvice(cm, advice);
           wireCapture(cm, open);
+          wireDiag(cm);
+        }
+
+        // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
+        // re-commits the action on a fresh window via the shared M'engager form (capture loop).
+        function wireDiag(cm) {
+          docEl.querySelectorAll("[data-exec]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              docEl.querySelectorAll("[data-exec]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+            });
+          });
+          var slot = docEl.querySelector("[data-diag-form]");
+          docEl.querySelectorAll("[data-diag-adjust]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              if (!slot || !window.MSCommitForm) return;
+              if (slot.style.display === "block") { slot.style.display = "none"; slot.innerHTML = ""; return; }
+              var pre = { committed_action_text: cm.committed_action_text || "", window_kind: cm.window_kind || "7d" };
+              slot.style.display = "block";
+              slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
+              window.MSCommitForm.wire(slot, {
+                location_id: cm.location_id,
+                prefill: pre,
+                origin: { origin_action_type: cm.origin_action_type || null },
+                onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
+                onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:' + (j && j.ok ? "#166534" : "#b91c1c") + ';">' + (j && j.ok ? "Ajustement engagé. Nouvelle fenêtre de mesure." : ("Erreur : " + esc((j && j.error) || "réessayez"))) + '</div>'; }
+              });
+            });
+          });
         }
 
         function wireCapture(cm, open) {

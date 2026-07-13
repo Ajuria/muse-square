@@ -577,12 +577,71 @@
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
     var q4 = captureHtml(cm, open);
 
+    // ── Diagnostic + advice — shown only when UNDER-performing (open below goal, or resolved missed).
+    // Contexte externe = surfaced from the per-day series + measured weather assoc (confidence via n);
+    // Exécution = an ephemeral self-check (routes advice client-side, no new column); Le levier last.
+    var _dBase = received.length ? (open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0)) : null;
+    var _dCtx = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;
+    var _dAction = _dBase != null ? _dBase - _dCtx : 0;
+    var _dGoal = Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
+    var _under = !!received.length && ((open && _dBase < _dGoal) || (!open && cm.verdict === 'missed'));
+    var diag = '';
+    if (_under) {
+      var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
+      var _pE = series.filter(function (d) { return d.has_data && d.event_count != null && d.event_count > 0; }).length;
+      var _pH = (ctx && ctx.school_days) ? ctx.school_days : series.filter(function (d) { return d.is_school_holiday; }).length;
+      var _bits = [];
+      if (_pW) _bits.push(t('diag_ext_weather', { n: _pW }));
+      if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
+      if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
+      var _notable = _bits.length > 0;
+      var _wa = ctx && ctx.weather_assoc;
+      var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
+      var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
+      var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
+      diag = '<div class="eg-sec">'
+        + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
+        + '<div style="border-left:3px solid #1D3BB3;' + _cs + '">'
+          + _hd('1', t('diag_ext_title'), t('diag_ext_chip_obs'))
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + (_notable ? esc(_bits.join(' · ') + '.') : esc(t('diag_ext_none'))) + '</div>'
+          + (_wm ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(t('diag_ext_weather_meas', { cool: intfr(Math.round(_wa.cool_avg)), mild: intfr(Math.round(_wa.mild_avg)) })) + ' <span style="font-size:11px;color:#1D3BB3;">' + esc(t('diag_ext_chip_meas')) + '</span></div>' : '')
+          + '<div style="font-size:12.5px;line-height:1.5;margin-top:6px;color:' + (_notable ? '#92610a' : '#059669') + ';">' + esc(_notable ? t('diag_ext_partial') : t('diag_ext_calm')) + '</div>'
+        + '</div>'
+        + '<div style="border-left:3px solid #92610a;' + _cs + '">'
+          + _hd('2', t('diag_exec_title'), '')
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:8px 0 10px;">' + esc(t('diag_exec_q')) + '</div>'
+          + '<div style="display:flex;gap:8px;">'
+            + '<button type="button" data-exec="oui" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_yes')) + '</button>'
+            + '<button type="button" data-exec="partie" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_partial')) + '</button>'
+            + '<button type="button" data-exec="non" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_no')) + '</button>'
+          + '</div>'
+        + '</div>'
+        + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:22px;">'
+          + _hd('3', t('diag_lever_title'), '')
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(t('diag_lever_body')) + '</div>'
+        + '</div>'
+        + '<div class="eg-uc">' + esc(t('diag_todo_title')) + '</div>'
+        + '<div style="background:#F5F8FF;border:1px solid #DBEAFE;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:200px;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(t('diag_reinforce_title')) + ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span></div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:4px;">' + esc(t('diag_reinforce_body')) + '</div></div>'
+          + '<button type="button" data-diag-adjust style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:8px 14px;white-space:nowrap;cursor:pointer;font-family:inherit;">' + esc(t('diag_cta')) + '</button>'
+        + '</div></div>'
+        + '<div style="background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:200px;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(t('diag_adjust_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:4px;">' + esc(t('diag_adjust_body')) + '</div></div>'
+          + '<button type="button" data-diag-adjust style="font-size:12.5px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;padding:8px 14px;white-space:nowrap;cursor:pointer;font-family:inherit;">' + esc(t('diag_cta')) + '</button>'
+        + '</div></div>'
+        + '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-bottom:10px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>'
+        + '<div data-diag-form style="display:none;margin-bottom:10px;"></div>'
+        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
+      + '</div>';
+    }
+
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
     srcRows.push(prov.track_record ? t('src_track_record', { beat: prov.track_record.beat, done: prov.track_record.done }) : t('src_track_pending'));
     var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
       + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
 
-    return head + q1 + q3 + q4 + sources;
+    return head + q1 + diag + (_under ? '' : q3) + q4 + sources;
   }
 
 
