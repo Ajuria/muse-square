@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Freshness gate for docs/module-index.md — blocks a commit that adds/removes an
+# indexed code file (endpoint / lib / script / static client JS) without staging
+# the index. Delegates to scripts/index-freshness-check.sh so the rule is shared
+# with CI. Bypass a genuine false positive with:  git commit --no-verify
+#
+# Enable per clone:  git config core.hooksPath .githooks
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+RULE="$ROOT/scripts/index-freshness-check.sh"
+[ -x "$RULE" ] || exit 0
+
+git diff --cached --name-status | "$RULE" \
+  "docs/module-index.md" \
+  '^(src/pages/api/|src/lib/|src/scripts/).*\.(ts|tsx|js|cjs|mjs)$|^public/(scripts/)?[^/]+\.js$'

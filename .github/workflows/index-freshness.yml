@@ -1,0 +1,41 @@
+name: index-freshness
+
+# Enforce that changes to indexed code ship with a docs/module-index.md update.
+# Mirrors .githooks/pre-commit via the same scripts/index-freshness-check.sh rule.
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  module-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check module-index freshness
+        run: |
+          base='${{ steps.range.outputs.base }}'
+          head='${{ steps.range.outputs.head }}'
+          # New branch / first push has no valid base commit — nothing to diff.
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "No base commit to diff against; skipping."
+            exit 0
+          fi
+          git diff --name-status "$base" "$head" \
+            | bash scripts/index-freshness-check.sh \
+                docs/module-index.md \
+                '^(src/pages/api/|src/lib/|src/scripts/).*\.(ts|tsx|js|cjs|mjs)$|^public/(scripts/)?[^/]+\.js$'

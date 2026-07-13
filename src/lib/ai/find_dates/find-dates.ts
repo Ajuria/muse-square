@@ -1,4 +1,5 @@
 import { makeBQClient } from "../../bq";
+import { modelFor } from "../models";
 
 export interface FindDatesParams {
   location_id: string;
@@ -252,7 +253,7 @@ export async function findDates(params: FindDatesParams): Promise<FindDatesResul
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.CLAUDE_MODEL_ENRICHMENT ?? "claude-haiku-4-5-20251001",
+      model: modelFor("enrichment"),
       max_tokens: 1000,
       system: systemPrompt,
       messages: [{ role: "user", content: JSON.stringify(userPayload) }],

@@ -1,0 +1,80 @@
+---
+// Family REPORT page — the rich analysis surface for an insight card family (the sales-report /
+// rapport.astro model, generalized). Reads ?location_id&date&family, calls /api/insight/family-report
+// (the shared family PROVIDERS), and renders each section via the SAME MSCardKit.render<Family> the
+// deep pages + harness use. This is where the chat's concise family answer sends the operator for depth.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const location_id = Astro.url.searchParams.get("location_id") || "";
+const date = Astro.url.searchParams.get("date") || "";
+const family = Astro.url.searchParams.get("family") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Rapport — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="fr-root" data-location={location_id} data-date={date} data-family={family}>
+      <div id="fr-toolbar">
+        <button class="fr-back" onclick="history.back()">← Retour</button>
+      </div>
+      <div id="fr-status">Chargement du rapport…</div>
+      <div id="fr-doc" style="display:none;"></div>
+    </div>
+
+    <style is:global>
+      #fr-root { max-width: 680px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #fr-toolbar { margin-bottom: 16px; }
+      .fr-back { font-size: 14px; color: #6b7280; background: none; border: none; cursor: pointer; padding: 0; font-family: inherit; }
+      #fr-status { padding: 60px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+      .fr-zone { background: #fff; border: 0.5px solid #E5E7EB; border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+      .fr-zh { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1D3BB3; margin: 0 0 12px; }
+      .fr-date { font-size: 12px; color: #9CA3AF; margin: 0 0 14px; }
+    </style>
+
+    <script is:inline src="/card-kit.js?v=14"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("fr-root");
+        var statusEl = document.getElementById("fr-status");
+        var docEl = document.getElementById("fr-doc");
+        var location_id = root.dataset.location, date = root.dataset.date, family = root.dataset.family;
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function frDate(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? (m[3] + "/" + m[2] + "/" + m[1]) : String(iso || ""); }
+        function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
+
+        if (!location_id || !date) { showError("Rapport indisponible (paramètres manquants)."); return; }
+
+        fetch("/api/insight/family-report", {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ location_id: location_id, date: date, families: family ? [family] : undefined }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (!j || !j.ok) { showError((j && j.error) || "Rapport indisponible."); return; }
+            var sections = j.sections || [];
+            if (!sections.length) { showError("Pas de données pour ce rapport."); return; }
+            var html = '<div class="fr-date">' + esc(frDate(j.date)) + '</div>';
+            sections.forEach(function (s) {
+              var fn = window.MSCardKit && window.MSCardKit[s.render];
+              // renderX expects the ENDPOINT response shape { ok, found, ... }; provider `data` carries
+              // `found` but not `ok`, so reconstruct it here (the report is standing in for the endpoint).
+              var body = (typeof fn === "function") ? fn(Object.assign({ ok: true }, s.data)) : '<div style="font-size:12.5px;color:#9CA3AF;">Rendu indisponible.</div>';
+              html += '<div class="fr-zone"><div class="fr-zh">' + esc(s.title) + '</div>' + body + '</div>';
+            });
+            docEl.innerHTML = html;
+            docEl.style.display = "block";
+            statusEl.style.display = "none";
+          })
+          .catch(function () { showError("Erreur lors du chargement du rapport."); });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

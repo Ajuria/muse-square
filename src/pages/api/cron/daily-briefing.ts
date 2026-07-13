@@ -1,32 +1,35 @@
 // src/pages/api/cron/daily-briefing.ts
 /*
-  CRON JOB — Daily Briefing Email (v4)
+  CRON JOB — Point du jour (daily briefing email) — Phase 3: GROUNDED on the brain.
 
-  "Your most customized local business morning brief"
+  Schedule: daily 06:00 Europe/Paris. Sends only on a material signal (no email on quiet days).
 
-  Schedule: daily 06:00 Europe/Paris via cron-job.org
-  Send logic: only when material change detected (smart frequency)
+  Per location: assembleDayContext('brief' slice) is the ONE source of day context (no ad-hoc
+  score/weather/competitor queries). The "Point du jour" narrative is grounded — toGroundedDayPayload
+  → runAIPackagerClaude('grounded_day') @ modelFor('briefing') (Haiku) — so it cites ONLY the brain's
+  claim-typed citable_facts and the validator rejects anything ungrounded (regenerate once → deterministic
+  floor). Yesterday's score is one extra read, made a citable fact for the day-over-day delta.
 
-  Material change triggers:
-  - Score delta ≥ 0.3 (up or down)
-  - New competitor event detected (crawled in last 24h)
-  - Weather alert level ≥ 2
-  - Saved event J-7, J-3, or J-0
-  - Competitor crawl failure (new, not repeated)
+  Material gate (v1 tunable): acute weather, commercial moment, competitor change, |Δscore|≥0.3, or a
+  saved-event milestone (J-7/J-3/J-0). NOT "a card exists" (cards fire almost everywhere).
 
-  Structure:
-  1. HERO — Score + weather + one-line verdict
-  2. VOS ACTIONS — Saved events with countdown, score changes, decisions due
-  3. LE POINT DU JOUR — AI narrative (Claude Haiku) synthesizing all signals
-  4. CE QUI BOUGE — Competitor intelligence, only if deltas exist
-  5. FOOTER — Veille health + CTA
+  Structure: HERO (score+weather+operator-first verdict) · acute weather banner · Vos actions (saved
+  events, user-curated) · Le point du jour (grounded narrative) · Ce qui bouge (fired competitor signals).
+  Crawl-health / stale-surveillance dropped from the operator brief (internal ops, not day context).
 */
 
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { Resend } from "resend";
-import { randomUUID } from "crypto";
+import { assembleDayContext } from "../../../lib/dayContext";
+import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
+import { modelFor } from "../../../lib/ai/models";
+import { isMaterialBriefing } from "../../../lib/ai/briefingGate";
+
+// French decimal: 7.4 -> "7,4" (never a raw JS toString on user-facing numbers)
+const frNum = (n: number): string => String(Math.round(n * 10) / 10).replace(".", ",");
 
 export const prerender = false;
 
@@ -50,14 +53,6 @@ function weatherEmoji(code: number | null): string {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function fmtDate(val: any): string {
-  const s = val?.value ?? val ?? "";
-  if (!s) return "—";
-  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return String(s);
-  const months = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
-  return `${parseInt(m[3])} ${months[parseInt(m[2]) - 1]} ${m[1]}`;
-}
 
 function fmtDateShort(val: any): string {
   const s = val?.value ?? val ?? "";
@@ -113,24 +108,7 @@ interface SavedEvent {
   days_until: number;
 }
 
-interface CompetitorChange {
-  competitor_name: string;
-  event_name: string | null;
-  distance_km: number | null;
-  extraction_status: string;
-  crawled_at: string;
-  primary_audience: string | null;
-  event_date: string | null;
-  event_date_end: string | null;
-}
 
-interface CrawlHealth {
-  total_competitors: number;
-  crawled_ok: number;
-  crawled_failed: number;
-  events_detected: number;
-  failed_names: string[];
-}
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
@@ -208,54 +186,10 @@ export const GET: APIRoute = async ({ request }) => {
       };
 
       try {
-        // ── Step 2: Gather data for this user ───────────────────────────────
+        // ── Phase 3: the brain (brief slice) is the ONE source of day context. ──
+        const dc = await assembleDayContext(bq, user.location_id, today, { slice: "brief" });
 
-        // 2a. Today's score + yesterday's score
-        const [scoreRows] = await bq.query({
-          query: `
-            SELECT
-              date,
-              opportunity_score_final_local,
-              opportunity_regime,
-              opportunity_medal,
-              alert_level_max,
-              lvl_wind, lvl_rain, lvl_snow, lvl_heat, lvl_cold,
-              impact_weather_pct,
-              competition_index_local,
-              events_within_5km_count,
-              is_school_holiday_flag,
-              is_public_holiday_flag,
-              is_weekend_flag
-            FROM \`${projectId}.mart.fct_location_context_features_daily\`
-            WHERE location_id = @location_id
-              AND date IN (DATE(@today), DATE(@yesterday))
-          `,
-          params: { location_id: user.location_id, today, yesterday },
-          location: BQ_LOCATION,
-        });
-
-        const todayScore = (scoreRows as any[]).find((r: any) => String(r.date?.value ?? r.date).startsWith(today));
-        const yesterdayScore = (scoreRows as any[]).find((r: any) => String(r.date?.value ?? r.date).startsWith(yesterday));
-
-        const scoreToday = Number(todayScore?.opportunity_score_final_local ?? 0);
-        const scoreYesterday = Number(yesterdayScore?.opportunity_score_final_local ?? 0);
-        const scoreDelta = scoreToday - scoreYesterday;
-
-        // 2b. Weather for today
-        const [weatherRows] = await bq.query({
-          query: `
-            SELECT weather_code, weather_label_fr, temperature_2m_max, temperature_2m_min,
-                   wind_speed_10m_max, rain_sum_mm, precipitation_probability_max_pct
-            FROM \`${projectId}.mart.fct_location_weather_forecast_daily_detail\`
-            WHERE location_id = @location_id AND date = DATE(@today)
-            LIMIT 1
-          `,
-          params: { location_id: user.location_id, today },
-          location: BQ_LOCATION,
-        });
-        const weather = (weatherRows as any[])[0] ?? null;
-
-        // 2c. Saved events within 30 days
+        // Saved events (user-curated — its own section, never a venue claim).
         const [savedRows] = await bq.query({
           query: `
             SELECT
@@ -271,7 +205,6 @@ export const GET: APIRoute = async ({ request }) => {
           params: { clerk_user_id: user.clerk_user_id, location_id: user.location_id },
           location: BQ_LOCATION,
         });
-
         const savedEvents: SavedEvent[] = (savedRows as any[]).map((r: any) => ({
           saved_item_id: String(r.saved_item_id),
           title: String(r.title ?? ""),
@@ -281,242 +214,52 @@ export const GET: APIRoute = async ({ request }) => {
           days_until: Number(r.days_until),
         }));
 
-        // 2d. Competitor changes in last 24h
-        const [compRows] = await bq.query({
-          query: `
-            SELECT
-              cd.competitor_name,
-              ce.event_name,
-              ROUND(ce.distance_from_location_m / 1000, 1) AS distance_km,
-              ce.extraction_status,
-              ce.crawled_at,
-              ce.primary_audience,
-              ce.event_date,
-              ce.event_date_end
-            FROM \`${projectId}.raw.competitor_events\` ce
-            JOIN \`${projectId}.raw.competitor_directory\` cd
-              ON ce.competitor_id = cd.competitor_id
-            WHERE ce.location_id = @location_id
-              AND ce.crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
-            ORDER BY ce.crawled_at DESC
-          `,
-          params: { location_id: user.location_id },
+        // Yesterday's opportunity score — ONE read, for the day-over-day delta (made a citable fact).
+        const [yRows] = await bq.query({
+          query: `SELECT opportunity_score_final_local AS s FROM \`${projectId}.semantic.vw_insight_event_day_surface\` WHERE location_id = @location_id AND date = DATE(@yesterday) LIMIT 1`,
+          params: { location_id: user.location_id, yesterday },
           location: BQ_LOCATION,
         });
+        const scoreToday: number | null = dc.day_surface?.opportunity?.score ?? null;
+        const yRaw = (yRows as any[])[0];
+        const scoreYesterday: number | null = yRaw ? Number(yRaw.s?.value ?? yRaw.s) : null;
+        const scoreDelta: number | null = (scoreToday != null && scoreYesterday != null) ? Math.round((scoreToday - scoreYesterday) * 10) / 10 : null;
 
-        const competitorChanges: CompetitorChange[] = (compRows as any[]).map((r: any) => ({
-          competitor_name: String(r.competitor_name ?? ""),
-          event_name: r.event_name ?? null,
-          distance_km: r.distance_km ?? null,
-          extraction_status: String(r.extraction_status ?? ""),
-          crawled_at: String(r.crawled_at?.value ?? r.crawled_at ?? ""),
-          primary_audience: r.primary_audience ?? null,
-          event_date: r.event_date?.value ?? r.event_date ?? null,
-          event_date_end: r.event_date_end?.value ?? r.event_date_end ?? null,
-        }));
+        // Competitor changes = the brain's fired signals (change feed), NOT the ad-hoc crawl read.
+        const competitorChanges = dc.signals.changes.filter((c: any) => c.event_label && c.change_type !== "opportunity" && c.change_type !== "planning");
 
-        // 2e. Crawl health summary
-        const [healthRows] = await bq.query({
-          query: `
-            WITH latest AS (
-              SELECT
-                ce.competitor_id,
-                cd.competitor_name,
-                ce.extraction_status,
-                ce.event_name,
-                ROW_NUMBER() OVER (PARTITION BY ce.competitor_id ORDER BY ce.crawled_at DESC) AS rn
-              FROM \`${projectId}.raw.competitor_events\` ce
-              JOIN \`${projectId}.raw.competitor_directory\` cd ON ce.competitor_id = cd.competitor_id
-              JOIN \`${projectId}.raw.watched_competitors\` wc ON ce.competitor_id = wc.competitor_id
-                AND wc.clerk_user_id = @clerk_user_id AND wc.deleted_at IS NULL
-              WHERE ce.location_id = @location_id
-            )
-            SELECT
-              COUNT(DISTINCT competitor_id) AS total,
-              COUNTIF(rn = 1 AND extraction_status = 'success') AS ok,
-              COUNTIF(rn = 1 AND extraction_status IN ('failed', 'fetch_error')) AS failed,
-              COUNTIF(extraction_status = 'success' AND event_name IS NOT NULL) AS events_detected,
-              ARRAY_AGG(CASE WHEN rn = 1 AND extraction_status IN ('failed', 'fetch_error') THEN competitor_name END IGNORE NULLS) AS failed_names
-            FROM latest
-          `,
-          params: { clerk_user_id: user.clerk_user_id, location_id: user.location_id },
-          location: BQ_LOCATION,
-        });
+        // ── Material-signal gate (re-sourced from the brain). No email on genuinely quiet days. ──
+        //    Pure, unit-tested logic in briefingGate.ts (see briefingGate.test.ts).
+        const material = isMaterialBriefing({ dc, competitorChanges, scoreDelta, savedEvents });
+        if (!material) { results.skipped++; continue; }
 
-        const healthRaw = (healthRows as any[])[0] ?? {};
-        const crawlHealth: CrawlHealth = {
-          total_competitors: Number(healthRaw.total ?? 0),
-          crawled_ok: Number(healthRaw.ok ?? 0),
-          crawled_failed: Number(healthRaw.failed ?? 0),
-          events_detected: Number(healthRaw.events_detected ?? 0),
-          failed_names: Array.isArray(healthRaw.failed_names) ? healthRaw.failed_names.filter(Boolean) : [],
-        };
-
-        // 2f. Stale surveillance detection — competitors not crawled in 3+ days
-        const [staleRows] = await bq.query({
-          query: `
-            SELECT cd.competitor_name,
-              TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(ce.crawled_at), DAY) AS days_since_crawl
-            FROM \`${projectId}.raw.watched_competitors\` wc
-            JOIN \`${projectId}.raw.competitor_directory\` cd
-              ON wc.competitor_id = cd.competitor_id AND cd.deleted_at IS NULL
-            LEFT JOIN \`${projectId}.raw.competitor_events\` ce
-              ON cd.competitor_id = ce.competitor_id AND ce.extraction_status IN ('success', 'partial')
-            WHERE wc.clerk_user_id = @clerk_user_id AND wc.deleted_at IS NULL
-            GROUP BY cd.competitor_name
-            HAVING MAX(ce.crawled_at) IS NULL
-              OR TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(ce.crawled_at), DAY) >= 3
-          `,
-          params: { clerk_user_id: user.clerk_user_id },
-          location: BQ_LOCATION,
-        });
-        const staleCompetitors: string[] = (staleRows as any[]).map((r: any) => String(r.competitor_name));
-
-        // 2f. Score per saved event date (today vs yesterday)
-        const eventScores: Record<string, { today: number; yesterday: number }> = {};
-        for (const evt of savedEvents) {
-          const evtDate = evt.selected_date;
-          const evtYesterday = (() => {
-            const d = new Date(evtDate + "T12:00:00");
-            d.setDate(d.getDate() - 1);
-            return d.toISOString().slice(0, 10);
-          })();
-          const [evtScoreRows] = await bq.query({
-            query: `
-              SELECT date, opportunity_score_final_local
-              FROM \`${projectId}.mart.fct_location_context_features_daily\`
-              WHERE location_id = @location_id AND date IN (DATE(@d1), DATE(@d2))
-            `,
-            params: { location_id: user.location_id, d1: evtDate, d2: evtYesterday },
-            location: BQ_LOCATION,
-          });
-          const todayRow = (evtScoreRows as any[]).find((r: any) => String(r.date?.value ?? r.date).startsWith(evtDate));
-          const yesterdayRow = (evtScoreRows as any[]).find((r: any) => String(r.date?.value ?? r.date).startsWith(evtYesterday));
-          eventScores[evtDate] = {
-            today: Number(todayRow?.opportunity_score_final_local ?? 0),
-            yesterday: Number(yesterdayRow?.opportunity_score_final_local ?? 0),
-          };
+        // ── Grounded Point du jour (adapter -> grounded packager @ Haiku). Regenerate once on reject,
+        //    else a deterministic grounded line. Never an ungrounded free narrative.
+        const deltaFact = (scoreToday != null && scoreYesterday != null && scoreDelta != null)
+          ? [{ fact_fr: `Score du jour ${frNum(scoreToday)} — ${scoreDelta >= 0 ? "+" : ""}${frNum(scoreDelta)} vs hier (${frNum(scoreYesterday)})`, claim_type: "observed" as const }]
+          : [];
+        const grounded = toGroundedDayPayload(dc, { question: "Votre point du jour : qu'est-ce qui compte aujourd'hui ?", date: today, extraFacts: deltaFact });
+        let g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
+        if (!g.ok) g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
+        const grounded_out = g.ok ? g.output : null;
+        // The action is the REAL fired action card (top action_candidate), never an LLM-invented geste.
+        if (grounded_out) {
+          const topCard = (dc.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
+          grounded_out.suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
         }
 
-        // ── Step 3: Material change detection ─────────────────────────────
-
-        const hasScoreChange = Math.abs(scoreDelta) >= 0.3;
-        const hasWeatherAlert = Number(todayScore?.alert_level_max ?? 0) >= 2;
-        const hasNewCompetitorEvent = competitorChanges.some(c => c.extraction_status === "success" && c.event_name);
-        const hasNewCrawlFailure = competitorChanges.some(c => c.extraction_status === "failed" || c.extraction_status === "fetch_error");
-        const hasEventMilestone = savedEvents.some(e => [0, 3, 7].includes(e.days_until));
-        const hasEventScoreChange = Object.values(eventScores).some(s => Math.abs(s.today - s.yesterday) >= 0.3);
-        const hasStaleSurveillance = staleCompetitors.length > 0;
-
-        const hasMaterialChange = hasScoreChange || hasWeatherAlert || hasNewCompetitorEvent || hasEventMilestone || hasEventScoreChange || hasStaleSurveillance;
-
-        if (!hasMaterialChange) {
-          results.skipped++;
-          continue;
-        }
-
-        // ── Step 4: Claude Haiku narrative ─────────────────────────────────
-
-        const audienceLabel = user.primary_audience_1
-          ? { families: "familles", professionals: "professionnels", tourists: "touristes", students: "étudiants", seniors: "seniors", locals: "résidents locaux" }[user.primary_audience_1] ?? user.primary_audience_1
-          : null;
-
-        const narrativePayload = {
-          date: today,
-          day_of_week: dayOfWeekFr(today),
-          city: user.city_name,
-          score_today: scoreToday,
-          score_yesterday: scoreYesterday,
-          score_delta: Math.round(scoreDelta * 10) / 10,
-          regime: todayScore?.opportunity_regime ?? null,
-          weather: weather ? {
-            label: weather.weather_label_fr,
-            temp_max: weather.temperature_2m_max,
-            temp_min: weather.temperature_2m_min,
-            wind_max: weather.wind_speed_10m_max,
-            rain_mm: weather.rain_sum_mm,
-            precip_prob: weather.precipitation_probability_max_pct,
-          } : null,
-          alert_level_max: Number(todayScore?.alert_level_max ?? 0),
-          is_school_holiday: Boolean(todayScore?.is_school_holiday_flag),
-          is_public_holiday: Boolean(todayScore?.is_public_holiday_flag),
-          is_weekend: Boolean(todayScore?.is_weekend_flag),
-          events_5km: Number(todayScore?.events_within_5km_count ?? 0),
-          audience: audienceLabel,
-          saved_events: savedEvents.map(e => ({
-            title: e.title,
-            date: e.selected_date,
-            days_until: e.days_until,
-            score_today: eventScores[e.selected_date]?.today ?? null,
-            score_delta: eventScores[e.selected_date] ? Math.round((eventScores[e.selected_date].today - eventScores[e.selected_date].yesterday) * 10) / 10 : null,
-            decision_date: e.decision_date,
-          })),
-          competitor_news: competitorChanges
-            .filter(c => c.extraction_status === "success" && c.event_name)
-            .slice(0, 3)
-            .map(c => ({
-              competitor: c.competitor_name,
-              event: c.event_name,
-              distance_km: c.distance_km,
-              audience: c.primary_audience,
-              date_range: c.event_date ? `${c.event_date}${c.event_date_end ? ' → ' + c.event_date_end : ''}` : null,
-            })),
-          crawl_failures: crawlHealth.failed_names.slice(0, 2),
-          stale_surveillance: staleCompetitors.slice(0, 3),
-        };
-
-        const narrativeSystem = `Tu es le rédacteur du briefing matinal de Muse Square Insight — une plateforme d'intelligence locale pour les professionnels de l'événementiel en France. Tu rédiges un briefing de 3 paragraphes courts (2-3 phrases chacun), factuel, opérationnel, chaleureux mais pas marketing. Chaque paragraphe commence par une phrase en gras qui résume le point clé pour un lecteur pressé. Tu t'adresses directement à l'utilisateur ("votre score", "votre zone"). Tu ne répètes jamais des données brutes — tu les interprètes en impact business. Tu réponds UNIQUEMENT avec le texte HTML des 3 paragraphes (balises <p> avec <strong> pour les leads), sans JSON, sans markdown, sans préambule.`;
-
-        let narrative = "";
-        try {
-          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-              "anthropic-version": "2023-06-01",
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 600,
-              system: narrativeSystem,
-              messages: [{ role: "user", content: JSON.stringify(narrativePayload) }],
-            }),
-          });
-          const aiData = await aiRes.json();
-          const textBlock = aiData.content?.filter((b: any) => b.type === "text").pop();
-          narrative = textBlock?.text ?? "";
-        } catch (e) {
-          console.error("[daily-briefing] Claude narrative failed:", e);
-          narrative = `<p><strong>Score du jour : ${scoreToday}/10</strong> — ${scoreDelta >= 0 ? "en hausse" : "en baisse"} par rapport à hier.</p>`;
-        }
-
-        // ── Step 5: Build subject line ────────────────────────────────────
-
-        const urgentEvent = savedEvents.find(e => e.days_until <= 3);
+        // ── Subject line ──
+        const urgentEvent = savedEvents.find((e) => e.days_until <= 3);
+        const scoreLabel = scoreToday != null ? `${frNum(scoreToday)}/10` : "";
         const subject = urgentEvent
-          ? `J-${urgentEvent.days_until} ${urgentEvent.title} · ${scoreToday}/10`
-          : hasNewCompetitorEvent
-            ? `Nouveau concurrent détecté · ${scoreToday}/10`
-            : `${esc(user.city_name ?? "Votre zone")} · ${scoreToday}/10 ${scoreDelta >= 0.3 ? "↑" : scoreDelta <= -0.3 ? "↓" : ""}`;
+          ? `J-${urgentEvent.days_until} ${urgentEvent.title}${scoreLabel ? " · " + scoreLabel : ""}`
+          : competitorChanges.length > 0
+            ? `Mouvement concurrent${scoreLabel ? " · " + scoreLabel : ""}`
+            : `${esc(user.city_name ?? "Votre zone")}${scoreLabel ? " · " + scoreLabel : ""}${scoreDelta != null && scoreDelta >= 0.3 ? " ↑" : scoreDelta != null && scoreDelta <= -0.3 ? " ↓" : ""}`;
 
-        // ── Step 6: Build HTML ────────────────────────────────────────────
-
+        // ── Build HTML ──
         const html = buildBriefingHtml({
-          user,
-          today,
-          scoreToday,
-          scoreYesterday,
-          scoreDelta,
-          regime: String(todayScore?.opportunity_regime ?? ""),
-          medal: String(todayScore?.opportunity_medal ?? ""),
-          weather,
-          savedEvents,
-          eventScores,
-          competitorChanges,
-          crawlHealth,
-          narrative,
-          baseUrl,
+          user, today, dc, scoreToday, scoreDelta, savedEvents, competitorChanges, grounded: grounded_out, baseUrl,
         });
 
         // ── Step 7: Send ──────────────────────────────────────────────────
@@ -566,259 +309,169 @@ export const GET: APIRoute = async ({ request }) => {
 interface BriefingData {
   user: UserContext;
   today: string;
-  scoreToday: number;
-  scoreYesterday: number;
-  scoreDelta: number;
-  regime: string;
-  medal: string;
-  weather: any;
+  dc: any;                       // the brain payload (brief slice) — the ONE source for day context
+  scoreToday: number | null;
+  scoreDelta: number | null;
   savedEvents: SavedEvent[];
-  eventScores: Record<string, { today: number; yesterday: number }>;
-  competitorChanges: CompetitorChange[];
-  crawlHealth: CrawlHealth;
-  narrative: string;
+  competitorChanges: any[];      // dc.signals.changes (fired change feed)
+  grounded: any | null;          // grounded_day packager output (headline/answer/key_facts/caveats)
   baseUrl: string;
 }
 
-function buildBriefingHtml(d: BriefingData): string {
-  const { user, today, scoreToday, scoreDelta, regime, medal, weather, savedEvents, eventScores, competitorChanges, crawlHealth, narrative, baseUrl } = d;
-  const firstName = user.first_name ?? "vous";
+// Grounded narrative -> HTML. Operator-first (headline leads with what matters), honest-absence
+// (no grounded output -> a plain "rien de majeur" line, never a fabricated paragraph). French throughout;
+// the facts already carry "estimé" where the brain marked an estimate.
+function renderGroundedNarrative(g: any): string {
+  if (!g || (!g.headline && !g.answer)) {
+    return `<p style="margin:0;color:#6b7280;">Rien de majeur à signaler aujourd'hui — conditions dans la norme.</p>`;
+  }
+  let h = "";
+  // Lead: the synthesized takeaway (why today matters).
+  if (g.headline) h += `<p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#111827;line-height:1.5;">${esc(g.headline)}</p>`;
+  // The 2-3 salient facts behind it.
+  if (g.answer) h += `<p style="margin:0 0 12px 0;">${esc(g.answer)}</p>`;
+  const kf = Array.isArray(g.key_facts) ? g.key_facts.filter(Boolean) : [];
+  if (kf.length) {
+    h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 8px 0;">` +
+      kf.slice(0, 3).map((f: string) =>
+        `<tr><td width="14" valign="top" style="color:#0b37e5;font-size:13px;line-height:1.7;">•</td><td style="font-size:13.5px;color:#374151;line-height:1.7;padding-bottom:3px;">${esc(f)}</td></tr>`
+      ).join("") + `</table>`;
+  }
+  // The action: the REAL fired action card, highlighted (honest-absence — hidden when none fired).
+  const action = typeof g.suggested_action === "string" ? g.suggested_action.trim() : "";
+  if (action) {
+    h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 4px 0;"><tr>
+      <td width="5" style="background:#0b37e5;font-size:1px;">&nbsp;</td>
+      <td style="background:#eef2ff;padding:13px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13.5px;color:#1e3a8a;line-height:1.6;">
+        <span style="display:block;font-weight:700;letter-spacing:0.06em;font-size:10px;text-transform:uppercase;color:#0b37e5;margin-bottom:5px;">Action à mener</span>${esc(action)}
+      </td></tr></table>`;
+  }
+  const cav = Array.isArray(g.caveats) ? g.caveats.filter(Boolean) : [];
+  if (cav.length) h += `<p style="margin:10px 0 0 0;font-size:12.5px;color:#9ca3af;">${esc(cav.join(" · "))}</p>`;
+  return h;
+}
+
+export function buildBriefingHtml(d: BriefingData): string {
+  const { user, today, dc, scoreToday, scoreDelta, savedEvents, competitorChanges, grounded, baseUrl } = d;
   const dateLabel = `${dayOfWeekFr(today)} ${fmtDateShort(today)}`;
   const cityLabel = user.city_name ?? "";
 
-  const weatherIcon = weatherEmoji(weather?.weather_code ?? null);
-  const tempMax = weather?.temperature_2m_max != null ? `${Math.round(weather.temperature_2m_max)}°C` : "—";
-  const weatherLabel = weather?.weather_label_fr ?? "";
+  const opp = dc?.day_surface?.opportunity ?? {};
+  const wx = dc?.day_surface?.weather_surface ?? {};
+  const scoreStr = scoreToday != null ? frNum(scoreToday) : "—";
+  const regime = opp.regime ?? "";
+  const medal = opp.medal ?? "";
+  const regimeLabel = medal ? `${esc(regime)} (${esc(medal)})` : esc(regime);
+  const scoreTrend = scoreDelta == null ? "" : scoreDelta >= 0.3 ? "En hausse" : scoreDelta <= -0.3 ? "En baisse" : "Stable";
+  const weatherIcon = weatherEmoji(wx.code ?? null);
+  const tempMax = wx.temp_max != null ? `${Math.round(Number(wx.temp_max))}°C` : "—";
+  const weatherLabel = wx.label_fr ?? "";
 
-  const scoreTrend = scoreDelta >= 0.3 ? "En hausse" : scoreDelta <= -0.3 ? "En baisse" : "Stable";
-  const regimeLabel = medal ? `${regime} (${medal})` : regime;
+  // Operator-first verdict chip line — the material signals, leading; the score-delta is supporting.
+  const chips: string[] = [];
+  if (dc?.weather_alert) chips.push(`Alerte météo niv. ${dc.weather_alert.level}`);
+  if (Array.isArray(dc?.commercial_events) && dc.commercial_events.length) chips.push(esc(dc.commercial_events[0]));
+  if (competitorChanges.length) chips.push(`${competitorChanges.length} mouvement${competitorChanges.length > 1 ? "s" : ""} concurrent${competitorChanges.length > 1 ? "s" : ""}`);
+  const urgentEvent = savedEvents.find((e) => e.days_until <= 3);
+  if (urgentEvent) chips.push(`J-${urgentEvent.days_until} ${esc(urgentEvent.title)}`);
+  if (scoreDelta != null && Math.abs(scoreDelta) >= 0.3) chips.push(`Score ${scoreDelta >= 0 ? "+" : ""}${frNum(scoreDelta)} vs hier`);
+  const verdictLine = chips.length ? chips.join(" · ") : "Conditions dans la norme";
 
-  // ── Verdict one-liner ──
-  const verdictParts: string[] = [];
-  if (scoreDelta >= 0.3) verdictParts.push("Score en hausse");
-  else if (scoreDelta <= -0.3) verdictParts.push("Score en baisse");
-  else verdictParts.push("Conditions stables");
-  if (weatherLabel) verdictParts.push(weatherLabel);
-  const urgentEvent = savedEvents.find(e => e.days_until <= 3);
-  if (urgentEvent) verdictParts.push(`J-${urgentEvent.days_until} ${urgentEvent.title}`);
-  const newCompEvents = competitorChanges.filter(c => c.extraction_status === "success" && c.event_name);
-  if (newCompEvents.length > 0) verdictParts.push(`${newCompEvents.length} nouveau${newCompEvents.length > 1 ? "x" : ""} concurrent${newCompEvents.length > 1 ? "s" : ""}`);
-  if (d.crawlHealth.failed_names.length > 0) verdictParts.push(`${d.crawlHealth.failed_names.length} veille${d.crawlHealth.failed_names.length > 1 ? "s" : ""} interrompue${d.crawlHealth.failed_names.length > 1 ? "s" : ""}`);
+  // Acute weather banner (observed_acute) — distinct register, present only when the brain flagged it.
+  const acuteBanner = dc?.weather_alert
+    ? `<tr><td style="background:#ffffff;padding:16px 40px 0 40px;"><div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;font-weight:600;color:#991b1b;">Alerte météo niveau ${dc.weather_alert.level} aujourd'hui${dc.weather_alert.apparent_temp_max != null ? ` — ${Math.round(Number(dc.weather_alert.apparent_temp_max))} °C ressenti` : ""}</div></td></tr>`
+    : "";
 
-  // ── Actions HTML ──
-  const actionsHtml = savedEvents.map(evt => {
-    const scores = eventScores[evt.selected_date];
-    const evtDelta = scores ? Math.round((scores.today - scores.yesterday) * 10) / 10 : 0;
-    const evtScore = scores?.today ?? 0;
+  // Saved events (user-curated) — own section, simplified (no per-event score fork).
+  const actionsHtml = savedEvents.map((evt) => {
     const isUrgent = evt.days_until <= 3;
-    const needsReeval = Math.abs(evtDelta) >= 0.3 && evtDelta < 0;
     const isPlanifier = evt.stage === "planifier" || evt.stage === "PLANIFIER";
-
-    let borderColor = "#d1d5db";
-    let bgColor = "#f9fafb";
-    let labelColor = "#9ca3af";
-    let labelText = `J-${evt.days_until}`;
-    let btnLabel = "Suivi";
-    let btnStyle = "border:1px solid #d1d5db;background:#ffffff;color:#374151;";
-
-    if (needsReeval || isPlanifier) {
-      borderColor = "#BA7517";
-      bgColor = "#FFFBF5";
-      labelColor = "#854F0B";
-      labelText = isPlanifier ? "À VALIDER" : "À RÉÉVALUER";
-      btnLabel = "Évaluer";
-      btnStyle = "background:#111827;color:#ffffff;border:none;";
-    } else if (isUrgent) {
-      borderColor = "#0b37e5";
-      bgColor = "#f8f9ff";
-      labelColor = "#0b37e5";
-      labelText = `J-${evt.days_until} · CONFIRMÉ`;
-      btnLabel = "Suivi";
-      btnStyle = "border:1px solid #d1d5db;background:#ffffff;color:#374151;";
-    }
-
-    const scoreInfo = evtDelta !== 0 && Math.abs(evtDelta) >= 0.3
-      ? `Score ${evtScore}/10 (${evtDelta > 0 ? "+" : ""}${evtDelta})`
-      : `Score ${evtScore}/10 stable`;
-
-    const decisionLine = evt.decision_date && isPlanifier
-      ? ` · Décision avant le ${fmtDateShort(evt.decision_date)}`
-      : "";
-
+    const labelText = isPlanifier ? "À VALIDER" : `J-${evt.days_until}${isUrgent ? " · CONFIRMÉ" : ""}`;
+    const labelColor = isPlanifier ? "#854F0B" : isUrgent ? "#0b37e5" : "#9ca3af";
+    const bgColor = isPlanifier ? "#FFFBF5" : isUrgent ? "#f8f9ff" : "#f9fafb";
+    const borderColor = isPlanifier ? "#BA7517" : isUrgent ? "#0b37e5" : "#d1d5db";
     const monitorUrl = `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(evt.saved_item_id)}&date=${encodeURIComponent(evt.selected_date)}`;
-
     return `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:6px;">
         <tr>
           <td width="5" style="background:${borderColor};font-size:1px;">&nbsp;</td>
           <td style="background:${bgColor};padding:13px 14px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td valign="top">
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${labelColor};margin-bottom:5px;">${esc(labelText)}${decisionLine ? ` · ${esc(decisionLine.replace(' · ', ''))}` : ""}</div>
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:14px;font-weight:500;color:#111827;line-height:1.4;">${esc(evt.title)} · ${fmtDateShort(evt.selected_date)}</div>
-                  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:12px;color:#6b7280;margin-top:3px;line-height:1.5;">${esc(scoreInfo)}</div>
-                </td>
-                <td align="right" valign="middle" width="72" style="padding-left:12px;">
-                  <a href="${monitorUrl}" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;display:inline-block;padding:7px 14px;${btnStyle}font-size:11px;font-weight:600;text-decoration:none;letter-spacing:0.02em;">${esc(btnLabel)}</a>
-                </td>
-              </tr>
-            </table>
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td valign="top">
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${labelColor};margin-bottom:5px;">${esc(labelText)}</div>
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:14px;font-weight:500;color:#111827;line-height:1.4;">${esc(evt.title)} · ${fmtDateShort(evt.selected_date)}</div>
+              </td>
+              <td align="right" valign="middle" width="72" style="padding-left:12px;">
+                <a href="${monitorUrl}" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;display:inline-block;padding:7px 14px;border:1px solid #d1d5db;background:#ffffff;color:#374151;font-size:11px;font-weight:600;text-decoration:none;">Suivi</a>
+              </td>
+            </tr></table>
           </td>
         </tr>
       </table>`;
   }).join("");
 
-  // ── Competitor changes HTML ──
-  const highImpactChanges = newCompEvents.filter(c => {
-    const sameAudience = user.primary_audience_1 && c.primary_audience === user.primary_audience_1;
-    return sameAudience;
-  });
-  const lowImpactChanges = newCompEvents.filter(c => {
-    return !highImpactChanges.includes(c);
-  });
-
-  let competitorHtml = "";
-  if (newCompEvents.length > 0 || crawlHealth.crawled_failed > 0) {
-    const highHtml = highImpactChanges.map(c => `
-      <div style="margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid #f3f4f6;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="40" valign="top" style="padding-top:2px;">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;width:32px;height:32px;background:#FCEBEB;text-align:center;line-height:32px;font-size:14px;">⚡</div>
-            </td>
-            <td style="padding-left:12px;" valign="top">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.65;">
-                <strong>${esc(c.event_name)}</strong> (${esc(c.competitor_name)}, ${c.distance_km ? c.distance_km + " km" : "proximité"})${c.event_date ? " · " + fmtDateShort(c.event_date) : ""} — même audience. <span style="color:#791F1F;font-weight:500;">Impact direct.</span>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>`).join("");
-
-    const lowSummary = lowImpactChanges.length > 0 ? `
-      <div style="margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid #f3f4f6;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="40" valign="top" style="padding-top:2px;">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;width:32px;height:32px;background:#EAF3DE;text-align:center;line-height:32px;font-size:14px;">✓</div>
-            </td>
-            <td style="padding-left:12px;" valign="top">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.65;">
-                ${lowImpactChanges.length} autre${lowImpactChanges.length > 1 ? "s" : ""} événement${lowImpactChanges.length > 1 ? "s" : ""} détecté${lowImpactChanges.length > 1 ? "s" : ""} (${lowImpactChanges.map(c => esc(c.competitor_name)).join(", ")}) — audiences différentes, pas d'impact sur votre activité.
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>` : "";
-
-    const failHtml = crawlHealth.failed_names.length > 0 ? `
-      <div style="margin-bottom:18px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="40" valign="top" style="padding-top:2px;">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;width:32px;height:32px;background:#f3f4f6;text-align:center;line-height:32px;font-size:14px;">—</div>
-            </td>
-            <td style="padding-left:12px;" valign="top">
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:#6b7280;line-height:1.65;">
-                <strong style="color:#374151;">${esc(crawlHealth.failed_names.join(", "))}</strong> — page${crawlHealth.failed_names.length > 1 ? "s" : ""} inaccessible${crawlHealth.failed_names.length > 1 ? "s" : ""}.
-                <a href="${baseUrl}/app/insightevent/suivis" style="color:#0b37e5;text-decoration:none;font-size:12px;margin-left:2px;">Modifier →</a>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>` : "";
-
-    competitorHtml = `
-    <tr><td style="background:#ffffff;padding:0 40px;border-top:1px solid #e5e7eb;">
-      <div style="padding:28px 0 16px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#0b37e5;">Ce qui bouge autour de vous</div>
-      ${highHtml}${lowSummary}${failHtml}
-    </td></tr>`;
-  }
-
-  // ── Veille summary ──
-  const veilleLine = crawlHealth.total_competitors > 0
-    ? `Veille : ${crawlHealth.crawled_ok}/${crawlHealth.total_competitors} concurrents analysés · ${crawlHealth.events_detected} événements repérés${crawlHealth.crawled_failed > 0 ? ` · ${crawlHealth.crawled_failed} inaccessible${crawlHealth.crawled_failed > 1 ? "s" : ""}` : ""}`
+  // Competitor changes = fired signals (nudge). Honest-absence: hidden when none.
+  const compHtml = competitorChanges.length
+    ? `<tr><td style="background:#ffffff;padding:0 40px;border-top:1px solid #e5e7eb;">
+        <div style="padding:28px 0 16px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#0b37e5;">Ce qui bouge autour de vous</div>
+        ${competitorChanges.slice(0, 4).map((c: any) => `<div style="margin-bottom:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.6;"><strong>${esc(c.event_label)}</strong>${c.distance_m != null ? ` · à ${frNum(Number(c.distance_m) / 1000)} km` : ""}</div>`).join("")}
+        <div style="height:8px;"></div>
+      </td></tr>`
     : "";
 
-  // ── Full email ──
   return `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Briefing du ${dateLabel}</title></head>
+<title>Point du jour — ${dateLabel}</title></head>
 <body style="margin:0;padding:0;background:#f0efeb;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0efeb;padding:24px 0 48px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-  <!-- MASTHEAD -->
   <tr><td style="padding:0 40px 14px 40px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#111827;">MUSE SQUARE <span style="font-weight:400;font-style:italic;">insight</span></td>
-        <td align="right" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:#9ca3af;letter-spacing:0.04em;">${esc(dateLabel)} · ${esc(cityLabel)}</td>
-      </tr>
-    </table>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#111827;">MUSE SQUARE <span style="font-weight:400;font-style:italic;">insight</span></td>
+      <td align="right" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:#9ca3af;letter-spacing:0.04em;">${esc(dateLabel)} · ${esc(cityLabel)}</td>
+    </tr></table>
   </td></tr>
 
-  <!-- HERO -->
   <tr><td style="background:#ffffff;padding:0;">
     <div style="background:linear-gradient(135deg,#0f1f3d 0%,#1a3366 60%,#2d5a9e 100%);padding:28px 40px 24px 40px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td valign="middle">
-            <table cellpadding="0" cellspacing="0"><tr>
-              <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:42px;font-weight:300;color:#ffffff;line-height:1;padding-right:5px;">${scoreToday}</td>
-              <td valign="bottom" style="padding-bottom:4px;">
-                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.45);">/10</div>
-              </td>
-              <td style="padding-left:16px;padding-bottom:2px;" valign="bottom">
-                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.04em;">${esc(regimeLabel)} · ${esc(scoreTrend)}</div>
-              </td>
-            </tr></table>
-          </td>
-          <td align="right" valign="middle">
-            <table cellpadding="0" cellspacing="0"><tr>
-              <td style="font-size:28px;line-height:1;padding-right:10px;">${weatherIcon}</td>
-              <td>
-                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:18px;font-weight:300;color:#ffffff;line-height:1;">${esc(tempMax)}</div>
-                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;">${esc(weatherLabel)}</div>
-              </td>
-            </tr></table>
-          </td>
-        </tr>
-      </table>
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;">
-        ${esc(verdictParts.join(" · "))}
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td valign="middle">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:42px;font-weight:300;color:#ffffff;line-height:1;padding-right:5px;">${esc(scoreStr)}</td>
+            <td valign="bottom" style="padding-bottom:4px;"><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.45);">/10</div></td>
+            <td style="padding-left:16px;padding-bottom:2px;" valign="bottom"><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.04em;">${regimeLabel}${scoreTrend ? " · " + esc(scoreTrend) : ""}</div></td>
+          </tr></table>
+        </td>
+        <td align="right" valign="middle">
+          <table cellpadding="0" cellspacing="0"><tr>
+            <td style="font-size:28px;line-height:1;padding-right:10px;">${weatherIcon}</td>
+            <td><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:18px;font-weight:300;color:#ffffff;line-height:1;">${esc(tempMax)}</div><div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;">${esc(weatherLabel)}</div></td>
+          </tr></table>
+        </td>
+      </tr></table>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.85);line-height:1.6;">${esc(verdictLine)}</div>
     </div>
   </td></tr>
 
-  <!-- ACTIONS -->
-  ${savedEvents.length > 0 ? `
-  <tr><td style="background:#ffffff;padding:28px 40px 8px 40px;">
+  ${acuteBanner}
+
+  ${savedEvents.length > 0 ? `<tr><td style="background:#ffffff;padding:28px 40px 8px 40px;">
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#0b37e5;margin-bottom:18px;">Vos actions</div>
-    ${actionsHtml}
-    <div style="height:20px;"></div>
+    ${actionsHtml}<div style="height:20px;"></div>
   </td></tr>` : ""}
 
-  <!-- NARRATIVE -->
   <tr><td style="background:#ffffff;padding:0 40px;border-top:1px solid #e5e7eb;">
     <div style="padding:28px 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#0b37e5;">Le point du jour</div>
-    <div style="padding:12px 0 28px 0;font-size:15.5px;color:#1a1a1a;line-height:1.85;">
-      ${narrative}
-    </div>
+    <div style="padding:12px 0 28px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:14.5px;color:#1a1a1a;line-height:1.8;">${renderGroundedNarrative(grounded)}</div>
   </td></tr>
 
-  <!-- COMPETITOR CHANGES -->
-  ${competitorHtml}
+  ${compHtml}
 
-  <!-- FOOTER -->
-  <tr><td style="background:#ffffff;padding:0 40px 36px 40px;border-top:1px solid #e5e7eb;">
-    ${veilleLine ? `<div style="padding:20px 0 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:11px;color:#9ca3af;line-height:1.6;">${esc(veilleLine)}</div>` : ""}
-    <div style="text-align:center;">
-      <a href="${baseUrl}/app/insightevent/pulse" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;display:inline-block;padding:13px 36px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;">Ouvrir Pulse →</a>
-    </div>
+  <tr><td style="background:#ffffff;padding:24px 40px 36px 40px;border-top:1px solid #e5e7eb;">
+    <div style="text-align:center;"><a href="${baseUrl}/app/insightevent/pulse" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;display:inline-block;padding:13px 36px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;">Ouvrir Pulse →</a></div>
   </td></tr>
 
   <tr><td style="padding:20px 40px 32px 40px;">

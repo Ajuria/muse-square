@@ -155,7 +155,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       })();
     </script>
 
-    <script is:inline src="/action-cards.js?v=25"></script>
+    <script is:inline src="/action-cards.js?v=27"></script>
+    <script is:inline src="/commit-form.js?v=1"></script>
+    <script is:inline src="/card-kit.js?v=14"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -387,8 +389,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           cat = 'M\u00e9t\u00e9o \u00b7 \u00c9pisode prolong\u00e9'; title = 'M\u00e9t\u00e9o d\u00e9grad\u00e9e \u2014 3 jours ou plus';
           badge = { label:'\u00c9pisode prolong\u00e9', bg:'#FCEBEB', fg:'#A32D2D' };
           claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
-          if (lvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + lvl, source:'Muse Square' });
-          if (a.site_sensitivity != null) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: Number(a.site_sensitivity) + ' / 5', source:'Muse Square' });
         } else {
           var oldLvl = wxLevel(a.old_value), newLvl = wxLevel(a.new_value), hazard = wxHazard(a.new_value);
           if (signal_type === 'weather_improved') {
@@ -400,12 +400,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             badge = (newLvl != null && newLvl >= 3) ? { label:'Alerte s\u00e9v\u00e8re', bg:'#FCEBEB', fg:'#A32D2D' } : { label:'Alerte', bg:'#FAEEDA', fg:'#854F0B' };
           }
           claims.push({ claim:'Conditions du jour', value: condStr, source:'M\u00e9t\u00e9o-France' });
-          if (oldLvl != null && newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + oldLvl + ' \u2192 ' + newLvl, source:'Muse Square' });
-          else if (newLvl != null) claims.push({ claim:'Niveau d\u2019alerte', value:'Niveau ' + newLvl, source:'Muse Square' });
-          if (day.impact_weather_pct != null && Number(day.impact_weather_pct) !== 0) claims.push({ claim:'Impact fr\u00e9quentation', value: Math.round(Number(day.impact_weather_pct)) + ' %', source:'Muse Square' });
-          if (prof && Number(prof.weather_sensitivity || 0) >= 3) claims.push({ claim:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', value: prof.weather_sensitivity + ' / 5', source:'Muse Square' });
         }
-        return { cat:cat, title:title, badge:badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['M\u00e9t\u00e9o-France \u2014 pr\u00e9visions', 'Muse Square \u2014 niveau d\u2019alerte et impact estim\u00e9'] };
+        return { cat:cat, title:title, badge:badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['M\u00e9t\u00e9o-France \u2014 pr\u00e9visions'] };
       }
 
       // ── Calendar (narrative old/new strings) ──
@@ -548,9 +544,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
         if (a.is_vacation === true || a.is_vacation === 'true') claims.push({ group:'contexte', claim:'Vacances scolaires', value:'Oui', source:'Calendrier' });
         if (a.is_holiday === true || a.is_holiday === 'true') claims.push({ group:'contexte', claim:'Jour férié', value:'Oui', source:'Calendrier' });
-        if (a.pressure_ratio != null) claims.push({ group:'contexte', claim:'Pression concurrentielle', value:'×' + frDec(Number(a.pressure_ratio).toFixed(1)), source:'Muse Square' });
-        if (a.weather_alert != null && Number(a.weather_alert) > 0) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Muse Square' });
-        if (a.events_5km != null && Number(a.events_5km) > 0) claims.push({ group:'contexte', claim:'Concurrence à 5 km', value: frInt(a.events_5km) + ' évén.', source:'Muse Square' });
+        // Competitive pressure as WORDS, not a bare ratio, and only when meaningfully elevated
+        // (>= 1.2x — the app's own density band in high_competition_density); x-normal is noise.
+        // Source = the upstream events provider, not "Muse Square" (the product isn't a data source).
+        if (a.pressure_ratio != null) {
+          var _pr = Number(a.pressure_ratio);
+          var _pw = _pr >= 1.8 ? 'forte' : _pr >= 1.2 ? 'élevée' : '';
+          if (_pw) claims.push({ group:'contexte', claim:'Pression concurrentielle', value: _pw, source:'OpenAgenda' });
+        }
+        // Weather alert gated to vigilance >= 3 (orange/rouge). Levels 1-2 are noise, not context.
+        if (a.weather_alert != null && Number(a.weather_alert) >= 3) claims.push({ group:'contexte', claim:'Alerte météo', value:'Niveau ' + Number(a.weather_alert), source:'Météo-France' });
+        // Raw "N évén. à 5 km" DROPPED — a count with no per-venue baseline ("334 évén.") is
+        // meaningless to the operator; the elevated-pressure line above is the honest density signal.
         if (!claims.length) claims.push({ claim:'Signal', value: (isDown ? 'CA inférieur à vos ' : 'CA supérieur à vos ') + joursFr, source:'Muse Square' });
         var tier = (window.msSalesConfidence ? window.msSalesConfidence(a) : String(a.confidence_tier || 'possible').toLowerCase());
         var TIER = { possible:{ label:'À confirmer', bg:'#EEF2FF', fg:'#6B7280' }, probable:{ label:'Probable', bg:'#E1F5EE', fg:'#0F6E56' }, confirme:{ label:'Confirmé', bg:'#E1F5EE', fg:'#0F6E56' } };
@@ -560,6 +565,19 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         return { cat: cat, title: title, badge: badge, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — chiffre d’affaires quotidien','Muse Square — vos ' + joursFr + ' récents'] };
       }
 
+      // footfall_vs_basket_decomposition — header/source block (payload from fct_client_sales_signals_daily).
+      function salesDecompClaimMap(a, prof, day) {
+        function sgn(v) { var n = Number(v); return (n >= 0 ? '+' : '') + frDec(Math.round(n)) + ' %'; }
+        var claims = [];
+        if (a.daily_revenue != null) claims.push({ group:'interne', claim:'CA réalisé ce jour', value: frInt(Math.round(Number(a.daily_revenue))) + ' €', source:'Caisse' });
+        if (a.revenue_vs_30d_avg_pct != null) claims.push({ group:'interne', claim:'vs 30 derniers jours', value: sgn(a.revenue_vs_30d_avg_pct), source:'Caisse' });
+        if (a.transactions_delta_pct != null) claims.push({ group:'interne', claim:'Ventes (trafic)', value: sgn(a.transactions_delta_pct), source:'Caisse' });
+        if (a.basket_delta_pct != null) claims.push({ group:'interne', claim:'Panier moyen', value: sgn(a.basket_delta_pct), source:'Caisse' });
+        var drv = a.primary_revenue_driver || a.dominant_factor;
+        if (drv) { var DFR = { transactions:'le trafic', basket:'le panier', both:'trafic et panier' }; claims.push({ group:'interne', claim:'Facteur dominant', value: DFR[drv] || drv, source:'Caisse' }); }
+        if (!claims.length) claims.push({ claim:'Signal', value:"D’où vient le mouvement de votre CA", source:'Muse Square' });
+        return { cat:'Performance · d’où vient le mouvement', title:'Ventes ou panier — d’où vient le mouvement', badge:{ label:'À surveiller', bg:'#EEF2FF', fg:'#6B7280' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims: claims, sources:['Caisse — ventes & panier quotidiens'] };
+      }
       CLAIM_MAPS.weather_hazard_onset = weatherClaimMap;
       CLAIM_MAPS.weather_worsened = weatherClaimMap;
       CLAIM_MAPS.weather_improved = weatherClaimMap;
@@ -577,6 +595,17 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       CLAIM_MAPS.competitor_positioning_gap = positioningGapClaimMap;
       CLAIM_MAPS.sales_surge = salesResidualClaimMap;
       CLAIM_MAPS.sales_revenue_down_wow = salesResidualClaimMap;
+      // sales_discount_no_lift — header block (payload from fct_client_sales_signals_daily).
+      function salesDiscountClaimMap(a, prof, day) {
+        return { cat:'Performance · remises', title:'Remises sans effet — le CA suit-il ?', badge:{ label:'À surveiller', bg:'#EEF2FF', fg:'#6B7280' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:[], sources:['Caisse — remises & CA quotidiens'] };
+      }
+      // extended_bad_weather — header block (window card; content from /api/insight/weather-window).
+      function weatherWindowClaimMap(a, prof, day) {
+        return { cat:'Météo · fenêtre prolongée', title:'Météo prolongée — votre fenêtre', badge:{ label:'À anticiper', bg:'#FFF4E5', fg:'#B45309' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:[], sources:['Météo-France — prévisions', 'Caisse — CA sur conditions comparables'] };
+      }
+      CLAIM_MAPS.footfall_vs_basket_decomposition = salesDecompClaimMap;
+      CLAIM_MAPS.extended_bad_weather = weatherWindowClaimMap;
+      CLAIM_MAPS.sales_discount_no_lift = salesDiscountClaimMap;
 
       // Single named-entity competitor cards. Verified live: competitor_event_launch.
       // Add a type here only after its data_payload is verified on
@@ -672,8 +701,11 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           // in via the flattened candidate (action_type/location_id/instance/etc.).
           action_type:1, location_id:1, card_instance_id:1, suppression_key:1, expires_at:1,
           action_priority:1, action_category:1, date:1, affected_date:1, alert_level:1,
-          card_type:1, dominant_factor:1 };
+          card_type:1, dominant_factor:1,
+          // discount card: raw rate is ambiguous, robust_z + tier are analyst-only (kitchen)
+          discount_rate:1, discount_robust_z:1, confidence_tier:1 };
         var LABELS = {
+          discount_rate_delta_pct:'Remise vs habituel', revenue_vs_30d_avg_pct:'CA vs 30 jours', daily_discount_total:'Total des remises', daily_promo_line_count:'Articles en promo', daily_revenue:'CA du jour',
           events_500m:'\u00c9v\u00e9nements \u00e0 500 m', events_1km:'\u00c9v\u00e9nements \u00e0 1 km', events_5km:'\u00c9v\u00e9nements \u00e0 5 km', events_10km:'\u00c9v\u00e9nements \u00e0 10 km',
           pressure_ratio:'Pression vs moyenne', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
           weather_alert:'Niveau d\u2019alerte m\u00e9t\u00e9o', alert_level:'Niveau d\u2019alerte', today_alert:'Alerte aujourd\u2019hui', yesterday_alert:'Alerte hier',
@@ -686,6 +718,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var claims = [];
         for (var k in a) {
           if (!a.hasOwnProperty(k) || SKIP[k]) continue;
+          // fail-safe: only surface fields with a deliberate French label. Anything unlabelled
+          // (raw keys, kitchen stats like *_z / confidence_tier) is hidden, never dumped as English.
+          if (!LABELS[k]) continue;
           var v = a[k];
           if (v == null || v === '' || v === 'Signal d\u00e9tect\u00e9' || v === 'true' || v === 'false') continue;
           if (typeof v === 'object') continue;
@@ -721,6 +756,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           return '<div style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:' + BR + ';margin:26px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + BR + ';">' + esc(label) + '</div>';
         }
         var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
+        var _isWeather = (signal_type === 'weather_hazard_onset' || signal_type === 'weather_worsened' || signal_type === 'weather_improved' || signal_type === 'extended_bad_weather_3d');
+        var _isEvent = (signal_type === 'commercial_event_match' || signal_type === 'mega_event_activation' || signal_type === 'mega_event_end');
+        var _isCompetitor = (signal_type === 'competition_proximity' || signal_type === 'high_competition_density' || signal_type === 'competitor_threat_direct' || signal_type === 'competition_pressure_spike' || signal_type === 'same_bucket_saturation' || signal_type === 'competitor_price_drop' || signal_type === 'competitor_price_increase' || signal_type === 'competitor_new_offering' || signal_type === 'competitor_offering_removed');
+        var _isTourism = (signal_type === 'tourist_high_season' || signal_type === 'tourist_surge_vacation' || signal_type === 'tourism_peak_window' || signal_type === 'tourism_weather_vacation' || signal_type === 'tourism_comp_squeeze' || signal_type === 'low_tourism_local_opp' || signal_type === 'foreign_tourism_signal');
+        var _isDecomp = (signal_type === 'footfall_vs_basket_decomposition');
+        var _isDiscount = (signal_type === 'sales_discount_no_lift');
+        var _isWeatherWindow = (signal_type === 'extended_bad_weather');
+        var _isFootfall = (signal_type === 'best_day_of_week' || signal_type === 'ft_peak_bad_weather' || signal_type === 'ft_quiet_good_weather' || signal_type === 'ft_peak_saturated' || signal_type === 'ft_peak_low_comp' || signal_type === 'ft_peak_tourism_vacation' || signal_type === 'ft_peak_mobility');
         var html = '';
         html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
@@ -732,7 +775,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
         if (_isMov) html += grp('La source');
-        html += zone('Synth\u00e8se', synth);
+        // _isDecomp: skip the qualitative sowhat Synth\u00e8se \u2014 the "D'o\u00f9 vient le mouvement" section below
+        // IS the synthesis (magnitude-rich + correct driver from the live endpoint), so the generic
+        // sowhat (payload-dependent, defaults to the wrong driver on an empty payload) is redundant noise.
+        if (!_isDecomp && !_isDiscount && !_isWeatherWindow) html += zone('Synth\u00e8se', synth);
+        // Card-SPECIFIC (sales): "what sold" — the category movers that made the day, filled async
+        // from /api/insight/sales-breakdown (the new category mart), NOT the universal brain.
+        if (_isMov) html += zone('Ce qui a fait la journ\u00e9e',
+          '<div id="fs-whatsold-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse du mix produit\u2026</div></div>');
 
         function claimRow(c) {
           return '<div style="padding:12px 0;border-bottom:0.5px solid #F3F4F6;">'
@@ -754,6 +804,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_hasGroups) {
           var _grpInt = m.claims.filter(function(c) { return c.group === 'interne'; });
           var _grpCtx = m.claims.filter(function(c) { return c.group === 'contexte'; });
+          // Sales deep page: cut the universal context (weather / competition) — keep only
+          // footfall-relevant calendar context. The "what sold" section carries the page.
+          if (_isMov) _grpCtx = _grpCtx.filter(function(c) { return c.claim === 'Vacances scolaires' || c.claim === 'Jour f\u00e9ri\u00e9'; });
           var _grpOther = m.claims.filter(function(c) { return c.group !== 'interne' && c.group !== 'contexte'; });
           if (_grpInt.length) { dec += subHead('Signaux internes', 'vos ventes et leur lecture'); for (var _i1 = 0; _i1 < _grpInt.length; _i1++) dec += claimRow(_grpInt[_i1]); }
           if (_grpCtx.length) { dec += subHead('Signaux contextuels', 'les conditions de la journ\u00e9e'); for (var _i2 = 0; _i2 < _grpCtx.length; _i2++) dec += claimRow(_grpCtx[_i2]); }
@@ -762,7 +815,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           dec = '<div style="font-size:11px;color:' + MUTE + ';margin-bottom:4px;">Chaque affirmation ci-dessus, et la donn\u00e9e qui la fonde\u00a0:</div>';
           for (var i = 0; i < m.claims.length; i++) dec += claimRow(m.claims[i]);
         }
-        html += zone('D\u00e9composition \u00b7 preuve', dec);
+        if (_isWeather) html += zone('Votre réponse à la météo', '<div id="fs-weather-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Lecture de votre réponse mesurée…</div></div>');
+        if (_isEvent) html += zone('Paysage événementiel', '<div id="fs-events-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse du paysage événementiel…</div></div>');
+        if (_isCompetitor) html += zone('Concurrence', '<div id="fs-competitor-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse concurrentielle…</div></div>');
+        if (_isTourism) html += zone('Tourisme dans votre région', '<div id="fs-tourism-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse touristique…</div></div>');
+        if (_isFootfall) html += zone('Fréquentation · votre horloge du CA', '<div id="fs-footfall-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse de fréquentation…</div></div>');
+        if (_isDecomp) html += zone('D’où vient le mouvement', '<div id="fs-decomp-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Décomposition ventes / panier…</div></div>');
+        if (_isDiscount) html += zone('Remises — le CA suit-il ?', '<div id="fs-discount-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse des remises…</div></div>');
+        if (_isWeatherWindow) html += zone('Météo prolongée — votre fenêtre', '<div id="fs-wwindow-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Analyse de la fenêtre météo…</div></div>');
+        if (!_isMov && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) html += zone('D\u00e9composition \u00b7 preuve', dec);
 
         if (m.enriched_inline) {
           var d = m.enriched_inline;
@@ -804,20 +865,45 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         // Comparable-day history is sales-specific, so it stays gated to movement cards; the
         // environment crawl ("Environnement du jour · agent web") runs for every card type.
         var _isMovement = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
-        html += grp('Contexte & informations liées');
-        if (_isMovement) {
-          html += zone('Historique · jours comparables',
-            '<div id="fs-analog-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche de jours comparables…</div></div>');
-        }
-        html += zone('Environnement du jour · agent web',
-          '<div id="fs-context-zone"><div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Recherche du contexte local…</div></div>');
+        var _spin = '<div style="font-size:12px;color:#9CA3AF;padding:4px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Chargement\u2026</div>';
+        var _ctx = '';
+        if (_isMovement || _isWeather) _ctx += zone('Historique \u00b7 jours comparables', '<div id="fs-analog-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
+        if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
+        if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
 
         html += zone('Sources', src, true);
 
         root.innerHTML = html;
 
-        if (_isMovement) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'));
-        loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        if (_isMovement) {
+          loadSalesBreakdown(location_id, signal_date, document.getElementById('fs-whatsold-zone'), signal_type);
+        } else if (_isWeather) {
+          loadWeatherSensitivity(location_id, signal_date, document.getElementById('fs-weather-zone'), signal_type);
+        } else if (_isEvent) {
+          loadEvents(location_id, signal_date, document.getElementById('fs-events-zone'));
+        } else if (_isCompetitor) {
+          loadCompetitor(location_id, signal_date, document.getElementById('fs-competitor-zone'));
+        } else if (_isTourism) {
+          loadTourism(location_id, signal_date, document.getElementById('fs-tourism-zone'));
+        } else if (_isFootfall) {
+          loadFootfall(location_id, signal_date, document.getElementById('fs-footfall-zone'));
+        } else if (_isDecomp) {
+          loadSalesDecomp(location_id, signal_date, document.getElementById('fs-decomp-zone'));
+        } else if (_isDiscount) {
+          loadSalesDiscount(location_id, signal_date, document.getElementById('fs-discount-zone'));
+        } else if (_isWeatherWindow) {
+          loadWeatherWindow(location_id, signal_date, document.getElementById('fs-wwindow-zone'));
+        } else {
+          loadContext(feedItem, prof, day, document.getElementById('fs-context-zone'));
+        }
+        // Comparable-day history — sales AND weather. Only sales injects the number into its Synthèse.
+        if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
+        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
+          loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
+          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'));
+        }
 
         var descBtn = document.getElementById('fs-desc-btn');
         if (descBtn) descBtn.addEventListener('click', function() {
@@ -832,6 +918,88 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         wireActionBar(root, day, prof, feedItem);
       }
 
+      // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
+      // (public/card-kit.js), the SINGLE source verified by the render harness
+      // (public/card-harness.html). What renders here == what the harness verifies.
+      function loadWeatherWindow(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/weather-window?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderWeatherWindow(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse de la fenêtre météo indisponible.</div>'; });
+      }
+      function loadSalesDiscount(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/sales-discount?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSalesDiscount(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse des remises indisponible.</div>'; });
+      }
+      function loadSalesDecomp(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/sales-decomp?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSalesDecomp(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Décomposition indisponible.</div>'; });
+      }
+      function loadFootfall(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/footfall?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderFootfall(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse de fréquentation indisponible.</div>'; });
+      }
+      function loadTourism(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/tourism?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderTourism(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse touristique indisponible.</div>'; });
+      }
+      function loadCompetitor(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/competitor?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderCompetitor(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse concurrentielle indisponible.</div>'; });
+      }
+      function loadEvents(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/events?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderEvents(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse événementielle indisponible.</div>'; });
+      }
+      function loadWeatherSensitivity(locId, date, container, sigType) {
+        if (!container) return;
+        fetch('/api/insight/weather-sensitivity?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date) + '&signal_type=' + encodeURIComponent(sigType || ''))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderWeather(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Analyse météo indisponible.</div>'; });
+      }
+      function loadSalesBreakdown(locId, date, container, sigType) {
+        if (!container) return;
+        var isDown = sigType === 'sales_revenue_down_wow';
+        fetch('/api/insight/sales-breakdown?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderSales(j, isDown, date); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Mix produit indisponible.</div>'; });
+      }
+      function loadAudience(locId, date, container) {
+        if (!container) return;
+        fetch('/api/insight/audience?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderAudience(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>'; });
+      }
+      function loadTrackRecord(locId, actionType, container) {
+        if (!container) return;
+        fetch('/api/insight/track-record?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
+          .then(function(r){ return r.json(); })
+          .then(function(j){ container.innerHTML = MSCardKit.renderTrackRecord(j); })
+          .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Suivi indisponible.</div>'; });
+      }
+
       // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
       // Two honest branches: named comparable days when they exist; "situation nouvelle"
       // when the day's condition configuration has no precedent in the recent history.
@@ -841,14 +1009,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       function analogFrInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch(e) { return String(n); } }
       var ANALOG_MONTH_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
       function analogDateFr(iso) { try { var p = String(iso).split('-'); if (p.length !== 3) return String(iso); return parseInt(p[2], 10) + ' ' + ANALOG_MONTH_FR[parseInt(p[1], 10) - 1]; } catch(e) { return String(iso); } }
-      function loadAnalogs(locId, date, container) {
+      function loadAnalogs(locId, date, container, injectSynth) {
         if (!container) return;
         fetch('/api/insight/analogs?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))
           .then(function(r) { return r.json(); })
           .then(function(j) {
             if (!j || !j.ok || !j.found || !j.analog) { container.innerHTML = analogEmptyHtml(); return; }
             container.innerHTML = analogHtml(j.analog);
-            injectAnalogIntoSynthese(j.analog);
+            if (injectSynth) injectAnalogIntoSynthese(j.analog);
           })
           .catch(function() { container.innerHTML = analogEmptyHtml(); });
       }
@@ -912,6 +1080,60 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
       // Environment crawl (agent web) — /api/insight/enrich-context. Explains the
       // real-world context around the venue that day (events, commercial period, météo).
+      // Type B × Type A synthesis — reads /api/insight/reactions-today (one accessor, no
+      // re-derivation). Two labeled registers, never merged: "Votre environnement" (Engine 2) /
+      // "Ce qui a marché pour vous" (Engine 1) → the move (only when a real track record fired).
+      // Four-tier context-as-decision surface — reads /api/insight/reactions-today (d.tiers).
+      // Four provenance-labelled groups, NEVER merged: Mesuré (learned) / Estimation (prior+fact) /
+      // Concurrence (observed) / Ce qui a marché (action). All French comes from the endpoint
+      // (owner copy + reused mart facts) via `display`/`labels`; this render authors no words.
+      function loadReactions(locId, date, container) {
+        var section = document.getElementById('fs-reactions-section');
+        var src = new URLSearchParams(location.search).get('src');
+        var url = '/api/insight/reactions-today?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date) + (src ? '&src=' + encodeURIComponent(src) : '');
+        fetch(url, { headers: { accept: 'application/json' } })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (!d || !d.ok || !d.tiers) { if (section) section.style.display = 'none'; return; }
+            var t = d.tiers, TH = (d.labels && d.labels.tiers) || {}, SUF = (d.labels && d.labels.impact_suffix) || 'estimé';
+            var DATA = '#1D3BB3', SUB = '#6B7280', MUTE = '#9CA3AF';
+            function heading(x) { return '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;margin:16px 0 8px;">' + esc(x) + '</div>'; }
+            function chip(x, c) { return '<span style="flex:none;font-size:11px;font-weight:600;color:' + c + ';white-space:nowrap;">' + esc(x) + '</span>'; }
+            function line(txt, right) { return '<div class="fs-pourquoi-fact" style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;"><span class="fs-pourquoi-text" style="margin-left:0;">' + esc(txt) + '</span>' + (right || '') + '</div>'; }
+            function frPct(n) { var s = (Math.round(Math.abs(n) * 10) / 10).toString().replace('.', ','); return (n < 0 ? '−' : '+') + s + ' %'; }
+            var html = '';
+            if (t.mesure && t.mesure.length) {
+              html += heading(TH.mesure || 'Mesuré sur vos ventes');
+              for (var i = 0; i < t.mesure.length; i++) html += line(t.mesure[i].display, chip('mesuré', DATA));
+            }
+            if (t.estimation && t.estimation.length) {
+              html += heading(TH.estimation || 'Contexte du jour');
+              for (var j = 0; j < t.estimation.length; j++) { var e = t.estimation[j]; html += line(e.display || '', chip('≈ ' + frPct(e.impact_pct) + ' ' + SUF, SUB)); }
+            }
+            if (t.concurrence && t.concurrence.length) {
+              html += heading(TH.concurrence || 'Concurrence');
+              for (var k = 0; k < t.concurrence.length; k++) {
+                var c = t.concurrence[k], meta = [];
+                if (c.google_rating != null) meta.push('★ ' + String(c.google_rating).replace('.', ',') + (c.google_rating_count != null ? ' (' + c.google_rating_count + ')' : ''));
+                if (c.rating_trend != null && c.rating_trend !== 0) meta.push((c.rating_trend < 0 ? '▼' : '▲') + ' ' + Math.abs(c.rating_trend));
+                if (c.offering_change) meta.push(c.offering_change);
+                html += line(c.display || c.name, meta.length ? chip(meta.join(' · '), MUTE) : '');
+                if (c.enriched) html += '<div style="font-size:12px;color:' + MUTE + ';line-height:1.5;margin:2px 0 6px;">' + esc(c.enriched.length > 140 ? c.enriched.slice(0, 140) + '…' : c.enriched) + '</div>';
+              }
+            }
+            html += heading(TH.action || 'Ce qui a marché pour vous');
+            if (Array.isArray(t.action) && t.action.length) {
+              for (var m = 0; m < t.action.length; m++) html += line(t.action[m].display || (t.action[m].beat + ' / ' + t.action[m].done), chip('mesuré', DATA));
+            } else {
+              html += '<div style="font-size:13px;color:' + MUTE + ';">' + esc((d.labels && d.labels.action_absent) || 'Pas encore assez de recul') + '</div>';
+            }
+            if (!html) { if (section) section.style.display = 'none'; return; }
+            container.innerHTML = html;
+            if (section) section.style.display = '';
+          })
+          .catch(function() { if (section) section.style.display = 'none'; });
+      }
+
       function loadContext(a, prof, day, container) {
         if (!container) return;
         var payload = {
@@ -1132,6 +1354,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '</div>';
         }
 
+        // ── Lead: top-salience specific facts + the real action card, above the (now supporting) sections. ──
+        html += buildLeadSignals(day, prof, actionCandidate);
+
         // ════════════════════════════════════════════════════════════
         // MODE: MÉTÉO
         // ════════════════════════════════════════════════════════════
@@ -1163,13 +1388,24 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '</div>'
           + '</div>';
 
+          // Acute weather alert — OPERATIONAL register (observed_acute): today's felt temp / gusts.
+          // Distinct from the measured heat sensitivity (async "Comment votre lieu réagit" block) and
+          // from the declared "Sensibilité météo" below — the three are never merged. Server-formatted
+          // via contextCopy; present only when level >= 3, so hidden otherwise (honest-absence).
+          if (day.weather_alert_fr) {
+            html += '<div class="fs-section" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;">'
+              + '<div style="font-size:13px;font-weight:600;color:#991b1b;">' + esc(day.weather_alert_fr) + '</div>'
+              + '<div style="font-size:11px;color:#9a3412;margin-top:3px;">Condition du jour — à ne pas confondre avec votre sensibilité mesurée</div>'
+            + '</div>';
+          }
+
           // Impact KPIs
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Impact sur votre site</div>'
             + '<div class="fs-grid">'
               + '<div class="fs-metric"><div class="fs-metric-label">Sensibilit\u00e9 m\u00e9t\u00e9o</div><div class="fs-metric-value" style="color:' + (Number(prof.weather_sensitivity || 0) >= 3 ? '#dc2626' : '#1a1d2e') + ';">' + (prof.weather_sensitivity || '\u2014') + ' <span class="fs-metric-unit">/5</span></div><div class="fs-metric-sub">' + (Number(prof.weather_sensitivity || 0) >= 3 ? '\u00e9lev\u00e9e' : 'mod\u00e9r\u00e9e') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Type d\u2019espace</div><div class="fs-metric-value sm">' + esc(LOC_FR[String(prof.location_type || '').toLowerCase()] || prof.location_type || '\u2014') + '</div><div class="fs-metric-sub">' + (String(prof.location_type || '').toLowerCase() === 'mixed' || String(prof.location_type || '').toLowerCase() === 'outdoor' ? 'impact ext\u00e9rieur' : 'couvert') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Variation trafic</div><div class="fs-metric-value" style="color:' + (deltaW < -5 ? '#dc2626' : '#1a1d2e') + ';">' + (deltaW > 0 ? '+' : '') + Math.round(deltaW) + ' <span class="fs-metric-unit">%</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Variation trafic</div><div class="fs-metric-value sm" style="color:' + (deltaW < -5 ? '#dc2626' : '#1a1d2e') + ';">' + esc((day.attribution_fr && day.attribution_fr.weather) ? day.attribution_fr.weather : '—') + '</div></div>'
             + '</div>'
           + '</div>';
         }
@@ -1201,8 +1437,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               if (c.watched_event_id) watched.push(c); else notWatched.push(c);
             }
             var allComp = watched.concat(notWatched);
+            // Header labels the EVENTS grain (\u00e0 proximit\u00e9). "suivis" belongs to the followed-VENUES
+            // block below (ratings/trend), never to the events list \u2014 two grains, never conflated.
             html += '<div class="fs-section">'
-              + '<div class="fs-section-title">Concurrents' + (watched.length > 0 ? ' \u2014 ' + watched.length + ' suivi' + (watched.length > 1 ? 's' : '') : '') + '</div>';
+              + '<div class="fs-section-title">Concurrents \u00e0 proximit\u00e9</div>';
             for (var ci2 = 0; ci2 < Math.min(allComp.length, 5); ci2++) {
               var cc = allComp[ci2];
               var isWatched = !!cc.watched_event_id;
@@ -1223,6 +1461,39 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             html += '<a href="/app/insightevent/map?location_id=' + encodeURIComponent(location_id) + '&date=' + encodeURIComponent(signal_date) + '&embed=1" class="fs-map-link">'
               + '\ud83d\uddfa Voir sur la carte \u2192'
             + '</a>';
+            html += '</div>';
+          }
+
+          // Concurrents suivis \u2014 followed VENUES with Google rating + this-month trend. Distinct grain
+          // from the events list above (never the same entity rendered twice). Hidden when none followed.
+          var fc = day.followed_competitors || [];
+          if (fc.length > 0) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Concurrents suivis \u2014 ' + fc.length + ' suivi' + (fc.length > 1 ? 's' : '') + '</div>';
+            for (var fci = 0; fci < Math.min(fc.length, 5); fci++) {
+              var fcv = fc[fci];
+              var ratingStr = (fcv.google_rating != null)
+                ? ('\u2b50 ' + frDec(fcv.google_rating) + (fcv.google_rating_count != null ? ' \u00b7 ' + frInt(fcv.google_rating_count) + ' avis' : ''))
+                : '';
+              var trendVal = (fcv.rating_trend != null) ? Number(fcv.rating_trend) : null;
+              var trendStr = '';
+              if (trendVal != null && Math.round(trendVal * 10) !== 0) {
+                var up = trendVal > 0;
+                trendStr = '<span style="font-size:11px;color:' + (up ? '#16a34a' : '#dc2626') + ';margin-left:8px;">'
+                  + (up ? '\u2191 +' : '\u2193 \u2212') + frDec(Math.abs(Math.round(trendVal * 10) / 10)) + ' ce mois</span>';
+              }
+              var distStr = (fcv.distance_km != null) ? (frDec(Math.round(Number(fcv.distance_km) * 10) / 10) + ' km') : '';
+              html += '<div class="fs-comp-card">'
+                + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">'
+                  + '<div style="flex:1;min-width:0;">'
+                    + '<div class="fs-comp-org">' + esc(fcv.name || '\u2014') + '</div>'
+                    + (ratingStr || trendStr ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + ratingStr + trendStr + '</div>' : '')
+                    + (fcv.offering_change ? '<div class="fs-comp-theme">' + esc(fcv.offering_change) + '</div>' : '')
+                  + '</div>'
+                  + (distStr ? '<div class="fs-comp-dist">' + distStr + '</div>' : '')
+                + '</div>'
+              + '</div>';
+            }
             html += '</div>';
           }
         }
@@ -1261,16 +1532,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '</div>';
           }
 
-          // Day KPIs — relevant for intelligence
-          html += '<div class="fs-section">'
-            + '<div class="fs-section-title">Donn\u00e9es du jour</div>'
-            + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">R\u00e9gime</div><div class="fs-metric-value">' + esc(day.opportunity_regime || '\u2014') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Facteur</div><div class="fs-metric-value sm">' + esc(day.primary_score_driver_label_fr || '\u2014') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9daille</div><div class="fs-metric-value">' + esc(day.opportunity_medal || '\u2014') + '</div></div>'
-            + '</div>'
-          + '</div>';
+          // (Removed the "Donn\u00e9es du jour" grid — score / r\u00e9gime / m\u00e9daille are internal
+          // jargon, never shown to the user. The lead + specific-fact sections carry the real info.)
         }
 
         // ════════════════════════════════════════════════════════════
@@ -1284,19 +1547,29 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Conditions du jour</div>'
             + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score</div><div class="fs-metric-value" style="color:#16a34a;">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Concurrence</div><div class="fs-metric-value sm" style="color:' + pressureColor + ';">' + esc(pressureLabel) + '</div><div class="fs-metric-sub">' + num(day.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">M\u00e9t\u00e9o</div><div class="fs-metric-value sm" style="color:' + (Number(day.alert_level_max || 0) === 0 ? '#16a34a' : '#92400e') + ';">' + esc(day.weather_label_fr || '\u2014') + '</div><div class="fs-metric-sub">' + (day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) + '\u00b0C' : '') + '</div></div>'
             + '</div>'
           + '</div>';
 
+          // Acute weather alert (observed_acute) \u2014 operational register, distinct from the measured
+          // sensitivity. Present only at level >= 3, hidden otherwise (honest-absence).
+          if (day.weather_alert_fr) {
+            html += '<div class="fs-section" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;">'
+              + '<div style="font-size:13px;font-weight:600;color:#991b1b;">' + esc(day.weather_alert_fr) + '</div>'
+            + '</div>';
+          }
+
           // Calendar context if present
           var calItems = [];
           if (day.holiday_name) calItems.push(day.holiday_name);
           if (day.vacation_name) calItems.push(day.vacation_name);
+          // Brain sends commercial_events as a deduped string[] of names (soldes/foires),
+          // already deduped against the named-events list. Render the string directly.
           if (day.commercial_events && day.commercial_events.length > 0) {
             for (var ei = 0; ei < day.commercial_events.length; ei++) {
-              calItems.push(day.commercial_events[ei].event_name || '');
+              var _ce = day.commercial_events[ei];
+              if (_ce) calItems.push(typeof _ce === 'string' ? _ce : (_ce.event_name || ''));
             }
           }
           if (calItems.length > 0) {
@@ -1305,6 +1578,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
             for (var cli = 0; cli < calItems.length; cli++) {
               html += '<span style="font-size:12px;padding:6px 12px;background:#f7f8fb;border-radius:8px;color:#374151;font-weight:500;">' + esc(calItems[cli]) + '</span>';
+            }
+            html += '</div></div>';
+          }
+
+          // Nationalities (observed_presence) — foreign origins, already French (frCountry). Hidden when none.
+          var fv = day.foreign_visitors || [];
+          if (fv.length > 0) {
+            html += '<div class="fs-section">'
+              + '<div class="fs-section-title">Visiteurs étrangers possibles</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            for (var fvi = 0; fvi < fv.length; fvi++) {
+              html += '<span style="font-size:12px;padding:6px 12px;background:#eef2ff;border-radius:8px;color:#1D3BB3;font-weight:500;">' + esc(fv[fvi]) + '</span>';
             }
             html += '</div></div>';
           }
@@ -1343,9 +1628,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           html += '<div class="fs-section">'
             + '<div class="fs-section-title">Impact sur votre site</div>'
             + '<div class="fs-grid">'
-              + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + Math.round(mobImpact) + ' <span class="fs-metric-unit">%</span></div></div>'
+              + '<div class="fs-metric"><div class="fs-metric-label">Impact mobilit\u00e9</div><div class="fs-metric-value sm" style="color:' + (mobImpact < -5 ? '#dc2626' : '#1a1d2e') + ';">' + esc((day.attribution_fr && day.attribution_fr.mobility) ? day.attribution_fr.mobility : '\u2014') + '</div></div>'
               + '<div class="fs-metric"><div class="fs-metric-label">Distance station</div><div class="fs-metric-value">' + (tDist > 0 ? tDist : '\u2014') + ' <span class="fs-metric-unit">m</span></div><div class="fs-metric-sub">de ' + esc(prof.site_name || 'votre site') + '</div></div>'
-              + '<div class="fs-metric"><div class="fs-metric-label">Score du jour</div><div class="fs-metric-value">' + score10(day.opportunity_score_final_local) + ' <span class="fs-metric-unit">/10</span></div></div>'
             + '</div>'
           + '</div>';
         }
@@ -1386,6 +1670,16 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
             html += '</div>';
           }
+
+          // Type B (votre environnement) × Type A (ce qui a marché) — today-conditional,
+          // async-filled below via loadReactions. Real fs-section + fs-pourquoi chrome. Hidden
+          // until it has content (empty store → stays hidden, never an empty block).
+          html += '<div class="fs-section" id="fs-reactions-section" style="display:none;">'
+            + '<div class="fs-section-title">Comment votre lieu réagit</div>'
+            + '<div class="fs-pourquoi"><div id="fs-reactions-zone">'
+              + '<div style="font-size:12px;color:#9CA3AF;padding:2px 0;display:flex;align-items:center;gap:8px;"><span class="fs-loading-spin"></span> Lecture de vos réactions…</div>'
+            + '</div></div>'
+          + '</div>';
         }
 
         // ════════════════════════════════════════════════════════════
@@ -1437,6 +1731,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
         // ── Render ──
         root.innerHTML = html;
+        var _rxZone = document.getElementById('fs-reactions-zone');
+        if (_rxZone) loadReactions(location_id, signal_date, _rxZone);
         // Wire mega event enrich button
         var megaEnrichBtn = root.querySelector('[data-mega-enrich]');
         if (megaEnrichBtn) {
@@ -1521,7 +1817,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var prOpp = Number(day.competition_pressure_ratio || 0);
           if (prOpp > 0 && prOpp < 0.8) facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km \u2014 bien en dessous de la moyenne' });
           else facts.push({ label: 'Concurrence', value: num(day.events_within_5km_count), text: '\u00e9v\u00e9nements \u00e0 5 km' });
-          facts.push({ label: 'Score', value: score10(day.opportunity_score_final_local) + '/10', text: '\u2014 conditions favorables' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         } else if (mode === 'mobilite') {
           var tName = prof.nearest_transit_stop_name || '';
@@ -1534,14 +1829,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var megaN = day.active_mega_event_name || feedItem.new_value || 'M\u00e9ga-\u00e9v\u00e9nement';
           if (megaN === 'true' || megaN === 'false') megaN = 'M\u00e9ga-\u00e9v\u00e9nement';
           facts.push({ label: '\u00c9v\u00e9nement', value: megaN, text: 'dans votre zone' });
-          facts.push({ label: 'Score jour', value: score10(day.opportunity_score_final_local) + '/10' });
           if (Number(day.events_within_5km_count || 0) > 0) facts.push({ label: '\u00c9v\u00e9nements \u00e0 5 km', value: num(day.events_within_5km_count), text: 'dont ' + num(day.events_within_5km_same_bucket_count) + ' m\u00eame secteur' });
           if (audStr) facts.push({ label: 'Votre cible', value: audStr, text: '\u2014 pr\u00e9sente parmi les visiteurs de l\u2019\u00e9v\u00e9nement' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         } else {
           // Intelligence / default
           if (Number(day.competition_pressure_ratio || 0) > 0) facts.push({ label: 'Pression', value: ratio(day.competition_pressure_ratio), text: 'niveau actuel' });
-          facts.push({ label: 'Score', value: score10(day.opportunity_score_final_local) + '/10' });
           if (diff) facts.push({ label: 'Votre atout', text: diff });
         }
 
@@ -1551,6 +1844,40 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // ════════════════════════════════════════════════════════════════
       // QUE FAIRE BUILDER — mode-specific action hint
       // ════════════════════════════════════════════════════════════════
+
+      // Lead: the top-salience SPECIFIC facts, ranked most-important-first — every specific stays
+      // concrete (no synthesis into a takeaway sentence), plus the REAL fired action card (never an
+      // invented suggestion). No régime / medal / score. Honest-absence when nothing salient.
+      function buildLeadSignals(day, prof, actionCandidate) {
+        var facts = [];
+        if (day.weather_alert_fr) facts.push({ s: 100, t: esc(day.weather_alert_fr) });
+        var fc = (day.followed_competitors || [])[0];
+        if (fc && fc.name) {
+          var ct = esc(fc.name);
+          if (fc.google_rating != null) ct += ' · ⭐ ' + frDec(fc.google_rating);
+          if (fc.rating_trend != null && Math.round(Number(fc.rating_trend) * 10) !== 0) ct += ' (' + (fc.rating_trend > 0 ? '↑' : '↓') + ' ' + frDec(Math.abs(Math.round(Number(fc.rating_trend) * 10) / 10)) + ' ce mois)';
+          if (fc.distance_km != null) ct += ' · ' + frDec(Math.round(Number(fc.distance_km) * 10) / 10) + ' km';
+          facts.push({ s: 85, t: ct });
+        }
+        if (day.commercial_events && day.commercial_events.length) { var ce = day.commercial_events[0]; facts.push({ s: 75, t: esc(typeof ce === 'string' ? ce : (ce.event_name || '')) }); }
+        if (day.foreign_visitors && day.foreign_visitors.length) facts.push({ s: 55, t: 'Visiteurs étrangers possibles : ' + esc(day.foreign_visitors.slice(0, 5).join(', ')) });
+        if (!facts.length && day.weather_label_fr) facts.push({ s: 40, t: esc(day.weather_label_fr) + (day.temperature_2m_max != null ? ' · ' + Math.round(Number(day.temperature_2m_max)) + '°C' : '') });
+        if (!facts.length) return '';
+        facts.sort(function(a, b) { return b.s - a.s; });
+        var h = '<div class="fs-section" style="border-left:3px solid #0b37e5;padding-left:14px;">'
+          + '<div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:8px;">L\'essentiel du jour</div>';
+        for (var i = 0; i < Math.min(facts.length, 4); i++) {
+          h += '<div style="display:flex;gap:8px;padding:4px 0;font-size:14px;color:#1a1d2e;line-height:1.5;"><span style="color:#0b37e5;flex:none;">•</span><span>' + facts[i].t + '</span></div>';
+        }
+        var card = actionCandidate && (actionCandidate.headline_fr || actionCandidate.detail_fr);
+        if (card) {
+          h += '<div style="margin-top:12px;background:#eef2ff;padding:12px 14px;border-radius:8px;">'
+            + '<span style="display:block;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#0b37e5;margin-bottom:4px;">Action à mener</span>'
+            + '<span style="font-size:13.5px;color:#1e3a8a;line-height:1.6;">' + esc(card) + '</span></div>';
+        }
+        h += '</div>';
+        return h;
+      }
 
       function buildQueFaire(mode, spec, day, prof) {
         if (mode === 'meteo') {
@@ -1594,10 +1921,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '<div class="fs-action-bar-inner">'
             + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
             + '<button type="button" class="fs-btn-send" id="fs-btn-send">\u2197\ufe0f Faire suivre</button>'
+            + '<button type="button" id="fs-btn-act" style="flex:1;padding:12px 0;border-radius:10px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cr\u00e9er une action</button>'
           + '</div>'
         + '</div>'
         + '<div class="fs-ws-overlay" id="fs-ws-overlay">'
           + '<div class="fs-ws-panel" id="fs-ws-panel"></div>'
+        + '</div>'
+        + '<div class="fs-ws-overlay" id="fs-cm-overlay">'
+          + '<div class="fs-ws-panel" id="fs-cm-panel"></div>'
         + '</div>';
         root.insertAdjacentHTML('afterend', barHtml);
 
@@ -1632,6 +1963,31 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
         document.getElementById("fs-btn-comm").addEventListener("click", function() { openWorkspace("comm"); });
         document.getElementById("fs-btn-send").addEventListener("click", function() { openWorkspace("send"); });
+
+        // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card
+        // (origin_action_type = signal_type; allowlisted in commitmentOrigins.ts). The user sets the
+        // goal — window + threshold — inside the form. Same form the pulse feed + évolution page use.
+        var cmOverlay = document.getElementById("fs-cm-overlay");
+        var cmPanel = document.getElementById("fs-cm-panel");
+        function closeCommit() { if (cmOverlay) cmOverlay.classList.remove("is-open"); if (cmPanel) cmPanel.innerHTML = ""; }
+        if (cmOverlay) cmOverlay.addEventListener("click", function(e) { if (e.target === cmOverlay) closeCommit(); });
+        var actBtn = document.getElementById("fs-btn-act");
+        if (actBtn) actBtn.addEventListener("click", function() {
+          if (!window.MSCommitForm || !cmPanel || !cmOverlay) return;
+          var pre = { committed_action_text: "", window_kind: "7d" };
+          cmPanel.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
+          window.MSCommitForm.wire(cmPanel, {
+            location_id: location_id,
+            prefill: pre,
+            origin: { origin_action_type: signal_type || null },
+            fetchOwners: fetchTeam,
+            onCancel: closeCommit,
+            onDone: function(j) {
+              cmPanel.innerHTML = '<div style="padding:16px;font-size:13px;color:' + (j && j.ok ? '#166534' : '#b91c1c') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l’échéance.' : ('Erreur : ' + ((j && j.error) || 'réessayez'))) + '</div>';
+            }
+          });
+          cmOverlay.classList.add("is-open");
+        });
 
         function generateDraft(ch) {
           currentChannel = ch;

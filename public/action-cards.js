@@ -2270,12 +2270,17 @@
     'sales_surge': { action: function(a, p, d) {
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-      var byVol = (tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true;
-      var lever = byVol
-        ? ('le volume' + (tx != null ? ' (+' + tx + ' % de tickets' + (bk != null ? ', panier ' + (bk >= 0 ? '+' : '') + bk + ' %' : '') + ')' : ''))
-        : ('le panier moyen' + (bk != null ? ' (' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
-      var hook = a.is_vacation ? 'vacances scolaires' : (a.is_holiday ? 'jour férié' : (Number(a.weather_alert || 0) === 0 ? 'météo favorable' : 'contexte du jour'));
-      return 'À rejouer : porté par ' + lever + '. Repérez ce qui a amené le monde (' + hook + ', mise en avant, offre) et rejouez-le sur vos prochaines journées comparables.';
+      // Real driver = the caisse decomposition (dominant_factor when present; else the larger delta).
+      // This is arithmetic FACT, not "repérez ce qui a marché" filler. Numbers stay verbatim.
+      var byVol = a.dominant_factor ? (a.dominant_factor === 'transactions')
+                : ((tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true);
+      var driver = byVol ? 'du volume' : 'du panier moyen';
+      var detail = (tx != null && bk != null)
+        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
+        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
+      // Named co-occurring context — observed, not asserted as the sole cause; omitted when nothing specific.
+      var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour férié' : (Number(a.weather_alert || 0) === 0 ? 'une météo favorable' : ''));
+      return 'La hausse vient ' + driver + detail + (hook ? ', porté par ' + hook : '') + '. À rejouer sur vos prochaines journées comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
@@ -2783,6 +2788,28 @@
     }
     return null;
   };
+
+  // Recommended actions per sales card — a real "à faire". CONTENT lives in the
+  // owner-editable window.MS_SALES_RECO_LIB (public/reco-library.js), loaded BEFORE
+  // this file on surfaces that show recos (pulse form, rapport). Here we only wire it:
+  //   spec.recos(item) -> up to 3 driver-matched actions (the M'engager form options)
+  //   spec.reco(item)  -> the top one as a string (the sales report, back-compat)
+  // Degrades to [] / '' when the library isn't loaded — never throws, never wrong text.
+  function _recoDriverKey(a) {
+    var d = String((a && (a.primary_revenue_driver || a.dominant_factor)) || '').toLowerCase();
+    return d === 'transactions' ? 'footfall' : d;
+  }
+  function _recosFor(cardType, a) {
+    var lib = (typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) ? window.MS_SALES_RECO_LIB[cardType] : null;
+    if (!lib) return [];
+    var arr = lib[_recoDriverKey(a)] || lib._default || [];
+    return Array.isArray(arr) ? arr.slice(0, 3) : [];
+  }
+  ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization'].forEach(function (_rt) {
+    if (!SPECS[_rt]) return;
+    SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
+    SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? r[0] : ''; }; })(_rt);
+  });
 
   window.ACTION_CARDS = SPECS;
   window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};

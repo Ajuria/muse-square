@@ -5,6 +5,12 @@ import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/compare_dates";
 import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1";
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { assembleDayContext } from "../../../lib/dayContext";
+import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { familyForQuestion } from "../../../lib/insightFamilies";
+import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
 import { buildUiPackagingV3Month } from "../../../lib/ai/ui_packaging_v3/buildUiPackagingV3Month";
@@ -74,6 +80,8 @@ type AiResponseV1 = {
   key_facts: string[];
   actions: ApiActions;
   caveats: string[];
+  suggested_action: string;   // the REAL fired action card headline (attached in code); "" when none
+
   meta: {
     horizon: ResolvedHorizon;
     intent: Intent;
@@ -177,6 +185,8 @@ function normalizeAiOutput(
   actions: ApiActions
 ): AiResponseV1 {
   const out = ai?.output;
+  const suggestedAction = out && typeof out === "object" && typeof (out as any).suggested_action === "string"
+    ? (out as any).suggested_action.trim() : "";
 
   const metaWithDecisionRef: AiResponseV1["meta"] = {
     ...meta,
@@ -209,6 +219,7 @@ function normalizeAiOutput(
       key_facts: asStringArray(out.key_facts),
       actions,
       caveats: asStringArray(out.caveats),
+      suggested_action: suggestedAction,
       meta: metaWithDecisionRef,
     };
   }
@@ -274,6 +285,7 @@ function normalizeAiOutput(
       key_facts: key_facts,
       actions,
       caveats,
+      suggested_action: suggestedAction,
       meta: metaWithDecisionRef,
     };
   }
@@ -288,6 +300,7 @@ function normalizeAiOutput(
       key_facts: [],
       actions,
       caveats: [],
+      suggested_action: "",
       meta: metaWithDecisionRef,
     };
   }
@@ -303,6 +316,7 @@ function normalizeAiOutput(
     key_facts: [],
     actions,
     caveats: raw ? ["Sortie AI brute utilisée (raw_text)."] : ["Sortie AI vide ou illisible."],
+    suggested_action: "",
     meta: metaWithDecisionRef,
   };
 }
@@ -692,18 +706,13 @@ async function classifyIntentWithHaiku(qRaw: string): Promise<{
 }> {
   const fallback = { intent: "WINDOW_TOP_DAYS" as const, horizon: "month" as const, detected_day: null };
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 256,
-        temperature: 0,
-        system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
+    const call = await callClaudeMessagesAPI({
+      model: modelFor("classifier"),
+      maxTokens: 256,
+      temperature: 0,
+      cacheSystem: false,
+      userText: qRaw,
+      system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
 Réponds UNIQUEMENT en JSON strict, sans markdown, sans commentaire.
 
 Classifie la question utilisateur :
@@ -722,12 +731,9 @@ Règles :
 - Si la question cherche quand a lieu un événement, ou liste des événements → LOOKUP_EVENT
 - Si la question demande les meilleurs/pires jours, quand organiser → WINDOW_TOP_DAYS
 - detected_day : si un jour de la semaine est mentionné (lundi, mardi...), extrais-le. Sinon null.`,
-        messages: [{ role: "user", content: qRaw }],
-      }),
     });
-    const data = await res.json();
-    const text = data?.content?.[0]?.text ?? "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    if (!call.ok) return fallback;
+    const clean = call.rawText.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
     const validIntents = ["WINDOW_TOP_DAYS", "DAY_DIMENSION_DETAIL", "ENTITY_IMPACT", "LOOKUP_EVENT"];
     if (!validIntents.includes(parsed?.intent)) return fallback;
@@ -2294,7 +2300,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       resolved_horizon = "day";
       resolved_intent = "DAY_WHY";
     }
-    
+
+    // Card-FAMILY questions ("quand je vends le plus ?", "mon affluence ?") are dateless PATTERN
+    // questions that resolveHorizonFromText defaults to "month". They are day-dimension questions —
+    // promote them to the grounded day path (where the family provider's facts fold in as extraFacts),
+    // UNLESS the user gave an explicit date or asked to compare. The family router is thus a first-class
+    // classifier, not an afterthought on the day branch.
+    if (!force_compare && extracted_dates.length === 0 && resolved_horizon === "month" && familyForQuestion(qRaw)) {
+      resolved_horizon = "day";
+      resolved_intent = "DAY_DIMENSION_DETAIL";   // a family question is a single-dimension question — lead with that dimension, not the day verdict
+    }
+
     // ----------------------------
     // Conversational overrides (V1) — deterministic, no guessing
     // Only when user asks follow-up without explicit dates.
@@ -2385,11 +2401,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // on month horizon — the exact spot where misroutes happen.
     // Also replaces the old isEventLookupQuestion late override.
     // ------------------------------------
-    const needsHaikuClassification =
+    // A COMPARE_DATES that came only from the selected_days DEFAULT (no explicit dates, no
+    // comparison words) is often an entity/impact question — e.g. "impact de <lieu> sur mon
+    // activité". Let Haiku reclassify it instead of demanding 2 dates the user never implied.
+    const isDefaultedCompare =
       !force_compare &&
-      resolved_horizon === "month" &&
-      resolved_intent === "WINDOW_TOP_DAYS" &&
-      !isEventLookupQuestion(qRaw); // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
+      resolved_intent === "COMPARE_DATES" &&
+      resolved_horizon === "selected_days" &&
+      extracted_dates.length === 0 &&
+      !/(compar|entre ces|laquelle|difference|\bvs\b)/.test(qn);
+
+    const needsHaikuClassification =
+      (!force_compare &&
+        resolved_horizon === "month" &&
+        resolved_intent === "WINDOW_TOP_DAYS" &&
+        !isEventLookupQuestion(qRaw)) // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
+      || (isDefaultedCompare && !isEventLookupQuestion(qRaw));
 
     // Clear-cut lookup (deterministic) — keep existing behavior for unambiguous cases
     if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
@@ -2435,6 +2462,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
           // Month-level dimension question — keep month but change intent
           resolved_intent = "DAY_DIMENSION_DETAIL";
         }
+      } else if (isDefaultedCompare) {
+        // Defaulted-compare question that Haiku did not tag as entity/lookup/dimension:
+        // treat it as a month best-days question rather than demanding 2 dates.
+        resolved_intent = "WINDOW_TOP_DAYS";
+        resolved_horizon = "month";
       }
       // WINDOW_TOP_DAYS from Haiku = confirm default, no change needed
     }
@@ -3151,8 +3183,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let window_aggregates_v3: WindowAggregatesV3 | null = null;
     let ui_packaging_v3: any = null;
 
-    type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic";
+    type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic" | "grounded_day_claude" | "family_grounded_claude" | "family_deterministic";
     let producer: ProducerMeta = "deterministic";
+    let _familyLedKey: string | null = null;   // set when a card-family provider led the day answer
+    let _familyCard: { render: string; data: any } | null = null;   // full family card → rendered INLINE in the chat (the detailed answer, no click-through)
 
     const isUnknownIntent =
       request_mode === "concurrence" ||
@@ -3210,7 +3244,7 @@ Règles :
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
+          model: modelFor("web_search"),
           max_tokens: 2048,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           system: systemPrompt,
@@ -3829,7 +3863,7 @@ Règles :
                 "anthropic-version": "2023-06-01",
               },
               body: JSON.stringify({
-                model: "claude-sonnet-4-6",
+                model: modelFor("web_search"),
                 max_tokens: 1024,
                 tools: [{ type: "web_search_20250305", name: "web_search" }],
                 system: entitySystemPrompt,
@@ -4031,169 +4065,85 @@ Règles :
         // ------------------------------------
         // V3 Day → Claude narration
         // ------------------------------------
-        const avg_same_bucket_5km_window_day = await (async () => {
-          const ws = effective_date.slice(0, 7) + "-01";
-          const rows = await bqAll(
-            `
-            WITH win AS (
-              SELECT
-                DATE(@window_start_date) AS window_start_date,
-                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
-            )
-            SELECT events_within_5km_same_bucket_count
-            FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-            WHERE location_id = @location_id
-              AND date BETWEEN (SELECT window_start_date FROM win)
-                          AND (SELECT window_end_date FROM win)
-            `,
-            bqParams({ location_id, window_start_date: ws })
-          );
-          const vals = rows
-            .map((r: any) => {
-              const n = typeof r?.events_within_5km_same_bucket_count === "number"
-                ? r.events_within_5km_same_bucket_count
-                : Number(r?.events_within_5km_same_bucket_count);
-              return Number.isFinite(n) ? n : null;
-            })
-            .filter((n): n is number => n !== null);
-          return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-        })();
-        
-        const saved_item_context = await (async () => {
-          if (!effective_date || !location_id) return null;
-          try {
-            const rows = await bqAll(
-              `
-              SELECT i.title, i.description, i.event_type
-              FROM \`${projectId}.raw.saved_item_dates\` d
-              JOIN \`${projectId}.raw.saved_items\` i
-                ON i.saved_item_id = d.saved_item_id
-              WHERE DATE(d.date) = DATE(@effective_date)
-                AND d.location_id = @location_id
-                ${clerk_user_id ? "AND d.clerk_user_id = @clerk_user_id" : ""}
-              LIMIT 1
-              `,
-              bqParams({
-                effective_date,
-                location_id,
-                ...(clerk_user_id ? { clerk_user_id } : {}),
-              })
-            );
-            return rows.length ? rows[0] : null;
-          } catch (e) {
-            return null;
-          }
-        })();
-        
-        const narrative_input_day = {
-          horizon: "day",
-          intent: resolved_intent,
-          user_question: qRaw,
-          date: effective_date,
-          display_label: day_row?.display_label ?? effective_date,
-          scoring: {
-            regime: day_row?.opportunity_regime ?? null,
-            score: day_row?.opportunity_score_final_local ?? null,
-            medal: day_row?.opportunity_medal ?? null,
-            events_score: day_row?.events_score ?? null,
-            weather_score: day_row?.weather_score ?? null,
-            calendar_score: day_row?.calendar_score ?? null,
-            mobility_score: day_row?.mobility_score ?? null,
-          },
-          primary_driver: {
-            label_fr: day_row?.primary_score_driver_label_fr ?? null,
-            confidence_fr: day_row?.primary_driver_confidence_fr ?? null,
-          },
-          weather: {
-            label_fr: day_row?.weather_label_fr ?? null,
-            alert_level_max: day_row?.alert_level_max ?? null,
-            wind_speed_10m_max: day_row?.wind_speed_10m_max ?? null,
-            precipitation_probability_max_pct: day_row?.precipitation_probability_max_pct ?? null,
-            impact_weather_pct: day_row?.impact_weather_pct ?? null,
-            lvl_wind: day_row?.lvl_wind ?? null,
-            lvl_rain: day_row?.lvl_rain ?? null,
-          },
-          competition: {
-            events_within_5km_count: day_row?.events_within_5km_count ?? null,
-            events_within_10km_count: day_row?.events_within_10km_count ?? null,
-            events_within_50km_count: day_row?.events_within_50km_count ?? null,
-            delta_att_events_pct: day_row?.delta_att_events_pct ?? null,
-            events_within_5km_same_bucket_count: day_row?.events_within_5km_same_bucket_count ?? null,
-            events_within_10km_same_bucket_count: day_row?.events_within_10km_same_bucket_count ?? null,
-            pct_same_bucket_5km: day_row?.pct_same_bucket_5km ?? null,
-            avg_same_bucket_5km_window: avg_same_bucket_5km_window_day,
-            has_valid_baseline: avg_same_bucket_5km_window_day !== null,
-            baseline_comp_avg: day_row?.baseline_comp_avg ?? null,
-            has_valid_baseline_flag: day_row?.has_valid_baseline_flag ?? null,
-            top_competitors: Array.isArray(day_row?.top_competitors)
-              ? day_row.top_competitors.slice(0, 10).map((tc: any) => ({
-                  name: tc?.e?.event_label ?? null,
-                  distance_m: tc?.e?.distance_m ?? null,
-                  radius_bucket: tc?.e?.radius_bucket ?? null,
-                  industry_code: tc?.e?.industry_code ?? null,
-                  theme: tc?.e?.theme ?? null,
-                  description: typeof tc?.e?.description === "string"
-                    ? tc.e.description.trim().slice(0, 150)
-                    : null,
-                }))
-              : [],
-          },
-          audience: {
-            availability_label: day_row?.audience_availability_label ?? null,
-            is_weekend: day_row?.is_weekend ?? null,
-            is_public_holiday_fr_flag: day_row?.is_public_holiday_fr_flag ?? null,
-            is_school_holiday_flag: day_row?.is_school_holiday_flag ?? null,
-            is_commercial_event_flag: day_row?.is_commercial_event_flag ?? null,
-          },
-          signals_fr: Array.isArray(day_row?.daily_signal_summary_fr)
-            ? day_row.daily_signal_summary_fr
-            : [],
-          is_major_realization_risk: day_row?.is_major_realization_risk_flag ?? null,
-          major_realization_risk_driver: day_row?.major_realization_risk_driver ?? null,
-          business_profile: {
-            location_type: internal_context?.location_type ?? null,
-            company_activity_type: internal_context?.company_activity_type ?? null,
-            business_short_description: internal_context?.business_short_description ?? null,
-            event_time_profile: internal_context?.event_time_profile ?? null,
-            primary_audience_1: internal_context?.primary_audience_1 ?? null,
-            primary_audience_2: internal_context?.primary_audience_2 ?? null,
-            main_event_objective: internal_context?.main_event_objective ?? null,
-            venue_capacity: internal_context?.venue_capacity ?? null,
-          },
-
-          user_event: saved_item_context ? {
-            title: saved_item_context.title ?? null,
-            description: saved_item_context.description ?? null,
-            event_type: saved_item_context.event_type ?? null,
-          } : null,
-        };
-
-        console.log("[DAY_WHY payload] competition:", JSON.stringify(narrative_input_day.competition));
-        console.log("[DAY_WHY payload] user_event:", JSON.stringify(narrative_input_day.user_event));
-
+        // Grounded day answer — the brain (assembleDayContext) is the fact source. The adapter turns its
+        // claim-typed llm envelope into the packager payload; the packager cites ONLY citable_facts and the
+        // grounded validator rejects anything ungrounded. On reject → regenerate once → deterministic IR
+        // (renderDayWhyV1), a grounded-by-construction floor. Never ships ungrounded LLM text.
+        const dc_day = await assembleDayContext(bigquery, location_id, effective_date, {});
+        // Family-LED grounding — if the question maps to an insight card family ("quand je vends le
+        // plus ?" → footfall), answer PRIMARILY from that family's provider: its claim-typed facts
+        // become the citable whitelist and the day-brain's competing facts are DROPPED, so the answer
+        // LEADS with the dimension asked about (not the day's dominant weather/event story). The SAME
+        // provider the deep page + family report reuse; the grounded validator stays the sole gate.
+        let _famResult: FamilyResult | null = null;
+        let _famKey: string | null = null;
+        let _famRender: string | null = null;
         try {
-          ai = await runAIPackagerClaude({
-            mode: "v3_narrative",
-            submode: resolved_intent as any,
-            row: { ...narrative_input_day, _conversation_history: conversation_history },
-          });
-          producer = "v3_claude";
+          const _fam = familyForQuestion(qRaw);
+          if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
+        } catch (e) { console.warn("[grounded] family provider skipped:", e); }
+        const _familyLed = !!(_famResult && _famResult.found);
+        if (_familyLed) {
+          _familyLedKey = _famKey;
+          _familyCard = { render: _famRender!, data: _famResult!.data };   // full card → rendered inline in the chat
+        }
+        const grounded_payload = _familyLed
+          ? toGroundedDayPayload(
+              { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
+              { question: qRaw, date: effective_date, extraFacts: _famResult!.facts },
+            )
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date });
+        const callGrounded = () => runAIPackagerClaude({
+          mode: "grounded_day",
+          row: { ...grounded_payload, _conversation_history: conversation_history },
+        });
+        try {
+          ai = await callGrounded();
+          if (!ai.ok) {
+            console.warn("[DAY_WHY grounded] rejected, regenerating:", ai.errors);
+            ai = await callGrounded();
+          }
+          producer = ai.ok ? (_familyLed ? "family_grounded_claude" : "grounded_day_claude") : "v3_fallback_deterministic";
         } catch (e) {
-          ai = {
-            ok: true,
-            mode: "deterministic_daywhy_ir_v1",
-            output: {
-              headline: det_headline,
-              answer: "",
-              key_facts: det_key_facts,
-              reasons: [],
-              caveats: [],
-            },
-            raw_text: "",
-            errors: [],
-            warnings: [],
-          };
+          console.error("[DAY_WHY grounded] threw:", e);
+          ai = { ok: false } as any;
           producer = "v3_fallback_deterministic";
+        }
+        if (!ai || !ai.ok) {
+          if (_familyLed) {
+            // FAMILY deterministic floor — a family answer is NEVER lost to a grounded reject. Built from
+            // the provider's OWN data (lead + BestTime note + its claim-typed facts), grounded by construction.
+            const _fd: any = _famResult!.data;
+            ai = {
+              ok: true,
+              mode: "deterministic_family_v1",
+              output: {
+                headline: _fd.lead || "",
+                answer: [_fd.lead, _fd.besttime_note].filter(Boolean).join(" "),
+                key_facts: _famResult!.facts.map((f) => f.fact_fr),
+                reasons: [],
+                caveats: [],
+              },
+              raw_text: "", errors: [], warnings: [],
+            };
+            producer = "family_deterministic";
+          } else {
+            ai = {
+              ok: true,
+              mode: "deterministic_daywhy_ir_v1",
+              output: { headline: det_headline, answer: "", key_facts: det_key_facts, reasons: [], caveats: [] },
+              raw_text: "",
+              errors: [],
+              warnings: [],
+            };
+          }
+        }
+
+        // The operator-facing action is the REAL fired action card (top action_candidate), never an
+        // LLM-invented geste. Attach it to the response; "" when no card fired (honest-absence).
+        if (ai && ai.output && typeof ai.output === "object") {
+          const topCard = (grounded_payload.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
+          (ai.output as any).suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
         }
 
         break;
@@ -4758,13 +4708,19 @@ Règles :
         };
       }
     } else if (resolved_horizon === "day") {
-      // We do not assume a Day route exists. Fallback = month anchored on the date.
-      const url = buildMonthRedirectUrl({
-        window_start_date: effective_day_date,
-        focus: "shortlist",
-        from_prompt: true,
-      });
-      primary = { type: "redirect", url, label: "Ouvrir le mois" };
+      if (_familyLedKey) {
+        // Family-led answer → the FULL family card renders INLINE in the chat (family_card below),
+        // so no CTA/redirect is needed; the detailed analysis is the answer itself.
+        primary = null;
+      } else {
+        // We do not assume a Day route exists. Fallback = month anchored on the date.
+        const url = buildMonthRedirectUrl({
+          window_start_date: effective_day_date,
+          focus: "shortlist",
+          from_prompt: true,
+        });
+        primary = { type: "redirect", url, label: "Ouvrir le mois" };
+      }
     } else if (resolved_horizon === "selected_days") {
       // No route guessing. Fallback = month anchored on first selected date.
       if (first_selected_date) {
@@ -5247,6 +5203,7 @@ Règles :
         },
 
         actions,
+        family_card: _familyCard,   // when present, the client renders this full card INLINE (MSCardKit) as the detailed answer
         top_dates,
         decision_payload,
 

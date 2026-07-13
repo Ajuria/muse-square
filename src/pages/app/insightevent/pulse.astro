@@ -343,7 +343,9 @@ if (!location_id) {
     <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
     <script is:inline src="/vendor/leaflet/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/action-cards.js?v=25"></script>
+    <script is:inline src="/reco-library.js?v=1"></script>
+    <script is:inline src="/commit-form.js?v=1"></script>
+    <script is:inline src="/action-cards.js?v=27"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1751,7 +1753,17 @@ if (!location_id) {
 
     var cardsHtml = top.map(function(entry, cardIdx) {
       var t = entry.tmpl;
-      try { window.__msCardByIdx = window.__msCardByIdx || {}; window.__msCardByIdx[cardIdx] = entry.item; } catch(e) {}
+      try {
+        window.__msCardByIdx = window.__msCardByIdx || {};
+        // "Mon action" proposes up to 3 driver-matched RECOMMENDED actions (spec.recos, from the
+        // owner reco library public/reco-library.js) — NOT the sowhat surveillance line (t.action,
+        // "À surveiller : confirmez si…"). User picks one -> fills the field (still editable).
+        // Empty array when the card type has no reco, so the field is never wrong.
+        var _akey = (t && t._spec_action_type) || entry.item.change_subtype || entry.item.action_type;
+        var _sp = (window.ACTION_CARDS && _akey) ? window.ACTION_CARDS[_akey] : null;
+        entry.item.__suggested_actions = (_sp && typeof _sp.recos === 'function') ? (_sp.recos(entry.item) || []) : [];
+        window.__msCardByIdx[cardIdx] = entry.item;
+      } catch(e) {}
       var cardId = "ab-card-" + cardIdx;
       var status = briefStatuses[cardIdx] || null;
       var statusLabel = status === "copied" ? "Brouillon \u270e" : status === "saved" ? "Brouillon \u270e" : null;
@@ -1797,6 +1809,10 @@ if (!location_id) {
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
+          + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-comm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
+            + '<div><div class="ab-dd-label">M\'engager sur une action</div><div class="ab-dd-desc">Fixer un objectif mesur\u00e9 sur cette carte</div></div>'
+          + '</button>'
           + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
             + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019\u00e9quipe maintenant</div></div>'
@@ -1928,6 +1944,7 @@ if (!location_id) {
         + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
       + '</div>'
       + feedbackCardsHtml
+      + '<div id="pls-engagement-cards"></div>'
       + cardsHtml
       + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
         + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;">'
@@ -2157,6 +2174,118 @@ if (!location_id) {
         root.querySelectorAll("[data-agir-menu]").forEach(function(m) { if (m !== menu) m.style.display = "none"; });
         var isHidden = !menu.style.display || menu.style.display === "none";
         menu.style.display = isHidden ? "block" : "none";
+      });
+    });
+
+    // M'engager — open the commitment creation form in the card workspace
+    function cmChipStyle(sel){ return sel
+      ? 'font-size:12px;padding:5px 11px;background:#F5F7FF;color:#1D3BB3;border:1px solid #DBEAFE;font-weight:600;cursor:pointer;'
+      : 'font-size:12px;padding:5px 11px;background:#F3F4F6;color:#6b7280;border:1px solid transparent;cursor:pointer;'; }
+    function cmChip(group, val, label, sel){
+      return '<span data-cm-chip="' + group + '" data-cm-val="' + val + '" style="' + cmChipStyle(sel) + '">' + label + '</span>';
+    }
+    // Up to 3 recommended actions (owner reco library) as clickable rows. Click -> fills
+    // the "Mon action" textarea (still editable). Empty string when the card has no reco.
+    function cmSuggestionsHtml(cardIdx, card){
+      var acts = (card && Array.isArray(card.__suggested_actions)) ? card.__suggested_actions : [];
+      if (!acts.length) return '';
+      var rows = acts.map(function(a){
+        return '<div data-cm-sugg="' + cardIdx + '" data-cm-sugg-text="' + escapeHtml(a) + '" style="font-size:12px;color:#374151;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;line-height:1.4;">' + escapeHtml(a) + '</div>';
+      }).join('');
+      return '<div style="margin-bottom:8px;"><div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;">Suggestions — cliquez pour utiliser, puis ajustez :</div>' + rows + '</div>';
+    }
+    function buildCommitFormHtml(cardIdx, card){
+      return '<div style="padding:12px 16px 14px;border-top:1px solid #F3F4F6;">'
+        + '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:14px;">M\'engager sur une action</div>'
+        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Indicateur</div>'
+          + '<span style="' + cmChipStyle(true) + 'cursor:default;">CA vs attendu</span></div>'
+        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Fenêtre — quand je serai évalué</div>'
+          + '<div style="display:flex;gap:6px;">' + cmChip('window','day_of','Jour même',false) + cmChip('window','7d','7 jours',true) + cmChip('window','14d','14 jours',false) + '</div></div>'
+        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Objectif</div>'
+          + '<div style="display:flex;gap:6px;">' + cmChip('thr','modeste','Modeste ↑',true) + cmChip('thr','net','Net ↑↑',false) + '</div>'
+          + '<div style="font-size:10.5px;color:#9ca3af;margin-top:6px;">Le seuil s\'ajuste au bruit habituel de votre lieu — pas un % fixe.</div></div>'
+        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Responsable</div>'
+          + '<input data-cm-owner="' + cardIdx + '" placeholder="Une personne de l\'équipe" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;" />'
+          + '<div data-cm-owner-sugg="' + cardIdx + '" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div></div>'
+        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Mon action</div>'
+          + cmSuggestionsHtml(cardIdx, card)
+          + '<textarea data-cm-action="' + cardIdx + '" placeholder="Choisissez une suggestion ci-dessus ou décrivez votre action" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;"></textarea></div>'
+        + '<div style="display:flex;gap:8px;"><button type="button" data-cm-submit="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">M\'engager →</button>'
+          + '<button type="button" data-cm-cancel="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Annuler</button></div>'
+      + '</div>';
+    }
+    function wireCommitForm(cardIdx, ws, card){
+      var state = { window: '7d', thr: 'modeste' };
+      // Responsable: propose team members (reuse the roster infra). Owner is a PERSON,
+      // not a Slack channel — channel-as-destination stays on the alert rail.
+      try {
+        fetchTeamMembers(card && card.location_id).then(function(members){
+          var sugg = ws.querySelector('[data-cm-owner-sugg="' + cardIdx + '"]'); if (!sugg) return;
+          var pool = (members && members.length) ? members : teamMembersPool(card && card.location_id);
+          if (!pool || !pool.length) { sugg.innerHTML = ''; return; }
+          sugg.innerHTML = pool.map(function(m){
+            var nm = (String(m.first_name || '') + (m.last_name ? ' ' + m.last_name : '')).trim();
+            return '<span data-cm-owner-pick="' + escapeHtml(nm) + '" style="font-size:12px;padding:4px 10px;background:#F3F4F6;color:#374151;border:1px solid #e5e7eb;border-radius:999px;cursor:pointer;">' + escapeHtml(nm) + (m.role ? ' · ' + escapeHtml(m.role) : '') + '</span>';
+          }).join('');
+          sugg.querySelectorAll('[data-cm-owner-pick]').forEach(function(opt){
+            opt.addEventListener('click', function(){ var inp = ws.querySelector('[data-cm-owner="' + cardIdx + '"]'); if (inp) inp.value = opt.getAttribute('data-cm-owner-pick'); });
+          });
+        }).catch(function(){});
+      } catch(e) {}
+      ws.querySelectorAll('[data-cm-chip]').forEach(function(chip){
+        chip.addEventListener('click', function(){
+          var group = chip.getAttribute('data-cm-chip');
+          state[group] = chip.getAttribute('data-cm-val');
+          ws.querySelectorAll('[data-cm-chip="' + group + '"]').forEach(function(c){ c.setAttribute('style', cmChipStyle(c === chip)); });
+        });
+      });
+      // Suggestion rows: click -> fill "Mon action" (editable) + highlight the picked one.
+      ws.querySelectorAll('[data-cm-sugg="' + cardIdx + '"]').forEach(function(sg){
+        sg.addEventListener('click', function(){
+          var ta = ws.querySelector('[data-cm-action="' + cardIdx + '"]');
+          if (ta) { ta.value = sg.getAttribute('data-cm-sugg-text'); ta.focus(); }
+          ws.querySelectorAll('[data-cm-sugg="' + cardIdx + '"]').forEach(function(x){ x.style.borderColor = '#DBEAFE'; x.style.background = '#F5F7FF'; });
+          sg.style.borderColor = '#1D3BB3'; sg.style.background = '#EEF2FF';
+        });
+      });
+      var cancel = ws.querySelector('[data-cm-cancel="' + cardIdx + '"]');
+      if (cancel) cancel.addEventListener('click', function(){ ws.style.display = 'none'; ws.innerHTML = ''; });
+      var submit = ws.querySelector('[data-cm-submit="' + cardIdx + '"]');
+      if (submit) submit.addEventListener('click', function(){
+        var owner = ((ws.querySelector('[data-cm-owner="' + cardIdx + '"]') || {}).value || '').trim();
+        var action = ((ws.querySelector('[data-cm-action="' + cardIdx + '"]') || {}).value || '').trim();
+        if (!owner || !action) return;
+        submit.disabled = true; submit.textContent = 'Envoi…';
+        fetch('/api/commitments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+          location_id: card.location_id,
+          origin_action_type: card.change_subtype || card.action_type,
+          origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
+          origin_suppression_key: card.suppression_key || null,
+          origin_card_instance_id: card.card_instance_id || null,
+          origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
+          window_kind: state.window, threshold_level: state.thr,
+          committed_action_text: action, owner_person_name: owner,
+          creation_residual_pct: card.residual_pct != null ? Number(card.residual_pct) : null,
+          creation_residual_z: card.residual_z != null ? Number(card.residual_z) : null,
+          creation_confidence_tier: card.confidence_tier || null,
+          // the card's own past-performance baseline (daily) → the measurable goal reference
+          creation_baseline_daily: card.avg_30d != null ? Number(card.avg_30d) : (card.expected_revenue != null ? Number(card.expected_revenue) : null)
+        }) }).then(function(r){ return r.json(); }).then(function(j){
+          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
+          if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(e) {} } // refresh the feed's engagement block (same in-view site set) so the new one shows immediately
+        }).catch(function(){ ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Erreur réseau.</div>'; });
+      });
+    }
+    root.querySelectorAll("[data-agir-commit]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-commit");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]'); if (menu) menu.style.display = "none";
+        var ws = document.getElementById("ab-card-" + cardIdx + "-workspace"); if (!ws) return;
+        var card = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
+        ws.style.display = "block";
+        ws.innerHTML = buildCommitFormHtml(cardIdx, card);
+        wireCommitForm(cardIdx, ws, card);
       });
     });
 
@@ -3996,6 +4125,7 @@ if (!location_id) {
           <span style="font-size:11px;color:var(--color-text-muted);">${dedupedTotal} ${dedupedTotal > 1 ? "signaux" : "signal"}</span>
         </div>
         <div>
+          <div id="feed-engagements-log"></div>
           ${groupsHtml}
         </div>
         ${showAllBtn}
@@ -4010,7 +4140,239 @@ if (!location_id) {
   // falls back to a genuine single-site server goal. Drives the "Goal pass" reorder.
   var _activeGoalKey = "";
   var _goalInit = false;
+  var _engagementLocs = []; // sites the current view covers (in-view aggregate sites, or the single viewed site) — engagements are fetched for exactly these, like system cards
   function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
+  // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
+  function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
+  function _cgWin(k){ return k === 'day_of' ? 'le jour même' : k === '14d' ? '14 j' : '7 j'; }
+  function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
+  // indicative % above "habituel" needed to validate the objective — the z threshold
+  // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
+  function _cgTargetPct(z, days){ return Math.max(1, Math.round((Number(z) || 1) * 0.19 / Math.sqrt(days || 7) * 100)); }
+  function _cgVerdict(r){
+    if (r.status === 'open') return { bg:'#EEF2FF', fg:'#1D3BB3', label:'En cours', strike:false, p:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' };
+    if (r.status === 'pending') return { bg:'#F3F4F6', fg:'#6b7280', label:'En attente', strike:false, p:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' };
+    if (r.status === 'expired') return { bg:'#F3F4F6', fg:'#9ca3af', label:'Non résolu', strike:true, p:'<circle cx="12" cy="12" r="9"/><path d="M5 5 19 19"/>' };
+    if (r.verdict === 'met') return { bg:'#DCFCE7', fg:'#166534', label:'Atteint', strike:false, p:'<path d="M20 6 9 17l-5-5"/>' };
+    if (r.verdict === 'missed') return { bg:'#FCEBEB', fg:'#b91c1c', label:'Manqué', strike:false, p:'<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>' };
+    return { bg:'#FEF3E2', fg:'#B45309', label:'Non concluant', strike:false, p:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/>' };
+  }
+  function _cgIcon(p, c){ return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
+  function _cgDdIcon(p){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
+  // Agir menu per state (locked spec): open/pending → Modifier · Consulter l'évolution;
+  // resolved/expired → Consulter l'évolution · Répliquer.
+  function _cgAgirMenu(eid, status){
+    var see = '<button type="button" data-eng-evo="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-see">' + _cgDdIcon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>') + '</div><div><div class="ab-dd-label">Consulter l\'évolution</div><div class="ab-dd-desc">Suivi jour par jour</div></div></button>';
+    var body;
+    if (status === 'open' || status === 'pending') {
+      body = '<button type="button" data-eng-modify="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>') + '</div><div><div class="ab-dd-label">Modifier</div><div class="ab-dd-desc">Ajuster ou abandonner</div></div></button>' + see;
+    } else {
+      body = see + '<button type="button" data-eng-replicate="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/>') + '</div><div><div class="ab-dd-label">Répliquer</div><div class="ab-dd-desc">Reprendre cette action</div></div></button>';
+    }
+    return '<div data-eng-agir-menu="' + eid + '" class="ab-agir-dropdown" style="display:none;">' + body + '</div>';
+  }
+  // Full engagement ACTION card — the SAME .ab-card anatomy as a system card (card_type=
+  // engagement): pills, what/sowhat, verdict pill + owner, Agir menu per state, "Action
+  // menée ?" disposition wired to /api/commitments/disposition, 5-state pills + amber dot.
+  function _cgActionCardHtml(r, i){
+    var eid = escapeHtml(String(r.commitment_id || ''));
+    var loc = escapeHtml(String(r.location_id || ''));
+    var v = _cgVerdict(r);
+    var open = r.status === 'open' || r.status === 'pending';
+    var resolved = r.status === 'resolved';
+    var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
+    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Fenêtre close' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    var pct = r.window_residual_pct;
+    // Measurable, card-specific objective vs past performance: a concrete € target above
+    // "votre habituel" (the window baseline captured at creation), + the % to clear it.
+    var _days = r.window_days_expected || 7;
+    var _base = r.window_expected_revenue != null ? Number(_cgFv(r.window_expected_revenue)) : null;
+    var _ypct = _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
+    var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
+    var _openObj = _uplift
+      ? ('Augmenter le CA de +' + _cgEur(_uplift) + '/jour (+' + _ypct + ' % vs CA habituel).')
+      : ('Augmenter le CA de +' + _ypct + ' % vs votre CA habituel.');
+    var sowhat = r.status === 'open' ? _openObj
+      : r.status === 'pending' ? ('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
+      : r.status === 'expired' ? 'Aucune donnée de ventes reçue en 30 j.'
+      : ('CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
+    var vStyle = 'background:' + v.bg + ';color:' + v.fg + ';font-weight:600;' + (v.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '');
+    var pill = '<span class="ab-metric" style="' + vStyle + '">' + _cgIcon(v.p, v.fg) + v.label + (amber ? '<span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;margin-left:2px;"></span>' : '') + '</span>';
+    var locLabel = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
+    // disposition: open/pending → interactive "Action menée ?"; resolved → read-only state.
+    var dispo;
+    if (open) {
+      var done = r.action_done_status;
+      dispo = '<div class="disc" data-eng-dispo-row="' + eid + '" data-eng-dispo-loc="' + loc + '">'
+        + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
+        + '<button type="button" data-eng-dispo-btn="fait" class="disc-btn"' + (done === 'fait' ? ' style="opacity:1;font-weight:700;"' : '') + '>Fait</button>'
+        + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (done === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas encore</button>'
+        + '</div>';
+    } else if (resolved && r.action_done_status === 'fait') {
+      dispo = '<div style="border-top:1px solid var(--color-border);padding:8px 16px 12px;"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action menée</span></div>';
+    } else if (resolved) {
+      var _nd = r.action_done_status === 'pas_encore' ? 'Action non menée' : 'Action non confirmée';
+      var _ndNote = (r.verdict === 'met') ? 'La métrique a bougé sans l\'action confirmée — pas votre gain, exclu de l\'apprentissage.' : 'Action non confirmée — exclue de l\'apprentissage.';
+      dispo = '<div style="border-top:1px solid var(--color-border);padding:8px 16px 12px;"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#9ca3af;">' + _cgIcon('<path d="M18 6 6 18"/><path d="M6 6 18 18"/>', '#9ca3af') + _nd + '</span><div style="font-size:11px;color:#6b7280;line-height:1.5;margin-top:6px;">' + _ndNote + '</div></div>';
+    } else { dispo = ''; }
+    var caveat = '';
+    if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';
+    else if (r.verdict === 'confounded') caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9888;</span><span>' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre en vacances scolaires — impossible de distinguer l\'action du calendrier.</span></div>';
+    return '<div class="ab-card" data-eng-card="' + eid + '" data-eng-loc="' + loc + '">'
+      + '<div class="ab-card-row">'
+        + '<div class="ab-bar" style="background:' + v.fg + ';"></div>'
+        + '<div class="ab-inner">'
+          + '<div class="ab-summary"><div style="display:flex;align-items:flex-start;gap:12px;">'
+            + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
+            + '<div style="flex:1;min-width:0;">'
+              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n">' + chip + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
+              + '<div class="ab-what">' + escapeHtml(String(r.committed_action_text || '')) + '</div>'
+              + '<div class="ab-sowhat">' + sowhat + '</div>'
+            + '</div></div></div>'
+          + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
+            + pill + '<span class="ab-metric">&rarr; ' + escapeHtml(String(r.owner_person_name || '')) + '</span>'
+            + '<span style="margin-left:auto;display:inline-flex;align-items:center;"><div style="position:relative;display:inline-block;">'
+              + '<button type="button" data-eng-agir-toggle="' + eid + '" class="agir-btn">Agir ▾</button>'
+              + _cgAgirMenu(eid, r.status)
+            + '</div></span>'
+          + '</div>'
+          + dispo + caveat
+          + '<div class="ab-workspace" id="eng-ws-' + eid + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }
+  // Wiring for the injected engagement action cards (own namespace, attached after inject).
+  function _engCloseMenus(mount){ mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }
+  function wireEngagementCards(mount){
+    mount.querySelectorAll('[data-eng-agir-toggle]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var eid = btn.getAttribute('data-eng-agir-toggle');
+        var menu = mount.querySelector('[data-eng-agir-menu="' + eid + '"]');
+        mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ if (m !== menu) m.style.display = 'none'; });
+        if (menu) menu.style.display = (!menu.style.display || menu.style.display === 'none') ? 'block' : 'none';
+      });
+    });
+    mount.querySelectorAll('[data-eng-evo]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
+    mount.querySelectorAll('[data-eng-dispo-row] [data-eng-dispo-btn]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var row = btn.closest('[data-eng-dispo-row]');
+        var eid = row.getAttribute('data-eng-dispo-row'), loc = row.getAttribute('data-eng-dispo-loc');
+        var status = btn.getAttribute('data-eng-dispo-btn');
+        row.querySelectorAll('[data-eng-dispo-btn]').forEach(function(b){ b.style.opacity = (b === btn) ? '1' : '0.4'; b.style.fontWeight = (b === btn) ? '700' : ''; });
+        fetch('/api/commitments/disposition', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: loc, action_done_status: status }) }).then(function(r){ return r.json(); }).catch(function(){});
+      });
+    });
+    mount.querySelectorAll('[data-eng-modify]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engCloseMenus(mount); _engModify(mount, b.getAttribute('data-eng-modify')); }); });
+    mount.querySelectorAll('[data-eng-replicate]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engCloseMenus(mount); _engReplicate(mount, b.getAttribute('data-eng-replicate')); }); });
+    if (!window.__engCloserBound) { window.__engCloserBound = true; document.addEventListener('click', function(){ document.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }); }
+  }
+  function _engModify(mount, eid){
+    var ws = document.getElementById('eng-ws-' + eid); if (!ws) return;
+    var r = (window._engById || {})[eid] || {};
+    ws.style.display = 'block';
+    ws.innerHTML = '<div style="padding:12px 0 8px;font-size:12px;font-weight:600;color:#374151;">Modifier l\'engagement</div>'
+      + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:6px;">Mon action</div>'
+      + '<textarea data-eng-edit-text style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + escapeHtml(String(r.committed_action_text || '')) + '</textarea>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">'
+        + '<button type="button" data-eng-save style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+        + '<button type="button" data-eng-abandon style="padding:7px 14px;border-radius:6px;background:#FCEBEB;color:#b91c1c;border:1px solid #f3d0d0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Abandonner</button>'
+        + '<button type="button" data-eng-ws-cancel style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:12px;cursor:pointer;font-family:inherit;">Fermer</button>'
+        + '<span data-eng-ws-msg style="font-size:12px;"></span>'
+      + '</div>';
+    var msg = ws.querySelector('[data-eng-ws-msg]');
+    ws.querySelector('[data-eng-save]').addEventListener('click', function(){
+      var txt = String((ws.querySelector('[data-eng-edit-text]') || {}).value || '').trim();
+      if (!txt) { msg.textContent = 'Action vide'; msg.style.color = '#b91c1c'; return; }
+      fetch('/api/commitments/edit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: r.location_id, committed_action_text: txt }) })
+        .then(function(x){ return x.json(); }).then(function(j){
+          if (j && j.ok) {
+            r.committed_action_text = txt;
+            var card = mount.querySelector('[data-eng-card="' + eid + '"]'); var wEl = card && card.querySelector('.ab-what'); if (wEl) wEl.textContent = txt;
+            ws.style.display = 'none'; ws.innerHTML = '';
+          } else { msg.textContent = 'Erreur : ' + ((j && j.error) || 'réessayez'); msg.style.color = '#b91c1c'; }
+        }).catch(function(){ msg.textContent = 'Erreur réseau.'; msg.style.color = '#b91c1c'; });
+    });
+    ws.querySelector('[data-eng-abandon]').addEventListener('click', function(){
+      fetch('/api/commitments', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: r.location_id }) }).then(function(x){ return x.json(); }).then(function(j){
+        if (j && j.ok) { var card = mount.querySelector('[data-eng-card="' + eid + '"]'); if (card) card.remove(); }
+        else { msg.textContent = 'Erreur : ' + ((j && j.error) || 'réessayez'); msg.style.color = '#b91c1c'; }
+      }).catch(function(){ msg.textContent = 'Erreur réseau.'; msg.style.color = '#b91c1c'; });
+    });
+    ws.querySelector('[data-eng-ws-cancel]').addEventListener('click', function(){ ws.style.display = 'none'; ws.innerHTML = ''; });
+  }
+  function _engReplicate(mount, eid){
+    var ws = document.getElementById('eng-ws-' + eid); if (!ws || !window.MSCommitForm) return;
+    var r = (window._engById || {})[eid] || {};
+    var pre = { committed_action_text: r.committed_action_text, window_kind: r.window_kind || '7d' };
+    ws.style.display = 'block';
+    ws.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
+    window.MSCommitForm.wire(ws, {
+      location_id: r.location_id, prefill: pre, origin: { origin_action_type: r.origin_action_type || null, origin_driver: r.origin_driver || null },
+      onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; },
+      onDone: function(j){ ws.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#b91c1c') + ';">' + (j && j.ok ? 'Engagement créé.' : 'Erreur') + '</div>'; if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(e) {} } }
+    });
+  }
+  // Fil d'actualité reflection: a LIGHTWEIGHT activity entry per engagement (the full
+  // interactive card lives in Actions du jour). "Each human card creation is reflected in
+  // the feed." Rendered from the same fetch into #feed-engagements-log.
+  function renderEngagementFeedLog(items) {
+    var log = document.getElementById('feed-engagements-log');
+    if (!log) return;
+    if (!items || !items.length) { log.innerHTML = ''; return; }
+    var rows = items.map(function (r) {
+      var eid = escapeHtml(String(r.commitment_id || ''));
+      var site = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
+      var when = r.created_at ? String(_cgFv(r.created_at)).slice(0, 10) : '';
+      var v = _cgVerdict(r);
+      return '<div class="tlrow"><span class="tldot"></span>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'
+          + (when ? '<span class="chip-n">' + escapeHtml(when) + '</span>' : '')
+          + (site ? '<span class="chip-n">' + escapeHtml(site) + '</span>' : '')
+          + '<span class="chip-n" style="background:' + v.bg + ';color:' + v.fg + ';font-weight:600;">' + v.label + '</span></div>'
+        + '<div style="font-size:14px;font-weight:500;color:var(--color-text-primary);margin:0 0 2px;">Engagement : ' + escapeHtml(String(r.committed_action_text || '')) + '</div>'
+        + '<div style="margin-top:6px;"><span data-eng-evo="' + eid + '" style="font-size:11px;font-weight:600;color:#1D3BB3;cursor:pointer;">Consulter l\'évolution &rarr;</span></div>'
+      + '</div>';
+    }).join('');
+    log.innerHTML = '<div style="margin-bottom:18px;"><p class="eb" style="margin:0 0 10px;">Vos engagements</p><div class="tl">' + rows + '</div></div>';
+    log.querySelectorAll('[data-eng-evo]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
+  }
+  function renderEngagements(locationIds) {
+    // Engagement cards are FULL action cards (card_type=engagement) rendered through the
+    // system .ab-card anatomy, as the FIRST cards in Actions du jour (mount =
+    // #pls-engagement-cards), with Agir menu per state + "Action menée ?" disposition — NOT
+    // a feed row and NOT in Fil d'actualité. Scoped to the SAME sites the feed covers (in-view
+    // aggregate sites, each with its own ownership check, merged), so they behave exactly like
+    // system cards. Separate persistent fetch, so the daily-candidate regen never wipes them.
+    var mount = document.getElementById('pls-engagement-cards');
+    if (!mount) return;
+    var locs = (locationIds || []).filter(Boolean);
+    if (!locs.length) { mount.innerHTML = ''; return; }
+    Promise.all(locs.map(function(loc){
+      return fetch('/api/commitments?location_id=' + encodeURIComponent(loc))
+        .then(function(res){ return res.json(); })
+        .then(function(j){ return (j && j.ok && Array.isArray(j.items)) ? j.items : []; })
+        .catch(function(){ return []; });
+    })).then(function(lists){
+      var items = [];
+      lists.forEach(function(l){ items = items.concat(l); });
+      if (!items.length) { mount.innerHTML = ''; renderEngagementFeedLog([]); return; }
+      // newest first across all sites (updated_at may serialize as {value})
+      items.sort(function(a, b){
+        var av = (a.updated_at && a.updated_at.value) ? a.updated_at.value : a.updated_at;
+        var bv = (b.updated_at && b.updated_at.value) ? b.updated_at.value : b.updated_at;
+        return String(bv || '').localeCompare(String(av || ''));
+      });
+      window._engById = {};
+      items.forEach(function(r){ window._engById[String(r.commitment_id)] = r; });
+      mount.innerHTML = items.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('');
+      wireEngagementCards(mount);
+      renderEngagementFeedLog(items);
+    });
+  }
+
   function renderPulse(data, selectedDate, activeView) {
     activeView = activeView || "radar";
     const root = document.getElementById("pls-root");
@@ -4575,6 +4937,16 @@ if (!location_id) {
     // Assemble
     root.innerHTML = pillsHtml + verdictHtml +
       `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${strip1}${strip2}${strip3}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+
+    // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
+    // covers (all in-view aggregate sites, or the single viewed site) so they behave like
+    // system cards. data._locations is the aggregate site set; single-site => [currentLocationId].
+    window._engLocLabels = {};
+    if (isMultisite && Array.isArray(data._locations)) data._locations.forEach(function(l){ if (l && l.location_id) window._engLocLabels[l.location_id] = l.company_name || l.label || ''; });
+    _engagementLocs = isMultisite
+      ? (data._locations || []).map(function(l){ return l && l.location_id; }).filter(Boolean)
+      : [currentLocationId];
+    renderEngagements(_engagementLocs);
 
     // ---- Wire event handlers ----
 

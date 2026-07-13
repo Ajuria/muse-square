@@ -1,0 +1,117 @@
+---
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import { EVOL_COPY } from "../../../lib/commitmentCopy";
+
+const id = Astro.url.searchParams.get("id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Évolution de l'engagement — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="eng-root" data-id={id}>
+      <div id="eng-toolbar">
+        <a href="/app/insightevent/pulse" id="eng-back">← {EVOL_COPY.back}</a>
+      </div>
+      <div id="eng-status">Chargement de l'évolution…</div>
+      <div id="eng-doc" style="display:none;"></div>
+    </div>
+
+    <style is:global>
+      #eng-root { max-width: 820px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #eng-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      #eng-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #eng-status { padding: 60px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+      #eng-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 26px 28px; }
+      .eg-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 10px; }
+      .eg-sec { margin-bottom: 26px; }
+    </style>
+
+    <script is:inline src="/commit-form.js?v=1"></script>
+    <script is:inline src="/card-kit.js?v=14"></script>
+    <script is:inline define:vars={{ COPY: EVOL_COPY }}>
+      (function () {
+        var root = document.getElementById("eng-root");
+        var statusEl = document.getElementById("eng-status");
+        var docEl = document.getElementById("eng-doc");
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+        function t(key, vars) { var s = COPY[key] || ""; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split("{"+k+"}").join(vars[k]); return s; }
+        function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
+        function doneBtnStyle(sel) { return "font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;" + (sel ? "background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;" : "background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;"); }
+
+        // ── PURE render moved to the SHARED public/card-kit.js (MSCardKit.renderEvolution),
+        //    the SINGLE source verified by public/card-harness.html — same as the system
+        //    cards. This page keeps ONLY the interactive wiring (capture POSTs + advice
+        //    M'engager sub-form via window.MSCommitForm), attached after the kit renders. ──
+        function render(data) {
+          if (!data || !data.ok) { showError((data && data.error) || "Engagement introuvable."); return; }
+          if (!window.MSCardKit || !MSCardKit.renderEvolution) { showError("Erreur lors du chargement de l'évolution."); return; }
+          docEl.innerHTML = MSCardKit.renderEvolution(data, COPY);
+          docEl.style.display = "block";
+          statusEl.style.display = "none";
+          var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
+          wireAdvice(cm, advice);
+          wireCapture(cm, open);
+        }
+
+        function wireCapture(cm, open) {
+          var doneState = { v: cm.action_done_status || null };
+          docEl.querySelectorAll("[data-done]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              doneState.v = b.getAttribute("data-done");
+              docEl.querySelectorAll("[data-done]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+            });
+          });
+          var save = docEl.querySelector("[data-cap-save]"); if (!save) return;
+          save.addEventListener("click", function () {
+            var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
+            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } };
+            if (open) {
+              var disp = (docEl.querySelector("[data-dispositif]") || {}).value || "";
+              if (!doneState.v) { done(false); return; }
+              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, action_done_status: doneState.v, dispositif_note: disp }) })
+                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
+            } else {
+              var retro = (docEl.querySelector("[data-retro]") || {}).value || "";
+              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, retro_note: retro }) })
+                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
+            }
+          });
+        }
+
+        function wireAdvice(cm, advice) {
+          docEl.querySelectorAll("[data-adv-cta]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var i = btn.getAttribute("data-adv-cta");
+              var slot = docEl.querySelector('[data-adv-form="'+i+'"]'); if (!slot || !window.MSCommitForm) return;
+              if (slot.style.display === "block") { slot.style.display = "none"; slot.innerHTML = ""; return; }
+              var a = advice[i], pre = (a && a.prefill) || {};
+              slot.style.display = "block";
+              slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" } });
+              window.MSCommitForm.wire(slot, {
+                location_id: cm.location_id,
+                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" },
+                origin: { origin_action_type: pre.origin_action_type || null },
+                onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
+                onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:'+(j&&j.ok?"#166534":"#b91c1c")+';">'+(j&&j.ok?"Engagement créé. Il sera évalué à l'échéance.":("Erreur : "+esc((j&&j.error)||"réessayez")))+'</div>'; }
+              });
+            });
+          });
+        }
+
+        var id = root.dataset.id;
+        if (!id) { showError("Engagement manquant dans l'adresse."); return; }
+        fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
+          .then(function (r) { return r.json(); })
+          .then(render)
+          .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

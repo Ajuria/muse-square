@@ -9,6 +9,8 @@
 - Repo: git@github.com:Ajuria/muse-square.git, branch: `dev`
 
 ## Code Discipline
+- SINGLE SOURCE OF TRUTH (code): `docs/module-index.md` maps every endpoint, lib, script and surface. Before creating ANY new API route, lib module, or client script, grep it for the capability (`sales`, `competitor`, `commitment`, `sensitivity`, …) and extend the existing file instead of duplicating. When you change a file's handlers or data sources, update its row in the same commit.
+- SINGLE SOURCE OF TRUTH (data): `docs/data-model-index.md` maps every dbt model (grain, lineage, columns) + the live BQ catalog (`docs/bq-catalog.json`). Before creating a new dbt model or writing a query, grep it so you don't fork an existing mart/view. The BQ catalog is a SNAPSHOT — still re-verify exact columns live via `bq-verify` before querying (incremental models drop new columns without `--full-refresh`).
 - Before writing ANY column name, table name, or field reference, verify it exists in the codebase or schema. Zero tolerance for guessing.
 - Read files before writing. State field mappings before coding.
 - One function per message/commit — no sprawling multi-function changes.
@@ -16,6 +18,12 @@
 - No nested template literals inside `.map()` calls.
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
+
+## Working Method (before ANY code — non-negotiable)
+- **Test against the REAL local account, always.** The owner tests one account only — **Muse Square**, `location_id f10c3e58-326e-4e38-947c-d59fcbe51df5`. Verify every data claim AND every rendered card against THIS location and the exact card URL the owner uses (`/app/insightevent/insight?type=<card>&date=<date>&location_id=f10c3e58…`). NEVER verify against a different demo location (e.g. ff2aeb35) — its data differs and "works for me" then breaks for the owner.
+- **ADD, don't REPLACE.** When the ask is to *add* to a page/card, EXTEND it — never remove, replace, or restyle working content as a side effect. Dropping or reformatting something the owner already approved is a hard fail, even if the new thing is better. If a change would remove existing behavior, stop and confirm first.
+- **Verify absence across the whole stack.** Before claiming "we don't have X", search `INFORMATION_SCHEMA.COLUMNS` across `semantic` (the `vw_*` the app reads) + `mart` + `intermediate` (bq-verify) — never from one table's schema.
+- **A UI change is "done" only after tracing the real output.** For the exact card URL + `f10c3e58`, run the endpoint's query and confirm the rendered result (numbers rounded, sections present, nothing vanished) — `tsc`/`node --check` prove syntax, not behavior. The card-detail deep pages render via the SHARED `public/card-kit.js` (`window.MSCardKit`); VERIFY changes by rendering real `f10c3e58` JSON through it in `public/card-harness.html` (serve `public/`, open in the browser, screenshot) — the page runs the same kit, so the harness IS the page.
 
 ## Diagnosis Before Fix
 - Diagnose first, fix second. Confirm root cause from evidence before proposing code changes.
@@ -39,6 +47,12 @@
 - Browser console testing between each step.
 - Design tokens in `src/styles/design-tokens.css`. Brand blue: `--color-brand-blue: #0b37e5`. Data blue: `#1D3BB3`. Severity = alerts color.
 - Dividers: `ms-divider my-[6px] sm:my-[8px] lg:my-[12px]`.
+
+## Localization (France — non-negotiable)
+- The product is French, based in France. ALL user-facing dates render `JJ/MM/AAAA` (day/month/year) — NEVER US `YYYY-MM-DD` or `MM/DD/YYYY`. Keep ISO `Y-m-d` only as the internal/API value (store it in `data-iso` or a hidden field); display the French form.
+- Numbers/currency: French formatting (comma decimal, € after the number) via the existing `frDec`/`frInt` helpers — never raw JS `toString()`.
+- No US-centric defaults anywhere in user-facing copy or inputs.
+- Do NOT depend on a CDN for formatting/UX libs (flatpickr, Leaflet, etc.) — CDNs fail under VPN/CSP and silently fall back to broken output. Self-host the lib (Leaflet is already self-hosted) OR make the feature work without it. A date/format fix that only works when a CDN loads is not a fix.
 
 ## Communication Style
 - Be direct. No options or rationale unless explicitly asked.

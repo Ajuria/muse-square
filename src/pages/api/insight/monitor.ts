@@ -4,6 +4,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
+import { assembleDayContext } from "../../../lib/dayContext";
+import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -73,9 +75,6 @@ async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
   }
 }
 
-const _profileCache = new Map<string, { data: any; ts: number }>();
-const PROFILE_TTL_MS = 3600_000; // 1 hour
-
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const _t0 = Date.now();
@@ -97,173 +96,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const clerk_user_id = (locals as any)?.clerk_user_id
       ? String((locals as any).clerk_user_id).trim()
       : null;
-
-    // ----------------------------------------------------------------
-    // 1. Profile query — vw_insight_event_ai_location_context
-    // ----------------------------------------------------------------
-    const profileQuery = `
-      SELECT
-        location_id,
-        location_type,
-        client_industry_code,
-        location_access_pattern,
-        origin_city_ids,
-        company_activity_type,
-        event_time_profile,
-        primary_audience_1,
-        primary_audience_2,
-        capacity_sensitivity,
-        geographic_catchment,
-        company_industry,
-        business_short_description,
-        website_url,
-        instagram_url,
-        facebook_url,
-        review_link,
-        latitude,
-        longitude,
-        city_name,
-        region_name,
-        nearest_transit_stop_name,
-        nearest_transit_line_name[SAFE_OFFSET(0)] AS nearest_transit_line_name,
-        nearest_transit_stop_distance_m,
-        is_primary,
-        site_name,
-        venue_capacity,
-        event_type_1,
-        event_type_2,
-        event_type_3,
-        weather_sensitivity,
-        seasonality,
-        main_event_objective,
-        operating_hours,
-        auto_enriched_description,
-        besttime_venue_id,
-        besttime_venue_type,
-        besttime_rating,
-        besttime_dwell_time_min,
-        besttime_dwell_time_max
-      FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\`
-      WHERE location_id = @location_id
-      LIMIT 1
-    `;
-
-    // ----------------------------------------------------------------
-    // 2. Signals query — vw_insight_event_day_surface
-    // ----------------------------------------------------------------
-    const signalsQuery = `
-      SELECT
-        date,
-        location_id,
-
-        -- Verdict
-        opportunity_regime,
-        opportunity_score_final_local,
-        opportunity_medal,
-        is_major_realization_risk_flag,
-        is_forced_regime_c_flag,
-        major_realization_risk_driver,
-        is_mega_event_flag,
-        active_mega_event_name,
-
-        -- Component scores
-        events_score,
-        mobility_score,
-        calendar_score,
-        weather_score,
-
-        -- Weather alerts
-        alert_level_max,
-        lvl_wind,
-        lvl_rain,
-        lvl_snow,
-        lvl_heat,
-        lvl_cold,
-        impact_wind_pct,
-        impact_rain_pct,
-        impact_snow_pct,
-        impact_heat_pct,
-        impact_cold_pct,
-        impact_weather_pct,
-        delta_att_weather_total_pct,
-        delta_att_calendar_pct,
-        audience_availability_label,
-        primary_score_driver_label_fr,
-
-        -- Weather detail
-        weather_code,
-        weather_label_fr,
-        temperature_2m_min,
-        temperature_2m_max,
-        precipitation_probability_max_pct,
-        precipitation_sum_mm,
-        wind_speed_10m_max,
-        wind_gusts_10m_max,
-
-        -- Competition (total)
-        competition_presence_flag,
-        events_within_500m_count,
-        events_within_1km_count,
-        events_within_5km_count,
-        events_within_10km_count,
-        events_within_50km_count,
-        top_competitors,
-        -- Competition (same industry bucket)
-        events_within_500m_same_bucket_count,
-        events_within_5km_same_bucket_count,
-        events_within_10km_same_bucket_count,
-        events_within_50km_same_bucket_count,
-        pct_same_bucket_5km,
-        -- Competition context (relative pressure)
-        competition_index_local,
-        baseline_comp_avg,
-        has_valid_baseline_flag,
-        competition_pressure_ratio,
-        concentration_index_score,
-
-        tourism_index_region,
-        tourism_peak_flag_region,
-        tourism_status_region,
-        has_tourism_signal_region,
-
-        -- Context
-        holiday_name,
-        vacation_name,
-        commercial_events,
-
-        -- Signals summary
-        daily_signal_summary,
-        daily_signal_summary_fr,
-
-        -- Primary driver
-        primary_score_driver_label,
-        primary_driver_confidence,
-
-        -- Delta fields for context section
-        delta_att_events_pct,
-        delta_att_mobility_pct,
-        delta_ops_mobility_car_pct,
-
-        -- Foot traffic
-        ft_day_max,
-        ft_day_mean,
-        ft_day_rank_max,
-        ft_day_rank_mean,
-        ft_peak_hour,
-        ft_peak_busyness_pct,
-        ft_quiet_hour,
-        ft_quiet_busyness_pct,
-        ft_avg_busyness_pct,
-        ft_busy_hours_count,
-        ft_quiet_hours_count,
-        ft_venue_open_hour,
-        ft_venue_closed_hour
-
-      FROM \`muse-square-open-data.semantic.vw_insight_event_day_surface\`
-      WHERE location_id = @location_id
-        AND date IN UNNEST(ARRAY(SELECT CAST(d AS DATE) FROM UNNEST(@selected_dates) AS d))
-      ORDER BY date ASC
-    `;
 
     // ----------------------------------------------------------------
     // 3. Change feed query
@@ -307,29 +139,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _t1 = Date.now();
     console.log(`[monitor] setup: ${_t1 - _t0}ms`);
 
-    // Run all queries in parallel
-    const [[profileRows], [signalRows], [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows] = await Promise.all([
-      (() => {
-        const cached = _profileCache.get(location_id);
-        if (cached && Date.now() - cached.ts < PROFILE_TTL_MS) {
-          return Promise.resolve([[ cached.data ]]) as any;
-        }
-        return bq.query({
-          query: profileQuery,
-          params: { location_id },
-          location: "EU",
-        }).then((result: any) => {
-          if (result?.[0]?.[0]) {
-            _profileCache.set(location_id, { data: result[0][0], ts: Date.now() });
-          }
-          return result;
-        });
-      })(),
-      bq.query({
-        query: signalsQuery,
-        params: { location_id, selected_dates },
-        location: "EU",
-      }),
+    // day_surface + ai_location_context are now read ONCE, by the brain (assembleDayContext) — the single
+    // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
+    // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
+    // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows] = await Promise.all([
+      Promise.all(selected_dates.map((d) => assembleDayContext(bq, location_id, d, { slice: "context" }))),
       bq.query({
         query: feedQuery,
         params: { location_id, selected_dates },
@@ -429,9 +244,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
     ]);
 
     const _t2 = Date.now();
-    console.log(`[monitor] Promise.all (6 queries): ${_t2 - _t1}ms`);
+    console.log(`[monitor] Promise.all (brain + 5 queries): ${_t2 - _t1}ms`);
 
-    const profile = profileRows?.[0] ?? null;
+    // Re-source day_surface + profile from the brain (single reader). signalRows kept date-ascending to
+    // match the old ORDER BY date ASC; profile is location-level, taken from any date's payload.
+    const signalRows = dcs
+      .map((dc) => dc.day_surface_raw)
+      .filter(Boolean)
+      .sort((a: any, b: any) => String(a?.date?.value ?? a?.date ?? "").localeCompare(String(b?.date?.value ?? b?.date ?? "")));
+    const profile = dcs.find((dc) => dc.profile_raw)?.profile_raw ?? null;
+    // Phase 1b — map each date back to its full brain payload so the day object can carry the
+    // additive-rich context (competitors w/ ratings, acute weather alert, commercial events, nationalities,
+    // estimé attribution) the page renders. Keyed on the ISO date of the day_surface row.
+    const dcByDate = new Map<string, (typeof dcs)[number]>();
+    for (const dc of dcs) {
+      const k = String((dc.day_surface_raw as any)?.date?.value ?? (dc.day_surface_raw as any)?.date ?? "").slice(0, 10);
+      if (k) dcByDate.set(k, dc);
+    }
 
     // Fetch BestTime foot traffic if venue is registered
     const btVenueId = profile?.besttime_venue_id ?? null;
@@ -653,6 +482,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const isOutdoor = String(profile?.location_type || "").toLowerCase() === "outdoor";
 
     const days = (signalRows || []).map((r: any) => {
+      const _dc = dcByDate.get(String(r.date?.value ?? r.date ?? "").slice(0, 10));
       const risks: {
         block: "attendance" | "operations" | "installation" | "context";
         severity: "A" | "B" | "C" | "D";
@@ -870,8 +700,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // Audience likelihood
         audience_likelihood: audienceLikelihood,
 
-        // Top competitors (pass through)
+        // Top competitors (pass through) — competitor EVENTS grain (day_surface). Distinct from
+        // `followed_competitors` below (followed VENUES w/ ratings). Two grains, never conflated.
         top_competitors: Array.isArray(r.top_competitors) ? r.top_competitors.slice(0, 3) : [],
+
+        // Phase 1b — additive-rich brain context (all nullable → page renders honest-absence).
+        // followed_competitors = VENUES the operator follows, with Google rating + this-month trend
+        // (context.competitors, observed_proximity). NOT the same as top_competitors (events).
+        followed_competitors: (_dc?.competitors ?? []).map((c) => ({
+          name: c.name, distance_km: c.distance_km, threat_level: c.threat_level,
+          google_rating: c.google_rating, google_rating_count: c.google_rating_count,
+          rating_trend: c.rating_trend, offering_change: c.offering_change,
+        })),
+        weather_alert: _dc?.weather_alert ?? null,                 // acute/operational register (observed_acute), raw
+        weather_alert_fr: _dc?.weather_alert ? formatWeatherAlert(_dc.weather_alert) : null, // owner-final French (contextCopy)
+        commercial_events: _dc?.commercial_events ?? [],           // named soldes/foires (observed_presence, deduped vs events)
+        foreign_visitors: _dc?.foreign ?? [],                      // nationalities, French (observed_presence)
+        attribution: _dc?.day_surface?.attribution ?? null,        // delta_att_* — ESTIMÉ register, never merged w/ measured
+        attribution_fr: {                                          // ESTIMÉ chips via contextCopy (never a bare number); null → hide
+          weather: formatEstimatePct(_dc?.day_surface?.attribution?.weather_pct),
+          mobility: formatEstimatePct(_dc?.day_surface?.attribution?.mobility_pct),
+          events: formatEstimatePct(_dc?.day_surface?.attribution?.events_pct),
+          calendar: formatEstimatePct(_dc?.day_surface?.attribution?.calendar_pct),
+        },
 
         // Context
         holiday_name: r.holiday_name ?? null,

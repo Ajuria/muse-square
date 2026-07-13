@@ -2,6 +2,8 @@ import { pickAllowedPayload, assertPayloadCoverage } from "./allowlist";
 import { callClaudeMessagesAPI } from "./claude";
 import { parseJsonObjectStrict } from "./json";
 import { PACKAGER_PROMPT_V3_NARRATIVE_FR } from "../contracts/packagePromptV3";
+import { PACKAGER_PROMPT_GROUNDED_DAY_FR } from "../contracts/packagerGroundedDayPrompt";
+import { validate_packager_output_grounded_day } from "../contracts/packagerGroundedDayValidator";
 
 import { PACKAGER_PROMPT_MONTH_MODE } from "../contracts/packagerMonthPrompt";
 import { PACKAGER_PROMPT_MONTH_WINDOW_SUMMARY_MODE } from "../contracts/packagerMonthWindowSummaryPrompt";
@@ -26,7 +28,8 @@ export type ValidatorResult = [boolean, string[], string[]?];
 export type Mode =
   | "month"
   | "ui_packaging_v2"
-  | "v3_narrative";
+  | "v3_narrative"
+  | "grounded_day";   // day-horizon answer grounded on the brain's citable_facts (Phase 2)
 
 export type MonthSubMode =
   | "orchestrator"
@@ -46,6 +49,7 @@ export async function runAIPackagerClaude(args: {
   aiLocationContextRow?: Record<string, any>;
   submode?: MonthSubMode; // required iff mode === "month"
   conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  model?: string;   // registry-resolved model override (e.g. modelFor("briefing") for the daily cron)
 }): Promise<{
   ok: boolean;
   mode: Mode;
@@ -112,9 +116,16 @@ export async function runAIPackagerClaude(args: {
     Object.entries(row_enriched).filter(([k]) => k !== "_conversation_history")
   );
 
-  // ✅ Claude only sees allowlisted fields (plus jsonable coercion)
-  assertPayloadCoverage(row_for_allowlist);
-  const payload: Record<string, any> = pickAllowedPayload(row_for_allowlist);
+  // grounded_day is ALREADY curated by the brain (only claim-typed citable_facts + typed registers reach
+  // it), so the field-allowlist is bypassed — the grounding IS the safety layer. Every other mode stays
+  // restricted to allowlisted semantic/decision fields.
+  let payload: Record<string, any>;
+  if (mode === "grounded_day") {
+    payload = row_for_allowlist;
+  } else {
+    assertPayloadCoverage(row_for_allowlist);
+    payload = pickAllowedPayload(row_for_allowlist);
+  }
 
   /* -------------------------------------------------------------- */
   /* 2) Prompt + validator selection (authoritative) */
@@ -129,7 +140,11 @@ export async function runAIPackagerClaude(args: {
     ["Internal error: validatorFn not initialized."],
   ];
 
-  if (mode === "ui_packaging_v2") {
+  if (mode === "grounded_day") {
+    system_prompt = PACKAGER_PROMPT_GROUNDED_DAY_FR;
+    validatorFn = validate_packager_output_grounded_day;
+
+  } else if (mode === "ui_packaging_v2") {
     system_prompt = PACKAGER_PROMPT_UI_V2_FR;
     validatorFn = validate_packager_output_ui_v2;
 
@@ -219,6 +234,7 @@ export async function runAIPackagerClaude(args: {
   const call = await callClaudeMessagesAPI({
     system: system_prompt,
     userPayload: payload,
+    model: args.model,
     temperature: 0,
     maxTokens: 2048,
     timeoutMs: 30_000,
@@ -374,5 +390,6 @@ export async function runAIPackagerClaude(args: {
     errors: [],
     warnings: v_warnings,
     raw_text: normalized,
+    debug: { usage: call.usage },   // token usage incl. cache_read / cache_creation (prompt caching)
   };
 }
