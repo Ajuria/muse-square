@@ -1790,9 +1790,13 @@ if (!location_id) {
 
       // --- Agir dropdown (opens below) ---
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" data-agir-intent="public" data-agir-has-pub="' + ((pubChannel === 'gbp' || pubChannel === 'instagram' || pubChannel === 'facebook' || pubChannel === 'website') ? '1' : '0') + '" class="ab-dd-item">'
+        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+          + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
+        + '</button>'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Communiquer</div><div class="ab-dd-desc">R\u00e9diger un post, email ou message</div></div>'
+          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
         + '</button>'
         + (pubChannel && t.barClass === 'ab-opportunity' ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
@@ -1800,11 +1804,7 @@ if (!location_id) {
         + '</button>' : '')
         + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-send">\u2197\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Email, message ou note interne</div></div>'
-        + '</button>'
-        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-          + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Voir le d\u00e9tail du signal</div></div>'
+          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Transf\u00e9rer \u00e0 une personne</div></div>'
         + '</button>'
       + '</div>';
 
@@ -1812,9 +1812,9 @@ if (!location_id) {
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-comm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
-            + '<div><div class="ab-dd-label">M\'engager sur une action</div><div class="ab-dd-desc">Fixer un objectif mesur\u00e9 sur cette carte</div></div>'
+          + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+            + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
           + '</button>'
           + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
@@ -1823,10 +1823,6 @@ if (!location_id) {
           + '<button type="button" data-agir-notify="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\u23f0</div>'
             + '<div><div class="ab-dd-label">Cr\u00e9er une notification</div><div class="ab-dd-desc">Alerte auto quand ce signal revient</div></div>'
-          + '</button>'
-          + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-            + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Voir le d\u00e9tail du signal</div></div>'
           + '</button>'
         + '</div>';
       }
