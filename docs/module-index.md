@@ -307,6 +307,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | `decision/worst_days/window_worst_days.ts` | `windowWorstDaysDeterministic` | Worst-3 dates: facts + line_items + coverage |
 | `facts/buildCoverageFromRows.v1.ts` | `buildCoverageFromRowsV1` | Coverage builder (field presence by dimension) |
 | `facts/buildFactsFromSelectedDaysRow.v1.ts` | `buildFactsFromSelectedDaysRowV1` | Fact builder from selected-days row |
+| `facts/buildIdentityFacts.ts` 🆕 | `buildIdentityFacts`, `assembleIdentityFacts`, `IdentityFact`, `IdentityFactsResult` | **Phase 1 — measured customer-identity facts.** `claim_type:"measured"` facts for what a venue SELLS (mix), TOP ITEMS, and SCALE (basket/daily CA), each with a deterministic trust tier folded into `fact_fr`. Offering view → mix (revenue_share, self-normalizing); performance view → scale — NEVER crossed (offering's absolute revenue doesn't reconcile). Windows anchor on the data's own dates (seeds are future-dated); perf DATE bounds inlined as literals (Node client silent-0-rows on DATE param mismatch). Below the reliability floor → `{status:"insufficient"}` so the caller ELICITS vs bluffs. Reads `semantic.vw_insight_event_client_offering`, `…_client_performance`. Consumed-by: grounded payload / discovery / reports (Phase 1 increments 2-4, pending) |
 | `find_dates/find-dates.ts` | `findDates`, `FindDatesParams`, `FindDatesResult` | BQ query + Claude narrative w/ scoring + quality floor |
 
 ### Impact narration (`impact_narrations/`, `impact_rules/`)
