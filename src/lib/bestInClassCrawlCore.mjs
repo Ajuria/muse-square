@@ -21,11 +21,13 @@ const LEVER_LABELS = {
   fidelisation: "faire revenir les clients (retention / repeat)",
 };
 
-// Vertical vocabulary — describes the "comparable venue" so the analog is same-vertical.
+// Vertical vocabulary — describes the "comparable venue" so the analog is SAME-sector. Precise on
+// purpose: a loose label lets the model pad with adjacent-sector case studies (e.g. hotels for a
+// café). The hard same-sector rule + exclusions live in SYSTEM.
 const INDUSTRY_LABELS = {
-  live_event: "un lieu d'evenementiel live (salle de concert, de spectacle ou d'evenements a jauge)",
-  cafe: "un cafe / restaurant de proximite",
-  commercial: "un commerce de proximite / point de vente (retail)",
+  live_event: "un lieu d'evenementiel live independant (salle de concert, de spectacle, theatre, salle d'evenements a jauge)",
+  cafe: "un cafe, bar ou restaurant de proximite independant",
+  commercial: "un commerce ou restaurant de proximite independant (cafe, restaurant, boutique, point de vente local)",
 };
 
 // Intent — chosen by the owner's own result ("Votre action paie-t-elle ?"). Distinct case per intent
@@ -44,6 +46,7 @@ const SYSTEM = [
   "Tu cherches sur le web des etudes de cas reelles ou un lieu comparable a applique un levier precis et a obtenu un resultat MESURABLE (avant -> apres).",
   "Sources acceptees : presse specialisee, etudes de cas publiees, federations/organismes de la filiere, blogs d'operateurs etablis, medias reconnus.",
   "Sources REFUSEES : forums, fermes de contenu SEO, listicles generees, pages sans source identifiable. Si tu ne trouves aucune source credible et nommee avec une URL, renvoie une liste vide.",
+  "SECTEUR : le cas doit provenir du MEME secteur que le lieu cible. Refuse les secteurs adjacents meme si le levier se ressemble — pour un commerce/cafe/restaurant de proximite, EXCLURE l'hotellerie/les resorts, les chaines internationales, le e-commerce pur; pour une salle d'evenementiel, EXCLURE l'hotellerie et le retail. Dans le doute sur la comparabilite du secteur, EXCLURE. Mieux vaut une liste vide qu'un exemple hors-secteur.",
   "Ne JAMAIS inventer de chiffre : le resultat doit etre celui rapporte par la source. Si la source ne quantifie pas, formule le resultat qualitativement.",
   "Nommer le lieu UNIQUEMENT si la source le nomme publiquement (etude de cas publique). Sinon, decris-le anonymement ('un lieu comparable ...').",
   "Reponds en francais. Copie sobre, orientee action, sans superlatifs.",

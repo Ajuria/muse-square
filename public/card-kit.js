@@ -552,16 +552,23 @@
       else if (!open && cm.verdict === 'confounded') { _stTxt = t('q1_objectif_confounded'); _stCol = '#92610a'; }
       else if (_basePct >= _goalPct) { _stTxt = t('q1_ontrack'); _stCol = '#059669'; }
       else { _stTxt = t('q1_below'); _stCol = '#92610a'; }
-      // Progress-to-goal bar: track = 0..goal (goal is the END); fill = situation capped at goal; two-tone action + holiday.
-      var _actW = _goalPct > 0 ? Math.max(0, Math.min(_actionPct / _goalPct, 1)) : 0;
-      var _fill = _goalPct > 0 ? Math.max(0, Math.min(_basePct / _goalPct, 1)) : 0;
-      var _ctxW = Math.max(0, _fill - _actW);
+      // Goal bar — length + colour carry the verdict (attribution stays in the text line below).
+      // BELOW goal: scale = goal (goal marker at the END); fill = result in ORANGE, the rest is the gap
+      //   still to close. ON/ABOVE: scale = result; goal marker sits partway; up-to-goal = green
+      //   (objectif atteint), the surplus beyond = a deeper green (au-delà). On target → all one green.
+      var _isBelow = _basePct < _goalPct;
+      var _scaleMax = _isBelow ? _goalPct : (_basePct || _goalPct);
+      var _resW = _scaleMax > 0 ? Math.max(0, Math.min(_basePct / _scaleMax, 1)) * 100 : 0;   // result fill %
+      var _goalM = _scaleMax > 0 ? Math.max(0, Math.min(_goalPct / _scaleMax, 1)) * 100 : 100; // goal marker position %
+      var _segs = _isBelow
+        ? '<div style="position:absolute;left:0;top:0;height:10px;width:' + _resW.toFixed(1) + '%;background:#E0873A;"></div>'
+        : '<div style="position:absolute;left:0;top:0;height:10px;width:' + _goalM.toFixed(1) + '%;background:#10B981;"></div>'
+          + '<div style="position:absolute;left:' + _goalM.toFixed(1) + '%;top:0;height:10px;width:' + (100 - _goalM).toFixed(1) + '%;background:#065F46;"></div>';
       var _bar = '<div style="margin-top:14px;">'
-        + '<div style="position:relative;height:9px;background:#f0f2f5;">'
-          + '<div style="position:absolute;left:0;top:0;height:9px;width:' + (_actW * 100).toFixed(1) + '%;background:#1D3BB3;"></div>'
-          + '<div style="position:absolute;left:' + (_actW * 100).toFixed(1) + '%;top:0;height:9px;width:' + (_ctxW * 100).toFixed(1) + '%;background:#c3cbe6;"></div>'
+        + '<div style="position:relative;height:10px;background:#f0f2f5;">' + _segs
+          + '<div style="position:absolute;left:' + _goalM.toFixed(1) + '%;top:-3px;height:16px;width:2px;background:#111827;transform:translateX(-1px);"></div>'
         + '</div>'
-        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#6b7280;">'
+        + '<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:#6b7280;">'
           + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs habituel</span>'
           + '<span>' + esc(t('q1_bar_goal', { pct: _goalPct })) + '</span>'
         + '</div></div>';
@@ -611,7 +618,7 @@
       var plays = (data.best_in_class || []).filter(function (p) { return p.intent === intent; }).slice(0, 2);
       if (!plays.length) return '';
       return '<div style="margin-top:16px;">'
-        + '<div class="eg-uc">' + esc(t('diag_bic_title_' + intent) || t('diag_bestinclass')) + '</div>'
+        + '<div class="eg-uc">' + esc(t('diag_bic_title')) + '</div>'
         + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
         + plays.map(function (p) {
             var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
@@ -658,7 +665,7 @@
       // "Lieux comparables" — pivot analogs (below goal: what else to try). Placeholder when the store
       // has no pivot play for this lever yet.
       var _bicHtml = _bicBlock('pivot')
-        || ('<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>');
+        || ('<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>');
       diag = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
@@ -699,6 +706,10 @@
 
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
     srcRows.push(prov.track_record ? t('src_track_record', { beat: prov.track_record.beat, done: prov.track_record.done }) : t('src_track_pending'));
+    // The case studies actually shown (same intent + slice as _bicBlock) are cited here too, not just inline.
+    var _shownIntent = _under ? 'pivot' : _intent;
+    var _bicSrc = (data.best_in_class || []).filter(function (p) { return p.intent === _shownIntent && p.source_name; }).slice(0, 2).map(function (p) { return p.source_name; });
+    if (_bicSrc.length) srcRows.push(t('src_bestinclass', { list: _bicSrc.join(', ') }));
     var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
       + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
 

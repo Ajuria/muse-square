@@ -147,13 +147,12 @@ export const EVOL_COPY = {
   diag_bestinclass: "Comment des lieux comparables s'y prennent",
   diag_soon: "bientôt",
   diag_bic_caption: "Un cas comparable à tester — pas un résultat promis.",
-  // Intent-specific framing (verdict → intent): pivot (en-dessous) · reinforce (aligné) · scale (au-dessus).
-  diag_bic_title_pivot: "Comment des lieux comparables s'y prennent",
-  diag_bic_caption_pivot: "Un autre angle à tester — pas un résultat promis.",
-  diag_bic_title_reinforce: "Pour aller plus loin — lieux comparables",
+  // One title (reuses the app's "dispositif" vocabulary — cf. "Votre dispositif"); the verdict→intent
+  // nuance lives in the subline: pivot (en-dessous) · reinforce (aligné) · scale (au-dessus).
+  diag_bic_title: "Dispositifs qui ont fonctionné ailleurs",
+  diag_bic_caption_pivot: "Une autre approche à tester — pas un résultat promis.",
   diag_bic_caption_reinforce: "Comment des lieux comparables ont amplifié ce type d'action.",
-  diag_bic_title_scale: "Pour installer ce résultat — lieux comparables",
-  diag_bic_caption_scale: "Comment des lieux comparables ont pérennisé ce type de gain.",
+  diag_bic_caption_scale: "Comment d'autres ont pérennisé ce type de résultat.",
   diag_bic_result: "Résultat",
   diag_bic_howto: "Comment faire ?",
   diag_bic_source: "Source",
@@ -202,6 +201,8 @@ export const EVOL_COPY = {
   src_track_record: "Vos données — CA au-dessus de l'attendu {beat} fois sur {done} pour cette action",
   // Type A empty state — gated on commitment COUNT (not data ingestion). Honest + encourages use.
   src_track_pending: "Bilan de vos actions — se construit au fil de vos engagements menés à terme",
+  // Case studies surfaced in "Dispositifs qui ont fonctionné ailleurs" — cited in the provenance list.
+  src_bestinclass: "Études de cas — {list}",
 };
 
 export type EvolCopy = typeof EVOL_COPY;
