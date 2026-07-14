@@ -26,13 +26,20 @@ if (!location_id) {
 <BaseLayout title="Profil concurrent — Muse Square" hideSurveyCta={true} hideFooter={true}>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.44.0/dist/tabler-icons.min.css" crossorigin="anonymous" />
   <div id="cp-root" style="max-width:680px;margin:0 auto;padding:16px 12px 140px;">
-    <div id="cp-loading" style="text-align:center;padding:80px 0;color:#888;font-size:14px;">Chargement du profil...</div>
+    <div id="cp-loading">
+      <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+      <div class="ms-loader" role="status" aria-live="polite">
+        <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+        <div class="ms-loader__msg" data-ms-loader="competitor" data-ms-i="0">Chargement du profil concurrent…</div>
+      </div>
+    </div>
     <div id="cp-content" style="display:none;"></div>
     <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;font-size:14px;"></div>
   </div>
   <PiloterBottomBar active="veille" />
 </BaseLayout>
 
+  <script is:inline src="/ms-loader.js?v=1"></script>
   <script is:inline define:vars={{ location_id }}>
     // @ts-nocheck
     (function() {
