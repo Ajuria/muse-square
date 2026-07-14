@@ -38,6 +38,47 @@ function registerFor(producer: string | null | undefined): ProvenanceRegister | 
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
+// ── Web search (shared) ───────────────────────────────────────────────────────
+// One implementation of the Anthropic web_search server tool: run it with a caller-supplied system
+// prompt, return whether the tool actually fired + the model's final text (blocks after the last tool
+// block, no partial fragments). Callers own the prompt + the response shaping. Reused by the
+// unknown-intent path AND the empty-lookup web fallback so there is a single web-search code path.
+async function runWebSearch(system: string, userText: string): Promise<{ usedWebSearch: boolean; text: string }> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: modelFor("web_search"),
+      // 4096: web_search consumes the budget (tool calls + results + reasoning); at 2048 the final JSON
+      // answer can truncate -> parse fails -> a valid result is lost as "aucune information".
+      max_tokens: 4096,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      system,
+      messages: [{ role: "user", content: userText }],
+    }),
+  }).then((r) => r.json());
+  console.log("[webSearch] raw response:", JSON.stringify(res).slice(0, 2000));
+  const blocks = Array.isArray(res.content) ? res.content : [];
+  const usedWebSearch = blocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
+  // Concatenate every text block AFTER the last tool block (no partial fragments).
+  const lastToolIdx = blocks.reduce(
+    (acc: number, b: any, i: number) =>
+      (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
+    -1
+  );
+  const text = blocks
+    .slice(lastToolIdx + 1)
+    .filter((b: any) => b.type === "text" && typeof b.text === "string")
+    .map((b: any) => b.text)
+    .join("")
+    .trim();
+  return { usedWebSearch, text };
+}
+
 function requireString(v: unknown, name: string): string {
   if (typeof v !== "string" || v.trim() === "") {
     throw new Error(`Missing or invalid field: ${name}`);
@@ -3249,38 +3290,7 @@ Règles :
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-      const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelFor("web_search"),
-          max_tokens: 2048,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          system: systemPrompt,
-          messages: [{ role: "user", content: qRaw }],
-        }),
-      }).then(r => r.json());
-
-      console.log("[webSearch] raw response:", JSON.stringify(webSearchResult).slice(0, 2000));
-
-      const contentBlocks = Array.isArray(webSearchResult.content) ? webSearchResult.content : [];
-      const usedWebSearch = contentBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-      // Concatenate every text block AFTER the last tool block (no partial fragments).
-      const lastToolIdx = contentBlocks.reduce(
-        (acc: number, b: any, i: number) =>
-          (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
-        -1
-      );
-      const rawWebAnswer = contentBlocks
-        .slice(lastToolIdx + 1)
-        .filter((b: any) => b.type === "text" && typeof b.text === "string")
-        .map((b: any) => b.text)
-        .join("")
-        .trim();
+      const { usedWebSearch, text: rawWebAnswer } = await runWebSearch(systemPrompt, qRaw);
 
       // Parse structured result + GATE: suppress not-found / irrelevant / partial.
       let webFound = false;
@@ -4586,6 +4596,47 @@ Règles :
           seen.add(key);
           return true;
         });
+
+        // Empty in YOUR referenced calendar -> browse the web (location-aware) before giving up. The
+        // event DB is your curated calendar, not an exhaustive index, so a real nearby event may simply
+        // not be referenced. A web hit is returned as producer "web_search" -> register "web"
+        // ("Web — non vérifié"), clearly separated from your vetted data. Events are time-sensitive, so
+        // we only trust the result when a real search actually fired (never a model-only guess).
+        if (allHits.length === 0) {
+          const webLookupSys = `Tu es un assistant qui recherche des ÉVÉNEMENTS RÉELS près d'un lieu, en France. Tu réponds en français en vouvoyant l'opérateur.
+Localisation de l'opérateur : ${internal_context?.city_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}).
+Tâche : cherche sur le web des événements correspondant à la question, à proximité de cette localisation.
+
+Retourne UNIQUEMENT du JSON valide, sans markdown : { "found": boolean, "answer": string }
+Règles :
+- found = true UNIQUEMENT si tu identifies un ou plusieurs événements réels avec une source (nom, date, lieu). Sinon found = false et answer = "".
+- answer (si found) : liste les événements (nom — date — lieu, distance approximative si connue), une ou deux phrases par événement, séparés par un double saut de ligne. N'invente JAMAIS un événement, une date ni un lieu.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres, ni listes à puces) — texte brut uniquement.
+- Phrases complètes uniquement. Maximum 150 mots.`;
+          const { usedWebSearch: lookupUsedWeb, text: lookupWebRaw } = await runWebSearch(webLookupSys, qRaw);
+          let lookupWebFound = false;
+          let lookupWebAnswer = "";
+          try {
+            const parsed = JSON.parse(lookupWebRaw.replace(/^```json\s*|\s*```$/g, "").trim());
+            lookupWebFound = parsed?.found === true;
+            lookupWebAnswer = typeof parsed?.answer === "string" ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim() : "";
+          } catch { lookupWebFound = false; }
+          if (lookupUsedWeb && lookupWebFound && lookupWebAnswer.length >= 30) {
+            const webCav = "Cette réponse provient d'une recherche web en temps réel, non vérifiée par vos données Muse Square.";
+            return new Response(JSON.stringify({
+              ok: true,
+              // month/ENTITY_IMPACT so the client renders it as prose (not the lookup formatter); producer
+              // web_search -> register "web" so the answer wears the "Web — non vérifié" pill.
+              meta: { location_id, resolved_horizon: "month", resolved_intent: "ENTITY_IMPACT", producer: "web_search", register: registerFor("web_search"), mode: request_mode },
+              ai: {
+                headline: "Résultat de recherche web", verdict: "", answer: lookupWebAnswer,
+                key_facts: [], reasons: [], caveats: [webCav],
+                output: { headline: "Résultat de recherche web", verdict: "", answer: lookupWebAnswer, key_facts: [], reasons: [], caveats: [webCav] },
+              },
+            }), { status: 200, headers: { "content-type": "application/json" } });
+          }
+          // Web found nothing usable -> fall through to the "pas référencé" message below.
+        }
 
         const headline =
           allHits.length === 0
