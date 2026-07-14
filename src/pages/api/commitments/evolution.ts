@@ -10,6 +10,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
+import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -83,6 +84,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const commitment = {
       commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status, verdict: snap.verdict,
       committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
+      origin_action_type: snap.origin_action_type,  // re-commit an adjustment on the same card type (diagnosis panel)
+      origin_suppression_key: snap.origin_suppression_key,  // child copies it → keeps the system card suppressed
       window_kind: snap.window_kind, window_start: flat(snap.window_start), window_end: flat(snap.window_end),
       window_days_expected: snap.window_days_expected, window_days_resolved: snap.window_days_resolved,
       threshold_level: snap.threshold_level,
@@ -92,14 +95,49 @@ export const GET: APIRoute = async ({ url, locals }) => {
       window_residual_pct: snap.window_residual_pct, material_holiday_share: snap.material_holiday_share,
       ctx_any_school_holiday: snap.ctx_any_school_holiday, ctx_material_confound: snap.ctx_material_confound,
       action_done_status: snap.action_done_status, dispositif_note: snap.dispositif_note, retro_note: snap.retro_note,
+      // Documenter (Spec 2) structured retro — so the capture UI pre-fills saved answers.
+      retro_worked: snap.retro_worked, retro_change: snap.retro_change, retro_repeat: snap.retro_repeat,
       resolved_at: flat(snap.resolved_at),
+      // owner + when (header) and the goal reference for "vs objectif".
+      created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
+      threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
+      execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
     const asOf = parisDate(new Date().toISOString());
     const extras = await assembleEvolutionExtras(bq, snap, asOf);
 
-    return json({ ok: true, commitment, series, ...extras });
+    // Move "how" hit-rates for this action type (fct_location_action_moves) — feeds the diagnosis advice.
+    let move_stats: { move: string; attempts: number; hits: number }[] = [];
+    if (snap.origin_action_type) {
+      const [mrows] = await bq.query({
+        query: `SELECT move, attempts, hits FROM \`muse-square-open-data.mart.fct_location_action_moves\`
+                WHERE location_id = @loc AND action_type = @at`,
+        params: { loc: snap.location_id, at: snap.origin_action_type },
+        types: { loc: "STRING", at: "STRING" }, location: "EU",
+      });
+      move_stats = (mrows as any[]).map((r) => ({
+        move: String(flat(r.move)), attempts: Number(flat(r.attempts)) || 0, hits: Number(flat(r.hits)) || 0,
+      }));
+    }
+
+    // "Lieux comparables" — an analog to try when under-performing. Resolve the venue's vertical,
+    // map the card's action_type → lever, read the vetted plays (never a promised result).
+    let best_in_class: any[] = [];
+    try {
+      const [irows] = await bq.query({
+        query: `SELECT client_industry_code FROM \`${BQ_PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`,
+        params: { loc: snap.location_id }, location: "EU",
+      });
+      const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
+      if (industry) {
+        // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
+        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type), { limit: 9 });
+      }
+    } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
+
+    return json({ ok: true, commitment, series, move_stats, best_in_class, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

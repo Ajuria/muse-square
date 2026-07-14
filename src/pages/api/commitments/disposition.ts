@@ -9,6 +9,7 @@ import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../..
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
 const DONE_STATUSES = new Set(["fait", "pas_encore"]);
+const EXEC_QUALITIES = new Set(["complete", "partial", "none"]);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -23,12 +24,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!userId) return json({ ok: false }, 401);
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.commitment_id || !body.location_id || !body.action_done_status) {
-      return json({ ok: false, error: "Champs requis : commitment_id, location_id, action_done_status" }, 400);
+    if (!body || !body.commitment_id || !body.location_id) {
+      return json({ ok: false, error: "Champs requis : commitment_id, location_id" }, 400);
     }
-    const doneStatus = String(body.action_done_status).trim();
-    if (!DONE_STATUSES.has(doneStatus)) {
+    const hasDone = body.action_done_status != null;
+    const hasExec = body.execution_quality != null;
+    if (!hasDone && !hasExec) {
+      return json({ ok: false, error: "Champ requis : action_done_status ou execution_quality" }, 400);
+    }
+    const doneStatus = hasDone ? String(body.action_done_status).trim() : null;
+    if (hasDone && !DONE_STATUSES.has(doneStatus!)) {
       return json({ ok: false, error: "action_done_status invalide : " + doneStatus }, 400);
+    }
+    const execQ = hasExec ? String(body.execution_quality).trim() : null;
+    if (hasExec && !EXEC_QUALITIES.has(execQ!)) {
+      return json({ ok: false, error: "execution_quality invalide : " + execQ }, 400);
     }
     requireLocationOwnership(locals, body.location_id);
 
@@ -38,10 +48,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return json({ ok: false, error: "Engagement introuvable" }, 404);
     }
 
-    const patch: Partial<CommitmentRow> = {
-      action_done_status: doneStatus,
-      action_done_at: new Date().toISOString(),
-    };
+    const patch: Partial<CommitmentRow> = {};
+    if (hasDone) {
+      patch.action_done_status = doneStatus;
+      patch.action_done_at = new Date().toISOString();
+    }
+    if (hasExec) patch.execution_quality = execQ;   // self-reported run quality (routes the diagnosis advice)
     // dispositif_note only when provided (typically with 'fait'); don't wipe an
     // existing note on a bare status toggle.
     if (body.dispositif_note != null) {

@@ -33,7 +33,7 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=14"></script>
+    <script is:inline src="/card-kit.js?v=25"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -58,6 +58,58 @@ const id = Astro.url.searchParams.get("id") || "";
           var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
           wireAdvice(cm, advice);
           wireCapture(cm, open);
+          wireDiag(cm);
+        }
+
+        // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
+        // re-commits the action on a fresh window via the shared M'engager form (capture loop).
+        function wireDiag(cm) {
+          // Exécution self-check — persist (execution_quality) then reload so the recommended move reflects it.
+          docEl.querySelectorAll("[data-exec]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              docEl.querySelectorAll("[data-exec]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, execution_quality: b.getAttribute("data-exec") }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) setTimeout(load, 350); }).catch(function () {});
+            });
+          });
+          // Guided move: select a move, then Engager → re-commit a child on a fresh window (poursuivre/
+          // doubler/pivoter) or Arrêter (soft-cancel → system card reappears via Phase-1 suppression).
+          var move = { v: null };
+          function moveStyle(sel) { return "display:block;width:100%;text-align:left;box-sizing:border-box;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;" + (sel ? "background:#F5F8FF;border:1px solid #1D3BB3;" : "background:#fff;border:1px solid #e5e7eb;"); }
+          var moveBtns = docEl.querySelectorAll("[data-move]");
+          moveBtns.forEach(function (b) {
+            b.addEventListener("click", function () {
+              move.v = b.getAttribute("data-move");
+              moveBtns.forEach(function (x) { x.setAttribute("style", moveStyle(x === b)); });
+              var q = docEl.querySelector("[data-adjust-noteq]");
+              if (q) q.textContent = (move.v === "stop") ? t("diag_move_note_stop_q") : t("diag_move_note_q");
+            });
+          });
+          var submit = docEl.querySelector("[data-adjust-submit]");
+          var msg = docEl.querySelector("[data-adjust-msg]");
+          if (!submit) return;
+          submit.addEventListener("click", function () {
+            if (!move.v) { if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Choisissez un move."; } return; }
+            var note = (docEl.querySelector("[data-adjust-note]") || {}).value || "";
+            submit.disabled = true; submit.textContent = "…"; if (msg) msg.textContent = "";
+            var toPulse = function () { window.location.href = "/app/insightevent/pulse"; };
+            var fail = function (j) { submit.disabled = false; submit.textContent = t("diag_move_cta"); if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); } };
+            if (move.v === "stop") {
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, adjustment_move: "stop", adjustment_note: note }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) { toPulse(); } else { fail(j); } }).catch(function () { fail(); });
+              return;
+            }
+            // re-commit: child on a fresh window, then supersede (soft-cancel) the parent.
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              location_id: cm.location_id, origin_action_type: cm.origin_action_type, window_kind: cm.window_kind || "7d",
+              threshold_level: cm.threshold_level || "net", committed_action_text: cm.committed_action_text, owner_person_name: cm.owner_person_name,
+              origin_suppression_key: cm.origin_suppression_key || null, adjustment_move: move.v, adjustment_note: note, parent_commitment_id: cm.commitment_id
+            }) }).then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok) { fail(j); return; }
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id }) })
+                .then(function () { toPulse(); }).catch(function () { toPulse(); });
+            }).catch(function () { fail(); });
+          });
         }
 
         function wireCapture(cm, open) {
@@ -68,18 +120,35 @@ const id = Astro.url.searchParams.get("id") || "";
               docEl.querySelectorAll("[data-done]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
             });
           });
+          // Documenter (Spec 2) — "À reproduire ?" oui/non toggle (resolved state).
+          var repeatState = { v: cm.retro_repeat === true ? "oui" : cm.retro_repeat === false ? "non" : null };
+          docEl.querySelectorAll("[data-retro-repeat]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              repeatState.v = b.getAttribute("data-retro-repeat");
+              docEl.querySelectorAll("[data-retro-repeat]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x.getAttribute("data-retro-repeat") === repeatState.v)); });
+            });
+          });
+          // Read/edit mode (remark #2): Éditer flips to the form; Annuler flips back. Editing rights TBD.
+          var readEl = docEl.querySelector("[data-cap-read]"), editEl = docEl.querySelector("[data-cap-edit]");
+          function showEdit(on) { if (readEl) readEl.style.display = on ? "none" : "block"; if (editEl) editEl.style.display = on ? "block" : "none"; }
+          var editBtn = docEl.querySelector("[data-cap-edit-btn]"); if (editBtn) editBtn.addEventListener("click", function () { showEdit(true); });
+          var cancelBtn = docEl.querySelector("[data-cap-cancel]"); if (cancelBtn) cancelBtn.addEventListener("click", function () { showEdit(false); });
           var save = docEl.querySelector("[data-cap-save]"); if (!save) return;
           save.addEventListener("click", function () {
             var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
-            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } };
+            // On success, reload → the page re-renders in read mode with the saved values.
+            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } if (ok) setTimeout(load, 400); };
             if (open) {
               var disp = (docEl.querySelector("[data-dispositif]") || {}).value || "";
               if (!doneState.v) { done(false); return; }
               fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, action_done_status: doneState.v, dispositif_note: disp }) })
                 .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
             } else {
-              var retro = (docEl.querySelector("[data-retro]") || {}).value || "";
-              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, retro_note: retro }) })
+              var worked = (docEl.querySelector("[data-retro-worked]") || {}).value || "";
+              var change = (docEl.querySelector("[data-retro-change]") || {}).value || "";
+              var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id, retro_worked: worked, retro_change: change };
+              if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
+              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
                 .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
             }
           });
@@ -107,10 +176,13 @@ const id = Astro.url.searchParams.get("id") || "";
 
         var id = root.dataset.id;
         if (!id) { showError("Engagement manquant dans l'adresse."); return; }
-        fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
-          .then(function (r) { return r.json(); })
-          .then(render)
-          .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+        function load() {
+          fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
+            .then(function (r) { return r.json(); })
+            .then(render)
+            .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+        }
+        load();
       })();
     </script>
   </BaseLayout>

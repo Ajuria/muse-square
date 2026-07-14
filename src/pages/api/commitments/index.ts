@@ -147,6 +147,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       window_expected_revenue: body.creation_baseline_daily != null
         ? Math.round(Number(body.creation_baseline_daily) * days)
         : null,
+      // Adjustment "how" loop: when this commitment adjusts a prior one (poursuivre/doubler/pivoter),
+      // carry the move + what changed + the chain link. Null on a first-time (non-adjustment) commit.
+      adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
+      adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
+      parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
     };
 
     await readMergeWrite(bq, { commitmentId, transitionType: "created", create: true, patch });
@@ -177,7 +182,13 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
     await readMergeWrite(bq, {
       commitmentId: String(body.commitment_id),
       transitionType: "cancelled",
-      patch: { status: "cancelled" },
+      // Soft-cancel. "Arrêter" sends adjustment_move='stop' + a reason (suppression then reappears the
+      // system card); an adjust-supersede sends no move (the active child keeps the card suppressed).
+      patch: {
+        status: "cancelled",
+        adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
+        adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
+      },
     });
     return json({ ok: true });
   } catch (err: any) {

@@ -155,9 +155,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       })();
     </script>
 
-    <script is:inline src="/action-cards.js?v=27"></script>
+    <script is:inline src="/reco-library.js?v=5"></script>
+    <script is:inline src="/action-cards.js?v=29"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=14"></script>
+    <script is:inline src="/card-kit.js?v=16"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -745,6 +746,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (sowhat && typeof sowhat === 'object') { ctx = sowhat.context || ''; act = sowhat.action || ''; }
         else { ctx = String(sowhat || ''); }
 
+        // Pickable actions — ONE source per card, best available: reco-library (spec.recos: owner-editable,
+        // driver-keyed, industry-aware — sales families) when present, else the live data-driven action line
+        // (spec.sowhat().action, e.g. competitor named + distance + price) so every family is pickable without
+        // duplicating content. _actAsReco suppresses the static blue line below (it becomes the button instead).
+        try { if (typeof window !== 'undefined' && prof && prof.client_industry_code) window.MS_INDUSTRY_CODE = prof.client_industry_code; } catch (e) {}
+        var _recoActions = (spec && typeof spec.recos === 'function') ? (spec.recos(feedItem) || []) : [];
+        var _actAsReco = false;
+        if (!_recoActions.length && act) { _recoActions = [act]; _actAsReco = true; }
+
         var BR='#1D3BB3', BD='#E8EDF5', INK='#111827', SUB='#6B7280', MUTE='#9CA3AF';
         function zone(kicker, inner, last) {
           return '<div style="padding:18px 0;border-bottom:' + (last ? 'none' : '1px solid ' + BD) + ';">'
@@ -773,7 +783,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           + '</div>';
 
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
-        if (act) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
+        if (act && !_actAsReco) synth += '<p style="font-size:14px;line-height:1.55;margin:0;color:' + BR + ';">' + esc(act) + '</p>';
         if (_isMov) html += grp('La source');
         // _isDecomp: skip the qualitative sowhat Synth\u00e8se \u2014 the "D'o\u00f9 vient le mouvement" section below
         // IS the synthesis (magnitude-rich + correct driver from the live endpoint), so the generic
@@ -871,7 +881,40 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
         if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
+        // \u2500\u2500 Plan \u00e0 reprendre (Spec 1) \u2014 the best PAST plan for this card type, filled async by
+        // loadTrackRecord from /api/insight/track-record (best). Leads the actions: a system card offers
+        // a proven plan to pick up before generic suggestions. Empty until history exists (honest-absent).
+        // \u2500\u2500 ACTION SECTION \u2014 placed at the END (after context). Plan \u00e0 reprendre (Spec 1) leads when
+        // history exists (fs-plan-reprendre, filled async by loadTrackRecord); "Plan \u00e0 essayer" applies
+        // the rich card treatment to the EXISTING reco strings (reco-library / live line) \u2014 no parallel
+        // data structure. Both CLICKABLE \u2192 M'engager (fsOpenCommit) via data-reco-pick / data-reco-own.
+        var _actionsHtml = '<div id="fs-plan-reprendre"></div>';
+        if (_recoActions.length) {
+          var _refs = [];
+          var _cards = _recoActions.map(function (a, _i) {
+            var _title, _desc, _why, _tag, _steps, _source;
+            if (a && typeof a === 'object') { _title = a.title || ''; _desc = a.description || ''; _why = a.why || ''; _tag = a.tag || ''; _steps = Array.isArray(a.steps) ? a.steps : []; _source = a.source || ''; }
+            else { var _s = String(a || ''); var _ci = _s.indexOf(' : '); _title = _ci > 0 ? _s.slice(0, _ci) : _s; _desc = _ci > 0 ? _s.slice(_ci + 3) : ''; _why = ''; _tag = ''; _steps = []; _source = ''; }
+            var _rn = 0; if (_source) { _refs.push(_source); _rn = _refs.length; }
+            return '<div style="border:1px solid #E3E9F2;background:#fff;border-radius:12px;padding:16px 18px;margin-bottom:12px;">'
+              + '<div style="font-size:14.5px;font-weight:600;color:' + INK + ';line-height:1.35;">' + esc(_title) + (_rn ? ' <sup style="color:' + BR + ';font-weight:600;">' + _rn + '</sup>' : '') + '</div>'
+              + (_desc ? '<div style="font-size:13px;color:' + SUB + ';line-height:1.55;margin-top:6px;">' + esc(_desc) + '</div>' : '')
+              + (_why ? '<div style="font-size:12.5px;color:#6B7280;line-height:1.55;margin-top:10px;"><span style="font-weight:600;color:#4B5563;">Pourquoi </span>' + esc(_why) + '</div>' : '')
+              + (_steps.length ? '<div style="margin-top:12px;border-top:1px solid #F1F1F1;padding-top:10px;"><button type="button" data-howto="' + _i + '" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#374151;display:flex;align-items:center;gap:5px;"><span data-howto-chev="' + _i + '">▸</span>Comment faire ?</button><ol data-howto-body="' + _i + '" style="display:none;margin:8px 0 0;padding-left:20px;font-size:12.5px;color:' + SUB + ';line-height:1.6;">' + _steps.map(function (st) { return '<li>' + esc(st) + '</li>'; }).join('') + '</ol></div>' : '')
+              + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap;">'
+              + (_tag ? '<span style="font-size:11px;font-weight:600;color:' + BR + ';background:#EEF2FF;border-radius:20px;padding:4px 11px;">' + esc(_tag) + '</span>' : '<span></span>')
+              + '<button type="button" data-reco-pick="' + _i + '" style="padding:8px 14px;font-size:12.5px;font-weight:600;color:#fff;background:' + BR + ';border:none;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;">Choisir ce plan \u2192</button>'
+              + '</div></div>';
+          }).join('');
+          var _intro = '<div style="font-size:12.5px;color:' + SUB + ';margin-bottom:14px;line-height:1.5;">Choisissez un plan \u2014 vous fixez la fen\u00eatre de mesure, le r\u00e9sultat est suivi automatiquement :</div>';
+          var _own = '<button type="button" data-reco-own style="padding:8px 14px;font-size:12.5px;font-weight:600;color:' + BR + ';background:#fff;border:1px dashed #C7D2FE;border-radius:8px;cursor:pointer;font-family:inherit;">\u00c9crire mon propre plan \u2192</button>';
+          var _foot = '<div style="font-size:11px;color:#9CA3AF;line-height:1.5;margin-top:12px;font-style:italic;">Approches \u00e0 adapter \u00e0 votre contexte. Ce que vous choisissez devient l\'action mesur\u00e9e.</div>';
+          var _refsHtml = _refs.length ? '<div style="border-top:1px solid #eef1f6;padding-top:12px;margin-top:10px;"><div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;font-weight:500;margin-bottom:8px;">R\u00e9f\u00e9rences</div>' + _refs.map(function (s, i) { return '<div style="font-size:11.5px;color:#9CA3AF;line-height:1.7;"><sup style="color:' + BR + ';">' + (i + 1) + '</sup> ' + esc(s) + '</div>'; }).join('') + '</div>' : '';
+          _actionsHtml += zone('Plan \u00e0 essayer', _intro + _cards + _own + _foot + _refsHtml);
+        }
+        _actionsHtml += '<div id="fs-bic-zone"></div>';  // Lieux comparables \u2014 filled async (honest-absent)
         if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
+        html += _actionsHtml;
 
         html += zone('Sources', src, true);
 
@@ -902,7 +945,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
-          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'));
+          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'), fsOpenCommit);
+          loadBestInClass(location_id, signal_type, document.getElementById('fs-bic-zone'));
         }
 
         var descBtn = document.getElementById('fs-desc-btn');
@@ -992,12 +1036,66 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           .then(function(j){ container.innerHTML = MSCardKit.renderAudience(j); })
           .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>'; });
       }
-      function loadTrackRecord(locId, actionType, container) {
+      function loadTrackRecord(locId, actionType, container, onReconduire) {
         if (!container) return;
         fetch('/api/insight/track-record?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
           .then(function(r){ return r.json(); })
-          .then(function(j){ container.innerHTML = MSCardKit.renderTrackRecord(j); })
+          .then(function(j){
+            container.innerHTML = MSCardKit.renderTrackRecord(j);
+            // Spec 1 — Plan à reprendre: the best past plan pre-fills M'engager (same fsOpenCommit as the recos).
+            var slot = document.getElementById('fs-plan-reprendre');
+            if (!slot || !j || !j.best || !j.best.action_text || typeof onReconduire !== 'function') return;
+            var b = j.best;
+            var eff = (b.effect_pct != null) ? ((b.effect_pct >= 0 ? '+' : '') + frDec(b.effect_pct) + ' %') : '';
+            var dp = String(b.resolved_date || '').split('-');
+            var dateFr = (dp.length === 3) ? (dp[2] + '/' + dp[1] + '/' + dp[0]) : '';
+            var rows = '<div style="font-size:14px;line-height:1.5;color:#111827;">La dernière fois : « ' + esc(b.action_text) + ' »'
+              + (eff ? ' <span style="color:#166534;font-weight:600;white-space:nowrap;">→ ' + eff + ' vs référence</span>' : '') + '</div>';
+            if (b.dispositif) rows += '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;margin-top:6px;">Dispositif : ' + esc(b.dispositif) + '</div>';
+            if (b.worked) rows += '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;margin-top:4px;">Ce qui a marché : ' + esc(b.worked) + '</div>';
+            if (dateFr) rows += '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Mesuré le ' + dateFr + '</div>';
+            slot.innerHTML = '<div style="padding:18px 0;border-bottom:1px solid #E8EDF5;">'
+              + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px;">Plan à reprendre</div>'
+              + '<div style="border:1px solid #DBEAFE;background:#F5F8FF;border-radius:10px;padding:14px;">' + rows
+              + '<button type="button" data-reconduire style="margin-top:12px;padding:10px 14px;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:9px;cursor:pointer;font-family:inherit;">Reconduire ce plan <span style="opacity:0.85;">→ M\'engager</span></button>'
+              + '</div></div>';
+            var rb = slot.querySelector('[data-reconduire]');
+            if (rb) rb.addEventListener('click', function(){ onReconduire(b.action_text); });
+          })
           .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Suivi indisponible.</div>'; });
+      }
+
+      // "Lieux comparables" — vetted external analogs (analytics.best_in_class_plays via
+      // /api/insight/best-in-class). A comparable venue's move X -> reported outcome Y, cited: an
+      // analog to TRY, never a promised result. Honest-absent: nothing for this lever -> render nothing.
+      var BIC_CONF_FR = { eleve: 'source fiable', moyen: 'à confirmer', faible: 'indicatif' };
+      function loadBestInClass(locId, actionType, container) {
+        if (!container) return;
+        fetch('/api/insight/best-in-class?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            if (!j || !j.ok || !j.found || !Array.isArray(j.plays) || !j.plays.length) { container.innerHTML = ''; return; }
+            var BR = '#1D3BB3', INK = '#111827', SUB = '#6B7280', GREEN = '#0F6E56';
+            var cards = j.plays.map(function(p){
+              var conf = BIC_CONF_FR[p.confidence] || '';
+              var steps = (p.steps || []).filter(Boolean);
+              var stepsHtml = steps.length ? '<details style="margin-top:10px;"><summary style="font-size:12.5px;color:' + BR + ';cursor:pointer;font-weight:600;">Comment faire ?</summary><ol style="margin:8px 0 0;padding-left:20px;font-size:12.5px;color:' + SUB + ';line-height:1.6;">' + steps.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
+              var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:' + SUB + ';text-decoration:underline;">Source : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
+              return '<div style="border:1px solid #E3E9F2;background:#fff;border-radius:12px;padding:16px 18px;margin-bottom:12px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:600;color:' + INK + ';line-height:1.35;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#F1EFE8;border-radius:4px;padding:2px 8px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
+                + (p.context ? '<div style="font-size:12px;color:#9CA3AF;line-height:1.5;margin-top:4px;">' + esc(p.context) + '</div>' : '')
+                + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
+                + '<div style="font-size:13px;color:' + GREEN + ';line-height:1.55;margin-top:6px;"><span style="font-weight:600;">Résultat </span>' + esc(p.outcome) + '</div>'
+                + stepsHtml
+                + (src ? '<div style="margin-top:10px;">' + src + '</div>' : '')
+              + '</div>';
+            }).join('');
+            var intro = '<div style="font-size:12.5px;color:' + SUB + ';margin-bottom:14px;line-height:1.5;">Un cas comparable à tester — pas un résultat promis :</div>';
+            container.innerHTML = '<div style="padding:18px 0;border-bottom:1px solid #E8EDF5;">'
+              + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px;">Lieux comparables</div>'
+              + intro + cards + '</div>';
+          })
+          .catch(function(){ container.innerHTML = ''; });
       }
 
       // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
@@ -1971,10 +2069,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var cmPanel = document.getElementById("fs-cm-panel");
         function closeCommit() { if (cmOverlay) cmOverlay.classList.remove("is-open"); if (cmPanel) cmPanel.innerHTML = ""; }
         if (cmOverlay) cmOverlay.addEventListener("click", function(e) { if (e.target === cmOverlay) closeCommit(); });
-        var actBtn = document.getElementById("fs-btn-act");
-        if (actBtn) actBtn.addEventListener("click", function() {
+        function fsOpenCommit(actionText) {
           if (!window.MSCommitForm || !cmPanel || !cmOverlay) return;
-          var pre = { committed_action_text: "", window_kind: "7d" };
+          var pre = { committed_action_text: actionText || "", window_kind: "7d" };
           cmPanel.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
           window.MSCommitForm.wire(cmPanel, {
             location_id: location_id,
@@ -1987,6 +2084,25 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             }
           });
           cmOverlay.classList.add("is-open");
+        }
+        var actBtn = document.getElementById("fs-btn-act");
+        if (actBtn) actBtn.addEventListener("click", function() { fsOpenCommit(""); });
+        // "Plan à essayer" — each reco opens M'engager pre-filled with that plan (same shared form).
+        (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-pick]')) : []).forEach(function(btn) {
+          btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = _recoActions && _recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
+        });
+        // "Écrire mon propre plan" — opens M'engager blank (write your own).
+        (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-own]')) : []).forEach(function(btn) {
+          btn.addEventListener('click', function() { fsOpenCommit(""); });
+        });
+        // "Comment faire ?" — expand the plan's execution steps (progressive disclosure).
+        (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-howto]')) : []).forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var i = btn.getAttribute('data-howto');
+            var body = root.querySelector('[data-howto-body="' + i + '"]');
+            var chev = root.querySelector('[data-howto-chev="' + i + '"]');
+            if (body) { var op = body.style.display === 'block'; body.style.display = op ? 'none' : 'block'; if (chev) chev.textContent = op ? '▸' : '▾'; }
+          });
         });
 
         function generateDraft(ch) {

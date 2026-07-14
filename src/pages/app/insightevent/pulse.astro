@@ -343,9 +343,9 @@ if (!location_id) {
     <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
     <script is:inline src="/vendor/leaflet/leaflet.js"></script>
     <script is:inline src="/map-markers.js"></script>
-    <script is:inline src="/reco-library.js?v=1"></script>
+    <script is:inline src="/reco-library.js?v=5"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=27"></script>
+    <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1761,7 +1761,10 @@ if (!location_id) {
         // Empty array when the card type has no reco, so the field is never wrong.
         var _akey = (t && t._spec_action_type) || entry.item.change_subtype || entry.item.action_type;
         var _sp = (window.ACTION_CARDS && _akey) ? window.ACTION_CARDS[_akey] : null;
-        entry.item.__suggested_actions = (_sp && typeof _sp.recos === 'function') ? (_sp.recos(entry.item) || []) : [];
+        // Industry-aware recos: expose the location's industry (from the day) so _recosFor picks the
+        // vertical override (reco-library MS_SALES_RECO_LIB_BY_INDUSTRY) over the café-flavoured default.
+        try { if (typeof window !== 'undefined' && currentDay && currentDay.client_industry_code) window.MS_INDUSTRY_CODE = currentDay.client_industry_code; } catch (e) {}
+        entry.item.__suggested_actions = (_sp && typeof _sp.recos === 'function') ? (_sp.recos(entry.item) || []).map(function (p) { return window.MS_planText ? window.MS_planText(p) : p; }) : [];
         window.__msCardByIdx[cardIdx] = entry.item;
       } catch(e) {}
       var cardId = "ab-card-" + cardIdx;
@@ -1787,31 +1790,27 @@ if (!location_id) {
 
       // --- Agir dropdown (opens below) ---
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel || sendChannel) + '" data-agir-intent="public" data-agir-has-pub="' + ((pubChannel === 'gbp' || pubChannel === 'instagram' || pubChannel === 'facebook' || pubChannel === 'website') ? '1' : '0') + '" class="ab-dd-item">'
+        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+          + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
+        + '</button>'
+        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Communiquer</div><div class="ab-dd-desc">R\u00e9diger un post, email ou message</div></div>'
+          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
         + '</button>'
         + (pubChannel && t.barClass === 'ab-opportunity' ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
           + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
         + '</button>' : '')
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-send">\u2197\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Faire suivre</div><div class="ab-dd-desc">Email, message ou note interne</div></div>'
-        + '</button>'
-        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-          + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Voir le d\u00e9tail du signal</div></div>'
-        + '</button>'
       + '</div>';
 
       // RULE performance cards (Communiquer en interne): swap the comms menu for the internal-alert menu.
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-comm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
-            + '<div><div class="ab-dd-label">M\'engager sur une action</div><div class="ab-dd-desc">Fixer un objectif mesur\u00e9 sur cette carte</div></div>'
+          + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+            + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
           + '</button>'
           + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
@@ -1820,10 +1819,6 @@ if (!location_id) {
           + '<button type="button" data-agir-notify="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\u23f0</div>'
             + '<div><div class="ab-dd-label">Cr\u00e9er une notification</div><div class="ab-dd-desc">Alerte auto quand ce signal revient</div></div>'
-          + '</button>'
-          + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-            + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Voir le d\u00e9tail du signal</div></div>'
           + '</button>'
         + '</div>';
       }
@@ -1842,7 +1837,7 @@ if (!location_id) {
       var showAgir = isAction || (_isInternalAlert && commChannels.length === 0);
       var consultOpen = (t._card_type === 'action') ? (' data-consult-open="' + cardIdx + '" style="cursor:pointer;"') : '';
 
-      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '">'
+      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" style="border-left:3px solid #6B7280;">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
@@ -1855,6 +1850,7 @@ if (!location_id) {
                     + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
+                    + (t._card_type === 'action' ? '<span class="chip-n" style="background:#F3F4F6;color:#6B7280;border:1px dashed #C9CDD4;">Sans pilote</span>' : '')
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
                   + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
@@ -1945,7 +1941,7 @@ if (!location_id) {
       + '</div>'
       + feedbackCardsHtml
       + '<div id="pls-engagement-cards"></div>'
-      + cardsHtml
+      + (cardsHtml ? '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:16px 0 10px 2px;">À piloter</div>' + cardsHtml : '')
       + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
         + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;">'
           + '<div style="height:100%;background:#059669;width:' + progressPct + '%;border-radius:2px;transition:width 0.3s;"></div>'
@@ -1953,6 +1949,7 @@ if (!location_id) {
         + '<span style="font-size:10px;color:#6B7280;">' + completedCount + '/' + top.length + '</span>'
       + '</div>'
       + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
+      + '<div id="pls-past-actions" style="margin-top:18px;"></div>'
     + '</div>';
   }
 
@@ -4159,13 +4156,13 @@ if (!location_id) {
   }
   function _cgIcon(p, c){ return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
   function _cgDdIcon(p){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
-  // Agir menu per state (locked spec): open/pending → Modifier · Consulter l'évolution;
-  // resolved/expired → Consulter l'évolution · Répliquer.
+  // Agir menu per state: open/pending → Consulter l'évolution · Modifier;
+  // resolved/expired → Consulter l'évolution · Répliquer. (Consulter l'évolution always first.)
   function _cgAgirMenu(eid, status){
     var see = '<button type="button" data-eng-evo="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-see">' + _cgDdIcon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>') + '</div><div><div class="ab-dd-label">Consulter l\'évolution</div><div class="ab-dd-desc">Suivi jour par jour</div></div></button>';
     var body;
     if (status === 'open' || status === 'pending') {
-      body = '<button type="button" data-eng-modify="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>') + '</div><div><div class="ab-dd-label">Modifier</div><div class="ab-dd-desc">Ajuster ou abandonner</div></div></button>' + see;
+      body = see + '<button type="button" data-eng-modify="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>') + '</div><div><div class="ab-dd-label">Modifier</div><div class="ab-dd-desc">Ajuster ou abandonner</div></div></button>';
     } else {
       body = see + '<button type="button" data-eng-replicate="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/>') + '</div><div><div class="ab-dd-label">Répliquer</div><div class="ab-dd-desc">Reprendre cette action</div></div></button>';
     }
@@ -4218,21 +4215,30 @@ if (!location_id) {
     var caveat = '';
     if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';
     else if (r.verdict === 'confounded') caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9888;</span><span>' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre en vacances scolaires — impossible de distinguer l\'action du calendrier.</span></div>';
-    return '<div class="ab-card" data-eng-card="' + eid + '" data-eng-loc="' + loc + '">'
+    var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification') : (r.retro_worked ? 'Documenté' : 'À documenter');
+    var _stageBg = (_stage === 'À documenter') ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
+    var _stageFg = (_stage === 'À documenter') ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
+    // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.
+    if (r.status === 'cancelled') {
+      _stage = (r.adjustment_move === 'stop') ? 'Arrêtée' : (r.__hasChild ? 'Ajustée' : 'Annulée');
+      _stageBg = '#F1EFE8'; _stageFg = '#5f5e5a';
+    }
+    var _initials = String(r.owner_person_name || '').trim().split(/\s+/).map(function(w){ return w.charAt(0); }).slice(0, 2).join('').toUpperCase() || '—';
+    return '<div class="ab-card" data-eng-card="' + eid + '" data-eng-loc="' + loc + '" style="background:#F6F8FE;border-left:3px solid #1D3BB3;">'
       + '<div class="ab-card-row">'
         + '<div class="ab-bar" style="background:' + v.fg + ';"></div>'
         + '<div class="ab-inner">'
           + '<div class="ab-summary"><div style="display:flex;align-items:flex-start;gap:12px;">'
             + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
             + '<div style="flex:1;min-width:0;">'
-              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n">' + chip + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
+              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
               + '<div class="ab-what">' + escapeHtml(String(r.committed_action_text || '')) + '</div>'
               + '<div class="ab-sowhat">' + sowhat + '</div>'
             + '</div></div></div>'
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
-            + pill + '<span class="ab-metric">&rarr; ' + escapeHtml(String(r.owner_person_name || '')) + '</span>'
+            + pill + '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(29,59,179,.12);color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;">' + escapeHtml(_initials) + '</span><span style="font-size:12px;color:#374151;">' + escapeHtml(String(r.owner_person_name || '')) + '</span></span>'
             + '<span style="margin-left:auto;display:inline-flex;align-items:center;"><div style="position:relative;display:inline-block;">'
-              + '<button type="button" data-eng-agir-toggle="' + eid + '" class="agir-btn">Agir ▾</button>'
+              + '<button type="button" data-eng-agir-toggle="' + eid + '" class="agir-btn">Piloter ▾</button>'
               + _cgAgirMenu(eid, r.status)
             + '</div></span>'
           + '</div>'
@@ -4358,7 +4364,8 @@ if (!location_id) {
     })).then(function(lists){
       var items = [];
       lists.forEach(function(l){ items = items.concat(l); });
-      if (!items.length) { mount.innerHTML = ''; renderEngagementFeedLog([]); return; }
+      var pastMount = document.getElementById('pls-past-actions');
+      if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); return; }
       // newest first across all sites (updated_at may serialize as {value})
       items.sort(function(a, b){
         var av = (a.updated_at && a.updated_at.value) ? a.updated_at.value : a.updated_at;
@@ -4367,8 +4374,21 @@ if (!location_id) {
       });
       window._engById = {};
       items.forEach(function(r){ window._engById[String(r.commitment_id)] = r; });
-      mount.innerHTML = items.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('');
+      // #4: a cancelled commitment that is a PARENT of a child was ADJUSTED (superseded), not abandoned.
+      var _parents = {}; items.forEach(function(r){ if (r.parent_commitment_id) _parents[String(r.parent_commitment_id)] = true; });
+      items.forEach(function(r){ r.__hasChild = !!_parents[String(r.commitment_id)]; });
+      // Phase 2 — split: ACTIVE (open/pending) → "En cours"; PAST (resolved/expired/cancelled) → collapsed Bilan.
+      var _active = items.filter(function(r){ return r.status === 'open' || r.status === 'pending'; });
+      var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
+      var _enHdr = '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:0 0 10px 2px;">Vos actions en cours</div>';
+      mount.innerHTML = _active.length ? (_enHdr + _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('')) : '';
       wireEngagementCards(mount);
+      if (pastMount) {
+        pastMount.innerHTML = _past.length
+          ? '<details><summary style="cursor:pointer;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;padding:6px 2px;">Mes actions passées · ' + _past.length + '</summary><div style="margin-top:12px;">' + _past.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('') + '</div></details>'
+          : '';
+        if (_past.length) wireEngagementCards(pastMount);
+      }
       renderEngagementFeedLog(items);
     });
   }

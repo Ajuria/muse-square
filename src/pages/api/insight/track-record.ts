@@ -1,9 +1,11 @@
 // src/pages/api/insight/track-record.ts
 // SHARED card-detail block "Ce qui a marché" (Engine 1) — for a given card type, did the operator's
-// PAST commitments on it beat the baseline? Reads mart.fct_location_commitment_learning
-// (source='commitment', authorship='user_authored'), the learning aggregate the évolution page uses.
-// Grain is (location_id, action_type, window_days) -> summed across windows for the card type.
-// Honest-absence: no resolved commitment on this type -> found:false (caller shows "aucune action
+// PAST commitments on it beat the baseline? Reads the PRE-EXPLODE mart.fct_client_commitment_outcomes
+// (one row per resolved + self-reported-done commitment) — NOT the factor-exploded
+// fct_location_commitment_learning, whose grain fans a commitment out per window factor; summing that
+// double-counts any commitment active under 2+ factors. Aggregates here at commitment grain
+// (COUNTIF over non-confounded), matching the learning model's own done/beat/missed definitions.
+// Honest-absence: no resolved+done commitment on this type -> found:false (caller shows "aucune action
 // passée mesurée"), never a fabricated track record. Type-A effect is a residual, never "proven".
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
@@ -33,15 +35,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const [rows] = await bq.query({
       query: `SELECT
-                SUM(done_count) AS done,
-                SUM(beat_count) AS beat,
-                SUM(missed_count) AS missed,
-                SAFE_DIVIDE(SUM(avg_effect_residual_pct * done_count), NULLIF(SUM(done_count), 0)) AS avg_effect_pct,
-                MAX(last_resolved_date) AS last_resolved
-              FROM \`${PROJECT}.mart.fct_location_commitment_learning\`
+                COUNTIF(NOT is_confounded) AS done,
+                COUNTIF(NOT is_confounded AND verdict = 'met') AS beat,
+                COUNTIF(NOT is_confounded AND verdict = 'missed') AS missed,
+                AVG(IF(NOT is_confounded, effect_residual_pct, NULL)) AS avg_effect_pct,
+                MAX(resolved_date) AS last_resolved
+              FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
               WHERE location_id = @location_id
-                AND action_type = @action_type
-                AND source = 'commitment'`,
+                AND action_type = @action_type`,
       params: { location_id, action_type }, types: { location_id: "STRING", action_type: "STRING" }, location: "EU",
     });
     const r: any = Array.isArray(rows) && rows.length ? rows[0] : null;
@@ -49,6 +50,33 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (!r || done <= 0) {
       return json(200, { ok: true, found: false, action_type });
     }
+
+    // Spec 1 "Plan à reprendre" — the single best PAST plan for this card type: the specific action
+    // text + dispositif + documented "ce qui a marché" (Spec 2). Read from the RAW commitment log —
+    // the mart carries counts, not text. Highest measured lift among resolved + done + beat (verdict met).
+    const [bestRows] = await bq.query({
+      query: `SELECT committed_action_text, dispositif_note, retro_worked, retro_repeat,
+                     window_residual_pct AS effect_pct, DATE(resolved_at) AS resolved_date
+              FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                FROM \`${PROJECT}.analytics.action_commitments\`
+                WHERE location_id = @location_id AND origin_action_type = @action_type
+              )
+              WHERE rn = 1 AND status = 'resolved' AND action_done_status = 'fait' AND verdict = 'met'
+              ORDER BY window_residual_pct DESC
+              LIMIT 1`,
+      params: { location_id, action_type }, types: { location_id: "STRING", action_type: "STRING" }, location: "EU",
+    });
+    const bp: any = Array.isArray(bestRows) && bestRows.length ? bestRows[0] : null;
+    const best = bp && bp.committed_action_text ? {
+      action_text: String(bp.committed_action_text),
+      dispositif: bp.dispositif_note != null ? String(bp.dispositif_note) : null,
+      worked: bp.retro_worked != null ? String(bp.retro_worked) : null,       // from Documenter (Spec 2)
+      repeat: bp.retro_repeat == null ? null : (bp.retro_repeat === true || bp.retro_repeat === "true"),
+      effect_pct: bp.effect_pct != null ? Math.round(num(bp.effect_pct)! * 10) / 10 : null,
+      resolved_date: ymd(bp.resolved_date),
+    } : null;
+
     return json(200, {
       ok: true,
       found: true,
@@ -60,6 +88,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // not a "proven lift" — Type A never claims proof.
       avg_effect_pct: r.avg_effect_pct != null ? Math.round(num(r.avg_effect_pct)! * 10) / 10 : null,
       last_resolved: ymd(r.last_resolved),
+      best,   // Spec 1: null when no beat-plan on record
     });
   } catch (err: any) {
     console.error("[api/insight/track-record] Error", err);

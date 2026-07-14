@@ -18,6 +18,17 @@
   function msRate(n) { return n == null ? '—' : ((Number(n) * 100).toFixed(1).replace('.', ',') + ' %'); }
   function msEur2(n) { return n == null ? '—' : (Number(n).toFixed(2).replace('.', ',') + ' €'); }
   function msDateFr(iso) { try { var pp = String(iso).split('-'); return pp[2] + '/' + pp[1] + '/' + pp[0]; } catch (e) { return String(iso); } }
+  // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
+  function _moveHint(at) {
+    var s = String(at || '');
+    if (/^(sales_|footfall_vs_basket|offering_)/.test(s)) return 'ex. offre, créneau, prix, mise en avant en caisse…';
+    if (/^(competit|competition|same_bucket)/.test(s)) return 'ex. canal de visibilité, différenciateur, cible…';
+    if (/^(weather|extended_bad)/.test(s)) return 'ex. stock, staffing, mise en avant…';
+    if (/^(tourist|tourism|foreign)/.test(s)) return 'ex. offre, langues, canaux touristiques…';
+    if (/^(commercial_event|mega_event)/.test(s)) return 'ex. activation, offre, communication…';
+    if (/^(ft_|best_day)/.test(s)) return 'ex. staffing, offre, communication…';
+    return 'ex. offre, canal, timing…';
+  }
   function msDeltaCell(pct, eurDelta) {
     if (pct == null && eurDelta == null) return { v: 'stable', color: '#9CA3AF' };
     var up = (eurDelta != null ? eurDelta : pct) >= 0;
@@ -435,24 +446,57 @@
 
     // capture markup (done/dispositif when open, retro when resolved)
     function doneBtnStyle(sel) { return 'font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;' + (sel ? 'background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;' : 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'); }
+    // read-only summary row (view mode)
+    function roRow(label, value) {
+      return '<div style="padding:8px 0;border-top:0.5px solid #F3F4F6;"><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(label) + '</div><div style="font-size:13px;color:#111827;line-height:1.5;margin-top:3px;white-space:pre-wrap;">' + esc(value) + '</div></div>';
+    }
+    // Read/edit mode (remark #2): once saved, render read-only with an "Éditer" toggle. Editing RIGHTS
+    // are deferred — this is the view-mode UI only. hasData default = read; empty = edit.
     function captureHtml(cm, open) {
-      var inner;
+      var inner, title, hasData, readInner;
       if (open) {
+        title = t('q4_title');
         var st = cm.action_done_status;
+        hasData = (st != null);
         inner = '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">' + esc(t('done_question')) + '</div>'
           + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
           + '<button type="button" data-done="fait" style="' + doneBtnStyle(st === 'fait') + '">' + esc(t('done_yes')) + '</button>'
           + '<button type="button" data-done="pas_encore" style="' + doneBtnStyle(st === 'pas_encore') + '">' + esc(t('done_no')) + '</button></div>'
           + '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;">' + esc(t('dispositif_label')) + '</div>'
           + '<textarea data-dispositif placeholder="' + esc(t('dispositif_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(cm.dispositif_note || '') + '</textarea>';
+        readInner = roRow(t('done_question'), st === 'fait' ? t('done_yes') : st === 'pas_encore' ? t('done_no') : '—')
+          + roRow(t('dispositif_label'), cm.dispositif_note || t('not_dispositioned'));
       } else {
-        var confirmed = cm.action_done_status === 'fait' ? '<div style="font-size:12.5px;color:#166534;margin-bottom:12px;">' + esc(t('done_confirmed', { name: cm.owner_person_name || '—' })) + '</div>' : '';
-        inner = confirmed
-          + '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">' + esc(t('retro_question')) + '</div>'
-          + '<textarea data-retro placeholder="' + esc(t('retro_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:64px;box-sizing:border-box;">' + esc(cm.retro_note || '') + '</textarea>';
+        // Documenter — structured retro (Spec 2): worked / would-change / repeat oui-non. The
+        // reusable knowledge-base entry that seeds Spec 1's "Plan à reprendre".
+        title = t('q4_title_doc');
+        hasData = (cm.retro_worked != null || cm.retro_change != null || cm.retro_repeat != null);
+        var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
+        var qStyle = 'font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;';
+        var rep = cm.retro_repeat;
+        inner = '<div style="font-size:12px;color:#9ca3af;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_worked_q')) + '</div>'
+          + '<textarea data-retro-worked placeholder="' + esc(t('retro_worked_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || '') + '</textarea>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_change_q')) + '</div>'
+          + '<textarea data-retro-change placeholder="' + esc(t('retro_change_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_change || '') + '</textarea>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_repeat_q')) + '</div>'
+          + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
+          + '<button type="button" data-retro-repeat="oui" style="' + doneBtnStyle(rep === true) + '">' + esc(t('repeat_yes')) + '</button>'
+          + '<button type="button" data-retro-repeat="non" style="' + doneBtnStyle(rep === false) + '">' + esc(t('repeat_no')) + '</button></div>';
+        readInner = (cm.retro_worked ? roRow(t('retro_worked_q'), cm.retro_worked) : '')
+          + (cm.retro_change ? roRow(t('retro_change_q'), cm.retro_change) : '')
+          + roRow(t('retro_repeat_q'), rep === true ? t('repeat_yes') : rep === false ? t('repeat_no') : '—');
       }
-      return '<div class="eg-sec"><div class="eg-uc">' + esc(t('q4_title')) + '</div>' + inner
-        + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;"><button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button><span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+      var editBtn = 'margin-top:12px;padding:7px 14px;font-size:12.5px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:6px;cursor:pointer;font-family:inherit;';
+      var cancelBtn = 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;';
+      var readView = '<div data-cap-read style="display:' + (hasData ? 'block' : 'none') + ';">' + readInner
+        + '<button type="button" data-cap-edit-btn style="' + editBtn + '">' + esc(t('edit')) + '</button></div>';
+      var editView = '<div data-cap-edit style="display:' + (hasData ? 'none' : 'block') + ';">' + inner
+        + '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;">'
+        + '<button type="button" data-cap-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button>'
+        + (hasData ? '<button type="button" data-cap-cancel style="' + cancelBtn + '">' + esc(t('cancel')) + '</button>' : '')
+        + '<span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
+      return '<div class="eg-sec"><div class="eg-uc">' + esc(title) + '</div>' + readView + editView + '</div>';
     }
 
     var cm = data.commitment, series = data.series || [], ctx = data.context || {};
@@ -469,10 +513,19 @@
 
     var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
     var sub = t('subtitle', { level: LVL_FR[cm.threshold_level] || cm.threshold_level, window: winLbl, owner: esc(cm.owner_person_name || '—') });
+    // Owner + when (remark #1): who committed and when, + when the action was marked done.
+    var _ownerDate = '';
+    if (cm.owner_person_name || cm.created_at) {
+      var _cd = cm.created_at ? msDateFr(String(cm.created_at).slice(0, 10)) : '—';
+      _ownerDate = t('owner_line', { name: esc(cm.owner_person_name || '—'), date: esc(_cd) });
+      if (cm.action_done_at) _ownerDate += t('done_suffix', { date: esc(msDateFr(String(cm.action_done_at).slice(0, 10))) });
+    }
     var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
       + '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
-      + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div></div>';
+      + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
+      + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
+      + '</div>';
 
     var headline, big;
     if (!received.length) {
@@ -487,15 +540,39 @@
       headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">' + esc(_obj) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + esc(t('q1_window_started')) + '</div>';
     } else {
-      var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
-      var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;
-      var _actionPct = _basePct - _ctxPct;
-      big = _actionPct >= 0 ? '#059669' : '#b91c1c';
-      var _lead = t(_ctxPct !== 0 ? 'q1_lead_holiday' : 'q1_lead_plain', { pct: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
-      var _verdict = (_actionPct >= 2) ? t('q1_verdict_pays') : (_actionPct <= -2) ? t('q1_verdict_down') : t('q1_verdict_flat');
-      if (Math.abs(_actionPct) >= 2 && received.length < 5) _verdict += ', ' + t('q1_verdict_confirm');
-      headline = '<div style="font-size:20px;font-weight:600;color:' + big + ';">' + esc(_lead) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;margin-top:4px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + ' — ' + esc(_verdict) + '</div>';
+      var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0); // situation (total residual)
+      var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;                                // holiday/context portion
+      var _actionPct = _basePct - _ctxPct;                                                               // action-attributed
+      var _gz = cm.threshold_level === 'net' ? 1.5 : 1.0;
+      var _goalPct = Math.max(1, Math.round(_gz * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100)); // goal as % uplift
+      // PRIMARY status — resolved: authoritative verdict; open: SITUATION vs goal (threshold is on the total residual).
+      var _stTxt, _stCol;
+      if (!open && cm.verdict === 'met') { _stTxt = t('q1_objectif_met'); _stCol = '#059669'; }
+      else if (!open && cm.verdict === 'missed') { _stTxt = t('q1_objectif_missed'); _stCol = '#b91c1c'; }
+      else if (!open && cm.verdict === 'confounded') { _stTxt = t('q1_objectif_confounded'); _stCol = '#92610a'; }
+      else if (_basePct >= _goalPct) { _stTxt = t('q1_ontrack'); _stCol = '#059669'; }
+      else { _stTxt = t('q1_below'); _stCol = '#92610a'; }
+      // Progress-to-goal bar: track = 0..goal (goal is the END); fill = situation capped at goal; two-tone action + holiday.
+      var _actW = _goalPct > 0 ? Math.max(0, Math.min(_actionPct / _goalPct, 1)) : 0;
+      var _fill = _goalPct > 0 ? Math.max(0, Math.min(_basePct / _goalPct, 1)) : 0;
+      var _ctxW = Math.max(0, _fill - _actW);
+      var _bar = '<div style="margin-top:14px;">'
+        + '<div style="position:relative;height:9px;background:#f0f2f5;">'
+          + '<div style="position:absolute;left:0;top:0;height:9px;width:' + (_actW * 100).toFixed(1) + '%;background:#1D3BB3;"></div>'
+          + '<div style="position:absolute;left:' + (_actW * 100).toFixed(1) + '%;top:0;height:9px;width:' + (_ctxW * 100).toFixed(1) + '%;background:#c3cbe6;"></div>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#6b7280;">'
+          + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs habituel</span>'
+          + '<span>' + esc(t('q1_bar_goal', { pct: _goalPct })) + '</span>'
+        + '</div></div>';
+      // SECONDARY attribution — split when a holiday effect is present (causal-safe: never counts vacances as the action).
+      var _attrib = (_ctxPct !== 0)
+        ? t('q1_attrib_split', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct), ctx: (_ctxPct >= 0 ? '+' : '') + fr(_ctxPct) })
+        : t('q1_attrib_solo', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
+      headline = '<div style="font-size:16px;font-weight:600;color:' + _stCol + ';">' + esc(_stTxt) + '</div>'
+        + _bar
+        + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:14px;">' + esc(_attrib) + '</div>'
+        + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';
     }
     var holidayNote = '';
     if (windowHoliday && hn && hn.pct != null) {
@@ -511,12 +588,126 @@
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
     var q4 = captureHtml(cm, open);
 
+    // ── Diagnostic + advice — shown only when UNDER-performing (open below goal, or resolved missed).
+    // Contexte externe = surfaced from the per-day series + measured weather assoc (confidence via n);
+    // Exécution = an ephemeral self-check (routes advice client-side, no new column); Le levier last.
+    var _dBase = received.length ? (open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0)) : null;
+    var _dCtx = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;
+    var _dAction = _dBase != null ? _dBase - _dCtx : 0;
+    var _dGoal = Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
+    var _under = !!received.length && ((open && _dBase < _dGoal) || (!open && cm.verdict === 'missed'));
+    // State -> intent — ties the analog to the "Votre action paie-t-elle ?" verdict (same status as the
+    // headline): below -> pivot (what else to try) · aligned/confounded -> reinforce (push it) · above ->
+    // scale (make it last). The block shows in ALL three states, with the analog that fits.
+    var _state = null;
+    if (received.length) {
+      if (!open) _state = (cm.verdict === 'met') ? 'above' : (cm.verdict === 'missed') ? 'below' : 'aligned';
+      else _state = (_dBase >= _dGoal) ? 'above' : 'below';
+    }
+    var _intent = _state ? ({ below: 'pivot', aligned: 'reinforce', above: 'scale' })[_state] : null;
+    // Reusable "lieux comparables" renderer — intent-filtered plays (data.best_in_class), intent-specific
+    // framing. An analog to try, never a promised result: outcome shown as the source reported it, cited.
+    function _bicBlock(intent) {
+      var plays = (data.best_in_class || []).filter(function (p) { return p.intent === intent; }).slice(0, 2);
+      if (!plays.length) return '';
+      return '<div style="margin-top:16px;">'
+        + '<div class="eg-uc">' + esc(t('diag_bic_title_' + intent) || t('diag_bestinclass')) + '</div>'
+        + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
+        + plays.map(function (p) {
+            var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
+            var steps = (p.steps || []).filter(Boolean);
+            var stepsHtml = steps.length ? '<details style="margin-top:8px;"><summary style="font-size:12.5px;color:#1D3BB3;cursor:pointer;">' + esc(t('diag_bic_howto')) + '</summary><ol style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.6;">' + steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
+            var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">' + esc(t('diag_bic_source')) + ' : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
+            return '<div style="background:#fff;border:1px solid #e5e7eb;padding:13px 15px;margin-bottom:10px;">'
+              + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13.5px;font-weight:600;color:#111827;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
+              + (p.context ? '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
+              + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
+              + '<div style="font-size:13px;color:#0F6E56;line-height:1.55;margin-top:6px;"><strong>' + esc(t('diag_bic_result')) + '</strong> : ' + esc(p.outcome) + '</div>'
+              + stepsHtml
+              + (src ? '<div style="margin-top:8px;">' + src + '</div>' : '')
+            + '</div>';
+          }).join('')
+        + '</div>';
+    }
+    var diag = '';
+    if (_under) {
+      var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
+      var _pE = series.filter(function (d) { return d.has_data && d.event_count != null && d.event_count > 0; }).length;
+      var _pH = (ctx && ctx.school_days) ? ctx.school_days : series.filter(function (d) { return d.is_school_holiday; }).length;
+      var _bits = [];
+      if (_pW) _bits.push(t('diag_ext_weather', { n: _pW }));
+      if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
+      if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
+      var _notable = _bits.length > 0;
+      // #3 route: not fully run → Poursuivre (run it); run clean + calm context → Pivoter (the plan is the suspect);
+      // run clean + notable context → Poursuivre (retry, context may explain). Null until the self-check is answered.
+      _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
+      var _wa = ctx && ctx.weather_assoc;
+      var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
+      var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
+      var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
+      var _mh = {}; (data.move_stats || []).forEach(function (s) { _mh[s.move] = s; });   // #1 local move hit-rates
+      var _execQ = cm.execution_quality || null;                                            // #3 persisted self-check
+      var _recMove = null;                                                                  // assigned once _notable is known
+      var _mc = function (m, title, desc) {
+        var st = _mh[m];
+        var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
+        var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
+        return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
+      };
+      // "Lieux comparables" — pivot analogs (below goal: what else to try). Placeholder when the store
+      // has no pivot play for this lever yet.
+      var _bicHtml = _bicBlock('pivot')
+        || ('<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>');
+      diag = '<div class="eg-sec">'
+        + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
+        + '<div style="border-left:3px solid #1D3BB3;' + _cs + '">'
+          + _hd('1', t('diag_ext_title'), t('diag_ext_chip_obs'))
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + (_notable ? esc(_bits.join(' · ') + '.') : esc(t('diag_ext_none'))) + '</div>'
+          + (_wm ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(t('diag_ext_weather_meas', { cool: intfr(Math.round(_wa.cool_avg)), mild: intfr(Math.round(_wa.mild_avg)) })) + ' <span style="font-size:11px;color:#1D3BB3;">' + esc(t('diag_ext_chip_meas')) + '</span></div>' : '')
+          + '<div style="font-size:12.5px;line-height:1.5;margin-top:6px;color:' + (_notable ? '#92610a' : '#059669') + ';">' + esc(_notable ? t('diag_ext_partial') : t('diag_ext_calm')) + '</div>'
+        + '</div>'
+        + '<div style="border-left:3px solid #92610a;' + _cs + '">'
+          + _hd('2', t('diag_exec_title'), '')
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:8px 0 10px;">' + esc(t('diag_exec_q')) + '</div>'
+          + '<div style="display:flex;gap:8px;">'
+            + '<button type="button" data-exec="complete" style="' + doneBtnStyle(_execQ === 'complete') + '">' + esc(t('diag_exec_yes')) + '</button>'
+            + '<button type="button" data-exec="partial" style="' + doneBtnStyle(_execQ === 'partial') + '">' + esc(t('diag_exec_partial')) + '</button>'
+            + '<button type="button" data-exec="none" style="' + doneBtnStyle(_execQ === 'none') + '">' + esc(t('diag_exec_no')) + '</button>'
+          + '</div>'
+        + '</div>'
+        + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:22px;">'
+          + _hd('3', t('diag_lever_title'), '')
+          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(t('diag_lever_body')) + '</div>'
+        + '</div>'
+        + '<div class="eg-uc">' + esc(t('diag_todo_title')) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc(t('diag_move_intro')) + '</div>'
+        + _mc('poursuivre', t('move_poursuivre'), t('move_poursuivre_d'))
+        + _mc('doubler', t('move_doubler'), t('move_doubler_d'))
+        + _mc('pivoter', t('move_pivoter'), t('move_pivoter_d'))
+        + _mc('stop', t('move_stop'), t('move_stop_d'))
+        + '<div style="font-size:13px;font-weight:500;color:#374151;margin:14px 0 6px;" data-adjust-noteq>' + esc(t('diag_move_note_q')) + '</div>'
+        + '<textarea data-adjust-note placeholder="' + esc(_moveHint(cm.origin_action_type)) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:60px;box-sizing:border-box;"></textarea>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
+        + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
+        + '<div data-diag-form style="margin-top:10px;"></div>'
+        + _bicHtml
+        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
+      + '</div>';
+    }
+
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
     srcRows.push(prov.track_record ? t('src_track_record', { beat: prov.track_record.beat, done: prov.track_record.done }) : t('src_track_pending'));
     var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
       + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
 
-    return head + q1 + q3 + q4 + sources;
+    // When NOT under-performing (aligned/above), the "lieux comparables" still helps — reinforce/scale
+    // analogs to push a working action further. Own light section, after the capture.
+    var _bicStandalone = (!_under && _intent) ? _bicBlock(_intent) : '';
+    if (_bicStandalone) _bicStandalone = '<div class="eg-sec">' + _bicStandalone + '</div>';
+
+    return head + q1 + diag + (_under ? '' : q3) + q4 + _bicStandalone + sources;
   }
 
 
@@ -540,7 +731,6 @@
     }
     if (j.trend && j.trend.note) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(j.trend.note) + '</div>';
     if (j.scale) html += msScale(j.scale);
-    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     return html;
   }
 
@@ -576,7 +766,6 @@
     }
     if (j.window && j.window.n) html += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;line-height:1.5;">Sur ' + j.window.n + ' jours — remise moyenne ' + String(j.window.avg_disc_pct).replace('.', ',') + ' %.</div>';
     if (j.scale) html += msScale(j.scale);
-    if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     if (j.caveat) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">' + esc(j.caveat) + '</div>';
     return html;
   }

@@ -2799,8 +2799,22 @@
     var d = String((a && (a.primary_revenue_driver || a.dominant_factor)) || '').toLowerCase();
     return d === 'transactions' ? 'footfall' : d;
   }
+  // A reco entry is EITHER a legacy string OR a structured plan { title, description, why, tag }.
+  // _planText flattens to the committable action text (title — description) for string consumers
+  // (M'engager field, sales report). The insight page reads the raw object for the premium card.
+  function _planText(p) {
+    if (p == null) return '';
+    if (typeof p === 'string') return p;
+    if (p.title) return p.title + (p.description ? ' — ' + p.description : '');
+    return '';
+  }
+  if (typeof window !== 'undefined') window.MS_planText = _planText;
   function _recosFor(cardType, a) {
-    var lib = (typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) ? window.MS_SALES_RECO_LIB[cardType] : null;
+    // Industry + problem aware: prefer the vertical override for this location's industry
+    // (window.MS_INDUSTRY_CODE, set from the profile), else the default owner-edited lib.
+    var ind = (typeof window !== 'undefined' && window.MS_INDUSTRY_CODE) ? String(window.MS_INDUSTRY_CODE) : '';
+    var byInd = (ind && typeof window !== 'undefined' && window.MS_SALES_RECO_LIB_BY_INDUSTRY && window.MS_SALES_RECO_LIB_BY_INDUSTRY[ind]) ? window.MS_SALES_RECO_LIB_BY_INDUSTRY[ind][cardType] : null;
+    var lib = byInd || ((typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) ? window.MS_SALES_RECO_LIB[cardType] : null);
     if (!lib) return [];
     var arr = lib[_recoDriverKey(a)] || lib._default || [];
     return Array.isArray(arr) ? arr.slice(0, 3) : [];
@@ -2808,7 +2822,7 @@
   ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization'].forEach(function (_rt) {
     if (!SPECS[_rt]) return;
     SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
-    SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? r[0] : ''; }; })(_rt);
+    SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? _planText(r[0]) : ''; }; })(_rt);
   });
 
   window.ACTION_CARDS = SPECS;
