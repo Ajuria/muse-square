@@ -4946,6 +4946,17 @@
       "created_at",
       "deleted_at"
     ],
+    "raw.consulter_correction_events": [
+      "event_id",
+      "event_action",
+      "location_id",
+      "correction_type",
+      "correction_text",
+      "prior_value",
+      "raw_turn",
+      "source",
+      "created_at"
+    ],
     "raw.ds_suivi_dde_tour": [
       "_airbyte_raw_id",
       "_airbyte_extracted_at",
