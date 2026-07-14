@@ -3,6 +3,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
+import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import crypto from "crypto";
 import {
   VALID_CONFIDENCE,
@@ -116,42 +117,17 @@ Zone géographique : ${userCity}${userRegion ? `, ${userRegion}` : ""}, France
 Retourne les 2 à 6 résultats les plus pertinents.
 Priorité des sources : site officiel > Eventbrite > Openagenda > presse locale > autres.`;
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type":      "application/json",
-        "x-api-key":         anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model:      modelFor("enrichment"),
-        max_tokens: 3000,
-        system:     SYSTEM_PROMPT,
-        tools: [{
-          type: "web_search_20250305",
-          name: "web_search",
-        }],
-        messages: [{
-          role:    "user",
-          content: userPrompt,
-        }],
-      }),
+    const { ok: aiOk, text: raw, errors: aiErrors } = await callClaudeWithWebSearch({
+      system:    SYSTEM_PROMPT,
+      userText:  userPrompt,
+      model:     modelFor("enrichment"),
+      maxTokens: 3000,
     });
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text().catch(() => "");
-      console.error("[search-web] Claude API error:", aiRes.status, errBody.slice(0, 200));
-      throw new Error(`Claude API error: ${aiRes.status}`);
+    if (!aiOk) {
+      console.error("[search-web] Claude API error:", aiErrors.join("; ").slice(0, 200));
+      throw new Error("Claude API error");
     }
-
-    const aiJson = await aiRes.json().catch(() => null);
-
-    // Extract last text block
-    const textBlocks = (aiJson?.content || [])
-      .filter((b: any) => b.type === "text" && b.text?.trim())
-      .map((b: any) => b.text.trim());
-
-    const raw = textBlocks.join("\n") || "";
 
     // Parse JSON from response
     let candidates: any[] = [];
