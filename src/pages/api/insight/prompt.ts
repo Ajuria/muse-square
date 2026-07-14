@@ -4808,9 +4808,9 @@ Règles :
         };
       }
     } else if (resolved_horizon === "day") {
-      if (_familyLedKey) {
-        // Family-led answer → the FULL family card renders INLINE in the chat (family_card below),
-        // so no CTA/redirect is needed; the detailed analysis is the answer itself.
+      if (_familyLedKey || _offeringMix) {
+        // Family-led OR offering-mix (WHAT-I-SELL) answer → the measured answer IS the answer; there is
+        // no "open the month" action to take. "Ouvrir le mois" here was a wrong day-fallback CTA.
         primary = null;
       } else {
         // We do not assume a Day route exists. Fallback = month anchored on the date.
