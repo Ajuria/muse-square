@@ -33,7 +33,7 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=22"></script>
+    <script is:inline src="/card-kit.js?v=23"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -64,10 +64,12 @@ const id = Astro.url.searchParams.get("id") || "";
         // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
         // re-commits the action on a fresh window via the shared M'engager form (capture loop).
         function wireDiag(cm) {
-          // Exécution self-check — ephemeral highlight.
+          // Exécution self-check — persist (execution_quality) then reload so the recommended move reflects it.
           docEl.querySelectorAll("[data-exec]").forEach(function (b) {
             b.addEventListener("click", function () {
               docEl.querySelectorAll("[data-exec]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, execution_quality: b.getAttribute("data-exec") }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) setTimeout(load, 350); }).catch(function () {});
             });
           });
           // Guided move: select a move, then Engager → re-commit a child on a fresh window (poursuivre/

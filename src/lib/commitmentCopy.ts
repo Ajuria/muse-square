@@ -142,6 +142,8 @@ export const EVOL_COPY = {
   diag_move_note_stop_q: "Pourquoi arrêter ?",
   diag_move_hint_caption: "Les exemples s'adaptent au type d'action.",
   diag_move_cta: "Engager →",
+  diag_recommended: "recommandé",
+  move_track: "ici : {hits}/{attempts} fois → objectif atteint",
   diag_bestinclass: "Comment des lieux comparables s'y prennent",
   diag_soon: "bientôt",
   diag_capitalise_title: "Capitaliser",

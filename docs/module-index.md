@@ -106,9 +106,9 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
-| `commitments/disposition.ts` | POST | Update disposition (fait/pas_encore) + note | `analytics.action_commitments` |
+| `commitments/disposition.ts` | POST | Update disposition (fait/pas_encore) + note; also accepts `execution_quality` (complete/partial/none — the diagnosis self-check that routes the recommended move) | `analytics.action_commitments` |
 | `commitments/edit.ts` | POST | Edit committed action text + owner | `analytics.action_commitments` |
-| `commitments/evolution.ts` | GET | Day-grain revenue/context/residual series for commitment window; `commitment` payload also returns structured retro (`retro_worked`/`change`/`repeat`) + `created_at`/`action_done_at`/`threshold_value` (owner+date header, read/edit pre-fill) | `mart.fct_client_day_residual`, `…location_context_features_daily`, `analytics.action_commitments` (latest snapshot) |
+| `commitments/evolution.ts` | GET | Day-grain revenue/context/residual series for commitment window; `commitment` payload also returns structured retro (`retro_worked`/`change`/`repeat`) + `created_at`/`action_done_at`/`threshold_value` (owner+date header, read/edit pre-fill) + `execution_quality`; also returns `move_stats` (per-move hit-rates for the diagnosis advice) | `mart.fct_client_day_residual`, `…location_context_features_daily`, `analytics.action_commitments` (latest snapshot), `mart.fct_location_action_moves` (move hit-rates) |
 | `commitments/index.ts` | GET/POST/DELETE | List / create / soft-cancel commitments. Sets `origin_factor` (Engine-1 A↔B bridge): explicit `body.origin_factor` else derived from the action_type theme via `themeForActionType` (non-NULL). Adjustment "how" loop: POST accepts `adjustment_move`/`adjustment_note`/`parent_commitment_id` (re-commit a child on a fresh window); DELETE takes the move from the body (`stop` = Arrêter → system card reappears via suppression) | `analytics.action_commitments`, `src/lib/recoThemeMap` |
 | `commitments/retro.ts` | POST | "Documenter" (Spec 2): STRUCTURED retro `retro_worked`/`retro_change`/`retro_repeat` (+ legacy `retro_note`), partial-safe merge | `analytics.action_commitments` |
 

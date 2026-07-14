@@ -606,11 +606,22 @@
       if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
       if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
       var _notable = _bits.length > 0;
+      // #3 route: not fully run → Poursuivre (run it); run clean + calm context → Pivoter (the plan is the suspect);
+      // run clean + notable context → Poursuivre (retry, context may explain). Null until the self-check is answered.
+      _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
       var _wa = ctx && ctx.weather_assoc;
       var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
       var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
       var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
-      var _mc = function (m, title, desc) { return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div></button>'; };
+      var _mh = {}; (data.move_stats || []).forEach(function (s) { _mh[s.move] = s; });   // #1 local move hit-rates
+      var _execQ = cm.execution_quality || null;                                            // #3 persisted self-check
+      var _recMove = null;                                                                  // assigned once _notable is known
+      var _mc = function (m, title, desc) {
+        var st = _mh[m];
+        var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
+        var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
+        return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
+      };
       diag = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
@@ -624,9 +635,9 @@
           + _hd('2', t('diag_exec_title'), '')
           + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:8px 0 10px;">' + esc(t('diag_exec_q')) + '</div>'
           + '<div style="display:flex;gap:8px;">'
-            + '<button type="button" data-exec="oui" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_yes')) + '</button>'
-            + '<button type="button" data-exec="partie" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_partial')) + '</button>'
-            + '<button type="button" data-exec="non" style="' + doneBtnStyle(false) + '">' + esc(t('diag_exec_no')) + '</button>'
+            + '<button type="button" data-exec="complete" style="' + doneBtnStyle(_execQ === 'complete') + '">' + esc(t('diag_exec_yes')) + '</button>'
+            + '<button type="button" data-exec="partial" style="' + doneBtnStyle(_execQ === 'partial') + '">' + esc(t('diag_exec_partial')) + '</button>'
+            + '<button type="button" data-exec="none" style="' + doneBtnStyle(_execQ === 'none') + '">' + esc(t('diag_exec_no')) + '</button>'
           + '</div>'
         + '</div>'
         + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:22px;">'

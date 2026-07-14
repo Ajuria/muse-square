@@ -88,6 +88,7 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["adjustment_move", "STRING"],
   ["adjustment_note", "STRING"],
   ["parent_commitment_id", "STRING"],
+  ["execution_quality", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -151,6 +152,7 @@ export interface CommitmentRow {
   adjustment_move: string | null;        // poursuivre|doubler|pivoter|stop — mid-flight move ("how" loop)
   adjustment_note: string | null;        // what changed (family-hinted)
   parent_commitment_id: string | null;   // the adjustment chain (this commitment adjusts that one)
+  execution_quality: string | null;      // complete|partial|none — self-reported run quality (routes advice)
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

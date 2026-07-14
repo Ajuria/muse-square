@@ -100,13 +100,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // owner + when (header) and the goal reference for "vs objectif".
       created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
       threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
+      execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
     const asOf = parisDate(new Date().toISOString());
     const extras = await assembleEvolutionExtras(bq, snap, asOf);
 
-    return json({ ok: true, commitment, series, ...extras });
+    // Move "how" hit-rates for this action type (fct_location_action_moves) — feeds the diagnosis advice.
+    let move_stats: { move: string; attempts: number; hits: number }[] = [];
+    if (snap.origin_action_type) {
+      const [mrows] = await bq.query({
+        query: `SELECT move, attempts, hits FROM \`muse-square-open-data.mart.fct_location_action_moves\`
+                WHERE location_id = @loc AND action_type = @at`,
+        params: { loc: snap.location_id, at: snap.origin_action_type },
+        types: { loc: "STRING", at: "STRING" }, location: "EU",
+      });
+      move_stats = (mrows as any[]).map((r) => ({
+        move: String(flat(r.move)), attempts: Number(flat(r.attempts)) || 0, hits: Number(flat(r.hits)) || 0,
+      }));
+    }
+
+    return json({ ok: true, commitment, series, move_stats, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

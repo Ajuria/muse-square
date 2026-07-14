@@ -4218,6 +4218,11 @@ if (!location_id) {
     var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification') : (r.retro_worked ? 'Documenté' : 'À documenter');
     var _stageBg = (_stage === 'À documenter') ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
     var _stageFg = (_stage === 'À documenter') ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
+    // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.
+    if (r.status === 'cancelled') {
+      _stage = (r.adjustment_move === 'stop') ? 'Arrêtée' : (r.__hasChild ? 'Ajustée' : 'Annulée');
+      _stageBg = '#F1EFE8'; _stageFg = '#5f5e5a';
+    }
     var _initials = String(r.owner_person_name || '').trim().split(/\s+/).map(function(w){ return w.charAt(0); }).slice(0, 2).join('').toUpperCase() || '—';
     return '<div class="ab-card" data-eng-card="' + eid + '" data-eng-loc="' + loc + '" style="background:#F6F8FE;border-left:3px solid #1D3BB3;">'
       + '<div class="ab-card-row">'
@@ -4369,6 +4374,9 @@ if (!location_id) {
       });
       window._engById = {};
       items.forEach(function(r){ window._engById[String(r.commitment_id)] = r; });
+      // #4: a cancelled commitment that is a PARENT of a child was ADJUSTED (superseded), not abandoned.
+      var _parents = {}; items.forEach(function(r){ if (r.parent_commitment_id) _parents[String(r.parent_commitment_id)] = true; });
+      items.forEach(function(r){ r.__hasChild = !!_parents[String(r.commitment_id)]; });
       // Phase 2 — split: ACTIVE (open/pending) → "En cours"; PAST (resolved/expired/cancelled) → collapsed Bilan.
       var _active = items.filter(function(r){ return r.status === 'open' || r.status === 'pending'; });
       var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
