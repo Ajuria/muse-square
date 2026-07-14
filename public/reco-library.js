@@ -26,6 +26,10 @@
 //   description — how, one line
 //   why         — the rationale ("Pourquoi …"), non-obvious, no 101 filler
 //   tag         — the lever chip (e.g. "Conversion", "Panier", "Yield / anticipation")
+//   steps       — OPTIONAL string[] : 2-4 concrete "how to execute" steps (rendered as the insight
+//                 "Comment faire ?" expand). Owner-editable here; the best-in-class crawl fills its own.
+//   source      — OPTIONAL string : citation for the bottom "Références" footer (null for reco plans;
+//                 populated for crawled case studies).
 //
 // COVERAGE INVARIANT: every card type in COMMITMENT_ORIGIN_ACTION_TYPES
 // (src/lib/commitmentOrigins.ts) MUST have an entry here. v1 allowlist =
@@ -42,9 +46,9 @@ window.MS_SALES_RECO_LIB = {
   // CA en baisse semaine/semaine — actions selon le levier qui décroche.
   sales_revenue_down_wow: {
     conversion: [
-      { title: "Offre d'appel sur vos créneaux creux", description: "Formule ou menu du jour, pour convertir le passage sans casser vos prix.", why: "Un prix d'entrée déclenche l'achat au moment où le passage est là mais n'achète pas.", tag: "Conversion" },
-      { title: "Reprenez le parcours d'achat aux heures creuses", description: "Mise en avant produit, signalétique claire, encaissement fluide.", why: "Aux heures creuses, un parcours sans friction transforme le passant hésitant en client.", tag: "Conversion" },
-      { title: "Briefez l'équipe sur la proposition active", description: "Accueil, conseil, relance en caisse quand l'affluence est faible.", why: "À faible affluence, l'équipe a le temps de conseiller — c'est là que se gagne la vente.", tag: "Équipe" },
+      { title: "Offre d'appel sur vos créneaux creux", description: "Formule ou menu du jour, pour convertir le passage sans casser vos prix.", why: "Un prix d'entrée déclenche l'achat au moment où le passage est là mais n'achète pas.", tag: "Conversion", steps: ["Choisir une formule ou un menu du jour à prix d'appel.", "L'afficher clairement sur vos créneaux creux (ardoise, caisse, réseaux).", "Briefer l'équipe pour la proposer systématiquement à faible affluence."] },
+      { title: "Reprenez le parcours d'achat aux heures creuses", description: "Mise en avant produit, signalétique claire, encaissement fluide.", why: "Aux heures creuses, un parcours sans friction transforme le passant hésitant en client.", tag: "Conversion", steps: ["Rendre le produit phare visible dès l'entrée.", "Vérifier la signalétique et des prix lisibles.", "Fluidifier l'encaissement — moins d'attente, plus de conversions."] },
+      { title: "Briefez l'équipe sur la proposition active", description: "Accueil, conseil, relance en caisse quand l'affluence est faible.", why: "À faible affluence, l'équipe a le temps de conseiller — c'est là que se gagne la vente.", tag: "Équipe", steps: ["Définir la proposition du jour en une phrase.", "La partager à l'équipe en début de service.", "Relancer en caisse (« vous avez vu notre… ? »)."] },
     ],
     basket: [
       { title: "Systématisez la montée en gamme", description: "Option supérieure ou accompagnement proposé à chaque vente.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
@@ -140,9 +144,9 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
     // Remises sans effet — voix "lieu événementiel" (yield / valeur / comptes clés) plutôt que café.
     sales_discount_no_lift: {
       _default: [
-        { title: "Passer de la remise générale à l'early-bird dégressif", description: "Plein tarif à l'approche de la date, remise réservée aux réservations anticipées (−15 % à J-60, −5 % à J-30, 0 % ensuite).", why: "La remise récompense l'engagement tôt (et sécurise votre calendrier) au lieu d'éroder la marge sur tout le monde.", tag: "Yield / anticipation" },
-        { title: "Packager de la valeur plutôt que baisser le prix", description: "Au même tarif, ajouter un service à forte valeur perçue et faible coût marginal (captation vidéo, espace networking, option traiteur).", why: "Le client perçoit plus sans que vous touchiez au prix — le panier tient, la marge aussi.", tag: "Valeur perçue / panier" },
-        { title: "Réserver la remise aux comptes clés récurrents", description: "Tarif négocié pour les clients corporate qui reviennent (volume annuel), stop aux promos de masse ponctuelles.", why: "Un tarif fidélité sur un compte qui revient vaut plus qu'un rabais général qui ne fait pas revenir.", tag: "Fidélisation / valeur client" },
+        { title: "Passer de la remise générale à l'early-bird dégressif", description: "Plein tarif à l'approche de la date, remise réservée aux réservations anticipées (−15 % à J-60, −5 % à J-30, 0 % ensuite).", why: "La remise récompense l'engagement tôt (et sécurise votre calendrier) au lieu d'éroder la marge sur tout le monde.", tag: "Yield / anticipation", steps: ["Fixer un barème daté : -15 % à J-60, -5 % à J-30, plein tarif ensuite.", "L'annoncer clairement dès l'ouverture des réservations.", "Supprimer les remises de dernière minute."] },
+        { title: "Packager de la valeur plutôt que baisser le prix", description: "Au même tarif, ajouter un service à forte valeur perçue et faible coût marginal (captation vidéo, espace networking, option traiteur).", why: "Le client perçoit plus sans que vous touchiez au prix — le panier tient, la marge aussi.", tag: "Valeur perçue / panier", steps: ["Choisir 1-2 services à forte valeur perçue et faible coût (captation, networking, option traiteur).", "Les inclure dans l'offre — au même tarif, pas en supplément.", "Le mettre en avant dès la réservation (« inclus : … ») et à l'accueil."] },
+        { title: "Réserver la remise aux comptes clés récurrents", description: "Tarif négocié pour les clients corporate qui reviennent (volume annuel), stop aux promos de masse ponctuelles.", why: "Un tarif fidélité sur un compte qui revient vaut plus qu'un rabais général qui ne fait pas revenir.", tag: "Fidélisation / valeur client", steps: ["Identifier les comptes corporate récurrents.", "Négocier un tarif volume annuel réservé.", "Arrêter les promos de masse ponctuelles."] },
       ],
     },
   },
