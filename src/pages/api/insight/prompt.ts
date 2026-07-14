@@ -35,7 +35,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -4129,6 +4129,30 @@ Règles :
         if (_familyLed) {
           _familyLedKey = _famKey;
           _familyCard = { render: _famRender!, data: _famResult!.data };   // full card → rendered inline in the chat
+        }
+
+        // Increment 4 — ELICIT, don't degrade. An offering (WHAT-I-SELL) question on an account without
+        // enough MEASURED sales (offering provider found:false === buildIdentityFacts "insufficient")
+        // asks the user for what's missing instead of bluffing a hollow/floor answer. Protects brand
+        // trust: a clear request beats a weak answer. No guessed redirect URL (import is API-only today).
+        if (_famKey === "offering" && !_familyLed && _identity.status !== "ok") {
+          const elicitHeadline = "Ajoutez vos ventes pour cette analyse";
+          const elicitAnswer = "Je n'ai pas encore assez de ventes mesurées pour caractériser votre activité (mix produit, panier moyen, meilleures ventes). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.";
+          return new Response(JSON.stringify({
+            ok: true,
+            meta: { location_id, resolved_horizon, resolved_intent, producer: "deterministic_offering_elicit_v1", register: registerFor("deterministic_offering_elicit_v1"), mode: request_mode },
+            ai: {
+              headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [],
+              output: { headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [] },
+              meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+              actions: { month_redirect_url: null, primary: null, secondary: [] },
+            },
+            actions: { month_redirect_url: null, primary: null, secondary: [] },
+            top_dates: [],
+            decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
+            window_aggregates_v3: null,
+            ui_packaging_v3: null,
+          }), { status: 200, headers: { "content-type": "application/json" } });
         }
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
