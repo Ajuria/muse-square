@@ -66,7 +66,12 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
-    const cells = (await staleCells(bq, ttlDays)).slice(0, n);
+    // Shuffle before slicing: missing cells tie on age (last=0), so a fixed order would let a
+    // permanently-empty cell (honesty-gate: never yields) get re-picked forever and starve the
+    // fillable ones. Random pick spreads attempts so the drain always makes progress.
+    const all = await staleCells(bq, ttlDays);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    const cells = all.slice(0, n);
     if (!cells.length) return json(200, { ok: true, drained: 0, note: "all fresh — nothing to crawl" });
 
     const rows: any[] = [];
