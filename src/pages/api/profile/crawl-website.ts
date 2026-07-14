@@ -9,6 +9,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { logCrawl, logApiError } from "../../../lib/error-logger";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
@@ -109,26 +110,18 @@ All scalar values must be strings or null. offering_items must always be an arra
   const userPrompt = `Extract business information from this website (${websiteUrl}):\n\n${pageText}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: modelFor("web_search"),
-        max_tokens: 2000,
-        messages: [{ role: "user", content: userPrompt }],
-        system: systemPrompt,
-      }),
-      signal: AbortSignal.timeout(30_000),
+    const call = await callClaudeMessagesAPI({
+      system: systemPrompt,
+      userText: userPrompt,
+      model: modelFor("web_search"),
+      maxTokens: 2000,
+      temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+      timeoutMs: 30_000,
+      cacheSystem: false,
     });
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data?.content?.[0]?.text || "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    if (!call.ok) return null;
+    const clean = call.rawText.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch {
     return null;

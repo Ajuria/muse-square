@@ -74,6 +74,9 @@ function userPrompt(industry, lever, intent) {
 }
 
 // One (industry x lever x intent) web-search call. Returns the model's final text (JSON array inside).
+// NOTE (Phase 0 §2.2 exception): this is a plain .mjs and CANNOT import the TS transport
+// (src/lib/ai/runtime/claude.ts `callClaudeWithWebSearch`). It intentionally keeps its own raw fetch.
+// KEEP IN SYNC with that transport (model resolution, max_tokens 4096, post-last-tool text extraction).
 async function callSearch(apiKey, model, industry, lever, intent) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { rateLimit } from "../../../lib/rate-limit";
 
 export const prerender = false;
@@ -92,27 +93,20 @@ Génère le "so what" (une phrase d'interprétation) pour chaque signal:
 
 ${signalDescriptions}`;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1000,
-        messages: [{ role: "user", content: userPrompt }],
-        system: systemPrompt,
-      }),
+    const call = await callClaudeMessagesAPI({
+      system: systemPrompt,
+      userText: userPrompt,
+      model,
+      maxTokens: 1000,
+      temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+      cacheSystem: false,
     });
 
-    if (!res.ok) {
+    if (!call.ok) {
       return json(502, { ok: false, error: "Claude API error" });
     }
 
-    const data = await res.json();
-    const text = data?.content?.[0]?.text || "";
+    const text = call.rawText;
 
     let parsed: any[] = [];
     try {

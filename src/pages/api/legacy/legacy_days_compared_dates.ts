@@ -3,6 +3,8 @@ import { BigQuery } from "@google-cloud/bigquery";
 import { MS_ASTER_CONTRACT, MS_ASTER_CONTRACT_VERSION } from "../../../lib/ai/msAsterContract";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || "");
 
@@ -286,37 +288,24 @@ async function callClaudeJSON(prompt_text: string) {
   const apiKey = (process.env.ANTHROPIC_API_KEY || "").trim();
   if (!apiKey) return null;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 500,
-      temperature: 0.3,
-      system:
-        "You are a decision-grade narrator for Insight Event. Follow all instructions exactly. Return valid JSON only.",
-      messages: [{ role: "user", content: prompt_text }],
-    }),
+  const call = await callClaudeMessagesAPI({
+    system: "You are a decision-grade narrator for Insight Event. Follow all instructions exactly. Return valid JSON only.",
+    userText: prompt_text,
+    model: modelFor("drafting"),   // was hardcoded "claude-sonnet-4-6" (completes §2.1)
+    maxTokens: 500,
+    temperature: 0.3,
+    cacheSystem: false,
   });
 
-  const text = await res.text();
-
-  if (!res.ok) {
-    console.error("[api/insight/days] Claude API error", res.status, text);
+  if (!call.ok) {
+    console.error("[api/insight/days] Claude API error", call.errors.join("; "));
     return null;
   }
 
   try {
-    const parsed = JSON.parse(text);
-    const modelText = parsed?.content?.[0]?.text;
-    if (!modelText || typeof modelText !== "string") return null;
-    return JSON.parse(modelText);
+    return JSON.parse(call.rawText);
   } catch (e) {
-    console.error("[api/insight/days] Failed to parse Claude response as JSON", e, text);
+    console.error("[api/insight/days] Failed to parse Claude response as JSON", e, call.rawText);
     return null;
   }
 }
