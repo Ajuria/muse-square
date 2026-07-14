@@ -87,7 +87,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       system,
       userText: JSON.stringify(userPayload),
       model: modelFor("enrichment"),
-      maxTokens: 2000,
+      maxTokens: 4096,
     });
     const m = raw.match(/(\{[\s\S]*\})/);
     parsed = JSON.parse(m ? m[1] : raw.replace(/```json|```/g, "").trim());

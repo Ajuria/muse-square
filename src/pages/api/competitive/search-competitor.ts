@@ -93,7 +93,7 @@ Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > pre
       system:    SYSTEM_PROMPT,
       userText:  userPrompt,
       model:     modelFor("enrichment"),
-      maxTokens: 2000,
+      maxTokens: 4096,
     });
 
     if (!aiOk) {

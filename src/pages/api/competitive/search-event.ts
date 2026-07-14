@@ -106,7 +106,7 @@ Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda
       system:    SYSTEM_PROMPT,
       userText:  userPrompt,
       model:     modelFor("enrichment"),
-      maxTokens: 2000,
+      maxTokens: 4096,
     });
 
     if (!aiOk) {
