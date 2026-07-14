@@ -37,6 +37,37 @@
   font-family: "Avenir LT Pro", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ---------- Canonical page loader (shared by all app surfaces via /ms-loader.js) ---------- */
+/* One loader everywhere: centered branded gif + page-specific rotating label directly beneath it.
+   Replaces the per-page hand-rolled variants (drifting sizes, gaps, fonts, colours). */
+.ms-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;                 /* spacing comes from the gif's negative margin below (see note) */
+  padding: 40px 0;
+  text-align: center;
+}
+.ms-loader__gif {
+  width: auto;
+  height: 110px;          /* single canonical size (was 110/120/140px) */
+  object-fit: contain;
+  /* ms_load_icon.gif has ~34% transparent padding baked into its 236x236 canvas, so the visible logo
+     is only the centre ~35px. object-fit/CSS can't reclaim that invisible padding, so it pushed the
+     label ~37px below the logo. These negative margins remove the padding from layout (top + bottom)
+     so the label sits ~7px under the visible logo. Tied to this asset's fixed padding ratio. */
+  margin: -30px 0;
+}
+.ms-loader__msg {
+  /* brand font, explicit so injected loaders don't fall back to a system font */
+  font-family: "Avenir LT Pro", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: #6b7280;
+}
+
 /* ---------- Site tokens ---------- */
 @layer components {
   /* Headings (Avenir) — keep same sizes/leading */

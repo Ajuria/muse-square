@@ -263,7 +263,11 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </nav>
 
       <div id="mon-root">
-        <div class="mon-loading" style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" /></div>
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" loading="lazy" />
+          <div class="ms-loader__msg" data-ms-loader="monitor" data-ms-i="0">Chargement de votre suivi…</div>
+        </div>
       </div>
     </div>
 
@@ -279,9 +283,10 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </div>
     </div>
 
-    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-    <script is:inline src="/vendor/leaflet/leaflet.js"></script>
-    <script is:inline src="/map-markers.js"></script>
+    <!-- leaflet/map-markers intentionally NOT loaded here: the map renders in an
+         <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
+         page was ~166KB of dead render-blocking JS/CSS (L. is never used inline here). -->
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="evenements" />
@@ -3784,6 +3789,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const qs = new URLSearchParams();
     qs.set("location_id", loc);
     qs.set("selected_dates", datesArr.join(","));
+    qs.set("light", "1"); // monitor renders no delta_att attribution -> selected day uses the lighter 'brief' slice
     const res = await fetch("/api/insight/monitor?" + qs.toString(), { cache: "no-store" });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) throw new Error(json?.error || "Erreur monitor API");
@@ -4041,7 +4047,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     async function renderEventList(root) {
     if (!root) return;
 
-    root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:24px 0;"><img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:120px;width:auto;" loading="lazy" /></div>`;
+    root.innerHTML = window.MSLoader ? MSLoader.html("monitor") : "";
 
     const [listRes, alertsRes] = await Promise.all([
       fetch("/api/saved-items/list", {

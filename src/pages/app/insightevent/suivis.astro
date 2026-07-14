@@ -24,7 +24,13 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
         <div style="display:flex;gap:6px;flex-wrap:wrap;" id="entity-filter-pills"></div>
       </div>
 
-      <div id="panel-loading" class="text-sm text-gray-400">Chargement…</div>
+      <div id="panel-loading">
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+          <div class="ms-loader__msg" data-ms-loader="suivis" data-ms-i="0">Chargement de vos suivis…</div>
+        </div>
+      </div>
       <div id="panel-events" style="display:none;"></div>
       <div id="panel-brands" style="display:none;"></div>
 
@@ -32,6 +38,7 @@ if (typeof clerk_user_id_raw !== "string" || clerk_user_id_raw.trim() === "") {
   </div>
 </BaseLayout>
 
+<script is:inline src="/ms-loader.js?v=1"></script>
 <script is:inline>
 (function () {
 

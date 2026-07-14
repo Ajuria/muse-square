@@ -137,24 +137,14 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     </style>
 
     <div class="fs-wrap" id="fs-root">
-      <div class="fs-loading" id="fs-loader" style="flex-direction:column;gap:14px;padding:80px 0;">
-        <img src="/icons/load/ms_load_icon.gif" alt="" style="height:110px;width:auto;" />
-        <div id="fs-load-msg" style="font-size:13px;color:#6b7280;">Lecture du signal…</div>
+      <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. id kept for the boot's hide logic. -->
+      <div class="ms-loader" id="fs-loader" role="status" aria-live="polite">
+        <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+        <div class="ms-loader__msg" data-ms-loader="insight" data-ms-i="0">Lecture du signal…</div>
       </div>
     </div>
-    <script is:inline>
-      (function(){
-        var msgs = ['Lecture du signal…','Analyse de vos ventes…','Recherche de vos jours similaires…','Recherche du contexte local (web)…'];
-        var i = 0;
-        var iv = setInterval(function(){
-          var el = document.getElementById('fs-load-msg');
-          if (!el) { clearInterval(iv); return; }
-          i = (i + 1) % msgs.length;
-          el.textContent = msgs[i];
-        }, 1500);
-      })();
-    </script>
 
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
     <script is:inline src="/commit-form.js?v=1"></script>

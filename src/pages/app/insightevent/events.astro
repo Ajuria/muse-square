@@ -265,12 +265,15 @@ if (!location_id) {
 
     <div class="ev-wrap">
       <div id="ev-root">
-        <div class="ev-loading">
-          <img src="/icons/load/ms_load_icon.gif" alt="Chargement" style="height:140px;width:auto;" loading="lazy" />
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" loading="lazy" />
+          <div class="ms-loader__msg" data-ms-loader="events" data-ms-i="0">Chargement des événements…</div>
         </div>
       </div>
     </div>
 
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <InsightBottomBar active="days" showActions={false} />
 
   </BaseLayout>

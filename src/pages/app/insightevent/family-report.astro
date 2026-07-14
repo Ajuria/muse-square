@@ -23,7 +23,13 @@ const family = Astro.url.searchParams.get("family") || "";
       <div id="fr-toolbar">
         <button class="fr-back" onclick="history.back()">← Retour</button>
       </div>
-      <div id="fr-status">Chargement du rapport…</div>
+      <div id="fr-status">
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+          <div class="ms-loader__msg" data-ms-loader="family-report" data-ms-i="0">Génération du rapport…</div>
+        </div>
+      </div>
       <div id="fr-doc" style="display:none;"></div>
     </div>
 
@@ -37,6 +43,7 @@ const family = Astro.url.searchParams.get("family") || "";
       .fr-date { font-size: 12px; color: #9CA3AF; margin: 0 0 14px; }
     </style>
 
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=15"></script>
     <script is:inline>
       (function () {

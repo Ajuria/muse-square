@@ -890,9 +890,9 @@ if (!location_id) {
 
     </style>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.min.js"></script>
+    <link rel="stylesheet" href="/vendor/flatpickr/flatpickr.min.css">
+    <script is:inline src="/vendor/flatpickr/flatpickr.min.js"></script>
+    <script is:inline src="/vendor/flatpickr/l10n/fr.min.js"></script>
 
     <script is:inline>
       (function() {
@@ -1297,7 +1297,7 @@ if (!location_id) {
           const evtLoadingAiRow = document.createElement('div');
           evtLoadingAiRow.id = 'ie-evt-loading';
           evtLoadingAiRow.className = 'ie-msg ie-msg-ai';
-          evtLoadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /><div class="ie-load-msg" style="font-size:13px;color:#6b7280;">Analyse en cours…</div></div>`;
+          evtLoadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;">${window.MSLoader ? MSLoader.html("prompt") : ""}</div>`;
           if (thread) { thread.appendChild(evtLoadingAiRow); evtLoadingAiRow.scrollIntoView({ block: 'end' }); }
 
           try {
@@ -1377,7 +1377,7 @@ if (!location_id) {
           const loadingAiRow = document.createElement('div');
           loadingAiRow.id = 'ie-comp-loading';
           loadingAiRow.className = 'ie-msg ie-msg-ai';
-          loadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /><div class="ie-load-msg" style="font-size:13px;color:#6b7280;">Analyse en cours…</div></div>`;
+          loadingAiRow.innerHTML = `<div class="ie-bubble-none" style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;">${window.MSLoader ? MSLoader.html("prompt") : ""}</div>`;
           if (thread) { thread.appendChild(loadingAiRow); loadingAiRow.scrollIntoView({ block: 'end' }); }
 
           const body = {
@@ -1965,6 +1965,7 @@ if (!location_id) {
     })();
     </script>
 
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=15"></script>
     <script type="module" src="/scripts/ie-prompt.js?v=8" defer></script>
 

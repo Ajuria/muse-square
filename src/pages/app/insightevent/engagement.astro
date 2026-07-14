@@ -18,7 +18,13 @@ const id = Astro.url.searchParams.get("id") || "";
       <div id="eng-toolbar">
         <a href="/app/insightevent/pulse" id="eng-back">← {EVOL_COPY.back}</a>
       </div>
-      <div id="eng-status">Chargement de l'évolution…</div>
+      <div id="eng-status">
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+          <div class="ms-loader__msg" data-ms-loader="engagement" data-ms-i="0">Chargement de l’évolution…</div>
+        </div>
+      </div>
       <div id="eng-doc" style="display:none;"></div>
     </div>
 
@@ -32,6 +38,7 @@ const id = Astro.url.searchParams.get("id") || "";
       .eg-sec { margin-bottom: 26px; }
     </style>
 
+    <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=27"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>

@@ -1,0 +1,16 @@
+/*! Tabler Icons 3.44.0 — SUBSET (13 glyphs used by competitor.astro). Self-hosted, woff2 only. */
+@font-face{font-family:"tabler-icons";font-style:normal;font-weight:400;src:url("./fonts/tabler-icons.subset.woff2") format("woff2")}
+.ti{font-family:"tabler-icons" !important;speak:none;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ti-activity:before{content:"\ed23"}
+.ti-alert-triangle:before{content:"\ea06"}
+.ti-arrow-left:before{content:"\ea19"}
+.ti-check:before{content:"\ea5e"}
+.ti-chevron-down:before{content:"\ea5f"}
+.ti-chevron-right:before{content:"\ea61"}
+.ti-circle:before{content:"\ea6b"}
+.ti-dots:before{content:"\ea95"}
+.ti-layout-grid:before{content:"\edba"}
+.ti-list:before{content:"\eb6b"}
+.ti-pencil:before{content:"\eb04"}
+.ti-settings:before{content:"\eb20"}
+.ti-x:before{content:"\eb55"}
