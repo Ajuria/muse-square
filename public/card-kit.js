@@ -622,6 +622,32 @@
         var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
         return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
       };
+      // "Lieux comparables" — vetted analogs from best-in-class plays (data.best_in_class). An analog to
+      // try, never a promised result: outcome is shown as the source reported it, with the citation.
+      var _bic = data.best_in_class || [];
+      var _bicHtml;
+      if (_bic.length) {
+        _bicHtml = '<div style="margin-top:16px;">'
+          + '<div class="eg-uc">' + esc(t('diag_bestinclass')) + '</div>'
+          + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption')) + '</div>'
+          + _bic.map(function (p) {
+              var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
+              var steps = (p.steps || []).filter(Boolean);
+              var stepsHtml = steps.length ? '<details style="margin-top:8px;"><summary style="font-size:12.5px;color:#1D3BB3;cursor:pointer;">' + esc(t('diag_bic_howto')) + '</summary><ol style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.6;">' + steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
+              var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">' + esc(t('diag_bic_source')) + ' : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
+              return '<div style="background:#fff;border:1px solid #e5e7eb;padding:13px 15px;margin-bottom:10px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13.5px;font-weight:600;color:#111827;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
+                + (p.context ? '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
+                + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
+                + '<div style="font-size:13px;color:#0F6E56;line-height:1.55;margin-top:6px;"><strong>' + esc(t('diag_bic_result')) + '</strong> : ' + esc(p.outcome) + '</div>'
+                + stepsHtml
+                + (src ? '<div style="margin-top:8px;">' + src + '</div>' : '')
+              + '</div>';
+            }).join('')
+          + '</div>';
+      } else {
+        _bicHtml = '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>';
+      }
       diag = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
@@ -655,7 +681,7 @@
         + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
         + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
         + '<div data-diag-form style="margin-top:10px;"></div>'
-        + '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>'
+        + _bicHtml
         + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
       + '</div>';
     }

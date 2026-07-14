@@ -10,6 +10,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
+import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -121,7 +122,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }));
     }
 
-    return json({ ok: true, commitment, series, move_stats, ...extras });
+    // "Lieux comparables" — an analog to try when under-performing. Resolve the venue's vertical,
+    // map the card's action_type → lever, read the vetted plays (never a promised result).
+    let best_in_class: any[] = [];
+    try {
+      const [irows] = await bq.query({
+        query: `SELECT client_industry_code FROM \`${BQ_PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`,
+        params: { loc: snap.location_id }, location: "EU",
+      });
+      const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
+      if (industry) {
+        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type), { limit: 2 });
+      }
+    } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
+
+    return json({ ok: true, commitment, series, move_stats, best_in_class, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

@@ -146,6 +146,13 @@ export const EVOL_COPY = {
   move_track: "ici : {hits}/{attempts} fois → objectif atteint",
   diag_bestinclass: "Comment des lieux comparables s'y prennent",
   diag_soon: "bientôt",
+  diag_bic_caption: "Un cas comparable à tester — pas un résultat promis.",
+  diag_bic_result: "Résultat",
+  diag_bic_howto: "Comment faire ?",
+  diag_bic_source: "Source",
+  diag_bic_conf_eleve: "source fiable",
+  diag_bic_conf_moyen: "à confirmer",
+  diag_bic_conf_faible: "indicatif",
   diag_capitalise_title: "Capitaliser",
   diag_capitalise_body: "Ce que vous ajustez — et son résultat — rejoint votre Bilan. La mémoire du lieu, réutilisable la prochaine fois.",
 
