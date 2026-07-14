@@ -912,6 +912,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var _refsHtml = _refs.length ? '<div style="border-top:1px solid #eef1f6;padding-top:12px;margin-top:10px;"><div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;font-weight:500;margin-bottom:8px;">R\u00e9f\u00e9rences</div>' + _refs.map(function (s, i) { return '<div style="font-size:11.5px;color:#9CA3AF;line-height:1.7;"><sup style="color:' + BR + ';">' + (i + 1) + '</sup> ' + esc(s) + '</div>'; }).join('') + '</div>' : '';
           _actionsHtml += zone('Plan \u00e0 essayer', _intro + _cards + _own + _foot + _refsHtml);
         }
+        _actionsHtml += '<div id="fs-bic-zone"></div>';  // Lieux comparables \u2014 filled async (honest-absent)
         if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
         html += _actionsHtml;
 
@@ -945,6 +946,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
           loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'), fsOpenCommit);
+          loadBestInClass(location_id, signal_type, document.getElementById('fs-bic-zone'));
         }
 
         var descBtn = document.getElementById('fs-desc-btn');
@@ -1061,6 +1063,39 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             if (rb) rb.addEventListener('click', function(){ onReconduire(b.action_text); });
           })
           .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Suivi indisponible.</div>'; });
+      }
+
+      // "Lieux comparables" — vetted external analogs (analytics.best_in_class_plays via
+      // /api/insight/best-in-class). A comparable venue's move X -> reported outcome Y, cited: an
+      // analog to TRY, never a promised result. Honest-absent: nothing for this lever -> render nothing.
+      var BIC_CONF_FR = { eleve: 'source fiable', moyen: 'à confirmer', faible: 'indicatif' };
+      function loadBestInClass(locId, actionType, container) {
+        if (!container) return;
+        fetch('/api/insight/best-in-class?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            if (!j || !j.ok || !j.found || !Array.isArray(j.plays) || !j.plays.length) { container.innerHTML = ''; return; }
+            var BR = '#1D3BB3', INK = '#111827', SUB = '#6B7280', GREEN = '#0F6E56';
+            var cards = j.plays.map(function(p){
+              var conf = BIC_CONF_FR[p.confidence] || '';
+              var steps = (p.steps || []).filter(Boolean);
+              var stepsHtml = steps.length ? '<details style="margin-top:10px;"><summary style="font-size:12.5px;color:' + BR + ';cursor:pointer;font-weight:600;">Comment faire ?</summary><ol style="margin:8px 0 0;padding-left:20px;font-size:12.5px;color:' + SUB + ';line-height:1.6;">' + steps.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
+              var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:' + SUB + ';text-decoration:underline;">Source : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
+              return '<div style="border:1px solid #E3E9F2;background:#fff;border-radius:12px;padding:16px 18px;margin-bottom:12px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:600;color:' + INK + ';line-height:1.35;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#F1EFE8;border-radius:4px;padding:2px 8px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
+                + (p.context ? '<div style="font-size:12px;color:#9CA3AF;line-height:1.5;margin-top:4px;">' + esc(p.context) + '</div>' : '')
+                + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
+                + '<div style="font-size:13px;color:' + GREEN + ';line-height:1.55;margin-top:6px;"><span style="font-weight:600;">Résultat </span>' + esc(p.outcome) + '</div>'
+                + stepsHtml
+                + (src ? '<div style="margin-top:10px;">' + src + '</div>' : '')
+              + '</div>';
+            }).join('');
+            var intro = '<div style="font-size:12.5px;color:' + SUB + ';margin-bottom:14px;line-height:1.5;">Un cas comparable à tester — pas un résultat promis :</div>';
+            container.innerHTML = '<div style="padding:18px 0;border-bottom:1px solid #E8EDF5;">'
+              + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px;">Lieux comparables</div>'
+              + intro + cards + '</div>';
+          })
+          .catch(function(){ container.innerHTML = ''; });
       }
 
       // Analog / history dossier section. Reads /api/insight/analogs (fct_client_day_analogs).
