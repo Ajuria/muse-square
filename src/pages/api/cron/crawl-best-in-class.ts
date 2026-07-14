@@ -11,6 +11,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { writeFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { waitUntil } from "@vercel/functions";
 import * as core from "../../../lib/bestInClassCrawlCore.mjs";
 
 export const prerender = false;
@@ -74,34 +75,43 @@ export const GET: APIRoute = async ({ request, url }) => {
     const cells = all.slice(0, n);
     if (!cells.length) return json(200, { ok: true, drained: 0, note: "all fresh — nothing to crawl" });
 
-    const rows: any[] = [];
-    const attempted: string[] = [];
-    for (const { industry, lever, intent } of cells) {
-      attempted.push(`${industry}:${lever}:${intent}`);
-      try {
-        const text = await core.callSearch(apiKey, MODEL, industry, lever, intent);
-        core.extractPlays(text).forEach((r, i) => { const v = core.validate(r, industry, lever, intent, i, nowIso); if (v) rows.push(v); });
-      } catch (e: any) { /* skip this cell; it stays stale and retries next run */ }
-    }
-
-    // Supersede ONLY cells that produced fresh plays (delete + append) — a transient empty re-crawl
-    // must NOT wipe a cell's existing good plays. Attempted-but-empty cells are left untouched.
-    if (rows.length) {
-      const cellKeys = Array.from(new Set(rows.map((r) => `${r.industry_code}|${r.lever}|${r.intent}`)));
-      await bq.query({
-        query: `DELETE FROM \`${STORE}\` WHERE CONCAT(industry_code,'|',lever,'|',intent) IN UNNEST(@cells)`,
-        params: { cells: cellKeys }, types: { cells: ["STRING"] }, location: "EU",
-      });
-      const tmp = join(tmpdir(), `bic_cron_${Date.now()}.ndjson`);
-      writeFileSync(tmp, rows.map((r) => JSON.stringify(r)).join("\n"));
-      await bq.dataset("analytics").table("best_in_class_plays").load(tmp, {
-        sourceFormat: "NEWLINE_DELIMITED_JSON", schema: core.SCHEMA, writeDisposition: "WRITE_APPEND", location: "EU",
-      });
-      unlinkSync(tmp);
-    }
-    return json(200, { ok: true, drained: cells.length, loaded: rows.length, attempted });
+    // Crawl (~20-40s/cell via web_search) runs in the BACKGROUND (waitUntil keeps the function alive
+    // after the response) so cron.org / any pinger gets a fast 200 instead of a client-side timeout.
+    // Mirrors competitor-surveillance.ts. Errors post-response go to logs, not the client.
+    waitUntil(crawlAndLoad(bq, cells, apiKey, nowIso));
+    return json(200, { ok: true, status: "started", queued: cells.map((c) => `${c.industry}:${c.lever}:${c.intent}`) });
   } catch (err: any) {
     console.error("[api/cron/crawl-best-in-class] Error", err);
     return json(500, { ok: false, error: err?.message ?? "Erreur interne" });
   }
 };
+
+// Background: crawl each cell + supersede-load. Supersedes ONLY cells that produced fresh plays —
+// a transient empty re-crawl must NOT wipe a cell's existing good plays; attempted-but-empty cells
+// are left untouched. Runs after the HTTP response via waitUntil.
+async function crawlAndLoad(bq: any, cells: Array<{ industry: string; lever: string; intent: string }>, apiKey: string, nowIso: string): Promise<void> {
+  try {
+    const rows: any[] = [];
+    for (const { industry, lever, intent } of cells) {
+      try {
+        const text = await core.callSearch(apiKey, MODEL, industry, lever, intent);
+        core.extractPlays(text).forEach((r, i) => { const v = core.validate(r, industry, lever, intent, i, nowIso); if (v) rows.push(v); });
+      } catch (e: any) { console.error(`[cron/best-in-class] cell ${industry}:${lever}:${intent} failed`, e?.message); }
+    }
+    if (!rows.length) { console.log("[cron/best-in-class] crawled", cells.length, "cell(s), 0 plays kept"); return; }
+    const cellKeys = Array.from(new Set(rows.map((r) => `${r.industry_code}|${r.lever}|${r.intent}`)));
+    await bq.query({
+      query: `DELETE FROM \`${STORE}\` WHERE CONCAT(industry_code,'|',lever,'|',intent) IN UNNEST(@cells)`,
+      params: { cells: cellKeys }, types: { cells: ["STRING"] }, location: "EU",
+    });
+    const tmp = join(tmpdir(), `bic_cron_${Date.now()}.ndjson`);
+    writeFileSync(tmp, rows.map((r) => JSON.stringify(r)).join("\n"));
+    await bq.dataset("analytics").table("best_in_class_plays").load(tmp, {
+      sourceFormat: "NEWLINE_DELIMITED_JSON", schema: core.SCHEMA, writeDisposition: "WRITE_APPEND", location: "EU",
+    });
+    unlinkSync(tmp);
+    console.log("[cron/best-in-class] loaded", rows.length, "plays for", cellKeys.join(", "));
+  } catch (err: any) {
+    console.error("[cron/best-in-class] crawlAndLoad fatal", err?.message);
+  }
+}
