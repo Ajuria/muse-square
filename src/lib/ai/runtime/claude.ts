@@ -128,6 +128,9 @@ export async function callClaudeWithWebSearch(args: {
   maxTokens?: number;
   maxUses?: number;
   timeoutMs?: number;
+  // Prior turns (multi-turn memory) prepended before the current userText — lets a web-search answer
+  // honor the user's corrections/refinements from earlier in the conversation (e.g. "je suis un café").
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{ ok: boolean; usedWebSearch: boolean; text: string; errors: string[]; usage: ClaudeCallUsage | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -139,12 +142,16 @@ export async function callClaudeWithWebSearch(args: {
   const tool: Record<string, any> = { type: "web_search_20250305", name: "web_search" };
   if (typeof args.maxUses === "number") tool.max_uses = args.maxUses;
 
+  const history = (args.conversationHistory ?? [])
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .map((m) => ({ role: m.role, content: m.content }));
+
   const body = {
     model,
     max_tokens,
     system: args.system.trim(),
     tools: [tool],
-    messages: [{ role: "user" as const, content: args.userText }],
+    messages: [...history, { role: "user" as const, content: args.userText }],
   };
 
   const controller = new AbortController();

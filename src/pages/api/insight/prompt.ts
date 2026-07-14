@@ -44,9 +44,14 @@ function registerFor(producer: string | null | undefined): ProvenanceRegister | 
 // prompt, return whether the tool actually fired + the model's final text (blocks after the last tool
 // block, no partial fragments). Callers own the prompt + the response shaping. Reused by the
 // unknown-intent path AND the empty-lookup web fallback so there is a single web-search code path.
-async function runWebSearch(system: string, userText: string): Promise<{ usedWebSearch: boolean; text: string }> {
+async function runWebSearch(
+  system: string,
+  userText: string,
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<{ usedWebSearch: boolean; text: string }> {
   // Thin wrapper over the shared web-search transport (model + timeout + usage + block parsing centralized).
-  const { usedWebSearch, text } = await callClaudeWithWebSearch({ system, userText });
+  // Passing conversationHistory gives discovery/entity/lookup multi-turn memory (Phase 2 increment 1).
+  const { usedWebSearch, text } = await callClaudeWithWebSearch({ system, userText, conversationHistory });
   return { usedWebSearch, text };
 }
 
@@ -3314,7 +3319,7 @@ Règles :
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-      const { usedWebSearch, text: rawWebAnswer } = await runWebSearch(systemPrompt, qRaw);
+      const { usedWebSearch, text: rawWebAnswer } = await runWebSearch(systemPrompt, qRaw, conversation_history);
 
       // Parse structured result + GATE: suppress not-found / irrelevant / partial.
       let webFound = false;
@@ -3910,7 +3915,7 @@ Règles :
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-            const { usedWebSearch: entityUsedWeb, text: entityRaw } = await runWebSearch(entitySystemPrompt, qRaw);
+            const { usedWebSearch: entityUsedWeb, text: entityRaw } = await runWebSearch(entitySystemPrompt, qRaw, conversation_history);
 
             // Parse + GATE: suppress not-found / irrelevant / partial.
             // Discovery answers (interpretation + "aucun nouveau concurrent") are valid even when found=false —
@@ -4657,7 +4662,7 @@ Règles :
 - answer (si found) : liste les événements (nom — date — lieu, distance approximative si connue), une ou deux phrases par événement, séparés par un double saut de ligne. N'invente JAMAIS un événement, une date ni un lieu.
 - N'emploie AUCUN markdown (ni **gras**, ni #titres, ni listes à puces) — texte brut uniquement.
 - Phrases complètes uniquement. Maximum 150 mots.`;
-          const { usedWebSearch: lookupUsedWeb, text: lookupWebRaw } = await runWebSearch(webLookupSys, qRaw);
+          const { usedWebSearch: lookupUsedWeb, text: lookupWebRaw } = await runWebSearch(webLookupSys, qRaw, conversation_history);
           let lookupWebFound = false;
           let lookupWebAnswer = "";
           try {
