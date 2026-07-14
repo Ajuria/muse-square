@@ -10,7 +10,7 @@ import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
-import { getActiveCorrections, correctionsBrief } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -2122,6 +2122,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     
     if (clerk_user_id && !rateLimit(clerk_user_id, "prompt", 20, 60_000)) return rateLimitResponse();
 
+    // Phase 2.3 increment 2: capture a persistent identity correction from THIS turn (heuristic-gated
+    // Haiku extraction → append to the event log). Kicked off here in PARALLEL so it costs no wall-clock
+    // (it runs while routing/context load); awaited just before the business brief reads corrections,
+    // so a correction the user makes THIS turn is already persisted + reflected. Never throws.
+    const _captureP = captureCorrectionFromTurn(location_id, qRaw, conversation_history);
+
     // ----------------------------
     // THREAD CONTEXT (V1) — conversational routing inputs
     // Deterministic, truth-safe: only used when request is ambiguous.
@@ -3212,6 +3218,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // for venues with no sales data.
     const venueBrief = venueBusinessBrief(internal_context);
     // Identity hierarchy (Phase 2.3): persistent user correction > measured sales > crawled > declared.
+    // Ensure a correction captured from THIS turn is persisted before we read it (it ran in parallel).
+    await _captureP.catch(() => {});
     // Corrections + measured brief fetched in parallel (both hit BQ).
     const [corrections, measuredBrief] = await Promise.all([
       getActiveCorrections(location_id),

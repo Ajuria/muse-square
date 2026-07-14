@@ -9,6 +9,8 @@
 
 import { makeBQClient } from "../bq";
 import { randomUUID } from "crypto";
+import { callClaudeMessagesAPI } from "./runtime/claude";
+import { modelFor } from "./models";
 
 const PROJECT = "muse-square-open-data";
 const TABLE = `\`${PROJECT}.raw.consulter_correction_events\``;
@@ -95,4 +97,60 @@ export function correctionsBrief(corrections: ActiveCorrection[]): string {
   return corrections
     .map((c) => `- ${LABEL[c.correction_type] ?? LABEL.other} : ${c.correction_text}`)
     .join("\n");
+}
+
+// ── Hybrid capture (Phase 2.3 increment 2) ────────────────────────────────────
+// Cheap regex gate flags turns that LOOK like an identity correction; only then does a small Haiku
+// call extract the structured fact. Normal turns pay nothing. Everything is wrapped so a slow/failed
+// capture can never delay or break the answer.
+const CORRECTION_HINTS = /(en fait|en r[eé]alit[eé]|je ne (vends?|suis|fais|tiens) (plus |pas)|je (vends|suis|tiens|g[eè]re) (plut[oô]t |surtout |maintenant |désormais |en fait )|je suis plut[oô]t|c'est plut[oô]t|pas (un |une )|ma zone|mon quartier|mon secteur|je voulais dire|par .{0,20} je veux dire|je me suis reconverti|on est (devenu|plut[oô]t))/i;
+
+export function looksLikeCorrection(qRaw: string): boolean {
+  return CORRECTION_HINTS.test(String(qRaw ?? ""));
+}
+
+const EXTRACT_SYSTEM = `Tu détectes si le message de l'utilisateur CORRIGE l'identité de SON commerce : son activité, sa zone géographique, ou le sens qu'il donne au mot « nouveau ». Retourne UNIQUEMENT du JSON, sans texte autour :
+{ "is_correction": boolean, "type": "activity" | "zone" | "nouveau_meaning" | "other" | null, "fact": string | null }
+- is_correction = true UNIQUEMENT si l'utilisateur affirme/rectifie un fait sur SON commerce (ex: « en fait je tiens une librairie », « je ne vends plus de café », « ma zone c'est le 15e », « par nouveau je veux dire un concurrent que je ne suis pas encore »).
+- Une simple question, une demande, ou un commentaire général n'est PAS une correction -> is_correction = false, type = null, fact = null.
+- fact = le fait corrigé, concis et au format identité (ex: « librairie indépendante », « 15e arrondissement », « un concurrent que je ne suis pas encore »). PAS une phrase.`;
+
+// Detect + extract + append a correction from ONE user turn. Gated by the heuristic; safe to await
+// (only correction-like turns invoke Haiku) and never throws. Records prior_value (the delta) and
+// supersedes an existing active correction of the same type.
+export async function captureCorrectionFromTurn(
+  location_id: string,
+  qRaw: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<void> {
+  try {
+    if (!location_id || !qRaw || !looksLikeCorrection(qRaw)) return;
+    const lastAssistant = [...(history ?? [])].reverse().find((m) => m.role === "assistant")?.content ?? "";
+    const call = await callClaudeMessagesAPI({
+      system: EXTRACT_SYSTEM,
+      userText: `Dernière réponse de l'assistant (contexte) : ${String(lastAssistant).slice(0, 300)}\n\nMessage de l'utilisateur : ${qRaw}`,
+      model: modelFor("classifier"),
+      maxTokens: 150,
+      temperature: 0,
+      cacheSystem: false,
+    });
+    if (!call.ok) return;
+    let parsed: any = null;
+    try { parsed = JSON.parse(call.rawText.replace(/```json|```/g, "").trim()); } catch { return; }
+    const fact = typeof parsed?.fact === "string" ? parsed.fact.trim() : "";
+    if (parsed?.is_correction !== true || !fact) return;
+    const type = (["activity", "zone", "nouveau_meaning", "other"].includes(parsed?.type) ? parsed.type : "other") as CorrectionType;
+    const existing = (await getActiveCorrections(location_id)).find((c) => c.correction_type === type);
+    await appendCorrectionEvent({
+      location_id,
+      event_action: existing ? "supersede" : "assert",
+      correction_type: type,
+      correction_text: fact.slice(0, 300),
+      prior_value: existing?.correction_text ?? null,
+      raw_turn: String(qRaw).slice(0, 500),
+      source: "chat_hybrid",
+    });
+  } catch (e: any) {
+    console.warn("[corrections] capture failed:", e?.message);
+  }
 }
