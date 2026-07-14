@@ -6,7 +6,7 @@ import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/co
 import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1";
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { modelFor } from "../../../lib/ai/models";
-import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { familyForQuestion } from "../../../lib/insightFamilies";
@@ -44,38 +44,8 @@ function registerFor(producer: string | null | undefined): ProvenanceRegister | 
 // block, no partial fragments). Callers own the prompt + the response shaping. Reused by the
 // unknown-intent path AND the empty-lookup web fallback so there is a single web-search code path.
 async function runWebSearch(system: string, userText: string): Promise<{ usedWebSearch: boolean; text: string }> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: modelFor("web_search"),
-      // 4096: web_search consumes the budget (tool calls + results + reasoning); at 2048 the final JSON
-      // answer can truncate -> parse fails -> a valid result is lost as "aucune information".
-      max_tokens: 4096,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      system,
-      messages: [{ role: "user", content: userText }],
-    }),
-  }).then((r) => r.json());
-  console.log("[webSearch] raw response:", JSON.stringify(res).slice(0, 2000));
-  const blocks = Array.isArray(res.content) ? res.content : [];
-  const usedWebSearch = blocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-  // Concatenate every text block AFTER the last tool block (no partial fragments).
-  const lastToolIdx = blocks.reduce(
-    (acc: number, b: any, i: number) =>
-      (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
-    -1
-  );
-  const text = blocks
-    .slice(lastToolIdx + 1)
-    .filter((b: any) => b.type === "text" && typeof b.text === "string")
-    .map((b: any) => b.text)
-    .join("")
-    .trim();
+  // Thin wrapper over the shared web-search transport (model + timeout + usage + block parsing centralized).
+  const { usedWebSearch, text } = await callClaudeWithWebSearch({ system, userText });
   return { usedWebSearch, text };
 }
 

@@ -111,3 +111,91 @@ export async function callClaudeMessagesAPI(args: {
     clearTimeout(timeout);
   }
 }
+
+// ── Web-search transport ──────────────────────────────────────────────────────
+// The one Anthropic call for server-side web_search (competitor/event discovery, Consulter web
+// fallback). Centralizes model resolution, timeout, usage logging, error handling and — critically —
+// block parsing: web_search returns interleaved server_tool_use / web_search_tool_result / text blocks,
+// and the final answer is the text AFTER the last tool block (pre-search reasoning is a fragment that
+// breaks JSON parsing). `usedWebSearch` reports whether the tool actually fired.
+//
+// max_tokens defaults to 4096: web_search consumes the budget (tool calls + results + reasoning); at a
+// lower cap the final JSON answer truncates -> parse fails -> a valid result is silently lost.
+export async function callClaudeWithWebSearch(args: {
+  system: string;
+  userText: string;
+  model?: string;
+  maxTokens?: number;
+  maxUses?: number;
+  timeoutMs?: number;
+}): Promise<{ ok: boolean; usedWebSearch: boolean; text: string; errors: string[]; usage: ClaudeCallUsage | null }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { ok: false, usedWebSearch: false, text: "", errors: ["Missing ANTHROPIC_API_KEY."], usage: null };
+  }
+
+  const model = args.model ?? modelFor("web_search");
+  const max_tokens = args.maxTokens ?? 4096;
+  const tool: Record<string, any> = { type: "web_search_20250305", name: "web_search" };
+  if (typeof args.maxUses === "number") tool.max_uses = args.maxUses;
+
+  const body = {
+    model,
+    max_tokens,
+    system: args.system.trim(),
+    tools: [tool],
+    messages: [{ role: "user" as const, content: args.userText }],
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 30_000);
+
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    const raw = await r.text();
+    if (r.status >= 400) {
+      return { ok: false, usedWebSearch: false, text: "", errors: [`Claude web-search error ${r.status}: ${raw.slice(0, 3000)}`], usage: null };
+    }
+
+    const data = JSON.parse(raw) as ClaudeResponse;
+    const blocks: any[] = Array.isArray(data.content) ? data.content : [];
+    const usedWebSearch = blocks.some((b) => b?.type === "server_tool_use" && b?.name === "web_search");
+    // Final answer = text blocks AFTER the last tool block (server_tool_use / web_search_tool_result).
+    const lastToolIdx = blocks.reduce(
+      (acc: number, b: any, i: number) =>
+        (b?.type === "server_tool_use" || b?.type === "web_search_tool_result") ? i : acc,
+      -1
+    );
+    const text = blocks
+      .slice(lastToolIdx + 1)
+      .filter((b) => b?.type === "text" && typeof b.text === "string")
+      .map((b) => b.text)
+      .join("")
+      .trim();
+
+    const u = data.usage ?? {};
+    const usage: ClaudeCallUsage = {
+      input: u.input_tokens ?? null,
+      output: u.output_tokens ?? null,
+      cache_read: u.cache_read_input_tokens ?? null,
+      cache_creation: u.cache_creation_input_tokens ?? null,
+    };
+    console.log(`[claude:web_search] used=${usedWebSearch} input=${usage.input} output=${usage.output}`);
+
+    return { ok: true, usedWebSearch, text, errors: [], usage };
+  } catch (e: any) {
+    return { ok: false, usedWebSearch: false, text: "", errors: [`Claude web-search failed: ${e?.message ?? String(e)}`], usage: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
