@@ -596,6 +596,39 @@
     var _dAction = _dBase != null ? _dBase - _dCtx : 0;
     var _dGoal = Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
     var _under = !!received.length && ((open && _dBase < _dGoal) || (!open && cm.verdict === 'missed'));
+    // State -> intent — ties the analog to the "Votre action paie-t-elle ?" verdict (same status as the
+    // headline): below -> pivot (what else to try) · aligned/confounded -> reinforce (push it) · above ->
+    // scale (make it last). The block shows in ALL three states, with the analog that fits.
+    var _state = null;
+    if (received.length) {
+      if (!open) _state = (cm.verdict === 'met') ? 'above' : (cm.verdict === 'missed') ? 'below' : 'aligned';
+      else _state = (_dBase >= _dGoal) ? 'above' : 'below';
+    }
+    var _intent = _state ? ({ below: 'pivot', aligned: 'reinforce', above: 'scale' })[_state] : null;
+    // Reusable "lieux comparables" renderer — intent-filtered plays (data.best_in_class), intent-specific
+    // framing. An analog to try, never a promised result: outcome shown as the source reported it, cited.
+    function _bicBlock(intent) {
+      var plays = (data.best_in_class || []).filter(function (p) { return p.intent === intent; }).slice(0, 2);
+      if (!plays.length) return '';
+      return '<div style="margin-top:16px;">'
+        + '<div class="eg-uc">' + esc(t('diag_bic_title_' + intent) || t('diag_bestinclass')) + '</div>'
+        + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
+        + plays.map(function (p) {
+            var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
+            var steps = (p.steps || []).filter(Boolean);
+            var stepsHtml = steps.length ? '<details style="margin-top:8px;"><summary style="font-size:12.5px;color:#1D3BB3;cursor:pointer;">' + esc(t('diag_bic_howto')) + '</summary><ol style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.6;">' + steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
+            var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">' + esc(t('diag_bic_source')) + ' : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
+            return '<div style="background:#fff;border:1px solid #e5e7eb;padding:13px 15px;margin-bottom:10px;">'
+              + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13.5px;font-weight:600;color:#111827;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
+              + (p.context ? '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
+              + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
+              + '<div style="font-size:13px;color:#0F6E56;line-height:1.55;margin-top:6px;"><strong>' + esc(t('diag_bic_result')) + '</strong> : ' + esc(p.outcome) + '</div>'
+              + stepsHtml
+              + (src ? '<div style="margin-top:8px;">' + src + '</div>' : '')
+            + '</div>';
+          }).join('')
+        + '</div>';
+    }
     var diag = '';
     if (_under) {
       var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
@@ -622,32 +655,10 @@
         var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
         return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
       };
-      // "Lieux comparables" — vetted analogs from best-in-class plays (data.best_in_class). An analog to
-      // try, never a promised result: outcome is shown as the source reported it, with the citation.
-      var _bic = data.best_in_class || [];
-      var _bicHtml;
-      if (_bic.length) {
-        _bicHtml = '<div style="margin-top:16px;">'
-          + '<div class="eg-uc">' + esc(t('diag_bestinclass')) + '</div>'
-          + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption')) + '</div>'
-          + _bic.map(function (p) {
-              var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
-              var steps = (p.steps || []).filter(Boolean);
-              var stepsHtml = steps.length ? '<details style="margin-top:8px;"><summary style="font-size:12.5px;color:#1D3BB3;cursor:pointer;">' + esc(t('diag_bic_howto')) + '</summary><ol style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.6;">' + steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></details>' : '';
-              var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">' + esc(t('diag_bic_source')) + ' : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
-              return '<div style="background:#fff;border:1px solid #e5e7eb;padding:13px 15px;margin-bottom:10px;">'
-                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13.5px;font-weight:600;color:#111827;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
-                + (p.context ? '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
-                + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
-                + '<div style="font-size:13px;color:#0F6E56;line-height:1.55;margin-top:6px;"><strong>' + esc(t('diag_bic_result')) + '</strong> : ' + esc(p.outcome) + '</div>'
-                + stepsHtml
-                + (src ? '<div style="margin-top:8px;">' + src + '</div>' : '')
-              + '</div>';
-            }).join('')
-          + '</div>';
-      } else {
-        _bicHtml = '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>';
-      }
+      // "Lieux comparables" — pivot analogs (below goal: what else to try). Placeholder when the store
+      // has no pivot play for this lever yet.
+      var _bicHtml = _bicBlock('pivot')
+        || ('<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>');
       diag = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
@@ -691,7 +702,12 @@
     var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
       + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
 
-    return head + q1 + diag + (_under ? '' : q3) + q4 + sources;
+    // When NOT under-performing (aligned/above), the "lieux comparables" still helps — reinforce/scale
+    // analogs to push a working action further. Own light section, after the capture.
+    var _bicStandalone = (!_under && _intent) ? _bicBlock(_intent) : '';
+    if (_bicStandalone) _bicStandalone = '<div class="eg-sec">' + _bicStandalone + '</div>';
+
+    return head + q1 + diag + (_under ? '' : q3) + q4 + _bicStandalone + sources;
   }
 
 

@@ -8363,6 +8363,7 @@
       "generated_at",
       "industry_code",
       "lever",
+      "intent",
       "title",
       "context",
       "move",

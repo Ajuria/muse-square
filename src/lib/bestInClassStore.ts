@@ -18,6 +18,7 @@ export interface BestInClassPlay {
   play_id: string;
   industry_code: string;
   lever: string;
+  intent: string;       // pivot | reinforce | scale — chosen by the owner's own result (see intentForState)
   title: string;
   context: string;
   move: string;          // the X — what the comparable venue did
@@ -34,6 +35,15 @@ const CONF_RANK: Record<string, number> = { eleve: 3, moyen: 2, faible: 1 };
 
 // Controlled lever vocabulary (must match crawl-best-in-class.cjs LEVER_LABELS).
 export type Lever = "conversion" | "panier" | "yield" | "frequentation" | "fidelisation";
+
+// Intent — the analog must fit the owner's own result ("Votre action paie-t-elle ?"):
+//   below goal   -> pivot     (what else to try)
+//   aligned/thin -> reinforce (push the working move further)
+//   above goal   -> scale     (make the win last / bigger)
+export type PlayState = "below" | "aligned" | "above";
+export type Intent = "pivot" | "reinforce" | "scale";
+const STATE_INTENT: Record<PlayState, Intent> = { below: "pivot", aligned: "reinforce", above: "scale" };
+export function intentForState(state: PlayState): Intent { return STATE_INTENT[state]; }
 
 // Map a card's action_type onto ONE lever. Explicit for known families, keyword fallback otherwise
 // so a new action_type still routes sensibly instead of returning nothing.
@@ -59,18 +69,21 @@ export async function getBestInClassPlays(
   bq: any,
   industryCode: string,
   lever: string,
-  opts: { limit?: number } = {}
+  opts: { limit?: number; intent?: Intent } = {}
 ): Promise<BestInClassPlay[]> {
   if (!industryCode || !lever) return [];
   const limit = opts.limit || 2;
   let rows: any[] = [];
   try {
+    const conds = ["industry_code=@ind", "lever=@lev"];
+    const params: any = { ind: industryCode, lev: lever };
+    if (opts.intent) { conds.push("intent=@intent"); params.intent = opts.intent; }
     [rows] = await bq.query({
       query:
-        `SELECT play_id, industry_code, lever, title, context, move, outcome, steps, ` +
+        `SELECT play_id, industry_code, lever, intent, title, context, move, outcome, steps, ` +
         `source_name, source_url, published_at, confidence, venue_named ` +
-        `FROM \`${STORE_TABLE}\` WHERE industry_code=@ind AND lever=@lev`,
-      params: { ind: industryCode, lev: lever },
+        `FROM \`${STORE_TABLE}\` WHERE ${conds.join(" AND ")}`,
+      params,
       location: "EU",
     });
   } catch (e) {
@@ -81,6 +94,7 @@ export async function getBestInClassPlays(
       play_id: flat(r.play_id),
       industry_code: flat(r.industry_code),
       lever: flat(r.lever),
+      intent: flat(r.intent),
       title: flat(r.title),
       context: flat(r.context),
       move: flat(r.move),
