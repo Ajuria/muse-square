@@ -157,16 +157,20 @@ export function assembleIdentityFacts(agg: {
   // --- MIX: what they sell (shares) ---
   const mixQualifies = unitsTotal >= MIX_MIN_UNITS && nCats >= MIX_MIN_CATEGORIES;
   if (mixQualifies) {
-    const named = cats.filter((c) => c.cat_share >= MIX_MIN_SHARE);
-    const shown = named.length ? named : cats.slice(0, 3);
-    const remainder = nCats - shown.length;
-    const listed = shown.map((c) => `${c.item_category} (${frPct(c.cat_share)})`).join(", ");
-    const tail = remainder > 0 ? `, +${remainder} autre${remainder > 1 ? "s" : ""}` : "";
+    // Groundable phrasing for the number-validated grounded_day surface: exactly ONE percentage
+    // (the lead category), the rest ranked by NAME. Multiple share %s invite the model to sum
+    // arbitrary subsets ("top 3 = 79 %") — a DERIVED number the grounding validator rejects, and the
+    // model does it despite the prompt's explicit no-arithmetic rule. Naming (not chiffring) the tail
+    // is exactly what that rule prescribes. Full per-category shares live in `categories` for the
+    // discovery/report paths (no number validator) and future UI.
+    const lead = cats[0];
+    const restNames = cats.slice(1).map((c) => c.item_category);
+    const restClause = restNames.length ? `, devant ${restNames.join(", ")}` : "";
     const tier: IdentityTier = unitsTotal >= MIX_SOLID_UNITS ? "solide" : "indicatif";
     const conf = tier === "solide" ? "fiabilité élevée" : "fiabilité indicative — volume limité";
     facts.push({
       kind: "mix",
-      fact_fr: `Vos ventes se concentrent sur ${listed}${tail} — ${nCats} catégories vendues (mix mesuré sur ${frInt(unitsTotal)} unités, ${conf}).`,
+      fact_fr: `Votre 1re catégorie de vente est ${lead.item_category} (${frPct(lead.cat_share)} du CA)${restClause} — ${nCats} catégories vendues, ${frInt(unitsTotal)} unités mesurées (${conf}).`,
       claim_type: "measured",
       trust_tier: tier,
       trust_basis: `${frInt(unitsTotal)} unités · ${nCats} catégories`,

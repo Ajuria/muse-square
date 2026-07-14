@@ -9,6 +9,7 @@ import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -4083,10 +4084,21 @@ Règles :
         let _famResult: FamilyResult | null = null;
         let _famKey: string | null = null;
         let _famRender: string | null = null;
+        // Phase 1: measured customer-identity facts (what the venue sells, basket, scale), fetched in
+        // PARALLEL with the family provider so it adds no critical-path latency. Folded into the
+        // grounded whitelist below — the packager may cite "what you sell" when the question calls for it.
+        const _identityP = buildIdentityFacts(location_id).catch((e) => {
+          console.warn("[grounded] identity facts skipped:", e);
+          return { status: "insufficient" as const, reason: "error" };
+        });
         try {
           const _fam = familyForQuestion(qRaw);
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
+        const _identity = await _identityP;
+        const _identityFacts = _identity.status === "ok"
+          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
+          : [];
         const _familyLed = !!(_famResult && _famResult.found);
         if (_familyLed) {
           _familyLedKey = _famKey;
@@ -4095,9 +4107,9 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: _famResult!.facts },
+              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
             )
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: _identityFacts });
         const callGrounded = () => runAIPackagerClaude({
           mode: "grounded_day",
           row: { ...grounded_payload, _conversation_history: conversation_history },

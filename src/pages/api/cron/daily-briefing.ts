@@ -24,6 +24,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { Resend } from "resend";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { modelFor } from "../../../lib/ai/models";
 import { isMaterialBriefing } from "../../../lib/ai/briefingGate";
@@ -238,7 +239,10 @@ export const GET: APIRoute = async ({ request }) => {
         const deltaFact = (scoreToday != null && scoreYesterday != null && scoreDelta != null)
           ? [{ fact_fr: `Score du jour ${frNum(scoreToday)} — ${scoreDelta >= 0 ? "+" : ""}${frNum(scoreDelta)} vs hier (${frNum(scoreYesterday)})`, claim_type: "observed" as const }]
           : [];
-        const grounded = toGroundedDayPayload(dc, { question: "Votre point du jour : qu'est-ce qui compte aujourd'hui ?", date: today, extraFacts: deltaFact });
+        // Phase 1: measured customer-identity facts, folded into the same grounded whitelist.
+        const _id = await buildIdentityFacts(user.location_id).catch(() => ({ status: "insufficient" as const, reason: "error" }));
+        const identityFacts = _id.status === "ok" ? _id.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type })) : [];
+        const grounded = toGroundedDayPayload(dc, { question: "Votre point du jour : qu'est-ce qui compte aujourd'hui ?", date: today, extraFacts: [...deltaFact, ...identityFacts] });
         let g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
         if (!g.ok) g = await runAIPackagerClaude({ mode: "grounded_day", row: grounded, model: modelFor("briefing") });
         const grounded_out = g.ok ? g.output : null;
