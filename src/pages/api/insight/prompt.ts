@@ -745,26 +745,6 @@ function isEventLookupQuestion(qRaw: string): boolean {
   return false;
 }
 
-// "What do I sell" / product-MIX questions ("quels produits je vends le plus ?", "mes meilleures
-// ventes ?", "mes ventes par catégorie") -> answered on the grounded day path from measured identity
-// facts (buildIdentityFacts), NOT an event lookup. Distinct from footfall (WHEN I sell — timing).
-function isOfferingMixQuestion(qRaw: string): boolean {
-  const s = norm(qRaw ?? "");
-  if (PLANNING_VERBS.some((k) => s.includes(k))) return false;   // "quels produits lancer/proposer" = planning, not identity
-  // Timing questions are footfall (WHEN I sell), never offering-mix — guard so "quand ... je vends" and
-  // "quelle heure ... je vends" never fall through here regardless of routing order.
-  if (/(quand|quelle heure|quel jour|quel moment|a quel moment|affluence|frequentation)/.test(s)) return false;
-  return (
-    /\bquels? (produits?|articles?|references?)\b/.test(s) ||
-    /(qu est ce que|ce que|que) je vends?\b/.test(s) ||
-    /(qu est ce qui|ce qui) se vend\b/.test(s) ||
-    /(meilleure?s? vente|meilleurs? vendeur|best[- ]?seller|produits? phares?|top (produits?|ventes?))/.test(s) ||
-    /ventes? par (categorie|produit|article|famille)/.test(s) ||
-    /(repartition|mix|assortiment|composition) (des ventes|produit|de vente|de mon)/.test(s) ||
-    /\b(ma carte|mon menu|mon assortiment|mon catalogue)\b/.test(s)
-  );
-}
-
 async function classifyIntentWithHaiku(qRaw: string): Promise<{
   intent: "WINDOW_TOP_DAYS" | "DAY_DIMENSION_DETAIL" | "ENTITY_IMPACT" | "LOOKUP_EVENT";
   horizon: "month" | "day";
@@ -2372,23 +2352,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // promote them to the grounded day path (where the family provider's facts fold in as extraFacts),
     // UNLESS the user gave an explicit date or asked to compare. The family router is thus a first-class
     // classifier, not an afterthought on the day branch.
-    if (!force_compare && extracted_dates.length === 0 && resolved_horizon === "month" && familyForQuestion(qRaw)) {
-      resolved_horizon = "day";
-      resolved_intent = "DAY_DIMENSION_DETAIL";   // a family question is a single-dimension question — lead with that dimension, not the day verdict
-    }
-
-    // Offering / sales-MIX questions ("quels produits je vends le plus ?", "mes meilleures ventes ?")
-    // are dateless WHAT-I-SELL questions — answered on the grounded day path from measured identity
-    // facts (buildIdentityFacts), NOT an event lookup / month window. Route to grounded day, dimension-
-    // led, with day facts blanked below (today's weather/competitors are irrelevant to a product-mix
-    // question). Setting horizon "day" short-circuits both the deterministic lookup check and the Haiku
-    // classifier (they gate on horizon month / not-day). Footfall (WHEN I sell) is handled just above;
-    // guard on !familyForQuestion so this never hijacks it.
-    let _offeringMix = false;
-    if (!force_compare && extracted_dates.length === 0 && !familyForQuestion(qRaw) && isOfferingMixQuestion(qRaw)) {
+    // Card-FAMILY questions (footfall = WHEN I sell, offering = WHAT I sell, …) are dateless DIMENSION
+    // questions — answered on the grounded day path, dimension-led (not a day verdict, not an event
+    // lookup / month window). The matched provider's facts fold in as extraFacts and its card renders
+    // inline. Setting horizon "day" short-circuits both the deterministic lookup check and the Haiku
+    // classifier (they gate on horizon month / not-day). No explicit date / no compare required — the
+    // family router is a first-class classifier, not an afterthought on the day branch.
+    if (!force_compare && extracted_dates.length === 0 && familyForQuestion(qRaw)) {
       resolved_horizon = "day";
       resolved_intent = "DAY_DIMENSION_DETAIL";
-      _offeringMix = true;
     }
 
     // ----------------------------
@@ -4143,13 +4115,6 @@ Règles :
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
               { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
             )
-          : _offeringMix
-          // WHAT-I-SELL question: answer from measured identity ONLY — blank the day facts so the model
-          // leads with the sales mix, not today's weather/competitors.
-          ? toGroundedDayPayload(
-              { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: _identityFacts },
-            )
           : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: _identityFacts });
         const callGrounded = () => runAIPackagerClaude({
           mode: "grounded_day",
@@ -4808,9 +4773,9 @@ Règles :
         };
       }
     } else if (resolved_horizon === "day") {
-      if (_familyLedKey || _offeringMix) {
-        // Family-led OR offering-mix (WHAT-I-SELL) answer → the measured answer IS the answer; there is
-        // no "open the month" action to take. "Ouvrir le mois" here was a wrong day-fallback CTA.
+      if (_familyLedKey) {
+        // Family-led answer → the FULL family card renders INLINE (family_card), so no CTA/redirect is
+        // needed; the detailed analysis is the answer itself. (Offering is now a family — same path.)
         primary = null;
       } else {
         // We do not assume a Day route exists. Fallback = month anchored on the date.

@@ -78,12 +78,11 @@ type CatRow = { item_category: string; cat_share: number; cat_units: number };
 type ItemRow = { item_description: string; units_30d: number; avg_unit_price: number };
 type PerfRow = { days: number; avg_basket: number; mean_daily_rev: number; total_txns: number };
 
-// Fetch the three measured aggregates for a location. Pure I/O; no formatting.
-async function fetchIdentityAggregates(location_id: string): Promise<{
-  categories: CatRow[];
-  items: ItemRow[];
-  perf: PerfRow | null;
-}> {
+export type IdentityAggregates = { categories: CatRow[]; items: ItemRow[]; perf: PerfRow | null };
+
+// Fetch the three measured aggregates for a location. Pure I/O; no formatting. Exported so the
+// offering family (concentration/temporal) reuses the SAME reads instead of re-querying the views.
+export async function fetchIdentityAggregates(location_id: string): Promise<IdentityAggregates> {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
   const loc = { location_id };
   const locTypes = { location_id: "STRING" as const };
