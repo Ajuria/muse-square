@@ -71,6 +71,21 @@ function venueBusinessBrief(ic: any): string {
   return fb.join("\n") || "- Activité : non renseignée";
 }
 
+// The venue's MEASURED business identity, derived from REAL sales (buildIdentityFacts). This is the
+// HIGHEST-trust source for competitor prompts — what the operator actually sells beats any declared code
+// or crawled site (which can be stale/wrong: f10c3e58's crawl says "SaaS", its sales say coffee shop).
+// Returns null when there isn't enough measured data — the caller falls back to the crawled brief.
+async function measuredBusinessBrief(location_id: string): Promise<string | null> {
+  const id = await buildIdentityFacts(location_id).catch(() => null);
+  if (!id || id.status !== "ok") return null;
+  const mix = id.facts.find((f) => f.kind === "mix");
+  const scale = id.facts.find((f) => f.kind === "scale");
+  const bits: string[] = [];
+  if (mix) bits.push(`- Activité (MESURÉE d'après vos ventes réelles — la source la plus fiable, elle prime sur le profil déclaré) : ${mix.fact_fr}`);
+  if (scale) bits.push(`- Échelle mesurée : ${scale.fact_fr}`);
+  return bits.length ? bits.join("\n") : null;
+}
+
 function requireString(v: unknown, name: string): string {
   if (typeof v !== "string" || v.trim() === "") {
     throw new Error(`Missing or invalid field: ${name}`);
@@ -3185,8 +3200,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
-    // Real business brief (crawled description > generic activity code) for competitor prompts.
+    // Business brief for competitor prompts. Priority: MEASURED sales identity (buildIdentityFacts —
+    // what the venue actually sells) > crawled site description > declared code. The measured brief is
+    // the ground truth (f10c3e58 sells coffee, though its crawl says "SaaS"); the crawl is the fallback
+    // for venues with no sales data.
     const venueBrief = venueBusinessBrief(internal_context);
+    const measuredBrief = await measuredBusinessBrief(location_id);
+    const businessBrief = measuredBrief ?? venueBrief;
 
     // ---- DECISION POLICY RULES (truth: semantic surface) ----
     // These are UI enum tokens (possible_value), stored in internal context.
@@ -3256,7 +3276,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 Votre contexte (vous = l'opérateur) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-${venueBrief}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
 Tâche : réponds à la question concurrentielle en t'appuyant sur la recherche web et sur votre contexte ci-dessus.
@@ -3275,7 +3295,7 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-${venueBrief}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
@@ -3287,7 +3307,7 @@ Règles :
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu supposes pour son site, en indiquant qu'elle provient de son profil déclaré, potentiellement incomplet ou générique. Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
 - N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
@@ -3871,7 +3891,7 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-${venueBrief}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
@@ -3883,7 +3903,7 @@ Règles :
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu supposes pour son site, en indiquant qu'elle provient de son profil déclaré, potentiellement incomplet ou générique. Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
 - N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
