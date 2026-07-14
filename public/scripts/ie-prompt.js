@@ -730,18 +730,26 @@ if (!root) {
       }
 
       const html = renderAiOutputHtml(out);
-      const producer = out?.meta?.producer ?? null;
+      // Provenance register (Phase 0): show the answer's source on EVERY path — previously grounded_day /
+      // family_* / v3_fallback fell through to no pill at all. Prefer the server-authoritative
+      // meta.register; derive from producer as a fallback while the server rolls out.
+      const _regFromProducer = (p) =>
+        p === 'web_search' ? 'web'
+        : p === 'llm_only' ? 'model'
+        : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1') ? null
+        : 'vetted';
+      const _reg = (out && out.meta && (out.meta.register === 'vetted' || out.meta.register === 'web' || out.meta.register === 'model'))
+        ? out.meta.register
+        : _regFromProducer(out && out.meta ? out.meta.producer : null);
       const sourcePillHtml = (() => {
-        if (!producer) return '';
+        if (!_reg) return '';
         let label, bg, color;
-        if (producer === 'v3_claude' || producer === 'deterministic' || producer === 'v3_fallback_deterministic') {
-          label = 'Muse Square'; bg = 'var(--color-pill-safe-bg)'; color = 'var(--color-pill-safe-text)';
-        } else if (producer === 'web_search') {
-          label = 'Web'; bg = 'var(--color-pill-source-low-bg)'; color = 'var(--color-pill-source-low-text)';
-        } else if (producer === 'llm_only') {
-          label = 'Claude — non vérifiée'; bg = 'var(--color-pill-source-mid-bg)'; color = 'var(--color-pill-source-mid-text)';
+        if (_reg === 'vetted') {
+          label = 'Vérifié'; bg = 'var(--color-pill-safe-bg)'; color = 'var(--color-pill-safe-text)';
+        } else if (_reg === 'web') {
+          label = 'Web — non vérifié'; bg = 'var(--color-pill-source-low-bg)'; color = 'var(--color-pill-source-low-text)';
         } else {
-          return '';
+          label = 'Non vérifié'; bg = 'var(--color-pill-source-mid-bg)'; color = 'var(--color-pill-source-mid-text)';
         }
         return `<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:${bg};color:${color};margin-bottom:10px;letter-spacing:.04em;">${label}</div>`;
       })();

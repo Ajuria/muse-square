@@ -25,6 +25,19 @@ export const prerender = false;
 
 const DEV_BYPASS_PROMPT = import.meta.env.DEV && process.env.MS_AUTH_BYPASS === "1";
 
+// ── Provenance register (Phase 0) ─────────────────────────────────────────────
+// Collapse the internal `producer` taxonomy into the 3 user-facing trust registers the UI shows:
+//   vetted = grounded in the operator's data (validator-gated) · web = open web (unvetted) · model = model-only.
+// Non-answers (profile-incomplete, no-data, missing-dates request) carry no register (null → no pill).
+// Single server-side derivation; the client renders meta.register verbatim (never re-guesses it).
+type ProvenanceRegister = "vetted" | "web" | "model";
+function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
+  if (producer === "web_search") return "web";
+  if (producer === "llm_only") return "model";
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1") return null;
+  return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
+}
+
 function requireString(v: unknown, name: string): string {
   if (typeof v !== "string" || v.trim() === "") {
     throw new Error(`Missing or invalid field: ${name}`);
@@ -3127,7 +3140,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         JSON.stringify({
           ok: false,
           error: "Votre profil est incomplet. Renseignez votre adresse dans Compte → Profil pour accéder à l'analyse.",
-          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null },
+          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null, register: null },
         }),
         { status: 200, headers: { "content-type": "application/json" } }
       );
@@ -3296,7 +3309,7 @@ Règles :
 
       return new Response(JSON.stringify({
         ok: true,
-        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", mode: request_mode },
+        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", register: registerFor(usedWebSearch ? "web_search" : "llm_only"), mode: request_mode },
         ai: {
           headline: webHeadline,
           verdict: "",
@@ -3911,7 +3924,7 @@ Règles :
 
             return new Response(JSON.stringify({
               ok: true,
-              meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", mode: request_mode },
+              meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
               ai: {
                 headline: entityHeadline,
                 verdict: "",
@@ -4206,6 +4219,7 @@ Règles :
                 resolved_intent,
                 month_redirect_url,
                 producer: "deterministic_missing_dates_v1",
+                register: registerFor("deterministic_missing_dates_v1"),
               },
               ai: {
                 ...normalized_ai_missing,
@@ -4895,7 +4909,7 @@ Règles :
       return new Response(
         JSON.stringify({
           ok: true,
-          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data" },
+          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data", register: registerFor("no_data") },
           ai: {
             headline: "Aucune donnée disponible",
             verdict: "",
@@ -5184,6 +5198,7 @@ Règles :
           resolved_horizon,
           resolved_intent,
           producer,
+          register: registerFor(producer),
         },
 
         // ✅ Backward-compat UI contract: keep legacy ai.output.*
