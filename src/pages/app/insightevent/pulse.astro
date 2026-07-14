@@ -340,9 +340,9 @@ if (!location_id) {
       </div>
     </div>
 
-    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-    <script is:inline src="/vendor/leaflet/leaflet.js"></script>
-    <script is:inline src="/map-markers.js"></script>
+    <!-- leaflet/map-markers intentionally NOT loaded here: the radar map renders in an
+         <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
+         page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/reco-library.js?v=5"></script>
     <script is:inline src="/commit-form.js?v=1"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
@@ -5396,13 +5396,33 @@ if (!location_id) {
   // ----------------------------------------------------------------
   const dates = next8Days();
 
+  // ---- Back-nav cache (stale-while-revalidate) ----
+  // Returning to pulse is a full page reload -> a blank ~27-query wait. Cache the last monitor
+  // payload per (location, date-window) in sessionStorage so a return paints INSTANTLY from cache
+  // while the live fetch below repaints. The date-window in the key auto-invalidates the cache each
+  // day. sessionStorage is tab-scoped, so it never leaks across users/tabs.
+  function pulseCacheKey(loc) { return "ms_pulse_v1_" + loc + "_" + dates.join(","); }
+  function readPulseCache(loc) {
+    try {
+      var raw = sessionStorage.getItem(pulseCacheKey(loc));
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      return (obj && obj.data && obj.data.ok) ? obj.data : null;
+    } catch (e) { return null; }
+  }
+  function writePulseCache(loc, data) {
+    try { sessionStorage.setItem(pulseCacheKey(loc), JSON.stringify({ ts: Date.now(), data: data })); } catch (e) {}
+  }
+
   async function fetchPulse(loc) {
     const qs = new URLSearchParams();
     qs.set("location_id", loc);
     qs.set("selected_dates", dates.join(","));
+    qs.set("light", "1"); // pulse renders no delta_att attribution -> primary day uses the lighter 'brief' slice
     const res = await fetch("/api/insight/monitor?"+qs.toString(), {cache:"no-store"});
     const json = await res.json().catch(()=>null);
     if (!res.ok||!json?.ok) throw new Error(json?.error||"Erreur API");
+    writePulseCache(loc, json);
     return json;
   }
 
@@ -5431,6 +5451,17 @@ if (!location_id) {
   (async function boot() {
     const root = document.getElementById("pls-root");
     try {
+      // Fire the primary site's pulse immediately — location_id is known server-side, so it
+      // need not wait on fetchLocations(). Memoize per-location so the multisite branch reuses
+      // this in-flight request (currentLocationId is always one of the user's sites) instead of
+      // issuing a duplicate monitor call.
+      const _pulseCache = new Map();
+      function pulseFor(id) {
+        if (!_pulseCache.has(id)) _pulseCache.set(id, fetchPulse(id));
+        return _pulseCache.get(id);
+      }
+      const primaryPulse = pulseFor(currentLocationId);
+
       const locs = await fetchLocations().catch(() => []);
       allLocations = locs;
 
@@ -5449,7 +5480,7 @@ if (!location_id) {
         if (subtitleEl) subtitleEl.textContent = `Veille opérationnelle · 7 jours · ${locs.length} sites`;
 
         const results = await Promise.all(
-          locs.map(l => fetchPulse(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
+          locs.map(l => pulseFor(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
         const valid = results.filter(Boolean);
         // Track page view (fire-and-forget)
@@ -5584,7 +5615,21 @@ if (!location_id) {
 
       } else {
         const currentLoc = locs.find(l => l.location_id === currentLocationId);
-        const data = await fetchPulse(currentLocationId);
+
+        // Stale-while-revalidate: paint a cached payload instantly so returning to pulse isn't a
+        // blank wait for the live monitor fetch below. The live `data` repaints when it resolves.
+        const _cached = readPulseCache(currentLocationId);
+        if (_cached) {
+          try {
+            if (nameEl) nameEl.textContent = currentLoc?.company_name || _cached.profile?.city_name || "Mon site";
+            if (addrEl) addrEl.textContent = currentLoc?.company_address || "";
+            _cached.all_feed = filterFeedByWindow(_cached.all_feed || [], 0);
+            _cached._locations = [];
+            renderPulse(_cached, todayYmd(), "radar");
+          } catch (e) {}
+        }
+
+        const data = await primaryPulse;
 
         if (nameEl) nameEl.textContent = currentLoc?.company_name || data.profile?.city_name || "Mon site";
         if (addrEl) addrEl.textContent = currentLoc?.company_address || "";

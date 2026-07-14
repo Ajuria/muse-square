@@ -93,6 +93,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       throw new Error("No valid dates provided.");
     }
 
+    // `light=1` (pulse) → the primary day uses the 'brief' slice instead of 'context', skipping the
+    // heaviest reads (delta_att estimation) that pulse never renders (~3.4s -> ~2s for that day).
+    // monitor.astro / insight.astro omit it and keep full 'context'.
+    const lightMode = url.searchParams.get("light") === "1";
+    const primarySlice: "context" | "brief" = lightMode ? "brief" : "context";
+
     const clerk_user_id = (locals as any)?.clerk_user_id
       ? String((locals as any).clerk_user_id).trim()
       : null;
@@ -144,7 +150,43 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
     const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows] = await Promise.all([
-      Promise.all(selected_dates.map((d) => assembleDayContext(bq, location_id, d, { slice: "context" }))),
+      // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
+      // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
+      // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
+      // build ENTIRELY from day_surface_raw. So batch-fetch just those rows in ONE query instead of
+      // running ~18 BQ reads per future day via assembleDayContext (~126 -> ~27 queries for a 7-day pulse
+      // load). The _dc-sourced per-day fields (followed_competitors / weather_alert / commercial_events /
+      // foreign_visitors / attribution) default to []/null for the batched days — no client renders them
+      // off the day object (competitor detail is re-fetched via /competitor-signals on pill-click).
+      // monitor.ts callers: pulse sends 7 dates (today at [0]); monitor sends a single date -> otherDates
+      // is empty and this reduces to the previous single assembleDayContext call (behavior unchanged).
+      (async () => {
+        const primaryDate = selected_dates[0];
+        const otherDates = selected_dates.slice(1);
+        const [primaryDc, otherSurfaceRows] = await Promise.all([
+          assembleDayContext(bq, location_id, primaryDate, { slice: primarySlice }),
+          otherDates.length
+            ? bq.query({
+                // Same projection dayContext exposes as day_surface_raw (SELECT * + the two aliases), so
+                // the days-map reads identical columns for batched days as for the enriched one.
+                query: `
+                  SELECT *, primary_score_driver_label AS driver, audience_availability_label AS cal_label
+                  FROM \`muse-square-open-data.semantic.vw_insight_event_day_surface\`
+                  WHERE location_id = @location_id
+                    AND date IN UNNEST(ARRAY(
+                      SELECT PARSE_DATE('%Y-%m-%d', d) FROM UNNEST(@other_dates) AS d
+                    ))
+                `,
+                params: { location_id, other_dates: otherDates },
+                types: { other_dates: ["STRING"] },
+                location: "EU",
+              }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => [])
+            : Promise.resolve([]),
+        ]);
+        // Lite dc for each batched day: only day_surface_raw (everything the clients render per-day).
+        const otherDcs: any[] = (otherSurfaceRows as any[]).map((row) => ({ day_surface_raw: row }));
+        return [primaryDc, ...otherDcs] as any[];
+      })(),
       bq.query({
         query: feedQuery,
         params: { location_id, selected_dates },
@@ -244,7 +286,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     ]);
 
     const _t2 = Date.now();
-    console.log(`[monitor] Promise.all (brain + 5 queries): ${_t2 - _t1}ms`);
+    console.log(`[monitor] Promise.all (primary brain + batch day_surface + 5 queries): ${_t2 - _t1}ms`);
 
     // Re-source day_surface + profile from the brain (single reader). signalRows kept date-ascending to
     // match the old ORDER BY date ASC; profile is location-level, taken from any date's payload.
@@ -275,11 +317,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _t3 = Date.now();
     console.log(`[monitor] action candidates + BestTime: ${_t3 - _t2}ms`);
 
-    // Active operational goal (selector pre-select + ranking weight)
+    // Active goal + activity tally + reco-config — independent per-user reads. Previously 3 SEQUENTIAL
+    // awaits (~1.2s of "response build"); run CONCURRENTLY here. Each still fails soft to its default
+    // via .catch, and the reco JSON parse keeps its own try/catch.
     let activeGoal: any = null;
+    let activity: any = null;
+    let disabledThemes: string[] = [];
     if (clerk_user_id) {
-      try {
-        const [goalRows] = await bq.query({
+      const [goalRes, actRes, recoRes] = await Promise.all([
+        bq.query({
           query: `
             SELECT goal, goal_label_fr, goal_scope
             FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
@@ -289,16 +335,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           `,
           params: { clerk_user_id, location_id },
           location: "EU",
-        });
-        activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
-      } catch { activeGoal = null; }
-    }
-
-    // Lifetime action tally (gamification counter)
-    let activity: any = null;
-    if (clerk_user_id) {
-      try {
-        const [actRows] = await bq.query({
+        }).catch(() => [[]] as any[]),
+        bq.query({
           query: `
             SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
             FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
@@ -308,19 +346,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           `,
           params: { clerk_user_id, location_id },
           location: "EU",
-        });
-        activity = (Array.isArray(actRows) && actRows[0]) ? actRows[0] : null;
-      } catch { activity = null; }
-    }
-
-    // ----------------------------------------------------------------
-    // Disabled recommendation themes (Recommandations toggles)
-    // Mirrors client _channelConfigsCache: latest row, honored only if enabled.
-    // ----------------------------------------------------------------
-    let disabledThemes: string[] = [];
-    if (clerk_user_id) {
-      try {
-        const [recoRows] = await bq.query({
+        }).catch(() => [[]] as any[]),
+        bq.query({
           query: `
             SELECT config_json, enabled
             FROM (
@@ -335,7 +362,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
           `,
           params: { clerk_user_id, location_id },
           location: "EU",
-        });
+        }).catch(() => [[]] as any[]),
+      ]);
+      const goalRows = goalRes?.[0];
+      activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
+      const actRows = actRes?.[0];
+      activity = (Array.isArray(actRows) && actRows[0]) ? actRows[0] : null;
+      // Disabled recommendation themes (Recommandations toggles): latest row, honored only if enabled.
+      try {
+        const recoRows = recoRes?.[0];
         const row = (Array.isArray(recoRows) && recoRows[0]) ? recoRows[0] : null;
         if (row && row.enabled) {
           const cfg = typeof row.config_json === "string" ? JSON.parse(row.config_json) : row.config_json;
@@ -707,7 +742,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // Phase 1b — additive-rich brain context (all nullable → page renders honest-absence).
         // followed_competitors = VENUES the operator follows, with Google rating + this-month trend
         // (context.competitors, observed_proximity). NOT the same as top_competitors (events).
-        followed_competitors: (_dc?.competitors ?? []).map((c) => ({
+        followed_competitors: (_dc?.competitors ?? []).map((c: any) => ({
           name: c.name, distance_km: c.distance_km, threat_level: c.threat_level,
           google_rating: c.google_rating, google_rating_count: c.google_rating_count,
           rating_trend: c.rating_trend, offering_change: c.offering_change,

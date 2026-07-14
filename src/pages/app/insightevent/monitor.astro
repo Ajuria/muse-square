@@ -279,9 +279,9 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
       </div>
     </div>
 
-    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-    <script is:inline src="/vendor/leaflet/leaflet.js"></script>
-    <script is:inline src="/map-markers.js"></script>
+    <!-- leaflet/map-markers intentionally NOT loaded here: the map renders in an
+         <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
+         page was ~166KB of dead render-blocking JS/CSS (L. is never used inline here). -->
     <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="evenements" />
@@ -3784,6 +3784,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
     const qs = new URLSearchParams();
     qs.set("location_id", loc);
     qs.set("selected_dates", datesArr.join(","));
+    qs.set("light", "1"); // monitor renders no delta_att attribution -> selected day uses the lighter 'brief' slice
     const res = await fetch("/api/insight/monitor?" + qs.toString(), { cache: "no-store" });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) throw new Error(json?.error || "Erreur monitor API");
