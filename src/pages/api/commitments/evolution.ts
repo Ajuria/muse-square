@@ -84,6 +84,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status, verdict: snap.verdict,
       committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
       origin_action_type: snap.origin_action_type,  // re-commit an adjustment on the same card type (diagnosis panel)
+      origin_suppression_key: snap.origin_suppression_key,  // child copies it → keeps the system card suppressed
       window_kind: snap.window_kind, window_start: flat(snap.window_start), window_end: flat(snap.window_end),
       window_days_expected: snap.window_days_expected, window_days_resolved: snap.window_days_resolved,
       threshold_level: snap.threshold_level,

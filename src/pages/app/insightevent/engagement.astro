@@ -33,7 +33,7 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/commit-form.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=21"></script>
+    <script is:inline src="/card-kit.js?v=22"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -64,27 +64,49 @@ const id = Astro.url.searchParams.get("id") || "";
         // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
         // re-commits the action on a fresh window via the shared M'engager form (capture loop).
         function wireDiag(cm) {
+          // Exécution self-check — ephemeral highlight.
           docEl.querySelectorAll("[data-exec]").forEach(function (b) {
             b.addEventListener("click", function () {
               docEl.querySelectorAll("[data-exec]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
             });
           });
-          var slot = docEl.querySelector("[data-diag-form]");
-          docEl.querySelectorAll("[data-diag-adjust]").forEach(function (btn) {
-            btn.addEventListener("click", function () {
-              if (!slot || !window.MSCommitForm) return;
-              if (slot.style.display === "block") { slot.style.display = "none"; slot.innerHTML = ""; return; }
-              var pre = { committed_action_text: cm.committed_action_text || "", window_kind: cm.window_kind || "7d" };
-              slot.style.display = "block";
-              slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: pre });
-              window.MSCommitForm.wire(slot, {
-                location_id: cm.location_id,
-                prefill: pre,
-                origin: { origin_action_type: cm.origin_action_type || null },
-                onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
-                onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:' + (j && j.ok ? "#166534" : "#b91c1c") + ';">' + (j && j.ok ? "Ajustement engagé. Nouvelle fenêtre de mesure." : ("Erreur : " + esc((j && j.error) || "réessayez"))) + '</div>'; }
-              });
+          // Guided move: select a move, then Engager → re-commit a child on a fresh window (poursuivre/
+          // doubler/pivoter) or Arrêter (soft-cancel → system card reappears via Phase-1 suppression).
+          var move = { v: null };
+          function moveStyle(sel) { return "display:block;width:100%;text-align:left;box-sizing:border-box;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;" + (sel ? "background:#F5F8FF;border:1px solid #1D3BB3;" : "background:#fff;border:1px solid #e5e7eb;"); }
+          var moveBtns = docEl.querySelectorAll("[data-move]");
+          moveBtns.forEach(function (b) {
+            b.addEventListener("click", function () {
+              move.v = b.getAttribute("data-move");
+              moveBtns.forEach(function (x) { x.setAttribute("style", moveStyle(x === b)); });
+              var q = docEl.querySelector("[data-adjust-noteq]");
+              if (q) q.textContent = (move.v === "stop") ? t("diag_move_note_stop_q") : t("diag_move_note_q");
             });
+          });
+          var submit = docEl.querySelector("[data-adjust-submit]");
+          var msg = docEl.querySelector("[data-adjust-msg]");
+          if (!submit) return;
+          submit.addEventListener("click", function () {
+            if (!move.v) { if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Choisissez un move."; } return; }
+            var note = (docEl.querySelector("[data-adjust-note]") || {}).value || "";
+            submit.disabled = true; submit.textContent = "…"; if (msg) msg.textContent = "";
+            var toPulse = function () { window.location.href = "/app/insightevent/pulse"; };
+            var fail = function (j) { submit.disabled = false; submit.textContent = t("diag_move_cta"); if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); } };
+            if (move.v === "stop") {
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, adjustment_move: "stop", adjustment_note: note }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) { toPulse(); } else { fail(j); } }).catch(function () { fail(); });
+              return;
+            }
+            // re-commit: child on a fresh window, then supersede (soft-cancel) the parent.
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              location_id: cm.location_id, origin_action_type: cm.origin_action_type, window_kind: cm.window_kind || "7d",
+              threshold_level: cm.threshold_level || "net", committed_action_text: cm.committed_action_text, owner_person_name: cm.owner_person_name,
+              origin_suppression_key: cm.origin_suppression_key || null, adjustment_move: move.v, adjustment_note: note, parent_commitment_id: cm.commitment_id
+            }) }).then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok) { fail(j); return; }
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id }) })
+                .then(function () { toPulse(); }).catch(function () { toPulse(); });
+            }).catch(function () { fail(); });
           });
         }
 

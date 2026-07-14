@@ -18,6 +18,17 @@
   function msRate(n) { return n == null ? '—' : ((Number(n) * 100).toFixed(1).replace('.', ',') + ' %'); }
   function msEur2(n) { return n == null ? '—' : (Number(n).toFixed(2).replace('.', ',') + ' €'); }
   function msDateFr(iso) { try { var pp = String(iso).split('-'); return pp[2] + '/' + pp[1] + '/' + pp[0]; } catch (e) { return String(iso); } }
+  // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
+  function _moveHint(at) {
+    var s = String(at || '');
+    if (/^(sales_|footfall_vs_basket|offering_)/.test(s)) return 'ex. offre, créneau, prix, mise en avant en caisse…';
+    if (/^(competit|competition|same_bucket)/.test(s)) return 'ex. canal de visibilité, différenciateur, cible…';
+    if (/^(weather|extended_bad)/.test(s)) return 'ex. stock, staffing, mise en avant…';
+    if (/^(tourist|tourism|foreign)/.test(s)) return 'ex. offre, langues, canaux touristiques…';
+    if (/^(commercial_event|mega_event)/.test(s)) return 'ex. activation, offre, communication…';
+    if (/^(ft_|best_day)/.test(s)) return 'ex. staffing, offre, communication…';
+    return 'ex. offre, canal, timing…';
+  }
   function msDeltaCell(pct, eurDelta) {
     if (pct == null && eurDelta == null) return { v: 'stable', color: '#9CA3AF' };
     var up = (eurDelta != null ? eurDelta : pct) >= 0;
@@ -599,6 +610,7 @@
       var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
       var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
       var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
+      var _mc = function (m, title, desc) { return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div></button>'; };
       diag = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
@@ -622,16 +634,17 @@
           + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(t('diag_lever_body')) + '</div>'
         + '</div>'
         + '<div class="eg-uc">' + esc(t('diag_todo_title')) + '</div>'
-        + '<div style="background:#F5F8FF;border:1px solid #DBEAFE;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
-          + '<div style="flex:1;min-width:200px;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(t('diag_reinforce_title')) + ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span></div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:4px;">' + esc(t('diag_reinforce_body')) + '</div></div>'
-          + '<button type="button" data-diag-adjust style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:8px 14px;white-space:nowrap;cursor:pointer;font-family:inherit;">' + esc(t('diag_cta')) + '</button>'
-        + '</div></div>'
-        + '<div style="background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'
-          + '<div style="flex:1;min-width:200px;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(t('diag_adjust_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:4px;">' + esc(t('diag_adjust_body')) + '</div></div>'
-          + '<button type="button" data-diag-adjust style="font-size:12.5px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;padding:8px 14px;white-space:nowrap;cursor:pointer;font-family:inherit;">' + esc(t('diag_cta')) + '</button>'
-        + '</div></div>'
-        + '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-bottom:10px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>'
-        + '<div data-diag-form style="display:none;margin-bottom:10px;"></div>'
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc(t('diag_move_intro')) + '</div>'
+        + _mc('poursuivre', t('move_poursuivre'), t('move_poursuivre_d'))
+        + _mc('doubler', t('move_doubler'), t('move_doubler_d'))
+        + _mc('pivoter', t('move_pivoter'), t('move_pivoter_d'))
+        + _mc('stop', t('move_stop'), t('move_stop_d'))
+        + '<div style="font-size:13px;font-weight:500;color:#374151;margin:14px 0 6px;" data-adjust-noteq>' + esc(t('diag_move_note_q')) + '</div>'
+        + '<textarea data-adjust-note placeholder="' + esc(_moveHint(cm.origin_action_type)) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:60px;box-sizing:border-box;"></textarea>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
+        + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
+        + '<div data-diag-form style="margin-top:10px;"></div>'
+        + '<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bestinclass')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>'
         + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
       + '</div>';
     }
