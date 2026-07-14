@@ -79,6 +79,27 @@ async function runWebSearch(system: string, userText: string): Promise<{ usedWeb
   return { usedWebSearch, text };
 }
 
+// ── Business brief (shared) ───────────────────────────────────────────────────
+// The venue's REAL business, for prompts that need to understand it (competitor discovery/impact).
+// Prefer the crawled auto_enriched_description (accurate, specific — from the operator's own site) over
+// the generic company_activity_type code, which the model routinely mis-reads (e.g. "live_event" ->
+// "lieu de spectacle"). Falls back to the declared fields only when no crawl exists, flagged low-trust.
+function venueBusinessBrief(ic: any): string {
+  const raw = ic?.auto_enriched_description;
+  let e: any = null;
+  if (typeof raw === "string" && raw.trim()) { try { e = JSON.parse(raw); } catch { e = null; } }
+  else if (raw && typeof raw === "object") e = raw;
+  const bits: string[] = [];
+  if (e?.business_description) bits.push(`- Activité (source : votre site web) : ${String(e.business_description).slice(0, 400)}`);
+  if (e?.current_offering) bits.push(`- Offre : ${String(e.current_offering).slice(0, 300)}`);
+  if (e?.target_audience) bits.push(`- Clientèle : ${String(e.target_audience).slice(0, 250)}`);
+  if (bits.length) return bits.join("\n");
+  const fb: string[] = [];
+  if (ic?.business_short_description) fb.push(`- Activité : ${ic.business_short_description}`);
+  if (ic?.company_activity_type) fb.push(`- Type déclaré (générique, peu fiable) : ${ic.company_activity_type}`);
+  return fb.join("\n") || "- Activité : non renseignée";
+}
+
 function requireString(v: unknown, name: string): string {
   if (typeof v !== "string" || v.trim() === "") {
     throw new Error(`Missing or invalid field: ${name}`);
@@ -3187,6 +3208,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
     }
 
+    // Real business brief (crawled description > generic activity code) for competitor prompts.
+    const venueBrief = venueBusinessBrief(internal_context);
+
     // ---- DECISION POLICY RULES (truth: semantic surface) ----
     // These are UI enum tokens (possible_value), stored in internal context.
     const rule_values: string[] = [
@@ -3255,8 +3279,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 Votre contexte (vous = l'opérateur) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
-- Description : ${internal_context?.business_short_description ?? "non renseignée"}
+${venueBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
 Tâche : réponds à la question concurrentielle en t'appuyant sur la recherche web et sur votre contexte ci-dessus.
@@ -3275,16 +3298,20 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+${venueBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
-Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string }
 
 Règles :
-- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
+- found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
+- answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu supposes pour son site, en indiquant qu'elle provient de son profil déclaré, potentiellement incomplet ou générique. Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
@@ -3294,11 +3321,13 @@ Règles :
 
       // Parse structured result + GATE: suppress not-found / irrelevant / partial.
       let webFound = false;
+      let webDiscovery = false;
       let webAnswer = "";
       try {
         const fenced = rawWebAnswer.replace(/^```json\s*|\s*```$/g, "").trim();
         const parsed = JSON.parse(fenced);
         webFound = parsed?.found === true;
+        webDiscovery = parsed?.discovery === true;
         webAnswer = typeof parsed?.answer === "string"
           ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
           : "";
@@ -3307,12 +3336,14 @@ Règles :
       }
       const webRelevant = isConcurrence
         ? (webAnswer.length >= 30 && /[.!?]$/.test(webAnswer))
-        : (webFound && webAnswer.length >= 30 && /[.!?]$/.test(webAnswer));
+        : ((webFound || webDiscovery) && webAnswer.length >= 30 && /[.!?]$/.test(webAnswer));
 
       const webHeadline = webRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
       const webFinal = webRelevant
         ? webAnswer
-        : "Je n'ai pas trouvé d'information fiable sur ce sujet dans votre zone. Ajoutez l'entité concernée à votre veille pour obtenir une analyse contextualisée.";
+        : webDiscovery
+          ? "Je n'ai pas identifié de nouveau concurrent correspondant à votre activité dans votre zone. Précisez votre activité ou le type de concurrent visé pour affiner la recherche."
+          : "Je n'ai pas trouvé d'information fiable sur ce sujet dans votre zone. Ajoutez l'entité concernée à votre veille pour obtenir une analyse contextualisée.";
       const webCaveats = webRelevant
         ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
         : [];
@@ -3863,71 +3894,52 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+${venueBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
-Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string }
 
 Règles :
-- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
+- found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
+- answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu supposes pour son site, en indiquant qu'elle provient de son profil déclaré, potentiellement incomplet ou générique. Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-            const entityWebResult = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-                "anthropic-version": "2023-06-01",
-              },
-              body: JSON.stringify({
-                model: modelFor("web_search"),
-                max_tokens: 1024,
-                tools: [{ type: "web_search_20250305", name: "web_search" }],
-                system: entitySystemPrompt,
-                messages: [{ role: "user", content: qRaw }],
-              }),
-            }).then(r => r.json());
-
-            const entityBlocks = Array.isArray(entityWebResult.content) ? entityWebResult.content : [];
-            const entityUsedWeb = entityBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-            // Concatenate every text block AFTER the last tool block (no partial fragments).
-            const entityLastToolIdx = entityBlocks.reduce(
-              (acc: number, b: any, i: number) =>
-                (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
-              -1
-            );
-            const entityRaw = entityBlocks
-              .slice(entityLastToolIdx + 1)
-              .filter((b: any) => b.type === "text" && typeof b.text === "string")
-              .map((b: any) => b.text)
-              .join("")
-              .trim();
+            const { usedWebSearch: entityUsedWeb, text: entityRaw } = await runWebSearch(entitySystemPrompt, qRaw);
 
             // Parse + GATE: suppress not-found / irrelevant / partial.
+            // Discovery answers (interpretation + "aucun nouveau concurrent") are valid even when found=false —
+            // the interpretation IS the value, and "Ajoutez-la à votre veille" is nonsense with no named entity.
             let entityFound = false;
+            let entityDiscovery = false;
             let entityAnswer = "";
             try {
               const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
               const parsed = JSON.parse(fenced);
               entityFound = parsed?.found === true;
+              entityDiscovery = parsed?.discovery === true;
               entityAnswer = typeof parsed?.answer === "string"
                 ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
                 : "";
             } catch {
               entityFound = false;
             }
-            const entityRelevant = entityFound && entityAnswer.length >= 30 && /[.!?]$/.test(entityAnswer);
+            const entityRelevant = (entityFound || entityDiscovery) && entityAnswer.length >= 30 && /[.!?]$/.test(entityAnswer);
 
             const entityHeadline = entityRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
             const entityFinal = entityRelevant
               ? entityAnswer
-              : "Je n'ai pas trouvé d'information fiable sur cette entité dans votre zone. Ajoutez-la à votre veille pour obtenir une analyse contextualisée.";
+              : entityDiscovery
+                ? "Je n'ai pas identifié de nouveau concurrent correspondant à votre activité dans votre zone. Précisez votre activité ou le type de concurrent visé pour affiner la recherche."
+                : "Je n'ai pas trouvé d'information fiable sur cette entité dans votre zone. Ajoutez-la à votre veille pour obtenir une analyse contextualisée.";
             const entityCaveats = entityRelevant
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
