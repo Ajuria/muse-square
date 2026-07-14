@@ -8,6 +8,8 @@
  */
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { logCrawl, logApiError } from "../../../lib/error-logger";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
@@ -108,26 +110,18 @@ All scalar values must be strings or null. offering_items must always be an arra
   const userPrompt = `Extract business information from this website (${websiteUrl}):\n\n${pageText}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: userPrompt }],
-        system: systemPrompt,
-      }),
-      signal: AbortSignal.timeout(30_000),
+    const call = await callClaudeMessagesAPI({
+      system: systemPrompt,
+      userText: userPrompt,
+      model: modelFor("web_search"),
+      maxTokens: 2000,
+      temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+      timeoutMs: 30_000,
+      cacheSystem: false,
     });
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data?.content?.[0]?.text || "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    if (!call.ok) return null;
+    const clean = call.rawText.replace(/```json|```/g, "").trim();
     return JSON.parse(clean);
   } catch {
     return null;
@@ -171,7 +165,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         clerk_user_id, location_id, website_url,
         status: "extraction_failed", duration_ms: Date.now() - crawlStart,
         error_message: "Claude extraction returned null",
-        extraction_model: "claude-sonnet-4-6",
+        extraction_model: modelFor("web_search"),
       });
       return new Response(JSON.stringify({ ok: false, error: "extraction_failed", detail: "Claude extraction returned null" }), {
         status: 200, headers: { "content-type": "application/json" },
@@ -207,7 +201,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     logCrawl({
       clerk_user_id, location_id, website_url,
       status: "success", duration_ms: Date.now() - crawlStart,
-      pages_extracted: 1, extraction_model: "claude-sonnet-4-6",
+      pages_extracted: 1, extraction_model: modelFor("web_search"),
     });
 
     return new Response(JSON.stringify({ ok: true, enriched: extracted }), {

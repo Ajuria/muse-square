@@ -6,6 +6,7 @@
 // (sales/weather/events/competitor/tourism) roll onto it mechanically.
 import type { FamilyProvider } from "./types";
 import { footfallFamily } from "./footfall";
+import { offeringFamily } from "./offering";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   footfall: {
@@ -26,6 +27,23 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /jour.{0,10}(de pointe|le plus (fort|calme|rentable))/,   // "jour de pointe" = peak day
     ],
     run: footfallFamily,
+  },
+  // OFFERING / sales-MIX ("quels produits je vends le plus ?", "mes meilleures ventes"). Registered
+  // AFTER footfall so timing questions ("quand ... je vends") match footfall first (first match wins).
+  offering: {
+    key: "offering",
+    title: "Ce que vous vendez · votre mix produit",
+    render: "renderOffering",   // deep-page card — built in increment 2.5 step 3; client skips a missing render
+    match: [
+      /\bquels? (produits?|articles?|references?)\b/,
+      /(qu est ce que|ce que|que) je vends?\b/,
+      /(qu est ce qui|ce qui) se vend\b/,
+      /(meilleure?s? vente|meilleurs? vendeur|best[- ]?seller|produits? phares?|top (produits?|ventes?))/,
+      /ventes? par (categorie|produit|article|famille)/,
+      /(repartition|mix|assortiment|composition) (des ventes|produit|de vente|de mon)/,
+      /\b(ma carte|mon menu|mon assortiment|mon catalogue)\b/,
+    ],
+    run: offeringFamily,
   },
 };
 

@@ -20,6 +20,7 @@
 
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, discoverTarifsUrl } from "../../../lib/competitive/url-discovery";
@@ -68,7 +69,7 @@ interface ExtractionResult {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EXTRACTION_MODEL = "claude-sonnet-4-6";
+const EXTRACTION_MODEL = modelFor("web_search"); // external-content reasoning role (== sonnet-4-6 today)
 
 // 55s — safe margin for Vercel Pro 60s limit
 const TIMEOUT_MS = 55_000;

@@ -8,7 +8,10 @@
 export function extractNumbers(text: string): Set<string> {
   const joined = String(text ?? "")
     .replace(/[−–—]/g, "-")
-    .replace(/(\d)[  ](?=\d{3}\b)/g, "$1");
+    // Collapse thousands separators before number extraction. French formatting (toLocaleString
+    // 'fr-FR') emits U+202F (narrow no-break space) or U+00A0 (no-break space), not a plain space —
+    // without these, "51 447" splits into 51/447 and large measured numbers never ground.
+    .replace(/(\d)[   ](?=\d{3}\b)/g, "$1");
   const out = new Set<string>();
   const re = /-?\d+(?:[.,]\d+)?/g;
   let m: RegExpExecArray | null;

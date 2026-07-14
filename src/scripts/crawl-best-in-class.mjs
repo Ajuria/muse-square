@@ -39,7 +39,7 @@ import * as core from "../lib/bestInClassCrawlCore.mjs";
 const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const STORE = "analytics.best_in_class_plays";
 const API_KEY = process.env.ANTHROPIC_API_KEY || "";
-const MODEL = "claude-sonnet-4-6"; // web_search role (models.ts) — search + reasoning
+const MODEL = "claude-sonnet-4-6"; // web_search role — KEEP IN SYNC with lib/ai/models.ts (plain .mjs can't import the TS modelFor helper)
 
 // Crawl CONTRACT (labels, prompt, validate, schema) is the SINGLE SOURCE in bestInClassCrawlCore.mjs,
 // shared with the demand-drain cron (src/pages/api/cron/crawl-best-in-class.ts). Edit the contract THERE.

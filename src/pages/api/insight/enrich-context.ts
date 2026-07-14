@@ -6,6 +6,7 @@
 // pattern; cached in analytics.context_enrichment keyed by (location_id, date), 30-day TTL.
 import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
+import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { randomUUID } from "crypto";
@@ -82,25 +83,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   let parsed: any = {};
   try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "web-search-2025-03-05",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelFor("enrichment"),
-        max_tokens: 2000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        system,
-        messages: [{ role: "user", content: JSON.stringify(userPayload) }],
-      }),
+    const { text: raw } = await callClaudeWithWebSearch({
+      system,
+      userText: JSON.stringify(userPayload),
+      model: modelFor("enrichment"),
+      maxTokens: 4096,
     });
-    const aiData = await resp.json();
-    const textBlock = aiData.content?.filter((b: any) => b.type === "text").pop();
-    const raw = textBlock?.text ?? "";
     const m = raw.match(/(\{[\s\S]*\})/);
     parsed = JSON.parse(m ? m[1] : raw.replace(/```json|```/g, "").trim());
   } catch (e) {

@@ -1,6 +1,8 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { VALID_INDUSTRY, VALID_AUDIENCE, BUCKET_MAP, VALID_CONFIDENCE } from "../../../lib/competitive/constants";
 import { confidenceToScore } from "../../../lib/competitive/constants";
 export const prerender = false;
@@ -100,40 +102,16 @@ Recherche sur le web et retourne les ${source_url ? "informations de ce lien en 
 Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda > presse locale > autres.`;
 
     // Call Claude with web_search tool
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type":    "application/json",
-        "x-api-key":       anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        system:     SYSTEM_PROMPT,
-        tools: [{
-          type: "web_search_20250305",
-          name: "web_search",
-        }],
-        messages: [{
-          role:    "user",
-          content: userPrompt,
-        }],
-      }),
+    const { ok: aiOk, text: raw, errors: aiErrors } = await callClaudeWithWebSearch({
+      system:    SYSTEM_PROMPT,
+      userText:  userPrompt,
+      model:     modelFor("enrichment"),
+      maxTokens: 4096,
     });
 
-    if (!aiRes.ok) {
-      throw new Error(`Claude API error: ${aiRes.status}`);
+    if (!aiOk) {
+      throw new Error(`Claude API error: ${aiErrors.join("; ").slice(0, 200)}`);
     }
-
-    const aiJson = await aiRes.json().catch(() => null);
-
-    // Extract last text block — Claude may produce tool_use blocks before final text
-    const textBlocks = (aiJson?.content || [])
-      .filter((b: any) => b.type === "text" && b.text?.trim())
-      .map((b: any) => b.text.trim());
-
-    const raw = textBlocks.join("\n") || "";
 
     // Extract JSON from response
     let candidates: any[] = [];

@@ -1,6 +1,8 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 
 export const prerender = false;
 
@@ -348,25 +350,18 @@ ${competitorItemsJson}
 USER offering_items (your products/prices):
 ${userItemsJson}`;
 
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-6",
-              max_tokens: 2000,
-              messages: [{ role: "user", content: userPrompt }],
-              system: systemPrompt,
-            }),
-            signal: AbortSignal.timeout(30_000),
+          const call = await callClaudeMessagesAPI({
+            system: systemPrompt,
+            userText: userPrompt,
+            model: modelFor("web_search"),
+            maxTokens: 2000,
+            temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+            timeoutMs: 30_000,
+            cacheSystem: false,
           });
 
-          if (res.ok) {
-            const data = await res.json();
-            const text = data?.content?.[0]?.text || "";
+          if (call.ok) {
+            const text = call.rawText;
             const clean = text.replace(/```json|```/g, "").trim();
             const parsed = JSON.parse(clean);
             competitiveAnalysis = parsed;

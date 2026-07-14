@@ -5,7 +5,8 @@
 //   - data:    render via MSCardKit.<render>(data) on the client (harness-verified renderers)
 //   - sources: the "Sources & fiabilité" block
 // plus a pooled `facts` array (claim-typed) for an optional grounded exec-summary. NO re-derivation.
-// Vertical slice: FOOTFALL is the only registered family today; the rest roll onto FAMILIES mechanically.
+// Iterates ALL registered FAMILIES (footfall, offering, …) — a new family appears here automatically
+// once registered + its render exists in card-kit.js. No change needed per family.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";

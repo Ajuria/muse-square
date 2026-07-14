@@ -8,6 +8,7 @@
 // The crawl CONTRACT (prompt/validate/schema/vocab) is the shared core — no drift with the script.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import { writeFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -20,7 +21,7 @@ const STORE = "analytics.best_in_class_plays";
 const CTX = `${BQ_PROJECT}.semantic.vw_insight_event_ai_location_context`;
 const COMMITMENTS = `${BQ_PROJECT}.analytics.action_commitments`;
 const CRON_SECRET = process.env.CRON_SECRET || "";
-const MODEL = "claude-sonnet-4-6"; // web_search role (models.ts)
+const MODEL = modelFor("web_search"); // web_search role (models.ts)
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const LEVERS = Object.keys(core.LEVER_LABELS);

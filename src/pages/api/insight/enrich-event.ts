@@ -1,5 +1,6 @@
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
+import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { randomUUID } from "crypto";
 
 export async function POST({ request }: { request: Request }) {
@@ -122,26 +123,12 @@ export async function POST({ request }: { request: Request }) {
     }
   };
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "web-search-2025-03-05",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: modelFor("enrichment"),
-      max_tokens: 3000,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      system,
-      messages: [{ role: "user", content: JSON.stringify(userPayload) }],
-    }),
+  const { text: raw } = await callClaudeWithWebSearch({
+    system,
+    userText: JSON.stringify(userPayload),
+    model: modelFor("enrichment"),
+    maxTokens: 3000,
   });
-
-  const aiData = await response.json();
-  const textBlock = aiData.content?.filter((b: any) => b.type === "text").pop();
-  const raw = textBlock?.text ?? "";
 
   let parsed: Record<string, string | null> = {};
   try {

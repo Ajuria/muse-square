@@ -6,9 +6,10 @@ import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/co
 import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1";
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { modelFor } from "../../../lib/ai/models";
-import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -24,6 +25,71 @@ import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 export const prerender = false;
 
 const DEV_BYPASS_PROMPT = import.meta.env.DEV && process.env.MS_AUTH_BYPASS === "1";
+
+// ── Provenance register (Phase 0) ─────────────────────────────────────────────
+// Collapse the internal `producer` taxonomy into the 3 user-facing trust registers the UI shows:
+//   vetted = grounded in the operator's data (validator-gated) · web = open web (unvetted) · model = model-only.
+// Non-answers (profile-incomplete, no-data, missing-dates request) carry no register (null → no pill).
+// Single server-side derivation; the client renders meta.register verbatim (never re-guesses it).
+type ProvenanceRegister = "vetted" | "web" | "model";
+function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
+  if (producer === "web_search") return "web";
+  if (producer === "llm_only") return "model";
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1") return null;
+  return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
+}
+
+// ── Web search (shared) ───────────────────────────────────────────────────────
+// One implementation of the Anthropic web_search server tool: run it with a caller-supplied system
+// prompt, return whether the tool actually fired + the model's final text (blocks after the last tool
+// block, no partial fragments). Callers own the prompt + the response shaping. Reused by the
+// unknown-intent path AND the empty-lookup web fallback so there is a single web-search code path.
+async function runWebSearch(
+  system: string,
+  userText: string,
+  conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<{ usedWebSearch: boolean; text: string }> {
+  // Thin wrapper over the shared web-search transport (model + timeout + usage + block parsing centralized).
+  // Passing conversationHistory gives discovery/entity/lookup multi-turn memory (Phase 2 increment 1).
+  const { usedWebSearch, text } = await callClaudeWithWebSearch({ system, userText, conversationHistory });
+  return { usedWebSearch, text };
+}
+
+// ── Business brief (shared) ───────────────────────────────────────────────────
+// The venue's REAL business, for prompts that need to understand it (competitor discovery/impact).
+// Prefer the crawled auto_enriched_description (accurate, specific — from the operator's own site) over
+// the generic company_activity_type code, which the model routinely mis-reads (e.g. "live_event" ->
+// "lieu de spectacle"). Falls back to the declared fields only when no crawl exists, flagged low-trust.
+function venueBusinessBrief(ic: any): string {
+  const raw = ic?.auto_enriched_description;
+  let e: any = null;
+  if (typeof raw === "string" && raw.trim()) { try { e = JSON.parse(raw); } catch { e = null; } }
+  else if (raw && typeof raw === "object") e = raw;
+  const bits: string[] = [];
+  if (e?.business_description) bits.push(`- Activité (source : votre site web) : ${String(e.business_description).slice(0, 400)}`);
+  if (e?.current_offering) bits.push(`- Offre : ${String(e.current_offering).slice(0, 300)}`);
+  if (e?.target_audience) bits.push(`- Clientèle : ${String(e.target_audience).slice(0, 250)}`);
+  if (bits.length) return bits.join("\n");
+  const fb: string[] = [];
+  if (ic?.business_short_description) fb.push(`- Activité : ${ic.business_short_description}`);
+  if (ic?.company_activity_type) fb.push(`- Type déclaré (générique, peu fiable) : ${ic.company_activity_type}`);
+  return fb.join("\n") || "- Activité : non renseignée";
+}
+
+// The venue's MEASURED business identity, derived from REAL sales (buildIdentityFacts). This is the
+// HIGHEST-trust source for competitor prompts — what the operator actually sells beats any declared code
+// or crawled site (which can be stale/wrong: f10c3e58's crawl says "SaaS", its sales say coffee shop).
+// Returns null when there isn't enough measured data — the caller falls back to the crawled brief.
+async function measuredBusinessBrief(location_id: string): Promise<string | null> {
+  const id = await buildIdentityFacts(location_id).catch(() => null);
+  if (!id || id.status !== "ok") return null;
+  const mix = id.facts.find((f) => f.kind === "mix");
+  const scale = id.facts.find((f) => f.kind === "scale");
+  const bits: string[] = [];
+  if (mix) bits.push(`- Activité (MESURÉE d'après vos ventes réelles — la source la plus fiable, elle prime sur le profil déclaré) : ${mix.fact_fr}`);
+  if (scale) bits.push(`- Échelle mesurée : ${scale.fact_fr}`);
+  return bits.length ? bits.join("\n") : null;
+}
 
 function requireString(v: unknown, name: string): string {
   if (typeof v !== "string" || v.trim() === "") {
@@ -695,7 +761,7 @@ function isEventLookupQuestion(qRaw: string): boolean {
   if (!hasEvaluationIntent && (hasMonth || hasNumericDate || hasWeekday)) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -2306,9 +2372,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // promote them to the grounded day path (where the family provider's facts fold in as extraFacts),
     // UNLESS the user gave an explicit date or asked to compare. The family router is thus a first-class
     // classifier, not an afterthought on the day branch.
-    if (!force_compare && extracted_dates.length === 0 && resolved_horizon === "month" && familyForQuestion(qRaw)) {
+    // Card-FAMILY questions (footfall = WHEN I sell, offering = WHAT I sell, …) are dateless DIMENSION
+    // questions — answered on the grounded day path, dimension-led (not a day verdict, not an event
+    // lookup / month window). The matched provider's facts fold in as extraFacts and its card renders
+    // inline. Setting horizon "day" short-circuits both the deterministic lookup check and the Haiku
+    // classifier (they gate on horizon month / not-day). No explicit date / no compare required — the
+    // family router is a first-class classifier, not an afterthought on the day branch.
+    if (!force_compare && extracted_dates.length === 0 && familyForQuestion(qRaw)) {
       resolved_horizon = "day";
-      resolved_intent = "DAY_DIMENSION_DETAIL";   // a family question is a single-dimension question — lead with that dimension, not the day verdict
+      resolved_intent = "DAY_DIMENSION_DETAIL";
     }
 
     // ----------------------------
@@ -3127,11 +3199,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
         JSON.stringify({
           ok: false,
           error: "Votre profil est incomplet. Renseignez votre adresse dans Compte → Profil pour accéder à l'analyse.",
-          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null },
+          meta: { location_id, resolved_horizon: null, resolved_intent: null, producer: null, register: null },
         }),
         { status: 200, headers: { "content-type": "application/json" } }
       );
     }
+
+    // Business brief for competitor prompts. Priority: MEASURED sales identity (buildIdentityFacts —
+    // what the venue actually sells) > crawled site description > declared code. The measured brief is
+    // the ground truth (f10c3e58 sells coffee, though its crawl says "SaaS"); the crawl is the fallback
+    // for venues with no sales data.
+    const venueBrief = venueBusinessBrief(internal_context);
+    const measuredBrief = await measuredBusinessBrief(location_id);
+    const businessBrief = measuredBrief ?? venueBrief;
 
     // ---- DECISION POLICY RULES (truth: semantic surface) ----
     // These are UI enum tokens (possible_value), stored in internal context.
@@ -3201,8 +3281,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 Votre contexte (vous = l'opérateur) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
-- Description : ${internal_context?.business_short_description ?? "non renseignée"}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
 Tâche : réponds à la question concurrentielle en t'appuyant sur la recherche web et sur votre contexte ci-dessus.
@@ -3221,61 +3300,37 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
-Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string }
 
 Règles :
-- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
+- found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
+- answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
+- CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-      const webSearchResult = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelFor("web_search"),
-          max_tokens: 2048,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
-          system: systemPrompt,
-          messages: [{ role: "user", content: qRaw }],
-        }),
-      }).then(r => r.json());
-
-      console.log("[webSearch] raw response:", JSON.stringify(webSearchResult).slice(0, 2000));
-
-      const contentBlocks = Array.isArray(webSearchResult.content) ? webSearchResult.content : [];
-      const usedWebSearch = contentBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-      // Concatenate every text block AFTER the last tool block (no partial fragments).
-      const lastToolIdx = contentBlocks.reduce(
-        (acc: number, b: any, i: number) =>
-          (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
-        -1
-      );
-      const rawWebAnswer = contentBlocks
-        .slice(lastToolIdx + 1)
-        .filter((b: any) => b.type === "text" && typeof b.text === "string")
-        .map((b: any) => b.text)
-        .join("")
-        .trim();
+      const { usedWebSearch, text: rawWebAnswer } = await runWebSearch(systemPrompt, qRaw, conversation_history);
 
       // Parse structured result + GATE: suppress not-found / irrelevant / partial.
       let webFound = false;
+      let webDiscovery = false;
       let webAnswer = "";
       try {
         const fenced = rawWebAnswer.replace(/^```json\s*|\s*```$/g, "").trim();
         const parsed = JSON.parse(fenced);
         webFound = parsed?.found === true;
+        webDiscovery = parsed?.discovery === true;
         webAnswer = typeof parsed?.answer === "string"
           ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
           : "";
@@ -3284,19 +3339,21 @@ Règles :
       }
       const webRelevant = isConcurrence
         ? (webAnswer.length >= 30 && /[.!?]$/.test(webAnswer))
-        : (webFound && webAnswer.length >= 30 && /[.!?]$/.test(webAnswer));
+        : ((webFound || webDiscovery) && webAnswer.length >= 30 && /[.!?]$/.test(webAnswer));
 
       const webHeadline = webRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
       const webFinal = webRelevant
         ? webAnswer
-        : "Je n'ai pas trouvé d'information fiable sur ce sujet dans votre zone. Ajoutez l'entité concernée à votre veille pour obtenir une analyse contextualisée.";
+        : webDiscovery
+          ? "Je n'ai pas identifié de nouveau concurrent correspondant à votre activité dans votre zone. Précisez votre activité ou le type de concurrent visé pour affiner la recherche."
+          : "Je n'ai pas trouvé d'information fiable sur ce sujet dans votre zone. Ajoutez l'entité concernée à votre veille pour obtenir une analyse contextualisée.";
       const webCaveats = webRelevant
         ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
         : [];
 
       return new Response(JSON.stringify({
         ok: true,
-        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", mode: request_mode },
+        meta: { location_id, resolved_horizon, resolved_intent, producer: usedWebSearch ? "web_search" : "llm_only", register: registerFor(usedWebSearch ? "web_search" : "llm_only"), mode: request_mode },
         ai: {
           headline: webHeadline,
           verdict: "",
@@ -3840,78 +3897,60 @@ Règles :
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
 - Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
-- Activité : ${internal_context?.company_activity_type ?? "non renseignée"}
+${businessBrief}
 - Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
 
-Tâche : recherche sur le web l'entité nommée dans la question, puis évalue son impact sur votre activité.
+Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string }
 
 Règles :
-- found = true UNIQUEMENT si tu identifies l'entité précise (nom, nature, localisation) depuis une source réelle. Sinon found = false et answer = "".
+- discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
+- found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
+- answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
+- CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
 - Phrases complètes uniquement. Maximum 120 mots.`;
 
-            const entityWebResult = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-                "anthropic-version": "2023-06-01",
-              },
-              body: JSON.stringify({
-                model: modelFor("web_search"),
-                max_tokens: 1024,
-                tools: [{ type: "web_search_20250305", name: "web_search" }],
-                system: entitySystemPrompt,
-                messages: [{ role: "user", content: qRaw }],
-              }),
-            }).then(r => r.json());
-
-            const entityBlocks = Array.isArray(entityWebResult.content) ? entityWebResult.content : [];
-            const entityUsedWeb = entityBlocks.some((b: any) => b.type === "server_tool_use" && b.name === "web_search");
-            // Concatenate every text block AFTER the last tool block (no partial fragments).
-            const entityLastToolIdx = entityBlocks.reduce(
-              (acc: number, b: any, i: number) =>
-                (b.type === "server_tool_use" || b.type === "web_search_tool_result") ? i : acc,
-              -1
-            );
-            const entityRaw = entityBlocks
-              .slice(entityLastToolIdx + 1)
-              .filter((b: any) => b.type === "text" && typeof b.text === "string")
-              .map((b: any) => b.text)
-              .join("")
-              .trim();
+            const { usedWebSearch: entityUsedWeb, text: entityRaw } = await runWebSearch(entitySystemPrompt, qRaw, conversation_history);
 
             // Parse + GATE: suppress not-found / irrelevant / partial.
+            // Discovery answers (interpretation + "aucun nouveau concurrent") are valid even when found=false —
+            // the interpretation IS the value, and "Ajoutez-la à votre veille" is nonsense with no named entity.
             let entityFound = false;
+            let entityDiscovery = false;
             let entityAnswer = "";
             try {
               const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
               const parsed = JSON.parse(fenced);
               entityFound = parsed?.found === true;
+              entityDiscovery = parsed?.discovery === true;
               entityAnswer = typeof parsed?.answer === "string"
                 ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
                 : "";
             } catch {
               entityFound = false;
             }
-            const entityRelevant = entityFound && entityAnswer.length >= 30 && /[.!?]$/.test(entityAnswer);
+            const entityRelevant = (entityFound || entityDiscovery) && entityAnswer.length >= 30 && /[.!?]$/.test(entityAnswer);
 
             const entityHeadline = entityRelevant ? "Résultat de recherche web" : "Aucune information fiable trouvée";
             const entityFinal = entityRelevant
               ? entityAnswer
-              : "Je n'ai pas trouvé d'information fiable sur cette entité dans votre zone. Ajoutez-la à votre veille pour obtenir une analyse contextualisée.";
+              : entityDiscovery
+                ? "Je n'ai pas identifié de nouveau concurrent correspondant à votre activité dans votre zone. Précisez votre activité ou le type de concurrent visé pour affiner la recherche."
+                : "Je n'ai pas trouvé d'information fiable sur cette entité dans votre zone. Ajoutez-la à votre veille pour obtenir une analyse contextualisée.";
             const entityCaveats = entityRelevant
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
 
             return new Response(JSON.stringify({
               ok: true,
-              meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", mode: request_mode },
+              meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
               ai: {
                 headline: entityHeadline,
                 verdict: "",
@@ -4078,21 +4117,56 @@ Règles :
         let _famResult: FamilyResult | null = null;
         let _famKey: string | null = null;
         let _famRender: string | null = null;
+        // Phase 1: measured customer-identity facts (what the venue sells, basket, scale), fetched in
+        // PARALLEL with the family provider so it adds no critical-path latency. Folded into the
+        // grounded whitelist below — the packager may cite "what you sell" when the question calls for it.
+        const _identityP = buildIdentityFacts(location_id).catch((e) => {
+          console.warn("[grounded] identity facts skipped:", e);
+          return { status: "insufficient" as const, reason: "error" };
+        });
         try {
           const _fam = familyForQuestion(qRaw);
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
+        const _identity = await _identityP;
+        const _identityFacts = _identity.status === "ok"
+          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
+          : [];
         const _familyLed = !!(_famResult && _famResult.found);
         if (_familyLed) {
           _familyLedKey = _famKey;
           _familyCard = { render: _famRender!, data: _famResult!.data };   // full card → rendered inline in the chat
         }
+
+        // Increment 4 — ELICIT, don't degrade. An offering (WHAT-I-SELL) question on an account without
+        // enough MEASURED sales (offering provider found:false === buildIdentityFacts "insufficient")
+        // asks the user for what's missing instead of bluffing a hollow/floor answer. Protects brand
+        // trust: a clear request beats a weak answer. No guessed redirect URL (import is API-only today).
+        if (_famKey === "offering" && !_familyLed && _identity.status !== "ok") {
+          const elicitHeadline = "Ajoutez vos ventes pour cette analyse";
+          const elicitAnswer = "Je n'ai pas encore assez de ventes mesurées pour caractériser votre activité (mix produit, panier moyen, meilleures ventes). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.";
+          return new Response(JSON.stringify({
+            ok: true,
+            meta: { location_id, resolved_horizon, resolved_intent, producer: "deterministic_offering_elicit_v1", register: registerFor("deterministic_offering_elicit_v1"), mode: request_mode },
+            ai: {
+              headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [],
+              output: { headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [] },
+              meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
+              actions: { month_redirect_url: null, primary: null, secondary: [] },
+            },
+            actions: { month_redirect_url: null, primary: null, secondary: [] },
+            top_dates: [],
+            decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
+            window_aggregates_v3: null,
+            ui_packaging_v3: null,
+          }), { status: 200, headers: { "content-type": "application/json" } });
+        }
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: _famResult!.facts },
+              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
             )
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: _identityFacts });
         const callGrounded = () => runAIPackagerClaude({
           mode: "grounded_day",
           row: { ...grounded_payload, _conversation_history: conversation_history },
@@ -4206,6 +4280,7 @@ Règles :
                 resolved_intent,
                 month_redirect_url,
                 producer: "deterministic_missing_dates_v1",
+                register: registerFor("deterministic_missing_dates_v1"),
               },
               ai: {
                 ...normalized_ai_missing,
@@ -4573,6 +4648,47 @@ Règles :
           return true;
         });
 
+        // Empty in YOUR referenced calendar -> browse the web (location-aware) before giving up. The
+        // event DB is your curated calendar, not an exhaustive index, so a real nearby event may simply
+        // not be referenced. A web hit is returned as producer "web_search" -> register "web"
+        // ("Web — non vérifié"), clearly separated from your vetted data. Events are time-sensitive, so
+        // we only trust the result when a real search actually fired (never a model-only guess).
+        if (allHits.length === 0) {
+          const webLookupSys = `Tu es un assistant qui recherche des ÉVÉNEMENTS RÉELS près d'un lieu, en France. Tu réponds en français en vouvoyant l'opérateur.
+Localisation de l'opérateur : ${internal_context?.city_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}).
+Tâche : cherche sur le web des événements correspondant à la question, à proximité de cette localisation.
+
+Retourne UNIQUEMENT du JSON valide, sans markdown : { "found": boolean, "answer": string }
+Règles :
+- found = true UNIQUEMENT si tu identifies un ou plusieurs événements réels avec une source (nom, date, lieu). Sinon found = false et answer = "".
+- answer (si found) : liste les événements (nom — date — lieu, distance approximative si connue), une ou deux phrases par événement, séparés par un double saut de ligne. N'invente JAMAIS un événement, une date ni un lieu.
+- N'emploie AUCUN markdown (ni **gras**, ni #titres, ni listes à puces) — texte brut uniquement.
+- Phrases complètes uniquement. Maximum 150 mots.`;
+          const { usedWebSearch: lookupUsedWeb, text: lookupWebRaw } = await runWebSearch(webLookupSys, qRaw, conversation_history);
+          let lookupWebFound = false;
+          let lookupWebAnswer = "";
+          try {
+            const parsed = JSON.parse(lookupWebRaw.replace(/^```json\s*|\s*```$/g, "").trim());
+            lookupWebFound = parsed?.found === true;
+            lookupWebAnswer = typeof parsed?.answer === "string" ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim() : "";
+          } catch { lookupWebFound = false; }
+          if (lookupUsedWeb && lookupWebFound && lookupWebAnswer.length >= 30) {
+            const webCav = "Cette réponse provient d'une recherche web en temps réel, non vérifiée par vos données Muse Square.";
+            return new Response(JSON.stringify({
+              ok: true,
+              // month/ENTITY_IMPACT so the client renders it as prose (not the lookup formatter); producer
+              // web_search -> register "web" so the answer wears the "Web — non vérifié" pill.
+              meta: { location_id, resolved_horizon: "month", resolved_intent: "ENTITY_IMPACT", producer: "web_search", register: registerFor("web_search"), mode: request_mode },
+              ai: {
+                headline: "Résultat de recherche web", verdict: "", answer: lookupWebAnswer,
+                key_facts: [], reasons: [], caveats: [webCav],
+                output: { headline: "Résultat de recherche web", verdict: "", answer: lookupWebAnswer, key_facts: [], reasons: [], caveats: [webCav] },
+              },
+            }), { status: 200, headers: { "content-type": "application/json" } });
+          }
+          // Web found nothing usable -> fall through to the "pas référencé" message below.
+        }
+
         const headline =
           allHits.length === 0
             ? "Aucun événement trouvé"
@@ -4709,8 +4825,8 @@ Règles :
       }
     } else if (resolved_horizon === "day") {
       if (_familyLedKey) {
-        // Family-led answer → the FULL family card renders INLINE in the chat (family_card below),
-        // so no CTA/redirect is needed; the detailed analysis is the answer itself.
+        // Family-led answer → the FULL family card renders INLINE (family_card), so no CTA/redirect is
+        // needed; the detailed analysis is the answer itself. (Offering is now a family — same path.)
         primary = null;
       } else {
         // We do not assume a Day route exists. Fallback = month anchored on the date.
@@ -4895,7 +5011,7 @@ Règles :
       return new Response(
         JSON.stringify({
           ok: true,
-          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data" },
+          meta: { location_id, resolved_horizon, resolved_intent, producer: "no_data", register: registerFor("no_data") },
           ai: {
             headline: "Aucune donnée disponible",
             verdict: "",
@@ -5184,6 +5300,7 @@ Règles :
           resolved_horizon,
           resolved_intent,
           producer,
+          register: registerFor(producer),
         },
 
         // ✅ Backward-compat UI contract: keep legacy ai.output.*

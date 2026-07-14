@@ -1,5 +1,6 @@
 import { makeBQClient } from "../../bq";
 import { modelFor } from "../models";
+import { callClaudeMessagesAPI } from "../runtime/claude";
 
 export interface FindDatesParams {
   location_id: string;
@@ -245,24 +246,14 @@ export async function findDates(params: FindDatesParams): Promise<FindDatesResul
     },
   };
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: modelFor("enrichment"),
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: JSON.stringify(userPayload) }],
-    }),
+  const { rawText: raw } = await callClaudeMessagesAPI({
+    system: systemPrompt,
+    userText: JSON.stringify(userPayload),
+    model: modelFor("enrichment"),
+    maxTokens: 1000,
+    temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+    cacheSystem: false,
   });
-
-  const aiData = await response.json();
-  const textBlock = aiData.content?.filter((b: any) => b.type === "text").pop();
-  const raw = textBlock?.text ?? "";
 
   let narrative = "Sélection basée sur vos critères.";
   try {

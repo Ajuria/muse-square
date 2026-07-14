@@ -1,6 +1,8 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { Resend } from "resend";
 
 export const prerender = false;
@@ -248,25 +250,15 @@ async function generateNarrative(row: any, anthropicKey: string): Promise<string
       audience ? `Audience principale : ${audience}` : null,
     ].filter(Boolean).join('\n');
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,
-        messages: [{
-          role: "user",
-          content: `Tu es l'assistant IA de Muse Square Insight, une plateforme de veille opérationnelle pour professionnels de l'événementiel en France. Écris UNE phrase d'alerte en français, naturelle et directe, qui explique ce signal à un professionnel. La phrase doit mentionner l'impact concret sur son activité et se terminer par une suggestion d'action. Pas de formule de politesse, pas de titre, juste la phrase.\n\nContexte du signal :\n${context}`
-        }],
-      }),
+    const call = await callClaudeMessagesAPI({
+      system: `Tu es l'assistant IA de Muse Square Insight, une plateforme de veille opérationnelle pour professionnels de l'événementiel en France. Écris UNE phrase d'alerte en français, naturelle et directe, qui explique ce signal à un professionnel. La phrase doit mentionner l'impact concret sur son activité et se terminer par une suggestion d'action. Pas de formule de politesse, pas de titre, juste la phrase.`,
+      userText: `Contexte du signal :\n${context}`,
+      model: modelFor("enrichment"),
+      maxTokens: 200,
+      temperature: 1,   // preserve prior behavior (raw call omitted temperature -> API default 1.0)
+      cacheSystem: false,
     });
-    const json = await res.json().catch(() => null);
-    const text = json?.content?.[0]?.text?.trim() || "";
-    return text;
+    return call.rawText.trim();
   } catch (e) {
     console.error("[alerts] narrative generation failed:", e);
     return "";

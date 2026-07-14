@@ -1,6 +1,8 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { VALID_INDUSTRY, VALID_AUDIENCE, VALID_CONFIDENCE, BUCKET_MAP, classifySource, JUNK_URL_PATTERNS } from "../../../lib/competitive/constants";
+import { modelFor } from "../../../lib/ai/models";
+import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 
 export const prerender = false;
 
@@ -87,42 +89,17 @@ Ville : ${competitor_city}${industry_code ? `\nSecteur : ${industry_code}` : ""}
 Recherche sur le web et retourne les ${source_url ? "informations de ce lien en priorité, puis complète avec d'autres sources" : "2 à 4 résultats les plus pertinents"}.
 Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > presse locale > autres.`;
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type":      "application/json",
-        "x-api-key":         anthropicKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta":    "web-search-2025-03-05",
-      },
-      body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        system:     SYSTEM_PROMPT,
-        tools: [{
-          type: "web_search_20250305",
-          name: "web_search",
-        }],
-        messages: [{
-          role:    "user",
-          content: userPrompt,
-        }],
-      }),
+    const { ok: aiOk, text: raw, errors: aiErrors } = await callClaudeWithWebSearch({
+      system:    SYSTEM_PROMPT,
+      userText:  userPrompt,
+      model:     modelFor("enrichment"),
+      maxTokens: 4096,
     });
 
-    if (!aiRes.ok) {
-      const errBody = await aiRes.text().catch(() => "");
-      console.error("[search-competitor] Claude API error:", aiRes.status, errBody);
-      throw new Error(`Claude API error: ${aiRes.status} — ${errBody.slice(0, 200)}`);
+    if (!aiOk) {
+      console.error("[search-competitor] Claude API error:", aiErrors.join("; "));
+      throw new Error(`Claude API error: ${aiErrors.join("; ").slice(0, 200)}`);
     }
-
-    const aiJson = await aiRes.json().catch(() => null);
-
-    const textBlocks = (aiJson?.content || [])
-      .filter((b: any) => b.type === "text" && b.text?.trim())
-      .map((b: any) => b.text.trim());
-
-    const raw = textBlocks.pop() || "";
 
     let candidates: any[] = [];
     try {

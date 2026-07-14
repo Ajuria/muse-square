@@ -32,6 +32,7 @@
     <div class="zone"><div class="zh">Concurrence — État B : concurrents qui bougent (illustratif)</div><div class="fix">renderCompetitor — moves → responses</div><div id="competitor2"></div></div>
     <div class="zone"><div class="zh">Tourisme (PROTOTYPE · Île-de-France, RÉEL)</div><div class="fix">renderTourism — nationality profile (volume + YoY) + in-season</div><div id="tourism"></div></div>
     <div class="zone"><div class="zh">Fréquentation / BestTime (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderFootfall — hourly curve + weekly pattern + decision</div><div id="footfall"></div></div>
+    <div class="zone"><div class="zh">Ce que vous vendez · mix produit (f10c3e58, RÉEL)</div><div class="fix">renderOffering — mix table (sortable) + concentration + best-sellers + temporal HONEST-ABSENT (flat seed) + panier</div><div id="offering"></div></div>
     <div class="zone"><div class="zh">Décomposition ventes/panier (PROTOTYPE · f10c3e58 · 13/07, RÉEL)</div><div class="fix">renderSalesDecomp — trafic vs panier, dominant + trend + decision</div><div id="salesdecomp"></div></div>
     <div class="zone"><div class="zh">Remises sans effet (PROTOTYPE · f10c3e58, RÉEL)</div><div class="fix">renderSalesDiscount — high vs low discount days, no-lift verdict + caveat</div><div id="salesdiscount"></div></div>
     <div class="zone"><div class="zh">Météo prolongée — fenêtre (PROTOTYPE · f10c3e58 canicule, RÉEL)</div><div class="fix">renderWeatherWindow — window strip + measured CA impact + decision</div><div id="wwindow"></div></div>
@@ -159,6 +160,25 @@
         { head: 'Votre meilleur jour : Sam', body: '1 501 € en moyenne — concentrez-y vos temps forts.' }
       ] };
     document.getElementById('footfall').innerHTML = MSCardKit.renderFootfall(FOOT);
+
+    // OFFERING — real f10c3e58 provider.data (temporal honest-absent on the flat seed).
+    var OFFERING = { ok: true, found: true, date: "2026-09-30",
+      categories: [
+        { category: "Coffee", share_pct: 38.8, units: 21116 }, { category: "Tea", share_pct: 27.8, units: 16276 },
+        { category: "Bakery", share_pct: 12.3, units: 5742 }, { category: "Drinking Chocolate", share_pct: 9.7, units: 3864 },
+        { category: "Coffee beans", share_pct: 4.8, units: 376 }, { category: "Branded", share_pct: 2.8, units: 280 },
+        { category: "Flavours", share_pct: 1.7, units: 3393 }, { category: "Loose Tea", share_pct: 1.5, units: 268 },
+        { category: "Packaged Chocolate", share_pct: 0.7, units: 132 }
+      ],
+      top_items: [
+        { item: "Dark chocolate Lg", units: 1031, avg_price: 4.5 }, { item: "Sustainably Grown Organic Lg", units: 963, avg_price: 4.75 },
+        { item: "Latte Rg", units: 1046, avg_price: 4.25 }
+      ],
+      basket: 4.803836913341973, mean_daily_rev: 1271.034530386739, history_days: 181,
+      concentration: { core_count: 5, core_pct: 93.3, tail_count: 4, tail_pct: 6.7 },
+      total_units: 51447, n_categories: 9,
+      temporal: { weekday_weekend: [], seasonal: [], any_signal: false } };
+    document.getElementById('offering').innerHTML = MSCardKit.renderOffering(OFFERING);
 
     var EVOL_COPY = {
   back: "Retour aux engagements",

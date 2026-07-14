@@ -368,6 +368,68 @@
     return html;
   }
 
+  // OFFERING / sales-MIX card ("Ce que vous vendez · votre mix produit"). Pure: json -> HTML.
+  // Numbers arrive pre-rounded from the provider (share_pct, concentration, gap_pp); the kit only
+  // formats (fr comma) + lays out via the shared helpers. Temporal block is honest-absent when flat.
+  function renderOffering(j) {
+    if (!j || !j.ok || !j.found || !j.categories || !j.categories.length) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de données de ventes par catégorie pour ce lieu.</div>';
+    }
+    function d(n) { return n == null ? '—' : String(n).replace('.', ','); }
+    var out = '';
+    var top = j.categories[0];
+    if (top) out += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">'
+      + esc(top.category) + ' domine vos ventes (' + d(top.share_pct) + ' % du CA) — '
+      + (j.n_categories || j.categories.length) + ' catégories, ' + frInt(j.total_units) + ' unités mesurées.</div>';
+
+    // Category mix — sortable by share (default) / units.
+    out += '<div style="font-size:12px;color:#6B7280;margin:10px 0 0;">Votre mix par catégorie :</div>';
+    out += msSortTable([
+      { label: 'Catégorie', render: function (c) { return { v: c.category, bold: true }; } },
+      { label: 'Part du CA', key: 'share_pct', render: function (c) { return { v: d(c.share_pct) + ' %', bold: true }; } },
+      { label: 'Unités', key: 'units', render: function (c) { return { v: frInt(c.units), color: '#6B7280' }; } }
+    ], j.categories, 'share_pct');
+
+    if (j.concentration) {
+      var k = j.concentration;
+      out += '<div style="font-size:12px;color:#6B7280;margin-top:8px;line-height:1.5;">Vos ' + k.core_count
+        + ' catégories principales concentrent ' + d(k.core_pct) + ' % du CA ; ' + k.tail_count
+        + ' marginales font ' + d(k.tail_pct) + ' %.</div>';
+    }
+
+    if (j.top_items && j.top_items.length) {
+      out += '<div style="font-size:12px;color:#6B7280;margin:12px 0 0;">Vos meilleures ventes (unités) :</div>';
+      out += msSortTable([
+        { label: 'Article', render: function (i) { return { v: i.item, bold: true }; } },
+        { label: 'Unités', key: 'units', render: function (i) { return { v: frInt(i.units), bold: true }; } },
+        { label: 'Prix moyen', render: function (i) { return { v: (i.avg_price != null ? msEur2(i.avg_price) : '—'), color: '#6B7280' }; } }
+      ], j.top_items, 'units');
+    }
+
+    // Temporal — the mix's non-obvious movement, honest-absent when flat.
+    var t = j.temporal;
+    if (t && t.any_signal) {
+      var lines = [];
+      (t.weekday_weekend || []).forEach(function (w) {
+        lines.push({ head: w.category, body: (w.heavier === 'weekend' ? 'plus vendu le week-end' : 'plus vendu en semaine') + ' (' + d(Math.abs(w.gap_pp)) + ' pp d\'écart).' });
+      });
+      (t.seasonal || []).forEach(function (s) {
+        lines.push({ head: s.category, body: 'sa part varie de ' + d(s.range_pp) + ' pp selon les mois.' });
+      });
+      if (lines.length) out += msDecision('Le mix bouge', lines);
+    } else {
+      out += '<div style="font-size:12px;color:#9CA3AF;margin-top:10px;line-height:1.5;">Mix stable — aucune variation marquée par jour de semaine ni par saison sur l\'historique disponible.</div>';
+    }
+
+    if (j.basket != null || j.mean_daily_rev != null) {
+      out += msScale({
+        headline: (j.basket != null ? msEur2(j.basket) + ' de panier moyen' : ''),
+        enjeu: (j.mean_daily_rev != null ? ('CA journalier moyen ~' + frInt(Math.round(j.mean_daily_rev)) + ' € sur ' + (j.history_days != null ? j.history_days : '—') + ' j d\'historique.') : ''),
+      });
+    }
+    return out;
+  }
+
   // ── USER-GENERATED card family: the commitment's "Consulter l'évolution" page.
   //    PURE render (chart + decision headline + advice + capture markup + sources).
   //    Self-contained helpers — the page's exact esc/fr semantics (0 -> "0"), NOT the
@@ -833,6 +895,6 @@
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow
   };
 })();
