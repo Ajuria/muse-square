@@ -512,7 +512,9 @@
     var daysUp = received.filter(function (d) { return d.residual_pct >= 0; }).length;
 
     var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
-    var sub = t('subtitle', { level: LVL_FR[cm.threshold_level] || cm.threshold_level, window: winLbl, owner: esc(cm.owner_person_name || '—') });
+    // Objectif = the KPI target (uplift %) + the timeframe to reach it — not the "net/brut" jargon.
+    var _subGoal = Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
+    var sub = t('subtitle', { pct: _subGoal, window: winLbl });
     // Owner + when (remark #1): who committed and when, + when the action was marked done.
     var _ownerDate = '';
     if (cm.owner_person_name || cm.created_at) {
@@ -564,13 +566,17 @@
         ? '<div style="position:absolute;left:0;top:0;height:10px;width:' + _resW.toFixed(1) + '%;background:#E0873A;"></div>'
         : '<div style="position:absolute;left:0;top:0;height:10px;width:' + _goalM.toFixed(1) + '%;background:#10B981;"></div>'
           + '<div style="position:absolute;left:' + _goalM.toFixed(1) + '%;top:0;height:10px;width:' + (100 - _goalM).toFixed(1) + '%;background:#065F46;"></div>';
+      // Labels track the geometry: "objectif" sits ABOVE its marker, the result reads BELOW the bar
+      // from the "habituel" baseline (0) — so each number is where it is on the bar, no left/right mixup.
+      var _labM = Math.max(10, Math.min(90, _goalM)); // keep the goal label inside the bounds
       var _bar = '<div style="margin-top:14px;">'
+        + '<div style="position:relative;height:15px;font-size:11.5px;color:#6b7280;"><span style="position:absolute;left:' + _labM.toFixed(1) + '%;transform:translateX(-50%);bottom:0;white-space:nowrap;">' + esc(t('q1_bar_goal', { pct: _goalPct })) + '</span></div>'
         + '<div style="position:relative;height:10px;background:#f0f2f5;">' + _segs
           + '<div style="position:absolute;left:' + _goalM.toFixed(1) + '%;top:-3px;height:16px;width:2px;background:#111827;transform:translateX(-1px);"></div>'
         + '</div>'
-        + '<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:#6b7280;">'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#9ca3af;">'
+          + '<span>habituel</span>'
           + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs habituel</span>'
-          + '<span>' + esc(t('q1_bar_goal', { pct: _goalPct })) + '</span>'
         + '</div></div>';
       // SECONDARY attribution — split when a holiday effect is present (causal-safe: never counts vacances as the action).
       var _attrib = (_ctxPct !== 0)
@@ -636,37 +642,40 @@
           }).join('')
         + '</div>';
     }
-    var diag = '';
+    // ── Move-decision inputs — computed whenever OPEN (the user ALWAYS authors the next move) ──
+    var _execQ = cm.execution_quality || null;                                       // persisted self-check
+    var _mh = {}; (data.move_stats || []).forEach(function (s) { _mh[s.move] = s; }); // local move hit-rates
+    var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
+    var _pE = series.filter(function (d) { return d.has_data && d.event_count != null && d.event_count > 0; }).length;
+    var _pH = (ctx && ctx.school_days) ? ctx.school_days : series.filter(function (d) { return d.is_school_holiday; }).length;
+    var _bits = [];
+    if (_pW) _bits.push(t('diag_ext_weather', { n: _pW }));
+    if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
+    if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
+    var _notable = _bits.length > 0;
+    // Recommended move by state: above → Doubler (it's working, push it); below run-clean+calm → Pivoter
+    // (the plan is the suspect); below not-fully-run → Poursuivre (run it); aligned → Poursuivre.
+    var _recMove = null;
+    if (open) {
+      if (_state === 'above') _recMove = 'doubler';
+      else if (_under) _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
+      else _recMove = 'poursuivre';
+    }
+    var _mc = function (m, title, desc) {
+      var st = _mh[m];
+      var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
+      var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
+      return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
+    };
+
+    // ── Diagnosis "pourquoi" — ONLY when under objectif (explains the shortfall) ──
+    var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
+    var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
+    var diagWhy = '';
     if (_under) {
-      var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
-      var _pE = series.filter(function (d) { return d.has_data && d.event_count != null && d.event_count > 0; }).length;
-      var _pH = (ctx && ctx.school_days) ? ctx.school_days : series.filter(function (d) { return d.is_school_holiday; }).length;
-      var _bits = [];
-      if (_pW) _bits.push(t('diag_ext_weather', { n: _pW }));
-      if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
-      if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
-      var _notable = _bits.length > 0;
-      // #3 route: not fully run → Poursuivre (run it); run clean + calm context → Pivoter (the plan is the suspect);
-      // run clean + notable context → Poursuivre (retry, context may explain). Null until the self-check is answered.
-      _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
       var _wa = ctx && ctx.weather_assoc;
       var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
-      var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
-      var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
-      var _mh = {}; (data.move_stats || []).forEach(function (s) { _mh[s.move] = s; });   // #1 local move hit-rates
-      var _execQ = cm.execution_quality || null;                                            // #3 persisted self-check
-      var _recMove = null;                                                                  // assigned once _notable is known
-      var _mc = function (m, title, desc) {
-        var st = _mh[m];
-        var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
-        var rec = (m === _recMove) ? ' <span style="font-size:11px;font-weight:600;color:#1D3BB3;background:#E6ECFF;padding:2px 8px;margin-left:4px;">' + esc(t('diag_recommended')) + '</span>' : '';
-        return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
-      };
-      // "Lieux comparables" — pivot analogs (below goal: what else to try). Placeholder when the store
-      // has no pivot play for this lever yet.
-      var _bicHtml = _bicBlock('pivot')
-        || ('<div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;margin-top:16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div>');
-      diag = '<div class="eg-sec">'
+      diagWhy = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
         + '<div style="border-left:3px solid #1D3BB3;' + _cs + '">'
@@ -684,12 +693,20 @@
             + '<button type="button" data-exec="none" style="' + doneBtnStyle(_execQ === 'none') + '">' + esc(t('diag_exec_no')) + '</button>'
           + '</div>'
         + '</div>'
-        + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:22px;">'
+        + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:0;">'
           + _hd('3', t('diag_lever_title'), '')
           + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(t('diag_lever_body')) + '</div>'
         + '</div>'
-        + '<div class="eg-uc">' + esc(t('diag_todo_title')) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc(t('diag_move_intro')) + '</div>'
+      + '</div>';
+    }
+
+    // ── Your next move — UNIVERSAL for open commitments: the owner authors their OWN strategy in every
+    // state (below/aligned/above), never only consuming best-practices. Diagnosis explains, this decides.
+    var moveForm = '';
+    if (open) {
+      moveForm = '<div class="eg-sec">'
+        + '<div class="eg-uc">' + esc(t('move_title')) + '</div>'
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc(_under ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'
         + _mc('poursuivre', t('move_poursuivre'), t('move_poursuivre_d'))
         + _mc('doubler', t('move_doubler'), t('move_doubler_d'))
         + _mc('pivoter', t('move_pivoter'), t('move_pivoter_d'))
@@ -699,26 +716,30 @@
         + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
         + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
         + '<div data-diag-form style="margin-top:10px;"></div>'
-        + _bicHtml
-        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
+        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
       + '</div>';
+    }
+
+    // ── Best-in-class — a REFERENCE beneath the owner's own decision (intent = the verdict) ──
+    var _refIntent = _under ? 'pivot' : _intent;
+    var bicRef = '';
+    if (_refIntent) {
+      var _bicBody = _bicBlock(_refIntent);
+      if (_bicBody) bicRef = '<div class="eg-sec">' + _bicBody + '</div>';
+      else if (_under) bicRef = '<div class="eg-sec"><div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div></div>';
     }
 
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
     srcRows.push(prov.track_record ? t('src_track_record', { beat: prov.track_record.beat, done: prov.track_record.done }) : t('src_track_pending'));
     // The case studies actually shown (same intent + slice as _bicBlock) are cited here too, not just inline.
-    var _shownIntent = _under ? 'pivot' : _intent;
-    var _bicSrc = (data.best_in_class || []).filter(function (p) { return p.intent === _shownIntent && p.source_name; }).slice(0, 2).map(function (p) { return p.source_name; });
+    var _bicSrc = (data.best_in_class || []).filter(function (p) { return p.intent === _refIntent && p.source_name; }).slice(0, 2).map(function (p) { return p.source_name; });
     if (_bicSrc.length) srcRows.push(t('src_bestinclass', { list: _bicSrc.join(', ') }));
     var sources = '<div class="eg-sec" style="margin-bottom:0;"><div class="eg-uc">' + esc(t('sources_title')) + '</div>'
       + '<div style="font-size:12.5px;color:#6b7280;line-height:1.9;">' + srcRows.map(function (s) { return '<div>· ' + esc(s) + '</div>'; }).join('') + '</div></div>';
 
-    // When NOT under-performing (aligned/above), the "lieux comparables" still helps — reinforce/scale
-    // analogs to push a working action further. Own light section, after the capture.
-    var _bicStandalone = (!_under && _intent) ? _bicBlock(_intent) : '';
-    if (_bicStandalone) _bicStandalone = '<div class="eg-sec">' + _bicStandalone + '</div>';
-
-    return head + q1 + diag + (_under ? '' : q3) + q4 + _bicStandalone + sources;
+    // Diagnosis explains (under only) → the owner DECIDES (moveForm, universal for open) → best-in-class
+    // is the reference beneath. Resolved commitments skip moveForm (q4 = Documenter is the mechanism).
+    return head + q1 + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
   }
 
 

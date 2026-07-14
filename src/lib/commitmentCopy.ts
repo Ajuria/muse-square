@@ -17,7 +17,7 @@ export const EVOL_COPY = {
   back: "Retour aux engagements",
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
-  subtitle: "Objectif {level} · {window}",
+  subtitle: "Objectif : +{pct} % de CA vs habituel · sous {window}",
   owner_line: "Engagé par {name} · le {date}",
   done_suffix: " · action menée le {date}",
 
@@ -129,7 +129,9 @@ export const EVOL_COPY = {
   diag_lever_body: "Si le contexte était neutre et l'exécution complète, c'est le plan lui-même à ajuster.",
   diag_lever_exec: "Exécution incomplète repérée — commencez par là avant de changer de levier.",
   diag_todo_title: "Quoi faire",
+  move_title: "Votre prochain mouvement",
   diag_move_intro: "Choisissez votre prochain move :",
+  move_intro_ontrack: "Ça marche. À vous de décider la suite — poussez l'avantage ou sécurisez le résultat :",
   move_poursuivre: "Poursuivre",
   move_poursuivre_d: "Garder le plan, mieux le tenir.",
   move_doubler: "Doubler la mise",
