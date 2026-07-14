@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import { Resend } from "resend";
 
 export const prerender = false;
@@ -256,7 +257,7 @@ async function generateNarrative(row: any, anthropicKey: string): Promise<string
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: modelFor("enrichment"),
         max_tokens: 200,
         messages: [{
           role: "user",

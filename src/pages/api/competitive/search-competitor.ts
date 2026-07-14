@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { VALID_INDUSTRY, VALID_AUDIENCE, VALID_CONFIDENCE, BUCKET_MAP, classifySource, JUNK_URL_PATTERNS } from "../../../lib/competitive/constants";
+import { modelFor } from "../../../lib/ai/models";
 
 export const prerender = false;
 
@@ -96,7 +97,7 @@ Priorité des sources : site officiel > LinkedIn > Eventbrite > Openagenda > pre
         "anthropic-beta":    "web-search-2025-03-05",
       },
       body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
+        model:      modelFor("enrichment"),
         max_tokens: 2000,
         system:     SYSTEM_PROMPT,
         tools: [{

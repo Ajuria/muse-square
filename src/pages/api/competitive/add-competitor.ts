@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
@@ -66,7 +67,7 @@ All scalar values must be strings or null. offering_items must always be an arra
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: modelFor("web_search"),
         max_tokens: 2000,
         messages: [{ role: "user", content: userPrompt }],
         system: systemPrompt,

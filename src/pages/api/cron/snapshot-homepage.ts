@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
 
 export const prerender = false;
 
-const EXTRACTION_MODEL = "claude-haiku-4-5-20251001";
+const EXTRACTION_MODEL = modelFor("enrichment");
 const TIMEOUT_MS = 55_000;
 
 const INSTITUTION_PROMPT = `You are a strict public sector intelligence extractor. You read the homepage of a local institution (office de tourisme, mairie, CCI, pr\u00e9fecture) and extract structured signals relevant to nearby businesses.

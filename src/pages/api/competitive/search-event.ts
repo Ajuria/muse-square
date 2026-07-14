@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import { VALID_INDUSTRY, VALID_AUDIENCE, BUCKET_MAP, VALID_CONFIDENCE } from "../../../lib/competitive/constants";
 import { confidenceToScore } from "../../../lib/competitive/constants";
 export const prerender = false;
@@ -108,7 +109,7 @@ Priorité des sources : site officiel de l'événement > Eventbrite > Openagenda
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
+        model:      modelFor("enrichment"),
         max_tokens: 2000,
         system:     SYSTEM_PROMPT,
         tools: [{

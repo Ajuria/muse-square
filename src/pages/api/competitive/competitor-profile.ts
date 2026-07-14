@@ -1,6 +1,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 
 export const prerender = false;
 
@@ -356,7 +357,7 @@ ${userItemsJson}`;
               "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-6",
+              model: modelFor("web_search"),
               max_tokens: 2000,
               messages: [{ role: "user", content: userPrompt }],
               system: systemPrompt,

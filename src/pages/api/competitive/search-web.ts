@@ -2,6 +2,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { modelFor } from "../../../lib/ai/models";
 import crypto from "crypto";
 import {
   VALID_CONFIDENCE,
@@ -123,7 +124,7 @@ Priorité des sources : site officiel > Eventbrite > Openagenda > presse locale 
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
+        model:      modelFor("enrichment"),
         max_tokens: 3000,
         system:     SYSTEM_PROMPT,
         tools: [{
