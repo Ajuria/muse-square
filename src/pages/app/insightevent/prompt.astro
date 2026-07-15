@@ -579,14 +579,6 @@ if (!location_id) {
         color: #6b7280;
       }
 
-      /* Safe-markdown output (Phase 3) — the model's own formatting, rendered instead of escaped to
-         literal asterisks. Geometry only; inherits the surrounding answer type/colour. */
-      .ie-md-p { margin: 0 0 10px; }
-      .ie-md-p:last-child { margin-bottom: 0; }
-      .ie-md-list { margin: 0 0 10px; padding-left: 20px; }
-      .ie-md-list:last-child { margin-bottom: 0; }
-      .ie-md-list li { margin: 2px 0; }
-
       /* Persistent memory panel (Phase 2.3) — reuses the .ie-ai-caveats geometry with the brand-blue
          accent (memory, not a caveat); link treatment matches .ie-inline-cta. */
       .ie-memory {
@@ -2021,7 +2013,7 @@ if (!location_id) {
 
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=28"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=10" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=11" defer></script>
 
   </BaseLayout>
 </Show>

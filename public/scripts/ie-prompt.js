@@ -331,9 +331,13 @@ if (!root) {
   //   2. re-introduce ONLY whitelisted tags on the already-escaped string
   // NEVER the reverse. No raw HTML passthrough, no sanitizer dependency (CDN-free rule).
   //
-  // Whitelist: **gras** → <strong>, *italique* → <em>, "- " lines → <ul>/<li>, blank line → <p>.
+  // Whitelist: **gras** → <strong>, *italique* → <em>.
   // Deliberately OUT: links (nothing validates a model-emitted URL — a clickable hallucinated source is
   // worse than an ugly one), #titres, tables, code, images. Anything off-list stays plain text.
+  //
+  // INLINE-ONLY on purpose: every render branch below already does its own block layout (it splits the
+  // prose on \n\n and wraps each part in .ie-why-intro / .ie-ai-p / .ie-competitor-row …). Emitting <p>
+  // here would double-wrap and restyle branches that work today. Blocks stay the caller's job.
   // ----------------------------
   function mdInline(t) {
     return t
@@ -341,24 +345,10 @@ if (!root) {
       .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");   // *italique*
   }
 
-  function mdToSafeHtml(text) {
-    const safe = escapeHtml(text).trim();   // 1) inert — nothing below can reintroduce model HTML
-    if (!safe) return "";
-    return safe
-      .split(/\n\s*\n/)                     // blank line = paragraph break
-      .map(function (block) {
-        const lines = block.split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
-        if (!lines.length) return "";
-        const isList = lines.every(function (l) { return /^[-•]\s+/.test(l); });
-        if (isList) {
-          return '<ul class="ie-md-list">'
-            + lines.map(function (l) { return "<li>" + mdInline(l.replace(/^[-•]\s+/, "")) + "</li>"; }).join("")
-            + "</ul>";
-        }
-        return '<p class="ie-md-p">' + mdInline(lines.join("<br>")) + "</p>";
-      })
-      .filter(Boolean)
-      .join("");
+  // The one call sites use: escape FIRST (inert), then re-introduce ONLY the whitelist.
+  // Drop-in for escapeHtml() on any model-authored prose.
+  function mdInlineToSafeHtml(text) {
+    return mdInline(escapeHtml(text));
   }
 
   function renderConfirmationHtml(out) {
@@ -395,7 +385,7 @@ if (!root) {
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
       const fc = out.family_card;
       const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé")
-        ? `<div class="ie-why-headline">${escapeHtml(n.headline.trim())}</div>` : "";
+        ? `<div class="ie-why-headline">${mdInlineToSafeHtml(n.headline.trim())}</div>` : "";
       // renderX expects the endpoint shape { ok, found, ... }; provider data has `found` but not `ok`.
       const card = window.MSCardKit[fc.render](Object.assign({ ok: true }, fc.data));
       return `${lead}<div class="ie-family-card">${card}</div>`;
@@ -460,12 +450,12 @@ if (!root) {
         const dateStr = colonIdx > -1 ? raw.slice(0, colonIdx) : "";
         const eventName = colonIdx > -1 ? raw.slice(colonIdx + 2) : raw;
         return `<div class="ie-lookup-item">
-          <div class="ie-lookup-name">${escapeHtml(eventName)}</div>
+          <div class="ie-lookup-name">${mdInlineToSafeHtml(eventName)}</div>
           ${dateStr ? `<div class="ie-lookup-date">${escapeHtml(dateStr)}</div>` : ""}
-          ${desc ? `<div class="ie-lookup-desc">${escapeHtml(desc)}</div>` : ""}
+          ${desc ? `<div class="ie-lookup-desc">${mdInlineToSafeHtml(desc)}</div>` : ""}
         </div>`;
       });
-      const hdl = headline && headline !== "Résumé" ? `<div class="ie-lookup-headline">${escapeHtml(headline)}</div>` : "";
+      const hdl = headline && headline !== "Résumé" ? `<div class="ie-lookup-headline">${mdInlineToSafeHtml(headline)}</div>` : "";
       return `${hdl}${items.join("")}`;
     }
 
@@ -491,14 +481,14 @@ if (!root) {
       }
 
       const competitorRows = competitorLines
-        .map(line => `<div class="ie-competitor-row">${escapeHtml(line.trim())}</div>`)
+        .map(line => `<div class="ie-competitor-row">${mdInlineToSafeHtml(line.trim())}</div>`)
         .join("");
 
       return `
-        <div class="ie-why-headline">${escapeHtml(headline)}</div>
+        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
         ${competitorRows ? `<div class="ie-competitor-list">${competitorRows}</div>` : ""}
-        ${analysisPart ? `<div class="ie-competitor-analysis">${escapeHtml(analysisPart)}</div>` : ""}
-        ${recommendationPart ? `<div class="ie-competitor-recommendation">${escapeHtml(recommendationPart)}</div>` : ""}
+        ${analysisPart ? `<div class="ie-competitor-analysis">${mdInlineToSafeHtml(analysisPart)}</div>` : ""}
+        ${recommendationPart ? `<div class="ie-competitor-recommendation">${mdInlineToSafeHtml(recommendationPart)}</div>` : ""}
         ${cta}
       `;
     }
@@ -511,10 +501,10 @@ if (!root) {
       const intro = prose[0] ?? "";
       const rows = prose.slice(1);
       return `
-        <div class="ie-why-headline">${escapeHtml(headline)}</div>
+        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
         ${chiffreCle ? `<div class="${pillClass}">${escapeHtml(chiffreCle)}</div>` : ""}
-        ${intro ? `<div class="ie-why-intro">${escapeHtml(intro)}</div>` : ""}
-        ${rows.map(r => `<div class="ie-why-row">${escapeHtml(r).replace(/^(Disponibilité (de votre )?audience\s*:)/, '<strong>$1</strong>').replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>').replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>').replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>`).join("")}
+        ${intro ? `<div class="ie-why-intro">${mdInlineToSafeHtml(intro)}</div>` : ""}
+        ${rows.map(r => `<div class="ie-why-row">${mdInlineToSafeHtml(r).replace(/^(Disponibilité (de votre )?audience\s*:)/, '<strong>$1</strong>').replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>').replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>').replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>`).join("")}
         ${cta}
       `;
     }
@@ -529,8 +519,8 @@ if (!root) {
       const pillClass = isWorstDays ? "ie-pill-amber" : "ie-pill-blue";
       const verdictClass = isWorstDays ? "ie-verdict-amber" : "ie-verdict-blue";
 
-      const verdictHtml = verdict ? `<div class="ie-verdict-plain">${escapeHtml(verdict)}</div>` : "";
-      const headlineHtml = headline ? `<div class="ie-section-h">${escapeHtml(headline)}</div>` : "";
+      const verdictHtml = verdict ? `<div class="ie-verdict-plain">${mdInlineToSafeHtml(verdict)}</div>` : "";
+      const headlineHtml = headline ? `<div class="ie-section-h">${mdInlineToSafeHtml(headline)}</div>` : "";
 
       let cardsHtml = "";
 
@@ -547,10 +537,10 @@ if (!root) {
           return `
             <div class="${cc}">
               <div class="ie-card-label">${escapeHtml(rankPrefix + (d.label ?? d.date ?? ""))}</div>
-              ${d.c2 ? `<div class="${pc}">${escapeHtml(d.c2.replace(/^Pression concurrentielle\s*:\s*/, ""))}</div>` : ""}
-              ${d.c1 ? `<div class="ie-card-row"><strong>Disponibilité audience :</strong> ${escapeHtml(d.c1.replace(/^Disponibilité audience\s*:\s*/, ""))}</div>` : ""}
-              ${d.c3 ? `<div class="ie-card-row"><strong>Accessibilité :</strong> ${escapeHtml(d.c3.replace(/^Accessibilité du site\s*:\s*/, ""))}</div>` : ""}
-              ${d.c4 ? `<div class="ie-card-row"><strong>Conditions :</strong> ${escapeHtml(d.c4.replace(/^Conditions d'exploitation\s*:\s*/, ""))}</div>` : ""}
+              ${d.c2 ? `<div class="${pc}">${mdInlineToSafeHtml(d.c2.replace(/^Pression concurrentielle\s*:\s*/, ""))}</div>` : ""}
+              ${d.c1 ? `<div class="ie-card-row"><strong>Disponibilité audience :</strong> ${mdInlineToSafeHtml(d.c1.replace(/^Disponibilité audience\s*:\s*/, ""))}</div>` : ""}
+              ${d.c3 ? `<div class="ie-card-row"><strong>Accessibilité :</strong> ${mdInlineToSafeHtml(d.c3.replace(/^Accessibilité du site\s*:\s*/, ""))}</div>` : ""}
+              ${d.c4 ? `<div class="ie-card-row"><strong>Conditions :</strong> ${mdInlineToSafeHtml(d.c4.replace(/^Conditions d'exploitation\s*:\s*/, ""))}</div>` : ""}
             </div>`;
         }).join("");
       } else if (isV3) {
@@ -576,10 +566,10 @@ if (!root) {
 
     // ── FALLBACK (generic prose) ─────────────────────────────────
     return `
-      ${headline ? `<div class="ie-ai-h">${escapeHtml(headline)}</div>` : ""}
-      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${escapeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
-      ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
-      ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${escapeHtml(c)}</div>`).join("")}</div>` : ""}
+      ${headline ? `<div class="ie-ai-h">${mdInlineToSafeHtml(headline)}</div>` : ""}
+      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${mdInlineToSafeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
+      ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${mdInlineToSafeHtml(x)}</li>`).join("")}</ul>` : ""}
+      ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${mdInlineToSafeHtml(c)}</div>`).join("")}</div>` : ""}
       ${cta}
     `;
   }
