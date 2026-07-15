@@ -22,6 +22,7 @@ import { weatherFamily } from "./weather";
 import { audienceFamily } from "./audience";
 import { salesDiscountFamily } from "./salesDiscount";
 import { salesDecompFamily } from "./salesDecomp";
+import { calendarFamily } from "./calendar";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -181,6 +182,25 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\b(depense|panier) par client\b/,
     ],
     run: salesDecompFamily,
+  },
+  // CALENDAR / "les vacances scolaires ou les fériés font-ils bouger mon CA ?".
+  // Built from scratch — no deep-page endpoint exists, so chat + report only; `renderCalendar` does not
+  // exist yet and the client skips a missing render (the facts carry the answer). Registered near the
+  // end: `events` owns the nearby-landscape questions and `tourism` the vacation-VISITOR framing —
+  // these matchers stay on the CALENDAR-vs-MY-CA framing, and never bare /vacances/ (which would steal
+  // "les touristes en vacances" from tourism).
+  calendar: {
+    key: "calendar",
+    title: "Calendrier · ce que fériés et vacances font à votre CA",
+    render: "renderCalendar",
+    match: [
+      /\b(vacances scolaires?|jours? ferie|feries?)\b.{0,40}(mon |ma |mes |votre )?(ca\b|chiffre|vente|affaire|business|frequentation)/,
+      /\b(mon |ma |mes )(ca|chiffre|vente|frequentation)\b.{0,30}\b(vacances scolaires?|jours? ferie|feries?)\b/,
+      /\b(impact|effet) (des |du |de la |)(vacances scolaires?|jours? feries?|feries?|calendrier)\b/,
+      /\bsensibilite (au |aux )?(calendrier|vacances|feries?)\b/,
+      /\b(pendant|durant) les (vacances|feries?)\b.{0,25}(vend|vente|ca\b|chiffre)/,
+    ],
+    run: calendarFamily,
   },
 };
 
