@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
+import { mdInlineToSafeHtml } from "../../../lib/ai/safeMarkdown";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { Resend } from "resend";
 
@@ -310,7 +311,7 @@ function buildAlertEmail(row: any, baseUrl: string, narrative: string): string {
   <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
     <div style="font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#0b37e5;margin-bottom:12px;">Alerte · ${esc(affectedDate)}</div>
     <div style="font-size:28px;font-weight:300;color:#111827;line-height:1.1;margin-bottom:24px;">${title}</div>
-    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)},<br><br>${narrative ? esc(narrative) : `Un signal important a été détecté sur votre date du ${esc(affectedDate)} — vérifiez l'impact sur votre événement.`}</div>
+    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)},<br><br>${narrative ? mdInlineToSafeHtml(narrative) : `Un signal important a été détecté sur votre date du ${esc(affectedDate)} — vérifiez l'impact sur votre événement.`}</div>
   </td></tr>
 
   <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">

@@ -25,6 +25,7 @@ import { Resend } from "resend";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
+import { mdInlineToSafeHtml } from "../../../lib/ai/safeMarkdown";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { modelFor } from "../../../lib/ai/models";
 import { isMaterialBriefing } from "../../../lib/ai/briefingGate";
@@ -331,14 +332,14 @@ function renderGroundedNarrative(g: any): string {
   }
   let h = "";
   // Lead: the synthesized takeaway (why today matters).
-  if (g.headline) h += `<p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#111827;line-height:1.5;">${esc(g.headline)}</p>`;
+  if (g.headline) h += `<p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#111827;line-height:1.5;">${mdInlineToSafeHtml(g.headline)}</p>`;
   // The 2-3 salient facts behind it.
-  if (g.answer) h += `<p style="margin:0 0 12px 0;">${esc(g.answer)}</p>`;
+  if (g.answer) h += `<p style="margin:0 0 12px 0;">${mdInlineToSafeHtml(g.answer)}</p>`;
   const kf = Array.isArray(g.key_facts) ? g.key_facts.filter(Boolean) : [];
   if (kf.length) {
     h += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 8px 0;">` +
       kf.slice(0, 3).map((f: string) =>
-        `<tr><td width="14" valign="top" style="color:#0b37e5;font-size:13px;line-height:1.7;">•</td><td style="font-size:13.5px;color:#374151;line-height:1.7;padding-bottom:3px;">${esc(f)}</td></tr>`
+        `<tr><td width="14" valign="top" style="color:#0b37e5;font-size:13px;line-height:1.7;">•</td><td style="font-size:13.5px;color:#374151;line-height:1.7;padding-bottom:3px;">${mdInlineToSafeHtml(f)}</td></tr>`
       ).join("") + `</table>`;
   }
   // The action: the REAL fired action card, highlighted (honest-absence — hidden when none fired).

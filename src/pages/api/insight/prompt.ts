@@ -10,6 +10,8 @@ import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
+import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -2121,6 +2123,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     
     if (clerk_user_id && !rateLimit(clerk_user_id, "prompt", 20, 60_000)) return rateLimitResponse();
 
+    // Phase 2.3 increment 2: capture a persistent identity correction from THIS turn (heuristic-gated
+    // Haiku extraction → append to the event log). Kicked off here in PARALLEL so it costs no wall-clock
+    // (it runs while routing/context load); awaited just before the business brief reads corrections,
+    // so a correction the user makes THIS turn is already persisted + reflected. Never throws.
+    const _captureP = captureCorrectionFromTurn(location_id, qRaw, conversation_history);
+
     // ----------------------------
     // THREAD CONTEXT (V1) — conversational routing inputs
     // Deterministic, truth-safe: only used when request is ambiguous.
@@ -3210,8 +3218,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // the ground truth (f10c3e58 sells coffee, though its crawl says "SaaS"); the crawl is the fallback
     // for venues with no sales data.
     const venueBrief = venueBusinessBrief(internal_context);
-    const measuredBrief = await measuredBusinessBrief(location_id);
-    const businessBrief = measuredBrief ?? venueBrief;
+    // Identity hierarchy (Phase 2.3): persistent user correction > measured sales > crawled > declared.
+    // Ensure a correction captured from THIS turn is persisted before we read it (it ran in parallel).
+    await _captureP.catch(() => {});
+    // Corrections + measured brief fetched in parallel (both hit BQ).
+    const [corrections, measuredBrief] = await Promise.all([
+      getActiveCorrections(location_id),
+      measuredBusinessBrief(location_id),
+    ]);
+    const correctionBrief = correctionsBrief(corrections);
+    const businessBrief = [correctionBrief, measuredBrief ?? venueBrief].filter(Boolean).join("\n");
 
     // ---- DECISION POLICY RULES (truth: semantic surface) ----
     // These are UI enum tokens (possible_value), stored in internal context.
@@ -3306,15 +3322,21 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string, "overlap": string, "difference": string }] }
 
 Règles :
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer. Pour chacun :
+  • "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ;
+  • "city" = sa ville ou son arrondissement (ex: « Paris 16e ») ;
+  • "overlap" = ce qui SE RECOUPE concrètement avec VOTRE activité mesurée (voir « Votre contexte ») — une clause courte, factuelle, sans conseil (ex: « même cœur d'offre : café de spécialité + pâtisseries, clientèle de proximité ») ;
+  • "difference" = ce qui vous DISTINGUE de lui, dans les deux sens (ex: « lui : positionnement premium, tea time à 42 € ; vous : pas de salon de thé »). Si tu ne sais pas, mets "" — n'invente pas une différence.
+  Tableau vide [] si tu ne cites aucun établissement. N'invente JAMAIS un nom : uniquement des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
 - CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
-- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse.
+- Le **gras** est autorisé, et bienvenu pour mettre en avant un nom de commerce ou un chiffre clé (il est rendu correctement). N'emploie NI #titres, NI tableaux, NI blocs de code.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
@@ -3903,15 +3925,21 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string, "overlap": string, "difference": string }] }
 
 Règles :
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer. Pour chacun :
+  • "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ;
+  • "city" = sa ville ou son arrondissement (ex: « Paris 16e ») ;
+  • "overlap" = ce qui SE RECOUPE concrètement avec VOTRE activité mesurée (voir « Votre contexte ») — une clause courte, factuelle, sans conseil (ex: « même cœur d'offre : café de spécialité + pâtisseries, clientèle de proximité ») ;
+  • "difference" = ce qui vous DISTINGUE de lui, dans les deux sens (ex: « lui : positionnement premium, tea time à 42 € ; vous : pas de salon de thé »). Si tu ne sais pas, mets "" — n'invente pas une différence.
+  Tableau vide [] si tu ne cites aucun établissement. N'invente JAMAIS un nom : uniquement des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
 - CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après vos ventes mesurées » quand le contexte indique une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation — distance approximative si connue) avec une phrase sur sa pertinence. N'invente JAMAIS un commerce, une adresse ni une distance.
-- N'emploie AUCUN markdown (ni **gras**, ni #titres) — texte brut uniquement.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse.
+- Le **gras** est autorisé, et bienvenu pour mettre en avant un nom de commerce ou un chiffre clé (il est rendu correctement). N'emploie NI #titres, NI tableaux, NI blocs de code.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
 - TON : adresse-toi à l'opérateur en le vouvoyant — emploie « votre activité », « votre site », « vous ». N'utilise JAMAIS « le client », « du client », « l'opérateur » ni « l'utilisateur » dans answer.
@@ -3925,6 +3953,9 @@ Règles :
             let entityFound = false;
             let entityDiscovery = false;
             let entityAnswer = "";
+            // The named competitors behind the prose — each becomes a "Suivre" action client-side, so the
+            // operator can put a discovered competitor under surveillance without retyping it.
+            let entityCompetitors: Array<{ name: string; city: string; overlap: string; difference: string }> = [];
             try {
               const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
               const parsed = JSON.parse(fenced);
@@ -3933,6 +3964,28 @@ Règles :
               entityAnswer = typeof parsed?.answer === "string"
                 ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
                 : "";
+              if (Array.isArray(parsed?.competitors)) {
+                const seen = new Set<string>();
+                const clean = (v: any, n: number) =>
+                  String(v ?? "").replace(/<\/?cite[^>]*>/gi, "").replace(/\*\*/g, "").trim().slice(0, n);
+                // The model ignores "city only" and appends the address ("Paris 16e — 112 av. Victor-Hugo").
+                // Keep the locality head: cut at a SPACED dash or a comma (so "Neuilly-sur-Seine" survives).
+                const cleanCity = (v: any) => clean(v, 120).split(/\s[—–-]\s|,/)[0].trim().slice(0, 60);
+                entityCompetitors = parsed.competitors
+                  .map((c: any) => ({
+                    name: clean(c?.name, 120),
+                    city: cleanCity(c?.city),
+                    overlap: clean(c?.overlap, 240),
+                    difference: clean(c?.difference, 240),
+                  }))
+                  .filter((c: { name: string }) => {
+                    const k = c.name.toLowerCase();
+                    if (!c.name || c.name.length < 2 || seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                  })
+                  .slice(0, 6);
+              }
             } catch {
               entityFound = false;
             }
@@ -3948,9 +4001,50 @@ Règles :
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
 
+            // Enrich each named competitor with REAL signals so the operator can judge WHO to watch first
+            // instead of taking the model's word: Google Places gives its true location (→ distance from
+            // YOUR venue, computed — not an LLM guess) and its GBP rating + review count (how established
+            // it is). Runs in parallel, and every field degrades to null (no key / no quota / no match) —
+            // the answer renders regardless. Closest first: proximity is the most direct competitive signal.
+            const vLat = Number(internal_context?.latitude);
+            const vLon = Number(internal_context?.longitude);
+            // Places text-search returns its TOP match, which may be a DIFFERENT business with a similar
+            // name — attaching a stranger's rating/distance to a competitor would be a lie wearing real
+            // data. So the match must corroborate the name (either side contains the other, accent- and
+            // punctuation-insensitive: "Manie Café" vs "Manie Café - Est. 1938" passes, "Starbucks"
+            // doesn't). No corroboration → no enrichment, rather than wrong enrichment.
+            const normName = (s: string) =>
+              String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+                .replace(/[^a-z0-9]+/g, " ").trim();
+            const enrichedCompetitors = entityRelevant && entityCompetitors.length
+              ? await Promise.all(entityCompetitors.map(async (c) => {
+                  const place = await lookupPlace(`${c.name} ${c.city}`.trim()).catch(() => null);
+                  const a = normName(place?.display_name ?? "");
+                  const b = normName(c.name);
+                  const corroborated = !!place && !!a && !!b && (a.includes(b) || b.includes(a));
+                  const distance_m = corroborated ? distanceMeters(vLat, vLon, place!.lat, place!.lon) : null;
+                  if (place && !corroborated) {
+                    console.warn(`[discovery] Places match rejected: "${c.name}" -> "${place.display_name}"`);
+                  }
+                  return {
+                    ...c,
+                    distance_m,
+                    rating: corroborated ? (place!.rating ?? null) : null,
+                    rating_count: corroborated ? (place!.rating_count ?? null) : null,
+                  };
+                }))
+              : [];
+            // Rank by proximity (closest = most direct); unknown distance sinks to the bottom.
+            enrichedCompetitors.sort((a, b) =>
+              (a.distance_m ?? Number.POSITIVE_INFINITY) - (b.distance_m ?? Number.POSITIVE_INFINITY));
+
             return new Response(JSON.stringify({
               ok: true,
               meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
+              // Named competitors behind the answer → one "Suivre" action each, with the overlap /
+              // difference / proximity / GBP signals needed to prioritise. Only when the answer is
+              // actually surfaced: never offer to follow a competitor we didn't state.
+              follow_candidates: enrichedCompetitors,
               ai: {
                 headline: entityHeadline,
                 verdict: "",
@@ -4662,7 +4756,7 @@ Retourne UNIQUEMENT du JSON valide, sans markdown : { "found": boolean, "answer"
 Règles :
 - found = true UNIQUEMENT si tu identifies un ou plusieurs événements réels avec une source (nom, date, lieu). Sinon found = false et answer = "".
 - answer (si found) : liste les événements (nom — date — lieu, distance approximative si connue), une ou deux phrases par événement, séparés par un double saut de ligne. N'invente JAMAIS un événement, une date ni un lieu.
-- N'emploie AUCUN markdown (ni **gras**, ni #titres, ni listes à puces) — texte brut uniquement.
+- Le **gras** est autorisé pour mettre en avant un nom (il est rendu). N'emploie NI #titres, NI tableaux, NI listes à puces — le format d'une ligne par élément ci-dessus est analysé par l'affichage.
 - Phrases complètes uniquement. Maximum 150 mots.`;
           const { usedWebSearch: lookupUsedWeb, text: lookupWebRaw } = await runWebSearch(webLookupSys, qRaw, conversation_history);
           let lookupWebFound = false;

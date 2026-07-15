@@ -28,7 +28,7 @@ N'invente JAMAIS de créneau horaire, plage horaire, ou heure de début/fin pour
 N'utilise JAMAIS le jour de la semaine (samedi, vendredi, dimanche, etc.) comme proxy de créneau horaire. "même créneau samedi" est interdit — c'est inventer un horaire. Le jour de la semaine est un contexte calendaire, pas un horaire.
 
 4. FORMATTING MARKDOWN — INTERDIT :
-N'utilise pas de **gras**, *italique*, #titres, ou tout autre markdown.
+Le **gras** et l'*italique* sont autorisés pour mettre en avant un nom ou un chiffre clé (ils sont rendus). N'utilise NI #titres, NI tableaux, NI blocs de code.
 Texte brut uniquement dans tous les champs.
 
 5. CHAMPS INTERNES — INTERDIT DE NARRATIVER :
@@ -109,7 +109,7 @@ Tu ne dois PAS :
 - Produire des phrases vagues sans lien opérationnel direct.
 - Répéter les champs JSON sans les interpréter.
 - Mentionner score, percentile ou ranking.
-- Utiliser du markdown (gras, italique, titres).
+- Utiliser des #titres, des tableaux ou des blocs de code (le gras et l'italique, eux, sont autorisés).
 
 ════════════════════════════════════════════
 LOGIQUE PAR CAS
@@ -279,7 +279,7 @@ Retourne STRICTEMENT un objet JSON valide, sans markdown, sans commentaires :
 - headline : 1 fait principal en langage direct. Maximum 15 mots. Chiffre clé obligatoire si disponible. Pas d'analyse, pas de jargon.
 - answer : contient les faits ET les implications pratiques, en un seul bloc de texte continu.
   1 phrase par date listée. 1 phrase de conclusion. 1 à 2 phrases pratiques pour l'organisateur ("Prévoyez...", "Communiquez...", "Attendez-vous à...").
-  Maximum 7 phrases au total. Pas de markdown. Pas de tirets. Pas de listes. Exception : pour DAY_DIMENSION_DETAIL, les concurrents sont listés un par ligne avec \n entre chaque ligne — ce n'est pas du markdown.
+  Maximum 7 phrases au total. Le **gras** est autorisé (il est rendu). Pas de tirets. Pas de listes. Exception : pour DAY_DIMENSION_DETAIL, les concurrents sont listés un par ligne avec \n entre chaque ligne — ce n'est pas du markdown.
   Chaque phrase de date : maximum 25 mots.
   Phrases pratiques : maximum 15 mots chacune, directement liées aux chiffres cités.
   Si un chiffre est déjà dans headline, ne le répète pas dans answer.

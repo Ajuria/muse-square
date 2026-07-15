@@ -284,6 +284,17 @@
       "created_at",
       "updated_at"
     ],
+    "analytics.consulter_correction_events": [
+      "event_id",
+      "event_action",
+      "location_id",
+      "correction_type",
+      "correction_text",
+      "prior_value",
+      "raw_turn",
+      "source",
+      "created_at"
+    ],
     "analytics.context_enrichment": [
       "enrichment_id",
       "location_id",

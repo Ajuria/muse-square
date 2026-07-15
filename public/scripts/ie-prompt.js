@@ -320,6 +320,123 @@ if (!root) {
       .replaceAll("'", "&#039;");
   }
 
+  // ----------------------------
+  // SAFE MARKDOWN RENDERER (Phase 3)
+  // The model formats despite the prompts telling it not to (**gras**, "- " lists). Rendering that as
+  // literal asterisks is the formatting inconsistency; so we render a WHITELIST instead of fighting it.
+  //
+  // SAFETY MODEL — the ORDERING is the entire guarantee:
+  //   1. escapeHtml() FIRST  → every byte the model emitted becomes inert text (any <script>, <img
+  //      onerror>, quote or bracket is already neutralized)
+  //   2. re-introduce ONLY whitelisted tags on the already-escaped string
+  // NEVER the reverse. No raw HTML passthrough, no sanitizer dependency (CDN-free rule).
+  //
+  // Whitelist: **gras** → <strong>, *italique* → <em>.
+  // Deliberately OUT: links (nothing validates a model-emitted URL — a clickable hallucinated source is
+  // worse than an ugly one), #titres, tables, code, images. Anything off-list stays plain text.
+  //
+  // INLINE-ONLY on purpose: every render branch below already does its own block layout (it splits the
+  // prose on \n\n and wraps each part in .ie-why-intro / .ie-ai-p / .ie-competitor-row …). Emitting <p>
+  // here would double-wrap and restyle branches that work today. Blocks stay the caller's job.
+  // ----------------------------
+  function mdInline(t) {
+    return t
+      .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")        // **gras** — before *italique*
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");   // *italique*
+  }
+
+  // The one call sites use: escape FIRST (inert), then re-introduce ONLY the whitelist.
+  // Drop-in for escapeHtml() on any model-authored prose.
+  function mdInlineToSafeHtml(text) {
+    return mdInline(escapeHtml(text));
+  }
+
+  // ----------------------------
+  // "SUIVRE" on a discovered competitor.
+  // The discovery answer names real competitors (out.follow_candidates); each gets a one-click follow so
+  // the operator puts it under surveillance without retyping it. Same endpoint + body + visual states as
+  // the existing web-results follow (ieWebFollow in prompt.astro): #1D3BB3 text button → "Suivi" #0F6E56.
+  // Not reusing that function directly — it is bound to prompt.astro's ie-web-card DOM.
+  // ----------------------------
+  // French thousands ("1 487 avis"). Defined LOCALLY on purpose: card-kit.js exposes an frInt, but
+  // ie-prompt.js must not depend on that script being loaded to render an answer.
+  function frInt(n) {
+    try { return Number(n).toLocaleString("fr-FR"); } catch (e) { return String(n); }
+  }
+
+  // Distance in the operator's terms: "à 450 m" / "à 1,2 km" (French decimal, never a raw toString).
+  function followDist(m) {
+    if (typeof m !== "number" || !isFinite(m)) return "";
+    return m < 1000 ? ("à " + Math.round(m) + " m") : ("à " + String(Math.round(m / 100) / 10).replace(".", ",") + " km");
+  }
+  // GBP signal: a rating means little without the count behind it, so they always travel together.
+  function followRating(c) {
+    if (typeof c.rating !== "number" || !isFinite(c.rating)) return "";
+    const stars = String(Math.round(c.rating * 10) / 10).replace(".", ",");
+    const n = (typeof c.rating_count === "number" && isFinite(c.rating_count)) ? c.rating_count : null;
+    return "★ " + stars + (n !== null ? " (" + frInt(n) + " avis)" : "");
+  }
+
+  function followRowsHtml(candidates) {
+    if (!Array.isArray(candidates) || !candidates.length) return "";
+    const rows = candidates.map(function (c, i) {
+      const name = String(c && c.name || "").trim();
+      if (!name) return "";
+      const city = String(c && c.city || "").trim();
+      // Priority signals: real distance (computed from Places coords) + real GBP standing.
+      const meta = [followDist(c.distance_m), followRating(c), city].filter(Boolean).join(" · ");
+      const overlap = String(c && c.overlap || "").trim();
+      const difference = String(c && c.difference || "").trim();
+      return '<div class="ie-follow-row" id="ie-follow-row-' + i + '">'
+        + '<div class="ie-follow-main">'
+        // Literal spaces after each label/name: the visual gaps are CSS (flex gap / margin), which
+        // disappear when the answer is copied out — "Manie Caféà 2 km", "Recoupecafé…". Cheap to fix.
+        +   '<div class="ie-follow-top">'
+        +     '<span class="ie-follow-name">' + escapeHtml(name) + '</span> '
+        +     (meta ? '<span class="ie-follow-meta">' + escapeHtml(meta) + '</span>' : "")
+        +   '</div>'
+        +   (overlap ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-ov">Recoupe</span> ' + mdInlineToSafeHtml(overlap) + '</div>' : "")
+        +   (difference ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-df">Diffère</span> ' + mdInlineToSafeHtml(difference) + '</div>' : "")
+        + '</div>'
+        + '<span class="ie-follow-action" id="ie-follow-action-' + i + '">'
+        +   '<button type="button" class="ie-follow-btn" data-follow-idx="' + i + '"'
+        +     ' data-follow-name="' + escapeHtml(name) + '" data-follow-city="' + escapeHtml(city) + '">Suivre</button>'
+        + '</span>'
+        + '</div>';
+    }).filter(Boolean).join("");
+    if (!rows) return "";
+    // Ordered closest-first by the server — say so, so the order reads as a judgement, not a list.
+    return '<div class="ie-follow-block">'
+      + '<div class="ie-follow-h">Mettre sous surveillance <span class="ie-follow-hint">· le plus proche d\'abord</span></div>'
+      + rows + '</div>';
+  }
+
+  document.addEventListener("click", async function (e) {
+    const btn = (e.target && e.target.closest) ? e.target.closest("[data-follow-idx]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    const idx = btn.getAttribute("data-follow-idx");
+    const name = btn.getAttribute("data-follow-name") || "";
+    const city = btn.getAttribute("data-follow-city") || "";
+    if (!name) return;
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      const res = await fetch("/api/competitive/add-competitor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ competitor_name: name, city: city, source_system: "user_confirmed" }),
+      });
+      const j = await res.json();
+      if (!j || j.ok !== true) throw new Error(j && j.error || "follow failed");
+      const area = document.getElementById("ie-follow-action-" + idx);
+      if (area) area.innerHTML = '<span class="ie-follow-done">Suivi</span>';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Suivre";
+    }
+  });
+
   function renderConfirmationHtml(out) {
     const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
     const params = out.params || {};
@@ -354,7 +471,7 @@ if (!root) {
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
       const fc = out.family_card;
       const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé")
-        ? `<div class="ie-why-headline">${escapeHtml(n.headline.trim())}</div>` : "";
+        ? `<div class="ie-why-headline">${mdInlineToSafeHtml(n.headline.trim())}</div>` : "";
       // renderX expects the endpoint shape { ok, found, ... }; provider data has `found` but not `ok`.
       const card = window.MSCardKit[fc.render](Object.assign({ ok: true }, fc.data));
       return `${lead}<div class="ie-family-card">${card}</div>`;
@@ -419,12 +536,12 @@ if (!root) {
         const dateStr = colonIdx > -1 ? raw.slice(0, colonIdx) : "";
         const eventName = colonIdx > -1 ? raw.slice(colonIdx + 2) : raw;
         return `<div class="ie-lookup-item">
-          <div class="ie-lookup-name">${escapeHtml(eventName)}</div>
+          <div class="ie-lookup-name">${mdInlineToSafeHtml(eventName)}</div>
           ${dateStr ? `<div class="ie-lookup-date">${escapeHtml(dateStr)}</div>` : ""}
-          ${desc ? `<div class="ie-lookup-desc">${escapeHtml(desc)}</div>` : ""}
+          ${desc ? `<div class="ie-lookup-desc">${mdInlineToSafeHtml(desc)}</div>` : ""}
         </div>`;
       });
-      const hdl = headline && headline !== "Résumé" ? `<div class="ie-lookup-headline">${escapeHtml(headline)}</div>` : "";
+      const hdl = headline && headline !== "Résumé" ? `<div class="ie-lookup-headline">${mdInlineToSafeHtml(headline)}</div>` : "";
       return `${hdl}${items.join("")}`;
     }
 
@@ -450,14 +567,14 @@ if (!root) {
       }
 
       const competitorRows = competitorLines
-        .map(line => `<div class="ie-competitor-row">${escapeHtml(line.trim())}</div>`)
+        .map(line => `<div class="ie-competitor-row">${mdInlineToSafeHtml(line.trim())}</div>`)
         .join("");
 
       return `
-        <div class="ie-why-headline">${escapeHtml(headline)}</div>
+        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
         ${competitorRows ? `<div class="ie-competitor-list">${competitorRows}</div>` : ""}
-        ${analysisPart ? `<div class="ie-competitor-analysis">${escapeHtml(analysisPart)}</div>` : ""}
-        ${recommendationPart ? `<div class="ie-competitor-recommendation">${escapeHtml(recommendationPart)}</div>` : ""}
+        ${analysisPart ? `<div class="ie-competitor-analysis">${mdInlineToSafeHtml(analysisPart)}</div>` : ""}
+        ${recommendationPart ? `<div class="ie-competitor-recommendation">${mdInlineToSafeHtml(recommendationPart)}</div>` : ""}
         ${cta}
       `;
     }
@@ -470,10 +587,10 @@ if (!root) {
       const intro = prose[0] ?? "";
       const rows = prose.slice(1);
       return `
-        <div class="ie-why-headline">${escapeHtml(headline)}</div>
+        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
         ${chiffreCle ? `<div class="${pillClass}">${escapeHtml(chiffreCle)}</div>` : ""}
-        ${intro ? `<div class="ie-why-intro">${escapeHtml(intro)}</div>` : ""}
-        ${rows.map(r => `<div class="ie-why-row">${escapeHtml(r).replace(/^(Disponibilité (de votre )?audience\s*:)/, '<strong>$1</strong>').replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>').replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>').replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>`).join("")}
+        ${intro ? `<div class="ie-why-intro">${mdInlineToSafeHtml(intro)}</div>` : ""}
+        ${rows.map(r => `<div class="ie-why-row">${mdInlineToSafeHtml(r).replace(/^(Disponibilité (de votre )?audience\s*:)/, '<strong>$1</strong>').replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>').replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>').replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>`).join("")}
         ${cta}
       `;
     }
@@ -488,8 +605,8 @@ if (!root) {
       const pillClass = isWorstDays ? "ie-pill-amber" : "ie-pill-blue";
       const verdictClass = isWorstDays ? "ie-verdict-amber" : "ie-verdict-blue";
 
-      const verdictHtml = verdict ? `<div class="ie-verdict-plain">${escapeHtml(verdict)}</div>` : "";
-      const headlineHtml = headline ? `<div class="ie-section-h">${escapeHtml(headline)}</div>` : "";
+      const verdictHtml = verdict ? `<div class="ie-verdict-plain">${mdInlineToSafeHtml(verdict)}</div>` : "";
+      const headlineHtml = headline ? `<div class="ie-section-h">${mdInlineToSafeHtml(headline)}</div>` : "";
 
       let cardsHtml = "";
 
@@ -506,10 +623,10 @@ if (!root) {
           return `
             <div class="${cc}">
               <div class="ie-card-label">${escapeHtml(rankPrefix + (d.label ?? d.date ?? ""))}</div>
-              ${d.c2 ? `<div class="${pc}">${escapeHtml(d.c2.replace(/^Pression concurrentielle\s*:\s*/, ""))}</div>` : ""}
-              ${d.c1 ? `<div class="ie-card-row"><strong>Disponibilité audience :</strong> ${escapeHtml(d.c1.replace(/^Disponibilité audience\s*:\s*/, ""))}</div>` : ""}
-              ${d.c3 ? `<div class="ie-card-row"><strong>Accessibilité :</strong> ${escapeHtml(d.c3.replace(/^Accessibilité du site\s*:\s*/, ""))}</div>` : ""}
-              ${d.c4 ? `<div class="ie-card-row"><strong>Conditions :</strong> ${escapeHtml(d.c4.replace(/^Conditions d'exploitation\s*:\s*/, ""))}</div>` : ""}
+              ${d.c2 ? `<div class="${pc}">${mdInlineToSafeHtml(d.c2.replace(/^Pression concurrentielle\s*:\s*/, ""))}</div>` : ""}
+              ${d.c1 ? `<div class="ie-card-row"><strong>Disponibilité audience :</strong> ${mdInlineToSafeHtml(d.c1.replace(/^Disponibilité audience\s*:\s*/, ""))}</div>` : ""}
+              ${d.c3 ? `<div class="ie-card-row"><strong>Accessibilité :</strong> ${mdInlineToSafeHtml(d.c3.replace(/^Accessibilité du site\s*:\s*/, ""))}</div>` : ""}
+              ${d.c4 ? `<div class="ie-card-row"><strong>Conditions :</strong> ${mdInlineToSafeHtml(d.c4.replace(/^Conditions d'exploitation\s*:\s*/, ""))}</div>` : ""}
             </div>`;
         }).join("");
       } else if (isV3) {
@@ -535,10 +652,11 @@ if (!root) {
 
     // ── FALLBACK (generic prose) ─────────────────────────────────
     return `
-      ${headline ? `<div class="ie-ai-h">${escapeHtml(headline)}</div>` : ""}
-      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${escapeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
-      ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : ""}
-      ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${escapeHtml(c)}</div>`).join("")}</div>` : ""}
+      ${headline ? `<div class="ie-ai-h">${mdInlineToSafeHtml(headline)}</div>` : ""}
+      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${mdInlineToSafeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
+      ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${mdInlineToSafeHtml(x)}</li>`).join("")}</ul>` : ""}
+      ${followRowsHtml(out && out.follow_candidates)}
+      ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${mdInlineToSafeHtml(c)}</div>`).join("")}</div>` : ""}
       ${cta}
     `;
   }
@@ -689,6 +807,9 @@ if (!root) {
       if (assistantText) {
         CONVERSATION_HISTORY.push({ role: "assistant", content: assistantText });
       }
+
+      // A correction may have been captured from this turn (Phase 2.3) — reflect it in the panel.
+      refreshMemoryPanel();
 
       if (out?.ai && out.ai.ok === false && !out?.ai?.output) {
         const errText =
@@ -1204,4 +1325,53 @@ if (!root) {
         if (attachedFile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); beginImport(); }
       }, true);
     })();
+
+  // ----------------------------
+  // PERSISTENT MEMORY PANEL (Phase 2.3) — "what I retain about you".
+  // Lists the venue's ACTIVE identity corrections and lets the owner forget one (appends a `clear`
+  // event server-side; never a delete). Non-critical: any failure leaves the panel hidden silently.
+  // ----------------------------
+  const MEMORY_LABELS = {
+    activity: "Activité",
+    zone: "Zone",
+    nouveau_meaning: "« Nouveau » signifie",
+    other: "Précision",
+  };
+
+  async function refreshMemoryPanel() {
+    const panel = document.getElementById("ie-memory");
+    const items = document.getElementById("ie-memory-items");
+    if (!panel || !items || !LOCATION_ID) return;
+    try {
+      const res = await fetch("/api/insight/corrections?location_id=" + encodeURIComponent(LOCATION_ID));
+      const j = await res.json();
+      const list = (j && j.ok && Array.isArray(j.corrections)) ? j.corrections : [];
+      if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
+      items.innerHTML = list.map(function (c) {
+        const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
+        return '<div class="ie-memory-item">'
+          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(c.correction_text) + '</span>'
+          + '<button type="button" class="ie-memory-clear" data-mem-clear="' + escapeHtml(c.correction_type) + '">Oublier</button>'
+          + '</div>';
+      }).join("");
+      panel.hidden = false;
+    } catch (e) { /* memory panel is never critical */ }
+  }
+
+  document.addEventListener("click", async function (e) {
+    const btn = (e.target && e.target.closest) ? e.target.closest("[data-mem-clear]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    btn.disabled = true;
+    try {
+      await fetch("/api/insight/corrections", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ location_id: LOCATION_ID, correction_type: btn.getAttribute("data-mem-clear") }),
+      });
+    } catch (e2) { /* fall through to refresh */ }
+    await refreshMemoryPanel();
+  });
+
+  refreshMemoryPanel();
   }

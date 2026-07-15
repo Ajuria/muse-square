@@ -6,6 +6,7 @@ import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
+import { lookupPlace } from "../../../lib/competitive/places";
 import { VALID_INDUSTRY, BUCKET_MAP } from "../../../lib/competitive/constants";
 
 export const prerender = false;
@@ -78,39 +79,13 @@ All scalar values must be strings or null. offering_items must always be an arra
   }
 }
 
-const PLACES_API_BASE = "https://places.googleapis.com/v1/places";
-
+// Thin wrapper over the shared Places lookup (lib/competitive/places.ts) — one Places code path for
+// every competitive surface. Kept as a named function so the call sites below read unchanged.
 async function resolveCoordinatesViaPlaces(
   query: string
 ): Promise<{ lat: number; lon: number; google_place_id: string } | null> {
-  const apiKey = (process.env.GOOGLE_PLACES_API_KEY || "").trim();
-  if (!apiKey || !query.trim()) return null;
-  try {
-    const res = await fetch(`${PLACES_API_BASE}:searchText`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.location,places.displayName",
-      },
-      body: JSON.stringify({ textQuery: query, languageCode: "fr", maxResultCount: 1 }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) {
-      console.error(`[add-competitor] Places searchText error: ${res.status} ${res.statusText}`);
-      return null;
-    }
-    const data: any = await res.json();
-    const p = data?.places?.[0];
-    const lat = Number(p?.location?.latitude);
-    const lon = Number(p?.location?.longitude);
-    const pid = String(p?.id || "").trim();
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !pid) return null;
-    return { lat, lon, google_place_id: pid };
-  } catch (err: any) {
-    console.error("[add-competitor] Places searchText failed:", err?.message);
-    return null;
-  }
+  const p = await lookupPlace(query);
+  return p ? { lat: p.lat, lon: p.lon, google_place_id: p.place_id } : null;
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
