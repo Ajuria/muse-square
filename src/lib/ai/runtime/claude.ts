@@ -1,4 +1,4 @@
-import { modelFor } from "../models";
+import { modelFor, capsFor } from "../models";
 
 console.log("[env] ANTHROPIC_API_KEY present:", Boolean(process.env.ANTHROPIC_API_KEY));
 
@@ -33,21 +33,30 @@ export async function callClaudeMessagesAPI(args: {
   // large, stable per-mode packager instruction — caching it makes repeat day-horizon calls cheaper/faster.
   // Default true; only the stable system is cached (variable payload + history stay uncached).
   cacheSystem?: boolean;
-}): Promise<{ ok: boolean; rawText: string; errors: string[]; usage: ClaudeCallUsage | null }> {
+  // JSON Schema constraining the reply (Anthropic structured outputs -> output_config.format). When the
+  // model supports it the shape stops being a hope the prompt expresses and a parser reconstructs: the API
+  // emits schema-valid JSON with no markdown fence and no prose. Ignored on models without the capability,
+  // so a caller can always pass it and the transport decides. Proven to coexist with prompt caching
+  // (cache_creation 1920 -> cache_read 1920 on a real packager system prompt).
+  outputSchema?: Record<string, any>;
+  // `structured` reports whether output_config.format was ACTUALLY applied (schema supplied AND the model
+  // supports it) — callers use it to decide whether the reply is guaranteed schema-valid JSON or still
+  // needs the legacy fence-strip/repair path. Never infer this from `outputSchema` alone at a call site:
+  // the transport, not the caller, resolves the model and therefore the capability.
+}): Promise<{ ok: boolean; rawText: string; errors: string[]; usage: ClaudeCallUsage | null; structured: boolean }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { ok: false, rawText: "", errors: ["Missing ANTHROPIC_API_KEY."], usage: null };
+    return { ok: false, rawText: "", errors: ["Missing ANTHROPIC_API_KEY."], usage: null, structured: false };
   }
 
   const model = args.model ?? modelFor("packager");
+  const caps = capsFor(model);
   const max_tokens = args.maxTokens ?? Number(process.env.AI_MAX_TOKENS ?? 3000);
-  const temperature = args.temperature ?? 0;
   const cacheSystem = args.cacheSystem !== false;
 
-  const body = {
+  const body: Record<string, any> = {
     model,
     max_tokens,
-    temperature,
     // Cache-controlled system block (stable prefix) when enabled; plain string otherwise.
     system: cacheSystem
       ? [{ type: "text", text: args.system.trim(), cache_control: { type: "ephemeral" } }]
@@ -70,6 +79,27 @@ export async function callClaudeMessagesAPI(args: {
     ],
   };
 
+  // ── Per-model request surface (see capsFor in ../models — every branch API-proven) ──────────────────
+  // Sampling: Sonnet 5 REMOVED temperature/top_p/top_k and 400s on any of them ("`temperature` is
+  // deprecated for this model"). Callers keep passing `temperature: 0` — that stays correct for the Haiku
+  // roles (classifier/briefing/corrections) and is dropped here for models that reject it, so no call site
+  // has to know which model it got. NOTE: on Sonnet 5 the packager therefore runs at the API default
+  // temperature; determinism is no longer purchasable via the parameter, only via the prompt + validator.
+  if (caps.sampling) body.temperature = args.temperature ?? 0;
+
+  // Thinking: on Sonnet 5, OMITTING `thinking` silently turns ADAPTIVE thinking on — measured 134 thinking
+  // tokens of a 278-token reply, i.e. ~half the output budget diverted before a single word of the answer.
+  // The packager runs on a tight max_tokens against a hard validator, so a truncated reply is a rejected
+  // reply. Disable explicitly to keep the pre-Sonnet-5 behaviour; enabling it is a separate, measured call.
+  if (caps.thinkingDefaultsOn) body.thinking = { type: "disabled" };
+
+  // Structured outputs: the canonical spelling is `output_config.format`. The top-level `output_format`
+  // is REJECTED (400: "This field is deprecated. Use 'output_config.format' instead") — do not "simplify".
+  const structured = Boolean(args.outputSchema) && caps.structuredOutputs;
+  if (structured) {
+    body.output_config = { format: { type: "json_schema", schema: args.outputSchema } };
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 30_000);
 
@@ -87,12 +117,14 @@ export async function callClaudeMessagesAPI(args: {
 
     const text = await r.text();
     if (r.status >= 400) {
-      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 3000)}`], usage: null };
+      return { ok: false, rawText: "", errors: [`Claude API error ${r.status}: ${text.slice(0, 3000)}`], usage: null, structured };
     }
 
     const data = JSON.parse(text) as ClaudeResponse;
     const blocks = data.content ?? [];
     const texts: string[] = [];
+    // `thinking` blocks are skipped by the type check below — on a thinking-capable model the answer is
+    // still only the text blocks.
     for (const b of blocks) if (b && b.type === "text" && typeof b.text === "string") texts.push(b.text);
 
     const u = data.usage ?? {};
@@ -102,11 +134,11 @@ export async function callClaudeMessagesAPI(args: {
       cache_read: u.cache_read_input_tokens ?? null,
       cache_creation: u.cache_creation_input_tokens ?? null,
     };
-    console.log(`[claude] usage input=${usage.input} output=${usage.output} cache_read=${usage.cache_read} cache_creation=${usage.cache_creation}`);
+    console.log(`[claude] model=${model} structured=${structured} usage input=${usage.input} output=${usage.output} cache_read=${usage.cache_read} cache_creation=${usage.cache_creation}`);
 
-    return { ok: true, rawText: texts.join("\n").trim(), errors: [], usage };
+    return { ok: true, rawText: texts.join("\n").trim(), errors: [], usage, structured };
   } catch (e: any) {
-    return { ok: false, rawText: "", errors: [`Claude call failed: ${e?.message ?? String(e)}`], usage: null };
+    return { ok: false, rawText: "", errors: [`Claude call failed: ${e?.message ?? String(e)}`], usage: null, structured };
   } finally {
     clearTimeout(timeout);
   }
