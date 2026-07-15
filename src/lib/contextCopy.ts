@@ -91,6 +91,21 @@ export function formatWeatherAlert(p: {
   return bits.length ? `${head} — ${bits.join(', ')}` : head;
 }
 
+// Email-subject vocabulary for COMPETITOR alerts (cron/alerts.ts). The alert's change_subtype is what
+// makes it worth opening — "Concurrent détecté" fires for both cases and says which one it is for
+// neither. Terse noun-phrases, the house register, mirroring CONTEXT_FALLBACK_FR.concurrence_competitor
+// ("Concurrent à {distance} · {nom}"). Owner delegated these two strings explicitly on 2026-07-15
+// ("deal with it") — every other string in this file is owner-authored; these two are not, so they are
+// the first to re-word if the voice is off.
+// Keyed on change_subtype where change_category = 'competition' (the only category that exists today:
+// proximity 19 rows, audience_overlap 4). Unknown subtype → null, caller keeps its own fallback.
+export const ALERT_SUBTYPE_FR: Record<string, string> = {
+  proximity: "Concurrent à proximité",
+  audience_overlap: "Concurrent sur votre public",
+};
+export const frAlertSubtype = (v?: string | null): string | null =>
+  v ? (ALERT_SUBTYPE_FR[String(v).trim()] ?? null) : null;
+
 // English→French country names for the foreign-origins fact (the mart carries only country_name_en /
 // country_iso_code — no French). Keyed on the TOURIST_COUNTRIES whitelist in dayContext.ts. OWNER-FINAL:
 // factual names, confirm wording (e.g. "Royaume-Uni" vs "Grande-Bretagne"). Unknown → English passthrough.

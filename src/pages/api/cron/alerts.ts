@@ -4,6 +4,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
 import { mdInlineToSafeHtml } from "../../../lib/ai/safeMarkdown";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
+import { frAlertSubtype } from "../../../lib/contextCopy";
 import { Resend } from "resend";
 
 export const prerender = false;
@@ -150,7 +151,10 @@ export const GET: APIRoute = async ({ request }) => {
           from: "Insight <insight@musesquare.com>",
           replyTo: "contact@musesquare.com",
           to: row.email,
-          subject: `Alerte niveau ${row.alert_level} — ${row.title}`,
+          // "niveau 3" tells the reader nothing he can act on. raw.alerts is empty today and carries
+          // no subtype vocabulary to name the alert with, so drop the number rather than print it;
+          // if this path is ever revived, name the alert here the way the competitor loop does.
+          subject: `Alerte — ${row.title}`,
           html: buildAlertEmail(row, baseUrl, narrative),
         });
         sent++;
@@ -168,7 +172,9 @@ export const GET: APIRoute = async ({ request }) => {
           from: "Insight <insight@musesquare.com>",
           replyTo: "contact@musesquare.com",
           to: row.email,
-          subject: `Concurrent détecté — ${row.event_label ?? "alerte concurrence"}`,
+          // Name WHY it fired: "Concurrent détecté" is true for both subtypes and useful for neither.
+          // Unknown subtype keeps the previous wording rather than inventing one.
+          subject: `${frAlertSubtype(row.change_subtype) ?? "Concurrent détecté"} — ${row.event_label ?? "alerte concurrence"}`,
           html: buildAlertEmail(row, baseUrl, narrative),
         });
         sent++;
