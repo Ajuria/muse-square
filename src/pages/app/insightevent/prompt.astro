@@ -255,6 +255,13 @@ if (!location_id) {
 
         </section>
 
+        <!-- Phase 2.3: what the assistant persistently remembers about this venue (user corrections).
+             Hidden unless there's something to show. No silent memory — always viewable + clearable. -->
+        <div id="ie-memory" class="ie-memory" hidden>
+          <div class="ie-memory-label">Ce que je retiens de vous</div>
+          <div id="ie-memory-items"></div>
+        </div>
+
         <section id="ie-thread" aria-live="polite" hidden>
           <!-- AI output render target -->
           <div id="ai_output_mount"></div>
@@ -571,6 +578,45 @@ if (!location_id) {
         line-height: 1.55;
         color: #6b7280;
       }
+
+      /* Persistent memory panel (Phase 2.3) — reuses the .ie-ai-caveats geometry with the brand-blue
+         accent (memory, not a caveat); link treatment matches .ie-inline-cta. */
+      .ie-memory {
+        margin: 0 0 16px;
+        padding: 10px 14px;
+        border-left: 3px solid var(--color-brand-blue);
+        background: #f9fafb;
+        border-radius: 0 8px 8px 0;
+      }
+      .ie-memory-label {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 6px;
+      }
+      .ie-memory-item {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #374151;
+      }
+      .ie-memory-item + .ie-memory-item { margin-top: 4px; }
+      .ie-memory-clear {
+        border: none;
+        background: transparent;
+        padding: 0;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-brand-blue);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .ie-memory-clear:hover { text-decoration: underline; }
 
       /* CTA link */
       .ie-inline-cta {
@@ -1967,7 +2013,7 @@ if (!location_id) {
 
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=28"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=9" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=10" defer></script>
 
   </BaseLayout>
 </Show>

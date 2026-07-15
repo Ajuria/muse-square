@@ -690,6 +690,9 @@ if (!root) {
         CONVERSATION_HISTORY.push({ role: "assistant", content: assistantText });
       }
 
+      // A correction may have been captured from this turn (Phase 2.3) — reflect it in the panel.
+      refreshMemoryPanel();
+
       if (out?.ai && out.ai.ok === false && !out?.ai?.output) {
         const errText =
           Array.isArray(out.ai.errors) && out.ai.errors.length
@@ -1204,4 +1207,53 @@ if (!root) {
         if (attachedFile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); beginImport(); }
       }, true);
     })();
+
+  // ----------------------------
+  // PERSISTENT MEMORY PANEL (Phase 2.3) — "what I retain about you".
+  // Lists the venue's ACTIVE identity corrections and lets the owner forget one (appends a `clear`
+  // event server-side; never a delete). Non-critical: any failure leaves the panel hidden silently.
+  // ----------------------------
+  const MEMORY_LABELS = {
+    activity: "Activité",
+    zone: "Zone",
+    nouveau_meaning: "« Nouveau » signifie",
+    other: "Précision",
+  };
+
+  async function refreshMemoryPanel() {
+    const panel = document.getElementById("ie-memory");
+    const items = document.getElementById("ie-memory-items");
+    if (!panel || !items || !LOCATION_ID) return;
+    try {
+      const res = await fetch("/api/insight/corrections?location_id=" + encodeURIComponent(LOCATION_ID));
+      const j = await res.json();
+      const list = (j && j.ok && Array.isArray(j.corrections)) ? j.corrections : [];
+      if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
+      items.innerHTML = list.map(function (c) {
+        const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
+        return '<div class="ie-memory-item">'
+          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(c.correction_text) + '</span>'
+          + '<button type="button" class="ie-memory-clear" data-mem-clear="' + escapeHtml(c.correction_type) + '">Oublier</button>'
+          + '</div>';
+      }).join("");
+      panel.hidden = false;
+    } catch (e) { /* memory panel is never critical */ }
+  }
+
+  document.addEventListener("click", async function (e) {
+    const btn = (e.target && e.target.closest) ? e.target.closest("[data-mem-clear]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    btn.disabled = true;
+    try {
+      await fetch("/api/insight/corrections", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ location_id: LOCATION_ID, correction_type: btn.getAttribute("data-mem-clear") }),
+      });
+    } catch (e2) { /* fall through to refresh */ }
+    await refreshMemoryPanel();
+  });
+
+  refreshMemoryPanel();
   }
