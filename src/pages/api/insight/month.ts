@@ -4,6 +4,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { weatherNatureFr } from "../../../lib/contextCopy";
 
 let BQ_CLIENT: BigQuery | null = null;
 function getBigQueryClient(projectId: string): BigQuery {
@@ -349,6 +350,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
         weather_code,
         weather_alert_level,
+        -- per-nature alert levels: the one at the max NAMES the alert ("Forte chaleur"),
+        -- so the operator never reads a bare "alerte 2". Explicit select — this query is the gate.
+        lvl_heat,
+        lvl_cold,
+        lvl_rain,
+        lvl_snow,
+        lvl_wind,
         precip_probability_max_pct,
         wind_speed_10m_max,
 
@@ -1148,7 +1156,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
                   const wind = Number(d?.wind_speed_10m_max ?? -1);
 
                   const bits: string[] = [];
-                  if (alert > 0) bits.push(`alerte ${alert}`);
+                  // NAME the alert, never its level: the operator reads this line verbatim, and
+                  // "alerte 2" tells him nothing he can act on — "Forte chaleur" does. The nature at
+                  // the max drives it (lvl_* straight from the view — DATA), same helper + vocabulary
+                  // as the acute day fact, points-clés and the month packager. Nature unknown ->
+                  // honest generic, still never a level.
+                  if (alert > 0) {
+                    const nature = weatherNatureFr({
+                      lvl_heat: Number(d?.lvl_heat ?? 0), lvl_cold: Number(d?.lvl_cold ?? 0),
+                      lvl_rain: Number(d?.lvl_rain ?? 0), lvl_snow: Number(d?.lvl_snow ?? 0),
+                      lvl_wind: Number(d?.lvl_wind ?? 0),
+                    });
+                    bits.push(nature ?? "conditions marquées");
+                  }
                   if (Number.isFinite(pp) && pp >= 60) bits.push(`${pp}% pluie`);
                   if (Number.isFinite(wind) && wind >= 40) bits.push(`${wind} km/h vent`);
 
