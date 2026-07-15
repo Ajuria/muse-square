@@ -26,6 +26,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { mdInlineToSafeHtml } from "../../../lib/ai/safeMarkdown";
+import { formatWeatherAlert } from "../../../lib/contextCopy";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { modelFor } from "../../../lib/ai/models";
 import { isMaterialBriefing } from "../../../lib/ai/briefingGate";
@@ -383,8 +384,11 @@ export function buildBriefingHtml(d: BriefingData): string {
   const verdictLine = chips.length ? chips.join(" · ") : "Conditions dans la norme";
 
   // Acute weather banner (observed_acute) — distinct register, present only when the brain flagged it.
+  // Wording via formatWeatherAlert (contextCopy): it NAMES the alert ("Grand froid aujourd'hui — 2 °C
+  // ressenti") instead of the meaningless "niveau 3" this used to hand-roll, and keeps the email in
+  // step with the day fact + points-clés — one weather wording, authored in one place.
   const acuteBanner = dc?.weather_alert
-    ? `<tr><td style="background:#ffffff;padding:16px 40px 0 40px;"><div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;font-weight:600;color:#991b1b;">Alerte météo niveau ${dc.weather_alert.level} aujourd'hui${dc.weather_alert.apparent_temp_max != null ? ` — ${Math.round(Number(dc.weather_alert.apparent_temp_max))} °C ressenti` : ""}</div></td></tr>`
+    ? `<tr><td style="background:#ffffff;padding:16px 40px 0 40px;"><div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;font-weight:600;color:#991b1b;">${esc(formatWeatherAlert(dc.weather_alert))}</div></td></tr>`
     : "";
 
   // Saved events (user-curated) — own section, simplified (no per-event score fork).

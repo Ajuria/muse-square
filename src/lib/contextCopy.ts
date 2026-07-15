@@ -57,26 +57,37 @@ export function formatDisruption(p: { title?: string | null; line?: string | nul
 // wind/snow/cold, straight from fct_location_weather_alerts_daily), so the label is DATA, not inferred
 // from the temperature. Vocabulary reused from sensitivityCopy.FEATURE_FR — one weather wording in the
 // app. Nature unknown (older payload / no per-nature level) → an honest generic head, still never a level.
-export function formatWeatherAlert(p: {
-  level: number | null;
-  apparent_temp_max: number | null;
-  wind_gusts: number | null;
-  lvl_heat?: number | null; lvl_cold?: number | null; lvl_rain?: number | null; lvl_snow?: number | null; lvl_wind?: number | null;
-}): string {
-  const bits: string[] = [];
-  if (p.apparent_temp_max != null) bits.push(`${Math.round(p.apparent_temp_max)} °C ressenti`);
-  if (p.wind_gusts != null && p.wind_gusts >= 60) bits.push(`rafales ${Math.round(p.wind_gusts)} km/h`);
+export interface WeatherNatureLevels {
+  lvl_heat?: number | null; lvl_cold?: number | null; lvl_rain?: number | null;
+  lvl_snow?: number | null; lvl_wind?: number | null;
+}
 
+// THE one place that turns per-nature alert levels into a French label. The driver is the nature that
+// reaches the max (straight from the mart's lvl_* — DATA, never inferred from a temperature). Returns
+// null when no nature is known, so callers stay honest instead of printing a meaningless level.
+// Vocabulary from sensitivityCopy.FEATURE_FR: "Forte chaleur" / "Grand froid" / "Pluie" / "Neige" /
+// "Vent fort". Used by the acute day fact AND the points-clés comparison — one wording, one rule.
+export function weatherNatureFr(p: WeatherNatureLevels): string | null {
   const natures: Array<[string, number | null | undefined]> = [
     ['heat', p.lvl_heat], ['cold', p.lvl_cold], ['rain', p.lvl_rain], ['snow', p.lvl_snow], ['wind', p.lvl_wind],
   ];
   const driver = natures
     .filter(([, v]) => typeof v === 'number' && Number.isFinite(v) && (v as number) > 0)
     .sort((a, b) => (b[1] as number) - (a[1] as number))[0];
+  return driver ? (FEATURE_FR[driver[0]] ?? null) : null;
+}
 
-  const head = driver && FEATURE_FR[driver[0]]
-    ? `${FEATURE_FR[driver[0]]} aujourd'hui`
-    : "Conditions météo marquées aujourd'hui";
+export function formatWeatherAlert(p: {
+  level: number | null;
+  apparent_temp_max: number | null;
+  wind_gusts: number | null;
+} & WeatherNatureLevels): string {
+  const bits: string[] = [];
+  if (p.apparent_temp_max != null) bits.push(`${Math.round(p.apparent_temp_max)} °C ressenti`);
+  if (p.wind_gusts != null && p.wind_gusts >= 60) bits.push(`rafales ${Math.round(p.wind_gusts)} km/h`);
+
+  const nature = weatherNatureFr(p);
+  const head = nature ? `${nature} aujourd'hui` : "Conditions météo marquées aujourd'hui";
   return bits.length ? `${head} — ${bits.join(', ')}` : head;
 }
 

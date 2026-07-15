@@ -6,6 +6,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, type GroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { validate_grounded_draft } from "../../../lib/ai/contracts/packagerGroundedDraftValidator";
+import { AUDIENCE_FR, frActivity, frAudience, frEventType, frObjective, frSeasonality } from "../../../lib/profileLabels";
 
 export const prerender = false;
 
@@ -70,18 +71,6 @@ const CHANNEL_CONFIG: Record<
   },
 };
 
-const AUD_FR: Record<string, string> = {
-  local: "résidents locaux",
-  professionals: "professionnels",
-  tourists: "touristes",
-  students: "étudiants",
-  families: "familles",
-  seniors: "seniors",
-  general_public: "grand public",
-  art_lovers: "amateurs d'art",
-  mixed: "public mixte",
-};
-
 // ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
@@ -102,7 +91,8 @@ function effectiveActivity(p: any): string {
     const auto = JSON.parse(safeStr(p?.auto_enriched_description) || "{}");
     if (auto?.business_description) return String(auto.business_description).trim();
   } catch {}
-  return safeStr(p?.company_activity_type);
+  // Last resort: the enum itself. Named, never raw — "Notre activité : live_event" is the bug.
+  return frActivity(safeStr(p?.company_activity_type)) || "";
 }
 
 function distLabel(m: unknown): string {
@@ -213,18 +203,23 @@ export function buildSystemPrompt(
   const autoDiff = safeStr(autoEnriched?.key_differentiators);
   const autoProgramming = safeStr(autoEnriched?.current_offering);
   const effectiveDesc = desc || autoDesc;
-  const aud1 = AUD_FR[safeStr(profile?.primary_audience_1)] || safeStr(profile?.primary_audience_1) || "";
-  const aud2 = AUD_FR[safeStr(profile?.primary_audience_2)] || safeStr(profile?.primary_audience_2) || "";
+  // Every declared-profile field below is a MACHINE enum ("live_event", "press_conf", "year_round").
+  // Handed to the model raw, it reads them as words and guesses. profileLabels is the one place that
+  // turns them into the operator's own French — same map the profile page shows him.
+  const aud1 = frAudience(safeStr(profile?.primary_audience_1)) || "";
+  const aud2 = frAudience(safeStr(profile?.primary_audience_2)) || "";
   const audLine = [aud1, aud2].filter(Boolean).join(" et ");
   const city = safeStr(profile?.city_name);
-  const activity = safeStr(profile?.company_activity_type);
+  const activity = frActivity(safeStr(profile?.company_activity_type)) || "";
 
-  const eventTypes = [safeStr(profile?.event_type_1), safeStr(profile?.event_type_2), safeStr(profile?.event_type_3)].filter(Boolean);
-  const objective = safeStr(profile?.main_event_objective);
+  const eventTypes = [safeStr(profile?.event_type_1), safeStr(profile?.event_type_2), safeStr(profile?.event_type_3)]
+    .map((t) => frEventType(t) || "")
+    .filter(Boolean);
+  const objective = frObjective(safeStr(profile?.main_event_objective)) || "";
   const capacity = safeNum(profile?.venue_capacity);
   const hours = safeStr(profile?.operating_hours);
   const catchment = safeStr(profile?.geographic_catchment);
-  const seasonality = safeStr(profile?.seasonality);
+  const seasonality = frSeasonality(safeStr(profile?.seasonality)) || "";
   const website = safeStr(profile?.website_url);
   const instagram = safeStr(profile?.instagram_url);
 
@@ -364,9 +359,9 @@ function competitorLaunchPrompt(ctx: PromptContext): string {
   const comp = ctx.competitor_context?.[0];
   const compName = safeStr(comp?.competitor_name) || safeStr(s.event_label) || "un concurrent";
   const evName = safeStr(comp?.event_name) || "";
-  const compAud = AUD_FR[safeStr(comp?.event_primary_audience)] || safeStr(comp?.event_primary_audience) || "";
+  const compAud = AUDIENCE_FR[safeStr(comp?.event_primary_audience)] || safeStr(comp?.event_primary_audience) || "";
   const dist = distLabel(s.distance_m || comp?.distance_from_location_m);
-  const aud = AUD_FR[safeStr(p.primary_audience_1)] || safeStr(p.primary_audience_1) || "";
+  const aud = AUDIENCE_FR[safeStr(p.primary_audience_1)] || safeStr(p.primary_audience_1) || "";
 
   return `Contexte interne (NE PAS MENTIONNER dans le post) : le concurrent ${compName}${evName ? ' lance "' + evName + '"' : " lance un événement"}${compAud ? " ciblant " + compAud : ""}${dist ? " à " + dist : ""}.
 
@@ -391,7 +386,7 @@ function competitorConflictPrompt(ctx: PromptContext): string {
   const comp = ctx.competitor_context?.[0];
   const compName = safeStr(comp?.competitor_name) || "un concurrent";
   const dist = distLabel(s.distance_m || comp?.distance_from_location_m);
-  const sharedAud = AUD_FR[safeStr(p.primary_audience_1)] || safeStr(p.primary_audience_1) || "votre public";
+  const sharedAud = AUDIENCE_FR[safeStr(p.primary_audience_1)] || safeStr(p.primary_audience_1) || "votre public";
 
   return `Contexte interne (NE PAS MENTIONNER) : conflit direct avec ${compName} — même public (${sharedAud}), même date${dist ? ", à " + dist : ""}.
 
@@ -420,7 +415,7 @@ function pressureSpikePrompt(ctx: PromptContext): string {
   return `Contexte interne : pression concurrentielle en hausse (${newN} événements à 5 km, +${delta} vs avant).
 
 Notre activité : ${effectiveActivity(p)}
-Notre public : ${AUD_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
+Notre public : ${AUDIENCE_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} de fidélisation — rappeler à nos clients existants pourquoi revenir cette semaine. Ton personnel, pas marketing. Mentionner un avantage concret (exclusivité, nouveauté, ou simplement "on vous attend").
 ${ctx.channel === "email" ? "Signe : L'équipe " + (safeStr(p.site_name) || safeStr(p.location_label)) : ""}
@@ -503,7 +498,7 @@ ${score !== null ? "- Score : " + score + "/10" : ""}
 ${contextParts.length ? "- Contexte : " + contextParts.join(", ") : ""}
 
 Notre activité : ${effectiveActivity(p)}
-Notre public : ${AUD_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
+Notre public : ${AUDIENCE_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}
 
 Rédige un ${CHANNEL_CONFIG[ctx.channel]?.label || "post"} ${ctx.channel === "instagram" ? '"événement du jour" / "bon plan"' : "annonçant une offre ou un moment fort"} qui capte le trafic spontané. Mentionne un avantage concret de venir aujourd'hui. Ton enthousiaste mais pas forcé.
 ${ctx.channel === "instagram" ? "Hashtags locaux (" + safeStr(p.city_name) + ")." : ""}
@@ -520,8 +515,8 @@ function competitorEndingPrompt(ctx: PromptContext): string {
   const p = ctx.profile;
   const comp = ctx.competitor_context?.[0];
   const compName = safeStr(comp?.competitor_name) || "un concurrent";
-  const compAud = AUD_FR[safeStr(comp?.event_primary_audience)] || AUD_FR[safeStr(comp?.competitor_primary_audience)] || "";
-  const aud = AUD_FR[safeStr(p.primary_audience_1)] || "";
+  const compAud = AUDIENCE_FR[safeStr(comp?.event_primary_audience)] || AUDIENCE_FR[safeStr(comp?.competitor_primary_audience)] || "";
+  const aud = AUDIENCE_FR[safeStr(p.primary_audience_1)] || "";
 
   return `Contexte interne (NE PAS MENTIONNER) : le concurrent ${compName} termine sa programmation.${compAud ? " Son public (" + compAud + ") est libéré." : ""}
 

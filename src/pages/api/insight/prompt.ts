@@ -12,6 +12,7 @@ import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
+import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -74,7 +75,7 @@ function venueBusinessBrief(ic: any): string {
   if (bits.length) return bits.join("\n");
   const fb: string[] = [];
   if (ic?.business_short_description) fb.push(`- Activité : ${ic.business_short_description}`);
-  if (ic?.company_activity_type) fb.push(`- Type déclaré (générique, peu fiable) : ${ic.company_activity_type}`);
+  if (ic?.company_activity_type) fb.push(`- Type déclaré (générique, peu fiable) : ${frActivity(ic.company_activity_type)}`);
   return fb.join("\n") || "- Activité : non renseignée";
 }
 
@@ -3296,9 +3297,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ? `Tu es un expert en intelligence concurrentielle pour un opérateur de site physique en France. Tu réponds en français en vouvoyant l'opérateur.
 
 Votre contexte (vous = l'opérateur) :
-- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${frVenueType(internal_context?.location_type) ?? "non renseigné"}
 ${businessBrief}
-- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+- Audience : ${frAudience(internal_context?.primary_audience_1) ?? "non renseignée"} / ${frAudience(internal_context?.primary_audience_2) ?? "non renseignée"}
 
 Tâche : réponds à la question concurrentielle en t'appuyant sur la recherche web et sur votre contexte ci-dessus.
 
@@ -3315,9 +3316,9 @@ Règles :
         : `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
-- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${frVenueType(internal_context?.location_type) ?? "non renseigné"}
 ${businessBrief}
-- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+- Audience : ${frAudience(internal_context?.primary_audience_1) ?? "non renseignée"} / ${frAudience(internal_context?.primary_audience_2) ?? "non renseignée"}
 
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
@@ -3918,9 +3919,9 @@ Règles :
             const entitySystemPrompt = `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
 
 Votre contexte (vous = l'opérateur ; sers-t'en pour juger la pertinence) :
-- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${internal_context?.location_type ?? "non renseigné"}
+- Localisation : ${internal_context?.city_name ?? "non renseigné"}, près de l'arrêt ${internal_context?.nearest_transit_stop_name ?? "non renseigné"} (${internal_context?.latitude ?? "?"}, ${internal_context?.longitude ?? "?"}) — ${frVenueType(internal_context?.location_type) ?? "non renseigné"}
 ${businessBrief}
-- Audience : ${internal_context?.primary_audience_1 ?? "non renseignée"} / ${internal_context?.primary_audience_2 ?? "non renseignée"}
+- Audience : ${frAudience(internal_context?.primary_audience_1) ?? "non renseignée"} / ${frAudience(internal_context?.primary_audience_2) ?? "non renseignée"}
 
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
