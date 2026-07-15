@@ -3321,9 +3321,10 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string }] }
 
 Règles :
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer — "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ; "city" = sa ville ou son arrondissement (ex: « Paris 16e »). Tableau vide [] si tu n'en cites aucun. N'invente JAMAIS un nom : n'y mets que des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
@@ -3918,9 +3919,10 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string }] }
 
 Règles :
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer — "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ; "city" = sa ville ou son arrondissement (ex: « Paris 16e »). Tableau vide [] si tu n'en cites aucun. N'invente JAMAIS un nom : n'y mets que des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
@@ -3940,6 +3942,9 @@ Règles :
             let entityFound = false;
             let entityDiscovery = false;
             let entityAnswer = "";
+            // The named competitors behind the prose — each becomes a "Suivre" action client-side, so the
+            // operator can put a discovered competitor under surveillance without retyping it.
+            let entityCompetitors: Array<{ name: string; city: string }> = [];
             try {
               const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
               const parsed = JSON.parse(fenced);
@@ -3948,6 +3953,21 @@ Règles :
               entityAnswer = typeof parsed?.answer === "string"
                 ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
                 : "";
+              if (Array.isArray(parsed?.competitors)) {
+                const seen = new Set<string>();
+                entityCompetitors = parsed.competitors
+                  .map((c: any) => ({
+                    name: String(c?.name ?? "").replace(/<\/?cite[^>]*>/gi, "").replace(/\*\*/g, "").trim().slice(0, 120),
+                    city: String(c?.city ?? "").replace(/<\/?cite[^>]*>/gi, "").trim().slice(0, 80),
+                  }))
+                  .filter((c: { name: string; city: string }) => {
+                    const k = c.name.toLowerCase();
+                    if (!c.name || c.name.length < 2 || seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                  })
+                  .slice(0, 6);
+              }
             } catch {
               entityFound = false;
             }
@@ -3966,6 +3986,9 @@ Règles :
             return new Response(JSON.stringify({
               ok: true,
               meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
+              // Named competitors behind the answer → one "Suivre" action each (client renders them).
+              // Only when the answer is actually surfaced: never offer to follow a competitor we didn't state.
+              follow_candidates: entityRelevant ? entityCompetitors : [],
               ai: {
                 headline: entityHeadline,
                 verdict: "",

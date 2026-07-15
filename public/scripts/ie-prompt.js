@@ -351,6 +351,58 @@ if (!root) {
     return mdInline(escapeHtml(text));
   }
 
+  // ----------------------------
+  // "SUIVRE" on a discovered competitor.
+  // The discovery answer names real competitors (out.follow_candidates); each gets a one-click follow so
+  // the operator puts it under surveillance without retyping it. Same endpoint + body + visual states as
+  // the existing web-results follow (ieWebFollow in prompt.astro): #1D3BB3 text button → "Suivi" #0F6E56.
+  // Not reusing that function directly — it is bound to prompt.astro's ie-web-card DOM.
+  // ----------------------------
+  function followRowsHtml(candidates) {
+    if (!Array.isArray(candidates) || !candidates.length) return "";
+    const rows = candidates.map(function (c, i) {
+      const name = String(c && c.name || "").trim();
+      if (!name) return "";
+      const city = String(c && c.city || "").trim();
+      return '<div class="ie-follow-row" id="ie-follow-row-' + i + '">'
+        + '<span class="ie-follow-name">' + escapeHtml(name) + (city ? ' <span class="ie-follow-city">· ' + escapeHtml(city) + '</span>' : "") + '</span>'
+        + '<span class="ie-follow-action" id="ie-follow-action-' + i + '">'
+        +   '<button type="button" class="ie-follow-btn" data-follow-idx="' + i + '"'
+        +     ' data-follow-name="' + escapeHtml(name) + '" data-follow-city="' + escapeHtml(city) + '">Suivre</button>'
+        + '</span>'
+        + '</div>';
+    }).filter(Boolean).join("");
+    if (!rows) return "";
+    return '<div class="ie-follow-block">'
+      + '<div class="ie-follow-h">Mettre sous surveillance</div>' + rows + '</div>';
+  }
+
+  document.addEventListener("click", async function (e) {
+    const btn = (e.target && e.target.closest) ? e.target.closest("[data-follow-idx]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    const idx = btn.getAttribute("data-follow-idx");
+    const name = btn.getAttribute("data-follow-name") || "";
+    const city = btn.getAttribute("data-follow-city") || "";
+    if (!name) return;
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      const res = await fetch("/api/competitive/add-competitor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ competitor_name: name, city: city, source_system: "user_confirmed" }),
+      });
+      const j = await res.json();
+      if (!j || j.ok !== true) throw new Error(j && j.error || "follow failed");
+      const area = document.getElementById("ie-follow-action-" + idx);
+      if (area) area.innerHTML = '<span class="ie-follow-done">Suivi</span>';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Suivre";
+    }
+  });
+
   function renderConfirmationHtml(out) {
     const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
     const params = out.params || {};
@@ -569,6 +621,7 @@ if (!root) {
       ${headline ? `<div class="ie-ai-h">${mdInlineToSafeHtml(headline)}</div>` : ""}
       ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${mdInlineToSafeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
       ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${mdInlineToSafeHtml(x)}</li>`).join("")}</ul>` : ""}
+      ${followRowsHtml(out && out.follow_candidates)}
       ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${mdInlineToSafeHtml(c)}</div>`).join("")}</div>` : ""}
       ${cta}
     `;

@@ -579,6 +579,50 @@ if (!location_id) {
         color: #6b7280;
       }
 
+      /* "Suivre" on a discovered competitor — one-click surveillance straight from the answer.
+         Affordance matched to the existing web-results follow (data-blue #1D3BB3 text button →
+         "Suivi" #0F6E56); geometry borrowed from .ie-ai-caveats. No new colours. */
+      .ie-follow-block {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-left: 3px solid #1D3BB3;
+        background: #f9fafb;
+        border-radius: 0 8px 8px 0;
+      }
+      .ie-follow-h {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 6px;
+      }
+      .ie-follow-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #374151;
+      }
+      .ie-follow-row + .ie-follow-row { margin-top: 4px; }
+      .ie-follow-name { font-weight: 500; }
+      .ie-follow-city { color: #9CA3AF; font-weight: 400; }
+      .ie-follow-btn {
+        font-size: 13px;
+        color: #1D3BB3;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        font-family: inherit;
+        flex-shrink: 0;
+      }
+      .ie-follow-btn:hover { text-decoration: underline; }
+      .ie-follow-btn:disabled { color: #9CA3AF; cursor: default; text-decoration: none; }
+      .ie-follow-done { font-size: 12px; color: #0F6E56; font-weight: 500; flex-shrink: 0; }
+
       /* Persistent memory panel (Phase 2.3) — reuses the .ie-ai-caveats geometry with the brand-blue
          accent (memory, not a caveat); link treatment matches .ie-inline-cta. */
       .ie-memory {
@@ -2013,7 +2057,7 @@ if (!location_id) {
 
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=28"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=11" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=12" defer></script>
 
   </BaseLayout>
 </Show>
