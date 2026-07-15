@@ -7,6 +7,7 @@
 import type { FamilyProvider } from "./types";
 import { footfallFamily } from "./footfall";
 import { offeringFamily } from "./offering";
+import { competitorFamily } from "./competitor";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   footfall: {
@@ -44,6 +45,28 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\b(ma carte|mon menu|mon assortiment|mon catalogue)\b/,
     ],
     run: offeringFamily,
+  },
+  // COMPETITOR / the FOLLOWED set, straight from the database ("mes concurrents", "qui je surveille").
+  // Provider is EXTRACTED from the deep-page endpoint (api/insight/competitor.ts), which is now a thin
+  // wrapper over it — so the 40 % real-competitor bar and the État A/B wording are shared, and the chat
+  // can never claim "priorisez X (33 %)" while the card says "aucun concurrent n'a d'impact mesurable".
+  // Matchers are deliberately TIGHT: the family router short-circuits the Haiku classifier (prompt.ts
+  // ~2390), so a bare /concurrent/ would hijack ENTITY_IMPACT and kill the web_search discovery path
+  // for NAMED unknown entities ("l'impact du Café X"). Every matcher here therefore requires the
+  // possessive/set framing — my competitors, the ones I follow — never a named entity.
+  competitor: {
+    key: "competitor",
+    title: "Vos concurrents · ce qu'ils font qui vous impacte",
+    render: "renderCompetitor",   // MSCardKit.renderCompetitor — the client injects { ok: true }
+    match: [
+      /\b(mes|nos) concurrents?\b/,
+      /\b(ma|notre) concurrence\b/,
+      /concurrents? (que je |que l on |)suivis?\b/,
+      /\bveille concurrentielle\b/,
+      /(qui|lesquels?) (est-ce que |)je (surveille|suis)\b/,
+      /(quels?|combien de) concurrents? (je |j ai |)(suis|surveille|follow)/,
+    ],
+    run: competitorFamily,
   },
 };
 

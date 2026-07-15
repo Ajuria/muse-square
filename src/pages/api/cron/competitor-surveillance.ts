@@ -595,7 +595,7 @@ async function runSurveillance() {
           cd.lon                              AS competitor_lon,
           lp.company_lat                      AS location_lat,
           lp.company_lon                      AS location_lon,
-          lc.last_crawled
+          cd.last_crawl_attempt_at             AS last_crawled
         FROM \`${projectId}.raw.competitor_directory\` cd
         INNER JOIN \`${projectId}.raw.competitor_tracking\` ct
           ON cd.competitor_id = ct.competitor_id
@@ -607,15 +607,17 @@ async function runSurveillance() {
             PARTITION BY location_id ORDER BY updated_at DESC
           ) = 1
         ) lp ON ct.location_id = lp.location_id
-        LEFT JOIN (
-          SELECT competitor_id, MAX(crawled_at) AS last_crawled
-          FROM \`${projectId}.raw.competitor_events\`
-          GROUP BY competitor_id
-        ) lc ON cd.competitor_id = lc.competitor_id
         WHERE cd.source_url IS NOT NULL
           AND cd.is_user_vetted = TRUE
           AND cd.deleted_at IS NULL
-        ORDER BY lc.last_crawled ASC NULLS FIRST
+        -- Rotate on the ATTEMPT, not the yield. This used to order by MAX(crawled_at) from
+        -- raw.competitor_events, so a site that yields no events never recorded that it had been
+        -- crawled: it stayed NULL, NULLS FIRST kept it at the head of the queue, and it was re-crawled
+        -- every run for ever. 14 of 23 eligible competitors were stuck that way, and the 9 that DO
+        -- produce events were never re-crawled — which is why their offering never got a second
+        -- capture and offering-change detection could not fire. last_crawl_attempt_at is stamped for
+        -- every competitor the loop touches (success, empty, or error), so the round-robin rotates.
+        ORDER BY cd.last_crawl_attempt_at ASC NULLS FIRST
         LIMIT 10
       `,
       location: BQ_LOCATION,
@@ -681,6 +683,24 @@ async function runSurveillance() {
       // (timeout guard removed — single competitor mode, no loop)
 
       results.processed++;
+
+      // Stamp the ATTEMPT before crawling, never after: this is what makes the round-robin rotate.
+      // Stamping on success only would re-create the starvation bug in a new shape — a site that
+      // errors or times out would keep its old timestamp and stay at the head of the queue. Vercel
+      // can also kill the function mid-crawl, so the stamp has to survive that. Non-fatal: a failed
+      // stamp must never abort the crawl (worst case, this competitor is picked again next run).
+      try {
+        await bq.query({
+          query: `UPDATE \`${projectId}.raw.competitor_directory\`
+                  SET last_crawl_attempt_at = CURRENT_TIMESTAMP()
+                  WHERE competitor_id = @competitor_id`,
+          params: { competitor_id: comp.competitor_id },
+          types: { competitor_id: "STRING" },
+          location: BQ_LOCATION,
+        });
+      } catch (stampErr: any) {
+        console.error("[competitor-surveillance] attempt stamp failed (non-fatal):", stampErr?.message);
+      }
 
       let fetchStatus: number | null = null;
       let htmlByteLength: number | null = null;
