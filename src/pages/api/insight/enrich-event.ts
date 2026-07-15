@@ -1,6 +1,7 @@
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
 import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
+import { frActivity, frAudience, frObjective } from "../../../lib/profileLabels";
 import { randomUUID } from "crypto";
 
 export async function POST({ request }: { request: Request }) {
@@ -104,12 +105,16 @@ export async function POST({ request }: { request: Request }) {
       primary_driver_confidence: primary_driver_confidence ?? null,
       delta_att_events_pct: delta_att_events_pct ?? null,
     },
+    // NAMED, never raw. These arrive as MACHINE enums ("live_event", "maximize_attendance", "local")
+    // — monitor.astro is the caller that sends them — and the model reads them as words and guesses.
+    // profileLabels is the one enum->French map. (industry_code above is NOT mapped: the warehouse
+    // already stores it in French, e.g. "Culture & Patrimoine".)
     location_context: {
       business_short_description: business_short_description ?? null,
-      primary_audience_1: primary_audience_1 ?? null,
-      primary_audience_2: primary_audience_2 ?? null,
-      main_event_objective: main_event_objective ?? null,
-      company_activity_type: company_activity_type ?? null,
+      primary_audience_1: frAudience(primary_audience_1),
+      primary_audience_2: frAudience(primary_audience_2),
+      main_event_objective: frObjective(main_event_objective),
+      company_activity_type: frActivity(company_activity_type),
     },
     expected_output: {
       confirmed_dates: "dates confirmées de cette édition ou null",
@@ -119,7 +124,7 @@ export async function POST({ request }: { request: Request }) {
       primary_audience: "public principal ciblé en 5 mots max ou null",
       secondary_audience: "public secondaire ciblé en 5 mots max ou null",
       source_url: "URL officielle de l'événement ou null",
-      business_takeaway: `1 phrase maximum en français depuis le point de vue d'un opérateur de type '${company_activity_type ?? "événementiel"}' situé à ${distance_m ? Math.round(Number(distance_m)) + "m" : "proximité"}. Utilise la description fournie et ce que tu as trouvé en ligne. Ne pas évaluer la pression concurrentielle globale du jour. Si informations insuffisantes, retourne null.`,
+      business_takeaway: `1 phrase maximum en français depuis le point de vue d'un opérateur de type '${frActivity(company_activity_type) ?? "événementiel"}' situé à ${distance_m ? Math.round(Number(distance_m)) + "m" : "proximité"}. Utilise la description fournie et ce que tu as trouvé en ligne. Ne pas évaluer la pression concurrentielle globale du jour. Si informations insuffisantes, retourne null.`,
     }
   };
 
