@@ -131,7 +131,12 @@ export interface DayContext {
   day_surface_raw: Record<string, any> | null;                        // full vw_insight_event_day_surface row
   profile_raw: Record<string, any> | null;                            // full vw_insight_event_ai_location_context row
   commercial_events: string[];                                        // named soldes/foires today (deduped vs named events)
-  weather_alert: { level: number; apparent_temp_max: number | null; wind_gusts: number | null } | null; // acute/operational register
+  // acute/operational register. The per-nature levels are what let the copy NAME the alert ("Forte
+  // chaleur") instead of printing a meaningless "niveau 3" — the driver is the nature at the max.
+  weather_alert: {
+    level: number; apparent_temp_max: number | null; wind_gusts: number | null;
+    lvl_heat: number | null; lvl_cold: number | null; lvl_rain: number | null; lvl_snow: number | null; lvl_wind: number | null;
+  } | null;
   competitors: DayCompetitor[];
   // Engines + context tiers folded into the brain — consumers read these from the payload, never from
   // the store / learning / opportunity marts.
@@ -259,7 +264,9 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     // commercial events (region annotations) for today — named soldes/foires (observed presence)
     (async () => { const [r] = await bq.query({ query: `SELECT ev.event_name AS name FROM \`${PROJECT}.mart.fct_region_day_annotations_daily\` a JOIN \`${PROJECT}.dims.dim_client_location\` dl ON dl.region_name=a.region_name CROSS JOIN UNNEST(a.commercial_events) ev WHERE dl.location_id=@loc AND a.date=@d`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
     // acute weather (operational trigger) — alert level + apparent temp + gusts. Distinct register.
-    one(`SELECT al.alert_level_max AS level, f.apparent_temperature_max AS atemp, f.wind_gusts_10m_max AS gusts
+    one(`SELECT al.alert_level_max AS level,
+                al.lvl_heat, al.lvl_cold, al.lvl_rain, al.lvl_snow, al.lvl_wind,
+                f.apparent_temperature_max AS atemp, f.wind_gusts_10m_max AS gusts
          FROM \`${PROJECT}.mart.fct_location_weather_alerts_daily\` al
          LEFT JOIN \`${PROJECT}.mart.fct_location_weather_forecast_daily_detail\` f ON f.location_id=al.location_id AND f.date=al.date
          WHERE al.location_id=@loc AND al.date=@d LIMIT 1`, { loc, d }),
@@ -417,8 +424,18 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   // acute weather — operational trigger, only for a meaningful alert (>=3). DISTINCT register from the
   // measured heat sensitivity; NOT suppress-in-2'd against it (complementary, not two heat numbers).
   const wLevel = weatherAcute.level == null ? null : Number(flatVal(weatherAcute.level));
+  const wLvl = (k: string) => {
+    const v = (weatherAcute as any)?.[k];
+    return v == null ? null : Number(flatVal(v));
+  };
   const weather_alert = (wLevel != null && wLevel >= 3)
-    ? { level: wLevel, apparent_temp_max: weatherAcute.atemp == null ? null : Number(flatVal(weatherAcute.atemp)), wind_gusts: weatherAcute.gusts == null ? null : Number(flatVal(weatherAcute.gusts)) }
+    ? {
+        level: wLevel,
+        apparent_temp_max: weatherAcute.atemp == null ? null : Number(flatVal(weatherAcute.atemp)),
+        wind_gusts: weatherAcute.gusts == null ? null : Number(flatVal(weatherAcute.gusts)),
+        lvl_heat: wLvl('lvl_heat'), lvl_cold: wLvl('lvl_cold'), lvl_rain: wLvl('lvl_rain'),
+        lvl_snow: wLvl('lvl_snow'), lvl_wind: wLvl('lvl_wind'),
+      }
     : null;
   // foreign origins — deduped UNION of school-holiday (foreign) + public-holiday origins.
   const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])].map(frCountry);

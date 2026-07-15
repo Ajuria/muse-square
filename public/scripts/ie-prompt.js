@@ -389,12 +389,14 @@ if (!root) {
       const difference = String(c && c.difference || "").trim();
       return '<div class="ie-follow-row" id="ie-follow-row-' + i + '">'
         + '<div class="ie-follow-main">'
+        // Literal spaces after each label/name: the visual gaps are CSS (flex gap / margin), which
+        // disappear when the answer is copied out — "Manie Caféà 2 km", "Recoupecafé…". Cheap to fix.
         +   '<div class="ie-follow-top">'
-        +     '<span class="ie-follow-name">' + escapeHtml(name) + '</span>'
+        +     '<span class="ie-follow-name">' + escapeHtml(name) + '</span> '
         +     (meta ? '<span class="ie-follow-meta">' + escapeHtml(meta) + '</span>' : "")
         +   '</div>'
-        +   (overlap ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-ov">Recoupe</span>' + mdInlineToSafeHtml(overlap) + '</div>' : "")
-        +   (difference ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-df">Diffère</span>' + mdInlineToSafeHtml(difference) + '</div>' : "")
+        +   (overlap ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-ov">Recoupe</span> ' + mdInlineToSafeHtml(overlap) + '</div>' : "")
+        +   (difference ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-df">Diffère</span> ' + mdInlineToSafeHtml(difference) + '</div>' : "")
         + '</div>'
         + '<span class="ie-follow-action" id="ie-follow-action-' + i + '">'
         +   '<button type="button" class="ie-follow-btn" data-follow-idx="' + i + '"'
