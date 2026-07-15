@@ -320,6 +320,47 @@ if (!root) {
       .replaceAll("'", "&#039;");
   }
 
+  // ----------------------------
+  // SAFE MARKDOWN RENDERER (Phase 3)
+  // The model formats despite the prompts telling it not to (**gras**, "- " lists). Rendering that as
+  // literal asterisks is the formatting inconsistency; so we render a WHITELIST instead of fighting it.
+  //
+  // SAFETY MODEL — the ORDERING is the entire guarantee:
+  //   1. escapeHtml() FIRST  → every byte the model emitted becomes inert text (any <script>, <img
+  //      onerror>, quote or bracket is already neutralized)
+  //   2. re-introduce ONLY whitelisted tags on the already-escaped string
+  // NEVER the reverse. No raw HTML passthrough, no sanitizer dependency (CDN-free rule).
+  //
+  // Whitelist: **gras** → <strong>, *italique* → <em>, "- " lines → <ul>/<li>, blank line → <p>.
+  // Deliberately OUT: links (nothing validates a model-emitted URL — a clickable hallucinated source is
+  // worse than an ugly one), #titres, tables, code, images. Anything off-list stays plain text.
+  // ----------------------------
+  function mdInline(t) {
+    return t
+      .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")        // **gras** — before *italique*
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, "$1<em>$2</em>");   // *italique*
+  }
+
+  function mdToSafeHtml(text) {
+    const safe = escapeHtml(text).trim();   // 1) inert — nothing below can reintroduce model HTML
+    if (!safe) return "";
+    return safe
+      .split(/\n\s*\n/)                     // blank line = paragraph break
+      .map(function (block) {
+        const lines = block.split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
+        if (!lines.length) return "";
+        const isList = lines.every(function (l) { return /^[-•]\s+/.test(l); });
+        if (isList) {
+          return '<ul class="ie-md-list">'
+            + lines.map(function (l) { return "<li>" + mdInline(l.replace(/^[-•]\s+/, "")) + "</li>"; }).join("")
+            + "</ul>";
+        }
+        return '<p class="ie-md-p">' + mdInline(lines.join("<br>")) + "</p>";
+      })
+      .filter(Boolean)
+      .join("");
+  }
+
   function renderConfirmationHtml(out) {
     const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
     const params = out.params || {};
