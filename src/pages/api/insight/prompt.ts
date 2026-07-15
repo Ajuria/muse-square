@@ -11,6 +11,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
+import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { familyForQuestion } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -3321,10 +3322,15 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string }] }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string, "overlap": string, "difference": string }] }
 
 Règles :
-- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer — "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ; "city" = sa ville ou son arrondissement (ex: « Paris 16e »). Tableau vide [] si tu n'en cites aucun. N'invente JAMAIS un nom : n'y mets que des établissements réels issus de tes sources.
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer. Pour chacun :
+  • "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ;
+  • "city" = sa ville ou son arrondissement (ex: « Paris 16e ») ;
+  • "overlap" = ce qui SE RECOUPE concrètement avec VOTRE activité mesurée (voir « Votre contexte ») — une clause courte, factuelle, sans conseil (ex: « même cœur d'offre : café de spécialité + pâtisseries, clientèle de proximité ») ;
+  • "difference" = ce qui vous DISTINGUE de lui, dans les deux sens (ex: « lui : positionnement premium, tea time à 42 € ; vous : pas de salon de thé »). Si tu ne sais pas, mets "" — n'invente pas une différence.
+  Tableau vide [] si tu ne cites aucun établissement. N'invente JAMAIS un nom : uniquement des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
@@ -3919,10 +3925,15 @@ ${businessBrief}
 Tâche : si la question nomme une entité précise, recherche-la sur le web et évalue son impact sur votre activité. Si c'est une question de DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »), recherche plutôt sur le web les commerces ou concurrents récents/notables de votre type d'activité à proximité de votre localisation, et présente les plus pertinents.
 
 Retourne UNIQUEMENT du JSON valide, sans markdown, sans texte autour :
-{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string }] }
+{ "found": boolean, "discovery": boolean, "answer": string, "competitors": [{ "name": string, "city": string, "overlap": string, "difference": string }] }
 
 Règles :
-- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer — "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ; "city" = sa ville ou son arrondissement (ex: « Paris 16e »). Tableau vide [] si tu n'en cites aucun. N'invente JAMAIS un nom : n'y mets que des établissements réels issus de tes sources.
+- competitors : liste CHAQUE commerce/concurrent RÉEL que tu cites dans answer. Pour chacun :
+  • "name" = son nom exact tel qu'il est connu, SEUL (sans adresse, sans distance, sans commentaire) ;
+  • "city" = sa ville ou son arrondissement (ex: « Paris 16e ») ;
+  • "overlap" = ce qui SE RECOUPE concrètement avec VOTRE activité mesurée (voir « Votre contexte ») — une clause courte, factuelle, sans conseil (ex: « même cœur d'offre : café de spécialité + pâtisseries, clientèle de proximité ») ;
+  • "difference" = ce qui vous DISTINGUE de lui, dans les deux sens (ex: « lui : positionnement premium, tea time à 42 € ; vous : pas de salon de thé »). Si tu ne sais pas, mets "" — n'invente pas une différence.
+  Tableau vide [] si tu ne cites aucun établissement. N'invente JAMAIS un nom : uniquement des établissements réels issus de tes sources.
 - discovery = true si la question est une DÉCOUVERTE sans entité nommée (ex: « un nouveau concurrent près de moi ? », « qui sont mes concurrents proches ? »). Sinon discovery = false.
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
@@ -3944,7 +3955,7 @@ Règles :
             let entityAnswer = "";
             // The named competitors behind the prose — each becomes a "Suivre" action client-side, so the
             // operator can put a discovered competitor under surveillance without retyping it.
-            let entityCompetitors: Array<{ name: string; city: string }> = [];
+            let entityCompetitors: Array<{ name: string; city: string; overlap: string; difference: string }> = [];
             try {
               const fenced = entityRaw.replace(/^```json\s*|\s*```$/g, "").trim();
               const parsed = JSON.parse(fenced);
@@ -3955,12 +3966,19 @@ Règles :
                 : "";
               if (Array.isArray(parsed?.competitors)) {
                 const seen = new Set<string>();
+                const clean = (v: any, n: number) =>
+                  String(v ?? "").replace(/<\/?cite[^>]*>/gi, "").replace(/\*\*/g, "").trim().slice(0, n);
+                // The model ignores "city only" and appends the address ("Paris 16e — 112 av. Victor-Hugo").
+                // Keep the locality head: cut at a SPACED dash or a comma (so "Neuilly-sur-Seine" survives).
+                const cleanCity = (v: any) => clean(v, 120).split(/\s[—–-]\s|,/)[0].trim().slice(0, 60);
                 entityCompetitors = parsed.competitors
                   .map((c: any) => ({
-                    name: String(c?.name ?? "").replace(/<\/?cite[^>]*>/gi, "").replace(/\*\*/g, "").trim().slice(0, 120),
-                    city: String(c?.city ?? "").replace(/<\/?cite[^>]*>/gi, "").trim().slice(0, 80),
+                    name: clean(c?.name, 120),
+                    city: cleanCity(c?.city),
+                    overlap: clean(c?.overlap, 240),
+                    difference: clean(c?.difference, 240),
                   }))
-                  .filter((c: { name: string; city: string }) => {
+                  .filter((c: { name: string }) => {
                     const k = c.name.toLowerCase();
                     if (!c.name || c.name.length < 2 || seen.has(k)) return false;
                     seen.add(k);
@@ -3983,12 +4001,36 @@ Règles :
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
 
+            // Enrich each named competitor with REAL signals so the operator can judge WHO to watch first
+            // instead of taking the model's word: Google Places gives its true location (→ distance from
+            // YOUR venue, computed — not an LLM guess) and its GBP rating + review count (how established
+            // it is). Runs in parallel, and every field degrades to null (no key / no quota / no match) —
+            // the answer renders regardless. Closest first: proximity is the most direct competitive signal.
+            const vLat = Number(internal_context?.latitude);
+            const vLon = Number(internal_context?.longitude);
+            const enrichedCompetitors = entityRelevant && entityCompetitors.length
+              ? await Promise.all(entityCompetitors.map(async (c) => {
+                  const place = await lookupPlace(`${c.name} ${c.city}`.trim()).catch(() => null);
+                  const distance_m = place ? distanceMeters(vLat, vLon, place.lat, place.lon) : null;
+                  return {
+                    ...c,
+                    distance_m,
+                    rating: place?.rating ?? null,
+                    rating_count: place?.rating_count ?? null,
+                  };
+                }))
+              : [];
+            // Rank by proximity (closest = most direct); unknown distance sinks to the bottom.
+            enrichedCompetitors.sort((a, b) =>
+              (a.distance_m ?? Number.POSITIVE_INFINITY) - (b.distance_m ?? Number.POSITIVE_INFINITY));
+
             return new Response(JSON.stringify({
               ok: true,
               meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
-              // Named competitors behind the answer → one "Suivre" action each (client renders them).
-              // Only when the answer is actually surfaced: never offer to follow a competitor we didn't state.
-              follow_candidates: entityRelevant ? entityCompetitors : [],
+              // Named competitors behind the answer → one "Suivre" action each, with the overlap /
+              // difference / proximity / GBP signals needed to prioritise. Only when the answer is
+              // actually surfaced: never offer to follow a competitor we didn't state.
+              follow_candidates: enrichedCompetitors,
               ai: {
                 headline: entityHeadline,
                 verdict: "",

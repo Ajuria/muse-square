@@ -358,14 +358,44 @@ if (!root) {
   // the existing web-results follow (ieWebFollow in prompt.astro): #1D3BB3 text button → "Suivi" #0F6E56.
   // Not reusing that function directly — it is bound to prompt.astro's ie-web-card DOM.
   // ----------------------------
+  // French thousands ("1 487 avis"). Defined LOCALLY on purpose: card-kit.js exposes an frInt, but
+  // ie-prompt.js must not depend on that script being loaded to render an answer.
+  function frInt(n) {
+    try { return Number(n).toLocaleString("fr-FR"); } catch (e) { return String(n); }
+  }
+
+  // Distance in the operator's terms: "à 450 m" / "à 1,2 km" (French decimal, never a raw toString).
+  function followDist(m) {
+    if (typeof m !== "number" || !isFinite(m)) return "";
+    return m < 1000 ? ("à " + Math.round(m) + " m") : ("à " + String(Math.round(m / 100) / 10).replace(".", ",") + " km");
+  }
+  // GBP signal: a rating means little without the count behind it, so they always travel together.
+  function followRating(c) {
+    if (typeof c.rating !== "number" || !isFinite(c.rating)) return "";
+    const stars = String(Math.round(c.rating * 10) / 10).replace(".", ",");
+    const n = (typeof c.rating_count === "number" && isFinite(c.rating_count)) ? c.rating_count : null;
+    return "★ " + stars + (n !== null ? " (" + frInt(n) + " avis)" : "");
+  }
+
   function followRowsHtml(candidates) {
     if (!Array.isArray(candidates) || !candidates.length) return "";
     const rows = candidates.map(function (c, i) {
       const name = String(c && c.name || "").trim();
       if (!name) return "";
       const city = String(c && c.city || "").trim();
+      // Priority signals: real distance (computed from Places coords) + real GBP standing.
+      const meta = [followDist(c.distance_m), followRating(c), city].filter(Boolean).join(" · ");
+      const overlap = String(c && c.overlap || "").trim();
+      const difference = String(c && c.difference || "").trim();
       return '<div class="ie-follow-row" id="ie-follow-row-' + i + '">'
-        + '<span class="ie-follow-name">' + escapeHtml(name) + (city ? ' <span class="ie-follow-city">· ' + escapeHtml(city) + '</span>' : "") + '</span>'
+        + '<div class="ie-follow-main">'
+        +   '<div class="ie-follow-top">'
+        +     '<span class="ie-follow-name">' + escapeHtml(name) + '</span>'
+        +     (meta ? '<span class="ie-follow-meta">' + escapeHtml(meta) + '</span>' : "")
+        +   '</div>'
+        +   (overlap ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-ov">Recoupe</span>' + mdInlineToSafeHtml(overlap) + '</div>' : "")
+        +   (difference ? '<div class="ie-follow-line"><span class="ie-follow-tag ie-follow-tag-df">Diffère</span>' + mdInlineToSafeHtml(difference) + '</div>' : "")
+        + '</div>'
         + '<span class="ie-follow-action" id="ie-follow-action-' + i + '">'
         +   '<button type="button" class="ie-follow-btn" data-follow-idx="' + i + '"'
         +     ' data-follow-name="' + escapeHtml(name) + '" data-follow-city="' + escapeHtml(city) + '">Suivre</button>'
@@ -373,8 +403,10 @@ if (!root) {
         + '</div>';
     }).filter(Boolean).join("");
     if (!rows) return "";
+    // Ordered closest-first by the server — say so, so the order reads as a judgement, not a list.
     return '<div class="ie-follow-block">'
-      + '<div class="ie-follow-h">Mettre sous surveillance</div>' + rows + '</div>';
+      + '<div class="ie-follow-h">Mettre sous surveillance <span class="ie-follow-hint">· le plus proche d\'abord</span></div>'
+      + rows + '</div>';
   }
 
   document.addEventListener("click", async function (e) {

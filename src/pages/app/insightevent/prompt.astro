@@ -599,16 +599,34 @@ if (!location_id) {
       }
       .ie-follow-row {
         display: flex;
-        align-items: baseline;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
         font-size: 13px;
         line-height: 1.55;
         color: #374151;
       }
-      .ie-follow-row + .ie-follow-row { margin-top: 4px; }
-      .ie-follow-name { font-weight: 500; }
-      .ie-follow-city { color: #9CA3AF; font-weight: 400; }
+      .ie-follow-row + .ie-follow-row {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 0.5px solid #e5e7eb;
+      }
+      .ie-follow-main { min-width: 0; }
+      .ie-follow-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .ie-follow-name { font-weight: 600; color: #111827; }
+      .ie-follow-meta { font-size: 12px; color: #9CA3AF; }
+      .ie-follow-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #9CA3AF; }
+      .ie-follow-line { font-size: 12.5px; color: #6b7280; line-height: 1.5; margin-top: 2px; }
+      .ie-follow-tag {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-right: 6px;
+      }
+      .ie-follow-tag-ov { color: #0F6E56; }
+      .ie-follow-tag-df { color: #B45309; }
       .ie-follow-btn {
         font-size: 13px;
         color: #1D3BB3;
@@ -2057,7 +2075,7 @@ if (!location_id) {
 
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/card-kit.js?v=28"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=12" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=13" defer></script>
 
   </BaseLayout>
 </Show>
