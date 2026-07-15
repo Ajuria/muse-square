@@ -462,22 +462,61 @@ if (!root) {
     `;
   }
 
+  // ----------------------------
+  // ANSWER RENDER (Phase 3) — ONE renderer over typed blocks.
+  // renderAiOutputHtml is now an ADAPTER: it maps the existing response envelope
+  // {meta, ai.output, family_card, clarification, actions, ui_packaging_v3} to an ordered blocks[]
+  // and hands them to MSCardKit.renderAnswerBlocks (card-kit.js) — the same kit that draws the family
+  // cards, so every answer shares one type scale and the card-harness renders exactly what ships.
+  // The server is UNCHANGED (adapter-first per the Phase 3 spec); when the packager emits native
+  // blocks later, this adapter retires path by path.
+  //
+  // The register (provenance) is a BLOCK, not a bolt-on: the kit REQUIRES it — a block set without
+  // one renders the least-trusted pill. Derivation kept from Phase 0 (meta.register, producer fallback).
+  // ----------------------------
+  function _regFromProducer(p) {
+    return p === 'web_search' ? 'web'
+      : p === 'llm_only' ? 'model'
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1') ? null
+      : 'vetted';
+  }
+  function resolveRegister(out) {
+    const m = out && out.meta ? out.meta : {};
+    return (m.register === 'vetted' || m.register === 'web' || m.register === 'model')
+      ? m.register
+      : _regFromProducer(m.producer);
+  }
+
   function renderAiOutputHtml(out) {
+    const kit = window.MSCardKit;
+    if (!kit || typeof kit.renderAnswerBlocks !== "function") return "";   // card-kit.js not loaded — nothing renders without it
+    const blocks = blocksFromResponse(out);
+    if (!blocks.length) return "";
+    return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
+  }
+  // Instrumentation hook — lets card-harness.html drive the REAL adapter with captured payloads
+  // (verify-by-behavior). Not a public API.
+  window.__ieBlocksFromResponse = (out) => blocksFromResponse(out);
+
+  function blocksFromResponse(out) {
     const n =
       (out?.ai && typeof out.ai === "object")
         ? (out.ai.output && typeof out.ai.output === "object" ? out.ai.output : out.ai)
         : null;
-    if (!n || typeof n !== "object") return "";
+    if (!n || typeof n !== "object") return [];
 
-    // Family-led answer → render the FULL family card INLINE (the report content, in the chat), via the
-    // shared MSCardKit. The card IS the detailed answer — no LLM summarizer, no click-through report.
+    const blocks = [];
+    const register = resolveRegister(out);
+    if (register) blocks.push({ type: "register", register });
+
+    const clarChips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : null;
+
+    // Family-led answer → the FULL family card inline (the detailed answer IS the card, no click-through).
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
-      const fc = out.family_card;
-      const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé")
-        ? `<div class="ie-why-headline">${mdInlineToSafeHtml(n.headline.trim())}</div>` : "";
-      // renderX expects the endpoint shape { ok, found, ... }; provider data has `found` but not `ok`.
-      const card = window.MSCardKit[fc.render](Object.assign({ ok: true }, fc.data));
-      return `${lead}<div class="ie-family-card">${card}</div>`;
+      const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé") ? n.headline.trim() : "";
+      if (lead) blocks.push({ type: "headline", text: lead });
+      blocks.push({ type: "card", render: out.family_card.render, data: out.family_card.data });
+      return blocks;
     }
 
     const intent = typeof out?.meta?.resolved_intent === "string" ? out.meta.resolved_intent : "";
@@ -515,87 +554,76 @@ if (!root) {
       (typeof n.caveat === "string" && n.caveat.trim()) ? [n.caveat.trim()] : [];
 
     const primary = out?.actions?.primary;
-    const primaryLink =
+    const ctaBlock =
       primary && typeof primary === "object" &&
       primary.type === "redirect" &&
       typeof primary.url === "string" && primary.url.startsWith("/") &&
       typeof primary.label === "string" && primary.label.trim()
-        ? { url: primary.url, label: primary.label.trim() } : null;
-
-    const cta = primaryLink
-      ? `<div class="ie-ai-cta" style="display:flex;justify-content:flex-end;"><a href="${escapeHtml(primaryLink.url)}" class="ie-inline-cta">${escapeHtml(primaryLink.label)} →</a></div>`
-      : "";
+        ? { type: "cta", url: primary.url, label: primary.label.trim() } : null;
 
     // ── LOOKUP ──────────────────────────────────────────────────
+    // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
+    // client parse retires when the packager emits native blocks).
     if (isLookup) {
       if (!answer && !keyFacts.length) {
-        return `<div class="ie-lookup-notfound">Cet événement n&#039;est pas référencé dans notre base de données. Essayez avec le nom exact de l&#039;événement ou une autre formulation.</div>`;
+        blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });
+        return blocks;
       }
-      const items = answer.split("\n").filter(Boolean).map(line => {
-        const sepIdx = line.indexOf("||");
-        const raw = sepIdx > -1 ? line.slice(0, sepIdx) : line;
-        const desc = sepIdx > -1 ? line.slice(sepIdx + 2) : "";
-        const colonIdx = raw.indexOf(": ");
-        const dateStr = colonIdx > -1 ? raw.slice(0, colonIdx) : "";
-        const eventName = colonIdx > -1 ? raw.slice(colonIdx + 2) : raw;
-        return `<div class="ie-lookup-item">
-          <div class="ie-lookup-name">${mdInlineToSafeHtml(eventName)}</div>
-          ${dateStr ? `<div class="ie-lookup-date">${escapeHtml(dateStr)}</div>` : ""}
-          ${desc ? `<div class="ie-lookup-desc">${mdInlineToSafeHtml(desc)}</div>` : ""}
-        </div>`;
+      if (headline && headline !== "Résumé") blocks.push({ type: "headline", text: headline });
+      blocks.push({
+        type: "lookup",
+        items: answer.split("\n").filter(Boolean).map(line => {
+          const sepIdx = line.indexOf("||");
+          const raw = sepIdx > -1 ? line.slice(0, sepIdx) : line;
+          const desc = sepIdx > -1 ? line.slice(sepIdx + 2) : "";
+          const colonIdx = raw.indexOf(": ");
+          return {
+            name: colonIdx > -1 ? raw.slice(colonIdx + 2) : raw,
+            date: colonIdx > -1 ? raw.slice(0, colonIdx) : "",
+            desc,
+          };
+        }),
       });
-      const hdl = headline && headline !== "Résumé" ? `<div class="ie-lookup-headline">${mdInlineToSafeHtml(headline)}</div>` : "";
-      return `${hdl}${items.join("")}`;
+      return blocks;
     }
 
     // ── DAY_DIMENSION_DETAIL ─────────────────────────────────────
     if (isDayDimension) {
-      const raw = typeof answer === "string" ? answer : "";
-      const parts = raw.split("\n\n").filter(Boolean);
-
-      const listPart = parts[0] ?? "";
-      const analysisPart = parts[1] ?? "";
-      const recommendationPart = parts[2] ?? "";
-
-      const listLines = listPart.split("\n").filter(Boolean);
-      const densityLine = listLines[0] ?? "";
+      const parts = (typeof answer === "string" ? answer : "").split("\n\n").filter(Boolean);
+      const listLines = (parts[0] ?? "").split("\n").filter(Boolean);
       let competitorLines = listLines.slice(1);
       if (competitorLines.length === 0 && listLines.length === 1) {
         // Claude didn't use \n — split on pattern "[Name] — [distance] m"
-        competitorLines = listPart
+        competitorLines = (parts[0] ?? "")
           .split(/(?=\S[^—]+—\s*\d+\s*m)/)
           .map(s => s.trim())
           .filter(s => s.includes(" — ") && s.match(/\d+\s*m/))
           .filter(Boolean);
       }
-
-      const competitorRows = competitorLines
-        .map(line => `<div class="ie-competitor-row">${mdInlineToSafeHtml(line.trim())}</div>`)
-        .join("");
-
-      return `
-        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
-        ${competitorRows ? `<div class="ie-competitor-list">${competitorRows}</div>` : ""}
-        ${analysisPart ? `<div class="ie-competitor-analysis">${mdInlineToSafeHtml(analysisPart)}</div>` : ""}
-        ${recommendationPart ? `<div class="ie-competitor-recommendation">${mdInlineToSafeHtml(recommendationPart)}</div>` : ""}
-        ${cta}
-      `;
+      if (headline) blocks.push({ type: "headline", text: headline });
+      if (competitorLines.length) blocks.push({ type: "rows", items: competitorLines.map(s => s.trim()) });
+      if (parts[1]) blocks.push({ type: "prose", md: parts[1] });
+      if (parts[2]) blocks.push({ type: "prose", md: parts[2] });
+      if (ctaBlock) blocks.push(ctaBlock);
+      return blocks;
     }
-    
+
     if (isDayWhy) {
-      const isGood = answer.toLowerCase().includes("bien noté") || !answer.toLowerCase().includes("mal noté");
-      const pillClass = isGood ? "ie-pill-blue" : "ie-pill-amber";
-      const chiffreCle = "";
       const prose = answer.split("\n\n").filter(Boolean);
-      const intro = prose[0] ?? "";
-      const rows = prose.slice(1);
-      return `
-        <div class="ie-why-headline">${mdInlineToSafeHtml(headline)}</div>
-        ${chiffreCle ? `<div class="${pillClass}">${escapeHtml(chiffreCle)}</div>` : ""}
-        ${intro ? `<div class="ie-why-intro">${mdInlineToSafeHtml(intro)}</div>` : ""}
-        ${rows.map(r => `<div class="ie-why-row">${mdInlineToSafeHtml(r).replace(/^(Disponibilité (de votre )?audience\s*:)/, '<strong>$1</strong>').replace(/^(Pression concurrentielle\s*:)/, '<strong>$1</strong>').replace(/^(Accessibilité du site\s*:)/, '<strong>$1</strong>').replace(/^(Conditions d&#039;exploitation\s*:)/, '<strong>$1</strong>')}</div>`).join("")}
-        ${cta}
-      `;
+      // The four canonical dimension labels stay bold — previously hardcoded <strong> regexes at this
+      // seam; now expressed as markdown the prose primitive renders. Same visible result.
+      const boldLabels = (r) => r
+        .replace(/^(Disponibilité (de votre )?audience\s*:)/, "**$1**")
+        .replace(/^(Pression concurrentielle\s*:)/, "**$1**")
+        .replace(/^(Accessibilité du site\s*:)/, "**$1**")
+        .replace(/^(Conditions d'exploitation\s*:)/, "**$1**");
+      if (headline) blocks.push({ type: "headline", text: headline });
+      if (prose[0]) blocks.push({ type: "prose", md: prose[0] });
+      const rows = prose.slice(1).map(boldLabels);
+      if (rows.length) blocks.push({ type: "prose", md: rows.join("\n") });
+      if (ctaBlock) blocks.push(ctaBlock);
+      if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
+      return blocks;
     }
 
     // ── WINDOW_TOP_DAYS / WINDOW_WORST_DAYS / COMPARE_DATES ─────
@@ -603,65 +631,53 @@ if (!root) {
       const isV3 =
         out?.ui_packaging_v3?.v === 3 &&
         Array.isArray(out.ui_packaging_v3.dates);
+      const baseTone = isWorstDays ? "amber" : "blue";
 
-      const cardClass = isWorstDays ? "ie-card-amber" : "ie-card-blue";
-      const pillClass = isWorstDays ? "ie-pill-amber" : "ie-pill-blue";
-      const verdictClass = isWorstDays ? "ie-verdict-amber" : "ie-verdict-blue";
+      if (verdict) blocks.push({ type: "verdict", text: verdict });
+      if (headline) blocks.push({ type: "headline", text: headline });
 
-      const verdictHtml = verdict ? `<div class="ie-verdict-plain">${mdInlineToSafeHtml(verdict)}</div>` : "";
-      const headlineHtml = headline ? `<div class="ie-section-h">${mdInlineToSafeHtml(headline)}</div>` : "";
-
-      let cardsHtml = "";
-
+      let items = [];
       if (answerDates.length) {
-        cardsHtml = answerDates.map((d, idx) => {
-          let cc = cardClass;
-          let pc = pillClass;
-          if (isCompare) {
-            const isWinner = d.label && d.label.includes("recommandé");
-            cc = isWinner ? "ie-card-blue" : "ie-card-amber";
-            pc = isWinner ? "ie-pill-blue" : "ie-pill-amber";
-          }
+        items = answerDates.map((d, idx) => {
+          const tone = isCompare ? ((d.label && d.label.includes("recommandé")) ? "blue" : "amber") : baseTone;
           const rankPrefix = (isTopDays || isWorstDays) ? `#${idx + 1} — ` : "";
-          return `
-            <div class="${cc}">
-              <div class="ie-card-label">${escapeHtml(rankPrefix + (d.label ?? d.date ?? ""))}</div>
-              ${d.c2 ? `<div class="${pc}">${mdInlineToSafeHtml(d.c2.replace(/^Pression concurrentielle\s*:\s*/, ""))}</div>` : ""}
-              ${d.c1 ? `<div class="ie-card-row"><strong>Disponibilité audience :</strong> ${mdInlineToSafeHtml(d.c1.replace(/^Disponibilité audience\s*:\s*/, ""))}</div>` : ""}
-              ${d.c3 ? `<div class="ie-card-row"><strong>Accessibilité :</strong> ${mdInlineToSafeHtml(d.c3.replace(/^Accessibilité du site\s*:\s*/, ""))}</div>` : ""}
-              ${d.c4 ? `<div class="ie-card-row"><strong>Conditions :</strong> ${mdInlineToSafeHtml(d.c4.replace(/^Conditions d'exploitation\s*:\s*/, ""))}</div>` : ""}
-            </div>`;
-        }).join("");
+          const rows = [];
+          if (d.c1) rows.push({ k: "Disponibilité audience :", v: d.c1.replace(/^Disponibilité audience\s*:\s*/, "") });
+          if (d.c3) rows.push({ k: "Accessibilité :", v: d.c3.replace(/^Accessibilité du site\s*:\s*/, "") });
+          if (d.c4) rows.push({ k: "Conditions :", v: d.c4.replace(/^Conditions d'exploitation\s*:\s*/, "") });
+          return {
+            label: rankPrefix + (d.label ?? d.date ?? ""),
+            pill: d.c2 ? d.c2.replace(/^Pression concurrentielle\s*:\s*/, "") : "",
+            rows, tone,
+          };
+        });
       } else if (isV3) {
-        cardsHtml = out.ui_packaging_v3.dates.map((d, idx) => {
+        items = out.ui_packaging_v3.dates.map((d, idx) => {
           const label = typeof d?.date_label === "string" ? d.date_label : d?.date ?? "";
           const regime = d?.score?.regime ?? d?.regime ?? "";
           const score = d?.score?.score ?? d?.score ?? null;
           const sub = [regime ? `classé ${regime}` : "", score !== null ? `soit ${Number(score).toFixed(1)}/10` : ""].filter(Boolean).join(", ");
-          return `
-            <div class="${cardClass}">
-              <div class="ie-card-label">#${idx + 1} — ${escapeHtml(label)}${sub ? `, ${sub}` : ""}</div>
-            </div>`;
-        }).join("");
+          return { label: `#${idx + 1} — ${label}${sub ? `, ${sub}` : ""}`, rows: [], tone: baseTone };
+        });
       }
+      if (items.length) blocks.push({ type: "datecards", items });
 
       const v3Primary = out?.ui_packaging_v3 ? (out?.actions?.primary ?? null) : null;
-      const v3Link = v3Primary && typeof v3Primary.url === "string" && v3Primary.url.startsWith("/")
-        ? `<div class="ie-ai-cta"><a href="${escapeHtml(v3Primary.url)}" class="ie-inline-cta">Consulter →</a></div>`
-        : cta;
-
-      return `${verdictHtml}${headlineHtml}${cardsHtml}${v3Link}`;
+      if (v3Primary && typeof v3Primary.url === "string" && v3Primary.url.startsWith("/")) {
+        blocks.push({ type: "cta", url: v3Primary.url, label: "Consulter" });
+      } else if (ctaBlock) blocks.push(ctaBlock);
+      if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
+      return blocks;
     }
 
-    // ── FALLBACK (generic prose) ─────────────────────────────────
-    return `
-      ${headline ? `<div class="ie-ai-h">${mdInlineToSafeHtml(headline)}</div>` : ""}
-      ${answer ? answer.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => `<div class="ie-ai-p">${mdInlineToSafeHtml(p).replace(/\n/g, "<br/>")}</div>`).join("") : ""}
-      ${keyFacts.length ? `<ul class="ie-ai-list">${keyFacts.map(x => `<li>${mdInlineToSafeHtml(x)}</li>`).join("")}</ul>` : ""}
-      ${followRowsHtml(out && out.follow_candidates)}
-      ${caveats.length ? `<div class="ie-ai-caveats">${caveats.map(c => `<div class="ie-ai-cv">${mdInlineToSafeHtml(c)}</div>`).join("")}</div>` : ""}
-      ${cta}
-    `;
+    // ── FALLBACK (generic prose: discovery / entity / web / clarifications) ──
+    if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+    if (answer) blocks.push({ type: "prose", md: answer });
+    if (keyFacts.length) blocks.push({ type: "facts", items: keyFacts });
+    if (caveats.length) blocks.push({ type: "caveats", items: caveats });
+    if (ctaBlock) blocks.push(ctaBlock);
+    if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
+    return blocks;
   }
 
   function isQuestion(q) {
@@ -777,8 +793,47 @@ if (!root) {
     // Append user turn to history before sending
     CONVERSATION_HISTORY.push({ role: "user", content: q });
 
+    // ── Staged inline loader (owner-approved prototype 2026-07-15) ─────────────────────────────
+    // Replaces the 140px centered GIF: a text-height indicator at the exact spot the first answer
+    // line will appear, stepping through the pipeline's REAL phases. HONESTY RULES: the stage lines
+    // describe what the server genuinely does (route → BQ reads → generation → validator); the
+    // intermediate steps advance on timers calibrated to the measured profile (interim — Phase 5
+    // increment 0 swaps the timers for real SSE stage events with no visual change), and the FINAL
+    // stage ("Vérification des faits") is only ever completed by the actual arrival of the response —
+    // nothing is claimed done before it is.
+    const LOAD_STAGES = [
+      { t: 0,    label: "Routage de votre question" },
+      { t: 700,  label: "Lecture de vos ventes" },
+      { t: 2100, label: "Contexte du jour — météo, événements, concurrence" },
+      { t: 3600, label: "Rédaction de la réponse" },          // the long phase — holds until arrival
+      { t: -1,   label: "Vérification des faits" },                // -1 = completed only by the real response
+    ];
     const aiBubble = appendMsg("ai", "", "is-loading");
-    setBubbleHtml(aiBubble, `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;min-width:0;box-sizing:border-box;"><img src="/icons/load/ms_load_icon.gif" alt="Analyse en cours" style="height:140px;width:auto;" /><div class="ie-load-msg" style="font-size:13px;color:#6b7280;">Analyse en cours…</div></div>`);
+    const _stageRow = (s, i) =>
+      `<div class="ie-load-stage" data-stage="${i}" style="display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .35s;font-size:13.5px;color:#6b7280;">`
+      + `<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-brand-blue,#0b37e5);flex:none;"></span>`
+      + `<span>${escapeHtml(s.label)}</span></div>`;
+    setBubbleHtml(aiBubble,
+      `<style>@keyframes iePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.45}}`
+      + `.ie-load-stage.on{opacity:1 !important;color:var(--color-text-primary,#111827);}`
+      + `.ie-load-stage.on .ie-load-dot{animation:iePulse 1.1s ease-in-out infinite;}`
+      + `.ie-load-stage.done{opacity:.55 !important;}`
+      + `.ie-load-stage.done .ie-load-dot{animation:none;background:transparent;position:relative;}`
+      + `.ie-load-stage.done .ie-load-dot::after{content:"✓";position:absolute;top:-6px;left:-1px;font-size:11px;color:#0F6E56;}`
+      + `@media (prefers-reduced-motion:reduce){.ie-load-stage.on .ie-load-dot{animation:none;}}</style>`
+      + `<div class="ie-load-stages" style="display:flex;flex-direction:column;gap:7px;" role="status" aria-label="Analyse en cours">`
+      + LOAD_STAGES.map(_stageRow).join("") + `</div>`);
+    const _stageTimers = [];
+    LOAD_STAGES.forEach((s, i) => {
+      if (s.t < 0) return; // arrival-gated stage — never timer-advanced
+      _stageTimers.push(setTimeout(() => {
+        const rows = aiBubble.querySelectorAll(".ie-load-stage");
+        if (!rows.length) return; // bubble already replaced by the answer
+        if (i > 0 && rows[i - 1]) { rows[i - 1].classList.remove("on"); rows[i - 1].classList.add("done"); }
+        rows[i].classList.add("on");
+      }, s.t));
+    });
+    const clearLoadStages = () => { _stageTimers.forEach(clearTimeout); };
 
     try {
       const currentMode = typeof window.__ieSetMode === 'function'
@@ -853,50 +908,14 @@ if (!root) {
         return;
       }
 
+      // Phase 3: the register pill and the clarification chips are BLOCKS inside the one renderer now
+      // (the kit enforces the register; the adapter folds clarification chips in) — no bubble bolt-ons.
       const html = renderAiOutputHtml(out);
-      // Provenance register (Phase 0): show the answer's source on EVERY path — previously grounded_day /
-      // family_* / v3_fallback fell through to no pill at all. Prefer the server-authoritative
-      // meta.register; derive from producer as a fallback while the server rolls out.
-      const _regFromProducer = (p) =>
-        p === 'web_search' ? 'web'
-        : p === 'llm_only' ? 'model'
-        : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1') ? null
-        : 'vetted';
-      const _reg = (out && out.meta && (out.meta.register === 'vetted' || out.meta.register === 'web' || out.meta.register === 'model'))
-        ? out.meta.register
-        : _regFromProducer(out && out.meta ? out.meta.producer : null);
-      const sourcePillHtml = (() => {
-        if (!_reg) return '';
-        let label, bg, color;
-        if (_reg === 'vetted') {
-          label = 'Vérifié'; bg = 'var(--color-pill-safe-bg)'; color = 'var(--color-pill-safe-text)';
-        } else if (_reg === 'web') {
-          label = 'Web — non vérifié'; bg = 'var(--color-pill-source-low-bg)'; color = 'var(--color-pill-source-low-text)';
-        } else {
-          label = 'Non vérifié'; bg = 'var(--color-pill-source-mid-bg)'; color = 'var(--color-pill-source-mid-text)';
-        }
-        return `<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:${bg};color:${color};margin-bottom:10px;letter-spacing:.04em;">${label}</div>`;
-      })();
-
-      // Phase 2 #4 — clarification chips. A clarifying answer (e.g. missing dates) carries deterministic
-      // tappable options from the server; tapping one re-submits its `send` text as a normal user message.
-      const clarChipsHtml = (() => {
-        const chips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : [];
-        if (!chips.length) return "";
-        const btns = chips
-          .filter((c) => c && typeof c.label_fr === "string" && typeof c.send === "string")
-          .map((c) =>
-            '<button type="button" class="ie-clar-chip" data-send="' + escapeHtml(c.send) + '"'
-            + ' style="display:inline-block;margin:4px 6px 0 0;padding:6px 12px;border-radius:18px;border:1px solid var(--color-brand-blue,#0b37e5);background:transparent;color:var(--color-brand-blue,#0b37e5);font-size:12.5px;font-weight:500;cursor:pointer;">'
-            + escapeHtml(c.label_fr) + '</button>'
-          ).join("");
-        return btns ? '<div class="ie-clar-chips" style="margin-top:10px;">' + btns + '</div>' : "";
-      })();
 
       if (aiBubble) {
         aiBubble.className = "ie-bubble-none";
         if (html) {
-          setBubbleHtml(aiBubble, sourcePillHtml + html + clarChipsHtml);
+          setBubbleHtml(aiBubble, html);
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
@@ -918,6 +937,7 @@ if (!root) {
         aiBubble.textContent = "Erreur réseau. Veuillez réessayer.";
       }
     } finally {
+      clearLoadStages();   // response (or error) arrived — stop the stage timers; content replacement clears the UI
       btn?.removeAttribute("disabled");
     }
   }

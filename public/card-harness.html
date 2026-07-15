@@ -38,9 +38,22 @@
     <div class="zone"><div class="zh">Météo prolongée — fenêtre (PROTOTYPE · f10c3e58 canicule, RÉEL)</div><div class="fix">renderWeatherWindow — window strip + measured CA impact + decision</div><div id="wwindow"></div></div>
     <div class="zone"><div class="zh">Rapport famille — SIMULATION page (provider.data sans ok → page ajoute ok:true)</div><div class="fix">renderFootfall(Object.assign({ok:true}, providerData)) — the family-report.astro render path</div><div id="freport-sim"></div></div>
     <div class="zone"><div class="zh">Consulter l’évolution — engagement OUVERT (fixture · vacances)</div><div class="fix">renderEvolution(data, EVOL_COPY) — MOVED onto the shared kit; wiring stays page-side</div><div id="evolution"></div></div>
+    <div class="zone"><div class="zh">Consulter — RÉPONSES (Phase 3 · un seul renderer, payloads réels f10c3e58)</div>
+      <div class="fix">window.__ieBlocksFromResponse (le VRAI adaptateur d'ie-prompt.js) → MSCardKit.renderAnswerBlocks. Vérifier : pilule registre en tête de CHAQUE réponse, gras rendu, listes rendues, chips cliquables présents.</div>
+      <div class="eg-sec"><div class="eg-uc">A · WINDOW_TOP_DAYS (mes 3 meilleurs jours)</div><div id="ans-a"></div></div>
+      <div class="eg-sec"><div class="eg-uc">B · DAY_WHY grounded ("et le dimanche ?")</div><div id="ans-b"></div></div>
+      <div class="eg-sec"><div class="eg-uc">C · CLARIFICATION (dates manquantes — pas de pilule, chips)</div><div id="ans-c"></div></div>
+      <div class="eg-sec"><div class="eg-uc">E · COMPARE_DATES (2 dates)</div><div id="ans-e"></div></div>
+      <div class="eg-sec"><div class="eg-uc">D · FAMILY-LED (footfall inline card + registre)</div><div id="ans-d"></div></div>
+      <div class="eg-sec"><div class="eg-uc">MD · fallback prose — markdown whitelist (gras / italique / liste / paragraphes)</div><div id="ans-md"></div></div>
+      <div class="eg-sec"><div class="eg-uc">XSS · entrées hostiles (tout doit rester du texte inerte)</div><div id="ans-xss"></div><div id="xss-verdict" style="font-size:12px;font-weight:700;margin-top:6px;"></div></div>
+      <div class="eg-sec"><div class="eg-uc">REG · blocks[] SANS registre → pilule "Non vérifié" forcée (jamais silencieux)</div><div id="ans-reg"></div></div>
+    </div>
   </div>
 
+  <div id="ie-prompt-root" data-location-id="" hidden></div>
   <script src="card-kit.js"></script>
+  <script src="scripts/ie-prompt.js"></script>
   <script>
     var FORECAST = [
       { date: '2026-07-12', tmax: 37, wind: 16, rain_prob: 0, is_extreme: true },
@@ -337,6 +350,50 @@
       decision_lines: [ { head:'Forte chaleur = votre fenêtre', body:'Ces jours-là votre CA monte de +29 % (fréquentation +18 %, panier +8 %) — préparez l\'offre et le réassort AVANT, pas pendant.' }, { head:'Jouez le chaud', body:'Boissons fraîches / glaces en avant, terrasse ombragée, eau offerte — captez le flux que la chaleur vous amène.' } ],
       caveat: "Association observée sur vos jours comparables passés, pas une garantie — la fenêtre au-delà de 6 jours reste une prévision. Notez vos actions pour affiner." };
     document.getElementById('wwindow').innerHTML = MSCardKit.renderWeatherWindow(WWIN);
+
+    // ── Phase 3 — answer blocks, driven by the REAL adapter over REAL captured payloads ──
+    var ANSWERS = {"A": {"ok": true, "meta": {"resolved_intent": "WINDOW_TOP_DAYS", "resolved_horizon": "month", "producer": "v3_claude", "register": "vetted"}, "ai": {"output": {"headline": "3 meilleures dates en août — concurrence sous la moyenne du mois (moy. : 157)", "verdict": "Si votre critère principal est la pression événementielle, choisissez le mardi 11 août 2026 : 15 événements concurrents de moins dans un rayon de 5 km.", "answer": [{"date": "2026-08-11", "label": "Mardi 11 août 2026, classé B, soit 7,4/10", "c1": "Disponibilité audience : jour de semaine, audience professionnelle locale disponible principalement en soirée.", "c2": "Pression concurrentielle : 142 événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : 157).", "c3": "Accessibilité du site : aucune perturbation détectée.", "c4": "Conditions d'exploitation : risque météo à surveiller. Données météo indicatives au-delà de 10 jours — à reconfirmer à J-7."}, {"date": "2026-08-10", "label": "Lundi 10 août 2026, classé B, soit 7,4/10", "c1": "Disponibilité audience : jour de semaine, audience professionnelle locale disponible principalement en soirée.", "c2": "Pression concurrentielle : 142 événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : 157).", "c3": "Accessibilité du site : aucune perturbation détectée.", "c4": "Conditions d'exploitation : risque météo à surveiller. Données météo indicatives au-delà de 10 jours — à reconfirmer à J-7."}, {"date": "2026-08-05", "label": "Mercredi 5 août 2026, classé B, soit 7,3/10", "c1": "Disponibilité audience : jour de semaine, audience professionnelle locale disponible principalement en soirée.", "c2": "Pression concurrentielle : 142 événements concurrents dans un rayon de 5 km — moins chargé que la moyenne du mois (moy. : 157).", "c3": "Accessibilité du site : aucune perturbation détectée.", "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation. Données météo indicatives au-delà de 10 jours — à reconfirmer à J-7."}], "key_facts": [], "reasons": [], "caveats": []}, "verdict": "Si votre critère principal est la pression événementielle, choisissez le mardi 11 août 2026 : 15 événements concurrents de moins dans un rayon de 5 km."}, "actions": {"primary": {"type": "redirect", "url": "/app/insightevent/month?focus=shortlist&from_prompt=true&selected_date=2026-07-15&anchor_date=2026-07-15&preselect_dates=2026-08-11%2C2026-08-10%2C2026-08-05", "label": "Ouvrir le mois"}}}, "B": {"ok": true, "meta": {"resolved_intent": "DAY_WHY", "resolved_horizon": "day", "producer": "grounded_day_claude", "register": "vetted"}, "ai": {"output": {"headline": "Dimanche s'annonce ordinaire mais concurrentiel, avec une pression événementielle locale marquée.", "verdict": "", "answer": "La concurrence directe domine le paysage du jour : 7 événements sont recensés à moins de 500 mètres, un signal classé priorité 3. Le score du jour reste favorable (48/100, météo acceptable), mais la carte rappelle une forte densité d'événements dans un rayon plus large. Trois concurrents établis restent à proximité, sans lien démontré avec votre activité de ce dimanche.", "key_facts": ["7 événements à moins de 500 m - concurrence directe", "Dimanche favorable (score 48, météo acceptable)", "Concurrents à proximité : MCJP (1,6 km), Guimet (2,4 km), Quai Branly (1,7 km)"], "reasons": [], "caveats": ["Aucune donnée mesurée (engines vides) ne permet de relier ces éléments à un effet sur votre fréquentation ou votre CA."]}, "verdict": ""}, "actions": {"primary": {"type": "redirect", "url": "/app/insightevent/month?focus=shortlist&from_prompt=true&selected_date=2026-07-19&anchor_date=2026-07-19", "label": "Ouvrir le mois"}}}, "C": {"ok": true, "meta": {"resolved_intent": "COMPARE_DATES", "resolved_horizon": "selected_days", "producer": "deterministic_missing_dates_v1", "register": null}, "ai": {"output": {"headline": "Quels jours voulez-vous comparer ?", "answer": "Indiquez deux à sept dates — dans le calendrier, en toutes lettres ou en touchant une suggestion ci-dessous.", "key_facts": [], "reasons": [], "caveats": ["Sans au moins deux dates, je ne peux pas comparer les impacts (logistique, affluence, communication)."]}, "verdict": ""}, "actions": {"primary": {"type": "redirect", "url": "/app/insightevent/month?focus=shortlist&from_prompt=true&selected_date=2026-07-15&anchor_date=2026-07-15", "label": "Ouvrir le mois"}}, "clarification": {"kind": "missing_dates", "chips": [{"label_fr": "Comparer samedi 18/07/2026 et dimanche 19/07/2026", "send": "Compare le 18/07/2026 et le 19/07/2026"}]}}, "E": {"ok": true, "meta": {"resolved_intent": "COMPARE_DATES", "resolved_horizon": "selected_days", "producer": "v3_claude", "register": "vetted"}, "ai": {"output": {"headline": "Le 19 juillet devance le 18 : 173 événements concurrents contre 178", "verdict": "Si votre critère principal est la pression événementielle, choisissez le dimanche 19 juillet 2026 : 5 événements concurrents de moins dans un rayon de 5 km.", "answer": [{"date": "2026-07-18", "label": "Samedi 18 juillet 2026", "c1": "Disponibilité audience : samedi, votre audience professionnelle locale est disponible toute la journée.", "c2": "Pression concurrentielle : 178 événements concurrents dans un rayon de 5 km.", "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.", "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."}, {"date": "2026-07-19", "label": "Dimanche 19 juillet 2026", "c1": "Disponibilité audience : dimanche, votre audience professionnelle locale est disponible toute la journée.", "c2": "Pression concurrentielle : 173 événements concurrents dans un rayon de 5 km.", "c3": "Accessibilité du site : aucune perturbation de mobilité détectée.", "c4": "Conditions d'exploitation : conditions météo favorables. Aucun impact prévu sur l'installation ou la fréquentation."}], "key_facts": [], "reasons": [], "caveats": []}, "verdict": "Si votre critère principal est la pression événementielle, choisissez le dimanche 19 juillet 2026 : 5 événements concurrents de moins dans un rayon de 5 km."}, "actions": {"primary": {"type": "redirect", "url": "/app/insightevent/month?focus=shortlist&from_prompt=true&selected_date=2026-07-18&anchor_date=2026-07-18", "label": "Ouvrir le mois"}}}};
+    // D — family-led: real meta/headline from the live "et le dimanche ?" footfall run; card data = the
+    // real FOOT fixture above (the live payload's card data is the same provider shape).
+    ANSWERS.D = { ok: true,
+      meta: { resolved_intent: 'DAY_DIMENSION_DETAIL', resolved_horizon: 'day', producer: 'family_grounded_claude', register: 'vetted', resolved_family: 'footfall' },
+      ai: { output: { headline: "Le dimanche 19/07 s'annonce sous forte pression concurrentielle, la saillance du jour étant dominée par la concurrence plutôt que par un facteur interne." } },
+      family_card: { render: 'renderFootfall', data: FOOT_PROVIDER_DATA }, actions: {} };
+    ANSWERS.MD = { ok: true,
+      meta: { resolved_intent: 'ENTITY_IMPACT', resolved_horizon: 'month', producer: 'web_search', register: 'web' },
+      ai: { output: { headline: "Deux **nouveaux concurrents** détectés près de vous",
+        answer: "D'après ce que vous m'avez indiqué, deux ouvertures récentes :\n\n- **Ladurée Café** (75016) — coffee shop, ouvert en *septembre 2025*\n- **Lenôtre Victor Hugo** — boutique rénovée avec café-salon de thé\n\nLes deux visent la même clientèle de quartier que vous.",
+        key_facts: ["**Ladurée Café** à 450 m", "*Lenôtre* à 800 m"], caveats: ["Source web — à confirmer sur place."] } }, actions: {} };
+    ANSWERS.XSS = { ok: true,
+      meta: { resolved_intent: 'ENTITY_IMPACT', resolved_horizon: 'month', producer: 'llm_only', register: 'model' },
+      ai: { output: { headline: "<script>alert(1)</scr" + "ipt> **test**",
+        answer: "<img src=x onerror=alert(2)> et du **gras <b>pas de html</b>** :\n\n- item <svg onload=alert(3)>\n- **ok** *fin*\n\nParagraphe avec ** non fermé et *italique.",
+        key_facts: ["<iframe src=//evil>"], caveats: [] } }, actions: {} };
+
+    function renderAnswer(id, out) {
+      var blocks = window.__ieBlocksFromResponse(out);
+      document.getElementById(id).innerHTML = MSCardKit.renderAnswerBlocks(blocks);
+    }
+    renderAnswer('ans-a', ANSWERS.A);
+    renderAnswer('ans-b', ANSWERS.B);
+    renderAnswer('ans-c', ANSWERS.C);
+    renderAnswer('ans-e', ANSWERS.E);
+    renderAnswer('ans-d', ANSWERS.D);
+    renderAnswer('ans-md', ANSWERS.MD);
+    renderAnswer('ans-xss', ANSWERS.XSS);
+    // structural safety assertion: no live script/img/svg/iframe may exist inside the XSS zone
+    (function () {
+      var z = document.getElementById('ans-xss');
+      var bad = z.querySelectorAll('script,img,svg,iframe,object,embed').length;
+      var v = document.getElementById('xss-verdict');
+      v.textContent = bad === 0 ? 'XSS: PASS — 0 élément actif injecté' : ('XSS: FAIL — ' + bad + ' élément(s) actif(s)!');
+      v.style.color = bad === 0 ? '#0F6E56' : '#B91C1C';
+    })();
+    // register enforcement: blocks with content but NO register block
+    document.getElementById('ans-reg').innerHTML = MSCardKit.renderAnswerBlocks([
+      { type: 'headline', text: 'Réponse sans registre (bug simulé)' },
+      { type: 'prose', md: 'Ce contenu doit porter la pilule la MOINS fiable, jamais aucune.' }
+    ]);
 
   </script>
 </body>
