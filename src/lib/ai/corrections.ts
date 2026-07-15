@@ -1,9 +1,13 @@
 // src/lib/ai/corrections.ts
 // Phase 2.3 — persistent user corrections to a venue's business identity.
-// Append-only EVENT LOG (raw.consulter_correction_events): every assert/supersede/clear is an immutable
-// row. The CURRENT identity is the latest active event per (location_id, correction_type); a latest
-// 'clear' means the correction is inactive. The full history is the learning corpus (dbt models it
-// downstream). The app owns write (append) + read (latest-active); it never overwrites or deletes.
+// Append-only EVENT LOG (analytics.consulter_correction_events): every assert/supersede/clear is an
+// immutable row. The CURRENT identity is the latest active event per (location_id, correction_type);
+// a latest 'clear' means the correction is inactive. The full history is the learning corpus (dbt
+// models it downstream). The app owns write (append) + read (latest-active); never overwrites/deletes.
+//
+// Lives in `analytics`, NOT `raw`: house convention puts APP-OWNED append-only logs there (raw is for
+// ingestions — Airbyte/client/crawl/static). Exact same pattern as analytics.action_commitments
+// (INSERT DML, latest-state via ROW_NUMBER, dbt-sourced into a learning chain).
 //
 // Identity priority (Phase 2.3): user correction > measured sales (Phase 1) > crawled > declared.
 
@@ -13,7 +17,7 @@ import { callClaudeMessagesAPI } from "./runtime/claude";
 import { modelFor } from "./models";
 
 const PROJECT = "muse-square-open-data";
-const TABLE = `\`${PROJECT}.raw.consulter_correction_events\``;
+const TABLE = `\`${PROJECT}.analytics.consulter_correction_events\``;
 
 export type CorrectionType = "activity" | "zone" | "nouveau_meaning" | "other";
 export type CorrectionAction = "assert" | "supersede" | "clear";
