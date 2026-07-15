@@ -61,6 +61,12 @@ export const GET: APIRoute = async ({ request }) => {
           ON s.clerk_user_id = n.clerk_user_id
         WHERE a.alert_level >= 3
           AND a.notified_at IS NULL
+          -- STALENESS GUARD. notified_at IS NULL alone is not a freshness test: it means "never sent",
+          -- and this cron was pointed at a 404 URL from 22/03 to 15/07, so everything queued behind it
+          -- kept qualifying for ever. An alert about a date that has passed is not actionable — mailing
+          -- it is noise that teaches the operator to ignore the channel. affected_date is never NULL
+          -- here (checked live), so this cannot silently drop a valid alert.
+          AND a.affected_date >= CURRENT_DATE()
           AND n.alerts_critical = TRUE
           AND p.email IS NOT NULL
         LIMIT 100
@@ -115,6 +121,11 @@ export const GET: APIRoute = async ({ request }) => {
           ON ca.clerk_user_id = n.clerk_user_id
         WHERE ca.alert_level >= 3
           AND ca.notified_at IS NULL
+          -- STALENESS GUARD — see the standard-alerts query above. Today ALL 23 competitor alerts sit
+          -- in the past (the surveillance cron was dead 24/06 -> 15/07, so no fresh event ever produced
+          -- a fresh alert). Without this line, repointing the scheduler would mail a 74-day-old alert
+          -- about a test event. With it, the cron correctly sends nothing until real alerts exist.
+          AND ca.affected_date >= CURRENT_DATE()
           AND n.alerts_critical = TRUE
           AND p.email IS NOT NULL
         QUALIFY ROW_NUMBER() OVER (
