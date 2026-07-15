@@ -1,5 +1,6 @@
 // src/lib/ai/ui_packaging_v3/buildUiPackagingV3Month.ts
 import type { UiPackagingV3 } from "../contracts/uiPackagingV3";
+import { weatherNatureFr } from "../../contextCopy";
 
 function ymd(v: any): string {
   if (typeof v === "string" && v.trim()) return v.trim().slice(0, 10);
@@ -71,15 +72,28 @@ export function buildUiPackagingV3Month(args: {
     const weather_alert = numOrNull(r?.weather_alert_level);
     const precip = numOrNull(r?.precipitation_probability_max_pct);
     const wind = numOrNull(r?.wind_speed_10m_max);
-    const weather_code = numOrNull(r?.weather_code);
+    const weather_label = typeof r?.weather_label_fr === "string" ? r.weather_label_fr.trim() : "";
+
+    // NAME the alert's nature, never its level: "Alerte météo: niveau 2" tells the model nothing it can
+    // reason about. The nature that reaches the max drives the label (lvl_* straight from
+    // fct_location_weather_alerts_daily — DATA, not inferred), same helper + vocabulary as the acute day
+    // fact and the points-clés comparison. Nature unknown → an honest generic head, still never a level.
+    const wxNature = weatherNatureFr({
+      lvl_heat: numOrNull(r?.lvl_heat), lvl_cold: numOrNull(r?.lvl_cold), lvl_rain: numOrNull(r?.lvl_rain),
+      lvl_snow: numOrNull(r?.lvl_snow), lvl_wind: numOrNull(r?.lvl_wind),
+    });
 
     const meteoFacts: string[] = [];
-    if (weather_alert !== null) meteoFacts.push(`Alerte météo: niveau ${weather_alert}`);
+    if (weather_alert !== null && weather_alert > 0) {
+      meteoFacts.push(`Alerte météo: ${wxNature ?? "conditions marquées"}`);
+    }
     if (precip !== null) meteoFacts.push(`Pluie (probabilité max): ${Math.round(precip)}%`);
     // km/h — the unit the app already renders for this column (insight.astro "+ ' km/h'",
     // month.astro's WIND_KMH_MIN). A bare "Vent (max): 18" is a number the model has to guess at.
     if (wind !== null) meteoFacts.push(`Vent (max): ${Math.round(wind)} km/h`);
-    if (weather_code !== null) meteoFacts.push(`Code météo: ${Math.round(weather_code)}`);
+    // The sky state, distinct from the alert nature above ("Nuageux" + "Forte chaleur" both hold).
+    // The warehouse already carries the French; a bare WMO "Code météo: 61" is a token, not a fact.
+    if (weather_label) meteoFacts.push(`Ciel: ${weather_label}`);
 
     // COMPETITION (truth)
     const c5sb = numOrNull(r?.events_within_5km_same_bucket_count);

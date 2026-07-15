@@ -337,7 +337,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | `render/shared/render_points_cles_v1.ts` | `renderPointsClesV1` | Shared de-dup + ordering (action lines last) |
 | `ui/types.ts` | `PackagerOutput`, `PackagerResult`, `SelectedDaysPackagerResult` | Packager output types |
 | `ui_normalized/ui_normalized_v2.ts` | `buildUiNormalizedV2`, `normalizeWindowTopDayRow` | Normalize raw rows, month filters, per-date facts |
-| `ui_packaging_v3/buildUiPackagingV3Month.ts` | `buildUiPackagingV3Month` | Deterministic month packager (truth-only sections) |
+| `ui_packaging_v3/buildUiPackagingV3Month.ts` | `buildUiPackagingV3Month` | Deterministic month packager (truth-only sections). Weather facts NAME their nature via `contextCopy.weatherNatureFr` (`lvl_*`) + the warehouse's `weather_label_fr` — never a raw WMO code or "niveau N"; reads `vw_insight_event_30d_day_surface` (via `prompt.ts` `SELECT *`) |
 
 > `src/components/ai/render/shared/render_points_cles_v1.ts` and `src/components/ai/ir/lookup_ir_v1.ts` mirror/consume these on the component side.
 
