@@ -19,6 +19,14 @@ import {
   validate_packager_output_month_special_days_against_row,
 } from "../contracts/packagerValidators";
 
+import {
+  SCHEMA_GROUNDED_DAY,
+  SCHEMA_UI_V2,
+  SCHEMA_MONTH_ORCHESTRATOR,
+  SCHEMA_MONTH_WINDOW_SUMMARY,
+  SCHEMA_MONTH_SPECIAL_DAYS,
+} from "../contracts/packagerSchemas";
+
 export type ValidatorResult = [boolean, string[], string[]?];
 
 /* ------------------------------------------------------------------ */
@@ -133,6 +141,11 @@ export async function runAIPackagerClaude(args: {
 
   let system_prompt = "";
 
+  // Per-mode JSON Schema (Anthropic structured outputs). Pairs 1:1 with validatorFn: the schema pins the
+  // SHAPE, the validator keeps the truth rules the schema cannot express (grounding, array counts, string
+  // lengths). Left undefined for v3_narrative, whose `answer` is polymorphic — see packagerSchemas.ts.
+  let outputSchema: Record<string, any> | undefined;
+
   // Safe default to satisfy TS definite assignment analysis.
   // This should never execute because every supported mode assigns validatorFn.
   let validatorFn: ValidatorFn = (_output: any, _row: any) => [
@@ -143,10 +156,12 @@ export async function runAIPackagerClaude(args: {
   if (mode === "grounded_day") {
     system_prompt = PACKAGER_PROMPT_GROUNDED_DAY_FR;
     validatorFn = validate_packager_output_grounded_day;
+    outputSchema = SCHEMA_GROUNDED_DAY;
 
   } else if (mode === "ui_packaging_v2") {
     system_prompt = PACKAGER_PROMPT_UI_V2_FR;
     validatorFn = validate_packager_output_ui_v2;
+    outputSchema = SCHEMA_UI_V2;
 
   } else if (mode === "v3_narrative") {
     system_prompt = submode
@@ -186,22 +201,26 @@ export async function runAIPackagerClaude(args: {
       case "orchestrator":
         system_prompt = PACKAGER_PROMPT_MONTH_MODE;
         validatorFn = validate_packager_output_month_orchestrator_against_row;
+        outputSchema = SCHEMA_MONTH_ORCHESTRATOR;
         break;
 
       case "window_summary":
         system_prompt = PACKAGER_PROMPT_MONTH_WINDOW_SUMMARY_MODE;
         validatorFn = validate_packager_output_month_window_summary_against_row;
+        outputSchema = SCHEMA_MONTH_WINDOW_SUMMARY;
         break;
 
       case "window_worst_days":
         // Same output shape as window_summary: { headline, summary, key_facts, caveat }
         system_prompt = PACKAGER_PROMPT_MONTH_WINDOW_WORST_DAYS_MODE;
         validatorFn = validate_packager_output_month_window_summary_against_row;
+        outputSchema = SCHEMA_MONTH_WINDOW_SUMMARY;   // same shape, different prompt
         break;
 
       case "special_days":
         system_prompt = PACKAGER_PROMPT_MONTH_SPECIAL_DAYS_MODE;
         validatorFn = validate_packager_output_month_special_days_against_row;
+        outputSchema = SCHEMA_MONTH_SPECIAL_DAYS;
         break;
 
       default:
@@ -235,7 +254,10 @@ export async function runAIPackagerClaude(args: {
     system: system_prompt,
     userPayload: payload,
     model: args.model,
+    // temperature stays 0 for the models that still accept it (briefing/Haiku). The transport DROPS it on
+    // models that removed sampling params (Sonnet 5 400s on it) — see capsFor in ../models.
     temperature: 0,
+    outputSchema,
     maxTokens: 2048,
     timeoutMs: 30_000,
     conversationHistory: extracted_history.length > 0 ? extracted_history : args.conversationHistory,
@@ -264,72 +286,55 @@ export async function runAIPackagerClaude(args: {
   }
 
   /* -------------------------------------------------------------- */
-  /* 4) Strict JSON parsing */
+  /* 4) JSON parsing */
   /* -------------------------------------------------------------- */
+  // When structured outputs applied (`call.structured`), the API GUARANTEES schema-valid JSON: no markdown
+  // fence, no preamble, no literal control chars inside strings. Nothing to strip or repair — parse it.
+  //
+  // The legacy branch below is the repair stack that existed because a model merely ASKED for JSON in prose
+  // could answer in prose: strip a ``` fence, then walk the string character by character re-escaping raw
+  // newlines/tabs that a model emitted inside string values. It survives ONLY for the paths structured
+  // outputs cannot cover — v3_narrative (polymorphic `answer`, no schema) and any model without the
+  // capability. Do not "unify" the two branches: reviving the repair pass over schema-valid JSON is how a
+  // silent corruption gets reintroduced for zero benefit.
 
-  function stripCodeFence(s: string): string {
-    const t = s.trim();
-    if (!t.startsWith("```")) return t;
+  function legacyNormalize(raw: string): string {
+    const t = raw.trim();
+    const stripped = (() => {
+      if (!t.startsWith("```")) return t;
+      const lines = t.split("\n");
+      lines.shift(); // opening fence
+      if (lines.length && lines[lines.length - 1].trim() === "```") lines.pop();
+      return lines.join("\n").trim();
+    })();
 
-    const lines = t.split("\n");
-    lines.shift(); // opening fence
-    if (lines.length && lines[lines.length - 1].trim() === "```") lines.pop();
-    return lines.join("\n").trim();
-  }
-
-  const normalized = (() => {
-    const stripped = stripCodeFence(call.rawText);
-    // Fix literal newlines inside JSON string values only
-    // Parse character by character: inside strings, escape control chars; outside strings, leave as-is
-    let result = '';
+    // Escape literal control chars inside JSON string values only (outside strings, leave as-is).
+    let result = "";
     let inString = false;
     let escaped = false;
     for (let i = 0; i < stripped.length; i++) {
       const c = stripped[i];
-      if (escaped) {
-        result += c;
-        escaped = false;
-        continue;
-      }
-      if (c === '\\' && inString) {
-        result += c;
-        escaped = true;
-        continue;
-      }
-      if (c === '"') {
-        inString = !inString;
-        result += c;
-        continue;
-      }
+      if (escaped) { result += c; escaped = false; continue; }
+      if (c === "\\" && inString) { result += c; escaped = true; continue; }
+      if (c === '"') { inString = !inString; result += c; continue; }
       if (inString) {
-        if (c === '\n') { result += '\\n'; continue; }
-        if (c === '\r') { result += '\\r'; continue; }
-        if (c === '\t') { result += '\\t'; continue; }
+        if (c === "\n") { result += "\\n"; continue; }
+        if (c === "\r") { result += "\\r"; continue; }
+        if (c === "\t") { result += "\\t"; continue; }
       }
       result += c;
     }
     return result;
-  })();
-
-  console.log("[packager][debug] normalized head:", normalized.slice(0, 200));
-  console.log("[packager][debug] normalized tail:", normalized.slice(-100));
-
-
-  if (!normalized.startsWith("{") || !normalized.endsWith("}")) {
-    return {
-      ok: false,
-      mode,
-      output: null,
-      errors: ["Model returned non-JSON output."],
-      warnings: [],
-      raw_text: call.rawText,
-    };
   }
+
+  const normalized = call.structured ? call.rawText.trim() : legacyNormalize(call.rawText);
+
+  console.log(`[packager][debug] structured=${call.structured} head:`, normalized.slice(0, 200));
 
   const parsed = parseJsonObjectStrict(normalized);
 
   if (!parsed.ok) {
-    console.error("[packager] JSON parse failed:", parsed.error);
+    console.error("[packager] JSON parse failed:", parsed.error, "structured:", call.structured);
     return {
       ok: false,
       mode,
