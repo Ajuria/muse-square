@@ -8,6 +8,7 @@
 // are included ONLY where present — honest-absent otherwise, never padded.
 
 import type { DayContext } from "../dayContext";
+import type { Tier } from "../sensitivityStore";
 
 export interface CitableFact {
   id: string;                 // stable ref (f0, f1, …) — the model and the validator cite by id
@@ -15,6 +16,13 @@ export interface CitableFact {
   claim_type:
     | "measured" | "observed_difference" | "observed_proximity" | "observed_presence"
     | "observed_acute" | "observed_change" | "observed";
+  // Confidence tier — present ONLY on the two engine-backed claim types (measured = Engine 2's
+  // confidence_tier; observed_difference = the decomposition's independent-N tier). Absent everywhere
+  // else: a competitor's proximity or a weather alert has no confidence register, and inventing one
+  // would imply a measurement that was never made.
+  // Carried so the model can LABEL a causal upgrade with the register it rests on (Phase 1 #5) — the
+  // fact text itself stays unhedged (see sensitivityCopy's locked no-hedging rule).
+  tier?: Tier;
 }
 
 export interface GroundedDayPayload {
@@ -67,6 +75,9 @@ export function toGroundedDayPayload(
     id: `f${i}`,
     fact_fr: f.fact_fr,
     claim_type: f.claim_type,
+    // Pass the tier THROUGH when the brain supplied one. Never defaulted: a fact with no tier must stay
+    // tier-less so the validator's causal gate can't be satisfied by an invented register.
+    ...((f as any).tier ? { tier: (f as any).tier as Tier } : {}),
   }));
   return {
     horizon: "day",
@@ -92,6 +103,34 @@ export function toGroundedDayPayload(
       location_type: dc.profile?.location_type ?? null,
       business_description: dc.profile?.business_description ?? null,
     },
+  };
+}
+
+// ── Honest-absence floor (Phase 1 change #3) ─────────────────────────────────────────────────────────
+// When BOTH grounded attempts fail AND the payload carries no citable facts at all, the old floor printed
+// a generic template — which reads as "nothing happened" when the truth is "we have nothing MEASURED to
+// say". This composer writes that truth instead, in code, from which fact CATEGORIES are absent — zero
+// model text, so it is exactly as un-fabricable as the template it replaces. Returns null whenever any
+// citable fact exists: then the gap is not the story and the existing deterministic floor stays.
+//
+// OWNER-FINAL copy (terse noun-phrases, house register) — adjust wording here, never in prompt.ts.
+const ABSENCE_CATEGORY_FR: Array<{ types: CitableFact["claim_type"][]; label: string }> = [
+  { types: ["measured"], label: "réaction mesurée de vos ventes" },
+  { types: ["observed_difference"], label: "écart mesuré vs vos jours comparables" },
+  { types: ["observed_proximity", "observed_presence"], label: "signal de contexte (concurrent, événement, visiteurs)" },
+  { types: ["observed_acute"], label: "alerte météo" },
+  { types: ["observed_change", "observed"], label: "changement détecté" },
+];
+
+export function composeHonestAbsenceFr(p: GroundedDayPayload): { headline: string; answer: string } | null {
+  if ((p.citable_facts ?? []).length > 0) return null;   // facts exist → the gap is not the story
+  const missing = ABSENCE_CATEGORY_FR.map((c) => c.label);
+  return {
+    headline: `Pas de donnée mesurée à citer pour le ${p.display_date}.`,
+    answer:
+      `Pour ce jour, je n'ai aucun fait vérifié à vous citer : ni ${missing.slice(0, -1).join(", ni ")}, ` +
+      `ni ${missing[missing.length - 1]}. Plutôt que de remplir ce vide, je vous le signale — ` +
+      `la réponse changera dès que vos données couvriront ce jour.`,
   };
 }
 

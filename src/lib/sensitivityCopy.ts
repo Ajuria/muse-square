@@ -30,6 +30,20 @@ export const TIER_SECTION: Record<Tier, { heading: string; caveat: string }> = {
   preliminaire: { heading: "Signaux préliminaires", caveat: "À confirmer — trop tôt pour trancher." },
 };
 
+// The ONE tier word, as a token that can appear INSIDE a sentence (TIER_SECTION's headings are for
+// grouping rows; they don't fit mid-sentence). Used by the tiered causal register (Phase 1 #5): a causal
+// sentence is legal only when it carries the tier token of the measured fact it cites, so the register is
+// visible to the operator and checkable by the validator.
+//
+// This does NOT contradict the no-hedging rule above: a FACT line still states observed history flat, with
+// the sample carrying the honesty. The token is required only when the model UPGRADES that fact into a
+// causal claim — the upgrade is what must be labelled, not the fact.
+export const TIER_TOKEN_FR: Record<Tier, string> = {
+  etabli: "établi",
+  emergent: "émergent",
+  preliminaire: "préliminaire",
+};
+
 
 // ── Today-conditional operator phrasing (the A+B synthesis). LOCKED language rules:
 // never "l'attendu"; "plus bas/haut que d'habitude / qu'une journée comparable"; consistency

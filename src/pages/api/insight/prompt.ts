@@ -8,7 +8,7 @@ import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
-import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
+import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
@@ -4262,15 +4262,30 @@ Règles :
               { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
             )
           : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: _identityFacts });
-        const callGrounded = () => runAIPackagerClaude({
+        // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
+        // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
+        // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
+        // validator, and the feedback text is NOT part of the grounding whitelist (the validator's
+        // number/entity source texts exclude it), so a rejected number in the feedback cannot legitimize
+        // itself. A second failure still lands on the deterministic floor below.
+        const callGrounded = (rejectFeedback?: string[]) => runAIPackagerClaude({
           mode: "grounded_day",
-          row: { ...grounded_payload, _conversation_history: conversation_history },
+          row: {
+            ...grounded_payload,
+            ...(rejectFeedback && rejectFeedback.length
+              ? { validation_feedback: [
+                  "Ta réponse précédente a été REJETÉE par le validateur. Corrige exactement ces points, sans rien inventer et sans rien ajouter d'autre :",
+                  ...rejectFeedback,
+                ] }
+              : {}),
+            _conversation_history: conversation_history,
+          },
         });
         try {
           ai = await callGrounded();
           if (!ai.ok) {
-            console.warn("[DAY_WHY grounded] rejected, regenerating:", ai.errors);
-            ai = await callGrounded();
+            console.warn("[DAY_WHY grounded] rejected, regenerating with feedback:", ai.errors);
+            ai = await callGrounded(ai.errors);
           }
           producer = ai.ok ? (_familyLed ? "family_grounded_claude" : "grounded_day_claude") : "v3_fallback_deterministic";
         } catch (e) {
@@ -4297,14 +4312,26 @@ Règles :
             };
             producer = "family_deterministic";
           } else {
-            ai = {
-              ok: true,
-              mode: "deterministic_daywhy_ir_v1",
-              output: { headline: det_headline, answer: "", key_facts: det_key_facts, reasons: [], caveats: [] },
-              raw_text: "",
-              errors: [],
-              warnings: [],
-            };
+            // Honest-absence floor (Phase 1 #3): when the payload carries ZERO citable facts, the truth is
+            // "nothing measured to cite" — say that, composed in code from the absent categories (zero LLM
+            // text), instead of a generic template that reads as "nothing happened". Facts present → the
+            // gap is not the story → the existing deterministic floor stays, unmodified.
+            const _absence = composeHonestAbsenceFr(grounded_payload);
+            ai = _absence
+              ? {
+                  ok: true,
+                  mode: "deterministic_honest_absence_v1",
+                  output: { headline: _absence.headline, answer: _absence.answer, key_facts: [], reasons: [], caveats: [] },
+                  raw_text: "", errors: [], warnings: [],
+                }
+              : {
+                  ok: true,
+                  mode: "deterministic_daywhy_ir_v1",
+                  output: { headline: det_headline, answer: "", key_facts: det_key_facts, reasons: [], caveats: [] },
+                  raw_text: "",
+                  errors: [],
+                  warnings: [],
+                };
           }
         }
 

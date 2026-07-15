@@ -7,7 +7,7 @@
 // structured data for owner copy); it authors NO French of its own.
 
 import { formatDisruption, fillContextFallback, formatWeatherAlert, frCountry } from './contextCopy';
-import { getSensitivities, type Sensitivity } from './sensitivityStore';
+import { getSensitivities, type Sensitivity, type Tier } from './sensitivityStore';
 import { envTodayLine, decompositionLine } from './sensitivityCopy';
 import featureRegistry from './sensitivityFeatures.json';
 
@@ -461,8 +461,13 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   // acute/ranking), never causal; the only causal-SHAPED statement allowed is a decomposition observed_difference.
   const llm = {
     citable_facts: [
-      ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const })),
-      ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const })),
+      // `tier` rides along on the two ENGINE-BACKED claim types only (Phase 1 #5). Engine 2's field is
+      // `confidence_tier`; the decomposition's is `tier` (set off independent-N at line ~414). Both were
+      // computed here already and dropped at this mapping — the model never saw the register its facts
+      // rest on, so it could not label a causal claim with it. No other fact type gets a tier: proximity /
+      // presence / acute have no measurement to be confident about.
+      ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const, tier: s.confidence_tier })),
+      ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const, tier: d.tier as Tier })),
       ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const })),
       ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const })),
       ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const }] : []),
@@ -472,10 +477,17 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     ],
     driver: { value: flatVal(surface.driver) ?? null, claim_type: 'observed_ranking' as const }, // salience, NOT a cause
     forbidden: [
-      'Ne calcule, n’agrège ni ne réconcilie aucun nombre : cite uniquement les champs du payload.',
+      // Bounded arithmetic (Phase 1 #4): the ONE licensed operation is a same-unit sum/difference of two
+      // numbers from CITED facts — the validator recomputes it and rejects any figure it cannot reproduce.
+      'Ne calcule, n’agrège ni ne réconcilie aucun nombre, à UNE exception près : tu peux énoncer la somme ou l’écart de DEUX nombres de même unité pris dans des faits que tu cites (cited_fact_ids) — le résultat exact, sans arrondi. Tout autre calcul (pourcentage, conversion, comptage, arrondi) reste interdit : cite uniquement les champs du payload.',
       'Ne modifie aucun tier (préliminaire reste préliminaire ; ne dis jamais « prouvé »).',
-      'AUCUN verbe causal sur AUCUN fait — y compris driver, concurrents, tourisme : jamais « a pesé / a causé / a fait baisser / a réduit / a généré la fréquentation ». Un concurrent proche = fait de proximité, pas d’impact ; le driver = classement de saillance, pas une cause ; le tourisme = présence observée.',
-      'Le SEUL énoncé de forme causale autorisé est un « observed_difference » de la décomposition, formulé comme un écart observé (jamais « votre action a généré »).',
+      'AUCUN verbe causal sur un fait SANS tier — y compris driver, concurrents, tourisme, météo, cartes : jamais « a pesé / a causé / a fait baisser / a réduit / a généré la fréquentation ». Un concurrent proche = fait de proximité, pas d’impact ; le driver = classement de saillance, pas une cause ; le tourisme = présence observée. Ces faits n’ont pas de tier : aucun verbe causal ne leur est jamais applicable.',
+      // Phase 1 #5 — the tiered causal register. The carve-out was previously "an observed_difference,
+      // phrased as an observed gap" (i.e. never with a real causal verb). It now licenses the verb itself,
+      // but ONLY on an engine-backed fact the model cites AND labels with that fact's own tier. The
+      // validator enforces both conditions per sentence.
+      'Un verbe causal n’est autorisé QUE sur un fait « measured » ou « observed_difference » que tu CITES dans cited_fact_ids, ET UNIQUEMENT si la phrase porte le tier EXACT de ce fait (« préliminaire », « émergent » ou « établi », tel qu’il t’est donné dans le champ "tier"). Ex. : « la forte chaleur a fait baisser votre CA — effet mesuré, préliminaire ». Sans fait cité de ce type, ou sans son tier dans la MÊME phrase, aucun verbe causal.',
+      'Aucune PROMESSE de résultat futur, jamais, quel que soit le tier : jamais « augmentera / boostera / rapportera / fera venir ». Un effet mesuré au passé ne garantit aucun résultat à venir.',
       'profile.declared_weather_sensitivity / seasonality sont des attributs DÉCLARÉS du lieu, jamais l’effet mesuré : la vérité est la sensibilité mesurée (Engine 2). Ne les présente pas comme un effet observé sur le CA.',
       'profile.activity_type / location_type / event_types sont des descripteurs DÉCLARÉS, PEU FIABLES (souvent génériques ou erronés) : ne produis jamais de conseil au mauvais vertical à partir d’eux. La justesse verticale vient des concurrents nommés, pas du profil.',
       'signals (change_feed + cartes) sont des faits OBSERVÉS (ex: un concurrent a baissé son prix, une carte s’est déclenchée), JAMAIS une cause de ton résultat : ne dis jamais « ce qui a causé votre baisse ». Un changement détecté (grain change) est distinct du contexte (grain jour) — ne les fusionne pas.',

@@ -32,6 +32,12 @@ const nullableStr = { anyOf: [{ type: "string" }, { type: "null" }] } as const;
 // mode: "grounded_day" — the Consulter answer + the daily Point du jour.
 // Mirrors validate_packager_output_grounded_day: headline/answer strings; key_facts, caveats,
 // cited_fact_ids required arrays; `reasons` optional (the validator only shape-checks it when present).
+//
+// `sentence_provenance` (Phase 1 #6): each surfaced claim mapped to the fact_ids that back IT — the schema
+// half of per-sentence cite-with-reasoning. Additive: `answer`/`key_facts` stay plain strings for the UI;
+// this is the trace the validator checks each sentence's entities against LOCALLY (against its own facts),
+// replacing the coarse "entity appears somewhere in the whole payload" scan. Required so the model always
+// declares its claims — an entity in `answer` with no covering provenance entry is a hidden claim → reject.
 export const SCHEMA_GROUNDED_DAY = {
   type: "object",
   properties: {
@@ -41,8 +47,20 @@ export const SCHEMA_GROUNDED_DAY = {
     reasons: strArray,
     caveats: strArray,
     cited_fact_ids: strArray,
+    sentence_provenance: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          text: { type: "string" },       // the surfaced claim, verbatim as it appears in answer/key_facts
+          fact_ids: strArray,             // the citable_fact ids that back THIS claim
+        },
+        required: ["text", "fact_ids"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["headline", "answer", "key_facts", "caveats", "cited_fact_ids"],
+  required: ["headline", "answer", "key_facts", "caveats", "cited_fact_ids", "sentence_provenance"],
   additionalProperties: false,
 } as const;
 
