@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
-import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
+import { frActivity, frAudience, frVenueType, frObjective, frRegime, frWeatherSensitivity } from "../../../lib/profileLabels";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { rateLimit } from "../../../lib/rate-limit";
 
@@ -42,8 +42,8 @@ Profil du lieu:
 - Type: ${frVenueType(profile.location_type) || "non renseigné"}
 - Audience principale: ${frAudience(profile.primary_audience_1) || "non renseigné"}
 - Audience secondaire: ${frAudience(profile.primary_audience_2) || "non renseigné"}
-- Objectif: ${profile.main_event_objective || "non renseigné"}
-- Sensibilité météo: ${profile.weather_sensitivity ?? "non renseigné"}
+- Objectif: ${frObjective(profile.main_event_objective) || "non renseigné"}
+- Sensibilité météo: ${frWeatherSensitivity(profile.weather_sensitivity) ?? "non renseigné"}
 - Horaires: ${profile.operating_hours || "non renseigné"}
 - Description: ${profile.auto_enriched_description || profile.business_short_description || "non renseigné"}
 - Ville: ${profile.city_name || "non renseigné"}
@@ -56,7 +56,7 @@ Profil du lieu:
 Contexte du jour:
 - Date: ${day.date || ""}
 - Score: ${day.opportunity_score ?? ""}
-- Régime: ${day.opportunity_regime || ""}
+- Régime: ${frRegime(day.opportunity_regime) || ""}
 - Météo: ${day.weather_label_fr || ""} (alerte niv. ${day.alert_level_max ?? 0})
 - Vacances: ${day.vacation_name || "non"}
 - Férié: ${day.holiday_name || "non"}
