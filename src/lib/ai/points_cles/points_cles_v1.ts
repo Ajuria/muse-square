@@ -7,6 +7,8 @@
 // - Deterministic, null-safe, traceable
 // =====================================================
 
+import { weatherNatureFr } from "../../contextCopy";
+
 export type RendererMode = "selected_day";
 
 export type DeterministicRenderInput = {
@@ -266,18 +268,30 @@ export function renderPointsClesV1(
   const alertMax = numOr(current_day?.alert_level_max, 0);
   const avgOtherAlert = avgOthers((d) => numOrNull(d?.alert_level_max));
 
+  // NAME the alert, never print its level: "Alerte météo niveau 3" tells the operator nothing he can
+  // act on. The selected-days surface already carries the per-nature levels, so the driver is DATA.
+  // Same helper + vocabulary as the acute day fact (contextCopy) — one weather wording in the app.
+  const wxNature = weatherNatureFr({
+    lvl_heat: numOrNull(current_day?.lvl_heat),
+    lvl_cold: numOrNull(current_day?.lvl_cold),
+    lvl_rain: numOrNull(current_day?.lvl_rain),
+    lvl_snow: numOrNull(current_day?.lvl_snow),
+    lvl_wind: numOrNull(current_day?.lvl_wind),
+  });
+  const wxHead = wxNature ?? "Conditions météo marquées";
+
   let exploitationSynth: string | null = null;
   if (alertMax > 0) {
     if (avgOtherAlert !== null && alertMax > avgOtherAlert) {
       if (isIndoor) {
-        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates, impact logistique`;
+        exploitationSynth = `${wxHead} — plus exposé que les autres dates, impact logistique`;
       } else if (isOutdoor) {
-        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates`;
+        exploitationSynth = `${wxHead} — plus exposé que les autres dates`;
       } else {
-        exploitationSynth = `Alerte météo niveau ${alertMax} — plus exposé que les autres dates`;
+        exploitationSynth = `${wxHead} — plus exposé que les autres dates`;
       }
     } else if (avgOtherAlert === null) {
-      exploitationSynth = `Alerte météo niveau ${alertMax} sur cette date`;
+      exploitationSynth = `${wxHead} sur cette date`;
     }
   } else if (avgOtherAlert !== null && avgOtherAlert > 0) {
     exploitationSynth = "Meilleures conditions météo de la sélection";
