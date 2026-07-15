@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-07-09",
+"generated_date": "2026-07-15",
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "b5d8579",
-"table_count": 431,
-"column_count": 7456
+"table_count": 440,
+"column_count": 7588
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -417,6 +417,34 @@
 },
 {
 "name": "window_active_factors",
+"type": "STRING"
+},
+{
+"name": "retro_worked",
+"type": "STRING"
+},
+{
+"name": "retro_change",
+"type": "STRING"
+},
+{
+"name": "retro_repeat",
+"type": "BOOL"
+},
+{
+"name": "adjustment_move",
+"type": "STRING"
+},
+{
+"name": "adjustment_note",
+"type": "STRING"
+},
+{
+"name": "parent_commitment_id",
+"type": "STRING"
+},
+{
+"name": "execution_quality",
 "type": "STRING"
 }
 ]
@@ -1028,6 +1056,71 @@
 }
 ]
 },
+"analytics.best_in_class_plays": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "play_id",
+"type": "STRING"
+},
+{
+"name": "generated_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "industry_code",
+"type": "STRING"
+},
+{
+"name": "lever",
+"type": "STRING"
+},
+{
+"name": "intent",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "context",
+"type": "STRING"
+},
+{
+"name": "move",
+"type": "STRING"
+},
+{
+"name": "outcome",
+"type": "STRING"
+},
+{
+"name": "steps",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "source_name",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "published_at",
+"type": "STRING"
+},
+{
+"name": "confidence",
+"type": "STRING"
+},
+{
+"name": "venue_named",
+"type": "BOOL"
+}
+]
+},
 "analytics.channel_configs": {
 "type": "BASE TABLE",
 "columns": [
@@ -1061,6 +1154,47 @@
 },
 {
 "name": "updated_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.consulter_correction_events": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "event_id",
+"type": "STRING"
+},
+{
+"name": "event_action",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "correction_type",
+"type": "STRING"
+},
+{
+"name": "correction_text",
+"type": "STRING"
+},
+{
+"name": "prior_value",
+"type": "STRING"
+},
+{
+"name": "raw_turn",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -5863,6 +5997,39 @@
 }
 ]
 },
+"intermediate.int_consulter_corrections_current": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "correction_type",
+"type": "STRING"
+},
+{
+"name": "correction_text",
+"type": "STRING"
+},
+{
+"name": "prior_value",
+"type": "STRING"
+},
+{
+"name": "raw_turn",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "corrected_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "intermediate.int_event_industry_keywords_normalized": {
 "type": "BASE TABLE",
 "columns": [
@@ -10569,6 +10736,14 @@
 {
 "name": "material_holiday_share",
 "type": "FLOAT64"
+},
+{
+"name": "adjustment_move",
+"type": "STRING"
+},
+{
+"name": "parent_commitment_id",
+"type": "STRING"
 }
 ]
 },
@@ -10792,6 +10967,55 @@
 {
 "name": "is_revenue_surge_anomaly",
 "type": "BOOL"
+}
+]
+},
+"mart.fct_client_hourly_sales": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "transactions",
+"type": "INT64"
+},
+{
+"name": "lines",
+"type": "INT64"
+},
+{
+"name": "visitors",
+"type": "INT64"
+},
+{
+"name": "avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "conversion_rate",
+"type": "FLOAT64"
 }
 ]
 },
@@ -11533,6 +11757,99 @@
 }
 ]
 },
+"mart.fct_competitor_offering_changes": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "competitor_id",
+"type": "STRING"
+},
+{
+"name": "competitor_name",
+"type": "STRING"
+},
+{
+"name": "item_norm",
+"type": "STRING"
+},
+{
+"name": "item",
+"type": "STRING"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "unit",
+"type": "STRING"
+},
+{
+"name": "currency",
+"type": "STRING"
+},
+{
+"name": "change_type",
+"type": "STRING"
+},
+{
+"name": "old_price_raw",
+"type": "STRING"
+},
+{
+"name": "old_price_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "old_price_qualifier",
+"type": "STRING"
+},
+{
+"name": "new_price_raw",
+"type": "STRING"
+},
+{
+"name": "new_price_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "new_price_qualifier",
+"type": "STRING"
+},
+{
+"name": "price_difference",
+"type": "FLOAT64"
+},
+{
+"name": "price_pct_change",
+"type": "FLOAT64"
+},
+{
+"name": "is_price_change",
+"type": "BOOL"
+},
+{
+"name": "price_direction",
+"type": "STRING"
+},
+{
+"name": "previous_crawled_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "current_crawled_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "tarifs_url",
+"type": "STRING"
+}
+]
+},
 "mart.fct_competitor_threat_profile": {
 "type": "BASE TABLE",
 "columns": [
@@ -11759,6 +12076,39 @@
 {
 "name": "is_proven_lift",
 "type": "BOOL"
+}
+]
+},
+"mart.fct_location_action_moves": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "action_type",
+"type": "STRING"
+},
+{
+"name": "move",
+"type": "STRING"
+},
+{
+"name": "attempts",
+"type": "INT64"
+},
+{
+"name": "hits",
+"type": "INT64"
+},
+{
+"name": "hit_rate",
+"type": "FLOAT64"
+},
+{
+"name": "last_resolved",
+"type": "DATE"
 }
 ]
 },
@@ -18541,6 +18891,10 @@
 {
 "name": "tarifs_url",
 "type": "STRING"
+},
+{
+"name": "last_crawl_attempt_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -22425,6 +22779,30 @@
 "type": "FLOAT64"
 },
 {
+"name": "weather_label_fr",
+"type": "STRING"
+},
+{
+"name": "lvl_heat",
+"type": "INT64"
+},
+{
+"name": "lvl_cold",
+"type": "INT64"
+},
+{
+"name": "lvl_rain",
+"type": "INT64"
+},
+{
+"name": "lvl_snow",
+"type": "INT64"
+},
+{
+"name": "lvl_wind",
+"type": "INT64"
+},
+{
 "name": "events_within_500m_count",
 "type": "INT64"
 },
@@ -22576,6 +22954,30 @@
 {
 "name": "wind_speed_10m_max",
 "type": "FLOAT64"
+},
+{
+"name": "weather_label_fr",
+"type": "STRING"
+},
+{
+"name": "lvl_heat",
+"type": "INT64"
+},
+{
+"name": "lvl_cold",
+"type": "INT64"
+},
+{
+"name": "lvl_rain",
+"type": "INT64"
+},
+{
+"name": "lvl_snow",
+"type": "INT64"
+},
+{
+"name": "lvl_wind",
+"type": "INT64"
 },
 {
 "name": "events_within_500m_count",
@@ -23514,6 +23916,43 @@
 }
 ]
 },
+"semantic.vw_insight_event_client_hourly_profile": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "day_int",
+"type": "INT64"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "avg_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "avg_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "avg_conversion_rate",
+"type": "FLOAT64"
+},
+{
+"name": "n_days",
+"type": "INT64"
+}
+]
+},
 "semantic.vw_insight_event_client_offering": {
 "type": "VIEW",
 "columns": [
@@ -24026,6 +24465,99 @@
 },
 {
 "name": "city_norm",
+"type": "STRING"
+}
+]
+},
+"semantic.vw_insight_event_competitor_offering_changes": {
+"type": "VIEW",
+"columns": [
+{
+"name": "competitor_id",
+"type": "STRING"
+},
+{
+"name": "competitor_name",
+"type": "STRING"
+},
+{
+"name": "item_norm",
+"type": "STRING"
+},
+{
+"name": "item",
+"type": "STRING"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "unit",
+"type": "STRING"
+},
+{
+"name": "currency",
+"type": "STRING"
+},
+{
+"name": "change_type",
+"type": "STRING"
+},
+{
+"name": "is_price_change",
+"type": "BOOL"
+},
+{
+"name": "price_direction",
+"type": "STRING"
+},
+{
+"name": "old_price_raw",
+"type": "STRING"
+},
+{
+"name": "old_price_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "old_price_qualifier",
+"type": "STRING"
+},
+{
+"name": "new_price_raw",
+"type": "STRING"
+},
+{
+"name": "new_price_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "new_price_qualifier",
+"type": "STRING"
+},
+{
+"name": "price_difference",
+"type": "FLOAT64"
+},
+{
+"name": "price_pct_change",
+"type": "FLOAT64"
+},
+{
+"name": "previous_crawled_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "current_crawled_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "tarifs_url",
 "type": "STRING"
 }
 ]
@@ -27543,6 +28075,47 @@
 },
 {
 "name": "deleted_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_consulter_corrections": {
+"type": "VIEW",
+"columns": [
+{
+"name": "event_id",
+"type": "STRING"
+},
+{
+"name": "event_action",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "correction_type",
+"type": "STRING"
+},
+{
+"name": "correction_text",
+"type": "STRING"
+},
+{
+"name": "prior_value",
+"type": "STRING"
+},
+{
+"name": "raw_turn",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
 "type": "TIMESTAMP"
 }
 ]

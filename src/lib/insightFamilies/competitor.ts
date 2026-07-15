@@ -119,8 +119,14 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
   real.forEach((c: any) => { nameById[c.id] = c; });
   const [mvRows, profRow, dirRow] = await Promise.all([
     bq.query({
+      // SEMANTIC, not intermediate: the app reads the published contract
+      // (vw_insight_event_competitor_offering_changes -> fct_competitor_offering_changes ->
+      // int_competitor_offering_changes). Reading the intermediate directly was a layering shortcut —
+      // it bypassed the mart's tests and the locked semantic contract, and every other surface in the
+      // app reads semantic. The view also carries competitor_name / is_price_change / price_direction
+      // if this card ever needs them.
       query: `SELECT competitor_id, item, category, price_pct_change, current_crawled_at
-              FROM \`${PROJECT}.intermediate.int_competitor_offering_changes\`
+              FROM \`${PROJECT}.semantic.vw_insight_event_competitor_offering_changes\`
               WHERE competitor_id IN UNNEST(@ids)
                 AND DATE(current_crawled_at) >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${MOVE_WINDOW_DAYS} DAY)
               ORDER BY current_crawled_at DESC LIMIT ${MAX_MOVES}`,
