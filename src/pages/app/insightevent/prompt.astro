@@ -412,12 +412,19 @@ if (!location_id) {
         border: 1px solid rgba(0,0,0,0.10);
       }
 
-      /* ChatGPT-like separation: user darker bubble on right, assistant lighter on left */
+      /* User bubble — Direction A (owner-approved prototype 2026-07-15): neutral fill, no border,
+         SAME 17px type as the assistant (your words must not read smaller than the machine's),
+         asymmetric radius (flat corner on the sending side), 75% width cap. */
       .ie-msg-user{ justify-content: flex-end; }
       .ie-msg-user .ie-bubble{
-        background: #E6F1FB;
-        color: #0C447C;
-        border-color: #B5D4F4;
+        background: #F3F4F6;                 /* neutral gray-100 (matches the app's low-emphasis surfaces) */
+        color: var(--color-text-primary);
+        border: 0;
+        border-radius: 18px 18px 4px 18px;
+        font-size: 17px;
+        line-height: 1.55;
+        padding: 10px 16px;
+        max-width: 75%;
       }
 
       .ie-msg-ai{ justify-content: flex-start; }
@@ -2074,8 +2081,8 @@ if (!location_id) {
     </script>
 
     <script is:inline src="/ms-loader.js?v=1"></script>
-    <script is:inline src="/card-kit.js?v=28"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=14" defer></script>
+    <script is:inline src="/card-kit.js?v=29"></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=16" defer></script>
 
   </BaseLayout>
 </Show>

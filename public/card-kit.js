@@ -890,10 +890,176 @@
     return html;
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // ANSWER BLOCKS (Phase 3) — the ONE renderer for the Consulter chat answer.
+  // ie-prompt.js adapts the response envelope into an ordered blocks[] and calls
+  // renderAnswerBlocks; every block type maps to ONE primitive below. This kills the six divergent
+  // per-intent HTML builders — layout decisions live here, in the same kit as the family cards, so
+  // prose and cards share one type scale and the harness renders exactly what the page ships.
+  //
+  // Every style value below is COPIED from the prompt.astro class it replaces (quoted in comments) —
+  // no invented colors, no new control shapes (pulse-ui rule). Inline styles per kit convention
+  // (injected HTML; the harness has no page CSS).
+  //
+  // TRUTH RULES the renderer enforces:
+  //   • register is REQUIRED: a blocks[] without one renders the LEAST-trusted pill ("Non vérifié")
+  //     and logs — provenance can be omitted only downward, never silently upgraded (plan R1/R5).
+  //     Exception: a set whose only content is a clarification/confirmation asserts nothing → no pill.
+  //   • prose is model-authored → mdBlockToSafeHtml (escape FIRST, then whitelist: **gras**, *italique*,
+  //     "- " bullets, \n\n paragraphs). Never raw HTML from a payload string.
+  // ────────────────────────────────────────────────────────────────────────────
+
+  function mdInlineKit(t) {
+    return t
+      .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
+  }
+  // Block-level safe markdown: escape → paragraphs (\n\n) → "- " bullet runs → inline bold/italic.
+  // Whitelist only; #titres / tables / links / raw HTML stay inert text.
+  function mdBlockToSafeHtml(text) {
+    var parts = String(text == null ? '' : text).split(/\n{2,}/);
+    var out = '';
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (!p) continue;
+      var lines = p.split('\n');
+      var buf = [], list = [];
+      var flushList = function () {
+        if (!list.length) return;
+        // .ie-ai-list ul { margin:0 0 14px 18px; }  li { margin:6px 0; }
+        out += '<ul style="margin:0 0 14px 18px;padding:0;">'
+          + list.map(function (li) { return '<li style="margin:6px 0;">' + mdInlineKit(esc(li)) + '</li>'; }).join('')
+          + '</ul>';
+        list = [];
+      };
+      var flushBuf = function () {
+        if (!buf.length) return;
+        // .ie-ai-p { font-size:17px; line-height:1.7; margin:0 0 14px; } (inherits bubble size on page)
+        out += '<div style="margin:0 0 14px 0;">' + mdInlineKit(esc(buf.join('\n'))).replace(/\n/g, '<br/>') + '</div>';
+        buf = [];
+      };
+      for (var l = 0; l < lines.length; l++) {
+        var m = lines[l].match(/^\s*[-•]\s+(.+)$/);
+        if (m) { flushBuf(); list.push(m[1]); } else { flushList(); buf.push(lines[l]); }
+      }
+      flushList(); flushBuf();
+    }
+    return out;
+  }
+
+  // Register pill — values identical to the Phase 0 pill in ie-prompt.js (design-tokens pill-safe /
+  // source-low / source-mid). vetted #0b37e5/#fff · web #F3F4F6/#6b7280 · model #FDE8D8/#C2410C.
+  function abRegister(reg) {
+    var label, bg, color;
+    if (reg === 'vetted') { label = 'Vérifié'; bg = '#0b37e5'; color = '#ffffff'; }
+    else if (reg === 'web') { label = 'Web — non vérifié'; bg = '#F3F4F6'; color = '#6b7280'; }
+    else { label = 'Non vérifié'; bg = '#FDE8D8'; color = '#C2410C'; }
+    return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
+  }
+
+  var AB_PRIMITIVES = {
+    register: function (b) { return abRegister(b.register); },
+    // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
+    headline: function (b) {
+      var lead = b.variant === 'lead';
+      return '<div style="font-size:' + (lead ? '18px' : '15px') + ';font-weight:' + (lead ? '650' : '500') + ';line-height:1.35;margin:0 0 10px 0;color:#111827;">' + mdInlineKit(esc(b.text)) + '</div>';
+    },
+    // .ie-verdict-plain { font-size:13px; margin-bottom:10px; line-height:1.6; }
+    verdict: function (b) {
+      return '<div style="font-size:13px;color:#111827;margin-bottom:10px;line-height:1.6;">' + mdInlineKit(esc(b.text)) + '</div>';
+    },
+    prose: function (b) { return mdBlockToSafeHtml(b.md); },
+    // .ie-ai-list
+    facts: function (b) {
+      if (!b.items || !b.items.length) return '';
+      return '<ul style="margin:0 0 14px 18px;padding:0;">' + b.items.map(function (x) { return '<li style="margin:6px 0;">' + mdInlineKit(esc(x)) + '</li>'; }).join('') + '</ul>';
+    },
+    // .ie-card-blue/-amber + .ie-card-label + .ie-pill-* + .ie-card-row (values verbatim)
+    datecards: function (b) {
+      return (b.items || []).map(function (d) {
+        var amber = d.tone === 'amber';
+        var border = amber ? '#FAC775' : '#B5D4F4', rail = amber ? '#BA7517' : '#378ADD';
+        var pillBg = amber ? '#FAEEDA' : '#E6F1FB', pillFg = amber ? '#633806' : '#0C447C';
+        var h = '<div style="border:0.5px solid ' + border + ';border-left:3px solid ' + rail + ';border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;background:#fff;">'
+          + '<div style="font-size:15px;font-weight:500;margin-bottom:6px;color:#111827;">' + esc(d.label || '') + '</div>';
+        if (d.pill) h += '<div style="display:inline-block;background:' + pillBg + ';color:' + pillFg + ';font-size:14px;font-weight:500;padding:4px 10px;border-radius:8px;margin-bottom:6px;">' + mdInlineKit(esc(d.pill)) + '</div>';
+        h += (d.rows || []).map(function (r) {
+          return '<div style="font-size:13px;color:#111827;margin-bottom:3px;">' + (r.k ? '<strong style="font-weight:500;">' + esc(r.k) + '</strong> ' : '') + mdInlineKit(esc(r.v || '')) + '</div>';
+        }).join('');
+        return h + '</div>';
+      }).join('');
+    },
+    // .ie-lookup-item/-name/-date/-desc/-notfound
+    lookup: function (b) {
+      if (b.empty) return '<div style="font-size:15px;color:#6b7280;">' + esc(b.empty) + '</div>';
+      return (b.items || []).map(function (it) {
+        return '<div style="padding:10px 0;border-bottom:0.5px solid #e5e7eb;">'
+          + '<div style="font-size:15px;font-weight:500;margin-bottom:3px;color:#111827;">' + mdInlineKit(esc(it.name || '')) + '</div>'
+          + (it.date ? '<div style="font-size:13px;color:#0b37e5;margin-bottom:3px;">' + esc(it.date) + '</div>' : '')
+          + (it.desc ? '<div style="font-size:13px;color:#111827;">' + mdInlineKit(esc(it.desc)) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    },
+    // .ie-competitor-list/-row/-analysis/-recommendation
+    rows: function (b) {
+      var items = (b.items || []).map(function (r, i, arr) {
+        return '<div style="color:#111827;font-size:15px;line-height:1.5;padding:7px 0;' + (i < arr.length - 1 ? 'border-bottom:1px solid #e5e7eb;' : '') + '">' + mdInlineKit(esc(r)) + '</div>';
+      }).join('');
+      return items ? '<div style="margin:8px 0 12px 0;">' + items + '</div>' : '';
+    },
+    // .ie-ai-caveats + .ie-ai-cv
+    caveats: function (b) {
+      if (!b.items || !b.items.length) return '';
+      return '<div style="margin-top:14px;padding:10px 14px;border-left:3px solid #e5e7eb;background:#f9fafb;border-radius:0 8px 8px 0;font-size:15px;line-height:1.6;opacity:.8;">'
+        + b.items.map(function (c) { return '<div style="margin:6px 0;">' + mdInlineKit(esc(c)) + '</div>'; }).join('') + '</div>';
+    },
+    // .ie-inline-cta (right-aligned, as today's .ie-ai-cta wrapper)
+    cta: function (b) {
+      if (!b.url || String(b.url).charAt(0) !== '/') return '';
+      return '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:500;color:#0b37e5;text-decoration:none;margin-top:12px;">' + esc(b.label || 'Consulter') + ' →</a></div>';
+    },
+    // family card — delegates to the existing renderers, unchanged
+    card: function (b) {
+      var fn = window.MSCardKit && window.MSCardKit[b.render];
+      if (typeof fn !== 'function') return '';
+      return '<div class="ie-family-card">' + fn(Object.assign({ ok: true }, b.data)) + '</div>';
+    },
+    // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
+    clarification: function (b) {
+      var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })
+        .map(function (c) {
+          return '<button type="button" class="ie-clar-chip" data-send="' + esc(c.send) + '" style="display:inline-block;margin:4px 6px 0 0;padding:6px 12px;border-radius:18px;border:1px solid #0b37e5;background:transparent;color:#0b37e5;font-size:12.5px;font-weight:500;cursor:pointer;">' + esc(c.label_fr) + '</button>';
+        }).join('');
+      return chips ? '<div class="ie-clar-chips" style="margin-top:10px;">' + chips + '</div>' : '';
+    }
+  };
+
+  // blocks[] → HTML. Enforces the register rule; unknown block types are skipped loudly (a typo must
+  // not silently drop content in dev — but must not break the answer either).
+  function renderAnswerBlocks(blocks) {
+    var list = Array.isArray(blocks) ? blocks.filter(Boolean) : [];
+    var hasRegister = list.some(function (b) { return b && b.type === 'register'; });
+    // A clarification asserts no facts (Phase 2: the question/chips carry no claims) → no pill required.
+    var assertsNothing = list.some(function (b) { return b && b.type === 'clarification'; });
+    var html = '';
+    if (!hasRegister && !assertsNothing && list.length) {
+      try { console.error('[MSCardKit] blocks[] without register — rendering least-trusted pill'); } catch (e) {}
+      html += abRegister('model');
+    }
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      var fn = AB_PRIMITIVES[b && b.type];
+      if (!fn) { try { console.warn('[MSCardKit] unknown block type:', b && b.type); } catch (e) {} continue; }
+      html += fn(b);
+    }
+    return html;
+  }
+
   window.MSCardKit = {
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
+    mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
     renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow
   };
