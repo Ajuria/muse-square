@@ -76,7 +76,9 @@ export function buildUiPackagingV3Month(args: {
     const meteoFacts: string[] = [];
     if (weather_alert !== null) meteoFacts.push(`Alerte météo: niveau ${weather_alert}`);
     if (precip !== null) meteoFacts.push(`Pluie (probabilité max): ${Math.round(precip)}%`);
-    if (wind !== null) meteoFacts.push(`Vent (max): ${Math.round(wind)}`);
+    // km/h — the unit the app already renders for this column (insight.astro "+ ' km/h'",
+    // month.astro's WIND_KMH_MIN). A bare "Vent (max): 18" is a number the model has to guess at.
+    if (wind !== null) meteoFacts.push(`Vent (max): ${Math.round(wind)} km/h`);
     if (weather_code !== null) meteoFacts.push(`Code météo: ${Math.round(weather_code)}`);
 
     // COMPETITION (truth)
