@@ -13,7 +13,7 @@ import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
-import { familyForQuestion } from "../../../lib/insightFamilies";
+import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
@@ -177,6 +177,10 @@ type ThreadContextV1 = {
     top_dates: { date: string; regime: string | null; score: number | null }[];
     month_redirect_url: string | null;
     selected_date?: string | null; // optional anchor
+    // Phase 2 #1 — the conversation FRAME is this `last` object: ROUTING METADATA ONLY (horizon /
+    // intent / family / dates), echoed back by the client each turn. It must NEVER carry fact strings
+    // or numbers from an answer — inheriting the frame re-routes, it cannot re-assert a stale claim.
+    family?: string | null; // insight-family key when the last answer was family-led (meta.resolved_family)
   };
 };
 
@@ -768,21 +772,35 @@ function isEventLookupQuestion(qRaw: string): boolean {
   return false;
 }
 
-async function classifyIntentWithHaiku(qRaw: string): Promise<{
+async function classifyIntentWithHaiku(
+  qRaw: string,
+  // Phase 2 #3 — the classifier reads the CONVERSATION, not just the message. A follow-up the regex
+  // frame-delta can't resolve ("et le weekend ?") only classifies correctly with the prior turns + the
+  // last turn's routing frame in view. Still a CLASSIFIER: it emits {intent, horizon, detected_day},
+  // never facts — history cannot leak a claim through it.
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
+  frame?: { horizon?: string | null; intent?: string | null; family?: string | null; date?: string | null } | null,
+): Promise<{
   intent: "WINDOW_TOP_DAYS" | "DAY_DIMENSION_DETAIL" | "ENTITY_IMPACT" | "LOOKUP_EVENT";
   horizon: "month" | "day";
   detected_day: string | null;
 }> {
   const fallback = { intent: "WINDOW_TOP_DAYS" as const, horizon: "month" as const, detected_day: null };
   try {
+    // Frame line = routing metadata only (no answer text). History trimmed to the last 4 turns.
+    const frameLine = frame && (frame.horizon || frame.intent || frame.family || frame.date)
+      ? `\n\nContexte du fil (tour précédent, à utiliser si la question est une suite) : horizon=${frame.horizon ?? "-"} · intent=${frame.intent ?? "-"} · famille=${frame.family ?? "-"} · date=${frame.date ?? "-"}`
+      : "";
     const call = await callClaudeMessagesAPI({
       model: modelFor("classifier"),
       maxTokens: 256,
       temperature: 0,
       cacheSystem: false,
-      userText: qRaw,
+      conversationHistory: (history ?? []).slice(-8),
+      userText: `${qRaw}${frameLine}`,
       system: `Tu es un classifieur d'intention pour une plateforme d'intelligence contextuelle événementielle française.
 Réponds UNIQUEMENT en JSON strict, sans markdown, sans commentaire.
+Si un historique de conversation précède, la question peut être une SUITE ("et le weekend ?") : classifie-la dans le contexte de ce qui précède, pas isolément.
 
 Classifie la question utilisateur :
 {
@@ -2438,6 +2456,57 @@ export const POST: APIRoute = async ({ request, locals }) => {
       qn.includes("jour après") ||
       qn.includes("suivant");
 
+    // ────────────────────────────────────────────────────────────────────────
+    // Phase 2 #2 — follow-up detector + frame inheritance.
+    // "Et le dimanche ?" after a day answer used to fall through resolveHorizonFromText to the month
+    // default and lose the thread. A HIGH-PRECISION continuation ("et …", short, no explicit date, no
+    // family keyword, not one of the V1-rule shapes below — those own their phrasings) now inherits the
+    // last turn's ROUTING (horizon/intent/family from thread_context.last — never its facts) and applies
+    // only the delta the message expresses (a weekday → the next such day AFTER the frame's date).
+    // Bias to FRESH when unsure: mis-treating a follow-up as fresh is today's tolerated behaviour;
+    // wrongly inheriting is not. Fresh questions never enter this block — routing stays byte-identical.
+    // ────────────────────────────────────────────────────────────────────────
+    const _frameLast = thread_context?.last as any;
+    const _frameHorizon: ResolvedHorizon | null =
+      (_frameLast?.horizon === "day" || _frameLast?.horizon === "month" ||
+       _frameLast?.horizon === "selected_days" || _frameLast?.horizon === "lookup_event")
+        ? _frameLast.horizon : null;
+    const _frameIntent: string | null =
+      typeof _frameLast?.intent === "string" && _frameLast.intent.trim() ? _frameLast.intent : null;
+    const _frameFamily: string | null =
+      typeof _frameLast?.family === "string" && FAMILIES[_frameLast.family] ? _frameLast.family : null;
+    const _frameDate: string | null =
+      safeYmd10(_frameLast?.selected_date) ?? (thread_used_dates[0] ?? null);
+
+    // First date strictly AFTER baseYmd falling on weekday `dow` — frame-relative, not today-relative:
+    // "et le dimanche ?" after an answer about samedi 19/07 means dimanche 20/07 even if today is the 15th.
+    const nextWeekdayAfterYmd = (baseYmd: string, dow: number): string => {
+      const d = new Date(baseYmd + "T00:00:00Z");
+      do { d.setUTCDate(d.getUTCDate() + 1); } while (d.getUTCDay() !== dow);
+      return d.toISOString().slice(0, 10);
+    };
+
+    const isFollowUpContinuation =
+      !!_frameHorizon && !!_frameIntent &&
+      /^et\b/.test(qn) &&                 // leads with "et / et le / et pour" — the continuation marker
+      qn.length <= 48 &&                  // continuations are short; long "et si je…" scenarios stay fresh
+      !hasExplicitAnyDate &&              // an explicit date routes correctly on the fresh path already
+      !familyForQuestion(qRaw) &&         // a family keyword IS a new subject — the family router owns it
+      !asksWhy && !asksCompare && !asksNextDay && !refersToRank1 && !refersToTop2; // V1 rules own these
+
+    let frame_inherited = false;
+    if (isFollowUpContinuation) {
+      frame_inherited = true;
+      resolved_horizon = _frameHorizon!;
+      resolved_intent = _frameIntent as any;
+      const frame_delta_date =
+        (wanted_weekday !== null && _frameDate)
+          ? nextWeekdayAfterYmd(_frameDate, wanted_weekday)  // "et le dimanche ?" → weekday delta
+          : _frameDate;                                      // no temporal delta → same subject, same date
+      if (frame_delta_date && extracted_dates.length === 0) extracted_dates.push(frame_delta_date);
+      console.log(`[phase2][continuation] inherited frame horizon=${resolved_horizon} intent=${String(resolved_intent)} family=${_frameFamily ?? "-"} date=${frame_delta_date ?? "-"} (q="${qRaw.slice(0, 60)}")`);
+    }
+
     // Rule 1 — "pourquoi le #1 ?" after month top days => treat as DAY_WHY on top_dates[0]
     if (!hasExplicitAnyDate && asksWhy && refersToRank1 && thread_top_dates.length >= 1) {
       resolved_horizon = "day";
@@ -2507,7 +2576,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Ambiguous month/WINDOW_TOP_DAYS — ask Haiku
     if (needsHaikuClassification) {
-      const haiku = await classifyIntentWithHaiku(qRaw);
+      const haiku = await classifyIntentWithHaiku(qRaw, conversation_history, {
+        horizon: _frameHorizon, intent: _frameIntent, family: _frameFamily, date: _frameDate,
+      });
       console.log("[haiku-classifier]", JSON.stringify(haiku));
 
       if (haiku.intent === "ENTITY_IMPACT") {
@@ -2581,8 +2652,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     };
 
     // Bare weekday on the day path → resolve within CURRENT WEEK (today excluded → tomorrow..Sunday).
+    // Skipped on an inherited continuation: its weekday is FRAME-relative (next dimanche after the
+    // answer's date), already injected into extracted_dates — today's-week resolution would clobber it.
     let weekday_window_date: string | null = null;
     if (
+      !frame_inherited &&
       resolved_horizon === "day" &&
       wanted_weekday !== null &&
       !hasExplicitAnyDate &&
@@ -4220,7 +4294,11 @@ Règles :
           return { status: "insufficient" as const, reason: "error" };
         });
         try {
-          const _fam = familyForQuestion(qRaw);
+          // Family resolution: the question's own keywords first; on an inherited continuation with no
+          // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
+          // so the follow-up keeps the dimension the user was exploring, on the new date.
+          const _fam = familyForQuestion(qRaw)
+            ?? (frame_inherited && _frameFamily ? FAMILIES[_frameFamily] ?? null : null);
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
@@ -4359,16 +4437,44 @@ Règles :
             from_prompt: true
           });
 
+          // ── Phase 2 #4 — clarifying question instead of the canned demand ──────────────────────────
+          // This branch fires only when the dates are missing AND not inheritable (effective_dates already
+          // falls back to the frame's used_dates upstream). Deterministic template — zero LLM, no digits
+          // and no entity in the question text; the CHIPS carry dates, drawn only from the frame's own
+          // top_dates (which the user already saw) or the upcoming weekend. Tapping a chip re-submits its
+          // `send` text as a normal user message, which the fresh path routes as an explicit 2-date compare.
+          const frYmd = (ymd: string): string => {
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
+            return m ? `${m[3]}/${m[2]}/${m[1]}` : ymd;
+          };
+          const clar_chips: Array<{ label_fr: string; send: string }> = [];
+          if (thread_top_dates.length >= 2) {
+            const [d1, d2] = thread_top_dates.slice(0, 2);
+            clar_chips.push({
+              label_fr: `Comparer le ${frYmd(d1)} et le ${frYmd(d2)}`,
+              send: `Compare le ${frYmd(d1)} et le ${frYmd(d2)}`,
+            });
+          }
+          {
+            const todayYmd = new Date().toISOString().slice(0, 10);
+            const sat = nextWeekdayAfterYmd(todayYmd, 6);
+            const sun = nextWeekdayAfterYmd(sat, 0);
+            clar_chips.push({
+              label_fr: `Comparer samedi ${frYmd(sat)} et dimanche ${frYmd(sun)}`,
+              send: `Compare le ${frYmd(sat)} et le ${frYmd(sun)}`,
+            });
+          }
+
           const ai_missing_dates = {
             ok: true,
             mode: "deterministic_missing_dates_v1",
             output: {
-              headline: "J’ai besoin d’au moins 2 dates",
+              headline: "Quels jours voulez-vous comparer ?",
               summary:
-                "Sélectionnez 2 à 7 jours dans le calendrier, ou écrivez-les en toutes lettres (ex: 1 juin 2026) ou au format 02/06/2026.",
+                "Indiquez deux à sept dates — dans le calendrier, en toutes lettres ou en touchant une suggestion ci-dessous.",
               key_facts: [],
               caveat:
-                "Sans 2 dates, je ne peux pas comparer les impacts (logistique, affluence, communication).",
+                "Sans au moins deux dates, je ne peux pas comparer les impacts (logistique, affluence, communication).",
             },
             raw_text: "",
             errors: [],
@@ -4400,9 +4506,16 @@ Règles :
                 location_id,
                 resolved_horizon,
                 resolved_intent,
+                resolved_family: null,
                 month_redirect_url,
                 producer: "deterministic_missing_dates_v1",
                 register: registerFor("deterministic_missing_dates_v1"),
+              },
+              // Phase 2 #4 — a clarification asserts no facts (outside the grounding contract by
+              // construction). The client renders the chips as tappable follow-ups.
+              clarification: {
+                kind: "missing_dates",
+                chips: clar_chips,
               },
               ai: {
                 ...normalized_ai_missing,
@@ -5421,6 +5534,9 @@ Règles :
           location_id,
           resolved_horizon,
           resolved_intent,
+          // Phase 2 #1 — the family key when a provider led this answer; the client folds it into
+          // THREAD_CONTEXT.last so a follow-up can inherit the dimension. Routing metadata, never a fact.
+          resolved_family: _familyLedKey,
           producer,
           register: registerFor(producer),
         },
@@ -5470,6 +5586,7 @@ Règles :
             last: {
               horizon: resolved_horizon,
               intent: resolved_intent,
+              family: _familyLedKey,
               used_dates: decision_used_dates,
               top_dates,
             },

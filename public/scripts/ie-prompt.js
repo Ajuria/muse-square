@@ -53,6 +53,9 @@ if (!root) {
     THREAD_CONTEXT.last = {
       horizon: typeof meta?.resolved_horizon === "string" ? meta.resolved_horizon : null,
       intent: typeof meta?.resolved_intent === "string" ? meta.resolved_intent : null,
+      // Phase 2 #1 — the conversation frame's family key (set when a provider led the answer). Routing
+      // metadata only; the server inherits it on a follow-up ("et le dimanche ?") to keep the dimension.
+      family: typeof meta?.resolved_family === "string" ? meta.resolved_family : null,
       used_dates: used.map((x) => String(x).slice(0, 10)).filter(Boolean).slice(0, 7),
       top_dates: pickTopDatesMinimal(out?.top_dates),
       month_redirect_url: typeof primary?.url === "string" ? primary.url : null,
@@ -875,10 +878,25 @@ if (!root) {
         return `<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:${bg};color:${color};margin-bottom:10px;letter-spacing:.04em;">${label}</div>`;
       })();
 
+      // Phase 2 #4 — clarification chips. A clarifying answer (e.g. missing dates) carries deterministic
+      // tappable options from the server; tapping one re-submits its `send` text as a normal user message.
+      const clarChipsHtml = (() => {
+        const chips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : [];
+        if (!chips.length) return "";
+        const btns = chips
+          .filter((c) => c && typeof c.label_fr === "string" && typeof c.send === "string")
+          .map((c) =>
+            '<button type="button" class="ie-clar-chip" data-send="' + escapeHtml(c.send) + '"'
+            + ' style="display:inline-block;margin:4px 6px 0 0;padding:6px 12px;border-radius:18px;border:1px solid var(--color-brand-blue,#0b37e5);background:transparent;color:var(--color-brand-blue,#0b37e5);font-size:12.5px;font-weight:500;cursor:pointer;">'
+            + escapeHtml(c.label_fr) + '</button>'
+          ).join("");
+        return btns ? '<div class="ie-clar-chips" style="margin-top:10px;">' + btns + '</div>' : "";
+      })();
+
       if (aiBubble) {
         aiBubble.className = "ie-bubble-none";
         if (html) {
-          setBubbleHtml(aiBubble, sourcePillHtml + html);
+          setBubbleHtml(aiBubble, sourcePillHtml + html + clarChipsHtml);
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
@@ -903,6 +921,15 @@ if (!root) {
       btn?.removeAttribute("disabled");
     }
   }
+
+  // Phase 2 #4 — delegate clarification-chip clicks: re-submit the chip's text as a user message.
+  document.addEventListener("click", (e) => {
+    const chip = e.target.closest(".ie-clar-chip");
+    if (!chip) return;
+    e.preventDefault();
+    const send = chip.getAttribute("data-send") || "";
+    if (send) submitQuestion(send);
+  });
 
   // Delegate confirmation button clicks
   document.addEventListener("click", (e) => {
