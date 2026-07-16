@@ -10,7 +10,10 @@
 // every fact the LLM can surface still flows through the grounding whitelist.
 import type { CitableFact } from "../ai/groundedPayload";
 
-export type FamilyFact = { fact_fr: string; claim_type: CitableFact["claim_type"] };
+// `tier` — optional, ONLY for engine-backed measured/observed_difference facts (e.g. the events
+// density-impact contrast): toGroundedDayPayload passes it through, enabling the rule-3bis tiered
+// causal register. Never default it — a tierless fact must stay tierless.
+export type FamilyFact = { fact_fr: string; claim_type: CitableFact["claim_type"]; tier?: CitableFact["tier"] };
 
 export interface FamilyResult {
   found: boolean;
