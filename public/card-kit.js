@@ -1058,6 +1058,23 @@
       if (!b.url || String(b.url).charAt(0) !== '/') return '';
       return '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:500;color:#0b37e5;text-decoration:none;margin-top:12px;">' + esc(b.label || 'Consulter') + ' →</a></div>';
     },
+    // Per-block provenance SEGMENT (R2, 17/07): a labelled box for the part of a MIXED answer whose
+    // register differs from the answer-level pill — e.g. the premise verdict computed from the
+    // operator's own sales inside an otherwise web/model entity answer. The top pill stays the
+    // CONSERVATIVE register; a segment only ever labels a sub-part MORE precisely, in plain sight
+    // (R4: provenance never silently improves — this is the explicit form).
+    segment: function (b) {
+      var reg = ({
+        vetted: { c: '#0F6E56', bg: '#E7F5EF', bd: '#BFE6D6', lbl: 'Vérifié · vos données' },
+        web:    { c: '#A65A00', bg: '#FBF0DF', bd: '#EFD5A8', lbl: 'Web — non vérifié' },
+        model:  { c: '#C2410C', bg: '#FDE8D8', bd: '#F5C8A8', lbl: 'Non vérifié' },
+      })[b.register];
+      if (!reg || !b.md) return '';
+      return '<div style="border:1px solid ' + reg.bd + ';background:' + reg.bg + ';border-radius:10px;padding:10px 12px;margin:0 0 10px;">'
+        + '<div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:' + reg.c + ';margin-bottom:5px;">' + reg.lbl + '</div>'
+        + '<div style="font-size:15px;line-height:1.55;color:#111827;">' + mdBlockToSafeHtml(b.md) + '</div>'
+        + '</div>';
+    },
     // family card — delegates to the existing renderers, unchanged
     card: function (b) {
       var fn = window.MSCardKit && window.MSCardKit[b.render];

@@ -4319,6 +4319,17 @@ Règles :
             const entityHeadlineOut = premise && !entityRelevant ? premise.headline : entityHeadline;
             const entityAnswerOut = premise ? `${premise.text}\n\n${entityFinal}` : entityFinal;
 
+            // R2 per-block provenance (owner audit 17/07): the premise is computed from the OPERATOR'S
+            // data — vetted by construction — while the entity part is web/model; one answer-level pill
+            // mislabelled the premise « Non vérifié ». Native blocks segment it: the premise ships in a
+            // « Vérifié · vos données » box, the entity prose stays under the answer's (conservative)
+            // top pill. Legacy `answer` string unchanged for old clients.
+            const entityBlocks = premise ? [
+              { type: "headline", text: entityHeadlineOut },
+              { type: "segment", register: "vetted", md: premise.text },
+              { type: "prose", md: entityFinal },
+            ] : null;
+
             // Item 3 — the decline's next step must be ACTIONABLE: the asked entity becomes ONE follow
             // candidate (name-only, nothing invented), so « Ajoutez-la à votre veille » is a Suivre
             // button, not homework. Cut the verbal clause off the extracted name (« Le X a-t-il fait
@@ -4394,6 +4405,7 @@ Règles :
                   key_facts: [],
                   reasons: [],
                   caveats: [],
+                  ...(entityBlocks ? { blocks: entityBlocks } : {}),
                 },
                 meta: { horizon: resolved_horizon, intent: "ENTITY_IMPACT", used_dates: [] },
                 actions: { month_redirect_url: null, primary: null, secondary: [] },
@@ -5260,26 +5272,51 @@ Règles :
           const d = v ? ymdFromAnyDate(v) : null;
           return d && /^\d{4}-\d{2}-\d{2}/.test(d) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "";
         };
+        // Voice floor (owner audit 17/07): a single-hit lookup used to answer with a bare name+date —
+        // structure without speech. Compose the sentence deterministically: weekday, JJ/MM/AAAA, and
+        // the relative distance in time. Multi-hit keeps the headline + item list (a list IS the
+        // right form there).
+        const DOW_LOOKUP_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        const frRelative = (iso: string): string => {
+          const t = new Date(`${iso}T00:00:00Z`).getTime();
+          const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+          const now = new Date(`${today}T00:00:00Z`).getTime();
+          const days = Math.round((t - now) / 86_400_000);
+          if (!Number.isFinite(days)) return "";
+          if (days === 0) return "aujourd'hui";
+          if (days === 1) return "demain";
+          if (days === -1) return "hier";
+          const abs = Math.abs(days);
+          const unit = abs >= 60 ? `${Math.round(abs / 30)} mois` : abs >= 14 ? `${Math.round(abs / 7)} semaines` : `${abs} jours`;
+          return days > 0 ? `dans ${unit}` : `il y a ${unit}`;
+        };
         const lookup_blocks: any[] = [];
         if (allHits.length === 0) {
           lookup_blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });
         } else {
-          const items = [...allHits]
-            .sort((a: any, b: any) => {
-              const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
-              const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
-              return String(da).localeCompare(String(db));
-            })
-            .map((r: any) => ({
-              name: String(r?.event_name ?? "Événement"),
-              date: frLookupDate(r?.event_start_date),
-              desc: typeof r?.longDescription === "string" && r.longDescription.trim() ? r.longDescription.trim().slice(0, 300) : "",
-            }));
-          // Headline dedupe mirrors the adapter rule: skip when it IS the single item's name.
-          if (headline && headline !== "Résumé" && !(items.length === 1 && headline.trim() === items[0].name)) {
-            lookup_blocks.push({ type: "headline", text: headline });
+          const sorted = [...allHits].sort((a: any, b: any) => {
+            const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+            const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+            return String(da).localeCompare(String(db));
+          });
+          const items = sorted.map((r: any) => ({
+            name: String(r?.event_name ?? "Événement"),
+            date: frLookupDate(r?.event_start_date),
+            desc: typeof r?.longDescription === "string" && r.longDescription.trim() ? r.longDescription.trim().slice(0, 300) : "",
+          }));
+          if (items.length === 1) {
+            const iso = ymdFromAnyDate(sorted[0]?.event_start_date) ?? "";
+            const rel = /^\d{4}-\d{2}-\d{2}/.test(iso) ? frRelative(iso.slice(0, 10)) : "";
+            const dowFr = /^\d{4}-\d{2}-\d{2}/.test(iso) ? DOW_LOOKUP_FR[new Date(`${iso.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
+            const sentence = items[0].date
+              ? `${items[0].name} a lieu ${dowFr ? `le ${dowFr} ` : "le "}${items[0].date}${rel ? ` — ${rel}` : ""}.`
+              : `${items[0].name} est référencé, sans date précise dans notre base.`;
+            lookup_blocks.push({ type: "prose", md: sentence });
+            if (items[0].desc) lookup_blocks.push({ type: "prose", md: items[0].desc });
+          } else {
+            if (headline && headline !== "Résumé") lookup_blocks.push({ type: "headline", text: headline });
+            lookup_blocks.push({ type: "lookup", items });
           }
-          lookup_blocks.push({ type: "lookup", items });
         }
 
         ai = {
@@ -5377,8 +5414,10 @@ Règles :
         // Family-led answer → the FULL family card renders INLINE (family_card), so no CTA/redirect is
         // needed; the detailed analysis is the answer itself. (Offering is now a family — same path.)
         primary = null;
-      } else {
-        // We do not assume a Day route exists. Fallback = month anchored on the date.
+      } else if (effective_day_date >= new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })) {
+        // We do not assume a Day route exists. Fallback = month anchored on the date — but ONLY for
+        // today/future: « Ouvrir le mois » is a PLANNING affordance, and under a PAST-day performance
+        // answer it reads as a misplaced next step (owner audit 17/07).
         const url = buildMonthRedirectUrl({
           window_start_date: effective_day_date,
           focus: "shortlist",
