@@ -57,6 +57,10 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /frequentation/,
       /\bpic\b.{0,25}(vent|vend|\bca\b|chiffre|affluence|client|monde)/,
       /(quand|quelle heure|quel jour|quel moment|a quel moment).{0,35}(vend|vent|gagn|chiffre|\bca\b|affluence|monde|client|frequent)/,
+      // REVERSED order — "je vends à quelle heure ?" (verb before the time word). Without this the
+      // follow-up detector inherited DAY_WHY and the model denied hourly data THAT EXISTS (owner bug
+      // report 16/07). Weather is registered first and requires a weather word, so it can't be stolen.
+      /(vend|vent|gagn|chiffre|\bca\b).{0,30}(quelle heure|quel moment|quel creneau)/,
       /(meilleur|pire|plus (fort|calme)|creux|de pointe).{0,15}(heure|creneau)/,   // time-of-day: unambiguous
       /(meilleur|pire).{0,12}jour.{0,25}(semaine|vent|vend|\bca\b|chiffre|rentable|affluence)/,   // best DAY-OF-WEEK for sales
       /jour.{0,10}(de pointe|le plus (fort|calme|rentable))/,   // "jour de pointe" = peak day

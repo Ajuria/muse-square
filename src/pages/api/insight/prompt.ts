@@ -427,6 +427,17 @@ const EVALUATION_MARKERS = [
   "plus risqué",
 ];
 
+// IMPACT questions about an entity ("le festival X a-t-il fait chuter mon CA ?") are EVALUATIONS, not
+// lookups — without this shield the greedy positive tokens ("festival", "y a-t-il") hijacked them onto
+// the lookup path, which answers "when is the event" and never the question (owner bug report 16/07).
+// Matched against the normalized (accent-stripped, lowercased) question.
+const IMPACT_MARKERS = [
+  "impact", "effet sur", "consequence",
+  "fait chuter", "fait baisser", "fait monter", "fait grimper",
+  "chute", "chuter", "baisse", "baisser", "cannibalis",
+  "mon ca", "mon chiffre", "mes ventes", "ma frequentation", "mon activite",
+];
+
 const COMPARISON_MARKERS = [
   "compar",
   "difference",
@@ -705,6 +716,7 @@ function isEventLookupQuestion(qRaw: string): boolean {
   if (EVALUATION_MARKERS.some(k => s.includes(k))) return false;
   if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
   if (PLANNING_VERBS.some(k => s.includes(k))) return false;
+  if (IMPACT_MARKERS.some(k => s.includes(k))) return false;   // impact question about an entity ≠ lookup
 
   // ----------------------------
   // POSITIVE LOOKUP SIGNALS
@@ -718,8 +730,10 @@ function isEventLookupQuestion(qRaw: string): boolean {
     s.includes("calendrier") ||
     s.includes("quels evenements") ||
     s.includes("quels événements") ||
-    s.includes("y a t il") ||
-    s.includes("y a-t-il") ||
+    // "y a-t-il" alone is NOT a lookup signal — "y a-t-il un nouveau concurrent près de moi ?" is a
+    // DISCOVERY question that this token hijacked onto the lookup path (killing follow_candidates,
+    // owner bug report 16/07). It counts only when an event-ish noun follows.
+    /y a[- ]?t[- ]?il.{0,40}(evenement|concert|festival|spectacle|salon|expo|foire|feria|match|conference)/.test(s) ||
     s.includes("black friday") ||
     s.includes("saint valentin") ||
     s.includes("fete des meres") ||

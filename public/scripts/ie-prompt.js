@@ -653,7 +653,11 @@ if (!root) {
       (typeof n.caveat === "string" && n.caveat.trim()) ? [n.caveat.trim()] : [];
 
     const primary = out?.actions?.primary;
+    // An honest-absence answer must not end on « Ouvrir le mois » — a CTA under "I can't answer that"
+    // reads as a shrug with a door slam (owner bug report 16/07). Suppress it on the absence floor.
+    const _isAbsence = out?.ai?.mode === "deterministic_honest_absence_v1";
     const ctaBlock =
+      !_isAbsence &&
       primary && typeof primary === "object" &&
       primary.type === "redirect" &&
       typeof primary.url === "string" && primary.url.startsWith("/") &&
@@ -668,10 +672,18 @@ if (!root) {
         blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });
         return blocks;
       }
-      if (headline && headline !== "Résumé") blocks.push({ type: "headline", text: headline });
+      const lookupItems = answer.split("\n").filter(Boolean);
+      // Dedupe: when the headline IS the single found event's name, showing both prints the title twice
+      // (owner bug report 16/07 — « Festival "La Route des Imaginaires" » duplicated).
+      const firstName = (() => {
+        const raw = lookupItems[0] ? (lookupItems[0].split("||")[0] || "") : "";
+        const ci = raw.indexOf(": ");
+        return (ci > -1 ? raw.slice(ci + 2) : raw).trim();
+      })();
+      if (headline && headline !== "Résumé" && headline.trim() !== firstName) blocks.push({ type: "headline", text: headline });
       blocks.push({
         type: "lookup",
-        items: answer.split("\n").filter(Boolean).map(line => {
+        items: lookupItems.map(line => {
           const sepIdx = line.indexOf("||");
           const raw = sepIdx > -1 ? line.slice(0, sepIdx) : line;
           const desc = sepIdx > -1 ? line.slice(sepIdx + 2) : "";
