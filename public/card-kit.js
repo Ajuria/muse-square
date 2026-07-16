@@ -949,16 +949,24 @@
 
   // Register pill — values identical to the Phase 0 pill in ie-prompt.js (design-tokens pill-safe /
   // source-low / source-mid). vetted #0b37e5/#fff · web #F3F4F6/#6b7280 · model #FDE8D8/#C2410C.
-  function abRegister(reg) {
+  // inc ② (C1, owner-approved): on a VETTED answer carrying a cited-fact count, the pill extends —
+  // « Vérifié · 5 faits cités » — zero new UI, and only when the count is real (never padded).
+  function abRegister(reg, factsCited) {
     var label, bg, color;
-    if (reg === 'vetted') { label = 'Vérifié'; bg = '#0b37e5'; color = '#ffffff'; }
+    if (reg === 'vetted') {
+      label = 'Vérifié';
+      if (typeof factsCited === 'number' && isFinite(factsCited) && factsCited > 0) {
+        label += ' · ' + factsCited + ' fait' + (factsCited > 1 ? 's' : '') + ' cité' + (factsCited > 1 ? 's' : '');
+      }
+      bg = '#0b37e5'; color = '#ffffff';
+    }
     else if (reg === 'web') { label = 'Web — non vérifié'; bg = '#F3F4F6'; color = '#6b7280'; }
     else { label = 'Non vérifié'; bg = '#FDE8D8'; color = '#C2410C'; }
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }
 
   var AB_PRIMITIVES = {
-    register: function (b) { return abRegister(b.register); },
+    register: function (b) { return abRegister(b.register, b.facts_cited); },
     // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
     headline: function (b) {
       var lead = b.variant === 'lead';

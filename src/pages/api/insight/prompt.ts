@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -4374,7 +4374,11 @@ Règles :
           ai = await callGrounded();
           if (!ai.ok) {
             console.warn("[DAY_WHY grounded] rejected, regenerating with feedback:", ai.errors);
+            // inc ② — the "Correction en cours" row: appears when the validator rejected attempt 1 and
+            // the feedback regeneration runs; done when attempt 2 returns (pass or floor).
+            emitStage("regen", "start");
             ai = await callGrounded(ai.errors);
+            emitStage("regen", "done");
           }
           producer = ai.ok ? (_familyLed ? "family_grounded_claude" : "grounded_day_claude") : "v3_fallback_deterministic";
         } catch (e) {
@@ -5565,6 +5569,11 @@ Règles :
             key_facts: Array.isArray(normalized_ai.key_facts) ? normalized_ai.key_facts : [],
             reasons: Array.isArray(normalized_ai.reasons) ? normalized_ai.reasons : [],
             caveats: Array.isArray(normalized_ai.caveats) ? normalized_ai.caveats.filter(Boolean) : [],
+            // inc ② (additive): the grounded answer's citations, so the client can extend the vetted pill
+            // (« Vérifié · 5 faits cités »). Absent on non-grounded paths — the pill stays plain.
+            ...(Array.isArray((ai as any)?.output?.cited_fact_ids)
+              ? { cited_fact_ids: (ai as any).output.cited_fact_ids }
+              : {}),
           },
         },
 
@@ -5714,9 +5723,16 @@ export const POST: APIRoute = async (ctx) => {
     writer.write(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)).catch(() => {});
 
   const emit: StageEmit = (k, state, extra) => {
+    // inc ② — the verify row's DONE label carries the fact count (owner-approved wording, composed from
+    // contextCopy so all French stays in the owner's file). Counts only; never model text.
+    const doneLabel =
+      state === "done" && k === "verify" && typeof extra?.facts_cited === "number"
+        ? stageVerifyDoneFr(extra.facts_cited)
+        : null;
     void send("stage", {
       k, state,
       ...(state === "start" && STAGE_FR[k] ? { label_fr: STAGE_FR[k] } : {}),
+      ...(doneLabel ? { label_fr: doneLabel } : {}),
       ...(extra ?? {}),
     });
   };

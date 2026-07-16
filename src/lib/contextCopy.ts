@@ -138,7 +138,15 @@ export const STAGE_FR: Record<string, string> = {
   sales: "Lecture de vos ventes",
   generate: "Rédaction de la réponse",
   verify: "Vérification des faits",
+  regen: "Correction en cours",   // inc ② — the validator rejected attempt 1; attempt 2 runs (owner-approved 2026-07-16)
 };
+
+// inc ② (owner-approved) — the verify row's DONE label when the validator passed and counted the cited
+// facts. n=0 → the plain "validée" (never a padded count). Composed server-side so ALL French stays here.
+export function stageVerifyDoneFr(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "Vérification des faits — validée";
+  return `Vérification des faits — validée · ${n} fait${n > 1 ? "s" : ""} cité${n > 1 ? "s" : ""}`;
+}
 
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {

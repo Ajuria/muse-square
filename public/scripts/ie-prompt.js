@@ -497,13 +497,20 @@ if (!root) {
       }
       let row = box.querySelector('[data-k="' + s.k + '"]');
       if (!row && s.state === "start") {
+        // inc ②: the "regen" row (Correction en cours) is the amber one — the validator caught something.
+        const dotColor = s.k === "regen" ? "#BA7517" : "var(--color-brand-blue,#0b37e5)";
         box.insertAdjacentHTML("beforeend",
           '<div class="ie-load-stage" data-k="' + escapeHtml(s.k) + '" style="display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .35s;font-size:13.5px;color:#6b7280;">'
-          + '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-brand-blue,#0b37e5);flex:none;"></span>'
-          + '<span>' + escapeHtml(typeof s.label_fr === "string" ? s.label_fr : s.k) + '</span></div>');
+          + '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex:none;"></span>'
+          + '<span class="ie-load-lbl">' + escapeHtml(typeof s.label_fr === "string" ? s.label_fr : s.k) + '</span></div>');
         row = box.lastElementChild;
       }
       if (!row) return;
+      // inc ②: a done event may carry an updated label ("Vérification des faits — validée · 5 faits cités").
+      if (typeof s.label_fr === "string" && s.label_fr) {
+        const lbl = row.querySelector(".ie-load-lbl");
+        if (lbl) lbl.textContent = s.label_fr;
+      }
       if (s.state === "start") { row.classList.remove("done"); row.classList.add("on"); }
       else if (s.state === "done") { row.classList.remove("on"); row.classList.add("done"); }
     };
@@ -563,9 +570,10 @@ if (!root) {
     if (!blocks.length) return "";
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
-  // Instrumentation hook — lets card-harness.html drive the REAL adapter with captured payloads
-  // (verify-by-behavior). Not a public API.
+  // Instrumentation hooks — let card-harness.html drive the REAL adapter / stage handler with captured
+  // payloads and synthetic stage events (verify-by-behavior). Not a public API.
   window.__ieBlocksFromResponse = (out) => blocksFromResponse(out);
+  window.__ieStageHandler = makeStageEventHandler;
 
   function blocksFromResponse(out) {
     const n =
@@ -576,7 +584,11 @@ if (!root) {
 
     const blocks = [];
     const register = resolveRegister(out);
-    if (register) blocks.push({ type: "register", register });
+    // inc ② (C1, owner-approved): the vetted pill extends with the cited-fact count when the grounded
+    // answer carries one — « Vérifié · 5 faits cités ». No new wire data: cited_fact_ids is already in
+    // the envelope; absent (non-grounded paths) → the plain pill, never a padded count.
+    const _factsCited = Array.isArray(n?.cited_fact_ids) ? n.cited_fact_ids.length : null;
+    if (register) blocks.push({ type: "register", register, ...(typeof _factsCited === "number" && _factsCited > 0 ? { facts_cited: _factsCited } : {}) });
 
     const clarChips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : null;
 
