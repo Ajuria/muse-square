@@ -12,6 +12,7 @@ import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
+import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMarginPct } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
@@ -1052,6 +1053,20 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     for (const m of q.matchAll(/\b(\d{1,2})-(\d{1,2})-(\d{4})\b/g)) {
       hasToken = true;
       const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
+      const ymd = ymdFromYyyyMmDd(y, mo, d);
+      if (ymd) out.push(ymd);
+    }
+
+    // DD/MM without a year — THE French chat form (« le 11/07 », « samedi 18/07 »). Phase 4 (16/07):
+    // previously unparsed, so past-performance questions silently resolved to TODAY. High-precision:
+    // requires a date cue (le/du/au/ce or a weekday) right before, so fractions (« les 3/4 ») and
+    // ratios never parse as dates. Year = explicit-in-query, else the anchor's year, LITERALLY —
+    // never rolled forward: 11/07 asked on 16/07 is the past Saturday the user means.
+    for (const m of q.matchAll(/(?:\b(?:le|du|au|ce)\s+|\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+)(\d{1,2})\/(\d{1,2})\b(?!\s*\/|\d)/gi)) {
+      hasToken = true;
+      const d = Number(m[1]), mo = Number(m[2]);
+      const y = defaultYearFromQuery ?? anchorYear;
+      if (y == null) { unparsedToken = true; continue; }
       const ymd = ymdFromYyyyMmDd(y, mo, d);
       if (ymd) out.push(ymd);
     }
@@ -4520,6 +4535,12 @@ Règles :
           console.warn("[grounded] identity facts skipped:", e);
           return { status: "insufficient" as const, reason: "error" };
         });
+        // Phase 4 — day-performance facts (CA réalisé vs habituel, analogs, component movers) fetched
+        // in PARALLEL like identity: the day answer must say how the day WENT, not just its context.
+        const _dayPerfP = buildDayPerformanceFacts(location_id, effective_date).catch((e) => {
+          console.warn("[grounded] day-perf facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         try {
           // Family resolution: the question's own keywords first; on an inherited continuation with no
           // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
@@ -4529,6 +4550,7 @@ Règles :
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
+        const _dayPerf = await _dayPerfP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
@@ -4560,7 +4582,9 @@ Règles :
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
               { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
             )
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: _identityFacts });
+          // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
+          // family-led answer deliberately leads with its own dimension, not the day's performance.
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
