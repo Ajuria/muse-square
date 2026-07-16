@@ -2266,17 +2266,22 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       if (_declPct != null) {
         try {
           const prior = await getDeclaredMarginPct(location_id);
+          // WHO declared — the client sends the roster name (Destinataires; last-used responsable,
+          // owner decision 16/07: roster identity, accounts are shared). Guarded, nullable.
+          const _declBy = typeof body?.declared_by === "string" && body.declared_by.trim()
+            ? body.declared_by.trim().slice(0, 80) : null;
           await appendCorrectionEvent({
             location_id,
             event_action: prior != null ? "supersede" : "assert",
             correction_type: "declared_margin_pct",
             correction_text: String(_declPct),
-            prior_value: prior != null ? String(prior) : null,
+            prior_value: prior != null ? String(prior.pct) : null,
             raw_turn: qRaw.slice(0, 500),
             source: "chat_declared",
+            declarant_name: _declBy,
           });
-          console.log("[telemetry][declared-capture]", JSON.stringify({ pct: _declPct, superseded: prior != null }));
-          const cap = declaredCaptureFr(_declPct, prior);
+          console.log("[telemetry][declared-capture]", JSON.stringify({ pct: _declPct, superseded: prior != null, has_declarant: !!_declBy }));
+          const cap = declaredCaptureFr(_declPct, prior?.pct ?? null, _declBy);
           return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
         } catch (e) { console.warn("[declared-capture] failed:", e); }
       }
@@ -2292,8 +2297,8 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
         if (_missingDim === "marge") {
           try {
-            const declPct = await getDeclaredMarginPct(location_id);
-            if (declPct != null) {
+            const decl = await getDeclaredMarginPct(location_id);
+            if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
                 query: `SELECT SUM(daily_revenue) AS ca
@@ -2304,8 +2309,11 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
               });
               const ca = Number(rows?.[0]?.ca);
               if (Number.isFinite(ca) && ca > 0) {
-                console.log("[telemetry][declared-answer]", JSON.stringify({ pct: declPct }));
-                const ans = declaredMarginAnswerFr({ pct: declPct, ca_eur: ca, window_fr: "vos 30 derniers jours" });
+                console.log("[telemetry][declared-answer]", JSON.stringify({ pct: decl.pct }));
+                const ans = declaredMarginAnswerFr({
+                  pct: decl.pct, ca_eur: ca, window_fr: "vos 30 derniers jours",
+                  declarant_name: decl.declarant_name, declared_on: decl.corrected_at,
+                });
                 return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
               }
             }

@@ -1045,7 +1045,11 @@ if (!root) {
           stream: true,
           thread_context: THREAD_CONTEXT,
           conversation_history: CONVERSATION_HISTORY.slice(-12),
-          confirmed_params: confirmedParams || null
+          confirmed_params: confirmedParams || null,
+          // WHO is speaking, from the Destinataires roster (owner decision 16/07): the last-used
+          // responsable per location (commit-form memory). Server uses it ONLY to stamp declarations
+          // (declared_by on the corrections log); null when nobody was ever picked.
+          declared_by: (function () { try { return localStorage.getItem("ms_last_owner_" + LOCATION_ID) || null; } catch (e) { return null; } })()
         })
       });
 
@@ -1621,8 +1625,11 @@ if (!root) {
         const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
         // declared_margin_pct stores the bare percent ("62") — display it as one.
         const value = c.correction_type === 'declared_margin_pct' ? (c.correction_text + ' %') : c.correction_text;
+        // WHO + WHEN, when recorded (declarant from the Destinataires roster; date from the event log).
+        const meta = (c.declarant_name ? ' — par ' + c.declarant_name : '')
+          + (c.corrected_at ? ' (' + c.corrected_at.slice(8, 10) + '/' + c.corrected_at.slice(5, 7) + ')' : '');
         return '<div class="ie-memory-item">'
-          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(value) + '</span>'
+          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(value) + escapeHtml(meta) + '</span>'
           + '<button type="button" class="ie-memory-clear" data-mem-clear="' + escapeHtml(c.correction_type) + '">Oublier</button>'
           + '</div>';
       }).join("");
