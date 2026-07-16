@@ -69,6 +69,17 @@ const family = Astro.url.searchParams.get("family") || "";
             var sections = j.sections || [];
             if (!sections.length) { showError("Pas de données pour ce rapport."); return; }
             var html = '<div class="fr-date">' + esc(frDate(j.date)) + '</div>';
+            // Section D (16/07): grounded executive summary — present ONLY when it passed the same
+            // validator as the chat (D3: absent on reject, the deterministic sections are the floor).
+            // D2: it wears its register explicitly; sections below stay their own register.
+            if (j.exec_summary && j.exec_summary.headline) {
+              var es = j.exec_summary;
+              var pill = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#0F6E56;background:#E7F5EF;border:1px solid #BFE6D6;border-radius:999px;padding:2px 9px;">Vérifié' + (es.facts_cited ? ' · ' + es.facts_cited + ' faits cités' : '') + '</span>';
+              html += '<div class="fr-zone"><div class="fr-zh">Résumé exécutif ' + pill + '</div>'
+                + '<div style="font-size:15px;font-weight:650;color:#111827;line-height:1.4;margin-bottom:8px;">' + (window.MSCardKit ? window.MSCardKit.mdBlockToSafeHtml(es.headline) : esc(es.headline)) + '</div>'
+                + (es.answer ? '<div style="font-size:13.5px;color:#374151;line-height:1.6;">' + (window.MSCardKit ? window.MSCardKit.mdBlockToSafeHtml(es.answer) : esc(es.answer)) + '</div>' : '')
+                + '</div>';
+            }
             sections.forEach(function (s) {
               var fn = window.MSCardKit && window.MSCardKit[s.render];
               // renderX expects the ENDPOINT response shape { ok, found, ... }; provider `data` carries

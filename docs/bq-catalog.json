@@ -32560,6 +32560,12 @@
 "type": "FLOAT64"
 }
 ]
-}
+},
+"analytics.consulter_telemetry": [
+"event_ts",
+"location_id",
+"event_type",
+"payload"
+]
 }
 }

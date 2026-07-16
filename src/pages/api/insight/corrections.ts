@@ -13,7 +13,7 @@ import { getActiveCorrections, appendCorrectionEvent, type CorrectionType } from
 
 export const prerender = false;
 
-const VALID_TYPES: CorrectionType[] = ["activity", "zone", "nouveau_meaning", "other", "declared_margin_pct"];
+const VALID_TYPES: CorrectionType[] = ["activity", "zone", "nouveau_meaning", "other", "declared_margin_pct", "declared_client_count"];
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

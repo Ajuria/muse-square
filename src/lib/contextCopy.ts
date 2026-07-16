@@ -164,7 +164,7 @@ export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: st
   },
   par_client: {
     headline: "Ventes par client non rattachées",
-    answer: "Vos ventes ne sont pas rattachées à des clients identifiés — pas d'analyse par client possible. Importez des ventes avec un identifiant client, puis reposez-moi la question.",
+    answer: "Vos ventes ne sont pas rattachées à des clients identifiés — pas d'analyse par client possible. Importez des ventes avec un identifiant client, ou indiquez-moi la taille de votre clientèle ici (par exemple : « j'ai environ 300 clients réguliers »), puis reposez-moi la question.",
     cta: { label: "Importer un fichier de ventes", action: "upload" },
   },
   stock: {
@@ -221,16 +221,22 @@ export function premiseCheckFr(p: {
 // is stored (append-only corrections log) and reused: the capture turn gets a confirmation, and the
 // next margin question gets a computed estimate — measured CA × declared %, attributed « déclarée
 // par vous », labelled estimation. Deterministic composition — no LLM text anywhere in this loop.
-export function declaredCaptureFr(pct: number, superseded_pct: number | null, declarant_name?: string | null): { headline: string; answer: string } {
-  const v = `${String(pct).replace(".", ",")} %`;
-  const by = declarant_name ? `déclarée par ${declarant_name}` : "déclarée par vous";
+// Generalized capture confirmation (registry version, 16/07): label + formatted values come from the
+// metric spec (declaredMetrics.ts), so every declared metric confirms in the same voice.
+export function declaredCaptureFr(p: {
+  label_fr: string;            // « Marge », « Clientèle »
+  value_fr: string;            // « 62 % », « 300 clients »
+  prior_value_fr: string | null;
+  declarant_name?: string | null;
+}): { headline: string; answer: string } {
+  const by = p.declarant_name ? `déclarée par ${p.declarant_name}` : "déclarée par vous";
   return {
-    headline: `Marge notée : ${v}`,
+    headline: `${p.label_fr} notée : ${p.value_fr}`,
     answer:
-      (superseded_pct != null
-        ? `Votre marge moyenne déclarée passe de ${String(superseded_pct).replace(".", ",")} % à ${v} (${by}). `
-        : `Marge moyenne de ${v} — ${by}, retenue. `) +
-      `Je l'utiliserai pour vos questions de marge (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.`,
+      (p.prior_value_fr != null
+        ? `Votre ${p.label_fr.toLowerCase()} déclarée passe de ${p.prior_value_fr} à ${p.value_fr} (${by}). `
+        : `${p.label_fr} de ${p.value_fr} — ${by}, retenue. `) +
+      `Je l'utiliserai pour vos questions (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.`,
   };
 }
 export function declaredMarginAnswerFr(p: {
@@ -251,6 +257,29 @@ export function declaredMarginAnswerFr(p: {
     answer:
       `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Avec votre marge moyenne déclarée (${v}, ${by}), cela représente ≈ ${eur(margin)} de marge estimée. ` +
       `Estimation fondée sur une marge globale déclarée — pas une mesure par produit. Pour la marge réelle par produit, ajoutez une colonne coût à votre import de ventes.`,
+  };
+}
+
+// Declared client base → CA-per-client estimate (generalization 16/07; same voice as the margin
+// answer: measured CA over declared value, attributed, labelled estimation). DRAFT — owner-final.
+export function declaredClientCountAnswerFr(p: {
+  count: number;
+  ca_eur: number;          // measured CA over the window
+  window_fr: string;       // « vos 30 derniers jours »
+  declarant_name?: string | null;
+  declared_on?: string | null;   // ISO Y-m-d
+}): { headline: string; answer: string } {
+  const perClient = p.count > 0 ? p.ca_eur / p.count : NaN;
+  const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+  const cnt = p.count.toLocaleString("fr-FR");
+  const onFr = p.declared_on && /^\d{4}-\d{2}-\d{2}/.test(p.declared_on)
+    ? ` le ${p.declared_on.slice(8, 10)}/${p.declared_on.slice(5, 7)}/${p.declared_on.slice(0, 4)}` : "";
+  const by = p.declarant_name ? `déclarée par ${p.declarant_name}${onFr}` : `déclarée par vous${onFr}`;
+  return {
+    headline: `CA par client estimé : ≈ ${eur(perClient)} sur ${p.window_fr}`,
+    answer:
+      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Rapporté à votre clientèle déclarée (${cnt} clients, ${by}), cela représente ≈ ${eur(perClient)} par client sur la période. ` +
+      `Estimation fondée sur un effectif global déclaré — pas des clients identifiés dans vos ventes. Pour l'analyse réelle par client, importez des ventes avec un identifiant client.`,
   };
 }
 
