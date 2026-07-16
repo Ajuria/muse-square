@@ -72,10 +72,28 @@ const ACTION_TYPE_TO_THEME: Record<string, string> = (() => {
 })();
 
 // action_type -> its theme (meteo / mobilite / tourisme / calendrier / concurrence …). The theme is
+// Chat décision commits (Day 2, 16/07): each `chat_decision_<family>` origin maps to the closest
+// reco THEME so origin_factor lands non-NULL (Engine-1 A↔B bridge). Kept OUT of
+// RECO_THEME_ACTION_TYPES on purpose — that map must stay in parity with the client RECO_TAXONOMY
+// (profile toggles), and chat commits are not feed candidates to govern.
+const CHAT_DECISION_THEME: Record<string, string> = {
+  chat_decision_footfall: "fenetres",
+  chat_decision_offering: "ventes",
+  chat_decision_events: "calendrier",
+  chat_decision_competitor: "concurrence",
+  chat_decision_tourism: "tourisme",
+  chat_decision_weather: "meteo",
+  chat_decision_audience: "fenetres",
+  chat_decision_salesdiscount: "ventes",
+  chat_decision_salesdecomp: "ventes",
+  chat_decision_calendar: "calendrier",
+};
+
 // the granularity a card reliably carries, so it is what a commitment stores as `origin_factor`
 // (Engine-1 A↔B bridge). Returns null for uncovered action_types.
 export function themeForActionType(actionType: string | null | undefined): string | null {
-  return (actionType && ACTION_TYPE_TO_THEME[actionType]) || null;
+  if (!actionType) return null;
+  return ACTION_TYPE_TO_THEME[actionType] || CHAT_DECISION_THEME[actionType] || null;
 }
 
 // Drop candidates whose action_type belongs to a disabled theme.

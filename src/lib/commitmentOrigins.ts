@@ -65,6 +65,22 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
 
   // TODO(complete from public/action-cards.js SPECS keys): opportunity/threat families
   // (verify each string against the registry).
+
+  // Chat décision commits (Day 2, 16/07) — a « Prochaines étapes » line inside an inline FAMILY CARD
+  // answer (Consulter) committed via the shared MSCommitForm. Question-scoped: there is NO fired card
+  // behind it, so each family gets its own origin type (never borrow a real card's action_type — the
+  // learning chain would attribute the outcome to a card that never fired). Themes are mapped in
+  // recoThemeMap.CHAT_DECISION_THEME so origin_factor still lands non-NULL.
+  "chat_decision_footfall",
+  "chat_decision_offering",
+  "chat_decision_events",
+  "chat_decision_competitor",
+  "chat_decision_tourism",
+  "chat_decision_weather",
+  "chat_decision_audience",
+  "chat_decision_salesdiscount",
+  "chat_decision_salesdecomp",
+  "chat_decision_calendar",
 ]);
 
 export function isCommitmentOrigin(actionType: unknown): boolean {

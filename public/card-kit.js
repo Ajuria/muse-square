@@ -122,15 +122,18 @@
     if (wrap) wrap.innerHTML = _msSortRender(id);
   });
   function msDecision(title, lines) {
+    // Each line carries class + data attrs (Day-2 chat commit, 16/07): purely additive markers so the
+    // CHAT surface can decorate décision lines with an « M'engager » affordance by delegation. No
+    // visual change anywhere; other surfaces ignore the attributes.
     var inner = '';
     for (var i = 0; i < lines.length; i++) {
       var l = lines[i] || {};
-      inner += '<div style="' + (i > 0 ? 'margin-top:7px;' : '') + '">'
+      inner += '<div class="ms-decision-line" data-dl-head="' + esc(l.head || '') + '" data-dl-body="' + esc(l.body || '') + '" style="' + (i > 0 ? 'margin-top:7px;' : '') + '">'
         + (l.head ? '<span style="font-weight:700;">' + esc(l.head) + ' — </span>' : '')
         + esc(l.body || '') + '</div>';
     }
     var head = title ? '<div style="font-weight:700;margin-bottom:6px;">' + esc(title) + '</div>' : '';
-    return '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;">' + head + inner + '</div>';
+    return '<div class="ms-decision" style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;">' + head + inner + '</div>';
   }
   var WS_DOW_FR = { 0: 'dimanches', 1: 'lundis', 2: 'mardis', 3: 'mercredis', 4: 'jeudis', 5: 'vendredis', 6: 'samedis' };
   function salesLevier(movers, isDown, jour) {
