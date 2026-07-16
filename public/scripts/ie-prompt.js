@@ -409,8 +409,12 @@ if (!root) {
     }).filter(Boolean).join("");
     if (!rows) return "";
     // Ordered closest-first by the server — say so, so the order reads as a judgement, not a list.
+    // But ONLY when the claim is true: with a single candidate, or none carrying a real distance
+    // (the unfound-entity Suivre row), « le plus proche d'abord » is noise (owner audit 17/07).
+    const withDistance = candidates.filter(function (c) { return typeof (c && c.distance_m) === "number" && isFinite(c.distance_m); }).length;
+    const hint = (candidates.length > 1 && withDistance > 0) ? ' <span class="ie-follow-hint">· le plus proche d\'abord</span>' : '';
     return '<div class="ie-follow-block">'
-      + '<div class="ie-follow-h">Mettre sous surveillance <span class="ie-follow-hint">· le plus proche d\'abord</span></div>'
+      + '<div class="ie-follow-h">Mettre sous surveillance' + hint + '</div>'
       + rows + '</div>';
   }
 
@@ -696,11 +700,17 @@ if (!root) {
     // Family-led answer → the FULL family card inline (the detailed answer IS the card, no click-through).
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
       const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé") ? n.headline.trim() : "";
-      // Dedupe: the card renders its own `lead` line — when the packager headline IS that line,
-      // showing both prints it twice (owner bug report 16/07, footfall « pic à 10h » doubled).
-      const cardLead = (out.family_card.data && typeof out.family_card.data.lead === "string") ? out.family_card.data.lead.trim() : "";
-      if (lead && lead !== cardLead) blocks.push({ type: "headline", text: lead });
-      blocks.push({ type: "card", render: out.family_card.render, data: out.family_card.data });
+      if (lead) {
+        // SEMANTIC dedupe (owner audit 17/07, supersedes the 16/07 exact-match rule): the packager
+        // headline and the card's own lead line say the same thing in different words (« pic à 10h »
+        // twice, « peu disputé » vs « aucune dispute ») — exact matching can't catch paraphrase. When
+        // a headline exists it IS the verdict: the card's lead/contest_lead are suppressed, the finding
+        // is stated once. Chat-only: deep pages call the renderers directly and keep their leads.
+        blocks.push({ type: "headline", text: lead });
+        blocks.push({ type: "card", render: out.family_card.render, data: Object.assign({}, out.family_card.data, { lead: null, contest_lead: null }) });
+      } else {
+        blocks.push({ type: "card", render: out.family_card.render, data: out.family_card.data });
+      }
       return blocks;
     }
 
