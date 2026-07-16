@@ -2251,7 +2251,12 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     // or « ma marge moyenne est de 62 % » would itself trigger the elicit). The registry
     // (declaredMetrics.ts) owns the parsers/bounds; the declaration is persisted to the corrections
     // log (supersede lifecycle, clearable in the memory panel, declarant from the Destinataires
-    // roster) and confirmed deterministically. A write failure falls through — never a dead end.
+    // roster). A PURE declaration returns the confirmation; a MIXED declare-and-ask turn
+    // (« j'ai 300 clients réguliers : quel est mon CA par client ? » — owner bug 17/07) captures
+    // SILENTLY and falls through so the question gets answered in the same turn (the fresh value is
+    // handed forward — no read-after-write; the memory panel refreshes after the answer and shows
+    // the captured chip). A write failure falls through — never a dead end.
+    let _justDeclared: { correction_type: string; value: number; declarant_name: string | null; corrected_at: string } | null = null;
     {
       const _decl = parseAnyDeclaration(q);
       if (_decl != null) {
@@ -2269,14 +2274,22 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
             source: "chat_declared",
             declarant_name: _declBy,
           });
-          sinkTelemetry(location_id, "declared-capture", { type: _decl.spec.correction_type, value: _decl.value, superseded: prior != null, has_declarant: !!_declBy });
-          const cap = declaredCaptureFr({
-            label_fr: _decl.spec.label_fr,
-            value_fr: _decl.spec.formatValue(String(_decl.value)),
-            prior_value_fr: prior != null ? _decl.spec.formatValue(prior.raw) : null,
+          sinkTelemetry(location_id, "declared-capture", { type: _decl.spec.correction_type, value: _decl.value, superseded: prior != null, has_declarant: !!_declBy, with_question: _decl.with_question });
+          if (!_decl.with_question) {
+            const cap = declaredCaptureFr({
+              label_fr: _decl.spec.label_fr,
+              value_fr: _decl.spec.formatValue(String(_decl.value)),
+              prior_value_fr: prior != null ? _decl.spec.formatValue(prior.raw) : null,
+              declarant_name: _declBy,
+            });
+            return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+          }
+          _justDeclared = {
+            correction_type: _decl.spec.correction_type,
+            value: _decl.value,
             declarant_name: _declBy,
-          });
-          return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+            corrected_at: new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
+          };
         } catch (e) { console.warn("[declared-capture] failed:", e); }
       }
     }
@@ -2293,7 +2306,11 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         const _metric = metricForMissingDim(_missingDim);
         if (_metric) {
           try {
-            const decl = await getDeclaredMetric(location_id, _metric.correction_type);
+            // A value declared THIS turn (mixed declare-and-ask) is used directly — fresher than any
+            // stored row and immune to read-after-write timing.
+            const decl = _justDeclared && _justDeclared.correction_type === _metric.correction_type
+              ? { value: _justDeclared.value, raw: String(_justDeclared.value), declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at }
+              : await getDeclaredMetric(location_id, _metric.correction_type);
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
