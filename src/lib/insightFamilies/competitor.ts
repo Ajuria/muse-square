@@ -13,11 +13,135 @@
 //     each with a specific rule-based response.
 // Event moves are DELIBERATELY excluded — they belong to the Events card.
 import type { FamilyResult, FamilyFact } from "./types";
+import { finalizeContrast, frPp, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
 
 const PROJECT = "muse-square-open-data";
 const REAL_BAR = 40;   // % audience overlap at/above which a followed entity is a real competitor
 const MAX_MOVES = 8;
 const MOVE_WINDOW_DAYS = 60;
+
+// ── Measured-impact engine (competitor, 16/07) ──────────────────────────────────────────────────
+// « Do my competitors cost me sales? », measured from the venue's OWN history — with the two
+// competitor DEFINITIONS kept apart (owner requirement):
+//   1. SUIVIS — entities the user follows (raw.watched_competitors → entity_is_followed): daily
+//      count of their ACTIVE events (long-running exhibitions vary 10-16/day on f10c3e58, so the
+//      contrast is intensity terciles, not presence).
+//   2. MÊME SECTEUR (map/ambient) — `competition_index_local` (fct_location_context_features_daily),
+//      the app's canonical DAILY weighted same-industry pressure (already narrated by top-days as
+//      « concurrence sous la moyenne du mois »). Reusing it keeps ONE definition of daily pressure —
+//      a new ad-hoc index here would fork the vocabulary.
+// Both compared on residual_pct (dow+trend controlled) with the SHARED gates/tier ladder
+// (impactContrast). NOTE the confound: followed-competitor activity correlates with same-bucket
+// event density (the events family's contrast) — phrasing stays associative, and each fact names
+// ITS variable so the two engines can never be read as one claim.
+type CompetitorContrast = ImpactContrast & { key: "followed_activity" | "ambient_index"; label_fr: string };
+
+async function measureCompetitorImpact(
+  bq: any, location_id: string,
+): Promise<{ days: number; contrasts: CompetitorContrast[] } | null> {
+  try {
+    const [rows] = await bq.query({
+      query: `
+        WITH base AS (
+          SELECT r.date, r.residual_pct,
+            f.competition_index_local AS idx,
+            (SELECT COUNT(*) FROM \`${PROJECT}.semantic.vw_insight_event_competitor_signals\` s
+             WHERE s.location_id = r.location_id AND s.entity_is_followed = TRUE
+               AND r.date BETWEEN s.event_date AND COALESCE(s.event_date_end, s.event_date)) AS n_followed
+          FROM \`${PROJECT}.mart.fct_client_day_residual\` r
+          JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` f
+            ON f.location_id = r.location_id AND f.date = r.date
+          WHERE r.location_id = @location_id AND r.residual_pct IS NOT NULL
+            AND f.date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY) AND CURRENT_DATE()
+        ),
+        th AS (
+          SELECT APPROX_QUANTILES(idx, 3)[OFFSET(1)] AS lo_i, APPROX_QUANTILES(idx, 3)[OFFSET(2)] AS hi_i,
+                 APPROX_QUANTILES(n_followed, 3)[OFFSET(1)] AS lo_f, APPROX_QUANTILES(n_followed, 3)[OFFSET(2)] AS hi_f
+          FROM base
+        )
+        SELECT (SELECT COUNT(*) FROM base) AS days,
+          'followed_activity' AS metric, th.hi_f AS hi, th.lo_f AS lo,
+          COUNTIF(n_followed >= th.hi_f) AS n_high, COUNTIF(n_followed <= th.lo_f) AS n_low,
+          AVG(IF(n_followed >= th.hi_f, residual_pct, NULL)) AS mean_high, AVG(IF(n_followed <= th.lo_f, residual_pct, NULL)) AS mean_low,
+          STDDEV(IF(n_followed >= th.hi_f, residual_pct, NULL)) AS sd_high, STDDEV(IF(n_followed <= th.lo_f, residual_pct, NULL)) AS sd_low
+        FROM base, th GROUP BY th.hi_f, th.lo_f
+        UNION ALL
+        SELECT (SELECT COUNT(*) FROM base),
+          'ambient_index', th.hi_i, th.lo_i,
+          COUNTIF(idx >= th.hi_i), COUNTIF(idx <= th.lo_i),
+          AVG(IF(idx >= th.hi_i, residual_pct, NULL)), AVG(IF(idx <= th.lo_i, residual_pct, NULL)),
+          STDDEV(IF(idx >= th.hi_i, residual_pct, NULL)), STDDEV(IF(idx <= th.lo_i, residual_pct, NULL))
+        FROM base, th GROUP BY th.hi_i, th.lo_i`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    const arr = Array.isArray(rows) ? rows : [];
+    if (!arr.length) return { days: 0, contrasts: [] };
+    const days = Number(arr[0]?.days ?? 0);
+    const LABEL: Record<string, string> = {
+      followed_activity: "Activité de vos concurrents suivis",
+      ambient_index: "Pression locale même secteur (indice)",
+    };
+    const contrasts: CompetitorContrast[] = [];
+    for (const r of arr) {
+      const c = finalizeContrast({
+        hi: Number(r.hi), lo: Number(r.lo),
+        n_high: Number(r.n_high), n_low: Number(r.n_low),
+        mean_high: Number(r.mean_high), mean_low: Number(r.mean_low),
+        sd_high: Number(r.sd_high), sd_low: Number(r.sd_low),
+      });
+      if (!c) continue;
+      contrasts.push({ ...c, key: r.metric, label_fr: LABEL[r.metric] ?? r.metric });
+    }
+    return { days, contrasts };
+  } catch (e: any) {
+    console.warn("[competitor-impact] measurement skipped:", e?.message);
+    return null;
+  }
+}
+
+// Facts + card block from the measurement — shared by both États (the measurement is about the
+// venue's days, not about which entities clear the REAL_BAR).
+function competitorImpactOutputs(impact: { days: number; contrasts: CompetitorContrast[] } | null) {
+  const facts: FamilyFact[] = [];
+  const rows: Array<{ label: string; verdict_fr: string; detail_fr: string; measurable: boolean }> = [];
+  if (impact && impact.contrasts.length) {
+    for (const c of impact.contrasts) {
+      const isIdx = c.key === "ambient_index";
+      const hiFr = isIdx ? "forte pression" : `≥ ${c.hi} événements en cours`;
+      const loFr = isIdx ? "faible pression" : `≤ ${c.lo}`;
+      const detail = `${c.n_high} jours (${hiFr}) vs ${c.n_low} jours (${loFr})`;
+      if (c.tier) {
+        const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
+        facts.push({
+          fact_fr: isIdx
+            ? `Les jours de forte pression concurrentielle locale (même secteur, indice quotidien), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours de faible pression — ${detail}.`
+            : `Les jours où vos concurrents suivis sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
+          claim_type: "observed_difference",
+          tier: c.tier,
+        });
+        rows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+      } else {
+        facts.push({
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours de forte et de faible ${isIdx ? "pression" : "activité"} — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          claim_type: "observed_difference",
+        });
+        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+      }
+    }
+  } else if (impact && impact.days > 0) {
+    facts.push({
+      fact_fr: `Impact de vos concurrents sur votre CA : pas encore mesurable — ${impact.days} jour(s) de ventes couverts, il en faut au moins ${IMPACT_MIN_SIDE * 2} avec un contraste suffisant.`,
+      claim_type: "observed",
+    });
+  }
+  const block =
+    impact == null
+      ? null
+      : impact.contrasts.length
+        ? { available: true, days: impact.days, rows, note: IMPACT_NOTE_FR }
+        : { available: false, days: impact.days, reason_fr: impact.days > 0 ? `${impact.days} jour(s) de ventes couverts — mesure possible à partir de ${IMPACT_MIN_SIDE * 2} jours avec un contraste suffisant.` : "Aucune journée de ventes couverte par les signaux concurrents pour l'instant." };
+  return { facts, block };
+}
 
 const num = (v: any): number | null => (v == null ? null : Number(v && typeof v === "object" && "value" in v ? v.value : v));
 const str = (v: any): string | null => { const s = v == null ? "" : String(v).trim(); return s || null; };
@@ -65,14 +189,20 @@ function buildPositioning(prof: any, dir: any): any {
 }
 
 export async function competitorFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
-  // Followed competitors + their audience overlap — the reality check.
-  const [folRows] = await bq.query({
-    query: `SELECT competitor_id, competitor_name, audience_overlap_pct, distance_km, threat_level
-            FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
-            WHERE location_id = @location_id AND is_followed
-            ORDER BY audience_overlap_pct DESC, threat_score DESC`,
-    params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-  });
+  // Followed competitors + their audience overlap — the reality check. The measured-impact
+  // contrast runs in parallel (it is about the venue's DAYS, independent of the État A/B split).
+  const [[folRows], impact] = await Promise.all([
+    bq.query({
+      query: `SELECT competitor_id, competitor_name, audience_overlap_pct, distance_km, threat_level
+              FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
+              WHERE location_id = @location_id AND is_followed
+              ORDER BY audience_overlap_pct DESC, threat_score DESC`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    }),
+    measureCompetitorImpact(bq, location_id),
+  ]);
+  const { facts: impactFacts, block: impactBlock } = competitorImpactOutputs(impact);
+  const SRC_IMPACT = "Impact mesuré — vos ventes vs l'activité concurrente quotidienne (normale jour-de-semaine contrôlée)";
   const followed = (Array.isArray(folRows) ? folRows : []).map((r: any) => ({
     id: str(r.competitor_id), name: str(r.competitor_name), overlap: num(r.audience_overlap_pct),
     distance_km: num(r.distance_km), threat_level: str(r.threat_level),
@@ -107,9 +237,10 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
         moves: [],
         note,
         next_step: "Suivez de vrais concurrents (organisateurs, agences événementielles) pour activer cette veille.",
+        impact: impactBlock,
       },
-      facts,
-      sources: [SRC_FOLLOWED],
+      facts: [...facts, ...impactFacts],
+      sources: impactBlock && impactBlock.available ? [SRC_FOLLOWED, SRC_IMPACT] : [SRC_FOLLOWED],
     };
   }
 
@@ -183,6 +314,7 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
   }
 
   const sources = [SRC_FOLLOWED];
+  if (impactBlock && impactBlock.available) sources.push(SRC_IMPACT);
   if (moves.length) sources.push("Changements d'offre / tarifs relevés sur leurs pages publiques");
   if (positioning?.their_strength) sources.push("Fiche Google du concurrent (note et avis)");
 
@@ -196,8 +328,9 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
         moves: [],
         note: `${real.length} concurrent(s) réel(s) suivi(s) — aucun changement d'offre détecté sur ${MOVE_WINDOW_DAYS} jours.`,
         next_step: null,
+        impact: impactBlock,
       },
-      facts,
+      facts: [...facts, ...impactFacts],
       sources,
     };
   }
@@ -211,8 +344,9 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
       moves,
       note: null,
       next_step: null,
+      impact: impactBlock,
     },
-    facts,
+    facts: [...facts, ...impactFacts],
     sources,
   };
 }
