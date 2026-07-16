@@ -571,16 +571,37 @@ if (!root) {
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
 
-  // inc ② — staggered block reveal. The answer is ALREADY fully validated when it renders (the gate ran
-  // server-side); this only paces its arrival: register pill + headline land instantly (the reader anchors),
-  // the remaining blocks fade in ~120 ms apart — the honest version of streaming. No-op under
-  // prefers-reduced-motion; pure presentation, the DOM content is complete from the first frame.
+  // inc ② + polish (16/07) — staggered block reveal with a HEADLINE TYPE-OUT. The answer is ALREADY
+  // fully validated when it renders (the gate ran server-side); everything here only paces its
+  // arrival — no unvalidated text is ever shown. The register pill lands instantly, the verdict
+  // headline TYPES OUT word-by-word (~26 ms/word — the honest cousin of token streaming: real
+  // streaming would show text the validator hasn't passed), and the remaining blocks fade in
+  // ~120 ms apart. No-op under prefers-reduced-motion; the DOM content is complete either way.
+  const TYPE_OUT_MS_PER_WORD = 26;
+  function typeOutHeadline(el) {
+    // Plain-text elements only: a headline with inline markup (children) keeps the instant reveal —
+    // re-typing HTML risks broken tags, and the safe renderer's output is not ours to re-split.
+    if (!el || el.children.length > 0) return false;
+    const full = el.textContent || "";
+    const words = full.split(/(\s+)/);
+    if (full.length < 20 || full.length > 240 || words.length < 6) return false;
+    el.style.minHeight = el.offsetHeight + "px";   // reserve the height — no layout jump while typing
+    el.textContent = "";
+    let i = 0;
+    (function step() {
+      if (i >= words.length) { el.style.minHeight = ""; return; }
+      el.textContent += words[i++];
+      setTimeout(step, TYPE_OUT_MS_PER_WORD);
+    })();
+    return true;
+  }
   function revealAnswerBlocks(bubble) {
-    if (!bubble || !bubble.children || bubble.children.length < 3) return;
+    if (!bubble || !bubble.children || bubble.children.length < 2) return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const kids = Array.prototype.slice.call(bubble.children);
+    typeOutHeadline(kids[1]);   // pill is kids[0]; the verdict headline types out when plain text
     kids.forEach(function (el, i) {
-      if (i < 2) return; // pill + headline: immediate
+      if (i < 2) return; // pill + headline: immediate slot (headline animates via type-out above)
       el.style.opacity = "0";
       el.style.transform = "translateY(3px)";
       el.style.transition = "opacity .28s ease, transform .28s ease";
@@ -662,6 +683,15 @@ if (!root) {
     if (register) blocks.push({ type: "register", register, ...(typeof _factsCited === "number" && _factsCited > 0 ? { facts_cited: _factsCited } : {}) });
 
     const clarChips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : null;
+
+    // NATIVE BLOCKS (16/07) — when the server authored typed blocks (lookup path first), render them
+    // verbatim: no string re-parsing, the Phase 3 adapter retires path by path. The register pill
+    // stays client-derived (one derivation), and any server-sent register block is dropped to avoid
+    // a double pill. Unknown block types are skipped by the kit (console.warn), never fatal.
+    const nativeBlocks = Array.isArray(n.blocks) && n.blocks.length ? n.blocks : null;
+    if (nativeBlocks) {
+      return [...blocks, ...nativeBlocks.filter(function (b) { return b && b.type !== "register"; })];
+    }
 
     // Family-led answer → the FULL family card inline (the detailed answer IS the card, no click-through).
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {

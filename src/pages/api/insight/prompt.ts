@@ -28,6 +28,7 @@ import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/asse
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
+import { sinkTelemetry } from "../../../lib/telemetrySink";
 
 export const prerender = false;
 
@@ -2268,7 +2269,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
             source: "chat_declared",
             declarant_name: _declBy,
           });
-          console.log("[telemetry][declared-capture]", JSON.stringify({ type: _decl.spec.correction_type, value: _decl.value, superseded: prior != null, has_declarant: !!_declBy }));
+          sinkTelemetry(location_id, "declared-capture", { type: _decl.spec.correction_type, value: _decl.value, superseded: prior != null, has_declarant: !!_declBy });
           const cap = declaredCaptureFr({
             label_fr: _decl.spec.label_fr,
             value_fr: _decl.spec.formatValue(String(_decl.value)),
@@ -2304,7 +2305,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
               });
               const ca = Number(rows?.[0]?.ca);
               if (Number.isFinite(ca) && ca > 0) {
-                console.log("[telemetry][declared-answer]", JSON.stringify({ type: _metric.correction_type, value: decl.value }));
+                sinkTelemetry(location_id, "declared-answer", { type: _metric.correction_type, value: decl.value });
                 const common = { ca_eur: ca, window_fr: "vos 30 derniers jours", declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
                 const ans = _metric.correction_type === "declared_client_count"
                   ? declaredClientCountAnswerFr({ count: decl.value, ...common })
@@ -2319,7 +2320,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         // the chat's own file picker (never a guessed redirect). Legacy readers ignore non-"redirect"
         // primary types, so this is additive.
         const mdPrimary = mdCta ? { type: "upload_csv", label: mdCta.label } : null;
-        console.log("[telemetry][missing-dimension]", JSON.stringify({ dim: _missingDim }));
+        sinkTelemetry(location_id, "missing-dimension", { dim: _missingDim });
         return sysDialogueResponse(mdHeadline, mdAnswer, "deterministic_missing_dimension_elicit_v1", mdPrimary);
       }
     }
@@ -4066,10 +4067,10 @@ Règles :
                   actual_eur: Number(r.daily_revenue),
                   expected_eur: Number(r.expected_revenue),
                 });
-                console.log("[telemetry][premise-check]", JSON.stringify({
+                sinkTelemetry(location_id, "premise-check", {
                   direction: _caClaim.direction, claimed_pct: _caClaim.claimed_pct,
                   extreme_pct: Number(r.residual_pct), refuted: premise.refuted,
-                }));
+                });
               }
             } catch (e) { console.warn("[premise-check] skipped:", e); }
           }
@@ -4623,13 +4624,13 @@ Règles :
           // inc ③ — the ONE reject-rate telemetry line (owner decision: this data gates any KV revisit).
           // Greppable in Vercel logs: rejected_first (regen tail fired), recovered (attempt 2 passed),
           // floored (both failed → deterministic floor). Counts and flags only — never model text.
-          console.log("[telemetry][grounded]", JSON.stringify({
+          sinkTelemetry(location_id, "grounded", {
             rejected_first: _rejectedFirst,
             recovered: _rejectedFirst && ai.ok,
             floored: !ai.ok,
             family_led: _familyLed,
             facts_cited: Array.isArray((ai as any)?.output?.cited_fact_ids) ? (ai as any).output.cited_fact_ids.length : null,
-          }));
+          });
         } catch (e) {
           console.error("[DAY_WHY grounded] threw:", e);
           ai = { ok: false } as any;
@@ -5233,6 +5234,37 @@ Règles :
         
         console.log("[lookup] answer:", JSON.stringify(answer));
 
+        // NATIVE BLOCKS (polish tier, 16/07) — the server has these hits STRUCTURED; serializing to
+        // "name||desc" lines only for the client to re-parse them was the Phase 3 debt ("the adapter
+        // retires path by path"). Typed blocks ship alongside the legacy string (additive: old clients
+        // keep parsing `answer`); the fresh client prefers `blocks`. Bonus over the parse: the real
+        // event date (JJ/MM/AAAA), which the line format never carried.
+        const frLookupDate = (v: any): string => {
+          const d = v ? ymdFromAnyDate(v) : null;
+          return d && /^\d{4}-\d{2}-\d{2}/.test(d) ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "";
+        };
+        const lookup_blocks: any[] = [];
+        if (allHits.length === 0) {
+          lookup_blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });
+        } else {
+          const items = [...allHits]
+            .sort((a: any, b: any) => {
+              const da = a?.event_start_date?.value ?? a?.event_start_date ?? "";
+              const db = b?.event_start_date?.value ?? b?.event_start_date ?? "";
+              return String(da).localeCompare(String(db));
+            })
+            .map((r: any) => ({
+              name: String(r?.event_name ?? "Événement"),
+              date: frLookupDate(r?.event_start_date),
+              desc: typeof r?.longDescription === "string" && r.longDescription.trim() ? r.longDescription.trim().slice(0, 300) : "",
+            }));
+          // Headline dedupe mirrors the adapter rule: skip when it IS the single item's name.
+          if (headline && headline !== "Résumé" && !(items.length === 1 && headline.trim() === items[0].name)) {
+            lookup_blocks.push({ type: "headline", text: headline });
+          }
+          lookup_blocks.push({ type: "lookup", items });
+        }
+
         ai = {
           ok: true,
           mode: "deterministic_lookup_event_ir_v1",
@@ -5242,6 +5274,7 @@ Règles :
             key_facts: [],
             reasons: [],
             caveats: [],
+            blocks: lookup_blocks,
           },
           raw_text: "",
           errors: [],
@@ -5822,6 +5855,11 @@ Règles :
             // (« Vérifié · 5 faits cités »). Absent on non-grounded paths — the pill stays plain.
             ...(Array.isArray((ai as any)?.output?.cited_fact_ids)
               ? { cited_fact_ids: (ai as any).output.cited_fact_ids }
+              : {}),
+            // Native typed blocks (additive, 16/07): when a path authored them server-side (lookup
+            // first), the client renders these verbatim instead of re-parsing `answer` strings.
+            ...(Array.isArray((ai as any)?.output?.blocks) && (ai as any).output.blocks.length
+              ? { blocks: (ai as any).output.blocks }
               : {}),
           },
         },
