@@ -159,7 +159,7 @@ export function stageVerifyDoneFr(n: number): string {
 export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string; cta?: { label: string; action: "upload" } }> = {
   marge: {
     headline: "Marge absente de vos ventes",
-    answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, puis reposez-moi la question.",
+    answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, ou indiquez-moi votre marge moyenne ici (par exemple : « ma marge moyenne est de 60 % »), puis reposez-moi la question.",
     cta: { label: "Importer un fichier de ventes", action: "upload" },
   },
   par_client: {
@@ -214,6 +214,37 @@ export function premiseCheckFr(p: {
     refuted: false,
     headline: `Ce que montrent vos ventes`,
     text: `${p.scope_fr.charAt(0).toUpperCase()}${p.scope_fr.slice(1)}, votre plus fort écart à la normale est de ${observed}. L'écart est vérifié dans vos ventes — sa cause ne l'est pas.`,
+  };
+}
+
+// Item 4 (16/07) — DECLARED-DATA loop copy (DRAFT, owner-final). A margin the user declares in chat
+// is stored (append-only corrections log) and reused: the capture turn gets a confirmation, and the
+// next margin question gets a computed estimate — measured CA × declared %, attributed « déclarée
+// par vous », labelled estimation. Deterministic composition — no LLM text anywhere in this loop.
+export function declaredCaptureFr(pct: number, superseded_pct: number | null): { headline: string; answer: string } {
+  const v = `${String(pct).replace(".", ",")} %`;
+  return {
+    headline: `Marge notée : ${v}`,
+    answer:
+      (superseded_pct != null
+        ? `Votre marge moyenne déclarée passe de ${String(superseded_pct).replace(".", ",")} % à ${v}. `
+        : `Marge moyenne de ${v} — déclarée par vous, retenue. `) +
+      `Je l'utiliserai pour vos questions de marge (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.`,
+  };
+}
+export function declaredMarginAnswerFr(p: {
+  pct: number;
+  ca_eur: number;          // measured CA over the window
+  window_fr: string;       // « vos 30 derniers jours »
+}): { headline: string; answer: string } {
+  const margin = Math.round(p.ca_eur * (p.pct / 100));
+  const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+  const v = `${String(p.pct).replace(".", ",")} %`;
+  return {
+    headline: `Marge estimée : ≈ ${eur(margin)} sur ${p.window_fr}`,
+    answer:
+      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Avec votre marge moyenne déclarée (${v}), cela représente ≈ ${eur(margin)} de marge estimée. ` +
+      `Estimation fondée sur une marge globale déclarée par vous — pas une mesure par produit. Pour la marge réelle par produit, ajoutez une colonne coût à votre import de ventes.`,
   };
 }
 

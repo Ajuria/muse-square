@@ -553,7 +553,7 @@ if (!root) {
   function _regFromProducer(p) {
     return p === 'web_search' ? 'web'
       : p === 'llm_only' ? 'model'
-      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1') ? null
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1') ? null
       : 'vetted';
   }
   function resolveRegister(out) {
@@ -629,7 +629,11 @@ if (!root) {
     // register). Handled BEFORE the intent branches — the DAY_DIMENSION_DETAIL branch parses the
     // competitor-lines format and silently DROPS single-paragraph prose, which lost the elicit
     // instruction entirely (found while verifying batch 2; also fixes the offering elicit).
-    const isElicit = producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1";
+    const isElicit = producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1"
+      // Item 4 — same system-dialogue class: the capture confirmation asserts nothing (it echoes the
+      // user's own declaration back); the declared estimate is attributed in-copy (« déclarée par
+      // vous », « estimation ») rather than wearing a trust pill it hasn't earned.
+      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";
     const isTopDays = intent === "WINDOW_TOP_DAYS";
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
@@ -1547,6 +1551,7 @@ if (!root) {
     zone: "Zone",
     nouveau_meaning: "« Nouveau » signifie",
     other: "Précision",
+    declared_margin_pct: "Marge déclarée",
   };
 
   async function refreshMemoryPanel() {
@@ -1560,8 +1565,10 @@ if (!root) {
       if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
       items.innerHTML = list.map(function (c) {
         const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
+        // declared_margin_pct stores the bare percent ("62") — display it as one.
+        const value = c.correction_type === 'declared_margin_pct' ? (c.correction_text + ' %') : c.correction_text;
         return '<div class="ie-memory-item">'
-          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(c.correction_text) + '</span>'
+          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(value) + '</span>'
           + '<button type="button" class="ie-memory-clear" data-mem-clear="' + escapeHtml(c.correction_type) + '">Oublier</button>'
           + '</div>';
       }).join("");

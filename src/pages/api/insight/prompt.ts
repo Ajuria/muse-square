@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -12,7 +12,7 @@ import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
-import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMarginPct } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
@@ -40,7 +40,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -460,6 +460,20 @@ function detectMissingDimension(qn: string): string | null {
 // possessive revenue marker AND a direction verb are both present; the optional % is captured for the
 // met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
 // dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
+// Item 4 (16/07) — DECLARED-MARGIN parser. A DECLARATION (« ma marge moyenne est de 62 % »), not a
+// question: interrogatives are excluded so « quelle est ma marge ? » still routes to the answer/elicit
+// path. Matched on the normalized question (accents stripped). Range-guarded 1–95.
+function parseMarginDeclaration(qn: string): number | null {
+  if (/\b(quelle?|quelles?|quels?|combien|comment|pourquoi)\b/.test(qn)) return null;
+  const m =
+    qn.match(/\b(?:ma|notre) marge(?: brute| nette| moyenne| globale)?(?: est| serait| tourne| se situe)?(?: de| d environ| d'environ| a| autour de| :)?\s*(?:de\s*)?(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
+    qn.match(/\bje marge (?:a |de |d environ |d'environ )?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
+    qn.match(/\bmarge moyenne\s*(?::|de|est de)\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/);
+  if (!m) return null;
+  const pct = Number(m[1].replace(",", "."));
+  return Number.isFinite(pct) && pct >= 1 && pct <= 95 ? pct : null;
+}
+
 function parseCaClaim(qn: string): { direction: "down" | "up"; claimed_pct: number | null } | null {
   const possessive = /\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite)\b/.test(qn);
   if (!possessive) return null;
@@ -2209,33 +2223,86 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         ? (body.thread_context as ThreadContextV1)
         : null;
 
+    // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
+    // deterministic French, null-register producers, same shape the client's elicit branch renders.
+    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null) =>
+      new Response(JSON.stringify({
+        ok: true,
+        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode },
+        ai: {
+          headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [],
+          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [] },
+          meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
+          actions: { month_redirect_url: null, primary, secondary: [] },
+        },
+        actions: { month_redirect_url: null, primary, secondary: [] },
+        top_dates: [],
+        decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
+        window_aggregates_v3: null,
+        ui_packaging_v3: null,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+
+    // Item 4 — DECLARED-DATA capture (runs BEFORE the missing-dimension check, or « ma marge moyenne
+    // est de 62 % » would itself trigger the marge elicit). The declaration is persisted to the same
+    // append-only corrections log (supersede lifecycle, clearable in the memory panel) and confirmed
+    // deterministically. A write failure falls through to normal routing — never a dead end.
+    {
+      const _declPct = parseMarginDeclaration(q);
+      if (_declPct != null) {
+        try {
+          const prior = await getDeclaredMarginPct(location_id);
+          await appendCorrectionEvent({
+            location_id,
+            event_action: prior != null ? "supersede" : "assert",
+            correction_type: "declared_margin_pct",
+            correction_text: String(_declPct),
+            prior_value: prior != null ? String(prior) : null,
+            raw_turn: qRaw.slice(0, 500),
+            source: "chat_declared",
+          });
+          console.log("[telemetry][declared-capture]", JSON.stringify({ pct: _declPct, superseded: prior != null }));
+          const cap = declaredCaptureFr(_declPct, prior);
+          return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+        } catch (e) { console.warn("[declared-capture] failed:", e); }
+      }
+    }
+
     // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
     // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
     // missing and how to add it" instead of degrading into whatever template the route lands on.
+    // Item 4: a declared margin upgrades the marge branch from elicit to a computed ESTIMATE
+    // (measured 30-day CA × declared %, attributed and labelled — deterministic, no LLM).
     {
       const _missingDim = detectMissingDimension(q);
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
+        if (_missingDim === "marge") {
+          try {
+            const declPct = await getDeclaredMarginPct(location_id);
+            if (declPct != null) {
+              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+              const [rows] = await _bq.query({
+                query: `SELECT SUM(daily_revenue) AS ca
+                        FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+                        WHERE location_id = @location_id
+                          AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`,
+                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+              });
+              const ca = Number(rows?.[0]?.ca);
+              if (Number.isFinite(ca) && ca > 0) {
+                console.log("[telemetry][declared-answer]", JSON.stringify({ pct: declPct }));
+                const ans = declaredMarginAnswerFr({ pct: declPct, ca_eur: ca, window_fr: "vos 30 derniers jours" });
+                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
+              }
+            }
+          } catch (e) { console.warn("[declared-margin] read failed:", e); }
+        }
         const { headline: mdHeadline, answer: mdAnswer, cta: mdCta } = MISSING_DIMENSION_FR[_missingDim];
         // The ask carries an ACTION where a real surface exists: type "upload_csv" → the client opens
         // the chat's own file picker (never a guessed redirect). Legacy readers ignore non-"redirect"
         // primary types, so this is additive.
         const mdPrimary = mdCta ? { type: "upload_csv", label: mdCta.label } : null;
         console.log("[telemetry][missing-dimension]", JSON.stringify({ dim: _missingDim }));
-        return new Response(JSON.stringify({
-          ok: true,
-          meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer: "deterministic_missing_dimension_elicit_v1", register: registerFor("deterministic_missing_dimension_elicit_v1"), mode: request_mode },
-          ai: {
-            headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [],
-            output: { headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [] },
-            meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
-            actions: { month_redirect_url: null, primary: mdPrimary, secondary: [] },
-          },
-          actions: { month_redirect_url: null, primary: mdPrimary, secondary: [] },
-          top_dates: [],
-          decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
-          window_aggregates_v3: null,
-          ui_packaging_v3: null,
-        }), { status: 200, headers: { "content-type": "application/json" } });
+        return sysDialogueResponse(mdHeadline, mdAnswer, "deterministic_missing_dimension_elicit_v1", mdPrimary);
       }
     }
 
