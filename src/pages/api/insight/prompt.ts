@@ -4214,6 +4214,22 @@ Règles :
             const entityHeadlineOut = premise && !entityRelevant ? premise.headline : entityHeadline;
             const entityAnswerOut = premise ? `${premise.text}\n\n${entityFinal}` : entityFinal;
 
+            // Item 3 — the decline's next step must be ACTIONABLE: the asked entity becomes ONE follow
+            // candidate (name-only, nothing invented), so « Ajoutez-la à votre veille » is a Suivre
+            // button, not homework. Cut the verbal clause off the extracted name (« Le X a-t-il fait
+            // chuter… » → « Le X ») and refuse garbage (question residue) rather than offer a broken
+            // button. Discovery declines excluded — no named entity to follow.
+            const _unfoundName = entityName
+              .replace(/\s+(a|va|peut|est|fait|ont|vont)[-\s]?t?[-\s]?(ils?|elles?)\b.*$/i, "")
+              .replace(/\s*\?\s*$/, "")
+              .trim();
+            const _unfoundNameOk =
+              _unfoundName.length >= 3 && _unfoundName.length <= 60 &&
+              !/%|\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite|chut|baiss|mont|grimp)\b/.test(norm(_unfoundName));
+            const unfoundCandidate = (!entityRelevant && !entityDiscovery && _unfoundNameOk)
+              ? [{ name: _unfoundName, city: "", overlap: "", difference: "", distance_m: null, rating: null, rating_count: null }]
+              : [];
+
             // Enrich each named competitor with REAL signals so the operator can judge WHO to watch first
             // instead of taking the model's word: Google Places gives its true location (→ distance from
             // YOUR venue, computed — not an LLM guess) and its GBP rating + review count (how established
@@ -4256,8 +4272,9 @@ Règles :
               meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
               // Named competitors behind the answer → one "Suivre" action each, with the overlap /
               // difference / proximity / GBP signals needed to prioritise. Only when the answer is
-              // actually surfaced: never offer to follow a competitor we didn't state.
-              follow_candidates: enrichedCompetitors,
+              // actually surfaced: never offer to follow a competitor we didn't state — except the
+              // decline's own subject (item 3): the user named it, following it IS the next step.
+              follow_candidates: [...enrichedCompetitors, ...unfoundCandidate],
               ai: {
                 headline: entityHeadlineOut,
                 verdict: "",

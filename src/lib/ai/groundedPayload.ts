@@ -125,12 +125,18 @@ const ABSENCE_CATEGORY_FR: Array<{ types: CitableFact["claim_type"][]; label: st
 export function composeHonestAbsenceFr(p: GroundedDayPayload): { headline: string; answer: string } | null {
   if ((p.citable_facts ?? []).length > 0) return null;   // facts exist → the gap is not the story
   const missing = ABSENCE_CATEGORY_FR.map((c) => c.label);
+  // Item 3 (contract: verdict → facts → NEXT STEP) — the next step depends on WHY the day is empty:
+  // a PAST day can be covered by an import today; a today/future day cannot — inviting an upload
+  // there would be false advice. Europe/Paris date, lexical ISO compare. DRAFT copy (owner-final file).
+  const todayParis = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  const nextStep = p.date < todayParis
+    ? `Si vos ventes couvrent cette date, importez-les — la réponse se construira dessus.`
+    : `Interrogez un jour couvert par vos données — la réponse suivra.`;
   return {
     headline: `Pas de donnée mesurée à citer pour le ${p.display_date}.`,
     answer:
       `Pour ce jour, je n'ai aucun fait vérifié à vous citer : ni ${missing.slice(0, -1).join(", ni ")}, ` +
-      `ni ${missing[missing.length - 1]}. Plutôt que de remplir ce vide, je vous le signale — ` +
-      `la réponse changera dès que vos données couvriront ce jour.`,
+      `ni ${missing[missing.length - 1]}. Plutôt que de remplir ce vide, je vous le signale. ${nextStep}`,
   };
 }
 
