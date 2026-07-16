@@ -334,7 +334,7 @@ if (!location_id) {
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/commit-form.js?v=2"></script>
+    <script is:inline src="/commit-form.js?v=3"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="veille" />
@@ -2164,105 +2164,8 @@ if (!location_id) {
       });
     });
 
-    // M'engager — open the commitment creation form in the card workspace
-    function cmChipStyle(sel){ return sel
-      ? 'font-size:12px;padding:5px 11px;background:#F5F7FF;color:#1D3BB3;border:1px solid #DBEAFE;font-weight:600;cursor:pointer;'
-      : 'font-size:12px;padding:5px 11px;background:#F3F4F6;color:#6b7280;border:1px solid transparent;cursor:pointer;'; }
-    function cmChip(group, val, label, sel){
-      return '<span data-cm-chip="' + group + '" data-cm-val="' + val + '" style="' + cmChipStyle(sel) + '">' + label + '</span>';
-    }
-    // Up to 3 recommended actions (owner reco library) as clickable rows. Click -> fills
-    // the "Mon action" textarea (still editable). Empty string when the card has no reco.
-    function cmSuggestionsHtml(cardIdx, card){
-      var acts = (card && Array.isArray(card.__suggested_actions)) ? card.__suggested_actions : [];
-      if (!acts.length) return '';
-      var rows = acts.map(function(a){
-        return '<div data-cm-sugg="' + cardIdx + '" data-cm-sugg-text="' + escapeHtml(a) + '" style="font-size:12px;color:#374151;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;line-height:1.4;">' + escapeHtml(a) + '</div>';
-      }).join('');
-      return '<div style="margin-bottom:8px;"><div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;">Suggestions — cliquez pour utiliser, puis ajustez :</div>' + rows + '</div>';
-    }
-    function buildCommitFormHtml(cardIdx, card){
-      return '<div style="padding:12px 16px 14px;border-top:1px solid #F3F4F6;">'
-        + '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:14px;">M\'engager sur une action</div>'
-        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Indicateur</div>'
-          + '<span style="' + cmChipStyle(true) + 'cursor:default;">CA vs attendu</span></div>'
-        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Fenêtre — quand je serai évalué</div>'
-          + '<div style="display:flex;gap:6px;">' + cmChip('window','day_of','Jour même',false) + cmChip('window','7d','7 jours',true) + cmChip('window','14d','14 jours',false) + '</div></div>'
-        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Objectif</div>'
-          + '<div style="display:flex;gap:6px;">' + cmChip('thr','modeste','Modeste ↑',true) + cmChip('thr','net','Net ↑↑',false) + '</div>'
-          + '<div style="font-size:10.5px;color:#9ca3af;margin-top:6px;">Le seuil s\'ajuste au bruit habituel de votre lieu — pas un % fixe.</div></div>'
-        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Responsable</div>'
-          + '<input data-cm-owner="' + cardIdx + '" placeholder="Une personne de l\'équipe" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;" />'
-          + '<div data-cm-owner-sugg="' + cardIdx + '" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div></div>'
-        + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Mon action</div>'
-          + cmSuggestionsHtml(cardIdx, card)
-          + '<textarea data-cm-action="' + cardIdx + '" placeholder="Choisissez une suggestion ci-dessus ou décrivez votre action" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;"></textarea></div>'
-        + '<div style="display:flex;gap:8px;"><button type="button" data-cm-submit="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">M\'engager →</button>'
-          + '<button type="button" data-cm-cancel="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Annuler</button></div>'
-      + '</div>';
-    }
-    function wireCommitForm(cardIdx, ws, card){
-      var state = { window: '7d', thr: 'modeste' };
-      // Responsable: propose team members (reuse the roster infra). Owner is a PERSON,
-      // not a Slack channel — channel-as-destination stays on the alert rail.
-      try {
-        fetchTeamMembers(card && card.location_id).then(function(members){
-          var sugg = ws.querySelector('[data-cm-owner-sugg="' + cardIdx + '"]'); if (!sugg) return;
-          var pool = (members && members.length) ? members : teamMembersPool(card && card.location_id);
-          if (!pool || !pool.length) { sugg.innerHTML = ''; return; }
-          sugg.innerHTML = pool.map(function(m){
-            var nm = (String(m.first_name || '') + (m.last_name ? ' ' + m.last_name : '')).trim();
-            return '<span data-cm-owner-pick="' + escapeHtml(nm) + '" style="font-size:12px;padding:4px 10px;background:#F3F4F6;color:#374151;border:1px solid #e5e7eb;border-radius:999px;cursor:pointer;">' + escapeHtml(nm) + (m.role ? ' · ' + escapeHtml(m.role) : '') + '</span>';
-          }).join('');
-          sugg.querySelectorAll('[data-cm-owner-pick]').forEach(function(opt){
-            opt.addEventListener('click', function(){ var inp = ws.querySelector('[data-cm-owner="' + cardIdx + '"]'); if (inp) inp.value = opt.getAttribute('data-cm-owner-pick'); });
-          });
-        }).catch(function(){});
-      } catch(e) {}
-      ws.querySelectorAll('[data-cm-chip]').forEach(function(chip){
-        chip.addEventListener('click', function(){
-          var group = chip.getAttribute('data-cm-chip');
-          state[group] = chip.getAttribute('data-cm-val');
-          ws.querySelectorAll('[data-cm-chip="' + group + '"]').forEach(function(c){ c.setAttribute('style', cmChipStyle(c === chip)); });
-        });
-      });
-      // Suggestion rows: click -> fill "Mon action" (editable) + highlight the picked one.
-      ws.querySelectorAll('[data-cm-sugg="' + cardIdx + '"]').forEach(function(sg){
-        sg.addEventListener('click', function(){
-          var ta = ws.querySelector('[data-cm-action="' + cardIdx + '"]');
-          if (ta) { ta.value = sg.getAttribute('data-cm-sugg-text'); ta.focus(); }
-          ws.querySelectorAll('[data-cm-sugg="' + cardIdx + '"]').forEach(function(x){ x.style.borderColor = '#DBEAFE'; x.style.background = '#F5F7FF'; });
-          sg.style.borderColor = '#1D3BB3'; sg.style.background = '#EEF2FF';
-        });
-      });
-      var cancel = ws.querySelector('[data-cm-cancel="' + cardIdx + '"]');
-      if (cancel) cancel.addEventListener('click', function(){ ws.style.display = 'none'; ws.innerHTML = ''; });
-      var submit = ws.querySelector('[data-cm-submit="' + cardIdx + '"]');
-      if (submit) submit.addEventListener('click', function(){
-        var owner = ((ws.querySelector('[data-cm-owner="' + cardIdx + '"]') || {}).value || '').trim();
-        var action = ((ws.querySelector('[data-cm-action="' + cardIdx + '"]') || {}).value || '').trim();
-        if (!owner || !action) return;
-        submit.disabled = true; submit.textContent = 'Envoi…';
-        fetch('/api/commitments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
-          location_id: card.location_id,
-          origin_action_type: card.change_subtype || card.action_type,
-          origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
-          origin_suppression_key: card.suppression_key || null,
-          origin_card_instance_id: card.card_instance_id || null,
-          origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
-          window_kind: state.window, threshold_level: state.thr,
-          committed_action_text: action, owner_person_name: owner,
-          creation_residual_pct: card.residual_pct != null ? Number(card.residual_pct) : null,
-          creation_residual_z: card.residual_z != null ? Number(card.residual_z) : null,
-          creation_confidence_tier: card.confidence_tier || null,
-          // the card's own past-performance baseline (daily) → the measurable goal reference
-          creation_baseline_daily: card.avg_30d != null ? Number(card.avg_30d) : (card.expected_revenue != null ? Number(card.expected_revenue) : null)
-        }) }).then(function(r){ return r.json(); }).then(function(j){
-          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
-          if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(e) {} } // refresh the feed's engagement block (same in-view site set) so the new one shows immediately
-        }).catch(function(){ ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Erreur réseau.</div>'; });
-      });
-    }
+    // M'engager — the commitment form is the SHARED MSCommitForm (commit-form.js) since 16/07;
+    // the inline duplicate (cmChip*/buildCommitFormHtml/wireCommitForm) was removed with the migration.
     root.querySelectorAll("[data-agir-commit]").forEach(function(btn){
       btn.addEventListener("click", function(e){
         e.stopPropagation();
@@ -2271,8 +2174,36 @@ if (!location_id) {
         var ws = document.getElementById("ab-card-" + cardIdx + "-workspace"); if (!ws) return;
         var card = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
         ws.style.display = "block";
-        ws.innerHTML = buildCommitFormHtml(cardIdx, card);
-        wireCommitForm(cardIdx, ws, card);
+        // Pulse migration 16/07: the SHARED MSCommitForm (commit-form.js) replaces the inline
+        // duplicate — same fields, same POST shape (incl. creation_baseline_daily), plus the shared
+        // extras (roster self-fetch fallback below + last-used responsable prefill). Suggestions and
+        // the cross-site roster fallback are preserved via opts.
+        if (!window.MSCommitForm) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+        ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: (card && card.__suggested_actions) || [] });
+        window.MSCommitForm.wire(ws, {
+          location_id: card.location_id,
+          origin: {
+            origin_action_type: card.change_subtype || card.action_type,
+            origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
+            origin_suppression_key: card.suppression_key || null,
+            origin_card_instance_id: card.card_instance_id || null,
+            origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
+            creation_residual_pct: card.residual_pct != null ? Number(card.residual_pct) : null,
+            creation_residual_z: card.residual_z != null ? Number(card.residual_z) : null,
+            creation_confidence_tier: card.confidence_tier || null,
+            creation_baseline_daily: card.avg_30d != null ? Number(card.avg_30d) : (card.expected_revenue != null ? Number(card.expected_revenue) : null)
+          },
+          fetchOwners: function(){
+            return fetchTeamMembers(card.location_id).then(function(members){
+              return (members && members.length) ? members : teamMembersPool(card.location_id);
+            });
+          },
+          onDone: function(j){
+            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
+            if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(err) {} }
+          },
+          onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; }
+        });
       });
     });
 
