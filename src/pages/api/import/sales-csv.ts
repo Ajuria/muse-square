@@ -15,7 +15,7 @@ const DATASET = 'raw';
 const TABLE = 'client_transactions';
 const MAX_BYTES = 4 * 1024 * 1024; // ~4.19 MB — under Vercel's ~4.5 MB serverless body limit
 const MAX_ROWS = 60000; // ~1 year of line-level data fits well under this; guards pathological files
-const VALID_SOURCES = new Set<SourceId>(['generic', 'isavigne', 'tpvin', 'sumup']);
+const VALID_SOURCES = new Set<SourceId>(['generic', 'isavigne', 'tpvin', 'sumup', 'sage100']);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
