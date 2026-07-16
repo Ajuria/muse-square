@@ -3294,7 +3294,9 @@ if (!location_id) {
     const ICONS = {
       "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
       "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
-      "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'
+      "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+      "clipboard-check": '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+      "banknote": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>'
     };
     const iconPaths = ICONS[iconKey] || "";
     return `<div style="${isFirst ? "" : "border-top:1px solid var(--color-border);"}">`
@@ -3501,28 +3503,81 @@ if (!location_id) {
         </div>`;
     }
 
+    // \u2500\u2500 Radar v5: "Pourquoi ce score" drivers \u2014 the reveal opens on the WHY, chips carry the
+    // direction. Score/rank/verdict live in the always-visible hero (never repeated here).
+    const _drvRow = (label, value, chip, last) =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;${last ? "" : "border-bottom:1px solid #E6E8EC;"}">`
+        + `<div style="min-width:0;">`
+          + `<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">${label}</div>`
+          + `<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${value}</div>`
+        + `</div>`
+        + (chip ? `<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${chip.bg};color:${chip.fg};flex-shrink:0;">${escapeHtml(chip.label)}</span>` : "")
+      + `</div>`;
+
+    // M\u00e9t\u00e9o driver
+    let _wVal = "Donn\u00e9es indisponibles", _wChip = null;
+    if (day.weather_label_fr) {
+      const _tMin = day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : null;
+      const _tMax = day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : null;
+      const _tStr = (_tMin != null && _tMax != null) ? `${_tMin}\u00b0 \u2013 ${_tMax}\u00b0` : (_tMax != null ? `${_tMax}\u00b0` : "");
+      _wVal = escapeHtml(day.weather_label_fr) + (_tStr ? ` \u00b7 ${_tStr}` : "");
+      if (alertMax > 0) {
+        const _wSv = sevStyle(alertMax >= 3 ? "alerte" : "attention");
+        _wChip = { label: `Vigilance niv. ${alertMax}`, bg: _wSv.bg, fg: _wSv.fg };
+      }
+    }
+
+    // Fr\u00e9quentation driver (chip colors = the ft card's own rank colors)
+    let _fVal = "Donn\u00e9es indisponibles", _fChip = null;
+    if (ftRank > 0) {
+      _fVal = `Pic estim\u00e9 ${ftMax} % \u00e0 ${ftPeak != null ? ftPeak + "h" : "\u2014"}`;
+      const _fBg = ftRank <= 2 ? "#E1F5EE" : ftRank >= 6 ? "#FCEBEB" : "#F1F5F9";
+      const _fFg = ftRank <= 2 ? "#0F6E56" : ftRank >= 6 ? "#A32D2D" : "#475569";
+      _fChip = { label: `${ftRank}e sur 7`, bg: _fBg, fg: _fFg };
+    }
+
+    // \u00c9v\u00e9nements autour driver (the old Environnement strip's pressure logic, relocated)
+    const _e500 = Number(day.events_within_500m_count || 0);
+    const _e5km = Number(day.events_within_5km_count || 0);
+    const _eRatioRaw = day.competition_pressure_ratio;
+    const _eRatio = Number(_eRatioRaw);
+    const _eHasRatio = (_eRatioRaw != null && Number.isFinite(_eRatio) && _eRatio > 0);
+    const _eBase = Boolean(day.has_valid_baseline_flag);
+    let _eVal = _e5km > 0
+      ? [(_e500 > 0 ? _e500 + " \u00e0 moins de 500 m" : ""), _e5km + " \u00e0 5 km"].filter(Boolean).join(" \u00b7 ")
+      : "Aucun \u00e9v\u00e9nement d\u00e9tect\u00e9";
+    let _eChip = null;
+    if (_eHasRatio) {
+      const _eLvl = (_eBase && _eRatio > 1.2) ? "alerte" : (_eBase && _eRatio < 0.8) ? "favorable" : "neutre";
+      const _eSv = sevStyle(_eLvl);
+      _eChip = { label: "Pression \u00d7" + _eRatio.toFixed(1).replace(".", ","), bg: _eSv.bg, fg: _eSv.fg };
+    }
+
+    // Calendrier driver (holiday + vacation + the filtered context tags)
+    const _cParts = [holidayTag, vacationTag].filter(Boolean).concat(tags);
+    const _cVal = _cParts.length ? _cParts.map(escapeHtml).join(" \u00b7 ") : "Aucun temps fort";
+    const _cChip = holidayTag
+      ? { label: "F\u00e9ri\u00e9", bg: "#fef2f2", fg: "#991b1b" }
+      : (vacationTag ? { label: "Vacances", bg: "#faf5ff", fg: "#6b21a8" } : null);
+
+    const driversHtml =
+      `<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin-bottom:2px;">Pourquoi ce score</div>`
+      + _drvRow("M\u00e9t\u00e9o", _wVal, _wChip, false)
+      + _drvRow("Fr\u00e9quentation", _fVal, _fChip, false)
+      + _drvRow("\u00c9v\u00e9nements autour", _eVal, _eChip, false)
+      + _drvRow("Calendrier", _cVal, _cChip, true);
+
     return `
       <div style="padding-top:0;">
-        <div style="display:flex;gap:0;padding:0;border-bottom:1px solid #f3f4f6;margin-bottom:0;">
-          <button type="button" data-score-tab="score" style="padding:10px 0;margin-right:22px;font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;margin-bottom:-1px;font-family:inherit;">Score</button>
-          <button type="button" data-score-tab="fiabilite" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;display:flex;align-items:center;gap:6px;">Fiabilit\u00e9<span data-fiabilite-badge style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#f3f4f6;color:#9ca3af;"></span></button>
-        </div>
-        <div data-score-panel="score" style="display:block;padding-top:14px;">
-          ${weatherHtml}
+        <div data-score-panel="score" style="display:block;">
+          ${driversHtml}
           ${ftHtml}
-          <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f3f4f6;">
-            <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:600;margin-bottom:9px;">Score &amp; contexte</div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-              <div style="min-width:0;">
-                <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">${score != null ? escapeHtml(String(score)) + " / 10" : "Score indisponible"}</div>
-                ${weekRankLabel ? `<div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px;">${escapeHtml(weekRankLabel)}</div>` : ""}
-              </div>
-              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${rd.bg};color:${rd.fg};flex-shrink:0;">${escapeHtml(rd.t)}</span>
-            </div>
-            ${tagsHtml}
+          <div style="padding-top:12px;text-align:right;">
+            <button type="button" data-score-tab="fiabilite" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:12px;color:#9CA3AF;">Fiabilit\u00e9 des alertes <span data-fiabilite-badge style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#f3f4f6;color:#9ca3af;"></span> \u2192</button>
           </div>
         </div>
         <div data-score-panel="fiabilite" style="display:none;padding-top:14px;">
+          <div style="padding-bottom:10px;"><button type="button" data-score-tab="score" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:#1D3BB3;">\u2190 Retour</button></div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <div>
               <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">Pr\u00e9cision globale</div>
@@ -3836,6 +3891,263 @@ if (!location_id) {
         + '<div style="padding:11px 14px;font-size:12px;color:var(--color-text-secondary);">' + count500 + ' à moins de 500 m · ' + count5km + ' à 5 km</div>'
       + '</button>'
     + '</div>';
+  }
+
+  // ----------------------------------------------------------------
+  // Radar v5 — Volet Performance (sales_summary du monitor, 8 jours desc)
+  // ----------------------------------------------------------------
+  function renderPerfDetail(ss) {
+    if (!Array.isArray(ss) || !ss.length) {
+      return '<div style="display:flex;align-items:center;gap:14px;padding:8px 0 2px;">'
+        + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Importez vos ventes (CSV) pour suivre votre chiffre d’affaires ici, jour par jour.</div>'
+        + '<a href="/app/insightevent/prompt" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Importer mes ventes</a>'
+      + '</div>';
+    }
+    var latest = ss[0];
+    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
+    var latestYmd = _ymd(latest.date);
+    var rows = "";
+    var _row = function(label, value, chip, last) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;' + (last ? '' : 'border-bottom:1px solid #E6E8EC;') + '">'
+        + '<div style="min-width:0;"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">' + label + '</div>'
+        + '<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">' + value + '</div></div>'
+        + (chip ? '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:' + chip.bg + ';color:' + chip.fg + ';flex-shrink:0;">' + escapeHtml(chip.label) + '</span>' : '')
+      + '</div>';
+    };
+    var _pctChip = function(pct, colored) {
+      if (!Number.isFinite(pct)) return null;
+      var sv = sevStyle(colored ? (pct >= 0 ? "favorable" : "alerte") : "neutre");
+      return { label: (pct >= 0 ? "+" : "−") + Math.abs(Math.round(pct)) + " %", bg: sv.bg, fg: sv.fg };
+    };
+    var _z = Number(latest.revenue_robust_z);
+    var _out = Number.isFinite(_z) && Math.abs(_z) >= 2;
+    rows += _row("CA réalisé — " + fmtDateShort(latestYmd),
+      _cgEur(latest.daily_revenue) + (latest.revenue_30d_avg != null ? " · moyenne 30 j : " + _cgEur(latest.revenue_30d_avg) : ""),
+      _pctChip(Number(latest.revenue_vs_30d_avg_pct), _out), false);
+    if (latest.revenue_same_weekday_last_week != null) {
+      rows += _row("vs même jour, semaine passée",
+        _cgEur(latest.revenue_same_weekday_last_week) + " réalisés ce jour-là",
+        _pctChip(Number(latest.revenue_vs_last_week_pct), false), false);
+    }
+    var _basket = Number(latest.avg_basket);
+    var _tx = Number(latest.daily_transactions || 0);
+    rows += _row("Panier moyen",
+      (Number.isFinite(_basket) ? _basket.toFixed(2).replace(".", ",") + " €" : "—") + (_tx > 0 ? " · " + _tx + " ventes" : ""),
+      null, true);
+
+    // Barres CA — 7 derniers jours, chronologique, dernier jour en bleu data.
+    var week = ss.slice(0, 7).slice().reverse();
+    var maxRev = Math.max.apply(null, week.map(function(r) { return Number(r.daily_revenue) || 0; })) || 1;
+    var DOW_FR = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
+    var barsHtml = week.map(function(r) {
+      var ymd = _ymd(r.date);
+      var dt = parseYmdToDate(ymd);
+      var dow = dt ? DOW_FR[(dt.getUTCDay() + 6) % 7] : "";
+      var rev = Number(r.daily_revenue) || 0;
+      var h = Math.max(16, Math.round((rev / maxRev) * 52));
+      var isLatest = ymd === latestYmd;
+      return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
+        + '<div style="font-size:10px;font-weight:500;color:' + (isLatest ? '#185FA5' : 'var(--color-text-secondary)') + ';margin-bottom:3px;">' + Math.round(rev).toLocaleString('fr-FR') + '</div>'
+        + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + h + 'px;background:' + (isLatest ? '#185FA5' : '#cbd5e1') + ';"></div>'
+        + '<div style="font-size:10px;margin-top:4px;' + (isLatest ? 'font-weight:500;color:#185FA5;' : 'color:var(--color-text-muted);') + '">' + dow + '</div>'
+      + '</div>';
+    }).join("");
+    var barsCard = '<div style="background:#fff;border:0.5px solid var(--color-border);border-radius:12px;overflow:hidden;margin-top:10px;">'
+      + '<div style="padding:14px 16px 0;"><span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">CA (€) — 7 derniers jours</span></div>'
+      + '<div style="display:flex;align-items:flex-end;gap:6px;padding:12px 16px 4px;height:78px;">' + barsHtml + '</div>'
+      + '<div style="padding:6px 16px 12px;font-size:11px;color:var(--color-text-muted);">Dernière journée importée : ' + escapeHtml(fmtDateShort(latestYmd)) + '</div>'
+    + '</div>';
+
+    return '<div style="padding-top:2px;">' + rows + barsCard
+      + '<div style="padding-top:12px;text-align:right;"><a href="/app/insightevent/rapport" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">Rapport de ventes →</a></div>'
+    + '</div>';
+  }
+
+  // ----------------------------------------------------------------
+  // Radar v5 — Volet Concurrence : où sont-ils (carte) + ce qu'ils font (activité)
+  // ----------------------------------------------------------------
+  function renderConcurrenceDetail(signals, followed, followedCount) {
+    if (!followedCount && (!followed || !followed.length)) {
+      // Réutilise l'invite "Rechercher un concurrent" existante (état vide).
+      return renderFollowedCompetitorsList([], 0, []);
+    }
+    var THREAT_BADGE = { high: { bg: "#fee2e2", fg: "#991b1b", t: "Menace élevée" }, moderate: { bg: "#fef3c7", fg: "#92400e", t: "Menace modérée" }, low: { bg: "#f3f4f6", fg: "#6b7280", t: "Menace faible" } };
+    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
+
+    // Où sont-ils — carte Leaflet lazy (initConcMap au premier dépliage) ; le fond gris + le
+    // lien "Ouvrir la carte" restent le fallback si Leaflet ou les coordonnées manquent.
+    var mapHtml = '<div style="border:0.5px solid var(--color-border);border-radius:10px;overflow:hidden;margin-top:2px;">'
+      + '<div id="pls-conc-map" style="height:200px;background:#EBEEF2;position:relative;">'
+        + '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:#94a3b8;">Carte en cours de chargement…</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#fff;">'
+        + '<span style="font-size:11px;color:var(--color-text-secondary);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D3BB3;margin-right:4px;"></span>Vous&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;margin-right:4px;"></span>Menace modérée&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;margin-right:4px;"></span>Menace faible</span>'
+        + '<a href="/app/insightevent/map" style="font-size:11px;font-weight:600;color:#1D3BB3;text-decoration:none;">Ouvrir la carte →</a>'
+      + '</div>'
+    + '</div>';
+
+    // Ce qu'ils font — activité réelle par concurrent suivi (signals ±7 j + expositions actives).
+    var byComp = new Map();
+    (signals || []).forEach(function(s) {
+      var cid = s.competitor_id || "unknown";
+      if (!byComp.has(cid)) byComp.set(cid, []);
+      byComp.get(cid).push(s);
+    });
+    var rowsHtml = (followed || []).map(function(fc, idx) {
+      var name = fc.competitor_name || "Concurrent";
+      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
+      var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1).replace(".", ",") : null;
+      var badge = THREAT_BADGE[fc.threat_level] || null;
+      var sigs = byComp.get(fc.competitor_id) || [];
+      var active = sigs.filter(function(s) { return s.is_active; });
+      var upcoming = sigs.filter(function(s) { return s.is_upcoming && !s.is_active; });
+      var lines = [];
+      active.slice(0, 3).forEach(function(s) {
+        var end = _ymd(s.event_date_end);
+        var endTxt = (end && end !== _ymd(s.event_date)) ? " — jusqu'au " + fmtDateShort(end) : "";
+        lines.push("« " + escapeHtml(s.event_name || "") + " »" + endTxt);
+      });
+      upcoming.slice(0, Math.max(0, 3 - lines.length)).forEach(function(s) {
+        lines.push("« " + escapeHtml(s.event_name || "") + " » — le " + fmtDateShort(_ymd(s.event_date)));
+      });
+      var extra = active.length + upcoming.length - lines.length;
+      var actHtml = lines.length
+        ? '<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.55;">' + lines.map(function(l) { return "<div>" + l + "</div>"; }).join("") + (extra > 0 ? '<div style="color:#9CA3AF;">+ ' + extra + ' autres</div>' : "") + "</div>"
+        : '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Aucun événement détecté (±7 j)</div>';
+      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:11px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+        + '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
+        + '<div style="flex:1;min-width:0;">'
+          + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+            + '<span style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
+            + (distKm ? '<span style="font-size:11px;color:#8A909A;">' + distKm + ' km</span>' : '')
+            + (badge ? '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + badge.t + '</span>' : '')
+          + '</div>'
+          + actHtml
+        + '</div>'
+        + '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(fc.competitor_id) + '" style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;text-decoration:none;">Profil →</a>'
+      + '</div>';
+    }).join("");
+
+    return '<div style="padding-top:2px;">' + mapHtml
+      + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin:14px 0 2px;">Ce qu’ils font</div>'
+      + rowsHtml
+      + '<div style="padding:8px 0 0;display:flex;justify-content:space-between;align-items:center;">'
+        + '<a href="/app/insightevent/prompt" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">+ Ajouter un concurrent (via Consulter)</a>'
+        + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Gérer mes suivis →</a>'
+      + '</div>'
+    + '</div>';
+  }
+
+  // Carte du volet Concurrence — Leaflet auto-hébergé (/vendor/leaflet), injecté au premier
+  // dépliage seulement. Fallback silencieux (fond gris + lien carte) si lib/coords manquent.
+  function initConcMap(profile, followed) {
+    var el = document.getElementById("pls-conc-map");
+    if (!el || el._msMapInit) return;
+    var vLat = Number(profile && profile.latitude);
+    var vLon = Number(profile && profile.longitude);
+    if (!Number.isFinite(vLat) || !Number.isFinite(vLon)) return;
+    el._msMapInit = true;
+    var boot = function() {
+      if (typeof L === "undefined" || !document.getElementById("pls-conc-map")) return;
+      try { if (window._msConcMap) { window._msConcMap.remove(); } } catch (e) {}
+      el.innerHTML = "";
+      var map = L.map(el, { zoomControl: false, scrollWheelZoom: false, dragging: false, doubleClickZoom: false });
+      window._msConcMap = map;
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors" }).addTo(map);
+      var pts = [[vLat, vLon]];
+      L.circleMarker([vLat, vLon], { radius: 8, color: "#fff", weight: 2, fillColor: "#1D3BB3", fillOpacity: 1 }).addTo(map).bindTooltip("Vous", { direction: "top" });
+      (followed || []).forEach(function(fc) {
+        if (fc.lat == null || fc.lon == null) return;
+        var col = fc.threat_level === "high" ? "#dc2626" : fc.threat_level === "moderate" ? "#d97706" : "#94a3b8";
+        L.circleMarker([Number(fc.lat), Number(fc.lon)], { radius: 7, color: "#fff", weight: 2, fillColor: col, fillOpacity: 1 }).addTo(map).bindTooltip(fc.competitor_name || "", { direction: "top" });
+        pts.push([Number(fc.lat), Number(fc.lon)]);
+      });
+      map.fitBounds(pts, { padding: [28, 28], maxZoom: 15 });
+      // Le volet vient de passer display:none -> block : re-mesurer une fois le layout posé.
+      setTimeout(function() { try { map.invalidateSize(); map.fitBounds(pts, { padding: [28, 28], maxZoom: 15 }); } catch (e) {} }, 120);
+    };
+    if (typeof L !== "undefined") { boot(); return; }
+    if (!document.getElementById("ms-leaflet-css")) {
+      var lk = document.createElement("link");
+      lk.id = "ms-leaflet-css"; lk.rel = "stylesheet"; lk.href = "/vendor/leaflet/leaflet.css";
+      document.head.appendChild(lk);
+    }
+    var sc = document.createElement("script");
+    sc.src = "/vendor/leaflet/leaflet.js"; sc.onload = boot;
+    document.head.appendChild(sc);
+  }
+
+  // ----------------------------------------------------------------
+  // Radar v5 — Volet Opérations : résumé hélicoptère des commitments (mêmes items que les
+  // cartes "Vos actions en cours" — rempli par le .then du fetch /api/commitments existant).
+  // ----------------------------------------------------------------
+  function fillOpsVolet(active, past) {
+    var body = document.getElementById("pls-ops-volet");
+    var secEl = document.querySelector("[data-ops-secondary]");
+    var chipEl = document.querySelector("[data-ops-chip]");
+    if (!body) return;
+    active = active || []; past = past || [];
+    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
+    var resolved = past.filter(function(r) { return r.status === "resolved" && r.window_actual_revenue != null && r.window_expected_revenue != null; });
+    var measuredNet = resolved.reduce(function(s, r) { return s + (Number(r.window_actual_revenue) - Number(r.window_expected_revenue)); }, 0);
+
+    // En-tête : fermé = la réponse. Chip = le trophée € mesuré (seule couleur persistante).
+    if (secEl) {
+      secEl.textContent = active.length
+        ? active.length + " en cours" + (resolved.length ? " · " + resolved.length + " mesurée" + (resolved.length > 1 ? "s" : "") : "")
+        : "Aucune opération en cours";
+    }
+    if (chipEl) {
+      var chipWrap = chipEl.parentElement;
+      if (resolved.length) {
+        chipEl.textContent = (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString("fr-FR") + " € mesurés";
+        if (chipWrap) { chipWrap.style.background = measuredNet >= 0 ? "#DCFCE7" : "#FEF3C7"; chipWrap.style.color = measuredNet >= 0 ? "#166534" : "#92400E"; }
+      } else if (chipWrap) { chipWrap.style.display = "none"; }
+    }
+
+    if (!active.length && !resolved.length) {
+      body.innerHTML = '<div style="display:flex;align-items:center;gap:14px;padding:6px 0 2px;">'
+        + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Engagez-vous sur une carte du jour : son impact sera mesuré ici, en euros.</div>'
+        + '<a href="#pls-engagement-cards" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Voir les actions du jour</a>'
+      + '</div>';
+      return;
+    }
+
+    var html = "";
+    active.slice(0, 3).forEach(function(r, i) {
+      var start = _ymd(r.window_start), end = _ymd(r.window_end);
+      var totalDays = Number(r.window_days_expected) || (start && end && parseYmdToDate(end) && parseYmdToDate(start) ? Math.round((parseYmdToDate(end) - parseYmdToDate(start)) / 86400000) : null);
+      var elapsed = start && parseYmdToDate(start) ? Math.max(0, Math.round((parseYmdToDate(todayYmd()) - parseYmdToDate(start)) / 86400000)) : null;
+      var meta = (elapsed != null && totalDays) ? "J+" + Math.min(elapsed, totalDays) + " / " + totalDays + (end ? " · verdict le " + fmtDateShort(end) : "") : "Mesure en cours";
+      var pct = (elapsed != null && totalDays) ? Math.max(3, Math.min(100, Math.round((elapsed / totalDays) * 100))) : 0;
+      html += '<div style="padding:11px 0;' + (i > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action engagée").slice(0, 110)) + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+          + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#EEF2FF;color:#1D3BB3;">En cours</span>'
+          + '<span style="font-size:12px;color:#6b7280;">' + meta + '</span>'
+        + '</div>'
+        + (pct ? '<div style="height:3px;border-radius:2px;background:#E6E8EC;margin-top:9px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;border-radius:2px;background:#1D3BB3;"></div></div>' : '')
+      + '</div>';
+    });
+    resolved.slice(0, 2).forEach(function(r) {
+      var v = String(r.verdict || "");
+      var b = v === "met" ? { bg: "#dcfce7", fg: "#166534", t: "Objectif atteint" }
+        : v === "missed" ? { bg: "#FEF3C7", fg: "#92400E", t: "Sous l'attendu" }
+        : { bg: "#F1F5F9", fg: "#475569", t: "Terminée" };
+      var delta = Number(r.window_actual_revenue) - Number(r.window_expected_revenue);
+      html += '<div style="padding:11px 0;' + (html ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action").slice(0, 110)) + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+          + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + b.bg + ';color:' + b.fg + ';">' + b.t + '</span>'
+          + '<span style="font-size:12px;color:#6b7280;">' + _cgEur(r.window_actual_revenue) + ' réalisés vs ' + _cgEur(r.window_expected_revenue) + ' attendus · ' + (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)).toLocaleString('fr-FR') + ' €</span>'
+        + '</div>'
+      + '</div>';
+    });
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;border-top:1px solid #E6E8EC;">'
+      + (resolved.length ? '<span style="font-size:12px;color:var(--color-text-secondary);">Mesuré au total : <span style="font-weight:600;color:' + (measuredNet >= 0 ? '#166534' : '#92400E') + ';">' + (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString('fr-FR') + ' €</span></span>' : '<span></span>')
+      + '<a href="#pls-engagement-cards" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Tout voir dans Actions du jour ↓</a>'
+    + '</div>';
+    body.innerHTML = html;
   }
 
   // ----------------------------------------------------------------
@@ -4286,7 +4598,7 @@ if (!location_id) {
       var items = [];
       lists.forEach(function(l){ items = items.concat(l); });
       var pastMount = document.getElementById('pls-past-actions');
-      if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); return; }
+      if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); if (typeof fillOpsVolet === 'function') fillOpsVolet([], []); return; }
       // newest first across all sites (updated_at may serialize as {value})
       items.sort(function(a, b){
         var av = (a.updated_at && a.updated_at.value) ? a.updated_at.value : a.updated_at;
@@ -4301,6 +4613,8 @@ if (!location_id) {
       // Phase 2 — split: ACTIVE (open/pending) → "En cours"; PAST (resolved/expired/cancelled) → collapsed Bilan.
       var _active = items.filter(function(r){ return r.status === 'open' || r.status === 'pending'; });
       var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
+      // Radar v5 — le volet Opérations est le résumé hélicoptère de CES items (aucun 2e fetch).
+      if (typeof fillOpsVolet === 'function') fillOpsVolet(_active, _past);
       var _enHdr = '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:0 0 10px 2px;">Vos actions en cours</div>';
       mount.innerHTML = _active.length ? (_enHdr + _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('')) : '';
       wireEngagementCards(mount);
@@ -4781,37 +5095,46 @@ if (!location_id) {
     const threatChip = { label: threatPrimary, bg: _threatSev.bg, fg: _threatSev.fg };
     const threatAccent = _threatSev.ac;
 
-    // Strip 3: Environnement concurrentiel — use competition_pressure_ratio for pressure label
-    const envCount500 = Number(currentDay.events_within_500m_count || 0);
-    const envCount5km = Number(currentDay.events_within_5km_count || 0);
-    const hasBaseline = Boolean(currentDay.has_valid_baseline_flag);
-    const _envRatioRaw = currentDay.competition_pressure_ratio;
-    const _envRatio = Number(_envRatioRaw);
-    const _envHasRatio = (_envRatioRaw != null && Number.isFinite(_envRatio) && _envRatio > 0);
-    let envTitle = "Environnement concurrentiel", envContext = "", envChip = null, envAccent = "#94a3b8";
-    if (_envHasRatio) {
-      const _envLvl = (hasBaseline && _envRatio > 1.2) ? "alerte" : (hasBaseline && _envRatio < 0.8) ? "favorable" : "neutre";
-      const _envSev = sevStyle(_envLvl);
-      const _envArrow = (hasBaseline && _envRatio > 1.2) ? "↑ " : (hasBaseline && _envRatio < 0.8) ? "↓ " : "";
-      envChip = { label: _envArrow + "Pression ×" + _envRatio.toFixed(1), bg: _envSev.bg, fg: _envSev.fg };
-      envAccent = _envSev.ac;
-      envContext = [ (envCount500 > 0 ? envCount500 + " à moins de 500 m" : ""), envCount5km + " à 5 km" ].filter(Boolean).join(" · ");
-    } else {
-      const _envSev = sevStyle("neutre");
-      envChip = envCount5km > 0 ? { label: envCount5km + " à 5 km", bg: _envSev.bg, fg: _envSev.fg } : null;
-      envAccent = _envSev.ac;
-      envContext = "Densité concurrentielle autour de vous";
+    // Radar v5 — 3 volets, couleur = signal (neutres tant que rien ne mérite l'attention).
+    // L'ancien volet Environnement a migré : pression/compteurs → drivers du reveal "Pourquoi ce
+    // score" (renderScoreDetail) ; carte → volet Concurrence. renderChangeDetail/renderThreatSummary
+    // restent définis (non appelés) tant que la v5 n'est pas validée en réel.
+
+    // Volet 1 : Opérations en cours — rempli par le fetch /api/commitments de renderEngagements
+    // (mêmes données que les cartes "Vos actions en cours" plus bas ; le volet est le résumé
+    // hélicoptère, jamais un 2e fetch). Hooks: [data-ops-secondary]/[data-ops-chip]/#pls-ops-volet.
+    const opsStrip = renderRadarStrip("ops", "clipboard-check", "Opérations en cours",
+      '<span data-ops-secondary>Chargement…</span>',
+      '<div id="pls-ops-volet"><div style="font-size:12px;color:#9CA3AF;padding:6px 0;">Chargement…</div></div>',
+      true, { chip: { label: '<span data-ops-chip></span>', bg: "transparent", fg: "#475569" } });
+
+    // Volet 2 : Performance de l'entreprise — sales_summary du monitor (8 derniers jours de CA).
+    const _ss = Array.isArray(data.sales_summary) ? data.sales_summary : [];
+    const _ssLatest = _ss.length ? _ss[0] : null;
+    let perfSecondary = "Aucune donnée de ventes", perfChip = null, perfAccent = "";
+    if (_ssLatest) {
+      const _ssIsToday = normalizeYmd(_ssLatest.date) === todayYmd();
+      const _ssTx = Number(_ssLatest.daily_transactions || 0);
+      perfSecondary = "CA " + (_ssIsToday ? "du jour" : "du " + fmtDateShort(normalizeYmd(_ssLatest.date)))
+        + " : " + _cgEur(_ssLatest.daily_revenue) + (_ssTx > 0 ? " · " + _ssTx + " ventes" : "");
+      const _ssPct = Number(_ssLatest.revenue_vs_30d_avg_pct);
+      const _ssZ = Number(_ssLatest.revenue_robust_z);
+      if (Number.isFinite(_ssPct)) {
+        // Couleur seulement hors bande (|z| >= 2) — un jour normal reste neutre.
+        const _ssOut = Number.isFinite(_ssZ) && Math.abs(_ssZ) >= 2;
+        const _ssSv = sevStyle(_ssOut ? (_ssPct >= 0 ? "favorable" : "alerte") : "neutre");
+        perfChip = { label: (_ssPct >= 0 ? "+" : "−") + Math.abs(Math.round(_ssPct)) + " % vs moy. 30 j", bg: _ssSv.bg, fg: _ssSv.fg };
+        if (_ssOut) perfAccent = _ssSv.ac;
+      }
     }
+    const perfStrip = renderRadarStrip("perf", "banknote", "Performance de l'entreprise",
+      escapeHtml(perfSecondary), renderPerfDetail(_ss), false, { accent: perfAccent, chip: perfChip });
 
-    // Build strips
-    const strip1 = renderRadarStrip("score", "chart-line", scorePrimary, scoreSecondary,
-      renderScoreDetail(currentDay, days), true, { accent: scoreAccent, chip: scoreChip });
-
-    const strip2 = renderRadarStrip("changes", "swords", envTitle, envContext,
-      renderChangeDetail(currentDay, data._top_threats || []), false, { accent: envAccent, chip: envChip });
-
-    const strip3 = renderRadarStrip("threats", "target", threatTitle, threatSecondary,
-      renderThreatSummary(competitorSignals, selectedDate, followedCount, data._top_threats || []), false, { accent: threatAccent, chip: threatChip });
+    // Volet 3 : Concurrence — que font-ils, où sont-ils (la découverte vit dans Consulter).
+    // Chip/threat logic réutilisée telle quelle ; accent seulement en conflit (couleur = signal).
+    const concStrip = renderRadarStrip("conc", "target", "Concurrence", threatSecondary,
+      renderConcurrenceDetail(competitorSignals, data._followed_competitors || [], followedCount),
+      false, { accent: (_threatLevel === "alerte" || _threatLevel === "attention") ? threatAccent : "", chip: threatChip });
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
@@ -4829,11 +5152,28 @@ if (!location_id) {
       : `${regimeLabel}. ${_vBestWeekday.charAt(0).toUpperCase() + _vBestWeekday.slice(1)} est plus favorable cette semaine.`;
     // ↑↑↑ EDITABLE COPY ↑↑↑
     const _vScore = (score != null && Number.isFinite(Number(score)));
+    // Radar v5 \u2014 le header porte le score ET s'ouvre sur sa preuve : \u00ab Pourquoi ce score \u00bb
+    // (renderScoreDetail, l'ancien contenu du volet Score) se r\u00e9v\u00e8le inline sous le hero.
+    // Le seul \u00e9l\u00e9ment color\u00e9 du header est la vigilance m\u00e9t\u00e9o quand elle existe.
+    const _vAlert = Number(currentDay.alert_level_max || 0);
+    const _vAlertSv = _vAlert > 0 ? sevStyle(_vAlert >= 3 ? "alerte" : "attention") : null;
     const verdictHtml = `<div style="margin-top:26px;margin-bottom:16px;padding-top:22px;border-top:1px solid var(--color-border);">`
-      + `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</p>`
-      + `<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">`
-        + `<div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">${_vScore ? Number(score).toFixed(1) : "\u2014"}</span>${_vScore ? `<span style="font-size:16px;color:var(--color-text-muted);">/10</span>` : ""}</div>`
-        + `<p style="flex:1;min-width:220px;font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">${escapeHtml(verdictLine)}</p>`
+      + `<div data-hero-toggle style="cursor:pointer;">`
+        + `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</p>`
+        + `<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">`
+          + `<div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">${_vScore ? Number(score).toFixed(1) : "\u2014"}</span>${_vScore ? `<span style="font-size:16px;color:var(--color-text-muted);">/10</span>` : ""}</div>`
+          + `<div style="flex:1;min-width:220px;">`
+            + `<p style="font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">${escapeHtml(verdictLine)}</p>`
+            + (weekRankShort ? `<p style="font-size:12px;color:var(--color-text-secondary);margin:4px 0 0;">${escapeHtml(weekRankShort)}</p>` : "")
+          + `</div>`
+        + `</div>`
+        + `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">`
+          + `<span style="font-size:12px;color:#1D3BB3;font-weight:500;display:inline-flex;align-items:center;gap:4px;">Pourquoi ce score <svg data-hero-chevron viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg></span>`
+          + (_vAlertSv ? `<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${_vAlertSv.bg};color:${_vAlertSv.fg};">Vigilance niv. ${_vAlert}</span>` : "")
+        + `</div>`
+      + `</div>`
+      + `<div data-hero-body style="display:none;padding-top:14px;">`
+        + `<div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;padding:2px 14px 14px;">${renderScoreDetail(currentDay, days)}</div>`
       + `</div>`
     + `</div>`;
 
@@ -4877,7 +5217,7 @@ if (!location_id) {
 
     // Assemble
     root.innerHTML = pillsHtml + verdictHtml +
-      `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${strip1}${strip2}${strip3}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+      `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${opsStrip}${perfStrip}${concStrip}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
 
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
     // covers (all in-view aggregate sites, or the single viewed site) so they behave like
@@ -4958,18 +5298,47 @@ if (!location_id) {
       });
     });
 
-    // Radar strip toggles
+    // Radar strip toggles — v5: accordéon (un volet ouvert à la fois), état mémorisé par site,
+    // carte Concurrence initialisée au premier dépliage (Leaflet lazy).
+    const _radarOpenKey = "ms_radar_open_" + currentLocationId;
+    const _setVoletOpen = (id, open) => {
+      const body = root.querySelector(`[data-radar-body="${id}"]`);
+      const chevron = root.querySelector(`[data-radar-chevron="${id}"]`);
+      if (!body) return;
+      body.style.display = open ? "block" : "none";
+      if (chevron) chevron.style.transform = open ? "rotate(180deg)" : "none";
+      if (open && id === "conc") initConcMap(data.profile, data._followed_competitors || []);
+    };
+    const _voletIds = Array.from(root.querySelectorAll("[data-radar-toggle]")).map(b => b.getAttribute("data-radar-toggle"));
     root.querySelectorAll("[data-radar-toggle]").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-radar-toggle");
         const body = root.querySelector(`[data-radar-body="${id}"]`);
-        const chevron = root.querySelector(`[data-radar-chevron="${id}"]`);
         if (!body) return;
         const isOpen = body.style.display !== "none";
-        body.style.display = isOpen ? "none" : "block";
-        if (chevron) chevron.style.transform = isOpen ? "none" : "rotate(180deg)";
+        _voletIds.forEach(other => { if (other !== id) _setVoletOpen(other, false); });
+        _setVoletOpen(id, !isOpen);
+        try { localStorage.setItem(_radarOpenKey, isOpen ? "" : id); } catch (e) {}
       });
     });
+    // Restaure le volet ouvert lors de la dernière visite.
+    try {
+      const _savedOpen = localStorage.getItem(_radarOpenKey);
+      if (_savedOpen && _voletIds.indexOf(_savedOpen) >= 0) _setVoletOpen(_savedOpen, true);
+    } catch (e) {}
+
+    // Header — « Pourquoi ce score » : le hero se déplie sur sa preuve (renderScoreDetail).
+    const _heroToggle = root.querySelector("[data-hero-toggle]");
+    const _heroBody = root.querySelector("[data-hero-body]");
+    if (_heroToggle && _heroBody) {
+      _heroToggle.addEventListener("click", (e) => {
+        if (e.target.closest("a,button")) return; // liens/CTA internes gardent leur comportement
+        const isOpen = _heroBody.style.display !== "none";
+        _heroBody.style.display = isOpen ? "none" : "block";
+        const ch = root.querySelector("[data-hero-chevron]");
+        if (ch) ch.style.transform = isOpen ? "none" : "rotate(180deg)";
+      });
+    }
 
     // Score / Fiabilité tab switching
     root.querySelectorAll("[data-score-tab]").forEach(function(btn) {
