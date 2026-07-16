@@ -21,7 +21,19 @@
     return '<span data-cm-chip="' + group + '" data-cm-val="' + val + '" style="' + chipStyle(sel) + '">' + label + "</span>";
   }
 
+  // Up to 3 recommended actions as clickable rows (Pulse migration 16/07 — was pulse's own
+  // cmSuggestionsHtml). Click fills « Mon action » (still editable). Opt-in via opts.suggestions.
+  function suggestionsHtml(suggestions) {
+    var acts = Array.isArray(suggestions) ? suggestions.filter(Boolean) : [];
+    if (!acts.length) return "";
+    var rows = acts.map(function (a) {
+      return '<div data-cm-sugg data-cm-sugg-text="' + escapeHtml(a) + '" style="font-size:12px;color:#374151;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;line-height:1.4;">' + escapeHtml(a) + "</div>";
+    }).join("");
+    return '<div style="margin-bottom:8px;"><div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;">Suggestions — cliquez pour utiliser, puis ajustez :</div>' + rows + "</div>";
+  }
+
   // opts.prefill = { committed_action_text, window_kind ('day_of'|'7d'|'14d'), thr ('modeste'|'net') }
+  // opts.suggestions = string[] (optional reco rows above the textarea)
   function buildHtml(opts) {
     opts = opts || {};
     var pre = opts.prefill || {};
@@ -41,7 +53,8 @@
         + '<input data-cm-owner placeholder="Une personne de l\'équipe" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;" />'
         + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div></div>'
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Mon action</div>'
-        + '<textarea data-cm-action placeholder="Ce que vous allez faire" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
+        + suggestionsHtml(opts.suggestions)
+        + '<textarea data-cm-action placeholder="' + (Array.isArray(opts.suggestions) && opts.suggestions.length ? "Choisissez une suggestion ci-dessus ou décrivez votre action" : "Ce que vous allez faire") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
       + '<div style="display:flex;gap:8px;"><button type="button" data-cm-submit style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">M\'engager →</button>'
         + '<button type="button" data-cm-cancel style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Annuler</button></div>'
       + "</div>";
@@ -126,6 +139,16 @@
       });
     });
 
+    // Suggestion rows: click -> fill « Mon action » (still editable) + highlight the picked one.
+    container.querySelectorAll("[data-cm-sugg]").forEach(function (sg) {
+      sg.addEventListener("click", function () {
+        var ta = container.querySelector("[data-cm-action]");
+        if (ta) { ta.value = sg.getAttribute("data-cm-sugg-text"); ta.focus(); }
+        container.querySelectorAll("[data-cm-sugg]").forEach(function (x) { x.style.borderColor = "#DBEAFE"; x.style.background = "#F5F7FF"; });
+        sg.style.borderColor = "#1D3BB3"; sg.style.background = "#EEF2FF";
+      });
+    });
+
     var cancel = container.querySelector("[data-cm-cancel]");
     if (cancel) cancel.addEventListener("click", function () { if (typeof opts.onCancel === "function") opts.onCancel(); });
 
@@ -149,7 +172,10 @@
           committed_action_text: action, owner_person_name: owner,
           creation_residual_pct: origin.creation_residual_pct != null ? Number(origin.creation_residual_pct) : null,
           creation_residual_z: origin.creation_residual_z != null ? Number(origin.creation_residual_z) : null,
-          creation_confidence_tier: origin.creation_confidence_tier || null
+          creation_confidence_tier: origin.creation_confidence_tier || null,
+          // the card's own past-performance baseline (daily) -> the measurable goal reference
+          // (window_expected_revenue server-side). Pulse migration 16/07 — was pulse-only.
+          creation_baseline_daily: origin.creation_baseline_daily != null ? Number(origin.creation_baseline_daily) : null
         })
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (typeof opts.onDone === "function") opts.onDone(j);

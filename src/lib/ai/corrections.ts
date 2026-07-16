@@ -24,7 +24,7 @@ const TABLE = `\`${PROJECT}.analytics.consulter_correction_events\``;
 // brief (correctionsBrief filters declared_* out). correction_text holds the bare percent ("62").
 export type CorrectionType = "activity" | "zone" | "nouveau_meaning" | "other" | "declared_margin_pct";
 export type CorrectionAction = "assert" | "supersede" | "clear";
-export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string };
+export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string; declarant_name: string | null; corrected_at: string | null };
 
 const str = (v: any): string =>
   (v == null ? "" : String(v && typeof v === "object" && "value" in v ? (v as any).value : v)).trim();
@@ -36,12 +36,13 @@ export async function getActiveCorrections(location_id: string): Promise<ActiveC
     const [rows] = await bq.query({
       query: `
         WITH ranked AS (
-          SELECT correction_type, correction_text, event_action,
+          SELECT correction_type, correction_text, event_action, declarant_name,
+                 FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS corrected_at,
                  ROW_NUMBER() OVER (PARTITION BY correction_type ORDER BY created_at DESC) AS rn
           FROM ${TABLE}
           WHERE location_id = @location_id
         )
-        SELECT correction_type, correction_text
+        SELECT correction_type, correction_text, declarant_name, corrected_at
         FROM ranked
         WHERE rn = 1 AND event_action != 'clear' AND correction_text IS NOT NULL`,
       params: { location_id }, types: { location_id: "STRING" }, location: "EU",
@@ -49,6 +50,8 @@ export async function getActiveCorrections(location_id: string): Promise<ActiveC
     return (rows ?? []).map((r: any) => ({
       correction_type: str(r.correction_type) as CorrectionType,
       correction_text: str(r.correction_text),
+      declarant_name: str(r.declarant_name) || null,
+      corrected_at: str(r.corrected_at) || null,
     })).filter((c: ActiveCorrection) => c.correction_text);
   } catch (e: any) {
     console.warn("[corrections] read failed:", e?.message);
@@ -65,14 +68,17 @@ export async function appendCorrectionEvent(e: {
   prior_value?: string | null;
   raw_turn?: string | null;
   source?: string;
+  // WHO made the change — a name from the profile's Destinataires roster (owner decision 16/07:
+  // roster identity, not login identity — accounts are shared). Nullable: unknown stays an honest NULL.
+  declarant_name?: string | null;
 }): Promise<void> {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
   await bq.query({
     query: `
       INSERT INTO ${TABLE}
-        (event_id, event_action, location_id, correction_type, correction_text, prior_value, raw_turn, source, created_at)
+        (event_id, event_action, location_id, correction_type, correction_text, prior_value, raw_turn, source, declarant_name, created_at)
       VALUES
-        (@event_id, @event_action, @location_id, @correction_type, @correction_text, @prior_value, @raw_turn, @source, CURRENT_TIMESTAMP())`,
+        (@event_id, @event_action, @location_id, @correction_type, @correction_text, @prior_value, @raw_turn, @source, @declarant_name, CURRENT_TIMESTAMP())`,
     params: {
       event_id: randomUUID(),
       event_action: e.event_action,
@@ -82,10 +88,12 @@ export async function appendCorrectionEvent(e: {
       prior_value: e.prior_value ?? null,
       raw_turn: e.raw_turn ?? null,
       source: e.source ?? "chat_hybrid",
+      declarant_name: e.declarant_name ?? null,
     },
     types: {
       event_id: "STRING", event_action: "STRING", location_id: "STRING", correction_type: "STRING",
       correction_text: "STRING", prior_value: "STRING", raw_turn: "STRING", source: "STRING",
+      declarant_name: "STRING",
     },
     location: "EU",
   });
@@ -112,11 +120,14 @@ export function correctionsBrief(corrections: ActiveCorrection[]): string {
 // ── Item 4 — declared-metric helpers ─────────────────────────────────────────
 // The one read path for a declared margin: latest active declared_margin_pct event, parsed + range-
 // guarded. Returns null when absent/invalid — callers fall back to the elicit.
-export async function getDeclaredMarginPct(location_id: string): Promise<number | null> {
+export async function getDeclaredMarginPct(
+  location_id: string,
+): Promise<{ pct: number; declarant_name: string | null; corrected_at: string | null } | null> {
   const c = (await getActiveCorrections(location_id)).find((x) => x.correction_type === "declared_margin_pct");
   if (!c) return null;
   const pct = Number(String(c.correction_text).replace(",", "."));
-  return Number.isFinite(pct) && pct >= 1 && pct <= 95 ? pct : null;
+  if (!(Number.isFinite(pct) && pct >= 1 && pct <= 95)) return null;
+  return { pct, declarant_name: c.declarant_name, corrected_at: c.corrected_at };
 }
 
 // ── Hybrid capture (Phase 2.3 increment 2) ────────────────────────────────────

@@ -221,14 +221,15 @@ export function premiseCheckFr(p: {
 // is stored (append-only corrections log) and reused: the capture turn gets a confirmation, and the
 // next margin question gets a computed estimate — measured CA × declared %, attributed « déclarée
 // par vous », labelled estimation. Deterministic composition — no LLM text anywhere in this loop.
-export function declaredCaptureFr(pct: number, superseded_pct: number | null): { headline: string; answer: string } {
+export function declaredCaptureFr(pct: number, superseded_pct: number | null, declarant_name?: string | null): { headline: string; answer: string } {
   const v = `${String(pct).replace(".", ",")} %`;
+  const by = declarant_name ? `déclarée par ${declarant_name}` : "déclarée par vous";
   return {
     headline: `Marge notée : ${v}`,
     answer:
       (superseded_pct != null
-        ? `Votre marge moyenne déclarée passe de ${String(superseded_pct).replace(".", ",")} % à ${v}. `
-        : `Marge moyenne de ${v} — déclarée par vous, retenue. `) +
+        ? `Votre marge moyenne déclarée passe de ${String(superseded_pct).replace(".", ",")} % à ${v} (${by}). `
+        : `Marge moyenne de ${v} — ${by}, retenue. `) +
       `Je l'utiliserai pour vos questions de marge (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.`,
   };
 }
@@ -236,15 +237,20 @@ export function declaredMarginAnswerFr(p: {
   pct: number;
   ca_eur: number;          // measured CA over the window
   window_fr: string;       // « vos 30 derniers jours »
+  declarant_name?: string | null;
+  declared_on?: string | null;   // ISO Y-m-d from the event log
 }): { headline: string; answer: string } {
   const margin = Math.round(p.ca_eur * (p.pct / 100));
   const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
   const v = `${String(p.pct).replace(".", ",")} %`;
+  const onFr = p.declared_on && /^\d{4}-\d{2}-\d{2}/.test(p.declared_on)
+    ? ` le ${p.declared_on.slice(8, 10)}/${p.declared_on.slice(5, 7)}/${p.declared_on.slice(0, 4)}` : "";
+  const by = p.declarant_name ? `déclarée par ${p.declarant_name}${onFr}` : `déclarée par vous${onFr}`;
   return {
     headline: `Marge estimée : ≈ ${eur(margin)} sur ${p.window_fr}`,
     answer:
-      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Avec votre marge moyenne déclarée (${v}), cela représente ≈ ${eur(margin)} de marge estimée. ` +
-      `Estimation fondée sur une marge globale déclarée par vous — pas une mesure par produit. Pour la marge réelle par produit, ajoutez une colonne coût à votre import de ventes.`,
+      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Avec votre marge moyenne déclarée (${v}, ${by}), cela représente ≈ ${eur(margin)} de marge estimée. ` +
+      `Estimation fondée sur une marge globale déclarée — pas une mesure par produit. Pour la marge réelle par produit, ajoutez une colonne coût à votre import de ventes.`,
   };
 }
 
