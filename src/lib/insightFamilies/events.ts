@@ -35,23 +35,13 @@ const MY_TYPE_FR: Record<string, string> = {
 // actual vs dow+trend normale, so weekday and trend are already controlled). Two contrasts: ALL
 // events ≤500 m, and SAME-BUCKET events ≤500 m (the audience that could actually cannibalize — or
 // feed — this venue). Binary event/no-event is useless in a dense city (f10c3e58: 1 zero-day in 80),
-// so the split is terciles of density. Gates before anything is stated: enough days per side AND
-// enough VARIATION (hi>lo); |t|≥2 to quantify, else the null result is stated WITH its numbers (a
-// measured "no effect" is the valuable verdict, not a shrug). Tier capped at « émergent » — one
-// window of history never earns « établi ». Association, never cause: residual_pct controls dow+trend
-// but not season/tourism confounds.
-const IMPACT_MIN_SIDE = 10;
-const IMPACT_T_QUANT = 2;
-const IMPACT_T_EMERGENT = 3;
-const IMPACT_N_EMERGENT = 30;
+// so the split is terciles of density. Gates/tier ladder/phrasing discipline = the SHARED
+// impactContrast module (also used by the competitor family).
+import { finalizeContrast, frPp, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
 
-type DensityContrast = {
+type DensityContrast = ImpactContrast & {
   key: "all_500m" | "same_bucket_500m";
   label_fr: string;
-  n_high: number; n_low: number;
-  delta_pp: number; se: number; t: number;
-  hi: number; lo: number;
-  tier: "preliminaire" | "emergent" | null;   // null → below |t| gate: stated as "no measurable effect"
 };
 
 async function measureEventDensityImpact(
@@ -99,23 +89,14 @@ async function measureEventDensityImpact(
     };
     const contrasts: DensityContrast[] = [];
     for (const r of arr) {
-      const hi = Number(r.hi), lo = Number(r.lo);
-      const n_high = Number(r.n_high), n_low = Number(r.n_low);
-      const sd_high = Number(r.sd_high), sd_low = Number(r.sd_low);
-      // Gates: sides big enough AND real variation (hi>lo — else the "sides" overlap and mean nothing).
-      if (!(hi > lo) || n_high < IMPACT_MIN_SIDE || n_low < IMPACT_MIN_SIDE) continue;
-      if (!Number.isFinite(sd_high) || !Number.isFinite(sd_low)) continue;
-      const delta = Number(r.mean_high) - Number(r.mean_low);
-      const se = Math.sqrt((sd_high * sd_high) / n_high + (sd_low * sd_low) / n_low);
-      if (!Number.isFinite(delta) || !Number.isFinite(se) || se <= 0) continue;
-      const t = delta / se;
-      const tier = Math.abs(t) >= IMPACT_T_QUANT
-        ? (Math.abs(t) >= IMPACT_T_EMERGENT && Math.min(n_high, n_low) >= IMPACT_N_EMERGENT ? "emergent" : "preliminaire")
-        : null;
-      contrasts.push({
-        key: r.metric, label_fr: LABEL[r.metric] ?? r.metric,
-        n_high, n_low, delta_pp: delta, se, t, hi, lo, tier,
+      const c = finalizeContrast({
+        hi: Number(r.hi), lo: Number(r.lo),
+        n_high: Number(r.n_high), n_low: Number(r.n_low),
+        mean_high: Number(r.mean_high), mean_low: Number(r.mean_low),
+        sd_high: Number(r.sd_high), sd_low: Number(r.sd_low),
       });
+      if (!c) continue;
+      contrasts.push({ ...c, key: r.metric, label_fr: LABEL[r.metric] ?? r.metric });
     }
     return { days, contrasts };
   } catch (e: any) {
@@ -123,9 +104,6 @@ async function measureEventDensityImpact(
     return null;
   }
 }
-
-// French pp formatting (comma decimal, explicit sign) — display only, the raw numbers stay in data.
-const frPp = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1).replace(".", ",")} pp`;
 
 const num = (v: any): number | null => (v == null ? null : Number(v && typeof v === "object" && "value" in v ? v.value : v));
 const str = (v: any): string | null => { const s = v == null ? "" : String(v).trim(); return s || null; };
@@ -325,7 +303,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
     impact == null
       ? null
       : impact.contrasts.length
-        ? { available: true, days: impact.days, rows: impactRows, note: "Écarts vs votre normale (jour de semaine et tendance contrôlés). Association mesurée sur vos propres journées — pas une preuve de cause." }
+        ? { available: true, days: impact.days, rows: impactRows, note: IMPACT_NOTE_FR }
         : { available: false, days: impact.days, reason_fr: impact.days > 0 ? `${impact.days} jour(s) de ventes couverts — mesure possible à partir de ${IMPACT_MIN_SIDE * 2} jours avec un contraste suffisant.` : "Aucune journée de ventes couverte par le paysage événementiel pour l'instant." };
 
   // The benchmark gap is a TRUE statement about our data, and it stops the model inventing attendance.

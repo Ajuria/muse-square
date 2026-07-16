@@ -281,31 +281,34 @@
         + '<div style="font-size:11px;color:#9CA3AF;margin:4px 0 8px;line-height:1.5;">Densité d\'événements concurrents — visez les fenêtres calmes pour capter l\'attention.</div>'
         + msStrip(j.calendar.map(function (w) { return { top: w.label, mid: (w.count != null ? w.count : ''), highlight: (w.state === 'quiet' || w.state === 'busy'), tone: (w.state === 'quiet' ? 'ok' : (w.state === 'busy' ? 'warn' : 'default')) }; }));
     }
-    // Measured-impact engine v1 (16/07, additive): the density-contrast verdicts measured on the
-    // venue's OWN days. Renders only when the provider sent the block; absence-with-reason is shown
-    // honestly (cold start: a fresh account sees WHY nothing is measurable yet).
-    if (j.impact) {
-      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Impact mesuré sur votre CA</div>';
-      if (j.impact.available && j.impact.rows && j.impact.rows.length) {
-        html += j.impact.rows.map(function (r) {
-          var col = r.measurable ? '#111827' : '#6B7280';
-          return '<div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F3F4F6;">'
-            + '<span style="font-size:12.5px;color:#374151;">' + esc(r.label) + '</span>'
-            + '<span style="text-align:right;"><span style="font-size:12.5px;font-weight:600;color:' + col + ';">' + esc(r.verdict_fr) + '</span>'
-            + (r.detail_fr ? '<span style="display:block;font-size:11px;color:#9CA3AF;">' + esc(r.detail_fr) + '</span>' : '')
-            + '</span></div>';
-        }).join('');
-        if (j.impact.note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;line-height:1.5;">' + esc(j.impact.note) + '</div>';
-      } else if (j.impact.reason_fr) {
-        html += '<div style="font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.5;">' + esc(j.impact.reason_fr) + '</div>';
-      }
-    }
+    if (j.impact) html += msImpactBlock(j.impact);
     if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     return html;
   }
 
   // Competitor (Bucket B) — "what are my competitors DOING that impacts me, and what do I do".
   // Truth-first: no meaningful overlap -> say it plainly (honest empty state), never fabricate rivalry.
+  // Measured-impact section (engine v1, 16/07) — SHARED by renderEvents + renderCompetitor:
+  // the density/activity-contrast verdicts measured on the venue's OWN days. Renders only when the
+  // provider sent the block; absence-with-reason is shown honestly (cold start sees WHY).
+  function msImpactBlock(impact) {
+    var html = '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Impact mesuré sur votre CA</div>';
+    if (impact.available && impact.rows && impact.rows.length) {
+      html += impact.rows.map(function (r) {
+        var col = r.measurable ? '#111827' : '#6B7280';
+        return '<div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F3F4F6;">'
+          + '<span style="font-size:12.5px;color:#374151;">' + esc(r.label) + '</span>'
+          + '<span style="text-align:right;"><span style="font-size:12.5px;font-weight:600;color:' + col + ';">' + esc(r.verdict_fr) + '</span>'
+          + (r.detail_fr ? '<span style="display:block;font-size:11px;color:#9CA3AF;">' + esc(r.detail_fr) + '</span>' : '')
+          + '</span></div>';
+      }).join('');
+      if (impact.note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;line-height:1.5;">' + esc(impact.note) + '</div>';
+    } else if (impact.reason_fr) {
+      html += '<div style="font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.5;">' + esc(impact.reason_fr) + '</div>';
+    }
+    return html;
+  }
+
   function renderCompetitor(j) {
     if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune donnée concurrentielle.</div>';
     var html = '';
@@ -329,6 +332,7 @@
       + '</div>';
     }
     if (j.note) html += '<div style="font-size:12.5px;color:#6B7280;margin-top:' + (moves.length ? '14px' : '4px') + ';line-height:1.5;">' + esc(j.note) + '</div>';
+    if (j.impact) html += msImpactBlock(j.impact);
     if (j.next_step) html += '<div style="font-size:13px;color:#1D3BB3;margin-top:10px;line-height:1.5;"><span style="font-weight:700;">Prochaine étape — </span>' + esc(j.next_step) + '</div>';
     return html;
   }
