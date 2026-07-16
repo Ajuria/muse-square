@@ -134,7 +134,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         nearest_transit_line_name,
         transit_network,
         summary,
-        score_driver_label
+        score_driver_label,
+        suppression_key
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
         AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
@@ -430,6 +431,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
+      // Ownership pivot (16/07): the view now derives suppression_key (change_subtype:location:date,
+      // the candidates convention) — carried through so (a) the feed filter below can suppress
+      // picked-up change cards and (b) Pulse stamps it as origin_suppression_key at M'engager.
+      suppression_key:               r?.suppression_key               ?? null,
       entity_id:                     r?.entity_id                     ?? null,
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
       affected_date:                 r?.affected_date?.value ?? r?.affected_date ?? null,
@@ -502,8 +507,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
       venue_capacity:                profile?.venue_capacity          ?? null,
     }));
 
+    // Phase 1 (moved up 16/07) — active suppression keys: a card's suppression_key is stamped onto the
+    // commitment as origin_suppression_key at M'engager; hide the card while a commitment is ACTIVE
+    // (open/pending). Date-scoped keys mean a re-fire on a new date — or a cancelled commitment —
+    // brings the card back automatically. Computed BEFORE the feed merge so it now suppresses BOTH
+    // rails: action candidates (below) AND change-feed cards (the view derives the same
+    // change_subtype:location:date key since 16/07 — the last lifecycle hole).
+    const [activeSuppRows] = await bq.query({
+      query: `SELECT DISTINCT origin_suppression_key AS k
+              FROM (
+                SELECT origin_suppression_key, status,
+                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                FROM \`muse-square-open-data.analytics.action_commitments\`
+                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
+              )
+              WHERE rn = 1 AND status IN ('open','pending')`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    const activeSuppressionKeys = new Set((activeSuppRows as any[]).map((r) => String(r.k)));
+
     const mergedFeed = [
-      ...changeFeed,
+      ...changeFeed.filter((f: any) => !(f?.suppression_key && activeSuppressionKeys.has(String(f.suppression_key)))),
       ...competitorAlertFeed,
     ].sort((a, b) => {
       const lvlDiff = (Number(b.alert_level) || 0) - (Number(a.alert_level) || 0);
@@ -865,23 +889,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     console.log(`[monitor] response build: ${_t4 - _t3}ms`);
     console.log(`[monitor] TOTAL: ${_t4 - _t0}ms`);
 
-    // Phase 1 — suppress action cards already picked up. A card's suppression_key is stamped onto the
-    // commitment as origin_suppression_key at M'engager; hide the card while a commitment is ACTIVE
-    // (open/pending). The key is date-scoped, so a re-fire on a new date — or a cancelled commitment
-    // (status leaves active) — brings the card back automatically. No new key, no hard delete.
-    const [activeSuppRows] = await bq.query({
-      query: `SELECT DISTINCT origin_suppression_key AS k
-              FROM (
-                SELECT origin_suppression_key, status,
-                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
-                FROM \`muse-square-open-data.analytics.action_commitments\`
-                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
-              )
-              WHERE rn = 1 AND status IN ('open','pending')`,
-      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-    });
-    const activeSuppressionKeys = new Set((activeSuppRows as any[]).map((r) => String(r.k)));
-
+    // (activeSuppressionKeys is computed above, before the feed merge — it filters both rails.)
     return json(200, {
       ok: true,
       profile: profile
