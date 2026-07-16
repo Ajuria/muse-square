@@ -256,7 +256,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `competitive/constants.ts` | `VALID_CONFIDENCE`, `VALID_INDUSTRY`, `BUCKET_MAP`, `classifySource`, … | Industry/confidence validators + source URL classifier | none |
 | `competitive/geocode.ts` | `geocodeCompetitor` | Geocode via BAN, reject >30km from city | BAN API |
 | `competitive/url-discovery.ts` | `discoverAgendaUrl`, `discoverTarifsUrl`, `isAgendaPath`, `isHomepagePath` | Agenda/tarif URL discovery via Browserless BQL | Browserless BQL |
-| `import/salesCsv.ts` | `parseSalesCsv`, `validateGrid`, `mapHeaders`, `parseDate`, `normalizeNumber`, … | Deterministic, pure CSV parse/validate for FR POS uploads | none |
+| `import/salesCsv.ts` | `parseSalesCsv`, `validateGrid`, `mapHeaders`, `parseDate`, `normalizeNumber`, … | Deterministic, pure CSV parse/validate for FR POS uploads. **16/07: `sage100` registered as a named source (Les Olivades' POS) — override EMPTY by design (Sage 100 exports are template-configurable; exact headers come from their FIRST real file, never docs); the GENERIC layer gained the French document-export vocabulary (date pièce/document/facture, montant ht/net, net à payer, total, dotted P.U. variants, famille article, quantité vendue, moyen de paiement…) — probe: pièce-grain, facture-grain and daily-aggregate shapes all parse with exact values. UI source chip « Sage 100 » first in the composer list** | none |
 | `import/sourceMappings.ts` | `GENERIC_MAPPING`, `SOURCE_OVERRIDES`, `resolveMapping` | Per-source header→canonical field mappings | none |
 
 ---
