@@ -69,6 +69,8 @@
 ## Verify Before Done
 - `.astro` inline scripts and `public/action-cards.js` are plain JS — `node --check` them (extract the inline `<script>` for `.astro`) after edits; `.ts` → `npx tsc --noEmit`. Do this before claiming a change complete.
 - The Edit tool normalizes hand-typed `\uXXXX` back to the character. To write unicode escapes into an inline script, use a python pass building the escape from `chr(92)`, matching on the raw char.
+- **Lie-bait suite = the merge gate for ANY grounding change** (validator / grounded prompts / `forbidden` in dayContext / groundingChecks / packagerSchemas): `npx vitest run src/lib/ai/contracts/ src/lib/ai/honestAbsence.test.ts` — every planted fabrication must still reject or floor. A relaxation ships only with its check-seam in the SAME commit.
+- Consulter chat ANSWERS render via `MSCardKit.renderAnswerBlocks` (card-kit.js) — verify render changes in `card-harness.html` (its Phase 3 section drives the real ie-prompt adapter over real payloads), same rule as cards: the harness IS the page.
 
 ## App-repo Git flow (deploy)
 - Verify repo first (`git remote -v` → `Ajuria/muse-square`, the APP repo — not the dbt repo `ms_database`). Stage explicit files, never `git add .`.
