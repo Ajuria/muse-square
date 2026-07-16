@@ -1023,6 +1023,12 @@
     },
     // .ie-inline-cta (right-aligned, as today's .ie-ai-cta wrapper)
     cta: function (b) {
+      // Action variant (in-page, no navigation): renders a button carrying data-ab-cta-action; the
+      // consuming surface wires the behavior by delegation (ie-prompt.js: "upload" → the chat's own
+      // file picker). Same visual voice as the link variant.
+      if (b.action) {
+        return '<div style="display:flex;justify-content:flex-end;"><button type="button" data-ab-cta-action="' + esc(b.action) + '" style="border:none;background:transparent;cursor:pointer;padding:0;font-size:13px;font-weight:500;color:#0b37e5;margin-top:12px;font-family:inherit;">' + esc(b.label || 'Continuer') + ' →</button></div>';
+      }
       if (!b.url || String(b.url).charAt(0) !== '/') return '';
       return '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:500;color:#0b37e5;text-decoration:none;margin-top:12px;">' + esc(b.label || 'Consulter') + ' →</a></div>';
     },

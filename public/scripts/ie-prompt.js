@@ -613,7 +613,10 @@ if (!root) {
     // Family-led answer → the FULL family card inline (the detailed answer IS the card, no click-through).
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
       const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé") ? n.headline.trim() : "";
-      if (lead) blocks.push({ type: "headline", text: lead });
+      // Dedupe: the card renders its own `lead` line — when the packager headline IS that line,
+      // showing both prints it twice (owner bug report 16/07, footfall « pic à 10h » doubled).
+      const cardLead = (out.family_card.data && typeof out.family_card.data.lead === "string") ? out.family_card.data.lead.trim() : "";
+      if (lead && lead !== cardLead) blocks.push({ type: "headline", text: lead });
       blocks.push({ type: "card", render: out.family_card.render, data: out.family_card.data });
       return blocks;
     }
@@ -677,6 +680,11 @@ if (!root) {
     if (isElicit) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
+      // The ask carries its ACTION when the server attached one (type "upload_csv" → the chat's own
+      // file picker via data-ab-cta-action; a CTA only ships where a real surface exists).
+      if (primary && typeof primary === "object" && primary.type === "upload_csv" && typeof primary.label === "string" && primary.label.trim()) {
+        blocks.push({ type: "cta", action: "upload", label: primary.label.trim() });
+      }
       return blocks;
     }
 
@@ -1095,6 +1103,16 @@ if (!root) {
     e.preventDefault();
     const send = chip.getAttribute("data-send") || "";
     if (send) submitQuestion(send);
+  });
+
+  // Elicit CTA — "upload" opens the chat's OWN file picker (the composer's attach flow, staged chip →
+  // send). No navigation, no duplicate import path: one picker, one flow.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-ab-cta-action="upload"]');
+    if (!btn) return;
+    e.preventDefault();
+    const input = document.getElementById("ie-import-file-input");
+    if (input) input.click();
   });
 
   // Delegate confirmation button clicks

@@ -153,14 +153,19 @@ export function stageVerifyDoneFr(n: number): string {
 // no margin/cost/profit, no per-customer identity, no stock, no staffing columns). One entry per
 // missing dimension: name what's missing + HOW to address it, then invite the re-ask. DRAFT copy —
 // owner owns the final wording (edit here, nothing else to touch).
-export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string }> = {
+// `cta` (optional) attaches an ACTION to the ask — only where a real surface exists today:
+// action "upload" opens the chat's own CSV/Excel file picker (marge, par_client). Stock and
+// personnel have NO import surface yet, so they stay text-only — a button must never be a dead end.
+export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string; cta?: { label: string; action: "upload" } }> = {
   marge: {
     headline: "Marge absente de vos ventes",
     answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, puis reposez-moi la question.",
+    cta: { label: "Importer un fichier de ventes", action: "upload" },
   },
   par_client: {
     headline: "Ventes par client non rattachées",
     answer: "Vos ventes ne sont pas rattachées à des clients identifiés — pas d'analyse par client possible. Importez des ventes avec un identifiant client, puis reposez-moi la question.",
+    cta: { label: "Importer un fichier de ventes", action: "upload" },
   },
   stock: {
     headline: "Stocks absents de vos données",

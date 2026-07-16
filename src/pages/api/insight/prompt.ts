@@ -2199,7 +2199,11 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     {
       const _missingDim = detectMissingDimension(q);
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
-        const { headline: mdHeadline, answer: mdAnswer } = MISSING_DIMENSION_FR[_missingDim];
+        const { headline: mdHeadline, answer: mdAnswer, cta: mdCta } = MISSING_DIMENSION_FR[_missingDim];
+        // The ask carries an ACTION where a real surface exists: type "upload_csv" → the client opens
+        // the chat's own file picker (never a guessed redirect). Legacy readers ignore non-"redirect"
+        // primary types, so this is additive.
+        const mdPrimary = mdCta ? { type: "upload_csv", label: mdCta.label } : null;
         console.log("[telemetry][missing-dimension]", JSON.stringify({ dim: _missingDim }));
         return new Response(JSON.stringify({
           ok: true,
@@ -2208,9 +2212,9 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
             headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [],
             output: { headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [] },
             meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
-            actions: { month_redirect_url: null, primary: null, secondary: [] },
+            actions: { month_redirect_url: null, primary: mdPrimary, secondary: [] },
           },
-          actions: { month_redirect_url: null, primary: null, secondary: [] },
+          actions: { month_redirect_url: null, primary: mdPrimary, secondary: [] },
           top_dates: [],
           decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
           window_aggregates_v3: null,
