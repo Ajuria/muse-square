@@ -122,15 +122,18 @@
     if (wrap) wrap.innerHTML = _msSortRender(id);
   });
   function msDecision(title, lines) {
+    // Each line carries class + data attrs (Day-2 chat commit, 16/07): purely additive markers so the
+    // CHAT surface can decorate décision lines with an « M'engager » affordance by delegation. No
+    // visual change anywhere; other surfaces ignore the attributes.
     var inner = '';
     for (var i = 0; i < lines.length; i++) {
       var l = lines[i] || {};
-      inner += '<div style="' + (i > 0 ? 'margin-top:7px;' : '') + '">'
+      inner += '<div class="ms-decision-line" data-dl-head="' + esc(l.head || '') + '" data-dl-body="' + esc(l.body || '') + '" style="' + (i > 0 ? 'margin-top:7px;' : '') + '">'
         + (l.head ? '<span style="font-weight:700;">' + esc(l.head) + ' — </span>' : '')
         + esc(l.body || '') + '</div>';
     }
     var head = title ? '<div style="font-weight:700;margin-bottom:6px;">' + esc(title) + '</div>' : '';
-    return '<div style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;">' + head + inner + '</div>';
+    return '<div class="ms-decision" style="margin-top:14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:9px;padding:11px 13px;font-size:13px;line-height:1.5;color:#1D3BB3;">' + head + inner + '</div>';
   }
   var WS_DOW_FR = { 0: 'dimanches', 1: 'lundis', 2: 'mardis', 3: 'mercredis', 4: 'jeudis', 5: 'vendredis', 6: 'samedis' };
   function salesLevier(movers, isDown, jour) {
@@ -277,6 +280,25 @@
       html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Fenêtres de calendrier</div>'
         + '<div style="font-size:11px;color:#9CA3AF;margin:4px 0 8px;line-height:1.5;">Densité d\'événements concurrents — visez les fenêtres calmes pour capter l\'attention.</div>'
         + msStrip(j.calendar.map(function (w) { return { top: w.label, mid: (w.count != null ? w.count : ''), highlight: (w.state === 'quiet' || w.state === 'busy'), tone: (w.state === 'quiet' ? 'ok' : (w.state === 'busy' ? 'warn' : 'default')) }; }));
+    }
+    // Measured-impact engine v1 (16/07, additive): the density-contrast verdicts measured on the
+    // venue's OWN days. Renders only when the provider sent the block; absence-with-reason is shown
+    // honestly (cold start: a fresh account sees WHY nothing is measurable yet).
+    if (j.impact) {
+      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Impact mesuré sur votre CA</div>';
+      if (j.impact.available && j.impact.rows && j.impact.rows.length) {
+        html += j.impact.rows.map(function (r) {
+          var col = r.measurable ? '#111827' : '#6B7280';
+          return '<div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F3F4F6;">'
+            + '<span style="font-size:12.5px;color:#374151;">' + esc(r.label) + '</span>'
+            + '<span style="text-align:right;"><span style="font-size:12.5px;font-weight:600;color:' + col + ';">' + esc(r.verdict_fr) + '</span>'
+            + (r.detail_fr ? '<span style="display:block;font-size:11px;color:#9CA3AF;">' + esc(r.detail_fr) + '</span>' : '')
+            + '</span></div>';
+        }).join('');
+        if (j.impact.note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;line-height:1.5;">' + esc(j.impact.note) + '</div>';
+      } else if (j.impact.reason_fr) {
+        html += '<div style="font-size:12.5px;color:#6B7280;margin-top:4px;line-height:1.5;">' + esc(j.impact.reason_fr) + '</div>';
+      }
     }
     if (j.decision_lines && j.decision_lines.length) html += msDecision('Prochaines étapes', j.decision_lines);
     return html;

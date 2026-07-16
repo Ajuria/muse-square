@@ -29,6 +29,104 @@ const MY_TYPE_FR: Record<string, string> = {
   store_opening: "Ouverture de point de vente", exhibition: "Exposition", conference: "Colloque",
 };
 
+// ── Measured-impact engine v1 (events, 16/07) ───────────────────────────────────────────────────
+// The « will events cannibalize my CA? » answer, measured from the venue's OWN history: days of HIGH
+// nearby-event density vs LOW-density days, compared on `residual_pct` (fct_client_day_residual —
+// actual vs dow+trend normale, so weekday and trend are already controlled). Two contrasts: ALL
+// events ≤500 m, and SAME-BUCKET events ≤500 m (the audience that could actually cannibalize — or
+// feed — this venue). Binary event/no-event is useless in a dense city (f10c3e58: 1 zero-day in 80),
+// so the split is terciles of density. Gates before anything is stated: enough days per side AND
+// enough VARIATION (hi>lo); |t|≥2 to quantify, else the null result is stated WITH its numbers (a
+// measured "no effect" is the valuable verdict, not a shrug). Tier capped at « émergent » — one
+// window of history never earns « établi ». Association, never cause: residual_pct controls dow+trend
+// but not season/tourism confounds.
+const IMPACT_MIN_SIDE = 10;
+const IMPACT_T_QUANT = 2;
+const IMPACT_T_EMERGENT = 3;
+const IMPACT_N_EMERGENT = 30;
+
+type DensityContrast = {
+  key: "all_500m" | "same_bucket_500m";
+  label_fr: string;
+  n_high: number; n_low: number;
+  delta_pp: number; se: number; t: number;
+  hi: number; lo: number;
+  tier: "preliminaire" | "emergent" | null;   // null → below |t| gate: stated as "no measurable effect"
+};
+
+async function measureEventDensityImpact(
+  bq: any, location_id: string,
+): Promise<{ days: number; contrasts: DensityContrast[] } | null> {
+  try {
+    const [rows] = await bq.query({
+      query: `
+        WITH joined AS (
+          SELECT r.residual_pct,
+                 e.events_within_500m_count AS ev,
+                 e.events_within_500m_same_bucket_count AS evsb
+          FROM \`${PROJECT}.mart.fct_client_day_residual\` r
+          JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e
+            ON e.location_id = r.location_id AND e.date = r.date
+          WHERE r.location_id = @location_id AND r.residual_pct IS NOT NULL
+            AND e.date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY) AND CURRENT_DATE()
+        ),
+        th AS (
+          SELECT APPROX_QUANTILES(ev, 3)[OFFSET(1)] AS lo, APPROX_QUANTILES(ev, 3)[OFFSET(2)] AS hi,
+                 APPROX_QUANTILES(evsb, 3)[OFFSET(1)] AS losb, GREATEST(APPROX_QUANTILES(evsb, 3)[OFFSET(2)], 1) AS hisb
+          FROM joined
+        )
+        SELECT (SELECT COUNT(*) FROM joined) AS days,
+          'all_500m' AS metric, th.hi AS hi, th.lo AS lo,
+          COUNTIF(ev >= th.hi) AS n_high, COUNTIF(ev <= th.lo) AS n_low,
+          AVG(IF(ev >= th.hi, residual_pct, NULL)) AS mean_high, AVG(IF(ev <= th.lo, residual_pct, NULL)) AS mean_low,
+          STDDEV(IF(ev >= th.hi, residual_pct, NULL)) AS sd_high, STDDEV(IF(ev <= th.lo, residual_pct, NULL)) AS sd_low
+        FROM joined, th GROUP BY th.hi, th.lo
+        UNION ALL
+        SELECT (SELECT COUNT(*) FROM joined),
+          'same_bucket_500m', th.hisb, th.losb,
+          COUNTIF(evsb >= th.hisb), COUNTIF(evsb <= th.losb),
+          AVG(IF(evsb >= th.hisb, residual_pct, NULL)), AVG(IF(evsb <= th.losb, residual_pct, NULL)),
+          STDDEV(IF(evsb >= th.hisb, residual_pct, NULL)), STDDEV(IF(evsb <= th.losb, residual_pct, NULL))
+        FROM joined, th GROUP BY th.hisb, th.losb`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    const arr = Array.isArray(rows) ? rows : [];
+    if (!arr.length) return { days: 0, contrasts: [] };
+    const days = Number(arr[0]?.days ?? 0);
+    const LABEL: Record<string, string> = {
+      all_500m: "Tous événements (≤ 500 m)",
+      same_bucket_500m: "Événements de votre secteur (≤ 500 m)",
+    };
+    const contrasts: DensityContrast[] = [];
+    for (const r of arr) {
+      const hi = Number(r.hi), lo = Number(r.lo);
+      const n_high = Number(r.n_high), n_low = Number(r.n_low);
+      const sd_high = Number(r.sd_high), sd_low = Number(r.sd_low);
+      // Gates: sides big enough AND real variation (hi>lo — else the "sides" overlap and mean nothing).
+      if (!(hi > lo) || n_high < IMPACT_MIN_SIDE || n_low < IMPACT_MIN_SIDE) continue;
+      if (!Number.isFinite(sd_high) || !Number.isFinite(sd_low)) continue;
+      const delta = Number(r.mean_high) - Number(r.mean_low);
+      const se = Math.sqrt((sd_high * sd_high) / n_high + (sd_low * sd_low) / n_low);
+      if (!Number.isFinite(delta) || !Number.isFinite(se) || se <= 0) continue;
+      const t = delta / se;
+      const tier = Math.abs(t) >= IMPACT_T_QUANT
+        ? (Math.abs(t) >= IMPACT_T_EMERGENT && Math.min(n_high, n_low) >= IMPACT_N_EMERGENT ? "emergent" : "preliminaire")
+        : null;
+      contrasts.push({
+        key: r.metric, label_fr: LABEL[r.metric] ?? r.metric,
+        n_high, n_low, delta_pp: delta, se, t, hi, lo, tier,
+      });
+    }
+    return { days, contrasts };
+  } catch (e: any) {
+    console.warn("[events-impact] measurement skipped:", e?.message);
+    return null;
+  }
+}
+
+// French pp formatting (comma decimal, explicit sign) — display only, the raw numbers stay in data.
+const frPp = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1).replace(".", ",")} pp`;
+
 const num = (v: any): number | null => (v == null ? null : Number(v && typeof v === "object" && "value" in v ? v.value : v));
 const str = (v: any): string | null => { const s = v == null ? "" : String(v).trim(); return s || null; };
 const ymd = (v: any): string | null => (v == null ? null : (typeof v === "object" && "value" in v ? String(v.value) : String(v)));
@@ -40,7 +138,7 @@ const frDate = (iso: string | null): string | null => {
 };
 
 export async function eventsFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
-  const [profRows, evRows, calRows, ceRows] = await Promise.all([
+  const [profRows, evRows, calRows, ceRows, impact] = await Promise.all([
     bq.query({
       query: `SELECT event_type_1, event_type_2, event_type_3, main_event_objective, auto_enriched_description
               FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\`
@@ -73,6 +171,8 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
               WHERE location_id = @location_id AND date = PARSE_DATE('%Y-%m-%d', @date) LIMIT 1`,
       params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
     }).then((r: any) => r[0]?.[0]).catch(() => null),
+    // Measured-impact engine v1: high-vs-low event-density contrast on the dow+trend residual.
+    measureEventDensityImpact(bq, location_id),
   ]);
 
   // Triggering commercial temps fort (soldes/fêtes) — the DRIVER signal; leads the Paysage.
@@ -189,6 +289,45 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   if (my_types.length) {
     facts.push({ fact_fr: `Vous organisez : ${my_types.join(", ")}.`, claim_type: "observed" });
   }
+  // ── Measured-impact facts (engine v1) — the « cannibalize? » answer from the venue's own history.
+  // Quantified deltas carry claim_type observed_difference + tier (the model may causally upgrade ONLY
+  // under rule 3bis, tier named in-sentence). A below-gate result is stated WITH its numbers — a
+  // measured null is the verdict the operator needs, not an absence of answer. Cold start (a fresh
+  // account) states WHY nothing is measurable yet. Phrasing stays associative in the fact text itself.
+  const impactRows: Array<{ label: string; verdict_fr: string; detail_fr: string; measurable: boolean }> = [];
+  if (impact && impact.contrasts.length) {
+    for (const c of impact.contrasts) {
+      const lowSide = c.lo === 0 ? "sans" : `à ≤ ${c.lo}`;
+      const detail = `${c.n_high} jours à ≥ ${c.hi} vs ${c.n_low} jours ${lowSide}`;
+      if (c.tier) {
+        const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
+        facts.push({
+          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
+          claim_type: "observed_difference",
+          tier: c.tier,
+        });
+        impactRows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+      } else {
+        facts.push({
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          claim_type: "observed_difference",
+        });
+        impactRows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+      }
+    }
+  } else if (impact && impact.days > 0) {
+    facts.push({
+      fact_fr: `Impact de la densité d'événements sur votre CA : pas encore mesurable — ${impact.days} jour(s) de ventes couverts, il en faut au moins ${IMPACT_MIN_SIDE * 2} avec un contraste de densité suffisant.`,
+      claim_type: "observed",
+    });
+  }
+  const impactBlock =
+    impact == null
+      ? null
+      : impact.contrasts.length
+        ? { available: true, days: impact.days, rows: impactRows, note: "Écarts vs votre normale (jour de semaine et tendance contrôlés). Association mesurée sur vos propres journées — pas une preuve de cause." }
+        : { available: false, days: impact.days, reason_fr: impact.days > 0 ? `${impact.days} jour(s) de ventes couverts — mesure possible à partir de ${IMPACT_MIN_SIDE * 2} jours avec un contraste suffisant.` : "Aucune journée de ventes couverte par le paysage événementiel pour l'instant." };
+
   // The benchmark gap is a TRUE statement about our data, and it stops the model inventing attendance.
   facts.push({
     fact_fr: "La fréquentation des événements concurrents n'est pas publiée : aucun comparatif d'ampleur n'est possible.",
@@ -199,9 +338,11 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   if (my_types.length) sources.push("Votre profil — types d'événements que vous organisez");
   if (commercial_event) sources.push("Calendrier des périodes commerciales (soldes, fêtes)");
 
+  if (impact && impact.contrasts.length) sources.push("Impact mesuré — vos ventes vs la densité d'événements proche (normale jour-de-semaine contrôlée)");
+
   return {
     found: true,
-    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, decision_lines },
+    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, impact: impactBlock, decision_lines },
     facts,
     sources,
   };

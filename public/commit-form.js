@@ -47,20 +47,58 @@
       + "</div>";
   }
 
-  function renderOwnerPool(container, pool) {
+  // Responsable streamlining (16/07): the pool comes from the ONE team roster
+  // (/api/channels/team -> analytics.team_members, the profile's team). Self-fetched here when the
+  // caller passes only location_id — so every MSCommitForm surface (chat, insight, évolution) gets
+  // the same chips without wiring anything. Last-used responsable is remembered per location
+  // (localStorage) and PREFILLED when it still belongs to the roster; a lone-member roster prefills
+  // that member. Chip click + successful submit both update the memory.
+  var _teamCache = {};
+  function fetchTeamDefault(locationId) {
+    if (!locationId) return Promise.resolve([]);
+    if (_teamCache[locationId]) return Promise.resolve(_teamCache[locationId]);
+    return fetch("/api/channels/team?location_id=" + encodeURIComponent(locationId))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var items = (j && j.ok && Array.isArray(j.items)) ? j.items : [];
+        _teamCache[locationId] = items;
+        return items;
+      })
+      .catch(function () { return []; });
+  }
+  function lastOwnerKey(locationId) { return "ms_last_owner_" + String(locationId || ""); }
+  function rememberOwner(locationId, name) {
+    try { if (name) localStorage.setItem(lastOwnerKey(locationId), name); } catch (e) {}
+  }
+  function recallOwner(locationId) {
+    try { return localStorage.getItem(lastOwnerKey(locationId)) || ""; } catch (e) { return ""; }
+  }
+
+  function renderOwnerPool(container, pool, locationId) {
     var sugg = container.querySelector("[data-cm-owner-sugg]");
     if (!sugg) return;
     if (!pool || !pool.length) { sugg.innerHTML = ""; return; }
-    sugg.innerHTML = pool.map(function (m) {
-      var nm = (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim();
+    var names = pool.map(function (m) {
+      return (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim();
+    });
+    sugg.innerHTML = pool.map(function (m, i) {
+      var nm = names[i];
       return '<span data-cm-owner-pick="' + escapeHtml(nm) + '" style="font-size:12px;padding:4px 10px;background:#F3F4F6;color:#374151;border:1px solid #e5e7eb;border-radius:999px;cursor:pointer;">' + escapeHtml(nm) + (m.role ? " · " + escapeHtml(m.role) : "") + "</span>";
     }).join("");
     sugg.querySelectorAll("[data-cm-owner-pick]").forEach(function (opt) {
       opt.addEventListener("click", function () {
         var inp = container.querySelector("[data-cm-owner]");
         if (inp) inp.value = opt.getAttribute("data-cm-owner-pick");
+        rememberOwner(locationId, opt.getAttribute("data-cm-owner-pick"));
       });
     });
+    // Prefill: last-used responsable if still on the roster; a single-member roster prefills itself.
+    var inp = container.querySelector("[data-cm-owner]");
+    if (inp && !inp.value.trim()) {
+      var last = recallOwner(locationId);
+      if (last && names.indexOf(last) >= 0) inp.value = last;
+      else if (names.length === 1) inp.value = names[0];
+    }
   }
 
   // opts = { location_id, prefill, origin, ownerPool?, fetchOwners?() , onDone?(json), onCancel?() }
@@ -72,9 +110,12 @@
     var origin = opts.origin || {};
     var state = { window: pre.window_kind || "7d", thr: pre.thr || "modeste" };
 
-    if (opts.ownerPool) renderOwnerPool(container, opts.ownerPool);
+    if (opts.ownerPool) renderOwnerPool(container, opts.ownerPool, opts.location_id);
     else if (typeof opts.fetchOwners === "function") {
-      try { opts.fetchOwners().then(function (pool) { renderOwnerPool(container, pool); }).catch(function () {}); } catch (e) {}
+      try { opts.fetchOwners().then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {}); } catch (e) {}
+    } else {
+      // Default: the team roster (profile) — no caller wiring needed beyond location_id.
+      fetchTeamDefault(opts.location_id).then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {});
     }
 
     container.querySelectorAll("[data-cm-chip]").forEach(function (c) {
@@ -93,6 +134,7 @@
       var owner = ((container.querySelector("[data-cm-owner]") || {}).value || "").trim();
       var action = ((container.querySelector("[data-cm-action]") || {}).value || "").trim();
       if (!owner || !action) return;
+      rememberOwner(opts.location_id, owner);   // a typed name counts too — it prefills next time
       submit.disabled = true; submit.textContent = "Envoi…";
       fetch("/api/commitments", {
         method: "POST", headers: { "content-type": "application/json" },

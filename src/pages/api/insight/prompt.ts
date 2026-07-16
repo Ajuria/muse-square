@@ -4237,7 +4237,9 @@ Règles :
               entityFound = parsed?.found === true;
               entityDiscovery = parsed?.discovery === true;
               entityAnswer = typeof parsed?.answer === "string"
-                ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim()
+                // The model sometimes emits <br> despite the prose contract; the safe renderer would
+                // show it as literal text (cold-start audit 16/07) — normalize to real newlines.
+                ? parsed.answer.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?cite[^>]*>/gi, "").trim()
                 : "";
               if (Array.isArray(parsed?.competitors)) {
                 const seen = new Set<string>();
@@ -4537,28 +4539,21 @@ Règles :
           _familyCard = { render: _famRender!, data: _famResult!.data };   // full card → rendered inline in the chat
         }
 
-        // Increment 4 — ELICIT, don't degrade. An offering (WHAT-I-SELL) question on an account without
-        // enough MEASURED sales (offering provider found:false === buildIdentityFacts "insufficient")
-        // asks the user for what's missing instead of bluffing a hollow/floor answer. Protects brand
-        // trust: a clear request beats a weak answer. No guessed redirect URL (import is API-only today).
-        if (_famKey === "offering" && !_familyLed && _identity.status !== "ok") {
-          const elicitHeadline = "Ajoutez vos ventes pour cette analyse";
-          const elicitAnswer = "Je n'ai pas encore assez de ventes mesurées pour caractériser votre activité (mix produit, panier moyen, meilleures ventes). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.";
-          return new Response(JSON.stringify({
-            ok: true,
-            meta: { location_id, resolved_horizon, resolved_intent, producer: "deterministic_offering_elicit_v1", register: registerFor("deterministic_offering_elicit_v1"), mode: request_mode },
-            ai: {
-              headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [],
-              output: { headline: elicitHeadline, verdict: "", answer: elicitAnswer, key_facts: [], reasons: [], caveats: [] },
-              meta: { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
-              actions: { month_redirect_url: null, primary: null, secondary: [] },
-            },
-            actions: { month_redirect_url: null, primary: null, secondary: [] },
-            top_dates: [],
-            decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
-            window_aggregates_v3: null,
-            ui_packaging_v3: null,
-          }), { status: 200, headers: { "content-type": "application/json" } });
+        // Increment 4 — ELICIT, don't degrade. A SALES-DERIVED family question (what/when do I sell,
+        // remises, décomposition) on an account without enough MEASURED sales (provider found:false +
+        // buildIdentityFacts "insufficient") asks the user for what's missing instead of bluffing a
+        // hollow answer built from day context. Protects brand trust: a clear request beats a weak
+        // answer. Day-3 cold-start audit (16/07): generalized from offering-only — a fresh account's
+        // FIRST question is often « je vends à quelle heure ? » — and the ask now carries the upload
+        // CTA (the chat's own file picker exists since item 1; the old "no redirect" note is obsolete).
+        const SALES_ELICIT_FAMILIES = new Set(["offering", "footfall", "salesdiscount", "salesdecomp"]);
+        if (_famKey && SALES_ELICIT_FAMILIES.has(_famKey) && !_familyLed && _identity.status !== "ok") {
+          return sysDialogueResponse(
+            "Ajoutez vos ventes pour cette analyse",
+            "Je n'ai pas encore de ventes mesurées pour répondre à cette question (horaires, mix produit, panier moyen). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.",
+            "deterministic_offering_elicit_v1",
+            { type: "upload_csv", label: "Importer un fichier de ventes" },
+          );
         }
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
@@ -5147,7 +5142,7 @@ Règles :
           try {
             const parsed = JSON.parse(lookupWebRaw.replace(/^```json\s*|\s*```$/g, "").trim());
             lookupWebFound = parsed?.found === true;
-            lookupWebAnswer = typeof parsed?.answer === "string" ? parsed.answer.replace(/<\/?cite[^>]*>/gi, "").trim() : "";
+            lookupWebAnswer = typeof parsed?.answer === "string" ? parsed.answer.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?cite[^>]*>/gi, "").trim() : "";
           } catch { lookupWebFound = false; }
           if (lookupUsedWeb && lookupWebFound && lookupWebAnswer.length >= 30) {
             const webCav = "Cette réponse provient d'une recherche web en temps réel, non vérifiée par vos données Muse Square.";

@@ -587,11 +587,64 @@ if (!root) {
       setTimeout(function () { el.style.opacity = "1"; el.style.transform = "none"; }, 120 * (i - 1));
     });
   }
+  // ── Day 2 (16/07) — clickable décisions → commitment cards ──────────────────
+  // A « Prochaines étapes » line inside an inline FAMILY CARD answer gets an « M'engager » button;
+  // click opens the SHARED MSCommitForm (same form, same POST as pulse/évolution — one commit flow)
+  // prefilled with the décision text. Origin = chat_decision_<family> (own origin types — never a
+  // real card's action_type), affected date = the card's day. No-ops when commit-form.js is absent.
+  const CHAT_COMMIT_FAMILIES = {
+    footfall: 1, offering: 1, events: 1, competitor: 1, tourism: 1,
+    weather: 1, audience: 1, salesdiscount: 1, salesdecomp: 1, calendar: 1,
+  };
+  function decorateCommitableDecisions(bubble, out) {
+    try {
+      if (!window.MSCommitForm || !bubble) return;
+      const fam = out && out.meta && out.meta.resolved_family;
+      if (!fam || !CHAT_COMMIT_FAMILIES[fam] || !out.family_card) return;
+      const lines = bubble.querySelectorAll(".ie-family-card .ms-decision-line");
+      if (!lines.length) return;
+      const date = (out.family_card.data && out.family_card.data.date) || null;
+      lines.forEach(function (line) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ie-dl-commit";
+        btn.textContent = "M'engager";
+        btn.setAttribute("style", "margin-left:8px;font-size:11px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #DBEAFE;border-radius:999px;padding:2px 10px;cursor:pointer;font-family:inherit;");
+        btn.addEventListener("click", function () { openInlineCommitForm(line, fam, date); });
+        line.appendChild(btn);
+      });
+    } catch (e) { console.warn("[chat-commit] decorate failed:", e); }
+  }
+  function openInlineCommitForm(line, fam, date) {
+    const card = line.closest(".ie-family-card") || line.parentElement;
+    const existing = card ? card.querySelector(".ie-dl-commit-form") : null;
+    if (existing) existing.remove();
+    const head = line.getAttribute("data-dl-head") || "";
+    const body = line.getAttribute("data-dl-body") || "";
+    const wrap = document.createElement("div");
+    wrap.className = "ie-dl-commit-form";
+    wrap.setAttribute("style", "margin-top:8px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;");
+    wrap.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: (head ? head + " — " : "") + body } });
+    line.insertAdjacentElement("afterend", wrap);
+    window.MSCommitForm.wire(wrap, {
+      location_id: LOCATION_ID,
+      prefill: {},
+      origin: { origin_action_type: "chat_decision_" + fam, origin_affected_date: date },
+      onDone: function (j) {
+        wrap.innerHTML = j && j.ok
+          ? '<div style="padding:10px 14px;font-size:12.5px;color:#0F6E56;font-weight:600;">Engagement enregistré — suivi dans votre page Engagement.</div>'
+          : '<div style="padding:10px 14px;font-size:12.5px;color:#B91C1C;">' + window.MSCommitForm.escapeHtml((j && j.error) || "Erreur — réessayez.") + '</div>';
+      },
+      onCancel: function () { wrap.remove(); },
+    });
+  }
+
   // Instrumentation hooks — let card-harness.html drive the REAL adapter / stage handler with captured
   // payloads and synthetic stage events (verify-by-behavior). Not a public API.
   window.__ieBlocksFromResponse = (out) => blocksFromResponse(out);
   window.__ieStageHandler = makeStageEventHandler;
   window.__ieReveal = revealAnswerBlocks;
+  window.__ieDecorateCommits = decorateCommitableDecisions;
 
   function blocksFromResponse(out) {
     const n =
@@ -1074,6 +1127,7 @@ if (!root) {
         if (html) {
           setBubbleHtml(aiBubble, html);
           revealAnswerBlocks(aiBubble);   // inc ② — staggered arrival of the already-validated blocks
+          decorateCommitableDecisions(aiBubble, out);   // Day 2 — décision lines become « M'engager »
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
