@@ -570,10 +570,28 @@ if (!root) {
     if (!blocks.length) return "";
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
+
+  // inc ② — staggered block reveal. The answer is ALREADY fully validated when it renders (the gate ran
+  // server-side); this only paces its arrival: register pill + headline land instantly (the reader anchors),
+  // the remaining blocks fade in ~120 ms apart — the honest version of streaming. No-op under
+  // prefers-reduced-motion; pure presentation, the DOM content is complete from the first frame.
+  function revealAnswerBlocks(bubble) {
+    if (!bubble || !bubble.children || bubble.children.length < 3) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const kids = Array.prototype.slice.call(bubble.children);
+    kids.forEach(function (el, i) {
+      if (i < 2) return; // pill + headline: immediate
+      el.style.opacity = "0";
+      el.style.transform = "translateY(3px)";
+      el.style.transition = "opacity .28s ease, transform .28s ease";
+      setTimeout(function () { el.style.opacity = "1"; el.style.transform = "none"; }, 120 * (i - 1));
+    });
+  }
   // Instrumentation hooks — let card-harness.html drive the REAL adapter / stage handler with captured
   // payloads and synthetic stage events (verify-by-behavior). Not a public API.
   window.__ieBlocksFromResponse = (out) => blocksFromResponse(out);
   window.__ieStageHandler = makeStageEventHandler;
+  window.__ieReveal = revealAnswerBlocks;
 
   function blocksFromResponse(out) {
     const n =
@@ -1018,6 +1036,7 @@ if (!root) {
         aiBubble.className = "ie-bubble-none";
         if (html) {
           setBubbleHtml(aiBubble, html);
+          revealAnswerBlocks(aiBubble);   // inc ② — staggered arrival of the already-validated blocks
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :

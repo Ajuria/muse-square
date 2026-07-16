@@ -4371,8 +4371,10 @@ Règles :
           },
         });
         try {
+          let _rejectedFirst = false;
           ai = await callGrounded();
           if (!ai.ok) {
+            _rejectedFirst = true;
             console.warn("[DAY_WHY grounded] rejected, regenerating with feedback:", ai.errors);
             // inc ② — the "Correction en cours" row: appears when the validator rejected attempt 1 and
             // the feedback regeneration runs; done when attempt 2 returns (pass or floor).
@@ -4381,6 +4383,16 @@ Règles :
             emitStage("regen", "done");
           }
           producer = ai.ok ? (_familyLed ? "family_grounded_claude" : "grounded_day_claude") : "v3_fallback_deterministic";
+          // inc ③ — the ONE reject-rate telemetry line (owner decision: this data gates any KV revisit).
+          // Greppable in Vercel logs: rejected_first (regen tail fired), recovered (attempt 2 passed),
+          // floored (both failed → deterministic floor). Counts and flags only — never model text.
+          console.log("[telemetry][grounded]", JSON.stringify({
+            rejected_first: _rejectedFirst,
+            recovered: _rejectedFirst && ai.ok,
+            floored: !ai.ok,
+            family_led: _familyLed,
+            facts_cited: Array.isArray((ai as any)?.output?.cited_fact_ids) ? (ai as any).output.cited_fact_ids.length : null,
+          }));
         } catch (e) {
           console.error("[DAY_WHY grounded] threw:", e);
           ai = { ok: false } as any;
