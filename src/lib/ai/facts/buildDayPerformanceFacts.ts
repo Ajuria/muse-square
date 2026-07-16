@@ -83,6 +83,8 @@ export async function buildDayPerformanceFacts(location_id: string, date: string
                WHERE location_id = @location_id AND EXTRACT(DAYOFWEEK FROM date) = @bq_dow
                  AND date < DATE(@date) AND daily_revenue IS NOT NULL
                ORDER BY date DESC LIMIT ${HABITUAL_DOW_N})) AS dow_n,
+            (SELECT DATE_DIFF(MAX(date), MIN(date), DAY) + 1 FROM ${RESIDUAL}
+               WHERE location_id = @location_id AND residual_pct IS NOT NULL) AS hist_span_days,
             latest.date AS latest_date, latest.daily_revenue AS latest_ca, latest.residual_pct AS latest_res
           FROM (
             SELECT date, daily_revenue, residual_pct FROM ${RESIDUAL}
@@ -106,8 +108,19 @@ export async function buildDayPerformanceFacts(location_id: string, date: string
       const an = num(d.analog_n);
       if (Number.isFinite(an) && an >= MIN_ANALOGS && Number.isFinite(num(d.residual_vs_analog_pct))) {
         const tierFr = MATCH_TIER_FR[str(d.match_tier)] ?? "jours comparables";
+        // Pool size/composition spelled out (owner remark 16/07): the analogs share the asked day's
+        // weekday, so n analogs = n samedis/lundis/…; the venue's measured-history span gives the
+        // window they were drawn from. « médiane » without « mesurée sur quoi » reads as hand-waving.
+        const cx: any = (ctxRes[0] ?? [])[0];
+        const histWeeks = cx && Number.isFinite(num(cx.hist_span_days)) ? Math.max(1, Math.round(num(cx.hist_span_days) / 7)) : null;
+        // Pure-dow tier: « 12 samedis » already says it — the qualifier only adds signal on the
+        // weather/exact tiers (« météo similaire », « conditions identiques »). The pool LEADS the
+        // comparison (owner remark 16/07): quoting « +43 % vs … » then drags « vos 12 derniers
+        // samedis » along — a trailing “mesurée sur …” clause gets paraphrased away.
+        const tierClause = str(d.match_tier) === "dow" ? "" : ` à ${tierFr}`;
+        const pool = `${frInt(an)} derniers ${DOW_FR_PLURAL[dow]}${tierClause}${histWeeks != null ? ` (${frInt(histWeeks)} semaines d'historique mesuré)` : ""}`;
         facts.push({
-          fact_fr: `Vs vos ${frInt(an)} jours comparables (${tierFr}) : ${frSignedPct(num(d.residual_vs_analog_pct))} (médiane de ces jours : ${frInt(num(d.analog_median_revenue))} €).`,
+          fact_fr: `Vs vos ${pool} : ${frSignedPct(num(d.residual_vs_analog_pct))} — leur médiane : ${frInt(num(d.analog_median_revenue))} €.`,
           claim_type: "observed_difference",
         });
       }
