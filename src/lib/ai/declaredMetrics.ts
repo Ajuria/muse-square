@@ -33,7 +33,18 @@ export interface DeclaredMetricSpec {
   label_fr: string;
 }
 
-const INTERROGATIVE = /\b(quelle?|quelles?|quels?|combien|comment|pourquoi)\b/;
+const INTERROGATIVE = /\b(quelle?|quelles?|quels?|combien|comment|pourquoi|est[- ]ce)\b/;
+
+// Remove interrogative CLAUSES from a mixed message so a declaration sharing it survives
+// (« j'ai environ 300 clients réguliers : quel est mon CA par client ? » — owner bug 17/07: the
+// message-level guard killed the whole turn, so the natural declare-and-ask form neither captured
+// nor answered). A question clause = interrogative word … up to its « ? » (or a clause boundary).
+function stripQuestionClauses(qn: string): string {
+  return qn
+    .replace(/\b(est[- ]ce(?: que?)?|quelle?s?|quels?|combien|comment|pourquoi)\b[^?!.;]*\??/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export const DECLARED_METRICS: DeclaredMetricSpec[] = [
   {
@@ -43,7 +54,7 @@ export const DECLARED_METRICS: DeclaredMetricSpec[] = [
     label_fr: "Marge",
     formatValue: (raw) => `${String(raw).replace(".", ",")} %`,
     parseDeclaration(qn: string): number | null {
-      if (INTERROGATIVE.test(qn)) return null;
+      // Interrogative guarding lives in parseAnyDeclaration (clause-aware) — parsers stay pure.
       const m =
         qn.match(/\b(?:ma|notre) marge(?: brute| nette| moyenne| globale)?(?: est| serait| tourne| se situe)?(?: de| d environ| d'environ| a| autour de| :)?\s*(?:de\s*)?(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
         qn.match(/\bje marge (?:a |de |d environ |d'environ )?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
@@ -63,7 +74,6 @@ export const DECLARED_METRICS: DeclaredMetricSpec[] = [
     label_fr: "Clientèle",
     formatValue: (raw) => `${Number(raw).toLocaleString("fr-FR")} clients`,
     parseDeclaration(qn: string): number | null {
-      if (INTERROGATIVE.test(qn)) return null;
       if (/\bclients?\s+par\s+(jour|semaine|mois|an)\b/.test(qn)) return null;
       // « j'ai » survives norm() with its apostrophe (ASCII or typographic) — accept both plus the bare form.
       const m =
@@ -77,13 +87,30 @@ export const DECLARED_METRICS: DeclaredMetricSpec[] = [
   },
 ];
 
-/** First metric whose parser matches the normalized question, with the parsed value. */
-export function parseAnyDeclaration(qn: string): { spec: DeclaredMetricSpec; value: number } | null {
-  for (const spec of DECLARED_METRICS) {
-    const value = spec.parseDeclaration(qn);
-    if (value != null) return { spec, value };
+/** First metric whose parser matches, with the parsed value. Clause-aware interrogative guarding:
+ *  a pure declaration parses whole; a MIXED message (« j'ai 300 clients réguliers : quel est mon CA
+ *  par client ? ») parses only its non-question remainder and flags `with_question` so the caller
+ *  captures AND continues to answer; a declaration embedded IN the question itself (« est-ce que ma
+ *  marge est de 62 % ? ») never captures — the remainder is empty once the question clause is gone. */
+export function parseAnyDeclaration(
+  qn: string,
+): { spec: DeclaredMetricSpec; value: number; with_question: boolean } | null {
+  const tryParse = (s: string) => {
+    for (const spec of DECLARED_METRICS) {
+      const value = spec.parseDeclaration(s);
+      if (value != null) return { spec, value };
+    }
+    return null;
+  };
+  const hasQuestion = INTERROGATIVE.test(qn) || qn.includes("?");
+  if (!hasQuestion) {
+    const hit = tryParse(qn);
+    return hit ? { ...hit, with_question: false } : null;
   }
-  return null;
+  const remainder = stripQuestionClauses(qn);
+  if (!remainder || INTERROGATIVE.test(remainder)) return null;
+  const hit = tryParse(remainder);
+  return hit ? { ...hit, with_question: true } : null;
 }
 
 /** Spec that answers a given missing dimension, if any. */
