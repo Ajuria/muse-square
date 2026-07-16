@@ -949,16 +949,24 @@
 
   // Register pill — values identical to the Phase 0 pill in ie-prompt.js (design-tokens pill-safe /
   // source-low / source-mid). vetted #0b37e5/#fff · web #F3F4F6/#6b7280 · model #FDE8D8/#C2410C.
-  function abRegister(reg) {
+  // inc ② (C1, owner-approved): on a VETTED answer carrying a cited-fact count, the pill extends —
+  // « Vérifié · 5 faits cités » — zero new UI, and only when the count is real (never padded).
+  function abRegister(reg, factsCited) {
     var label, bg, color;
-    if (reg === 'vetted') { label = 'Vérifié'; bg = '#0b37e5'; color = '#ffffff'; }
+    if (reg === 'vetted') {
+      label = 'Vérifié';
+      if (typeof factsCited === 'number' && isFinite(factsCited) && factsCited > 0) {
+        label += ' · ' + factsCited + ' fait' + (factsCited > 1 ? 's' : '') + ' cité' + (factsCited > 1 ? 's' : '');
+      }
+      bg = '#0b37e5'; color = '#ffffff';
+    }
     else if (reg === 'web') { label = 'Web — non vérifié'; bg = '#F3F4F6'; color = '#6b7280'; }
     else { label = 'Non vérifié'; bg = '#FDE8D8'; color = '#C2410C'; }
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }
 
   var AB_PRIMITIVES = {
-    register: function (b) { return abRegister(b.register); },
+    register: function (b) { return abRegister(b.register, b.facts_cited); },
     // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
     headline: function (b) {
       var lead = b.variant === 'lead';
@@ -1015,6 +1023,12 @@
     },
     // .ie-inline-cta (right-aligned, as today's .ie-ai-cta wrapper)
     cta: function (b) {
+      // Action variant (in-page, no navigation): renders a button carrying data-ab-cta-action; the
+      // consuming surface wires the behavior by delegation (ie-prompt.js: "upload" → the chat's own
+      // file picker). Same visual voice as the link variant.
+      if (b.action) {
+        return '<div style="display:flex;justify-content:flex-end;"><button type="button" data-ab-cta-action="' + esc(b.action) + '" style="border:none;background:transparent;cursor:pointer;padding:0;font-size:13px;font-weight:500;color:#0b37e5;margin-top:12px;font-family:inherit;">' + esc(b.label || 'Continuer') + ' →</button></div>';
+      }
       if (!b.url || String(b.url).charAt(0) !== '/') return '';
       return '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:500;color:#0b37e5;text-decoration:none;margin-top:12px;">' + esc(b.label || 'Consulter') + ' →</a></div>';
     },
@@ -1040,7 +1054,8 @@
     var list = Array.isArray(blocks) ? blocks.filter(Boolean) : [];
     var hasRegister = list.some(function (b) { return b && b.type === 'register'; });
     // A clarification asserts no facts (Phase 2: the question/chips carry no claims) → no pill required.
-    var assertsNothing = list.some(function (b) { return b && b.type === 'clarification'; });
+    // Same for any block flagged asserts_nothing (elicit answers: the system ASKS for missing data).
+    var assertsNothing = list.some(function (b) { return b && (b.type === 'clarification' || b.asserts_nothing === true); });
     var html = '';
     if (!hasRegister && !assertsNothing && list.length) {
       try { console.error('[MSCardKit] blocks[] without register — rendering least-trusted pill'); } catch (e) {}

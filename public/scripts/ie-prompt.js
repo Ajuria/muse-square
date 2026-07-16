@@ -440,6 +440,82 @@ if (!root) {
     }
   });
 
+  // ----------------------------
+  // SSE READER (Phase 5 increment ①). POST + SSE means no EventSource (it can't POST): fetch →
+  // res.body.getReader() → TextDecoder → frame parser (split on \n\n, `event:`/`data:` lines, keep-alive
+  // comments tolerated) → `stage` events drive the loader rows → ONE `result` event carries
+  // {status, body}: the ERROR CONTRACT. Once the stream opens HTTP is 200 forever, so the caller
+  // reconstructs resLike = {ok: status in 2xx, status} from `result` and runs the VERBATIM existing
+  // branching. A stream that closes/errors before `result` throws → the existing catch path.
+  // ----------------------------
+  async function readPromptStream(res, onStage) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let result = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buf.indexOf("\n\n")) !== -1) {
+        const frame = buf.slice(0, sep);
+        buf = buf.slice(sep + 2);
+        let ev = "", data = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) ev = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+          // lines starting with ":" are keep-alive comments — ignored
+        }
+        if (!ev || !data) continue;
+        let payload = null;
+        try { payload = JSON.parse(data); } catch (e) { continue; }
+        if (ev === "stage" && typeof onStage === "function") onStage(payload);
+        else if (ev === "result") result = payload;
+      }
+    }
+    if (!result || typeof result.status !== "number") {
+      throw new Error("stream ended without result");
+    }
+    return result; // { status, body }
+  }
+
+  // Server-driven stage rows: on the FIRST stage event the loader switches from the timer fallback to
+  // event mode — timers cleared, rows rebuilt from events (upsert by stage key, arrival order). Same
+  // visuals, same CSS classes; the row list is now the pipeline's truth (and increment ②'s regen row
+  // can simply APPEAR). label_fr arrives on `start` from the server's owner-authored STAGE_FR.
+  function makeStageEventHandler(aiBubble, clearTimers) {
+    let eventMode = false;
+    return function onStage(s) {
+      if (!s || typeof s.k !== "string") return;
+      const box = aiBubble && aiBubble.querySelector(".ie-load-stages");
+      if (!box) return; // answer already rendered — late events are harmless
+      if (!eventMode) {
+        eventMode = true;
+        clearTimers();
+        box.innerHTML = ""; // rows are server-driven from here on
+      }
+      let row = box.querySelector('[data-k="' + s.k + '"]');
+      if (!row && s.state === "start") {
+        // inc ②: the "regen" row (Correction en cours) is the amber one — the validator caught something.
+        const dotColor = s.k === "regen" ? "#BA7517" : "var(--color-brand-blue,#0b37e5)";
+        box.insertAdjacentHTML("beforeend",
+          '<div class="ie-load-stage" data-k="' + escapeHtml(s.k) + '" style="display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .35s;font-size:13.5px;color:#6b7280;">'
+          + '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex:none;"></span>'
+          + '<span class="ie-load-lbl">' + escapeHtml(typeof s.label_fr === "string" ? s.label_fr : s.k) + '</span></div>');
+        row = box.lastElementChild;
+      }
+      if (!row) return;
+      // inc ②: a done event may carry an updated label ("Vérification des faits — validée · 5 faits cités").
+      if (typeof s.label_fr === "string" && s.label_fr) {
+        const lbl = row.querySelector(".ie-load-lbl");
+        if (lbl) lbl.textContent = s.label_fr;
+      }
+      if (s.state === "start") { row.classList.remove("done"); row.classList.add("on"); }
+      else if (s.state === "done") { row.classList.remove("on"); row.classList.add("done"); }
+    };
+  }
+
   function renderConfirmationHtml(out) {
     const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
     const params = out.params || {};
@@ -477,7 +553,7 @@ if (!root) {
   function _regFromProducer(p) {
     return p === 'web_search' ? 'web'
       : p === 'llm_only' ? 'model'
-      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1') ? null
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1') ? null
       : 'vetted';
   }
   function resolveRegister(out) {
@@ -494,9 +570,28 @@ if (!root) {
     if (!blocks.length) return "";
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
-  // Instrumentation hook — lets card-harness.html drive the REAL adapter with captured payloads
-  // (verify-by-behavior). Not a public API.
+
+  // inc ② — staggered block reveal. The answer is ALREADY fully validated when it renders (the gate ran
+  // server-side); this only paces its arrival: register pill + headline land instantly (the reader anchors),
+  // the remaining blocks fade in ~120 ms apart — the honest version of streaming. No-op under
+  // prefers-reduced-motion; pure presentation, the DOM content is complete from the first frame.
+  function revealAnswerBlocks(bubble) {
+    if (!bubble || !bubble.children || bubble.children.length < 3) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const kids = Array.prototype.slice.call(bubble.children);
+    kids.forEach(function (el, i) {
+      if (i < 2) return; // pill + headline: immediate
+      el.style.opacity = "0";
+      el.style.transform = "translateY(3px)";
+      el.style.transition = "opacity .28s ease, transform .28s ease";
+      setTimeout(function () { el.style.opacity = "1"; el.style.transform = "none"; }, 120 * (i - 1));
+    });
+  }
+  // Instrumentation hooks — let card-harness.html drive the REAL adapter / stage handler with captured
+  // payloads and synthetic stage events (verify-by-behavior). Not a public API.
   window.__ieBlocksFromResponse = (out) => blocksFromResponse(out);
+  window.__ieStageHandler = makeStageEventHandler;
+  window.__ieReveal = revealAnswerBlocks;
 
   function blocksFromResponse(out) {
     const n =
@@ -507,20 +602,38 @@ if (!root) {
 
     const blocks = [];
     const register = resolveRegister(out);
-    if (register) blocks.push({ type: "register", register });
+    // inc ② (C1, owner-approved): the vetted pill extends with the cited-fact count when the grounded
+    // answer carries one — « Vérifié · 5 faits cités ». No new wire data: cited_fact_ids is already in
+    // the envelope; absent (non-grounded paths) → the plain pill, never a padded count.
+    const _factsCited = Array.isArray(n?.cited_fact_ids) ? n.cited_fact_ids.length : null;
+    if (register) blocks.push({ type: "register", register, ...(typeof _factsCited === "number" && _factsCited > 0 ? { facts_cited: _factsCited } : {}) });
 
     const clarChips = out?.clarification && Array.isArray(out.clarification.chips) ? out.clarification.chips : null;
 
     // Family-led answer → the FULL family card inline (the detailed answer IS the card, no click-through).
     if (out && out.family_card && window.MSCardKit && typeof window.MSCardKit[out.family_card.render] === "function") {
       const lead = (typeof n.headline === "string" && n.headline.trim() && n.headline.trim() !== "Résumé") ? n.headline.trim() : "";
-      if (lead) blocks.push({ type: "headline", text: lead });
+      // Dedupe: the card renders its own `lead` line — when the packager headline IS that line,
+      // showing both prints it twice (owner bug report 16/07, footfall « pic à 10h » doubled).
+      const cardLead = (out.family_card.data && typeof out.family_card.data.lead === "string") ? out.family_card.data.lead.trim() : "";
+      if (lead && lead !== cardLead) blocks.push({ type: "headline", text: lead });
       blocks.push({ type: "card", render: out.family_card.render, data: out.family_card.data });
       return blocks;
     }
 
     const intent = typeof out?.meta?.resolved_intent === "string" ? out.meta.resolved_intent : "";
     const horizon = typeof out?.meta?.resolved_horizon === "string" ? out.meta.resolved_horizon : "";
+    const producer = typeof out?.meta?.producer === "string" ? out.meta.producer : "";
+    // ── ELICIT (the system asks the user for missing data) ── same class as clarifications: it
+    // asserts nothing about the world, so no trust pill (asserts_nothing exempts the kit's forced
+    // register). Handled BEFORE the intent branches — the DAY_DIMENSION_DETAIL branch parses the
+    // competitor-lines format and silently DROPS single-paragraph prose, which lost the elicit
+    // instruction entirely (found while verifying batch 2; also fixes the offering elicit).
+    const isElicit = producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1"
+      // Item 4 — same system-dialogue class: the capture confirmation asserts nothing (it echoes the
+      // user's own declaration back); the declared estimate is attributed in-copy (« déclarée par
+      // vous », « estimation ») rather than wearing a trust pill it hasn't earned.
+      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";
     const isTopDays = intent === "WINDOW_TOP_DAYS";
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
@@ -554,7 +667,11 @@ if (!root) {
       (typeof n.caveat === "string" && n.caveat.trim()) ? [n.caveat.trim()] : [];
 
     const primary = out?.actions?.primary;
+    // An honest-absence answer must not end on « Ouvrir le mois » — a CTA under "I can't answer that"
+    // reads as a shrug with a door slam (owner bug report 16/07). Suppress it on the absence floor.
+    const _isAbsence = out?.ai?.mode === "deterministic_honest_absence_v1";
     const ctaBlock =
+      !_isAbsence &&
       primary && typeof primary === "object" &&
       primary.type === "redirect" &&
       typeof primary.url === "string" && primary.url.startsWith("/") &&
@@ -564,15 +681,34 @@ if (!root) {
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
+    if (isElicit) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
+      // The ask carries its ACTION when the server attached one (type "upload_csv" → the chat's own
+      // file picker via data-ab-cta-action; a CTA only ships where a real surface exists).
+      if (primary && typeof primary === "object" && primary.type === "upload_csv" && typeof primary.label === "string" && primary.label.trim()) {
+        blocks.push({ type: "cta", action: "upload", label: primary.label.trim() });
+      }
+      return blocks;
+    }
+
     if (isLookup) {
       if (!answer && !keyFacts.length) {
         blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });
         return blocks;
       }
-      if (headline && headline !== "Résumé") blocks.push({ type: "headline", text: headline });
+      const lookupItems = answer.split("\n").filter(Boolean);
+      // Dedupe: when the headline IS the single found event's name, showing both prints the title twice
+      // (owner bug report 16/07 — « Festival "La Route des Imaginaires" » duplicated).
+      const firstName = (() => {
+        const raw = lookupItems[0] ? (lookupItems[0].split("||")[0] || "") : "";
+        const ci = raw.indexOf(": ");
+        return (ci > -1 ? raw.slice(ci + 2) : raw).trim();
+      })();
+      if (headline && headline !== "Résumé" && headline.trim() !== firstName) blocks.push({ type: "headline", text: headline });
       blocks.push({
         type: "lookup",
-        items: answer.split("\n").filter(Boolean).map(line => {
+        items: lookupItems.map(line => {
           const sepIdx = line.indexOf("||");
           const raw = sepIdx > -1 ? line.slice(0, sepIdx) : line;
           const desc = sepIdx > -1 ? line.slice(sepIdx + 2) : "";
@@ -840,19 +976,40 @@ if (!root) {
         ? (document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning')
         : 'planning';
 
+      // Phase 5 increment ① — streaming opt-in. A new submit aborts the in-flight one; 90 s hard timeout.
+      if (window.__iePromptCtrl) { try { window.__iePromptCtrl.abort(); } catch (e) {} }
+      const ctrl = new AbortController();
+      window.__iePromptCtrl = ctrl;
+      const killTimer = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 90000);
+
       const res = await fetch("/api/insight/prompt", {
         method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
+        headers: { "content-type": "application/json", accept: "text/event-stream, application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({
           q,
           mode: currentMode,
+          stream: true,
           thread_context: THREAD_CONTEXT,
           conversation_history: CONVERSATION_HISTORY.slice(-12),
           confirmed_params: confirmedParams || null
         })
       });
 
-      const out = await res.json().catch(() => null);
+      // ERROR CONTRACT: in stream mode the transport is 200 forever — `result` carries {status, body} and
+      // resLike reconstructs what the verbatim branching below expects. If anything stripped streaming
+      // (middleware/proxy → not event-stream), fall back to parsing the response as today's plain JSON.
+      let out, resLike;
+      const ctype = res.headers.get("content-type") || "";
+      if (res.ok && ctype.indexOf("text/event-stream") !== -1 && res.body) {
+        const r = await readPromptStream(res, makeStageEventHandler(aiBubble, clearLoadStages));
+        resLike = { ok: r.status >= 200 && r.status < 300, status: r.status };
+        out = r.body;
+      } else {
+        resLike = res;
+        out = await res.json().catch(() => null);
+      }
+      clearTimeout(killTimer);
 
       console.log("[ie-prompt] API out", out);
 
@@ -882,10 +1039,10 @@ if (!root) {
         return;
       }
 
-      if (!res.ok || !out) {
+      if (!resLike.ok || !out) {
         if (aiBubble) {
           aiBubble.className = "ie-bubble is-error";
-          aiBubble.textContent = `Erreur lors de l’analyse (HTTP ${res.status}).`;
+          aiBubble.textContent = `Erreur lors de l’analyse (HTTP ${resLike.status}).`;
         }
         return;
       }
@@ -916,6 +1073,7 @@ if (!root) {
         aiBubble.className = "ie-bubble-none";
         if (html) {
           setBubbleHtml(aiBubble, html);
+          revealAnswerBlocks(aiBubble);   // inc ② — staggered arrival of the already-validated blocks
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
@@ -949,6 +1107,16 @@ if (!root) {
     e.preventDefault();
     const send = chip.getAttribute("data-send") || "";
     if (send) submitQuestion(send);
+  });
+
+  // Elicit CTA — "upload" opens the chat's OWN file picker (the composer's attach flow, staged chip →
+  // send). No navigation, no duplicate import path: one picker, one flow.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-ab-cta-action="upload"]');
+    if (!btn) return;
+    e.preventDefault();
+    const input = document.getElementById("ie-import-file-input");
+    if (input) input.click();
   });
 
   // Delegate confirmation button clicks
@@ -1383,6 +1551,7 @@ if (!root) {
     zone: "Zone",
     nouveau_meaning: "« Nouveau » signifie",
     other: "Précision",
+    declared_margin_pct: "Marge déclarée",
   };
 
   async function refreshMemoryPanel() {
@@ -1396,8 +1565,10 @@ if (!root) {
       if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
       items.innerHTML = list.map(function (c) {
         const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
+        // declared_margin_pct stores the bare percent ("62") — display it as one.
+        const value = c.correction_type === 'declared_margin_pct' ? (c.correction_text + ' %') : c.correction_text;
         return '<div class="ie-memory-item">'
-          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(c.correction_text) + '</span>'
+          + '<span>' + escapeHtml(label) + ' : ' + escapeHtml(value) + '</span>'
           + '<button type="button" class="ie-memory-clear" data-mem-clear="' + escapeHtml(c.correction_type) + '">Oublier</button>'
           + '</div>';
       }).join("");

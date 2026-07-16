@@ -19,7 +19,10 @@ import { modelFor } from "./models";
 const PROJECT = "muse-square-open-data";
 const TABLE = `\`${PROJECT}.analytics.consulter_correction_events\``;
 
-export type CorrectionType = "activity" | "zone" | "nouveau_meaning" | "other";
+// Item 4 (16/07): "declared_margin_pct" is a DECLARED METRIC, not an identity correction — same
+// event log, same latest-active/supersede/clear lifecycle, but it must never enter the identity
+// brief (correctionsBrief filters declared_* out). correction_text holds the bare percent ("62").
+export type CorrectionType = "activity" | "zone" | "nouveau_meaning" | "other" | "declared_margin_pct";
 export type CorrectionAction = "assert" | "supersede" | "clear";
 export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string };
 
@@ -91,16 +94,29 @@ export async function appendCorrectionEvent(e: {
 // Format active corrections as the TOP identity-brief lines — authoritative, above measured sales.
 // The "CORRIGÉE PAR VOUS" label tells the prompt to lead on it and acknowledge it out loud.
 export function correctionsBrief(corrections: ActiveCorrection[]): string {
-  if (!corrections.length) return "";
-  const LABEL: Record<CorrectionType, string> = {
+  // Declared METRICS (declared_*) are numbers the user handed us, not identity — they are consumed
+  // by their own deterministic answerers (prompt.ts), never folded into the identity brief.
+  const identity = corrections.filter((c) => !c.correction_type.startsWith("declared_"));
+  if (!identity.length) return "";
+  const LABEL: Partial<Record<CorrectionType, string>> = {
     activity: "Activité (CORRIGÉE PAR VOUS — fait autorité, prime sur vos ventes mesurées et votre profil)",
     zone: "Zone (CORRIGÉE PAR VOUS — prime sur la localisation par défaut)",
     nouveau_meaning: "Sens de « nouveau » (précisé par vous)",
     other: "Précision (indiquée par vous)",
   };
-  return corrections
+  return identity
     .map((c) => `- ${LABEL[c.correction_type] ?? LABEL.other} : ${c.correction_text}`)
     .join("\n");
+}
+
+// ── Item 4 — declared-metric helpers ─────────────────────────────────────────
+// The one read path for a declared margin: latest active declared_margin_pct event, parsed + range-
+// guarded. Returns null when absent/invalid — callers fall back to the elicit.
+export async function getDeclaredMarginPct(location_id: string): Promise<number | null> {
+  const c = (await getActiveCorrections(location_id)).find((x) => x.correction_type === "declared_margin_pct");
+  if (!c) return null;
+  const pct = Number(String(c.correction_text).replace(",", "."));
+  return Number.isFinite(pct) && pct >= 1 && pct <= 95 ? pct : null;
 }
 
 // ── Hybrid capture (Phase 2.3 increment 2) ────────────────────────────────────

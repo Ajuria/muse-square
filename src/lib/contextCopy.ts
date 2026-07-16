@@ -128,6 +128,126 @@ export function formatEstimatePct(pct: number | null | undefined): string | null
   return `≈ ${sign}${Math.abs(n)} % ${CONTEXT_LABELS.impact_suffix}`;
 }
 
+// Consulter loading-stage labels (Phase 5 SSE — OWNER-FINAL, terse noun phrases). The five labels are
+// the owner-approved loader prototype strings verbatim (2026-07-15). Keyed by the stage `k` the server
+// emits; resolved at the wire edge (prompt.ts wrapper) so the pipeline itself never carries French.
+// Increment ② adds the verification-detail strings here AFTER the owner approves the wording.
+export const STAGE_FR: Record<string, string> = {
+  route: "Routage de votre question",
+  context: "Contexte du jour — météo, événements, concurrence",
+  sales: "Lecture de vos ventes",
+  generate: "Rédaction de la réponse",
+  verify: "Vérification des faits",
+  regen: "Correction en cours",   // inc ② — the validator rejected attempt 1; attempt 2 runs (owner-approved 2026-07-16)
+};
+
+// inc ② (owner-approved) — the verify row's DONE label when the validator passed and counted the cited
+// facts. n=0 → the plain "validée" (never a padded count). Composed server-side so ALL French stays here.
+export function stageVerifyDoneFr(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "Vérification des faits — validée";
+  return `Vérification des faits — validée · ${n} fait${n > 1 ? "s" : ""} cité${n > 1 ? "s" : ""}`;
+}
+
+// Batch 2 — ELICIT, don't degrade (generalized). Answer copy for questions about a dimension the
+// warehouse verifiably does NOT carry (checked across semantic+mart+intermediate+raw, 2026-07-16:
+// no margin/cost/profit, no per-customer identity, no stock, no staffing columns). One entry per
+// missing dimension: name what's missing + HOW to address it, then invite the re-ask. DRAFT copy —
+// owner owns the final wording (edit here, nothing else to touch).
+// `cta` (optional) attaches an ACTION to the ask — only where a real surface exists today:
+// action "upload" opens the chat's own CSV/Excel file picker (marge, par_client). Stock and
+// personnel have NO import surface yet, so they stay text-only — a button must never be a dead end.
+export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string; cta?: { label: string; action: "upload" } }> = {
+  marge: {
+    headline: "Marge absente de vos ventes",
+    answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, ou indiquez-moi votre marge moyenne ici (par exemple : « ma marge moyenne est de 60 % »), puis reposez-moi la question.",
+    cta: { label: "Importer un fichier de ventes", action: "upload" },
+  },
+  par_client: {
+    headline: "Ventes par client non rattachées",
+    answer: "Vos ventes ne sont pas rattachées à des clients identifiés — pas d'analyse par client possible. Importez des ventes avec un identifiant client, puis reposez-moi la question.",
+    cta: { label: "Importer un fichier de ventes", action: "upload" },
+  },
+  stock: {
+    headline: "Stocks absents de vos données",
+    answer: "Aucune donnée de stock n'est connectée. Importez vos stocks ou connectez votre outil de gestion, puis reposez-moi la question.",
+  },
+  personnel: {
+    headline: "Données d'équipe absentes",
+    answer: "Aucune donnée de personnel (effectifs, plannings) n'est connectée. Connectez votre outil de planning ou importez vos effectifs, puis reposez-moi la question.",
+  },
+};
+
+// Item 2 (16/07) — PREMISE CHECK on entity-impact questions. When the question embeds a checkable
+// claim about the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »), the answer LEADS
+// with the verdict from THEIR OWN sales (mart.fct_client_day_residual: actual vs dow+trend normale)
+// before any web research. Deterministic French — DRAFT copy, owner owns the wording. Causal
+// discipline: we confirm or refute the CA MOVE, never its cause.
+const _frPct = (n: number) => `${n < 0 ? "−" : "+"}${Math.abs(Math.round(n))} %`;
+const _frEur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+export function premiseCheckFr(p: {
+  direction: "down" | "up";
+  claimed_pct: number | null;      // absolute value as asked (47 for « 47 % »); null = direction only
+  scope_fr: string;                // « le 18/07 » (explicit date) or « sur vos 30 derniers jours »
+  extreme_pct: number;             // signed worst (down) / best (up) residual_pct in the window
+  extreme_date_fr: string;         // JJ/MM of that day
+  actual_eur: number;
+  expected_eur: number;
+}): { headline: string; text: string; refuted: boolean } {
+  const move = p.direction === "down" ? "chute" : "hausse";
+  const observed = `${_frPct(p.extreme_pct)} le ${p.extreme_date_fr} (${_frEur(p.actual_eur)} pour une normale de ${_frEur(p.expected_eur)})`;
+  if (p.claimed_pct != null) {
+    const met = p.direction === "down" ? p.extreme_pct <= -p.claimed_pct : p.extreme_pct >= p.claimed_pct;
+    if (!met) {
+      return {
+        refuted: true,
+        headline: `Pas de ${move} de ${Math.round(p.claimed_pct)} % dans vos ventes`,
+        text: `D'après vos ventes, aucune ${move} de ${Math.round(p.claimed_pct)} % ${p.scope_fr} : votre plus fort écart est de ${observed}.`,
+      };
+    }
+    return {
+      refuted: false,
+      headline: `Une ${move} de cet ordre existe dans vos ventes`,
+      text: `Vos ventes montrent bien une ${move} proche ${p.scope_fr} : ${observed}. L'écart est vérifié dans vos ventes — sa cause ne l'est pas.`,
+    };
+  }
+  return {
+    refuted: false,
+    headline: `Ce que montrent vos ventes`,
+    text: `${p.scope_fr.charAt(0).toUpperCase()}${p.scope_fr.slice(1)}, votre plus fort écart à la normale est de ${observed}. L'écart est vérifié dans vos ventes — sa cause ne l'est pas.`,
+  };
+}
+
+// Item 4 (16/07) — DECLARED-DATA loop copy (DRAFT, owner-final). A margin the user declares in chat
+// is stored (append-only corrections log) and reused: the capture turn gets a confirmation, and the
+// next margin question gets a computed estimate — measured CA × declared %, attributed « déclarée
+// par vous », labelled estimation. Deterministic composition — no LLM text anywhere in this loop.
+export function declaredCaptureFr(pct: number, superseded_pct: number | null): { headline: string; answer: string } {
+  const v = `${String(pct).replace(".", ",")} %`;
+  return {
+    headline: `Marge notée : ${v}`,
+    answer:
+      (superseded_pct != null
+        ? `Votre marge moyenne déclarée passe de ${String(superseded_pct).replace(".", ",")} % à ${v}. `
+        : `Marge moyenne de ${v} — déclarée par vous, retenue. `) +
+      `Je l'utiliserai pour vos questions de marge (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.`,
+  };
+}
+export function declaredMarginAnswerFr(p: {
+  pct: number;
+  ca_eur: number;          // measured CA over the window
+  window_fr: string;       // « vos 30 derniers jours »
+}): { headline: string; answer: string } {
+  const margin = Math.round(p.ca_eur * (p.pct / 100));
+  const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+  const v = `${String(p.pct).replace(".", ",")} %`;
+  return {
+    headline: `Marge estimée : ≈ ${eur(margin)} sur ${p.window_fr}`,
+    answer:
+      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_eur)}. Avec votre marge moyenne déclarée (${v}), cela représente ≈ ${eur(margin)} de marge estimée. ` +
+      `Estimation fondée sur une marge globale déclarée par vous — pas une mesure par produit. Pour la marge réelle par produit, ajoutez une colonne coût à votre import de ventes.`,
+  };
+}
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];

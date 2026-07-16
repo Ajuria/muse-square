@@ -1,5 +1,7 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr } from "../../../lib/contextCopy";
+import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/compare_dates";
@@ -10,7 +12,7 @@ import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
-import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMarginPct } from "../../../lib/ai/corrections";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
@@ -38,7 +40,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -425,6 +427,64 @@ const EVALUATION_MARKERS = [
   "plus risqué",
 ];
 
+// IMPACT questions about an entity ("le festival X a-t-il fait chuter mon CA ?") are EVALUATIONS, not
+// lookups — without this shield the greedy positive tokens ("festival", "y a-t-il") hijacked them onto
+// the lookup path, which answers "when is the event" and never the question (owner bug report 16/07).
+// Matched against the normalized (accent-stripped, lowercased) question.
+const IMPACT_MARKERS = [
+  "impact", "effet sur", "consequence",
+  "fait chuter", "fait baisser", "fait monter", "fait grimper",
+  "chute", "chuter", "baisse", "baisser", "cannibalis",
+  "mon ca", "mon chiffre", "mes ventes", "ma frequentation", "mon activite",
+];
+
+// Batch 2 — ELICIT, don't degrade (generalized). Dimensions the warehouse verifiably does NOT carry
+// (INFORMATION_SCHEMA sweep across semantic+mart+intermediate+raw, 2026-07-16: no margin/cost/profit,
+// no per-customer identity, no stock, no staffing columns). A question asking for one of these must
+// never fall through to a generic template (the "marge par produit" → DAY_WHY bullets failure) — it
+// returns MISSING_DIMENSION_FR copy naming what's missing + how to address it. Runs BEFORE routing so
+// EVERY path is covered. Matched on the normalized question; keys map into MISSING_DIMENSION_FR.
+function detectMissingDimension(qn: string): string | null {
+  // "marge de manœuvre / de progression / d'erreur" are figures of speech, not margin-data asks.
+  // NFD does not decompose the œ ligature, so norm() keeps it — match both spellings.
+  const margeFigurative = /marge (de man(oe|œ)uvre|de progression|d'erreur|d erreur)/.test(qn);
+  if (!margeFigurative && /\bmarges?\b|cout de revient|\bbenefices?\b|\bprofits?\b/.test(qn)) return "marge";
+  if (/\b(par|chaque) client\b|meilleurs clients|quels (sont mes )?clients|qui sont mes clients|clients? fideles?/.test(qn)) return "par_client";
+  if (/\bstocks?\b|rupture de stock/.test(qn)) return "stock";
+  if (/\bemployes?\b|\bsalaries?\b|\bpersonnel\b|\beffectifs?\b/.test(qn)) return "personnel";
+  return null;
+}
+
+// Item 2 (16/07) — PREMISE CHECK parser. An entity-impact question may embed a CHECKABLE claim about
+// the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »). High-precision: fires only when a
+// possessive revenue marker AND a direction verb are both present; the optional % is captured for the
+// met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
+// dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
+// Item 4 (16/07) — DECLARED-MARGIN parser. A DECLARATION (« ma marge moyenne est de 62 % »), not a
+// question: interrogatives are excluded so « quelle est ma marge ? » still routes to the answer/elicit
+// path. Matched on the normalized question (accents stripped). Range-guarded 1–95.
+function parseMarginDeclaration(qn: string): number | null {
+  if (/\b(quelle?|quelles?|quels?|combien|comment|pourquoi)\b/.test(qn)) return null;
+  const m =
+    qn.match(/\b(?:ma|notre) marge(?: brute| nette| moyenne| globale)?(?: est| serait| tourne| se situe)?(?: de| d environ| d'environ| a| autour de| :)?\s*(?:de\s*)?(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
+    qn.match(/\bje marge (?:a |de |d environ |d'environ )?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
+    qn.match(/\bmarge moyenne\s*(?::|de|est de)\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/);
+  if (!m) return null;
+  const pct = Number(m[1].replace(",", "."));
+  return Number.isFinite(pct) && pct >= 1 && pct <= 95 ? pct : null;
+}
+
+function parseCaClaim(qn: string): { direction: "down" | "up"; claimed_pct: number | null } | null {
+  const possessive = /\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite)\b/.test(qn);
+  if (!possessive) return null;
+  const down = /(chut|baiss|perdre|perdu|effondr|plong|recul)/.test(qn);
+  const up = /(mont|grimp|augment|hauss|boost|doubl|bondi)/.test(qn);
+  if (down === up) return null;   // neither, or contradictory — stay out
+  const m = qn.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s*%/);
+  const claimed_pct = m ? Number(m[1].replace(",", ".")) : null;
+  return { direction: down ? "down" : "up", claimed_pct: Number.isFinite(claimed_pct as number) ? claimed_pct : null };
+}
+
 const COMPARISON_MARKERS = [
   "compar",
   "difference",
@@ -703,6 +763,7 @@ function isEventLookupQuestion(qRaw: string): boolean {
   if (EVALUATION_MARKERS.some(k => s.includes(k))) return false;
   if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
   if (PLANNING_VERBS.some(k => s.includes(k))) return false;
+  if (IMPACT_MARKERS.some(k => s.includes(k))) return false;   // impact question about an entity ≠ lookup
 
   // ----------------------------
   // POSITIVE LOOKUP SIGNALS
@@ -716,8 +777,10 @@ function isEventLookupQuestion(qRaw: string): boolean {
     s.includes("calendrier") ||
     s.includes("quels evenements") ||
     s.includes("quels événements") ||
-    s.includes("y a t il") ||
-    s.includes("y a-t-il") ||
+    // "y a-t-il" alone is NOT a lookup signal — "y a-t-il un nouveau concurrent près de moi ?" is a
+    // DISCOVERY question that this token hijacked onto the lookup path (killing follow_candidates,
+    // owner bug report 16/07). It counts only when an event-ish noun follows.
+    /y a[- ]?t[- ]?il.{0,40}(evenement|concert|festival|spectacle|salon|expo|foire|feria|match|conference)/.test(s) ||
     s.includes("black friday") ||
     s.includes("saint valentin") ||
     s.includes("fete des meres") ||
@@ -895,7 +958,10 @@ function adaptDayLineItems(
   });
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+// Phase 5 commit A — PURE extraction of the POST body (wrap-don't-refactor): the entire handler moved
+// verbatim into handleCore so a streaming wrapper can run it and forward its Response, with every one of
+// the ~10 early-return sites untouched. This commit contains the move and NOTHING else.
+async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise<Response> {
   // ----------------------------
   // CONVERSATION LAYER (V1) — shapes normalized_ai only (no truth changes)
   // ----------------------------
@@ -2156,6 +2222,89 @@ export const POST: APIRoute = async ({ request, locals }) => {
       body?.thread_context && typeof body.thread_context === "object"
         ? (body.thread_context as ThreadContextV1)
         : null;
+
+    // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
+    // deterministic French, null-register producers, same shape the client's elicit branch renders.
+    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null) =>
+      new Response(JSON.stringify({
+        ok: true,
+        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode },
+        ai: {
+          headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [],
+          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [] },
+          meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
+          actions: { month_redirect_url: null, primary, secondary: [] },
+        },
+        actions: { month_redirect_url: null, primary, secondary: [] },
+        top_dates: [],
+        decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
+        window_aggregates_v3: null,
+        ui_packaging_v3: null,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+
+    // Item 4 — DECLARED-DATA capture (runs BEFORE the missing-dimension check, or « ma marge moyenne
+    // est de 62 % » would itself trigger the marge elicit). The declaration is persisted to the same
+    // append-only corrections log (supersede lifecycle, clearable in the memory panel) and confirmed
+    // deterministically. A write failure falls through to normal routing — never a dead end.
+    {
+      const _declPct = parseMarginDeclaration(q);
+      if (_declPct != null) {
+        try {
+          const prior = await getDeclaredMarginPct(location_id);
+          await appendCorrectionEvent({
+            location_id,
+            event_action: prior != null ? "supersede" : "assert",
+            correction_type: "declared_margin_pct",
+            correction_text: String(_declPct),
+            prior_value: prior != null ? String(prior) : null,
+            raw_turn: qRaw.slice(0, 500),
+            source: "chat_declared",
+          });
+          console.log("[telemetry][declared-capture]", JSON.stringify({ pct: _declPct, superseded: prior != null }));
+          const cap = declaredCaptureFr(_declPct, prior);
+          return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+        } catch (e) { console.warn("[declared-capture] failed:", e); }
+      }
+    }
+
+    // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
+    // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
+    // missing and how to add it" instead of degrading into whatever template the route lands on.
+    // Item 4: a declared margin upgrades the marge branch from elicit to a computed ESTIMATE
+    // (measured 30-day CA × declared %, attributed and labelled — deterministic, no LLM).
+    {
+      const _missingDim = detectMissingDimension(q);
+      if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
+        if (_missingDim === "marge") {
+          try {
+            const declPct = await getDeclaredMarginPct(location_id);
+            if (declPct != null) {
+              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+              const [rows] = await _bq.query({
+                query: `SELECT SUM(daily_revenue) AS ca
+                        FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+                        WHERE location_id = @location_id
+                          AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`,
+                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+              });
+              const ca = Number(rows?.[0]?.ca);
+              if (Number.isFinite(ca) && ca > 0) {
+                console.log("[telemetry][declared-answer]", JSON.stringify({ pct: declPct }));
+                const ans = declaredMarginAnswerFr({ pct: declPct, ca_eur: ca, window_fr: "vos 30 derniers jours" });
+                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
+              }
+            }
+          } catch (e) { console.warn("[declared-margin] read failed:", e); }
+        }
+        const { headline: mdHeadline, answer: mdAnswer, cta: mdCta } = MISSING_DIMENSION_FR[_missingDim];
+        // The ask carries an ACTION where a real surface exists: type "upload_csv" → the client opens
+        // the chat's own file picker (never a guessed redirect). Legacy readers ignore non-"redirect"
+        // primary types, so this is additive.
+        const mdPrimary = mdCta ? { type: "upload_csv", label: mdCta.label } : null;
+        console.log("[telemetry][missing-dimension]", JSON.stringify({ dim: _missingDim }));
+        return sysDialogueResponse(mdHeadline, mdAnswer, "deterministic_missing_dimension_elicit_v1", mdPrimary);
+      }
+    }
 
     function safeYmd10(s: any): string | null {
       if (typeof s !== "string") return null;
@@ -3477,6 +3626,8 @@ Règles :
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
 
+    emitStage("route", "done");   // Phase 5: routing (detector / V1 rules / Haiku) is resolved — dispatching
+
     switch (resolved_horizon) {
       case "month": {
         month_window = await bqOne(
@@ -3860,6 +4011,51 @@ Règles :
           const entityNameShort = entityNameNorm.split(/[\(\-,]/)[0].trim();
           console.log("[ENTITY_IMPACT] entityNameNorm:", entityNameNorm, "entityNameShort:", entityNameShort);
 
+          // Item 2 — PREMISE CHECK: when the question embeds a checkable claim about the operator's
+          // own CA (« …a-t-il fait chuter mon CA de 47 % ? »), verify THAT first against their sales
+          // (actual vs dow+trend normale), and lead the answer with the verdict. The web research
+          // then covers the entity. Deterministic; skipped silently when no claim or no rows.
+          let premise: { headline: string; text: string; refuted: boolean } | null = null;
+          const _caClaim = parseCaClaim(q);
+          if (_caClaim) {
+            try {
+              const _premDate = Array.isArray(extracted_dates) && extracted_dates.length === 1 ? extracted_dates[0] : null;
+              const premRows = await bqAll(
+                _premDate
+                  ? `SELECT date, daily_revenue, expected_revenue, residual_pct
+                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     WHERE location_id = @location_id AND date = DATE(@prem_date)
+                       AND residual_pct IS NOT NULL AND expected_revenue > 0`
+                  : `SELECT date, daily_revenue, expected_revenue, residual_pct
+                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     WHERE location_id = @location_id
+                       AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+                       AND residual_pct IS NOT NULL AND expected_revenue > 0
+                     ORDER BY residual_pct ${_caClaim.direction === "down" ? "ASC" : "DESC"}
+                     LIMIT 1`,
+                bqParams(_premDate ? { location_id, prem_date: _premDate } : { location_id })
+              );
+              const r: any = premRows?.[0];
+              if (r && Number.isFinite(Number(r.residual_pct))) {
+                const dYmd = ymdFromAnyDate(r.date) ?? "";
+                const dFr = /^(\d{4})-(\d{2})-(\d{2})/.test(dYmd) ? `${dYmd.slice(8, 10)}/${dYmd.slice(5, 7)}/${dYmd.slice(0, 4)}` : dYmd;
+                premise = premiseCheckFr({
+                  direction: _caClaim.direction,
+                  claimed_pct: _caClaim.claimed_pct,
+                  scope_fr: _premDate ? `le ${dFr}` : "sur vos 30 derniers jours",
+                  extreme_pct: Number(r.residual_pct),
+                  extreme_date_fr: dFr,
+                  actual_eur: Number(r.daily_revenue),
+                  expected_eur: Number(r.expected_revenue),
+                });
+                console.log("[telemetry][premise-check]", JSON.stringify({
+                  direction: _caClaim.direction, claimed_pct: _caClaim.claimed_pct,
+                  extreme_pct: Number(r.residual_pct), refuted: premise.refuted,
+                }));
+              }
+            } catch (e) { console.warn("[premise-check] skipped:", e); }
+          }
+
           // Step 1: Search competitor signals for this entity
           const entitySignals = await bqAll(
             `
@@ -3988,6 +4184,10 @@ Règles :
               };
               producer = "v3_fallback_deterministic";
             }
+            // Premise verdict LEADS even when the entity is in our data — verify the claim, then the entity.
+            if (premise && ai?.output && typeof ai.output === "object") {
+              ai.output.answer = `${premise.text}\n\n${typeof (ai.output as any).answer === "string" ? (ai.output as any).answer : ""}`.trim();
+            }
           } else {
             // Scenario B: entity NOT in our data → web search, GATED on relevance + completeness.
             const entitySystemPrompt = `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
@@ -4076,6 +4276,27 @@ Règles :
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
 
+            // Premise verdict LEADS the answer; on the empty-handed decline it also owns the headline
+            // (« Aucune information fiable trouvée » must not bury « pas de chute de 47 % dans vos ventes »).
+            const entityHeadlineOut = premise && !entityRelevant ? premise.headline : entityHeadline;
+            const entityAnswerOut = premise ? `${premise.text}\n\n${entityFinal}` : entityFinal;
+
+            // Item 3 — the decline's next step must be ACTIONABLE: the asked entity becomes ONE follow
+            // candidate (name-only, nothing invented), so « Ajoutez-la à votre veille » is a Suivre
+            // button, not homework. Cut the verbal clause off the extracted name (« Le X a-t-il fait
+            // chuter… » → « Le X ») and refuse garbage (question residue) rather than offer a broken
+            // button. Discovery declines excluded — no named entity to follow.
+            const _unfoundName = entityName
+              .replace(/\s+(a|va|peut|est|fait|ont|vont)[-\s]?t?[-\s]?(ils?|elles?)\b.*$/i, "")
+              .replace(/\s*\?\s*$/, "")
+              .trim();
+            const _unfoundNameOk =
+              _unfoundName.length >= 3 && _unfoundName.length <= 60 &&
+              !/%|\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite|chut|baiss|mont|grimp)\b/.test(norm(_unfoundName));
+            const unfoundCandidate = (!entityRelevant && !entityDiscovery && _unfoundNameOk)
+              ? [{ name: _unfoundName, city: "", overlap: "", difference: "", distance_m: null, rating: null, rating_count: null }]
+              : [];
+
             // Enrich each named competitor with REAL signals so the operator can judge WHO to watch first
             // instead of taking the model's word: Google Places gives its true location (→ distance from
             // YOUR venue, computed — not an LLM guess) and its GBP rating + review count (how established
@@ -4118,19 +4339,20 @@ Règles :
               meta: { location_id, resolved_horizon, resolved_intent: "ENTITY_IMPACT", producer: entityUsedWeb ? "web_search" : "llm_only", register: registerFor(entityUsedWeb ? "web_search" : "llm_only"), mode: request_mode },
               // Named competitors behind the answer → one "Suivre" action each, with the overlap /
               // difference / proximity / GBP signals needed to prioritise. Only when the answer is
-              // actually surfaced: never offer to follow a competitor we didn't state.
-              follow_candidates: enrichedCompetitors,
+              // actually surfaced: never offer to follow a competitor we didn't state — except the
+              // decline's own subject (item 3): the user named it, following it IS the next step.
+              follow_candidates: [...enrichedCompetitors, ...unfoundCandidate],
               ai: {
-                headline: entityHeadline,
+                headline: entityHeadlineOut,
                 verdict: "",
-                answer: entityFinal,
+                answer: entityAnswerOut,
                 key_facts: [],
                 reasons: [],
                 caveats: entityCaveats,
                 output: {
-                  headline: entityHeadline,
+                  headline: entityHeadlineOut,
                   verdict: "",
-                  answer: entityFinal,
+                  answer: entityAnswerOut,
                   key_facts: [],
                   reasons: [],
                   caveats: [],
@@ -4277,7 +4499,9 @@ Règles :
         // claim-typed llm envelope into the packager payload; the packager cites ONLY citable_facts and the
         // grounded validator rejects anything ungrounded. On reject → regenerate once → deterministic IR
         // (renderDayWhyV1), a grounded-by-construction floor. Never ships ungrounded LLM text.
+        emitStage("context", "start");   // Phase 5: the day brain's BQ reads — the real "contexte du jour"
         const dc_day = await assembleDayContext(bigquery, location_id, effective_date, {});
+        emitStage("context", "done");
         // Family-LED grounding — if the question maps to an insight card family ("quand je vends le
         // plus ?" → footfall), answer PRIMARILY from that family's provider: its claim-typed facts
         // become the citable whitelist and the day-brain's competing facts are DROPPED, so the answer
@@ -4289,6 +4513,7 @@ Règles :
         // Phase 1: measured customer-identity facts (what the venue sells, basket, scale), fetched in
         // PARALLEL with the family provider so it adds no critical-path latency. Folded into the
         // grounded whitelist below — the packager may cite "what you sell" when the question calls for it.
+        emitStage("sales", "start");   // Phase 5: identity facts + family provider = the "lecture de vos ventes" reads
         const _identityP = buildIdentityFacts(location_id).catch((e) => {
           console.warn("[grounded] identity facts skipped:", e);
           return { status: "insufficient" as const, reason: "error" };
@@ -4302,6 +4527,7 @@ Règles :
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
+        emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
           : [];
@@ -4360,12 +4586,28 @@ Règles :
           },
         });
         try {
+          let _rejectedFirst = false;
           ai = await callGrounded();
           if (!ai.ok) {
+            _rejectedFirst = true;
             console.warn("[DAY_WHY grounded] rejected, regenerating with feedback:", ai.errors);
+            // inc ② — the "Correction en cours" row: appears when the validator rejected attempt 1 and
+            // the feedback regeneration runs; done when attempt 2 returns (pass or floor).
+            emitStage("regen", "start");
             ai = await callGrounded(ai.errors);
+            emitStage("regen", "done");
           }
           producer = ai.ok ? (_familyLed ? "family_grounded_claude" : "grounded_day_claude") : "v3_fallback_deterministic";
+          // inc ③ — the ONE reject-rate telemetry line (owner decision: this data gates any KV revisit).
+          // Greppable in Vercel logs: rejected_first (regen tail fired), recovered (attempt 2 passed),
+          // floored (both failed → deterministic floor). Counts and flags only — never model text.
+          console.log("[telemetry][grounded]", JSON.stringify({
+            rejected_first: _rejectedFirst,
+            recovered: _rejectedFirst && ai.ok,
+            floored: !ai.ok,
+            family_led: _familyLed,
+            facts_cited: Array.isArray((ai as any)?.output?.cited_fact_ids) ? (ai as any).output.cited_fact_ids.length : null,
+          }));
         } catch (e) {
           console.error("[DAY_WHY grounded] threw:", e);
           ai = { ok: false } as any;
@@ -5554,6 +5796,11 @@ Règles :
             key_facts: Array.isArray(normalized_ai.key_facts) ? normalized_ai.key_facts : [],
             reasons: Array.isArray(normalized_ai.reasons) ? normalized_ai.reasons : [],
             caveats: Array.isArray(normalized_ai.caveats) ? normalized_ai.caveats.filter(Boolean) : [],
+            // inc ② (additive): the grounded answer's citations, so the client can extend the vetted pill
+            // (« Vérifié · 5 faits cités »). Absent on non-grounded paths — the pill stays plain.
+            ...(Array.isArray((ai as any)?.output?.cited_fact_ids)
+              ? { cited_fact_ids: (ai as any).output.cited_fact_ids }
+              : {}),
           },
         },
 
@@ -5677,4 +5924,67 @@ Règles :
       }
     );
   }
+}
+
+// ── Phase 5 commit B — the streaming wrapper (wrap-don't-refactor) ──────────────────────────────────
+// Opt-in via body.stream === true; the JSON path is the default and runs handleCore untouched with a
+// no-op emitter. Stream mode: SSE `stage` events at the pipeline's real checkpoints, then ONE `result`
+// event carrying {status, body} — the ERROR CONTRACT: once the stream opens HTTP is 200 forever, so the
+// client reconstructs resLike = {ok: status in 2xx, status} from `result` and runs its verbatim existing
+// branching (ai.ok=false → !res.ok/!out → confirmation → out.ok!==true → render). Every early-return
+// Response inside handleCore travels the same way — no return site knows streaming exists.
+// Stage labels resolved HERE from contextCopy.STAGE_FR (owner-authored French); the emitter payload has
+// no field for model text (structural truth rule).
+export const POST: APIRoute = async (ctx) => {
+  let wantStream = false;
+  try {
+    const probe = await ctx.request.clone().json();
+    wantStream = probe?.stream === true;
+  } catch { /* unparseable body → let handleCore produce today's error */ }
+  if (!wantStream) return handleCore(ctx);
+
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const enc = new TextEncoder();
+  const send = (event: string, data: unknown) =>
+    writer.write(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)).catch(() => {});
+
+  const emit: StageEmit = (k, state, extra) => {
+    // inc ② — the verify row's DONE label carries the fact count (owner-approved wording, composed from
+    // contextCopy so all French stays in the owner's file). Counts only; never model text.
+    const doneLabel =
+      state === "done" && k === "verify" && typeof extra?.facts_cited === "number"
+        ? stageVerifyDoneFr(extra.facts_cited)
+        : null;
+    void send("stage", {
+      k, state,
+      ...(state === "start" && STAGE_FR[k] ? { label_fr: STAGE_FR[k] } : {}),
+      ...(doneLabel ? { label_fr: doneLabel } : {}),
+      ...(extra ?? {}),
+    });
+  };
+
+  (async () => {
+    try {
+      emit("route", "start");
+      const res = await runWithStageEmitter(emit, () => handleCore(ctx));
+      const text = await res.text();
+      let body: unknown = null;
+      try { body = JSON.parse(text); } catch { /* body stays null; client shows HTTP-status error */ }
+      await send("result", { status: res.status, body });
+    } catch (err: any) {
+      await send("result", { status: 500, body: { ok: false, error: err?.message ?? "Unknown error" } });
+    } finally {
+      try { await writer.close(); } catch { /* client gone */ }
+    }
+  })();
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
 };
