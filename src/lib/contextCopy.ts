@@ -158,7 +158,7 @@ export function stageVerifyDoneFr(n: number): string {
 // personnel have NO import surface yet, so they stay text-only — a button must never be a dead end.
 export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string; cta?: { label: string; action: "upload" } }> = {
   marge: {
-    headline: "Marge absente de vos ventes",
+    headline: "Marge absente de vos données de vente",
     answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, ou indiquez-moi votre marge moyenne ici (par exemple : « ma marge moyenne est de 60 % »), puis reposez-moi la question.",
     cta: { label: "Importer un fichier de ventes", action: "upload" },
   },

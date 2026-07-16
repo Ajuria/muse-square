@@ -115,9 +115,9 @@ export function toGroundedDayPayload(
 //
 // OWNER-FINAL copy (terse noun-phrases, house register) — adjust wording here, never in prompt.ts.
 const ABSENCE_CATEGORY_FR: Array<{ types: CitableFact["claim_type"][]; label: string }> = [
-  { types: ["measured"], label: "réaction mesurée de vos ventes" },
+  { types: ["measured"], label: "réaction mesurée de vos ventes vs vos signaux contextuels" },
   { types: ["observed_difference"], label: "écart mesuré vs vos jours comparables" },
-  { types: ["observed_proximity", "observed_presence"], label: "signal de contexte (concurrent, événement, visiteurs)" },
+  { types: ["observed_proximity", "observed_presence"], label: "signal contextuel (concurrent, événement, visiteurs)" },
   { types: ["observed_acute"], label: "alerte météo" },
   { types: ["observed_change", "observed"], label: "changement détecté" },
 ];
@@ -130,13 +130,13 @@ export function composeHonestAbsenceFr(p: GroundedDayPayload): { headline: strin
   // there would be false advice. Europe/Paris date, lexical ISO compare. DRAFT copy (owner-final file).
   const todayParis = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
   const nextStep = p.date < todayParis
-    ? `Si vos ventes couvrent cette date, importez-les — la réponse se construira dessus.`
-    : `Interrogez un jour couvert par vos données — la réponse suivra.`;
+    ? `Si vos ventes couvrent cette période, importez-les — la réponse se construira dessus.`
+    : `Interrogez vos données concernant un jour couvert — la réponse suivra.`;
   return {
     headline: `Pas de donnée mesurée à citer pour le ${p.display_date}.`,
     answer:
       `Pour ce jour, je n'ai aucun fait vérifié à vous citer : ni ${missing.slice(0, -1).join(", ni ")}, ` +
-      `ni ${missing[missing.length - 1]}. Plutôt que de remplir ce vide, je vous le signale. ${nextStep}`,
+      `ni ${missing[missing.length - 1]}. Plutôt que de remplir ce blanc artificiellement, je vous le signale. ${nextStep}`,
   };
 }
 
