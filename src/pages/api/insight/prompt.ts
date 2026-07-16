@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -40,7 +40,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -437,6 +437,23 @@ const IMPACT_MARKERS = [
   "chute", "chuter", "baisse", "baisser", "cannibalis",
   "mon ca", "mon chiffre", "mes ventes", "ma frequentation", "mon activite",
 ];
+
+// Batch 2 — ELICIT, don't degrade (generalized). Dimensions the warehouse verifiably does NOT carry
+// (INFORMATION_SCHEMA sweep across semantic+mart+intermediate+raw, 2026-07-16: no margin/cost/profit,
+// no per-customer identity, no stock, no staffing columns). A question asking for one of these must
+// never fall through to a generic template (the "marge par produit" → DAY_WHY bullets failure) — it
+// returns MISSING_DIMENSION_FR copy naming what's missing + how to address it. Runs BEFORE routing so
+// EVERY path is covered. Matched on the normalized question; keys map into MISSING_DIMENSION_FR.
+function detectMissingDimension(qn: string): string | null {
+  // "marge de manœuvre / de progression / d'erreur" are figures of speech, not margin-data asks.
+  // NFD does not decompose the œ ligature, so norm() keeps it — match both spellings.
+  const margeFigurative = /marge (de man(oe|œ)uvre|de progression|d'erreur|d erreur)/.test(qn);
+  if (!margeFigurative && /\bmarges?\b|cout de revient|\bbenefices?\b|\bprofits?\b/.test(qn)) return "marge";
+  if (/\b(par|chaque) client\b|meilleurs clients|quels (sont mes )?clients|qui sont mes clients|clients? fideles?/.test(qn)) return "par_client";
+  if (/\bstocks?\b|rupture de stock/.test(qn)) return "stock";
+  if (/\bemployes?\b|\bsalaries?\b|\bpersonnel\b|\beffectifs?\b/.test(qn)) return "personnel";
+  return null;
+}
 
 const COMPARISON_MARKERS = [
   "compar",
@@ -2175,6 +2192,32 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       body?.thread_context && typeof body.thread_context === "object"
         ? (body.thread_context as ThreadContextV1)
         : null;
+
+    // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
+    // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
+    // missing and how to add it" instead of degrading into whatever template the route lands on.
+    {
+      const _missingDim = detectMissingDimension(q);
+      if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
+        const { headline: mdHeadline, answer: mdAnswer } = MISSING_DIMENSION_FR[_missingDim];
+        console.log("[telemetry][missing-dimension]", JSON.stringify({ dim: _missingDim }));
+        return new Response(JSON.stringify({
+          ok: true,
+          meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer: "deterministic_missing_dimension_elicit_v1", register: registerFor("deterministic_missing_dimension_elicit_v1"), mode: request_mode },
+          ai: {
+            headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [],
+            output: { headline: mdHeadline, verdict: "", answer: mdAnswer, key_facts: [], reasons: [], caveats: [] },
+            meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
+            actions: { month_redirect_url: null, primary: null, secondary: [] },
+          },
+          actions: { month_redirect_url: null, primary: null, secondary: [] },
+          top_dates: [],
+          decision_payload: { kind: "lookup", horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [], signals: {} },
+          window_aggregates_v3: null,
+          ui_packaging_v3: null,
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+    }
 
     function safeYmd10(s: any): string | null {
       if (typeof s !== "string") return null;

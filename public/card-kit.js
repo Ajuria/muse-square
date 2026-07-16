@@ -1048,7 +1048,8 @@
     var list = Array.isArray(blocks) ? blocks.filter(Boolean) : [];
     var hasRegister = list.some(function (b) { return b && b.type === 'register'; });
     // A clarification asserts no facts (Phase 2: the question/chips carry no claims) → no pill required.
-    var assertsNothing = list.some(function (b) { return b && b.type === 'clarification'; });
+    // Same for any block flagged asserts_nothing (elicit answers: the system ASKS for missing data).
+    var assertsNothing = list.some(function (b) { return b && (b.type === 'clarification' || b.asserts_nothing === true); });
     var html = '';
     if (!hasRegister && !assertsNothing && list.length) {
       try { console.error('[MSCardKit] blocks[] without register — rendering least-trusted pill'); } catch (e) {}

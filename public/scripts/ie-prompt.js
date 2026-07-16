@@ -553,7 +553,7 @@ if (!root) {
   function _regFromProducer(p) {
     return p === 'web_search' ? 'web'
       : p === 'llm_only' ? 'model'
-      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1') ? null
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1') ? null
       : 'vetted';
   }
   function resolveRegister(out) {
@@ -620,6 +620,13 @@ if (!root) {
 
     const intent = typeof out?.meta?.resolved_intent === "string" ? out.meta.resolved_intent : "";
     const horizon = typeof out?.meta?.resolved_horizon === "string" ? out.meta.resolved_horizon : "";
+    const producer = typeof out?.meta?.producer === "string" ? out.meta.producer : "";
+    // ── ELICIT (the system asks the user for missing data) ── same class as clarifications: it
+    // asserts nothing about the world, so no trust pill (asserts_nothing exempts the kit's forced
+    // register). Handled BEFORE the intent branches — the DAY_DIMENSION_DETAIL branch parses the
+    // competitor-lines format and silently DROPS single-paragraph prose, which lost the elicit
+    // instruction entirely (found while verifying batch 2; also fixes the offering elicit).
+    const isElicit = producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";
     const isTopDays = intent === "WINDOW_TOP_DAYS";
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
@@ -667,6 +674,12 @@ if (!root) {
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
+    if (isElicit) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
+      return blocks;
+    }
+
     if (isLookup) {
       if (!answer && !keyFacts.length) {
         blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });

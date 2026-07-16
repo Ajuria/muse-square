@@ -148,6 +148,30 @@ export function stageVerifyDoneFr(n: number): string {
   return `Vérification des faits — validée · ${n} fait${n > 1 ? "s" : ""} cité${n > 1 ? "s" : ""}`;
 }
 
+// Batch 2 — ELICIT, don't degrade (generalized). Answer copy for questions about a dimension the
+// warehouse verifiably does NOT carry (checked across semantic+mart+intermediate+raw, 2026-07-16:
+// no margin/cost/profit, no per-customer identity, no stock, no staffing columns). One entry per
+// missing dimension: name what's missing + HOW to address it, then invite the re-ask. DRAFT copy —
+// owner owns the final wording (edit here, nothing else to touch).
+export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: string }> = {
+  marge: {
+    headline: "Marge absente de vos ventes",
+    answer: "Vos ventes importées ne contiennent ni coût ni marge — ce calcul est impossible aujourd'hui. Ajoutez une colonne coût (ou marge) à votre import de ventes, puis reposez-moi la question.",
+  },
+  par_client: {
+    headline: "Ventes par client non rattachées",
+    answer: "Vos ventes ne sont pas rattachées à des clients identifiés — pas d'analyse par client possible. Importez des ventes avec un identifiant client, puis reposez-moi la question.",
+  },
+  stock: {
+    headline: "Stocks absents de vos données",
+    answer: "Aucune donnée de stock n'est connectée. Importez vos stocks ou connectez votre outil de gestion, puis reposez-moi la question.",
+  },
+  personnel: {
+    headline: "Données d'équipe absentes",
+    answer: "Aucune donnée de personnel (effectifs, plannings) n'est connectée. Connectez votre outil de planning ou importez vos effectifs, puis reposez-moi la question.",
+  },
+};
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];
