@@ -1,5 +1,6 @@
 import { pickAllowedPayload, assertPayloadCoverage } from "./allowlist";
 import { callClaudeMessagesAPI } from "./claude";
+import { emitStage } from "./stageEmitter";
 import { parseJsonObjectStrict } from "./json";
 import { PACKAGER_PROMPT_V3_NARRATIVE_FR } from "../contracts/packagePromptV3";
 import { PACKAGER_PROMPT_GROUNDED_DAY_FR } from "../contracts/packagerGroundedDayPrompt";
@@ -250,6 +251,8 @@ export async function runAIPackagerClaude(args: {
   /* 3) Call Claude */
   /* -------------------------------------------------------------- */
 
+  // Phase 5: real generation boundary — no-op unless a streaming request set the ALS emitter.
+  emitStage("generate", "start");
   const call = await callClaudeMessagesAPI({
     system: system_prompt,
     userPayload: payload,
@@ -262,6 +265,7 @@ export async function runAIPackagerClaude(args: {
     timeoutMs: 30_000,
     conversationHistory: extracted_history.length > 0 ? extracted_history : args.conversationHistory,
   });
+  emitStage("generate", "done");
 
   if (!call.ok) {
     return {
@@ -352,6 +356,9 @@ export async function runAIPackagerClaude(args: {
   console.log("[packager][debug] mode:", mode, "submode:", submode);
   console.log("[packager][debug] validatorFn head:", String(validatorFn).slice(0, 400));
 
+  // Phase 5: real validation boundary. `done` is emitted only on a PASS (below) — a reject falls through
+  // to the caller's regen/floor, so the verify row keeps waiting; nothing is ever claimed verified early.
+  emitStage("verify", "start");
   const res = validatorFn(parsed.value, row_enriched);
 
   let v_ok = false;
@@ -387,6 +394,12 @@ export async function runAIPackagerClaude(args: {
   /* -------------------------------------------------------------- */
   /* 6) Success */
   /* -------------------------------------------------------------- */
+
+  // Phase 5: validation PASSED — the only place `verify done` may be emitted. `facts_cited` rides along
+  // for increment ②'s detail line (a count, never model text; the emitter payload has no text field).
+  emitStage("verify", "done", {
+    ...(Array.isArray(parsed.value?.cited_fact_ids) ? { facts_cited: parsed.value.cited_fact_ids.length } : {}),
+  });
 
   return {
     ok: true,

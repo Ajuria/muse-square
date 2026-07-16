@@ -128,6 +128,18 @@ export function formatEstimatePct(pct: number | null | undefined): string | null
   return `≈ ${sign}${Math.abs(n)} % ${CONTEXT_LABELS.impact_suffix}`;
 }
 
+// Consulter loading-stage labels (Phase 5 SSE — OWNER-FINAL, terse noun phrases). The five labels are
+// the owner-approved loader prototype strings verbatim (2026-07-15). Keyed by the stage `k` the server
+// emits; resolved at the wire edge (prompt.ts wrapper) so the pipeline itself never carries French.
+// Increment ② adds the verification-detail strings here AFTER the owner approves the wording.
+export const STAGE_FR: Record<string, string> = {
+  route: "Routage de votre question",
+  context: "Contexte du jour — météo, événements, concurrence",
+  sales: "Lecture de vos ventes",
+  generate: "Rédaction de la réponse",
+  verify: "Vérification des faits",
+};
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];

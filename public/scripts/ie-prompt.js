@@ -440,6 +440,75 @@ if (!root) {
     }
   });
 
+  // ----------------------------
+  // SSE READER (Phase 5 increment ①). POST + SSE means no EventSource (it can't POST): fetch →
+  // res.body.getReader() → TextDecoder → frame parser (split on \n\n, `event:`/`data:` lines, keep-alive
+  // comments tolerated) → `stage` events drive the loader rows → ONE `result` event carries
+  // {status, body}: the ERROR CONTRACT. Once the stream opens HTTP is 200 forever, so the caller
+  // reconstructs resLike = {ok: status in 2xx, status} from `result` and runs the VERBATIM existing
+  // branching. A stream that closes/errors before `result` throws → the existing catch path.
+  // ----------------------------
+  async function readPromptStream(res, onStage) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let result = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buf.indexOf("\n\n")) !== -1) {
+        const frame = buf.slice(0, sep);
+        buf = buf.slice(sep + 2);
+        let ev = "", data = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) ev = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+          // lines starting with ":" are keep-alive comments — ignored
+        }
+        if (!ev || !data) continue;
+        let payload = null;
+        try { payload = JSON.parse(data); } catch (e) { continue; }
+        if (ev === "stage" && typeof onStage === "function") onStage(payload);
+        else if (ev === "result") result = payload;
+      }
+    }
+    if (!result || typeof result.status !== "number") {
+      throw new Error("stream ended without result");
+    }
+    return result; // { status, body }
+  }
+
+  // Server-driven stage rows: on the FIRST stage event the loader switches from the timer fallback to
+  // event mode — timers cleared, rows rebuilt from events (upsert by stage key, arrival order). Same
+  // visuals, same CSS classes; the row list is now the pipeline's truth (and increment ②'s regen row
+  // can simply APPEAR). label_fr arrives on `start` from the server's owner-authored STAGE_FR.
+  function makeStageEventHandler(aiBubble, clearTimers) {
+    let eventMode = false;
+    return function onStage(s) {
+      if (!s || typeof s.k !== "string") return;
+      const box = aiBubble && aiBubble.querySelector(".ie-load-stages");
+      if (!box) return; // answer already rendered — late events are harmless
+      if (!eventMode) {
+        eventMode = true;
+        clearTimers();
+        box.innerHTML = ""; // rows are server-driven from here on
+      }
+      let row = box.querySelector('[data-k="' + s.k + '"]');
+      if (!row && s.state === "start") {
+        box.insertAdjacentHTML("beforeend",
+          '<div class="ie-load-stage" data-k="' + escapeHtml(s.k) + '" style="display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .35s;font-size:13.5px;color:#6b7280;">'
+          + '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-brand-blue,#0b37e5);flex:none;"></span>'
+          + '<span>' + escapeHtml(typeof s.label_fr === "string" ? s.label_fr : s.k) + '</span></div>');
+        row = box.lastElementChild;
+      }
+      if (!row) return;
+      if (s.state === "start") { row.classList.remove("done"); row.classList.add("on"); }
+      else if (s.state === "done") { row.classList.remove("on"); row.classList.add("done"); }
+    };
+  }
+
   function renderConfirmationHtml(out) {
     const msg = escapeHtml(out.confirmation_message || "Voici comment j'ai compris votre demande :");
     const params = out.params || {};
@@ -840,19 +909,40 @@ if (!root) {
         ? (document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning')
         : 'planning';
 
+      // Phase 5 increment ① — streaming opt-in. A new submit aborts the in-flight one; 90 s hard timeout.
+      if (window.__iePromptCtrl) { try { window.__iePromptCtrl.abort(); } catch (e) {} }
+      const ctrl = new AbortController();
+      window.__iePromptCtrl = ctrl;
+      const killTimer = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 90000);
+
       const res = await fetch("/api/insight/prompt", {
         method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
+        headers: { "content-type": "application/json", accept: "text/event-stream, application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({
           q,
           mode: currentMode,
+          stream: true,
           thread_context: THREAD_CONTEXT,
           conversation_history: CONVERSATION_HISTORY.slice(-12),
           confirmed_params: confirmedParams || null
         })
       });
 
-      const out = await res.json().catch(() => null);
+      // ERROR CONTRACT: in stream mode the transport is 200 forever — `result` carries {status, body} and
+      // resLike reconstructs what the verbatim branching below expects. If anything stripped streaming
+      // (middleware/proxy → not event-stream), fall back to parsing the response as today's plain JSON.
+      let out, resLike;
+      const ctype = res.headers.get("content-type") || "";
+      if (res.ok && ctype.indexOf("text/event-stream") !== -1 && res.body) {
+        const r = await readPromptStream(res, makeStageEventHandler(aiBubble, clearLoadStages));
+        resLike = { ok: r.status >= 200 && r.status < 300, status: r.status };
+        out = r.body;
+      } else {
+        resLike = res;
+        out = await res.json().catch(() => null);
+      }
+      clearTimeout(killTimer);
 
       console.log("[ie-prompt] API out", out);
 
@@ -882,10 +972,10 @@ if (!root) {
         return;
       }
 
-      if (!res.ok || !out) {
+      if (!resLike.ok || !out) {
         if (aiBubble) {
           aiBubble.className = "ie-bubble is-error";
-          aiBubble.textContent = `Erreur lors de l’analyse (HTTP ${res.status}).`;
+          aiBubble.textContent = `Erreur lors de l’analyse (HTTP ${resLike.status}).`;
         }
         return;
       }

@@ -1,5 +1,7 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
+import { STAGE_FR } from "../../../lib/contextCopy";
+import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { compareDatesDeterministicV1 } from "../../../lib/ai/decision/engines/compare_dates";
@@ -3480,6 +3482,8 @@ Règles :
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
 
+    emitStage("route", "done");   // Phase 5: routing (detector / V1 rules / Haiku) is resolved — dispatching
+
     switch (resolved_horizon) {
       case "month": {
         month_window = await bqOne(
@@ -4280,7 +4284,9 @@ Règles :
         // claim-typed llm envelope into the packager payload; the packager cites ONLY citable_facts and the
         // grounded validator rejects anything ungrounded. On reject → regenerate once → deterministic IR
         // (renderDayWhyV1), a grounded-by-construction floor. Never ships ungrounded LLM text.
+        emitStage("context", "start");   // Phase 5: the day brain's BQ reads — the real "contexte du jour"
         const dc_day = await assembleDayContext(bigquery, location_id, effective_date, {});
+        emitStage("context", "done");
         // Family-LED grounding — if the question maps to an insight card family ("quand je vends le
         // plus ?" → footfall), answer PRIMARILY from that family's provider: its claim-typed facts
         // become the citable whitelist and the day-brain's competing facts are DROPPED, so the answer
@@ -4292,6 +4298,7 @@ Règles :
         // Phase 1: measured customer-identity facts (what the venue sells, basket, scale), fetched in
         // PARALLEL with the family provider so it adds no critical-path latency. Folded into the
         // grounded whitelist below — the packager may cite "what you sell" when the question calls for it.
+        emitStage("sales", "start");   // Phase 5: identity facts + family provider = the "lecture de vos ventes" reads
         const _identityP = buildIdentityFacts(location_id).catch((e) => {
           console.warn("[grounded] identity facts skipped:", e);
           return { status: "insufficient" as const, reason: "error" };
@@ -4305,6 +4312,7 @@ Règles :
           if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
+        emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
           : [];
@@ -5682,4 +5690,58 @@ Règles :
   }
 }
 
-export const POST: APIRoute = (ctx) => handleCore(ctx);
+// ── Phase 5 commit B — the streaming wrapper (wrap-don't-refactor) ──────────────────────────────────
+// Opt-in via body.stream === true; the JSON path is the default and runs handleCore untouched with a
+// no-op emitter. Stream mode: SSE `stage` events at the pipeline's real checkpoints, then ONE `result`
+// event carrying {status, body} — the ERROR CONTRACT: once the stream opens HTTP is 200 forever, so the
+// client reconstructs resLike = {ok: status in 2xx, status} from `result` and runs its verbatim existing
+// branching (ai.ok=false → !res.ok/!out → confirmation → out.ok!==true → render). Every early-return
+// Response inside handleCore travels the same way — no return site knows streaming exists.
+// Stage labels resolved HERE from contextCopy.STAGE_FR (owner-authored French); the emitter payload has
+// no field for model text (structural truth rule).
+export const POST: APIRoute = async (ctx) => {
+  let wantStream = false;
+  try {
+    const probe = await ctx.request.clone().json();
+    wantStream = probe?.stream === true;
+  } catch { /* unparseable body → let handleCore produce today's error */ }
+  if (!wantStream) return handleCore(ctx);
+
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const enc = new TextEncoder();
+  const send = (event: string, data: unknown) =>
+    writer.write(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)).catch(() => {});
+
+  const emit: StageEmit = (k, state, extra) => {
+    void send("stage", {
+      k, state,
+      ...(state === "start" && STAGE_FR[k] ? { label_fr: STAGE_FR[k] } : {}),
+      ...(extra ?? {}),
+    });
+  };
+
+  (async () => {
+    try {
+      emit("route", "start");
+      const res = await runWithStageEmitter(emit, () => handleCore(ctx));
+      const text = await res.text();
+      let body: unknown = null;
+      try { body = JSON.parse(text); } catch { /* body stays null; client shows HTTP-status error */ }
+      await send("result", { status: res.status, body });
+    } catch (err: any) {
+      await send("result", { status: 500, body: { ok: false, error: err?.message ?? "Unknown error" } });
+    } finally {
+      try { await writer.close(); } catch { /* client gone */ }
+    }
+  })();
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
+};
