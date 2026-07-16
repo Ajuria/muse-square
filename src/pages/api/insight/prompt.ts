@@ -895,7 +895,10 @@ function adaptDayLineItems(
   });
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+// Phase 5 commit A — PURE extraction of the POST body (wrap-don't-refactor): the entire handler moved
+// verbatim into handleCore so a streaming wrapper can run it and forward its Response, with every one of
+// the ~10 early-return sites untouched. This commit contains the move and NOTHING else.
+async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise<Response> {
   // ----------------------------
   // CONVERSATION LAYER (V1) — shapes normalized_ai only (no truth changes)
   // ----------------------------
@@ -5677,4 +5680,6 @@ Règles :
       }
     );
   }
-};
+}
+
+export const POST: APIRoute = (ctx) => handleCore(ctx);
