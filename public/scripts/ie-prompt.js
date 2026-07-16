@@ -1610,7 +1610,10 @@ if (!root) {
     nouveau_meaning: "« Nouveau » signifie",
     other: "Précision",
     declared_margin_pct: "Marge déclarée",
+    declared_client_count: "Clientèle déclarée",
   };
+  // Declared metrics store bare values — display each with its unit.
+  const MEMORY_VALUE_SUFFIX = { declared_margin_pct: " %", declared_client_count: " clients" };
 
   async function refreshMemoryPanel() {
     const panel = document.getElementById("ie-memory");
@@ -1623,8 +1626,7 @@ if (!root) {
       if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
       items.innerHTML = list.map(function (c) {
         const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
-        // declared_margin_pct stores the bare percent ("62") — display it as one.
-        const value = c.correction_type === 'declared_margin_pct' ? (c.correction_text + ' %') : c.correction_text;
+        const value = c.correction_text + (MEMORY_VALUE_SUFFIX[c.correction_type] || '');
         // WHO + WHEN, when recorded (declarant from the Destinataires roster; date from the event log).
         const meta = (c.declarant_name ? ' — par ' + c.declarant_name : '')
           + (c.corrected_at ? ' (' + c.corrected_at.slice(8, 10) + '/' + c.corrected_at.slice(5, 7) + ')' : '');

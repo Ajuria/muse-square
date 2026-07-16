@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -13,7 +13,8 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
-import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMarginPct } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
+import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
@@ -461,19 +462,7 @@ function detectMissingDimension(qn: string): string | null {
 // possessive revenue marker AND a direction verb are both present; the optional % is captured for the
 // met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
 // dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
-// Item 4 (16/07) — DECLARED-MARGIN parser. A DECLARATION (« ma marge moyenne est de 62 % »), not a
-// question: interrogatives are excluded so « quelle est ma marge ? » still routes to the answer/elicit
-// path. Matched on the normalized question (accents stripped). Range-guarded 1–95.
-function parseMarginDeclaration(qn: string): number | null {
-  if (/\b(quelle?|quelles?|quels?|combien|comment|pourquoi)\b/.test(qn)) return null;
-  const m =
-    qn.match(/\b(?:ma|notre) marge(?: brute| nette| moyenne| globale)?(?: est| serait| tourne| se situe)?(?: de| d environ| d'environ| a| autour de| :)?\s*(?:de\s*)?(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
-    qn.match(/\bje marge (?:a |de |d environ |d'environ )?\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/) ||
-    qn.match(/\bmarge moyenne\s*(?::|de|est de)\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%/);
-  if (!m) return null;
-  const pct = Number(m[1].replace(",", "."));
-  return Number.isFinite(pct) && pct >= 1 && pct <= 95 ? pct : null;
-}
+// Declared-metric parsers live in lib/ai/declaredMetrics.ts (registry) since 16/07.
 
 function parseCaClaim(qn: string): { direction: "down" | "up"; claimed_pct: number | null } | null {
   const possessive = /\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite)\b/.test(qn);
@@ -2257,31 +2246,35 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         ui_packaging_v3: null,
       }), { status: 200, headers: { "content-type": "application/json" } });
 
-    // Item 4 — DECLARED-DATA capture (runs BEFORE the missing-dimension check, or « ma marge moyenne
-    // est de 62 % » would itself trigger the marge elicit). The declaration is persisted to the same
-    // append-only corrections log (supersede lifecycle, clearable in the memory panel) and confirmed
-    // deterministically. A write failure falls through to normal routing — never a dead end.
+    // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
+    // or « ma marge moyenne est de 62 % » would itself trigger the elicit). The registry
+    // (declaredMetrics.ts) owns the parsers/bounds; the declaration is persisted to the corrections
+    // log (supersede lifecycle, clearable in the memory panel, declarant from the Destinataires
+    // roster) and confirmed deterministically. A write failure falls through — never a dead end.
     {
-      const _declPct = parseMarginDeclaration(q);
-      if (_declPct != null) {
+      const _decl = parseAnyDeclaration(q);
+      if (_decl != null) {
         try {
-          const prior = await getDeclaredMarginPct(location_id);
-          // WHO declared — the client sends the roster name (Destinataires; last-used responsable,
-          // owner decision 16/07: roster identity, accounts are shared). Guarded, nullable.
+          const prior = await getDeclaredMetric(location_id, _decl.spec.correction_type);
           const _declBy = typeof body?.declared_by === "string" && body.declared_by.trim()
             ? body.declared_by.trim().slice(0, 80) : null;
           await appendCorrectionEvent({
             location_id,
             event_action: prior != null ? "supersede" : "assert",
-            correction_type: "declared_margin_pct",
-            correction_text: String(_declPct),
-            prior_value: prior != null ? String(prior.pct) : null,
+            correction_type: _decl.spec.correction_type,
+            correction_text: String(_decl.value),
+            prior_value: prior != null ? prior.raw : null,
             raw_turn: qRaw.slice(0, 500),
             source: "chat_declared",
             declarant_name: _declBy,
           });
-          console.log("[telemetry][declared-capture]", JSON.stringify({ pct: _declPct, superseded: prior != null, has_declarant: !!_declBy }));
-          const cap = declaredCaptureFr(_declPct, prior?.pct ?? null, _declBy);
+          console.log("[telemetry][declared-capture]", JSON.stringify({ type: _decl.spec.correction_type, value: _decl.value, superseded: prior != null, has_declarant: !!_declBy }));
+          const cap = declaredCaptureFr({
+            label_fr: _decl.spec.label_fr,
+            value_fr: _decl.spec.formatValue(String(_decl.value)),
+            prior_value_fr: prior != null ? _decl.spec.formatValue(prior.raw) : null,
+            declarant_name: _declBy,
+          });
           return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
         } catch (e) { console.warn("[declared-capture] failed:", e); }
       }
@@ -2290,14 +2283,16 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
     // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
     // missing and how to add it" instead of degrading into whatever template the route lands on.
-    // Item 4: a declared margin upgrades the marge branch from elicit to a computed ESTIMATE
-    // (measured 30-day CA × declared %, attributed and labelled — deterministic, no LLM).
+    // Item 4 (registry, 16/07): a declared metric upgrades its dimension's branch from elicit to a
+    // computed ESTIMATE over measured 30-day CA (marge: CA × %, par-client: CA ÷ effectif) —
+    // attributed « déclarée par X le JJ/MM/AAAA », labelled estimation, deterministic, no LLM.
     {
       const _missingDim = detectMissingDimension(q);
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
-        if (_missingDim === "marge") {
+        const _metric = metricForMissingDim(_missingDim);
+        if (_metric) {
           try {
-            const decl = await getDeclaredMarginPct(location_id);
+            const decl = await getDeclaredMetric(location_id, _metric.correction_type);
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
@@ -2309,15 +2304,15 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
               });
               const ca = Number(rows?.[0]?.ca);
               if (Number.isFinite(ca) && ca > 0) {
-                console.log("[telemetry][declared-answer]", JSON.stringify({ pct: decl.pct }));
-                const ans = declaredMarginAnswerFr({
-                  pct: decl.pct, ca_eur: ca, window_fr: "vos 30 derniers jours",
-                  declarant_name: decl.declarant_name, declared_on: decl.corrected_at,
-                });
+                console.log("[telemetry][declared-answer]", JSON.stringify({ type: _metric.correction_type, value: decl.value }));
+                const common = { ca_eur: ca, window_fr: "vos 30 derniers jours", declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
+                const ans = _metric.correction_type === "declared_client_count"
+                  ? declaredClientCountAnswerFr({ count: decl.value, ...common })
+                  : declaredMarginAnswerFr({ pct: decl.value, ...common });
                 return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
               }
             }
-          } catch (e) { console.warn("[declared-margin] read failed:", e); }
+          } catch (e) { console.warn("[declared-metric] read failed:", e); }
         }
         const { headline: mdHeadline, answer: mdAnswer, cta: mdCta } = MISSING_DIMENSION_FR[_missingDim];
         // The ask carries an ACTION where a real surface exists: type "upload_csv" → the client opens

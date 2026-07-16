@@ -19,10 +19,13 @@ import { modelFor } from "./models";
 const PROJECT = "muse-square-open-data";
 const TABLE = `\`${PROJECT}.analytics.consulter_correction_events\``;
 
-// Item 4 (16/07): "declared_margin_pct" is a DECLARED METRIC, not an identity correction — same
-// event log, same latest-active/supersede/clear lifecycle, but it must never enter the identity
-// brief (correctionsBrief filters declared_* out). correction_text holds the bare percent ("62").
-export type CorrectionType = "activity" | "zone" | "nouveau_meaning" | "other" | "declared_margin_pct";
+// Item 4 (16/07): "declared_*" types are DECLARED METRICS, not identity corrections — same event
+// log, same latest-active/supersede/clear lifecycle, but they never enter the identity brief
+// (correctionsBrief filters declared_* out). correction_text holds the bare value ("62", "300").
+// The metric registry (parsers, bounds, answer wiring) lives in lib/ai/declaredMetrics.ts.
+export type CorrectionType =
+  | "activity" | "zone" | "nouveau_meaning" | "other"
+  | "declared_margin_pct" | "declared_client_count";
 export type CorrectionAction = "assert" | "supersede" | "clear";
 export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string; declarant_name: string | null; corrected_at: string | null };
 
@@ -117,17 +120,28 @@ export function correctionsBrief(corrections: ActiveCorrection[]): string {
     .join("\n");
 }
 
-// ── Item 4 — declared-metric helpers ─────────────────────────────────────────
-// The one read path for a declared margin: latest active declared_margin_pct event, parsed + range-
-// guarded. Returns null when absent/invalid — callers fall back to the elicit.
+// ── Declared-metric read path (generalized 16/07) ────────────────────────────
+// ONE read for any declared metric: latest active event of the given type, numeric-parsed.
+// Returns null when absent or non-numeric — callers fall back to the elicit. Bounds live in the
+// metric registry (declaredMetrics.ts) and are enforced at CAPTURE; reads trust the stored value.
+export async function getDeclaredMetric(
+  location_id: string,
+  correction_type: CorrectionType,
+): Promise<{ value: number; raw: string; declarant_name: string | null; corrected_at: string | null } | null> {
+  const c = (await getActiveCorrections(location_id)).find((x) => x.correction_type === correction_type);
+  if (!c) return null;
+  const value = Number(String(c.correction_text).replace(",", "."));
+  if (!Number.isFinite(value)) return null;
+  return { value, raw: c.correction_text, declarant_name: c.declarant_name, corrected_at: c.corrected_at };
+}
+
+// Back-compat wrapper (item-4 call sites) — the margin read, range-guarded as before.
 export async function getDeclaredMarginPct(
   location_id: string,
 ): Promise<{ pct: number; declarant_name: string | null; corrected_at: string | null } | null> {
-  const c = (await getActiveCorrections(location_id)).find((x) => x.correction_type === "declared_margin_pct");
-  if (!c) return null;
-  const pct = Number(String(c.correction_text).replace(",", "."));
-  if (!(Number.isFinite(pct) && pct >= 1 && pct <= 95)) return null;
-  return { pct, declarant_name: c.declarant_name, corrected_at: c.corrected_at };
+  const m = await getDeclaredMetric(location_id, "declared_margin_pct");
+  if (!m || m.value < 1 || m.value > 95) return null;
+  return { pct: m.value, declarant_name: m.declarant_name, corrected_at: m.corrected_at };
 }
 
 // ── Hybrid capture (Phase 2.3 increment 2) ────────────────────────────────────
