@@ -177,6 +177,46 @@ export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: st
   },
 };
 
+// Item 2 (16/07) — PREMISE CHECK on entity-impact questions. When the question embeds a checkable
+// claim about the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »), the answer LEADS
+// with the verdict from THEIR OWN sales (mart.fct_client_day_residual: actual vs dow+trend normale)
+// before any web research. Deterministic French — DRAFT copy, owner owns the wording. Causal
+// discipline: we confirm or refute the CA MOVE, never its cause.
+const _frPct = (n: number) => `${n < 0 ? "−" : "+"}${Math.abs(Math.round(n))} %`;
+const _frEur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+export function premiseCheckFr(p: {
+  direction: "down" | "up";
+  claimed_pct: number | null;      // absolute value as asked (47 for « 47 % »); null = direction only
+  scope_fr: string;                // « le 18/07 » (explicit date) or « sur vos 30 derniers jours »
+  extreme_pct: number;             // signed worst (down) / best (up) residual_pct in the window
+  extreme_date_fr: string;         // JJ/MM of that day
+  actual_eur: number;
+  expected_eur: number;
+}): { headline: string; text: string; refuted: boolean } {
+  const move = p.direction === "down" ? "chute" : "hausse";
+  const observed = `${_frPct(p.extreme_pct)} le ${p.extreme_date_fr} (${_frEur(p.actual_eur)} pour une normale de ${_frEur(p.expected_eur)})`;
+  if (p.claimed_pct != null) {
+    const met = p.direction === "down" ? p.extreme_pct <= -p.claimed_pct : p.extreme_pct >= p.claimed_pct;
+    if (!met) {
+      return {
+        refuted: true,
+        headline: `Pas de ${move} de ${Math.round(p.claimed_pct)} % dans vos ventes`,
+        text: `D'après vos ventes, aucune ${move} de ${Math.round(p.claimed_pct)} % ${p.scope_fr} : votre plus fort écart est de ${observed}.`,
+      };
+    }
+    return {
+      refuted: false,
+      headline: `Une ${move} de cet ordre existe dans vos ventes`,
+      text: `Vos ventes montrent bien une ${move} proche ${p.scope_fr} : ${observed}. L'écart est vérifié dans vos ventes — sa cause ne l'est pas.`,
+    };
+  }
+  return {
+    refuted: false,
+    headline: `Ce que montrent vos ventes`,
+    text: `${p.scope_fr.charAt(0).toUpperCase()}${p.scope_fr.slice(1)}, votre plus fort écart à la normale est de ${observed}. L'écart est vérifié dans vos ventes — sa cause ne l'est pas.`,
+  };
+}
+
 // Fill {distance} / {nom} (and any future placeholders) in a fallback string.
 export function fillContextFallback(labelKey: string, vars: Record<string, string> = {}): string | null {
   const tpl = CONTEXT_FALLBACK_FR[labelKey];

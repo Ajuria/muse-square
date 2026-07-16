@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -453,6 +453,22 @@ function detectMissingDimension(qn: string): string | null {
   if (/\bstocks?\b|rupture de stock/.test(qn)) return "stock";
   if (/\bemployes?\b|\bsalaries?\b|\bpersonnel\b|\beffectifs?\b/.test(qn)) return "personnel";
   return null;
+}
+
+// Item 2 (16/07) — PREMISE CHECK parser. An entity-impact question may embed a CHECKABLE claim about
+// the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »). High-precision: fires only when a
+// possessive revenue marker AND a direction verb are both present; the optional % is captured for the
+// met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
+// dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
+function parseCaClaim(qn: string): { direction: "down" | "up"; claimed_pct: number | null } | null {
+  const possessive = /\b(mon ca|mon chiffre|mes ventes|ma frequentation|mon activite)\b/.test(qn);
+  if (!possessive) return null;
+  const down = /(chut|baiss|perdre|perdu|effondr|plong|recul)/.test(qn);
+  const up = /(mont|grimp|augment|hauss|boost|doubl|bondi)/.test(qn);
+  if (down === up) return null;   // neither, or contradictory — stay out
+  const m = qn.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s*%/);
+  const claimed_pct = m ? Number(m[1].replace(",", ".")) : null;
+  return { direction: down ? "down" : "up", claimed_pct: Number.isFinite(claimed_pct as number) ? claimed_pct : null };
 }
 
 const COMPARISON_MARKERS = [
@@ -3928,6 +3944,51 @@ Règles :
           const entityNameShort = entityNameNorm.split(/[\(\-,]/)[0].trim();
           console.log("[ENTITY_IMPACT] entityNameNorm:", entityNameNorm, "entityNameShort:", entityNameShort);
 
+          // Item 2 — PREMISE CHECK: when the question embeds a checkable claim about the operator's
+          // own CA (« …a-t-il fait chuter mon CA de 47 % ? »), verify THAT first against their sales
+          // (actual vs dow+trend normale), and lead the answer with the verdict. The web research
+          // then covers the entity. Deterministic; skipped silently when no claim or no rows.
+          let premise: { headline: string; text: string; refuted: boolean } | null = null;
+          const _caClaim = parseCaClaim(q);
+          if (_caClaim) {
+            try {
+              const _premDate = Array.isArray(extracted_dates) && extracted_dates.length === 1 ? extracted_dates[0] : null;
+              const premRows = await bqAll(
+                _premDate
+                  ? `SELECT date, daily_revenue, expected_revenue, residual_pct
+                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     WHERE location_id = @location_id AND date = DATE(@prem_date)
+                       AND residual_pct IS NOT NULL AND expected_revenue > 0`
+                  : `SELECT date, daily_revenue, expected_revenue, residual_pct
+                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     WHERE location_id = @location_id
+                       AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+                       AND residual_pct IS NOT NULL AND expected_revenue > 0
+                     ORDER BY residual_pct ${_caClaim.direction === "down" ? "ASC" : "DESC"}
+                     LIMIT 1`,
+                bqParams(_premDate ? { location_id, prem_date: _premDate } : { location_id })
+              );
+              const r: any = premRows?.[0];
+              if (r && Number.isFinite(Number(r.residual_pct))) {
+                const dYmd = ymdFromAnyDate(r.date) ?? "";
+                const dFr = /^(\d{4})-(\d{2})-(\d{2})/.test(dYmd) ? `${dYmd.slice(8, 10)}/${dYmd.slice(5, 7)}/${dYmd.slice(0, 4)}` : dYmd;
+                premise = premiseCheckFr({
+                  direction: _caClaim.direction,
+                  claimed_pct: _caClaim.claimed_pct,
+                  scope_fr: _premDate ? `le ${dFr}` : "sur vos 30 derniers jours",
+                  extreme_pct: Number(r.residual_pct),
+                  extreme_date_fr: dFr,
+                  actual_eur: Number(r.daily_revenue),
+                  expected_eur: Number(r.expected_revenue),
+                });
+                console.log("[telemetry][premise-check]", JSON.stringify({
+                  direction: _caClaim.direction, claimed_pct: _caClaim.claimed_pct,
+                  extreme_pct: Number(r.residual_pct), refuted: premise.refuted,
+                }));
+              }
+            } catch (e) { console.warn("[premise-check] skipped:", e); }
+          }
+
           // Step 1: Search competitor signals for this entity
           const entitySignals = await bqAll(
             `
@@ -4056,6 +4117,10 @@ Règles :
               };
               producer = "v3_fallback_deterministic";
             }
+            // Premise verdict LEADS even when the entity is in our data — verify the claim, then the entity.
+            if (premise && ai?.output && typeof ai.output === "object") {
+              ai.output.answer = `${premise.text}\n\n${typeof (ai.output as any).answer === "string" ? (ai.output as any).answer : ""}`.trim();
+            }
           } else {
             // Scenario B: entity NOT in our data → web search, GATED on relevance + completeness.
             const entitySystemPrompt = `Tu es un analyste d'impact concurrentiel pour un opérateur de site physique en France. Tu réponds en français.
@@ -4144,6 +4209,11 @@ Règles :
               ? ["Cette réponse est basée sur une recherche web en temps réel, pas sur les données Muse Square."]
               : [];
 
+            // Premise verdict LEADS the answer; on the empty-handed decline it also owns the headline
+            // (« Aucune information fiable trouvée » must not bury « pas de chute de 47 % dans vos ventes »).
+            const entityHeadlineOut = premise && !entityRelevant ? premise.headline : entityHeadline;
+            const entityAnswerOut = premise ? `${premise.text}\n\n${entityFinal}` : entityFinal;
+
             // Enrich each named competitor with REAL signals so the operator can judge WHO to watch first
             // instead of taking the model's word: Google Places gives its true location (→ distance from
             // YOUR venue, computed — not an LLM guess) and its GBP rating + review count (how established
@@ -4189,16 +4259,16 @@ Règles :
               // actually surfaced: never offer to follow a competitor we didn't state.
               follow_candidates: enrichedCompetitors,
               ai: {
-                headline: entityHeadline,
+                headline: entityHeadlineOut,
                 verdict: "",
-                answer: entityFinal,
+                answer: entityAnswerOut,
                 key_facts: [],
                 reasons: [],
                 caveats: entityCaveats,
                 output: {
-                  headline: entityHeadline,
+                  headline: entityHeadlineOut,
                   verdict: "",
-                  answer: entityFinal,
+                  answer: entityAnswerOut,
                   key_facts: [],
                   reasons: [],
                   caveats: [],
