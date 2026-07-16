@@ -166,7 +166,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           threat_level,
           audience_overlap_pct,
           industry_match_tier,
-          distance_km
+          distance_km,
+          lat,
+          lon
         FROM \`${projectId}.semantic.vw_insight_event_competitors_followed\`
         WHERE clerk_user_id = @clerk_user_id
           AND location_id   = @location_id
@@ -194,6 +196,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       competitor_secondary_audience: r.competitor_secondary_audience ?? null,
       city:                       r.city ?? null,
       address:                    r.address ?? null,
+      lat:                        r.lat != null ? Number(r.lat) : null,
+      lon:                        r.lon != null ? Number(r.lon) : null,
     }));
 
     const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({

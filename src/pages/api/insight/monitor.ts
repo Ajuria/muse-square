@@ -324,8 +324,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     let activeGoal: any = null;
     let activity: any = null;
     let disabledThemes: string[] = [];
+    // Performance volet (Pulse radar) — last 8 daily sales rows for the CA-vs-habituel glance +
+    // 7-day bars + freshness. Read alongside the per-user reads; fails soft to null (accounts
+    // with no CSV import simply have no rows — the volet renders its cold-start invite).
+    let salesSummary: any = null;
     if (clerk_user_id) {
-      const [goalRes, actRes, recoRes] = await Promise.all([
+      const [goalRes, actRes, recoRes, salesRes] = await Promise.all([
         bq.query({
           query: `
             SELECT goal, goal_label_fr, goal_scope
@@ -364,6 +368,26 @@ export const GET: APIRoute = async ({ url, locals }) => {
           params: { clerk_user_id, location_id },
           location: "EU",
         }).catch(() => [[]] as any[]),
+        bq.query({
+          query: `
+            SELECT
+              CAST(transaction_date AS STRING) AS date,
+              daily_revenue,
+              daily_transactions,
+              avg_basket,
+              revenue_30d_avg,
+              revenue_vs_30d_avg_pct,
+              revenue_same_weekday_last_week,
+              revenue_vs_last_week_pct,
+              revenue_robust_z
+            FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+            WHERE location_id = @location_id
+            ORDER BY transaction_date DESC
+            LIMIT 8
+          `,
+          params: { location_id },
+          location: "EU",
+        }).catch(() => [[]] as any[]),
       ]);
       const goalRows = goalRes?.[0];
       activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
@@ -378,6 +402,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           if (Array.isArray(cfg?.disabled_themes)) disabledThemes = cfg.disabled_themes;
         }
       } catch { disabledThemes = []; }
+      const salesRows = salesRes?.[0];
+      salesSummary = (Array.isArray(salesRows) && salesRows.length) ? salesRows : null;
     }
 
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
@@ -950,6 +976,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       })),
       active_goal: activeGoal,
       activity: activity,
+      sales_summary: salesSummary,
       event_status: eventStatus,
       worst_day_count: worstDayCount,
       total_day_count: days.length,
