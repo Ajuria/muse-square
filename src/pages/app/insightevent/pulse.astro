@@ -3896,7 +3896,10 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Radar v5 — Volet Performance (sales_summary du monitor, 8 jours desc)
   // ----------------------------------------------------------------
-  function renderPerfDetail(ss) {
+  function renderPerfDetail(ss, missing) {
+    if (missing) {
+      return '<div style="font-size:13px;color:#6B7280;line-height:1.5;padding:8px 0 2px;">Données de ventes indisponibles pour le moment — rechargez la page.</div>';
+    }
     if (!Array.isArray(ss) || !ss.length) {
       return '<div style="display:flex;align-items:center;gap:14px;padding:8px 0 2px;">'
         + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Importez vos ventes (CSV) pour suivre votre chiffre d’affaires ici, jour par jour.</div>'
@@ -3974,17 +3977,20 @@ if (!location_id) {
     var THREAT_BADGE = { high: { bg: "#fee2e2", fg: "#991b1b", t: "Menace élevée" }, moderate: { bg: "#fef3c7", fg: "#92400e", t: "Menace modérée" }, low: { bg: "#f3f4f6", fg: "#6b7280", t: "Menace faible" } };
     var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
 
-    // Où sont-ils — carte Leaflet lazy (initConcMap au premier dépliage) ; le fond gris + le
-    // lien "Ouvrir la carte" restent le fallback si Leaflet ou les coordonnées manquent.
-    var mapHtml = '<div style="border:0.5px solid var(--color-border);border-radius:10px;overflow:hidden;margin-top:2px;">'
-      + '<div id="pls-conc-map" style="height:200px;background:#EBEEF2;position:relative;">'
-        + '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:#94a3b8;">Carte en cours de chargement…</div>'
+    // Où sont-ils — la VRAIE carte : le bouton data-radar-carte (déjà câblé) bascule Pulse en
+    // vue « carte » qui rend /app/insightevent/map en iframe (concurrents suivis + événements,
+    // leaflet auto-chargé par la page carte — jamais rechargé ici, cf. commentaire ~l.332).
+    var mapHtml = '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid var(--color-border);border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;margin-top:2px;">'
+      + '<div style="position:relative;height:120px;background:#EBEEF2;">'
+        + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
+          + '<circle cx="200" cy="60" r="50" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
+          + '<circle cx="200" cy="60" r="22" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
+          + '<circle cx="200" cy="60" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
+        + '</svg>'
+        + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:0.5px solid var(--color-border);border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:5px 10px;">Ouvrir la carte →</span>'
       + '</div>'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#fff;">'
-        + '<span style="font-size:11px;color:var(--color-text-secondary);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D3BB3;margin-right:4px;"></span>Vous&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;margin-right:4px;"></span>Menace modérée&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;margin-right:4px;"></span>Menace faible</span>'
-        + '<a href="/app/insightevent/map" style="font-size:11px;font-weight:600;color:#1D3BB3;text-decoration:none;">Ouvrir la carte →</a>'
-      + '</div>'
-    + '</div>';
+      + '<div style="padding:11px 14px;font-size:12px;color:var(--color-text-secondary);">' + followedCount + ' concurrent' + (followedCount > 1 ? 's' : '') + ' suivi' + (followedCount > 1 ? 's' : '') + ' et les événements autour — carte complète</div>'
+    + '</button>';
 
     // Ce qu'ils font — activité réelle par concurrent suivi (signals ±7 j + expositions actives).
     var byComp = new Map();
@@ -4036,45 +4042,6 @@ if (!location_id) {
         + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Gérer mes suivis →</a>'
       + '</div>'
     + '</div>';
-  }
-
-  // Carte du volet Concurrence — Leaflet auto-hébergé (/vendor/leaflet), injecté au premier
-  // dépliage seulement. Fallback silencieux (fond gris + lien carte) si lib/coords manquent.
-  function initConcMap(profile, followed) {
-    var el = document.getElementById("pls-conc-map");
-    if (!el || el._msMapInit) return;
-    var vLat = Number(profile && profile.latitude);
-    var vLon = Number(profile && profile.longitude);
-    if (!Number.isFinite(vLat) || !Number.isFinite(vLon)) return;
-    el._msMapInit = true;
-    var boot = function() {
-      if (typeof L === "undefined" || !document.getElementById("pls-conc-map")) return;
-      try { if (window._msConcMap) { window._msConcMap.remove(); } } catch (e) {}
-      el.innerHTML = "";
-      var map = L.map(el, { zoomControl: false, scrollWheelZoom: false, dragging: false, doubleClickZoom: false });
-      window._msConcMap = map;
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors" }).addTo(map);
-      var pts = [[vLat, vLon]];
-      L.circleMarker([vLat, vLon], { radius: 8, color: "#fff", weight: 2, fillColor: "#1D3BB3", fillOpacity: 1 }).addTo(map).bindTooltip("Vous", { direction: "top" });
-      (followed || []).forEach(function(fc) {
-        if (fc.lat == null || fc.lon == null) return;
-        var col = fc.threat_level === "high" ? "#dc2626" : fc.threat_level === "moderate" ? "#d97706" : "#94a3b8";
-        L.circleMarker([Number(fc.lat), Number(fc.lon)], { radius: 7, color: "#fff", weight: 2, fillColor: col, fillOpacity: 1 }).addTo(map).bindTooltip(fc.competitor_name || "", { direction: "top" });
-        pts.push([Number(fc.lat), Number(fc.lon)]);
-      });
-      map.fitBounds(pts, { padding: [28, 28], maxZoom: 15 });
-      // Le volet vient de passer display:none -> block : re-mesurer une fois le layout posé.
-      setTimeout(function() { try { map.invalidateSize(); map.fitBounds(pts, { padding: [28, 28], maxZoom: 15 }); } catch (e) {} }, 120);
-    };
-    if (typeof L !== "undefined") { boot(); return; }
-    if (!document.getElementById("ms-leaflet-css")) {
-      var lk = document.createElement("link");
-      lk.id = "ms-leaflet-css"; lk.rel = "stylesheet"; lk.href = "/vendor/leaflet/leaflet.css";
-      document.head.appendChild(lk);
-    }
-    var sc = document.createElement("script");
-    sc.src = "/vendor/leaflet/leaflet.js"; sc.onload = boot;
-    document.head.appendChild(sc);
   }
 
   // ----------------------------------------------------------------
@@ -5090,7 +5057,9 @@ if (!location_id) {
       _threatLevel = followedCount > 0 ? "favorable" : "neutre";
       threatSecondary = followedCount > 0 ? `${followedCount} concurrent${followedCount > 1 ? "s" : ""} suivi${followedCount > 1 ? "s" : ""}` : "";
     }
-    const _threatSev = sevStyle(_threatLevel);
+    // Radar v5 : chip neutre quand il n'y a pas de conflit (couleur = signal, comme le proto) —
+    // « Aucun conflit direct » en gris, jamais en vert décoratif.
+    const _threatSev = sevStyle(_threatLevel === "favorable" ? "neutre" : _threatLevel);
     const threatTitle = "Menaces concurrentielles";
     const threatChip = { label: threatPrimary, bg: _threatSev.bg, fg: _threatSev.fg };
     const threatAccent = _threatSev.ac;
@@ -5110,8 +5079,11 @@ if (!location_id) {
 
     // Volet 2 : Performance de l'entreprise — sales_summary du monitor (8 derniers jours de CA).
     const _ss = Array.isArray(data.sales_summary) ? data.sales_summary : [];
+    // undefined = payload antérieur au champ (vieux serveur / vieux cache) — on dit
+    // « indisponible », jamais « aucune donnée » (faux pour un compte qui a des ventes).
+    const _ssMissing = (data.sales_summary === undefined);
     const _ssLatest = _ss.length ? _ss[0] : null;
-    let perfSecondary = "Aucune donnée de ventes", perfChip = null, perfAccent = "";
+    let perfSecondary = _ssMissing ? "Données de ventes indisponibles" : "Aucune donnée de ventes", perfChip = null, perfAccent = "";
     if (_ssLatest) {
       const _ssIsToday = normalizeYmd(_ssLatest.date) === todayYmd();
       const _ssTx = Number(_ssLatest.daily_transactions || 0);
@@ -5128,13 +5100,13 @@ if (!location_id) {
       }
     }
     const perfStrip = renderRadarStrip("perf", "banknote", "Performance de l'entreprise",
-      escapeHtml(perfSecondary), renderPerfDetail(_ss), false, { accent: perfAccent, chip: perfChip });
+      escapeHtml(perfSecondary), renderPerfDetail(_ss, _ssMissing), false, { chip: perfChip });
 
     // Volet 3 : Concurrence — que font-ils, où sont-ils (la découverte vit dans Consulter).
     // Chip/threat logic réutilisée telle quelle ; accent seulement en conflit (couleur = signal).
     const concStrip = renderRadarStrip("conc", "target", "Concurrence", threatSecondary,
       renderConcurrenceDetail(competitorSignals, data._followed_competitors || [], followedCount),
-      false, { accent: (_threatLevel === "alerte" || _threatLevel === "attention") ? threatAccent : "", chip: threatChip });
+      false, { chip: threatChip });
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
@@ -5307,7 +5279,6 @@ if (!location_id) {
       if (!body) return;
       body.style.display = open ? "block" : "none";
       if (chevron) chevron.style.transform = open ? "rotate(180deg)" : "none";
-      if (open && id === "conc") initConcMap(data.profile, data._followed_competitors || []);
     };
     const _voletIds = Array.from(root.querySelectorAll("[data-radar-toggle]")).map(b => b.getAttribute("data-radar-toggle"));
     root.querySelectorAll("[data-radar-toggle]").forEach(btn => {
@@ -5691,7 +5662,9 @@ if (!location_id) {
   // payload per (location, date-window) in sessionStorage so a return paints INSTANTLY from cache
   // while the live fetch below repaints. The date-window in the key auto-invalidates the cache each
   // day. sessionStorage is tab-scoped, so it never leaks across users/tabs.
-  function pulseCacheKey(loc) { return "ms_pulse_v1_" + loc + "_" + dates.join(","); }
+  // v2: payload schema gained sales_summary (radar v5) — v1 cached payloads must never paint
+  // a false « Aucune donnée de ventes » cold-start on accounts that HAVE sales.
+  function pulseCacheKey(loc) { return "ms_pulse_v2_" + loc + "_" + dates.join(","); }
   function readPulseCache(loc) {
     try {
       var raw = sessionStorage.getItem(pulseCacheKey(loc));
