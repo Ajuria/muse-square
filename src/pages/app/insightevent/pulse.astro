@@ -5208,10 +5208,24 @@ if (!location_id) {
       btn.addEventListener("click", async () => {
         const d = btn.getAttribute("data-pill-date");
         if (!d) return;
-        const csResult = await fetchCompetitorSignals(d).catch(() => ({ signals: [], followed_count: 0 }));
-        data._competitor_signals = csResult.signals;
-        data._competitor_followed_count = csResult.followed_count;
+        // Per-day (18/07) : render IMMÉDIAT à la nouvelle date (le hero/score n'attend pas le réseau),
+        // puis refetch des signaux Concurrence POUR CE JOUR sur le bon périmètre — par site fusionné
+        // en vue agrégée, le site AFFICHÉ sinon (l'ancien handler fetchait toujours le site de
+        // session, et bloquait le render). Guard anti-course : seule la dernière date cliquée écrit.
         renderPulse(data, d, "radar");
+        const _token = (window.__plsCsToken = (window.__plsCsToken || 0) + 1);
+        try {
+          const _isAgg = Array.isArray(data._locations) && data._locations.length > 1;
+          const csResult = _isAgg
+            ? fuseCompetitorSignals(await Promise.all(data._locations.map(l =>
+                fetchCompetitorSignals(d, l.location_id).catch(() => ({ signals: [], followed_count: 0, top_threats: [], followed_competitors: [] })))))
+            : await fetchCompetitorSignals(d, currentLocationId);
+          if (window.__plsCsToken !== _token) return;
+          data._competitor_signals = csResult.signals;
+          data._competitor_followed_count = csResult.followed_count;
+          if (Array.isArray(csResult.followed_competitors) && csResult.followed_competitors.length) data._followed_competitors = csResult.followed_competitors;
+          renderPulse(data, d, "radar");
+        } catch (e) {}
       });
     });
 
@@ -5727,6 +5741,148 @@ if (!location_id) {
       }
       const primaryPulse = pulseFor(currentLocationId);
 
+      // Radar v5 (18/07) — LA fusion multi-sites, extraite en fonction UNIQUE : utilisée par la
+      // peinture cache-first ET par le chemin live — jamais deux implémentations qui divergent.
+      // Retourne mergedData avec all_feed NON filtré (le caller applique filterFeedByWindow).
+      // Radar v5 (18/07) — fusion Concurrence multi-sites, extraite en fonction UNIQUE (loader +
+      // refetch per-day des pilules) : suivis dédupliqués par competitor_id (min distance), signaux
+      // par competitor_event_id, compte = max (jamais une somme qui double-compte).
+      function fuseCompetitorSignals(csAll) {
+        const out = {};
+        const _csFollowedById = new Map();
+          const _csSignalsById = new Map();
+          let _csTopThreats = [];
+          csAll.forEach(function(cs){
+            (cs.followed_competitors || []).forEach(function(fc){
+              var prev = _csFollowedById.get(fc.competitor_id);
+              if (!prev || (fc.distance_km != null && (prev.distance_km == null || Number(fc.distance_km) < Number(prev.distance_km)))) _csFollowedById.set(fc.competitor_id, fc);
+            });
+            (cs.signals || []).forEach(function(s){
+              var k = String(s.competitor_event_id || (s.competitor_id + "|" + s.event_name));
+              if (!_csSignalsById.has(k)) _csSignalsById.set(k, s);
+            });
+            if ((cs.top_threats || []).length > _csTopThreats.length) _csTopThreats = cs.top_threats;
+          });
+          out._competitor_signals = Array.from(_csSignalsById.values());
+          out._competitor_followed_count = csAll.reduce(function(m, cs){ return Math.max(m, Number(cs.followed_count || 0)); }, 0);
+          out._top_threats = _csTopThreats;
+          out._followed_competitors = Array.from(_csFollowedById.values());
+          return { signals: out._competitor_signals, followed_count: out._competitor_followed_count, top_threats: out._top_threats, followed_competitors: out._followed_competitors };
+      }
+
+      function buildMergedFromValid(valid, locs) {
+          const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
+            (data.all_feed || []).map(a => ({ ...a, location_id: loc.location_id, location_label: loc.company_name || loc.location_id }))
+          );
+          // Dedup regional signals that are identical within the same region
+          const REGIONAL_SUBTYPES = new Set([
+            "weather_hazard_onset", "weather_worsened", "weather_improved",
+            "calendar_audience_shift", "regime_change",
+            "mega_event_activation", "mega_event_end",
+          ]);
+          const seenRegional = new Set();
+          const mergedFeed = mergedFeedRaw.filter(a => {
+            const sub = String(a?.change_subtype || "").toLowerCase();
+            if (!REGIONAL_SUBTYPES.has(sub)) return true;
+            const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "");
+            if (seenRegional.has(key)) return false;
+            seenRegional.add(key);
+            return true;
+          });
+
+          const dateMap = new Map();
+          for (const { data } of valid) {
+            for (const day of (data.days || [])) {
+              const ymd = String(day.date || "").slice(0, 10);
+              const existing = dateMap.get(ymd);
+              if (!existing) {
+                dateMap.set(ymd, { ...day });
+              } else {
+                if (day.opportunity_score !== null && (existing.opportunity_score === null || day.opportunity_score < existing.opportunity_score)) {
+                  existing.opportunity_score = day.opportunity_score;
+                }
+                // Merge regime: keep worst (C > B > A)
+                const REGIME_ORDER = { A: 0, B: 1, C: 2 };
+                const existingRegime = String(existing.opportunity_regime || "B").toUpperCase();
+                const dayRegime = String(day.opportunity_regime || "B").toUpperCase();
+                if ((REGIME_ORDER[dayRegime] || 0) > (REGIME_ORDER[existingRegime] || 0)) {
+                  existing.opportunity_regime = day.opportunity_regime;
+                }
+                if (day.is_forced_regime_c_flag) existing.is_forced_regime_c_flag = true;
+                existing.attendance   = [...(existing.attendance   || []), ...(day.attendance   || [])];
+                existing.operations   = [...(existing.operations   || []), ...(day.operations   || [])];
+                existing.installation = [...(existing.installation || []), ...(day.installation || [])];
+                existing.context      = [...(existing.context      || []), ...(day.context      || [])];
+              }
+            }
+          }
+          const mergedDays = [...dateMap.values()];
+
+          const mergedProfile = valid[0].data.profile || null;
+
+          const mergedData = {
+            ok: true,
+            profile: mergedProfile,
+            days: mergedDays,
+            all_feed: mergedFeed,
+            action_candidates: valid.flatMap(({ data, loc }) =>
+              (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
+            ),
+            _locations: locs,
+            competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
+            _siteData: valid.map(({ data, loc }) => ({
+              location_id: loc.location_id,
+              label: loc.company_name || loc.location_id,
+              profile: data.profile || null,
+              days: data.days || [],
+            })),
+          };
+
+          // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
+          // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
+          // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur
+          // fct_client_sales_signals_daily). robust_z n'est pas agrégeable → null => chip neutre,
+          // jamais de couleur inventée sur l'agrégat.
+          // HONNÊTETÉ des bases de comparaison : une moyenne 30 j (ou un même-jour-semaine) qui ne
+          // couvre PAS tous les sites contribuant au CA de la date produirait un % faux (CA total
+          // comparé à une base partielle) → la base et son % ne sont émis que si CHAQUE site
+          // contributeur de la date porte la valeur. Un site sans ligne à une date (fermé, ou import
+          // en retard) contribue 0 au total — indiscernables l'un de l'autre, on somme ce qui existe.
+          const _ssByDate = new Map();
+          for (const { data } of valid) {
+            for (const r of (data.sales_summary || [])) {
+              const k = String((r.date && r.date.value) || r.date || "").slice(0, 10);
+              if (!k) continue;
+              const e = _ssByDate.get(k) || { date: k, daily_revenue: 0, daily_transactions: 0, revenue_30d_avg: 0, revenue_same_weekday_last_week: 0, _sites: 0, _avgCount: 0, _swCount: 0 };
+              e._sites++;
+              e.daily_revenue += Number(r.daily_revenue) || 0;
+              e.daily_transactions += Number(r.daily_transactions) || 0;
+              if (r.revenue_30d_avg != null && Number.isFinite(Number(r.revenue_30d_avg))) { e.revenue_30d_avg += Number(r.revenue_30d_avg); e._avgCount++; }
+              if (r.revenue_same_weekday_last_week != null && Number.isFinite(Number(r.revenue_same_weekday_last_week))) { e.revenue_same_weekday_last_week += Number(r.revenue_same_weekday_last_week); e._swCount++; }
+              _ssByDate.set(k, e);
+            }
+          }
+          mergedData.sales_summary = Array.from(_ssByDate.values())
+            .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
+            .map(e => {
+              const fullAvg = e._avgCount === e._sites && e.revenue_30d_avg > 0;
+              const fullSw = e._swCount === e._sites && e.revenue_same_weekday_last_week > 0;
+              return {
+                date: e.date,
+                daily_revenue: e.daily_revenue,
+                daily_transactions: e.daily_transactions,
+                avg_basket: e.daily_transactions > 0 ? e.daily_revenue / e.daily_transactions : null,
+                revenue_30d_avg: fullAvg ? e.revenue_30d_avg : null,
+                revenue_vs_30d_avg_pct: fullAvg ? ((e.daily_revenue - e.revenue_30d_avg) / e.revenue_30d_avg) * 100 : null,
+                revenue_same_weekday_last_week: fullSw ? e.revenue_same_weekday_last_week : null,
+                revenue_vs_last_week_pct: fullSw ? ((e.daily_revenue - e.revenue_same_weekday_last_week) / e.revenue_same_weekday_last_week) * 100 : null,
+                revenue_robust_z: null,
+              };
+            });
+          return mergedData;
+      }
+
+
       const locs = await fetchLocations().catch(() => []);
       allLocations = locs;
 
@@ -5744,6 +5900,20 @@ if (!location_id) {
         if (addrEl) addrEl.textContent = `${locs.length} sites surveillés`;
         if (subtitleEl) subtitleEl.textContent = `Veille opérationnelle · 7 jours · ${locs.length} sites`;
 
+        // Peinture cache-first (18/07) : la vue agrégée n'exploitait JAMAIS le cache par site que
+        // fetchPulse écrit — chaque reload attendait N monitors à vide. Tous les sites en cache →
+        // fusion depuis le cache et paint IMMÉDIAT, le live ci-dessous repeint (stale-while-
+        // revalidate, même pattern que le single-site). TOUT-OU-RIEN : un agrégat partiel
+        // afficherait des totaux faux — mieux vaut l'attente que le mensonge.
+        try {
+          const cachedValid = locs.map(function(l){ const c = readPulseCache(l.location_id); return c ? { data: c, loc: l } : null; });
+          if (locs.length && cachedValid.every(Boolean)) {
+            const cm = buildMergedFromValid(cachedValid, locs);
+            cm.all_feed = filterFeedByWindow(cm.all_feed, 0);
+            renderPulse(cm, todayYmd(), "radar");
+          }
+        } catch (e) {}
+
         const results = await Promise.all(
           locs.map(l => pulseFor(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
@@ -5756,114 +5926,7 @@ if (!location_id) {
         }).catch(function(){});
         if (!valid.length) throw new Error("Aucune donnée disponible.");
 
-        const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
-          (data.all_feed || []).map(a => ({ ...a, location_id: loc.location_id, location_label: loc.company_name || loc.location_id }))
-        );
-        // Dedup regional signals that are identical within the same region
-        const REGIONAL_SUBTYPES = new Set([
-          "weather_hazard_onset", "weather_worsened", "weather_improved",
-          "calendar_audience_shift", "regime_change",
-          "mega_event_activation", "mega_event_end",
-        ]);
-        const seenRegional = new Set();
-        const mergedFeed = mergedFeedRaw.filter(a => {
-          const sub = String(a?.change_subtype || "").toLowerCase();
-          if (!REGIONAL_SUBTYPES.has(sub)) return true;
-          const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "");
-          if (seenRegional.has(key)) return false;
-          seenRegional.add(key);
-          return true;
-        });
-
-        const dateMap = new Map();
-        for (const { data } of valid) {
-          for (const day of (data.days || [])) {
-            const ymd = String(day.date || "").slice(0, 10);
-            const existing = dateMap.get(ymd);
-            if (!existing) {
-              dateMap.set(ymd, { ...day });
-            } else {
-              if (day.opportunity_score !== null && (existing.opportunity_score === null || day.opportunity_score < existing.opportunity_score)) {
-                existing.opportunity_score = day.opportunity_score;
-              }
-              // Merge regime: keep worst (C > B > A)
-              const REGIME_ORDER = { A: 0, B: 1, C: 2 };
-              const existingRegime = String(existing.opportunity_regime || "B").toUpperCase();
-              const dayRegime = String(day.opportunity_regime || "B").toUpperCase();
-              if ((REGIME_ORDER[dayRegime] || 0) > (REGIME_ORDER[existingRegime] || 0)) {
-                existing.opportunity_regime = day.opportunity_regime;
-              }
-              if (day.is_forced_regime_c_flag) existing.is_forced_regime_c_flag = true;
-              existing.attendance   = [...(existing.attendance   || []), ...(day.attendance   || [])];
-              existing.operations   = [...(existing.operations   || []), ...(day.operations   || [])];
-              existing.installation = [...(existing.installation || []), ...(day.installation || [])];
-              existing.context      = [...(existing.context      || []), ...(day.context      || [])];
-            }
-          }
-        }
-        const mergedDays = [...dateMap.values()];
-
-        const mergedProfile = valid[0].data.profile || null;
-
-        const mergedData = {
-          ok: true,
-          profile: mergedProfile,
-          days: mergedDays,
-          all_feed: mergedFeed,
-          action_candidates: valid.flatMap(({ data, loc }) =>
-            (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
-          ),
-          _locations: locs,
-          competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
-          _siteData: valid.map(({ data, loc }) => ({
-            location_id: loc.location_id,
-            label: loc.company_name || loc.location_id,
-            profile: data.profile || null,
-            days: data.days || [],
-          })),
-        };
-
-        // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
-        // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
-        // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur
-        // fct_client_sales_signals_daily). robust_z n'est pas agrégeable → null => chip neutre,
-        // jamais de couleur inventée sur l'agrégat.
-        // HONNÊTETÉ des bases de comparaison : une moyenne 30 j (ou un même-jour-semaine) qui ne
-        // couvre PAS tous les sites contribuant au CA de la date produirait un % faux (CA total
-        // comparé à une base partielle) → la base et son % ne sont émis que si CHAQUE site
-        // contributeur de la date porte la valeur. Un site sans ligne à une date (fermé, ou import
-        // en retard) contribue 0 au total — indiscernables l'un de l'autre, on somme ce qui existe.
-        const _ssByDate = new Map();
-        for (const { data } of valid) {
-          for (const r of (data.sales_summary || [])) {
-            const k = String((r.date && r.date.value) || r.date || "").slice(0, 10);
-            if (!k) continue;
-            const e = _ssByDate.get(k) || { date: k, daily_revenue: 0, daily_transactions: 0, revenue_30d_avg: 0, revenue_same_weekday_last_week: 0, _sites: 0, _avgCount: 0, _swCount: 0 };
-            e._sites++;
-            e.daily_revenue += Number(r.daily_revenue) || 0;
-            e.daily_transactions += Number(r.daily_transactions) || 0;
-            if (r.revenue_30d_avg != null && Number.isFinite(Number(r.revenue_30d_avg))) { e.revenue_30d_avg += Number(r.revenue_30d_avg); e._avgCount++; }
-            if (r.revenue_same_weekday_last_week != null && Number.isFinite(Number(r.revenue_same_weekday_last_week))) { e.revenue_same_weekday_last_week += Number(r.revenue_same_weekday_last_week); e._swCount++; }
-            _ssByDate.set(k, e);
-          }
-        }
-        mergedData.sales_summary = Array.from(_ssByDate.values())
-          .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
-          .map(e => {
-            const fullAvg = e._avgCount === e._sites && e.revenue_30d_avg > 0;
-            const fullSw = e._swCount === e._sites && e.revenue_same_weekday_last_week > 0;
-            return {
-              date: e.date,
-              daily_revenue: e.daily_revenue,
-              daily_transactions: e.daily_transactions,
-              avg_basket: e.daily_transactions > 0 ? e.daily_revenue / e.daily_transactions : null,
-              revenue_30d_avg: fullAvg ? e.revenue_30d_avg : null,
-              revenue_vs_30d_avg_pct: fullAvg ? ((e.daily_revenue - e.revenue_30d_avg) / e.revenue_30d_avg) * 100 : null,
-              revenue_same_weekday_last_week: fullSw ? e.revenue_same_weekday_last_week : null,
-              revenue_vs_last_week_pct: fullSw ? ((e.daily_revenue - e.revenue_same_weekday_last_week) / e.revenue_same_weekday_last_week) * 100 : null,
-              revenue_robust_z: null,
-            };
-          });
+        const mergedData = buildMergedFromValid(valid, locs);
 
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, 0);
         renderPulse(mergedData, todayYmd(), "radar");
@@ -5892,24 +5955,11 @@ if (!location_id) {
           fetchSavedDrafts(_locIdForSecondary),
           fetchChannelConfigs(_locIdForSecondary),
         ].concat(_ruleFetches)).then(function(r){ return r[0]; });
-        const _csFollowedById = new Map();
-        const _csSignalsById = new Map();
-        let _csTopThreats = [];
-        _csAll.forEach(function(cs){
-          (cs.followed_competitors || []).forEach(function(fc){
-            var prev = _csFollowedById.get(fc.competitor_id);
-            if (!prev || (fc.distance_km != null && (prev.distance_km == null || Number(fc.distance_km) < Number(prev.distance_km)))) _csFollowedById.set(fc.competitor_id, fc);
-          });
-          (cs.signals || []).forEach(function(s){
-            var k = String(s.competitor_event_id || (s.competitor_id + "|" + s.event_name));
-            if (!_csSignalsById.has(k)) _csSignalsById.set(k, s);
-          });
-          if ((cs.top_threats || []).length > _csTopThreats.length) _csTopThreats = cs.top_threats;
-        });
-        mergedData._competitor_signals = Array.from(_csSignalsById.values());
-        mergedData._competitor_followed_count = _csAll.reduce(function(m, cs){ return Math.max(m, Number(cs.followed_count || 0)); }, 0);
-        mergedData._top_threats = _csTopThreats;
-        mergedData._followed_competitors = Array.from(_csFollowedById.values());
+        const _fused = fuseCompetitorSignals(_csAll);
+        mergedData._competitor_signals = _fused.signals;
+        mergedData._competitor_followed_count = _fused.followed_count;
+        mergedData._top_threats = _fused.top_threats;
+        mergedData._followed_competitors = _fused.followed_competitors;
         renderPulse(mergedData, todayYmd(), "radar");
 
         // Site filter — switch between the aggregate ("Tous mes sites") and a single site.
