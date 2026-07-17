@@ -869,16 +869,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _ctx = '';
         if (_isMovement || _isWeather) _ctx += zone('Historique \u00b7 jours comparables', '<div id="fs-analog-zone">' + _spin + '</div>');
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
-        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
+        // \u00ab Ce qui a march\u00e9 \u00bb (track record des engagements pass\u00e9s) RETIR\u00c9 des cartes syst\u00e8me
+        // (owner 18/07) : l'historique d'actions utilisateur vit sur les cartes engagement /
+        // page \u00e9volution, pas sur le d\u00e9tail d'une carte syst\u00e8me.
         if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
-        // \u2500\u2500 Plan \u00e0 reprendre (Spec 1) \u2014 the best PAST plan for this card type, filled async by
-        // loadTrackRecord from /api/insight/track-record (best). Leads the actions: a system card offers
-        // a proven plan to pick up before generic suggestions. Empty until history exists (honest-absent).
-        // \u2500\u2500 ACTION SECTION \u2014 placed at the END (after context). Plan \u00e0 reprendre (Spec 1) leads when
-        // history exists (fs-plan-reprendre, filled async by loadTrackRecord); "Plan \u00e0 essayer" applies
+        // \u2500\u2500 ACTION SECTION \u2014 placed at the END (after context). "Plan \u00e0 essayer" applies
         // the rich card treatment to the EXISTING reco strings (reco-library / live line) \u2014 no parallel
-        // data structure. Both CLICKABLE \u2192 M'engager (fsOpenCommit) via data-reco-pick / data-reco-own.
-        var _actionsHtml = '<div id="fs-plan-reprendre"></div>';
+        // data structure. CLICKABLE \u2192 M'engager (fsOpenCommit) via data-reco-pick / data-reco-own.
+        // (fs-plan-reprendre retiré avec la zone « Ce qui a marché » — même moteur track-record.)
+        var _actionsHtml = '';
         if (_recoActions.length) {
           var _refs = [];
           var _cards = _recoActions.map(function (a, _i) {
@@ -935,7 +934,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
-          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'), fsOpenCommit);
           loadBestInClass(location_id, signal_type, document.getElementById('fs-bic-zone'));
         }
 
@@ -949,7 +947,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           loadCompetitorDescriptif(m.competitor_id, m.competitor_name, panel, descBtn);
         });
 
-        wireActionBar(root, day, prof, feedItem);
+        // _recoActions passé EXPLICITEMENT : le handler « Choisir ce plan » vivait dans
+        // wireActionBar où _recoActions (local à renderClaimSkeleton) n'existe pas —
+        // ReferenceError au clic, bouton mort (owner 18/07).
+        wireActionBar(root, day, prof, feedItem, _recoActions);
       }
 
       // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
@@ -2004,7 +2005,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         return '<span class="fs-ws-ch-icon" style="background:' + c.color + ';">' + esc(c.icon) + '</span>';
       }
 
-      function wireActionBar(root, day, prof, feedItem) {
+      function wireActionBar(root, day, prof, feedItem, recoActions) {
         var barHtml = '<div class="fs-action-bar" id="fs-action-bar">'
           + '<div class="fs-action-bar-inner">'
             + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
@@ -2079,7 +2080,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (actBtn) actBtn.addEventListener("click", function() { fsOpenCommit(""); });
         // "Plan à essayer" — each reco opens M'engager pre-filled with that plan (same shared form).
         (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-pick]')) : []).forEach(function(btn) {
-          btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = _recoActions && _recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
+          btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = recoActions && recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
         });
         // "Écrire mon propre plan" — opens M'engager blank (write your own).
         (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-own]')) : []).forEach(function(btn) {
