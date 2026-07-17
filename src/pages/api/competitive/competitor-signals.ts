@@ -1,13 +1,18 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
-    const location_id   = String((locals as any)?.location_id   || "").trim();
+    // Radar v5 (17/07) : ?location_id optionnel, VÉRIFIÉ par ownership (pattern monitor) — la vue
+    // agrégée de Pulse fetch par site ; défaut = le site actif de la session (comportement existant).
+    const requested = String(url.searchParams.get("location_id") || "").trim();
+    if (requested) requireLocationOwnership(locals, requested);
+    const location_id = requested || String((locals as any)?.location_id || "").trim();
     if (!clerk_user_id || !location_id) {
       return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
         status: 401, headers: { "content-type": "application/json" },

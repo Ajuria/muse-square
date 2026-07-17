@@ -5689,11 +5689,13 @@ if (!location_id) {
     return json;
   }
 
-  async function fetchCompetitorSignals(date) {
+  async function fetchCompetitorSignals(date, locationId) {
     if (!date) return { signals: [], followed_count: 0, followed_competitors: [], top_threats: [] };
     try {
+      // locationId optionnel (radar v5) : la vue agrégée fetch par site ; sans lui, le site de session.
       const res = await fetch(
         `/api/competitive/competitor-signals?selected_date=${encodeURIComponent(date)}`
+        + (locationId ? `&location_id=${encodeURIComponent(locationId)}` : "")
       );
       const json = await res.json().catch(() => null);
       return {
@@ -5821,6 +5823,48 @@ if (!location_id) {
           })),
         };
 
+        // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
+        // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
+        // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur
+        // fct_client_sales_signals_daily). robust_z n'est pas agrégeable → null => chip neutre,
+        // jamais de couleur inventée sur l'agrégat.
+        // HONNÊTETÉ des bases de comparaison : une moyenne 30 j (ou un même-jour-semaine) qui ne
+        // couvre PAS tous les sites contribuant au CA de la date produirait un % faux (CA total
+        // comparé à une base partielle) → la base et son % ne sont émis que si CHAQUE site
+        // contributeur de la date porte la valeur. Un site sans ligne à une date (fermé, ou import
+        // en retard) contribue 0 au total — indiscernables l'un de l'autre, on somme ce qui existe.
+        const _ssByDate = new Map();
+        for (const { data } of valid) {
+          for (const r of (data.sales_summary || [])) {
+            const k = String((r.date && r.date.value) || r.date || "").slice(0, 10);
+            if (!k) continue;
+            const e = _ssByDate.get(k) || { date: k, daily_revenue: 0, daily_transactions: 0, revenue_30d_avg: 0, revenue_same_weekday_last_week: 0, _sites: 0, _avgCount: 0, _swCount: 0 };
+            e._sites++;
+            e.daily_revenue += Number(r.daily_revenue) || 0;
+            e.daily_transactions += Number(r.daily_transactions) || 0;
+            if (r.revenue_30d_avg != null && Number.isFinite(Number(r.revenue_30d_avg))) { e.revenue_30d_avg += Number(r.revenue_30d_avg); e._avgCount++; }
+            if (r.revenue_same_weekday_last_week != null && Number.isFinite(Number(r.revenue_same_weekday_last_week))) { e.revenue_same_weekday_last_week += Number(r.revenue_same_weekday_last_week); e._swCount++; }
+            _ssByDate.set(k, e);
+          }
+        }
+        mergedData.sales_summary = Array.from(_ssByDate.values())
+          .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
+          .map(e => {
+            const fullAvg = e._avgCount === e._sites && e.revenue_30d_avg > 0;
+            const fullSw = e._swCount === e._sites && e.revenue_same_weekday_last_week > 0;
+            return {
+              date: e.date,
+              daily_revenue: e.daily_revenue,
+              daily_transactions: e.daily_transactions,
+              avg_basket: e.daily_transactions > 0 ? e.daily_revenue / e.daily_transactions : null,
+              revenue_30d_avg: fullAvg ? e.revenue_30d_avg : null,
+              revenue_vs_30d_avg_pct: fullAvg ? ((e.daily_revenue - e.revenue_30d_avg) / e.revenue_30d_avg) * 100 : null,
+              revenue_same_weekday_last_week: fullSw ? e.revenue_same_weekday_last_week : null,
+              revenue_vs_last_week_pct: fullSw ? ((e.daily_revenue - e.revenue_same_weekday_last_week) / e.revenue_same_weekday_last_week) * 100 : null,
+              revenue_robust_z: null,
+            };
+          });
+
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, 0);
         renderPulse(mergedData, todayYmd(), "radar");
 
@@ -5831,16 +5875,41 @@ if (!location_id) {
         if (_locIdForSecondary && _feedLocIds.indexOf(_locIdForSecondary) < 0) _feedLocIds.push(_locIdForSecondary);
         var _ruleFetches = [];
         _feedLocIds.forEach(function(lid){ _ruleFetches.push(fetchTeamMembers(lid), fetchAlertRules(lid), fetchAutomationRules(lid), fetchCardStates(lid)); });
-        const [csResult] = await Promise.all([
-          fetchCompetitorSignals(todayYmd()).catch(() => ({ signals: [], followed_count: 0, top_threats: [] })),
+        // Radar v5 (17/07) : la Concurrence est PAR SITE côté serveur (signaux, suivis, menaces) —
+        // un seul fetch sur le site de session ne couvrait qu'un site en vue agrégée. Fetch par
+        // site (ownership vérifié par l'endpoint), stash sur valid[i]._cs pour le switch, et FUSION
+        // pour « Tous mes sites » : suivis dédupliqués par competitor_id (on garde la ligne au site
+        // le plus proche — la distance par site n'a pas de sens agrégée autrement), signaux
+        // dédupliqués par competitor_event_id, compte = les lignes de suivi du user (clerk-scoped,
+        // identique dans chaque réponse — jamais une somme qui double-compterait).
+        const _csAll = await Promise.all([
+          Promise.all(valid.map(function(v){
+            return fetchCompetitorSignals(todayYmd(), v.loc.location_id)
+              .then(function(cs){ v._cs = cs; return cs; })
+              .catch(function(){ var cs = { signals: [], followed_count: 0, top_threats: [], followed_competitors: [] }; v._cs = cs; return cs; });
+          })),
           fetchPendingFeedback(_locIdForSecondary),
           fetchSavedDrafts(_locIdForSecondary),
           fetchChannelConfigs(_locIdForSecondary),
-        ].concat(_ruleFetches));
-        mergedData._competitor_signals = csResult.signals;
-        mergedData._competitor_followed_count = csResult.followed_count;
-        mergedData._top_threats = csResult.top_threats;
-        mergedData._followed_competitors = csResult.followed_competitors || [];
+        ].concat(_ruleFetches)).then(function(r){ return r[0]; });
+        const _csFollowedById = new Map();
+        const _csSignalsById = new Map();
+        let _csTopThreats = [];
+        _csAll.forEach(function(cs){
+          (cs.followed_competitors || []).forEach(function(fc){
+            var prev = _csFollowedById.get(fc.competitor_id);
+            if (!prev || (fc.distance_km != null && (prev.distance_km == null || Number(fc.distance_km) < Number(prev.distance_km)))) _csFollowedById.set(fc.competitor_id, fc);
+          });
+          (cs.signals || []).forEach(function(s){
+            var k = String(s.competitor_event_id || (s.competitor_id + "|" + s.event_name));
+            if (!_csSignalsById.has(k)) _csSignalsById.set(k, s);
+          });
+          if ((cs.top_threats || []).length > _csTopThreats.length) _csTopThreats = cs.top_threats;
+        });
+        mergedData._competitor_signals = Array.from(_csSignalsById.values());
+        mergedData._competitor_followed_count = _csAll.reduce(function(m, cs){ return Math.max(m, Number(cs.followed_count || 0)); }, 0);
+        mergedData._top_threats = _csTopThreats;
+        mergedData._followed_competitors = Array.from(_csFollowedById.values());
         renderPulse(mergedData, todayYmd(), "radar");
 
         // Site filter — switch between the aggregate ("Tous mes sites") and a single site.
@@ -5848,6 +5917,10 @@ if (!location_id) {
         // populated for every site), so switching is instant and needs no re-fetch.
         var siteSelect = document.getElementById("pls-site-select");
         if (siteSelect) {
+          // Radar v5 (17/07) : le switch DOIT déplacer currentLocationId — sinon la vue « site X »
+          // continue de charger les commitments (volet Opérations, cartes engagement) et la clé
+          // d'objectif du site de SESSION. Retour « Tous mes sites » → restaure la session.
+          var _sessionLocationId = currentLocationId;
           siteSelect.innerHTML = '<option value="__all__">Tous mes sites</option>'
             + locs.map(function(l){ return '<option value="' + escapeHtml(l.location_id) + '">' + escapeHtml(l.company_name || l.location_id) + '</option>'; }).join("");
           if (nameEl) nameEl.style.display = "none";
@@ -5855,6 +5928,7 @@ if (!location_id) {
           siteSelect.addEventListener("change", function(){
             var id = siteSelect.value;
             if (!id || id === "__all__") {
+              currentLocationId = _sessionLocationId;
               if (addrEl) addrEl.textContent = locs.length + " sites surveillés";
               if (subtitleEl) subtitleEl.textContent = "Veille opérationnelle · 7 jours · " + locs.length + " sites";
               renderPulse(mergedData, todayYmd(), "radar");
@@ -5862,16 +5936,20 @@ if (!location_id) {
             }
             var hit = valid.find(function(v){ return v.loc.location_id === id; });
             if (!hit) return;
+            currentLocationId = id;
             if (addrEl) addrEl.textContent = hit.loc.company_address || "";
             if (subtitleEl) subtitleEl.textContent = "Veille opérationnelle · 7 jours";
             var d = Object.assign({}, hit.data);
             d.all_feed = filterFeedByWindow((hit.data.all_feed || []).map(function(a){ return Object.assign({}, a, { location_id: hit.loc.location_id, location_label: hit.loc.company_name || hit.loc.location_id }); }), 0);
             d.action_candidates = (hit.data.action_candidates || []).map(function(ac){ return Object.assign({}, ac, { location_id: ac.location_id || hit.loc.location_id, location_label: hit.loc.company_name || hit.loc.location_id }); });
             d._locations = [];
-            d._competitor_signals = mergedData._competitor_signals;
-            d._competitor_followed_count = mergedData._competitor_followed_count;
-            d._top_threats = mergedData._top_threats;
-            d._followed_competitors = mergedData._followed_competitors;
+            // Concurrence par site (17/07) : chaque site a SES signaux/suivis (fetch par site au
+            // chargement agrégé, _cs) — jamais ceux du site de session réutilisés pour un autre site.
+            var _cs = hit._cs || { signals: [], followed_count: mergedData._competitor_followed_count, top_threats: [], followed_competitors: [] };
+            d._competitor_signals = _cs.signals;
+            d._competitor_followed_count = _cs.followed_count;
+            d._top_threats = _cs.top_threats;
+            d._followed_competitors = _cs.followed_competitors;
             renderPulse(d, todayYmd(), "radar");
           });
         }
