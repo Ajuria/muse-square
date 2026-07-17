@@ -40,7 +40,7 @@ if (!location_id) {
         background: rgba(29,59,179,0.04);
         border-left: 6px solid #0b37e5;
         padding: 24px;
-        border-radius: 0;
+        border-radius: 10px;
       }
 
       .mon-panels {
@@ -179,8 +179,8 @@ if (!location_id) {
       }
 
       .pls-goal { position:relative; align-self:flex-start; }
-      .pls-goal-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1D3BB3; background:#fff; border:1px solid #1D3BB3; border-radius:0; padding:6px 10px; cursor:pointer; font-family:inherit; }
-      .pls-goal-pop { position:absolute; top:100%; right:0; margin-top:4px; z-index:20; min-width:220px; max-width:280px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:0; box-shadow:0 6px 20px rgba(16,24,40,0.12); padding:12px; }
+      .pls-goal-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1D3BB3; background:#fff; border:1px solid #1D3BB3; border-radius:10px; padding:6px 10px; cursor:pointer; font-family:inherit; }
+      .pls-goal-pop { position:absolute; top:100%; right:0; margin-top:4px; z-index:20; min-width:220px; max-width:280px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; box-shadow:0 6px 20px rgba(16,24,40,0.12); padding:12px; }
       .pls-goal-pop[hidden] { display:none; }
 
       .mon-context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
@@ -197,12 +197,12 @@ if (!location_id) {
       .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
 
       /* ---- Action-card chips / action line / Agir / disposition ---- */
-      .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:0; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
-      .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:0; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
+      .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+      .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
       .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
-      .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:0; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+      .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
       .disc { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
-      .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:0; padding:4px 10px; cursor:pointer; font-family:inherit; }
+      .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:10px; padding:4px 10px; cursor:pointer; font-family:inherit; }
 
       /* ---- Eyebrow + Fil d'actualité timeline ---- */
       .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:0; }
@@ -211,7 +211,7 @@ if (!location_id) {
       .tldot { position:absolute; left:-28px; top:3px; width:9px; height:9px; border-radius:50%; background:#1D3BB3; border:2px solid var(--color-bg-card); }
 
       .ab-bar { display:none; }
-      .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:0; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+      .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
       .ab-card-row { display:flex; }
       .ab-bar { display:none; }
       .ab-bar.ab-threat { background:#e24b4a; }
@@ -220,16 +220,23 @@ if (!location_id) {
       .ab-inner { flex:1; min-width:0; }
       .ab-summary { padding:14px 16px; cursor:pointer; }
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
-      .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:0; text-transform:uppercase; letter-spacing:0.03em; }
+      .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
       .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
       .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+      /* Décision D (18/07) : cartes action fermées à 3 lignes, « Voir plus » seulement si ça déborde. */
+      .ab-sowhat.pls-clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+      .pls-more { font-size:11.5px; font-weight:600; color:#1D3BB3; cursor:pointer; margin-top:5px; }
+      /* Décision C (18/07) : skeletons aux dimensions du contenu final, à la place de « Chargement… ». */
+      .pls-sk { background:linear-gradient(90deg,#EDEFF2 25%,#F6F7F9 50%,#EDEFF2 75%); background-size:200% 100%; animation:pls-sk 1.4s infinite; border-radius:6px; }
+      @keyframes pls-sk { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+      @media (prefers-reduced-motion: reduce) { .pls-sk { animation:none; } }
       .ab-toggle { display:flex; align-items:center; padding:0 16px 12px; }
       .ab-toggle-btn { font-size:12px; font-weight:700; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; display:flex; align-items:center; gap:5px; }
       .ab-actions { display:none; padding:0 16px 14px; border-top:1px solid #F3F4F6; }
       .ab-actions.is-open { display:block; }
       .ab-action-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #F9FAFB; }
       .ab-action-item:last-of-type { border-bottom:none; }
-      .ab-check { width:18px; height:18px; border:1.5px solid #d1d5db; border-radius:0; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; transition:all 0.1s; }
+      .ab-check { width:18px; height:18px; border:1.5px solid #d1d5db; border-radius:4px; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#fff; transition:all 0.1s; }
       .ab-check.is-checked { background:#059669; border-color:#059669; }
       .ab-action-text { font-size:12.5px; color:#111827; line-height:1.4; }
       .ab-action-text.is-done { text-decoration:line-through; color:#6B7280; }
@@ -242,7 +249,7 @@ if (!location_id) {
       .ab-progress-fill { height:100%; background:#059669; transition:width 0.3s; }
       .ab-progress-label { font-size:10px; color:#6B7280; white-space:nowrap; }
       .ab-help-link { display:block; margin-top:10px; padding-top:10px; border-top:1px solid #F3F4F6; font-size:11px; color:#1D3BB3; text-decoration:none; font-weight:500; }
-      .ab-zero { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.15); border-radius:0; padding:16px 18px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:#059669; }
+      .ab-zero { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.15); border-radius:10px; padding:16px 18px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:#059669; }
       .ab-gen { font-size:10px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; white-space:nowrap; }
       .ab-gen.is-loading { color:#9CA3AF; pointer-events:none; }
       .ab-draft-panel { display:none; margin-top:8px; padding:10px 12px; background:#f8fafc; border:1px solid #E8EDF5; border-radius:8px; font-size:12px; color:#111827; line-height:1.5; }
@@ -264,7 +271,7 @@ if (!location_id) {
       .ab-cat-icon-performance { background:#E6F1FB; color:#185FA5; }
       .ab-disc { width:34px; height:34px; border-radius:50%; background:rgba(29,59,179,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
       .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; }
-      .ab-metric, .ab-metric-warn, .ab-metric-good { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:0; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
+      .ab-metric, .ab-metric-warn, .ab-metric-good { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
       .ab-metric-val { font-weight:600; color:var(--color-text-primary); }
       .ab-metric-warn .ab-metric-val, .ab-metric-good .ab-metric-val { color:var(--color-text-primary); }
       .ab-cta-row { display:flex; align-items:center; gap:8px; padding:10px 16px; border-top:0.5px solid #F3F4F6; }
@@ -480,7 +487,7 @@ if (!location_id) {
   }
 
   function pill(label, style) {
-    return `<span style="display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
+    return `<span style="display:inline-block;font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:20px;${style}">${escapeHtml(label)}</span>`;
   }
 
   const GREEN  = "background:var(--color-pill-green-bg);color:var(--color-pill-green-text);";
@@ -1128,10 +1135,10 @@ if (!location_id) {
       const ip = INDUSTRY_PILL[threatIndustryTier] || null;
       const sharedAudLabel = sharedEventAuds.length ? sharedEventAuds.join(", ") : (sharedCompAuds.length ? sharedCompAuds.join(", ") : null);
       const pillParts = [];
-      if (tp) pillParts.push(`<span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:4px;background:${tp.bg};color:${tp.fg};">${escapeHtml(tp.t)}</span>`);
-      if (ip) pillParts.push(`<span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:4px;background:${ip.bg};color:${ip.fg};">${escapeHtml(ip.t)}</span>`);
-      if (sharedAudLabel) pillParts.push(`<span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:4px;background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);">Cible : ${escapeHtml(sharedAudLabel)}</span>`);
-      if (threatSeasonality) pillParts.push('<span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:4px;background:var(--color-pill-info-bg);color:var(--color-pill-info-text);">M\u00eame saisonnalit\u00e9</span>');
+      if (tp) pillParts.push(plsChip(tp.t, tp));
+      if (ip) pillParts.push(plsChip(ip.t, ip));
+      if (sharedAudLabel) pillParts.push(plsChip("Cible : " + sharedAudLabel, { bg: "var(--color-pill-risk-bg)", fg: "var(--color-pill-risk-text)" }));
+      if (threatSeasonality) pillParts.push(plsChip("M\u00eame saisonnalit\u00e9", { bg: "var(--color-pill-info-bg)", fg: "var(--color-pill-info-text)" }));
       const flagsHtml = pillParts.length ? `<div style="display:flex;gap:5px;flex-wrap:wrap;">${pillParts.join("")}</div>` : '';
 
       function renderEventRows(events, maxVisible, defaultDotColor) {
@@ -2515,7 +2522,7 @@ if (!location_id) {
         day: (typeof currentDay !== "undefined" && currentDay) ? currentDay : {}
       };
       workspace.style.display = "block";
-      workspace.innerHTML = '<div style="padding:16px;font-size:11px;color:#9ca3af;">Chargement…</div>';
+      workspace.innerHTML = '<div style="padding:16px;"><div class="pls-sk" style="height:12px;width:60%;margin-bottom:8px;"></div><div class="pls-sk" style="height:10px;width:40%;"></div></div>';
       try { await fetchTeamMembers(ctx.locationId); } catch (ex) {}
       try { await fetchSavedDrafts(ctx.locationId); } catch (ex) {}
       try { await fetchAlertRules(ctx.locationId); } catch (ex) {}
@@ -3247,7 +3254,7 @@ if (!location_id) {
           dismissed[logId] = vote;
           try { localStorage.setItem(lsKey, JSON.stringify(dismissed)); } catch(e) {}
           if (card) {
-            card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:0;">'
+            card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">'
               + '<span style="color:#166534;">\u2713</span>'
               + '<span style="font-size:12px;color:#166534;font-weight:500;">Merci \u2014 votre retour am\u00e9liore vos prochaines recommandations</span>'
             + '</div>';
@@ -3290,7 +3297,7 @@ if (!location_id) {
     var _chip = opts.chip || null;
     var _togglePad = _accent ? "13px 14px 13px 11px" : "13px 14px";
     var _accentCss = _accent ? ("border-left:3px solid " + _accent + ";") : "";
-    var _chipHtml = _chip ? ('<span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;background:' + _chip.bg + ';color:' + _chip.fg + ';white-space:nowrap;flex-shrink:0;">' + _chip.label + '</span>') : "";
+    var _chipHtml = _chip ? plsChip(_chip.label, _chip, true) : "";
     const ICONS = {
       "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
       "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
@@ -3334,6 +3341,43 @@ if (!location_id) {
     return { ac: "#94a3b8", bg: "#F1F5F9", fg: "#475569" };
   }
 
+  // Décision B (18/07) : fabrique unique de chips — pilule 20, 11.5px/600, palette sevStyle
+  // (passer un niveau) ou {bg,fg} explicite pour les teintes catégorielles (férié, vacances,
+  // audience…). raw=true saute l'échappement quand le label est déjà du HTML (hook data-ops-chip).
+  function plsChip(label, sev, raw) {
+    var s = (typeof sev === "string" || !sev) ? sevStyle(sev || "neutre") : sev;
+    return '<span style="display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;background:' + s.bg + ';color:' + s.fg + ';">' + (raw ? label : escapeHtml(label)) + '</span>';
+  }
+  // Menaces concurrentielles : niveau → palette sevStyle (l'ancien THREAT_BADGE dupliquait les hex).
+  var THREAT_CHIP_SEV = { high: "alerte", moderate: "attention", low: "neutre" };
+  var THREAT_CHIP_FR = { high: "Menace élevée", moderate: "Menace modérée", low: "Menace faible" };
+  function threatChipHtml(level) {
+    var l = THREAT_CHIP_FR[level] ? level : "low";
+    return plsChip(THREAT_CHIP_FR[l], THREAT_CHIP_SEV[l]);
+  }
+
+  // Décision D (18/07) : les cartes action se ferment à 3 lignes — « Voir plus » n'apparaît
+  // que si le texte déborde réellement (mesure post-render) et déplie sur place.
+  function applySowhatClamp(scope) {
+    if (!scope) return;
+    scope.querySelectorAll(".ab-sowhat").forEach(function(el) {
+      if (el.dataset.plsClamped) return;
+      el.dataset.plsClamped = "1";
+      el.classList.add("pls-clamp");
+      if (el.scrollHeight <= el.clientHeight + 2) { el.classList.remove("pls-clamp"); return; }
+      var more = document.createElement("div");
+      more.className = "pls-more";
+      more.textContent = "Voir plus";
+      more.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var isClamped = el.classList.contains("pls-clamp");
+        el.classList.toggle("pls-clamp", !isClamped);
+        more.textContent = isClamped ? "Voir moins" : "Voir plus";
+      });
+      el.insertAdjacentElement("afterend", more);
+    });
+  }
+
   function renderScoreDetail(day, days) {
     const score = day.opportunity_score;
     const regime = String(day.opportunity_regime || "B").toUpperCase();
@@ -3371,10 +3415,10 @@ if (!location_id) {
 
     let tagsHtml = "";
     const tagItems = [];
-    if (holidayTag) tagItems.push(`<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#fef2f2;color:#991b1b;">${escapeHtml(holidayTag)}</span>`);
-    if (vacationTag) tagItems.push(`<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#faf5ff;color:#6b21a8;">${escapeHtml(vacationTag)}</span>`);
+    if (holidayTag) tagItems.push(plsChip(holidayTag, { bg: "#fef2f2", fg: "#991b1b" }));
+    if (vacationTag) tagItems.push(plsChip(vacationTag, { bg: "#faf5ff", fg: "#6b21a8" }));
     for (const t of tags) {
-      if (t) tagItems.push(`<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#f3f4f6;color:#374151;">${escapeHtml(t)}</span>`);
+      if (t) tagItems.push(plsChip(t, { bg: "#f3f4f6", fg: "#374151" }));
     }
     if (tagItems.length) {
       tagsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${tagItems.join("")}</div>`;
@@ -3511,7 +3555,7 @@ if (!location_id) {
           + `<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">${label}</div>`
           + `<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${value}</div>`
         + `</div>`
-        + (chip ? `<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${chip.bg};color:${chip.fg};flex-shrink:0;">${escapeHtml(chip.label)}</span>` : "")
+        + (chip ? plsChip(chip.label, chip) : "")
       + `</div>`;
 
     // M\u00e9t\u00e9o driver
@@ -3582,7 +3626,7 @@ if (!location_id) {
             <div>
               <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">Pr\u00e9cision globale</div>
               <div data-fiabilite-global style="display:flex;align-items:baseline;gap:4px;">
-                <span style="font-size:14px;color:#9ca3af;font-style:italic;">Chargement...</span>
+                <span class="pls-sk" style="display:inline-block;width:90px;height:14px;"></span>
               </div>
             </div>
             <div style="font-size:10px;color:#9ca3af;text-align:right;line-height:1.5;" data-fiabilite-meta>30 derniers jours</div>
@@ -3684,13 +3728,11 @@ if (!location_id) {
         + '</div>'
       + '</div>';
     }
-    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
     if (byComp.size === 0 && followedCompetitors && followedCompetitors.length > 0) {
       var fcHtml = followedCompetitors.map(function(fc, idx) {
         var name = fc.competitor_name || "Concurrent";
         var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
         var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1) : null;
-        var badge = THREAT_BADGE[fc.threat_level] || THREAT_BADGE.low;
         var photoHtml = fc.google_photos
           ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(fc.google_photos) + '" alt="">'
           : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
@@ -3711,7 +3753,7 @@ if (!location_id) {
             + '<div style="flex:1;min-width:0;">'
               + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
               + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-                + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+                + threatChipHtml(fc.threat_level)
                 + '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>'
               + '</div>'
               + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
@@ -3741,7 +3783,6 @@ if (!location_id) {
       var ratingCount = first.google_rating_count;
       var photo = first.google_photos;
       var threatLevel = first.entity_threat_level || "low";
-      var badge = THREAT_BADGE[threatLevel] || THREAT_BADGE.low;
       var activeCount = sigs.filter(function(s) { return s.is_active; }).length;
       var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
       var photoHtml = photo
@@ -3757,7 +3798,7 @@ if (!location_id) {
           + '<div style="flex:1;min-width:0;">'
             + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
             + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-              + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+              + threatChipHtml(threatLevel)
               + (metaParts.length ? '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>' : '')
             + '</div>'
             + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
@@ -3914,7 +3955,7 @@ if (!location_id) {
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;' + (last ? '' : 'border-bottom:1px solid #E6E8EC;') + '">'
         + '<div style="min-width:0;"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">' + label + '</div>'
         + '<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">' + value + '</div></div>'
-        + (chip ? '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:' + chip.bg + ';color:' + chip.fg + ';flex-shrink:0;">' + escapeHtml(chip.label) + '</span>' : '')
+        + (chip ? plsChip(chip.label, chip) : '')
       + '</div>';
     };
     var _pctChip = function(pct, colored) {
@@ -3974,7 +4015,6 @@ if (!location_id) {
       // Réutilise l'invite "Rechercher un concurrent" existante (état vide).
       return renderFollowedCompetitorsList([], 0, []);
     }
-    var THREAT_BADGE = { high: { bg: "#fee2e2", fg: "#991b1b", t: "Menace élevée" }, moderate: { bg: "#fef3c7", fg: "#92400e", t: "Menace modérée" }, low: { bg: "#f3f4f6", fg: "#6b7280", t: "Menace faible" } };
     var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
 
     // Où sont-ils — la VRAIE carte : le bouton data-radar-carte (déjà câblé) bascule Pulse en
@@ -4003,7 +4043,6 @@ if (!location_id) {
       var name = fc.competitor_name || "Concurrent";
       var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
       var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1).replace(".", ",") : null;
-      var badge = THREAT_BADGE[fc.threat_level] || null;
       var sigs = byComp.get(fc.competitor_id) || [];
       var active = sigs.filter(function(s) { return s.is_active; });
       var upcoming = sigs.filter(function(s) { return s.is_upcoming && !s.is_active; });
@@ -4026,7 +4065,7 @@ if (!location_id) {
           + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
             + '<span style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
             + (distKm ? '<span style="font-size:11px;color:#8A909A;">' + distKm + ' km</span>' : '')
-            + (badge ? '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + badge.t + '</span>' : '')
+            + (THREAT_CHIP_FR[fc.threat_level] ? threatChipHtml(fc.threat_level) : '')
           + '</div>'
           + actHtml
         + '</div>'
@@ -4090,7 +4129,7 @@ if (!location_id) {
       html += '<div style="padding:11px 0;' + (i > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
         + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action engagée").slice(0, 110)) + '</div>'
         + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-          + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#EEF2FF;color:#1D3BB3;">En cours</span>'
+          + plsChip("En cours", { bg: "#EEF2FF", fg: "#1D3BB3" })
           + '<span style="font-size:12px;color:#6b7280;">' + meta + '</span>'
         + '</div>'
         + (pct ? '<div style="height:3px;border-radius:2px;background:#E6E8EC;margin-top:9px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;border-radius:2px;background:#1D3BB3;"></div></div>' : '')
@@ -4105,7 +4144,7 @@ if (!location_id) {
       html += '<div style="padding:11px 0;' + (html ? 'border-top:1px solid #E6E8EC;' : '') + '">'
         + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action").slice(0, 110)) + '</div>'
         + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-          + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + b.bg + ';color:' + b.fg + ';">' + b.t + '</span>'
+          + plsChip(b.t, b)
           + '<span style="font-size:12px;color:#6b7280;">' + _cgEur(r.window_actual_revenue) + ' réalisés vs ' + _cgEur(r.window_expected_revenue) + ' attendus · ' + (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)).toLocaleString('fr-FR') + ' €</span>'
         + '</div>'
       + '</div>';
@@ -4386,13 +4425,16 @@ if (!location_id) {
     var _base = r.window_expected_revenue != null ? Number(_cgFv(r.window_expected_revenue)) : null;
     var _ypct = _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
-    var _openObj = _uplift
-      ? ('Augmenter le CA de +' + _cgEur(_uplift) + '/jour (+' + _ypct + ' % vs CA habituel).')
-      : ('Augmenter le CA de +' + _ypct + ' % vs votre CA habituel.');
-    var sowhat = r.status === 'open' ? _openObj
-      : r.status === 'pending' ? ('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
-      : r.status === 'expired' ? 'Aucune donnée de ventes reçue en 30 j.'
-      : ('CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
+    // Contrat 18/07 (proto validé, texte seul — aucune rangée/position ne change) :
+    // titre = l'objectif chiffré, description = « Dispositif : le moyen » + l'état de mesure.
+    var _titre = _uplift
+      ? ('Objectif : augmenter le CA de ' + _ypct + ' %, soit +' + _cgEur(_uplift) + '/jour')
+      : ('Objectif : augmenter le CA de ' + _ypct + ' % vs votre CA habituel');
+    var _dispositif = 'Dispositif : ' + String(r.committed_action_text || '');
+    var sowhat = r.status === 'open' ? escapeHtml(_dispositif)
+      : r.status === 'pending' ? escapeHtml(_dispositif + ' · Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
+      : r.status === 'expired' ? escapeHtml(_dispositif + ' · Aucune donnée de ventes reçue en 30 j.')
+      : escapeHtml(_dispositif + ' · CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
     var vStyle = 'background:' + v.bg + ';color:' + v.fg + ';font-weight:600;' + (v.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '');
     var pill = '<span class="ab-metric" style="' + vStyle + '">' + _cgIcon(v.p, v.fg) + v.label + (amber ? '<span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;margin-left:2px;"></span>' : '') + '</span>';
     var locLabel = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
@@ -4432,7 +4474,7 @@ if (!location_id) {
             + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
             + '<div style="flex:1;min-width:0;">'
               + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
-              + '<div class="ab-what">' + escapeHtml(String(r.committed_action_text || '')) + '</div>'
+              + '<div class="ab-what">' + escapeHtml(_titre) + '</div>'
               + '<div class="ab-sowhat">' + sowhat + '</div>'
             + '</div></div></div>'
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
@@ -4585,6 +4627,7 @@ if (!location_id) {
       var _enHdr = '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:0 0 10px 2px;">Vos actions en cours</div>';
       mount.innerHTML = _active.length ? (_enHdr + _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('')) : '';
       wireEngagementCards(mount);
+      applySowhatClamp(mount);
       if (pastMount) {
         pastMount.innerHTML = _past.length
           ? '<details><summary style="cursor:pointer;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;padding:6px 2px;">Mes actions passées · ' + _past.length + '</summary><div style="margin-top:12px;">' + _past.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('') + '</div></details>'
@@ -4773,16 +4816,10 @@ if (!location_id) {
         mixed: "public mixte"
       };
       const INDUSTRY_TIER_FR = { direct: "Même secteur", partial: "Secteur proche", contextual: "Secteur différent" };
-      const THREAT_BADGE = {
-        high:     { bg: "#fee2e2", fg: "#991b1b", t: "Menace élevée" },
-        moderate: { bg: "#fef3c7", fg: "#92400e", t: "Menace modérée" },
-        low:      { bg: "#f3f4f6", fg: "#6b7280", t: "Menace faible" },
-      };
 
       function renderThreatCard(tc) {
         const name = tc.competitor_name || "Concurrent";
         const distKm = tc.distance_km != null ? Number(tc.distance_km).toFixed(1) : null;
-        const badge = THREAT_BADGE[tc.threat_level] || THREAT_BADGE.low;
         const indLabel = INDUSTRY_TIER_FR[tc.industry_match_tier] || "";
         const locAuds = [tc.location_primary_audience_1, tc.location_primary_audience_2].filter(Boolean);
         const compAuds = [tc.competitor_primary_audience, tc.competitor_secondary_audience].filter(Boolean);
@@ -4807,7 +4844,7 @@ if (!location_id) {
                 + (distKm ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(distKm + ' km') + '</span>' : '')
               + '</div>'
               + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-                + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
+                + threatChipHtml(tc.threat_level)
                 + (indLabel ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(indLabel) + '</span>' : '')
               + '</div>'
               + (audLine ? '<div style="font-size:11px;color:#374151;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
@@ -4904,7 +4941,7 @@ if (!location_id) {
               }).join('') + '</div>' : '')
               + (tags.length ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
                 + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;">Audience</div>'
-                + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(function(t) { return '<span style="font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;">' + escapeHtml(t) + '</span>'; }).join('') + '</div>'
+                + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(function(t) { return plsChip(t, { bg: "#EFF6FF", fg: "#1D4ED8" }); }).join('') + '</div>'
               + '</div>' : '')
               + (d.business_takeaway ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
                 + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:5px;">Impact pour votre activit\u00e9</div>'
@@ -5073,8 +5110,8 @@ if (!location_id) {
     // (mêmes données que les cartes "Vos actions en cours" plus bas ; le volet est le résumé
     // hélicoptère, jamais un 2e fetch). Hooks: [data-ops-secondary]/[data-ops-chip]/#pls-ops-volet.
     const opsStrip = renderRadarStrip("ops", "clipboard-check", "Opérations en cours",
-      '<span data-ops-secondary>Chargement…</span>',
-      '<div id="pls-ops-volet"><div style="font-size:12px;color:#9CA3AF;padding:6px 0;">Chargement…</div></div>',
+      '<span data-ops-secondary><span class="pls-sk" style="display:inline-block;width:130px;height:10px;vertical-align:middle;"></span></span>',
+      '<div id="pls-ops-volet"><div style="padding:6px 0 2px;"><div class="pls-sk" style="height:12px;width:70%;margin-bottom:9px;"></div><div class="pls-sk" style="height:10px;width:45%;"></div></div></div>',
       true, { chip: { label: '<span data-ops-chip></span>', bg: "transparent", fg: "#475569" } });
 
     // Volet 2 : Performance de l'entreprise — sales_summary du monitor (8 derniers jours de CA).
@@ -5141,7 +5178,7 @@ if (!location_id) {
         + `</div>`
         + `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">`
           + `<span style="font-size:12px;color:#1D3BB3;font-weight:500;display:inline-flex;align-items:center;gap:4px;">Pourquoi ce score <svg data-hero-chevron viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg></span>`
-          + (_vAlertSv ? `<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:${_vAlertSv.bg};color:${_vAlertSv.fg};">Vigilance niv. ${_vAlert}</span>` : "")
+          + (_vAlertSv ? plsChip("Vigilance niv. " + _vAlert, _vAlertSv) : "")
         + `</div>`
       + `</div>`
       + `<div data-hero-body style="display:none;padding-top:14px;">`
@@ -5190,6 +5227,7 @@ if (!location_id) {
     // Assemble
     root.innerHTML = pillsHtml + verdictHtml +
       `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${opsStrip}${perfStrip}${concStrip}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+    applySowhatClamp(root);
 
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
     // covers (all in-view aggregate sites, or the single viewed site) so they behave like
@@ -5208,10 +5246,24 @@ if (!location_id) {
       btn.addEventListener("click", async () => {
         const d = btn.getAttribute("data-pill-date");
         if (!d) return;
-        const csResult = await fetchCompetitorSignals(d).catch(() => ({ signals: [], followed_count: 0 }));
-        data._competitor_signals = csResult.signals;
-        data._competitor_followed_count = csResult.followed_count;
+        // Per-day (18/07) : render IMMÉDIAT à la nouvelle date (le hero/score n'attend pas le réseau),
+        // puis refetch des signaux Concurrence POUR CE JOUR sur le bon périmètre — par site fusionné
+        // en vue agrégée, le site AFFICHÉ sinon (l'ancien handler fetchait toujours le site de
+        // session, et bloquait le render). Guard anti-course : seule la dernière date cliquée écrit.
         renderPulse(data, d, "radar");
+        const _token = (window.__plsCsToken = (window.__plsCsToken || 0) + 1);
+        try {
+          const _isAgg = Array.isArray(data._locations) && data._locations.length > 1;
+          const csResult = _isAgg
+            ? fuseCompetitorSignals(await Promise.all(data._locations.map(l =>
+                fetchCompetitorSignals(d, l.location_id).catch(() => ({ signals: [], followed_count: 0, top_threats: [], followed_competitors: [] })))))
+            : await fetchCompetitorSignals(d, currentLocationId);
+          if (window.__plsCsToken !== _token) return;
+          data._competitor_signals = csResult.signals;
+          data._competitor_followed_count = csResult.followed_count;
+          if (Array.isArray(csResult.followed_competitors) && csResult.followed_competitors.length) data._followed_competitors = csResult.followed_competitors;
+          renderPulse(data, d, "radar");
+        } catch (e) {}
       });
     });
 
@@ -5600,7 +5652,7 @@ if (!location_id) {
             ).join('') + '</div>' : '')
             + (tags.length ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
               + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;">Audience</div>'
-              + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(t => '<span style="font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:#EFF6FF;color:#1D4ED8;">' + escapeHtml(t) + '</span>').join('') + '</div>'
+              + '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tags.map(t => plsChip(t, { bg: "#EFF6FF", fg: "#1D4ED8" })).join('') + '</div>'
               + '</div>' : '')
             + (d.business_takeaway ? '<div style="padding:10px 14px;border-bottom:0.5px solid #F3F4F6;">'
               + '<div style="font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:#9CA3AF;margin-bottom:5px;">Impact pour votre activit\u00e9</div>'
@@ -5727,6 +5779,148 @@ if (!location_id) {
       }
       const primaryPulse = pulseFor(currentLocationId);
 
+      // Radar v5 (18/07) — LA fusion multi-sites, extraite en fonction UNIQUE : utilisée par la
+      // peinture cache-first ET par le chemin live — jamais deux implémentations qui divergent.
+      // Retourne mergedData avec all_feed NON filtré (le caller applique filterFeedByWindow).
+      // Radar v5 (18/07) — fusion Concurrence multi-sites, extraite en fonction UNIQUE (loader +
+      // refetch per-day des pilules) : suivis dédupliqués par competitor_id (min distance), signaux
+      // par competitor_event_id, compte = max (jamais une somme qui double-compte).
+      function fuseCompetitorSignals(csAll) {
+        const out = {};
+        const _csFollowedById = new Map();
+          const _csSignalsById = new Map();
+          let _csTopThreats = [];
+          csAll.forEach(function(cs){
+            (cs.followed_competitors || []).forEach(function(fc){
+              var prev = _csFollowedById.get(fc.competitor_id);
+              if (!prev || (fc.distance_km != null && (prev.distance_km == null || Number(fc.distance_km) < Number(prev.distance_km)))) _csFollowedById.set(fc.competitor_id, fc);
+            });
+            (cs.signals || []).forEach(function(s){
+              var k = String(s.competitor_event_id || (s.competitor_id + "|" + s.event_name));
+              if (!_csSignalsById.has(k)) _csSignalsById.set(k, s);
+            });
+            if ((cs.top_threats || []).length > _csTopThreats.length) _csTopThreats = cs.top_threats;
+          });
+          out._competitor_signals = Array.from(_csSignalsById.values());
+          out._competitor_followed_count = csAll.reduce(function(m, cs){ return Math.max(m, Number(cs.followed_count || 0)); }, 0);
+          out._top_threats = _csTopThreats;
+          out._followed_competitors = Array.from(_csFollowedById.values());
+          return { signals: out._competitor_signals, followed_count: out._competitor_followed_count, top_threats: out._top_threats, followed_competitors: out._followed_competitors };
+      }
+
+      function buildMergedFromValid(valid, locs) {
+          const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
+            (data.all_feed || []).map(a => ({ ...a, location_id: loc.location_id, location_label: loc.company_name || loc.location_id }))
+          );
+          // Dedup regional signals that are identical within the same region
+          const REGIONAL_SUBTYPES = new Set([
+            "weather_hazard_onset", "weather_worsened", "weather_improved",
+            "calendar_audience_shift", "regime_change",
+            "mega_event_activation", "mega_event_end",
+          ]);
+          const seenRegional = new Set();
+          const mergedFeed = mergedFeedRaw.filter(a => {
+            const sub = String(a?.change_subtype || "").toLowerCase();
+            if (!REGIONAL_SUBTYPES.has(sub)) return true;
+            const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "");
+            if (seenRegional.has(key)) return false;
+            seenRegional.add(key);
+            return true;
+          });
+
+          const dateMap = new Map();
+          for (const { data } of valid) {
+            for (const day of (data.days || [])) {
+              const ymd = String(day.date || "").slice(0, 10);
+              const existing = dateMap.get(ymd);
+              if (!existing) {
+                dateMap.set(ymd, { ...day });
+              } else {
+                if (day.opportunity_score !== null && (existing.opportunity_score === null || day.opportunity_score < existing.opportunity_score)) {
+                  existing.opportunity_score = day.opportunity_score;
+                }
+                // Merge regime: keep worst (C > B > A)
+                const REGIME_ORDER = { A: 0, B: 1, C: 2 };
+                const existingRegime = String(existing.opportunity_regime || "B").toUpperCase();
+                const dayRegime = String(day.opportunity_regime || "B").toUpperCase();
+                if ((REGIME_ORDER[dayRegime] || 0) > (REGIME_ORDER[existingRegime] || 0)) {
+                  existing.opportunity_regime = day.opportunity_regime;
+                }
+                if (day.is_forced_regime_c_flag) existing.is_forced_regime_c_flag = true;
+                existing.attendance   = [...(existing.attendance   || []), ...(day.attendance   || [])];
+                existing.operations   = [...(existing.operations   || []), ...(day.operations   || [])];
+                existing.installation = [...(existing.installation || []), ...(day.installation || [])];
+                existing.context      = [...(existing.context      || []), ...(day.context      || [])];
+              }
+            }
+          }
+          const mergedDays = [...dateMap.values()];
+
+          const mergedProfile = valid[0].data.profile || null;
+
+          const mergedData = {
+            ok: true,
+            profile: mergedProfile,
+            days: mergedDays,
+            all_feed: mergedFeed,
+            action_candidates: valid.flatMap(({ data, loc }) =>
+              (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
+            ),
+            _locations: locs,
+            competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
+            _siteData: valid.map(({ data, loc }) => ({
+              location_id: loc.location_id,
+              label: loc.company_name || loc.location_id,
+              profile: data.profile || null,
+              days: data.days || [],
+            })),
+          };
+
+          // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
+          // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
+          // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur
+          // fct_client_sales_signals_daily). robust_z n'est pas agrégeable → null => chip neutre,
+          // jamais de couleur inventée sur l'agrégat.
+          // HONNÊTETÉ des bases de comparaison : une moyenne 30 j (ou un même-jour-semaine) qui ne
+          // couvre PAS tous les sites contribuant au CA de la date produirait un % faux (CA total
+          // comparé à une base partielle) → la base et son % ne sont émis que si CHAQUE site
+          // contributeur de la date porte la valeur. Un site sans ligne à une date (fermé, ou import
+          // en retard) contribue 0 au total — indiscernables l'un de l'autre, on somme ce qui existe.
+          const _ssByDate = new Map();
+          for (const { data } of valid) {
+            for (const r of (data.sales_summary || [])) {
+              const k = String((r.date && r.date.value) || r.date || "").slice(0, 10);
+              if (!k) continue;
+              const e = _ssByDate.get(k) || { date: k, daily_revenue: 0, daily_transactions: 0, revenue_30d_avg: 0, revenue_same_weekday_last_week: 0, _sites: 0, _avgCount: 0, _swCount: 0 };
+              e._sites++;
+              e.daily_revenue += Number(r.daily_revenue) || 0;
+              e.daily_transactions += Number(r.daily_transactions) || 0;
+              if (r.revenue_30d_avg != null && Number.isFinite(Number(r.revenue_30d_avg))) { e.revenue_30d_avg += Number(r.revenue_30d_avg); e._avgCount++; }
+              if (r.revenue_same_weekday_last_week != null && Number.isFinite(Number(r.revenue_same_weekday_last_week))) { e.revenue_same_weekday_last_week += Number(r.revenue_same_weekday_last_week); e._swCount++; }
+              _ssByDate.set(k, e);
+            }
+          }
+          mergedData.sales_summary = Array.from(_ssByDate.values())
+            .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
+            .map(e => {
+              const fullAvg = e._avgCount === e._sites && e.revenue_30d_avg > 0;
+              const fullSw = e._swCount === e._sites && e.revenue_same_weekday_last_week > 0;
+              return {
+                date: e.date,
+                daily_revenue: e.daily_revenue,
+                daily_transactions: e.daily_transactions,
+                avg_basket: e.daily_transactions > 0 ? e.daily_revenue / e.daily_transactions : null,
+                revenue_30d_avg: fullAvg ? e.revenue_30d_avg : null,
+                revenue_vs_30d_avg_pct: fullAvg ? ((e.daily_revenue - e.revenue_30d_avg) / e.revenue_30d_avg) * 100 : null,
+                revenue_same_weekday_last_week: fullSw ? e.revenue_same_weekday_last_week : null,
+                revenue_vs_last_week_pct: fullSw ? ((e.daily_revenue - e.revenue_same_weekday_last_week) / e.revenue_same_weekday_last_week) * 100 : null,
+                revenue_robust_z: null,
+              };
+            });
+          return mergedData;
+      }
+
+
       const locs = await fetchLocations().catch(() => []);
       allLocations = locs;
 
@@ -5744,6 +5938,20 @@ if (!location_id) {
         if (addrEl) addrEl.textContent = `${locs.length} sites surveillés`;
         if (subtitleEl) subtitleEl.textContent = `Veille opérationnelle · 7 jours · ${locs.length} sites`;
 
+        // Peinture cache-first (18/07) : la vue agrégée n'exploitait JAMAIS le cache par site que
+        // fetchPulse écrit — chaque reload attendait N monitors à vide. Tous les sites en cache →
+        // fusion depuis le cache et paint IMMÉDIAT, le live ci-dessous repeint (stale-while-
+        // revalidate, même pattern que le single-site). TOUT-OU-RIEN : un agrégat partiel
+        // afficherait des totaux faux — mieux vaut l'attente que le mensonge.
+        try {
+          const cachedValid = locs.map(function(l){ const c = readPulseCache(l.location_id); return c ? { data: c, loc: l } : null; });
+          if (locs.length && cachedValid.every(Boolean)) {
+            const cm = buildMergedFromValid(cachedValid, locs);
+            cm.all_feed = filterFeedByWindow(cm.all_feed, 0);
+            renderPulse(cm, todayYmd(), "radar");
+          }
+        } catch (e) {}
+
         const results = await Promise.all(
           locs.map(l => pulseFor(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
@@ -5756,114 +5964,7 @@ if (!location_id) {
         }).catch(function(){});
         if (!valid.length) throw new Error("Aucune donnée disponible.");
 
-        const mergedFeedRaw = valid.flatMap(({ data, loc }) =>
-          (data.all_feed || []).map(a => ({ ...a, location_id: loc.location_id, location_label: loc.company_name || loc.location_id }))
-        );
-        // Dedup regional signals that are identical within the same region
-        const REGIONAL_SUBTYPES = new Set([
-          "weather_hazard_onset", "weather_worsened", "weather_improved",
-          "calendar_audience_shift", "regime_change",
-          "mega_event_activation", "mega_event_end",
-        ]);
-        const seenRegional = new Set();
-        const mergedFeed = mergedFeedRaw.filter(a => {
-          const sub = String(a?.change_subtype || "").toLowerCase();
-          if (!REGIONAL_SUBTYPES.has(sub)) return true;
-          const key = sub + "|" + String(a?.affected_date || "") + "|" + String(a?.old_value || "") + "|" + String(a?.new_value || "");
-          if (seenRegional.has(key)) return false;
-          seenRegional.add(key);
-          return true;
-        });
-
-        const dateMap = new Map();
-        for (const { data } of valid) {
-          for (const day of (data.days || [])) {
-            const ymd = String(day.date || "").slice(0, 10);
-            const existing = dateMap.get(ymd);
-            if (!existing) {
-              dateMap.set(ymd, { ...day });
-            } else {
-              if (day.opportunity_score !== null && (existing.opportunity_score === null || day.opportunity_score < existing.opportunity_score)) {
-                existing.opportunity_score = day.opportunity_score;
-              }
-              // Merge regime: keep worst (C > B > A)
-              const REGIME_ORDER = { A: 0, B: 1, C: 2 };
-              const existingRegime = String(existing.opportunity_regime || "B").toUpperCase();
-              const dayRegime = String(day.opportunity_regime || "B").toUpperCase();
-              if ((REGIME_ORDER[dayRegime] || 0) > (REGIME_ORDER[existingRegime] || 0)) {
-                existing.opportunity_regime = day.opportunity_regime;
-              }
-              if (day.is_forced_regime_c_flag) existing.is_forced_regime_c_flag = true;
-              existing.attendance   = [...(existing.attendance   || []), ...(day.attendance   || [])];
-              existing.operations   = [...(existing.operations   || []), ...(day.operations   || [])];
-              existing.installation = [...(existing.installation || []), ...(day.installation || [])];
-              existing.context      = [...(existing.context      || []), ...(day.context      || [])];
-            }
-          }
-        }
-        const mergedDays = [...dateMap.values()];
-
-        const mergedProfile = valid[0].data.profile || null;
-
-        const mergedData = {
-          ok: true,
-          profile: mergedProfile,
-          days: mergedDays,
-          all_feed: mergedFeed,
-          action_candidates: valid.flatMap(({ data, loc }) =>
-            (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
-          ),
-          _locations: locs,
-          competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
-          _siteData: valid.map(({ data, loc }) => ({
-            location_id: loc.location_id,
-            label: loc.company_name || loc.location_id,
-            profile: data.profile || null,
-            days: data.days || [],
-          })),
-        };
-
-        // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
-        // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
-        // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur
-        // fct_client_sales_signals_daily). robust_z n'est pas agrégeable → null => chip neutre,
-        // jamais de couleur inventée sur l'agrégat.
-        // HONNÊTETÉ des bases de comparaison : une moyenne 30 j (ou un même-jour-semaine) qui ne
-        // couvre PAS tous les sites contribuant au CA de la date produirait un % faux (CA total
-        // comparé à une base partielle) → la base et son % ne sont émis que si CHAQUE site
-        // contributeur de la date porte la valeur. Un site sans ligne à une date (fermé, ou import
-        // en retard) contribue 0 au total — indiscernables l'un de l'autre, on somme ce qui existe.
-        const _ssByDate = new Map();
-        for (const { data } of valid) {
-          for (const r of (data.sales_summary || [])) {
-            const k = String((r.date && r.date.value) || r.date || "").slice(0, 10);
-            if (!k) continue;
-            const e = _ssByDate.get(k) || { date: k, daily_revenue: 0, daily_transactions: 0, revenue_30d_avg: 0, revenue_same_weekday_last_week: 0, _sites: 0, _avgCount: 0, _swCount: 0 };
-            e._sites++;
-            e.daily_revenue += Number(r.daily_revenue) || 0;
-            e.daily_transactions += Number(r.daily_transactions) || 0;
-            if (r.revenue_30d_avg != null && Number.isFinite(Number(r.revenue_30d_avg))) { e.revenue_30d_avg += Number(r.revenue_30d_avg); e._avgCount++; }
-            if (r.revenue_same_weekday_last_week != null && Number.isFinite(Number(r.revenue_same_weekday_last_week))) { e.revenue_same_weekday_last_week += Number(r.revenue_same_weekday_last_week); e._swCount++; }
-            _ssByDate.set(k, e);
-          }
-        }
-        mergedData.sales_summary = Array.from(_ssByDate.values())
-          .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
-          .map(e => {
-            const fullAvg = e._avgCount === e._sites && e.revenue_30d_avg > 0;
-            const fullSw = e._swCount === e._sites && e.revenue_same_weekday_last_week > 0;
-            return {
-              date: e.date,
-              daily_revenue: e.daily_revenue,
-              daily_transactions: e.daily_transactions,
-              avg_basket: e.daily_transactions > 0 ? e.daily_revenue / e.daily_transactions : null,
-              revenue_30d_avg: fullAvg ? e.revenue_30d_avg : null,
-              revenue_vs_30d_avg_pct: fullAvg ? ((e.daily_revenue - e.revenue_30d_avg) / e.revenue_30d_avg) * 100 : null,
-              revenue_same_weekday_last_week: fullSw ? e.revenue_same_weekday_last_week : null,
-              revenue_vs_last_week_pct: fullSw ? ((e.daily_revenue - e.revenue_same_weekday_last_week) / e.revenue_same_weekday_last_week) * 100 : null,
-              revenue_robust_z: null,
-            };
-          });
+        const mergedData = buildMergedFromValid(valid, locs);
 
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, 0);
         renderPulse(mergedData, todayYmd(), "radar");
@@ -5892,24 +5993,11 @@ if (!location_id) {
           fetchSavedDrafts(_locIdForSecondary),
           fetchChannelConfigs(_locIdForSecondary),
         ].concat(_ruleFetches)).then(function(r){ return r[0]; });
-        const _csFollowedById = new Map();
-        const _csSignalsById = new Map();
-        let _csTopThreats = [];
-        _csAll.forEach(function(cs){
-          (cs.followed_competitors || []).forEach(function(fc){
-            var prev = _csFollowedById.get(fc.competitor_id);
-            if (!prev || (fc.distance_km != null && (prev.distance_km == null || Number(fc.distance_km) < Number(prev.distance_km)))) _csFollowedById.set(fc.competitor_id, fc);
-          });
-          (cs.signals || []).forEach(function(s){
-            var k = String(s.competitor_event_id || (s.competitor_id + "|" + s.event_name));
-            if (!_csSignalsById.has(k)) _csSignalsById.set(k, s);
-          });
-          if ((cs.top_threats || []).length > _csTopThreats.length) _csTopThreats = cs.top_threats;
-        });
-        mergedData._competitor_signals = Array.from(_csSignalsById.values());
-        mergedData._competitor_followed_count = _csAll.reduce(function(m, cs){ return Math.max(m, Number(cs.followed_count || 0)); }, 0);
-        mergedData._top_threats = _csTopThreats;
-        mergedData._followed_competitors = Array.from(_csFollowedById.values());
+        const _fused = fuseCompetitorSignals(_csAll);
+        mergedData._competitor_signals = _fused.signals;
+        mergedData._competitor_followed_count = _fused.followed_count;
+        mergedData._top_threats = _fused.top_threats;
+        mergedData._followed_competitors = _fused.followed_competitors;
         renderPulse(mergedData, todayYmd(), "radar");
 
         // Site filter — switch between the aggregate ("Tous mes sites") and a single site.
