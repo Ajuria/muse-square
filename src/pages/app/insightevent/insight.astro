@@ -765,7 +765,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _isWeatherWindow = (signal_type === 'extended_bad_weather');
         var _isFootfall = (signal_type === 'best_day_of_week' || signal_type === 'ft_peak_bad_weather' || signal_type === 'ft_quiet_good_weather' || signal_type === 'ft_peak_saturated' || signal_type === 'ft_peak_low_comp' || signal_type === 'ft_peak_tourism_vacation' || signal_type === 'ft_peak_mobility');
         var html = '';
-        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+        // Option A (owner 18/07) : rang\u00e9e d'outils du hero \u2014 retour \u00e0 gauche, \u00ab Agir \u25be \u00bb \u00e0 droite
+        // (m\u00eame placement que \u00ab Enregistrer en PDF \u00bb du rapport). Slot rempli par wireActionBar.
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><button class="fs-back" onclick="history.back()">\u2190 Retour</button><div id="fs-agir-slot" style="position:relative;flex-shrink:0;"></div></div>';
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap;">'
             + '<h1 style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:' + INK + ';">' + esc(m.title) + '</h1>'
@@ -1417,7 +1419,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
 
         // ── Back button ──
-        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+        // Option A (owner 18/07) : rang\u00e9e d'outils du hero \u2014 retour \u00e0 gauche, \u00ab Agir \u25be \u00bb \u00e0 droite
+        // (m\u00eame placement que \u00ab Enregistrer en PDF \u00bb du rapport). Slot rempli par wireActionBar.
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><button class="fs-back" onclick="history.back()">\u2190 Retour</button><div id="fs-agir-slot" style="position:relative;flex-shrink:0;"></div></div>';
 
         // ── Hero — minimal: category + title only ──
         if (spec) {
@@ -2006,14 +2010,11 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       }
 
       function wireActionBar(root, day, prof, feedItem, recoActions) {
-        var barHtml = '<div class="fs-action-bar" id="fs-action-bar">'
-          + '<div class="fs-action-bar-inner">'
-            + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
-            + '<button type="button" class="fs-btn-send" id="fs-btn-send">\u2197\ufe0f Faire suivre</button>'
-            + '<button type="button" id="fs-btn-act" style="flex:1;padding:12px 0;border-radius:10px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cr\u00e9er une action</button>'
-          + '</div>'
-        + '</div>'
-        + '<div class="fs-ws-overlay" id="fs-ws-overlay">'
+        // Option A (owner 18/07) : plus de barre sticky \u2014 \u00ab Agir \u25be \u00bb dans le hero (slot
+        // #fs-agir-slot), menu \u00e0 l'anatomie .ab-dd-item des cartes Pulse (inline \u2014 HTML inject\u00e9).
+        // \u00ab Cr\u00e9er une action \u00bb SUPPRIM\u00c9 : doublon strict d'\u00ab \u00c9crire mon propre plan \u00bb
+        // (m\u00eame fsOpenCommit) \u2014 la section Plan est l'unique porte de cr\u00e9ation d'action.
+        var barHtml = '<div class="fs-ws-overlay" id="fs-ws-overlay">'
           + '<div class="fs-ws-panel" id="fs-ws-panel"></div>'
         + '</div>'
         + '<div class="fs-ws-overlay" id="fs-cm-overlay">'
@@ -2050,8 +2051,26 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
 
         overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
-        document.getElementById("fs-btn-comm").addEventListener("click", function() { openWorkspace("comm"); });
-        document.getElementById("fs-btn-send").addEventListener("click", function() { openWorkspace("send"); });
+        var _ddItem = function(id, tileBg, tileFg, icon, label, desc, last) {
+          return '<button type="button" id="' + id + '" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;' + (last ? '' : 'border-bottom:0.5px solid #f3f4f6;') + '">'
+            + '<div style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;background:' + tileBg + ';color:' + tileFg + ';">' + icon + '</div>'
+            + '<div><div style="font-weight:500;">' + label + '</div><div style="font-size:10px;color:#9CA3AF;margin-top:1px;">' + desc + '</div></div>'
+          + '</button>';
+        };
+        var agirSlot = document.getElementById('fs-agir-slot');
+        if (agirSlot) {
+          agirSlot.innerHTML = '<button type="button" id="fs-agir-btn" style="background:#1D3BB3;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Agir \u25be</button>'
+            + '<div id="fs-agir-menu" style="display:none;position:absolute;top:100%;right:0;min-width:230px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:9999;margin-top:6px;overflow:hidden;">'
+              + _ddItem('fs-agir-comm', '#E6F1FB', '#185FA5', '\u270f\ufe0f', 'Communiquer', 'R\u00e9diger un message sur ce signal', false)
+              + _ddItem('fs-agir-send', '#EEEDFE', '#534AB7', '\u2197\ufe0f', 'Faire suivre', 'Transmettre \u00e0 l\u2019\u00e9quipe', true)
+            + '</div>';
+          var _agirBtn = document.getElementById("fs-agir-btn");
+          var _agirMenu = document.getElementById("fs-agir-menu");
+          _agirBtn.addEventListener("click", function(e) { e.stopPropagation(); _agirMenu.style.display = _agirMenu.style.display === "block" ? "none" : "block"; });
+          document.addEventListener("click", function() { _agirMenu.style.display = "none"; });
+          document.getElementById("fs-agir-comm").addEventListener("click", function() { _agirMenu.style.display = "none"; openWorkspace("comm"); });
+          document.getElementById("fs-agir-send").addEventListener("click", function() { _agirMenu.style.display = "none"; openWorkspace("send"); });
+        }
 
         // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card
         // (origin_action_type = signal_type; allowlisted in commitmentOrigins.ts). The user sets the
@@ -2077,8 +2096,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           });
           cmOverlay.classList.add("is-open");
         }
-        var actBtn = document.getElementById("fs-btn-act");
-        if (actBtn) actBtn.addEventListener("click", function() { fsOpenCommit(""); });
         // "Plan à essayer" — each reco opens M'engager pre-filled with that plan (same shared form).
         (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-pick]')) : []).forEach(function(btn) {
           btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = recoActions && recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
