@@ -135,7 +135,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         transit_network,
         summary,
         score_driver_label,
-        suppression_key
+        -- Suppression key DÉRIVÉE ICI (17/07) et non lue de la vue : le job dbt nocturne a reconstruit
+        -- la vue depuis main sans l'édit de branche (colonne disparue -> 400 -> Pulse mort). Les trois
+        -- composantes sont des colonnes stables de la vue ; la dérivation est identique à celle du
+        -- modèle dbt (change_subtype:location_id:affected_date) — même convention que les candidates.
+        CONCAT(change_subtype, ':', location_id, ':', CAST(affected_date AS STRING)) AS suppression_key
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
         AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
@@ -457,9 +461,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
-      // Ownership pivot (16/07): the view now derives suppression_key (change_subtype:location:date,
-      // the candidates convention) — carried through so (a) the feed filter below can suppress
-      // picked-up change cards and (b) Pulse stamps it as origin_suppression_key at M'engager.
+      // Ownership pivot (16/07, dérivation rapatriée ici 17/07): suppression_key est calculée dans la
+      // REQUÊTE monitor (change_subtype:location:date, la convention des candidates) — plus lue de la
+      // vue, dont la colonne a été perdue à un rebuild dbt nocturne. Portée pour (a) le filtre feed
+      // ci-dessous et (b) le stamp origin_suppression_key de Pulse à M'engager.
       suppression_key:               r?.suppression_key               ?? null,
       entity_id:                     r?.entity_id                     ?? null,
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
