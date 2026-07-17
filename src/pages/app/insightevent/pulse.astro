@@ -4425,13 +4425,16 @@ if (!location_id) {
     var _base = r.window_expected_revenue != null ? Number(_cgFv(r.window_expected_revenue)) : null;
     var _ypct = _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
-    var _openObj = _uplift
-      ? ('Augmenter le CA de +' + _cgEur(_uplift) + '/jour (+' + _ypct + ' % vs CA habituel).')
-      : ('Augmenter le CA de +' + _ypct + ' % vs votre CA habituel.');
-    var sowhat = r.status === 'open' ? _openObj
-      : r.status === 'pending' ? ('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
-      : r.status === 'expired' ? 'Aucune donnée de ventes reçue en 30 j.'
-      : ('CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
+    // Contrat 18/07 (proto validé, texte seul — aucune rangée/position ne change) :
+    // titre = l'objectif chiffré, description = « Dispositif : le moyen » + l'état de mesure.
+    var _titre = _uplift
+      ? ('Objectif : augmenter le CA de ' + _ypct + ' %, soit +' + _cgEur(_uplift) + '/jour')
+      : ('Objectif : augmenter le CA de ' + _ypct + ' % vs votre CA habituel');
+    var _dispositif = 'Dispositif : ' + String(r.committed_action_text || '');
+    var sowhat = r.status === 'open' ? escapeHtml(_dispositif)
+      : r.status === 'pending' ? escapeHtml(_dispositif + ' · Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
+      : r.status === 'expired' ? escapeHtml(_dispositif + ' · Aucune donnée de ventes reçue en 30 j.')
+      : escapeHtml(_dispositif + ' · CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
     var vStyle = 'background:' + v.bg + ';color:' + v.fg + ';font-weight:600;' + (v.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '');
     var pill = '<span class="ab-metric" style="' + vStyle + '">' + _cgIcon(v.p, v.fg) + v.label + (amber ? '<span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;margin-left:2px;"></span>' : '') + '</span>';
     var locLabel = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
@@ -4471,7 +4474,7 @@ if (!location_id) {
             + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
             + '<div style="flex:1;min-width:0;">'
               + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
-              + '<div class="ab-what">' + escapeHtml(String(r.committed_action_text || '')) + '</div>'
+              + '<div class="ab-what">' + escapeHtml(_titre) + '</div>'
               + '<div class="ab-sowhat">' + sowhat + '</div>'
             + '</div></div></div>'
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
