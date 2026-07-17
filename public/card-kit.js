@@ -462,7 +462,7 @@
   //    kit globals (whose esc nulls 0). The page keeps the wiring (wireCapture/wireAdvice,
   //    fetch, MSCommitForm); this returns ONLY the document HTML. COPY = EVOL_COPY.
   function renderEvolution(data, COPY) {
-    var WIN_FR = { day_of: 'Jour même', '7d': '7 jours', '14d': '14 jours' };
+    var WIN_FR = { day_of: 'Jour même', '7d': '7 jours', '14d': '14 jours', '30d': '30 jours' };
     var LVL_FR = { modeste: 'modeste', net: 'net' };
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace('.', ','); }
@@ -601,7 +601,10 @@
 
     var winLbl = WIN_FR[cm.window_kind] || cm.window_kind;
     // Objectif = the KPI target (uplift %) + the timeframe to reach it — not the "net/brut" jargon.
-    var _subGoal = Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
+    // Base 'pct' (objectif libre 18/07) : le % est celui fixé par l'utilisateur, pas une traduction.
+    var _subGoal = (cm.threshold_basis === 'pct' && cm.threshold_value != null)
+      ? Math.round(Number(cm.threshold_value))
+      : Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
     var sub = t('subtitle', { pct: _subGoal, window: winLbl });
     // Owner + when (remark #1): who committed and when, + when the action was marked done.
     var _ownerDate = '';
