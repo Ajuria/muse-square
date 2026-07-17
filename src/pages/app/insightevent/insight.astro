@@ -2051,25 +2051,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
 
         overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
-        var _ddItem = function(id, tileBg, tileFg, icon, label, desc, last) {
-          return '<button type="button" id="' + id + '" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;' + (last ? '' : 'border-bottom:0.5px solid #f3f4f6;') + '">'
-            + '<div style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;background:' + tileBg + ';color:' + tileFg + ';">' + icon + '</div>'
-            + '<div><div style="font-weight:500;">' + label + '</div><div style="font-size:10px;color:#9CA3AF;margin-top:1px;">' + desc + '</div></div>'
-          + '</button>';
-        };
+        // Alternative (owner 18/07) : pas de dropdown \u2014 deux boutons compacts et DIRECTS,
+        // nomm\u00e9s par ce qu'ils font. \u00ab Agir \u00bb dispara\u00eet de la page (le user vient d'y cliquer
+        // sur la carte : le r\u00e9p\u00e9ter ici lisait comme un parcours qui n'avance pas).
         var agirSlot = document.getElementById('fs-agir-slot');
         if (agirSlot) {
-          agirSlot.innerHTML = '<button type="button" id="fs-agir-btn" style="background:#1D3BB3;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Agir \u25be</button>'
-            + '<div id="fs-agir-menu" style="display:none;position:absolute;top:100%;right:0;min-width:230px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.08);z-index:9999;margin-top:6px;overflow:hidden;">'
-              + _ddItem('fs-agir-comm', '#E6F1FB', '#185FA5', '\u270f\ufe0f', 'Communiquer', 'R\u00e9diger un message sur ce signal', false)
-              + _ddItem('fs-agir-send', '#EEEDFE', '#534AB7', '\u2197\ufe0f', 'Faire suivre', 'Transmettre \u00e0 l\u2019\u00e9quipe', true)
-            + '</div>';
-          var _agirBtn = document.getElementById("fs-agir-btn");
-          var _agirMenu = document.getElementById("fs-agir-menu");
-          _agirBtn.addEventListener("click", function(e) { e.stopPropagation(); _agirMenu.style.display = _agirMenu.style.display === "block" ? "none" : "block"; });
-          document.addEventListener("click", function() { _agirMenu.style.display = "none"; });
-          document.getElementById("fs-agir-comm").addEventListener("click", function() { _agirMenu.style.display = "none"; openWorkspace("comm"); });
-          document.getElementById("fs-agir-send").addEventListener("click", function() { _agirMenu.style.display = "none"; openWorkspace("send"); });
+          var _toolBtn = 'display:inline-flex;align-items:center;gap:6px;background:#fff;color:#1D3BB3;border:1px solid #DBEAFE;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;';
+          agirSlot.innerHTML = '<div style="display:flex;gap:8px;">'
+            + '<button type="button" id="fs-tool-comm" style="' + _toolBtn + '">\u270f\ufe0f Communiquer</button>'
+            + '<button type="button" id="fs-tool-send" style="' + _toolBtn + '">\u2197\ufe0f Faire suivre</button>'
+          + '</div>';
+          document.getElementById("fs-tool-comm").addEventListener("click", function() { openWorkspace("comm"); });
+          document.getElementById("fs-tool-send").addEventListener("click", function() { openWorkspace("send"); });
         }
 
         // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card
