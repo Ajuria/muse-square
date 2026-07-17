@@ -245,13 +245,19 @@
     });
     refreshGoalCtx();
 
-    if (opts.ownerPool) renderOwnerPool(container, opts.ownerPool, opts.location_id);
-    else if (typeof opts.fetchOwners === "function") {
-      try { opts.fetchOwners().then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {}); } catch (e) {}
-    } else {
-      // Default: the team roster (profile) — no caller wiring needed beyond location_id.
-      fetchTeamDefault(opts.location_id).then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {});
-    }
+    // Roster Responsable : pool/fetch custom d'abord, mais un résultat custom VIDE ou en
+    // échec retombe TOUJOURS sur le self-fetch par défaut (/api/channels/team, roster
+    // Destinataires du profil) — une surface peut enrichir le pool, jamais tuer les
+    // propositions en silence (owner 18/07 : chips absents sur la page détail).
+    var _customPool = opts.ownerPool
+      ? Promise.resolve(opts.ownerPool)
+      : (typeof opts.fetchOwners === "function"
+          ? Promise.resolve().then(function () { return opts.fetchOwners(); }).catch(function () { return []; })
+          : Promise.resolve([]));
+    _customPool.then(function (pool) {
+      if (pool && pool.length) { renderOwnerPool(container, pool, opts.location_id); return; }
+      return fetchTeamDefault(opts.location_id).then(function (p2) { renderOwnerPool(container, p2, opts.location_id); });
+    }).catch(function () {});
 
     container.querySelectorAll("[data-cm-chip]").forEach(function (c) {
       c.addEventListener("click", function () {
