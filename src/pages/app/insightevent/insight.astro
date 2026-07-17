@@ -2043,8 +2043,41 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           return [];
         }
 
-        function openWorkspace(mode) {
-          currentChannel = mode === "comm" ? "gbp" : "note_interne";
+        // Parit\u00e9 Pulse (owner 18/07) : le canal vient de la config r\u00e9elle + getAvailableChannels
+        // (action-cards.js) \u2014 public seulement si un canal public est connect\u00e9 ET que la carte est
+        // communicable (RULE_ONLY \u2192 aucun canal public) ; interne = 1er canal d'envoi, sinon
+        // note_interne (son seed porte la voix management). Fini le gbp/note_interne en dur.
+        var _ccCache = null;
+        async function fetchChannelConfigsIns() {
+          if (_ccCache !== null) return _ccCache;
+          try {
+            var res = await fetch("/api/channels/config?location_id=" + encodeURIComponent(location_id));
+            var json = await res.json().catch(function() { return null; });
+            if (json && json.ok && Array.isArray(json.items)) {
+              _ccCache = {};
+              json.items.forEach(function(item) { if (item.enabled) _ccCache[item.channel] = item.config; });
+              return _ccCache;
+            }
+          } catch(e) {}
+          _ccCache = {};
+          return _ccCache;
+        }
+        async function openWorkspace(mode) {
+          var cc = await fetchChannelConfigsIns();
+          var chs = (window.getAvailableChannels && prof) ? (window.getAvailableChannels(signal_type, prof, cc) || []) : [];
+          var pubChannel = '', sendChannel = '';
+          for (var chi = 0; chi < chs.length; chi++) {
+            var chKey = chs[chi].key;
+            if (!pubChannel && (chKey === 'gbp' || chKey === 'instagram' || chKey === 'facebook' || chKey === 'website')) pubChannel = chKey;
+            if (!sendChannel && (chKey === 'email' || chKey === 'slack' || chKey === 'whatsapp' || chKey === 'sms' || chKey === 'note_interne')) sendChannel = chKey;
+          }
+          if (!sendChannel) sendChannel = 'note_interne';
+          if (mode === "comm" && !pubChannel) {
+            overlay.classList.add("is-open");
+            panel.innerHTML = "<div style='padding:20px 18px;font-size:12px;color:#374151;line-height:1.6;'><div style='font-weight:600;margin-bottom:4px;'>Aucun canal public disponible</div>Cette carte est un signal interne, ou aucun canal public (Google Business Profile, r\u00e9seaux sociaux) n'est connect\u00e9. Utilisez \u00ab Faire suivre \u00bb pour envoyer une note \u00e0 votre \u00e9quipe.<div style='margin-top:10px;'><a href='/profile' style='display:inline-block;font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;border:1px solid #1D3BB3;border-radius:6px;padding:6px 12px;'>Connecter un canal \u2192</a></div></div>";
+            return;
+          }
+          currentChannel = mode === "comm" ? pubChannel : sendChannel;
           overlay.classList.add("is-open");
           generateDraft(currentChannel);
         }
@@ -2124,7 +2157,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
           var payload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem,
             card_what: (cardText && cardText.what) || signal_type,
-            card_sowhat: (cardText && cardText.sowhat) || "" };
+            card_sowhat: (cardText && cardText.sowhat) || "",
+            artifact_mode: "post" };
           if (draftSeed) payload.draft_seed = draftSeed;
 
           fetch("/api/insight/generate-action-draft", {
