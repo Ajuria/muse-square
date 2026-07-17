@@ -100,7 +100,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `channels/internal-send.ts` | POST | One-off internal alert dispatch | `analytics.saved_drafts`, `…channel_configs` |
 | `channels/meta-callback.ts` | GET | Meta OAuth callback (FB + IG dual configs) | `analytics.channel_configs`, Meta Graph |
 | `channels/meta-connect.ts` | GET | Start Meta OAuth | none |
-| `channels/publish.ts` | POST | Publish to channel (Slack/email/SMS/WhatsApp/GBP/FB/IG) w/ handler routing + logging | `analytics.channel_configs`, `…action_log`, `…publish_log`, Slack/Resend/Google/Meta |
+| `channels/publish.ts` | POST | **note_interne supported (18/07): internal write (same saved_drafts insert as the internal-send rail, `user_instruction='internal_send'` → surfaced by list-drafts on pulse/monitor) — no external side effect; internal-send rail itself stays Barrier-2 sealed.** Publish to channel (Slack/email/SMS/WhatsApp/GBP/FB/IG) w/ handler routing + logging | `analytics.channel_configs`, `…action_log`, `…publish_log`, Slack/Resend/Google/Meta |
 | `channels/slack-callback.ts` | GET | Slack OAuth callback | `analytics.channel_configs`, Slack OAuth |
 | `channels/slack-connect.ts` | GET | Start Slack OAuth | none |
 | `channels/team.ts` | GET/POST/DELETE | CRUD team members + routing config | `analytics.team_members` |

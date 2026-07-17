@@ -255,8 +255,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const channel = String(body.channel).trim();
-    const handler = HANDLERS[channel];
-    if (!handler) {
+    // note_interne (18/07) : le workspace de la page d\u00e9tail envoie la note d'\u00e9quipe par le M\u00caME
+    // bouton \u2014 la note est un \u00e9crit interne (insert saved_drafts, le feed notes de pulse/monitor
+    // la lit via list-drafts), pas un canal externe. G\u00e9r\u00e9 dans l'Execute ci-dessous.
+    const handler = HANDLERS[channel] || null;
+    if (!handler && channel !== "note_interne") {
       return new Response(JSON.stringify({ ok: false, error: "Canal non support\u00e9 : " + channel }), {
         status: 400,
         headers: { "content-type": "application/json" },
@@ -303,8 +306,49 @@ export const POST: APIRoute = async ({ request, locals }) => {
       image_url: String(body.image_url || "").trim(),
     };
 
-    // Execute
-    const result = await handler(config, payload);
+    // Execute — note_interne : écrit interne (même insert que le rail internal-send : saved_drafts,
+    // user_instruction 'internal_send' → surfacé par list-drafts sur pulse/monitor). Pas d'envoi externe.
+    let result: { ok: boolean; error?: string; external_post_id?: string; permalink?: string };
+    if (channel === "note_interne") {
+      try {
+        await bq.query({
+          query: `
+            INSERT INTO \`${BQ_PROJECT}.analytics.saved_drafts\` (
+              draft_id, user_id, location_id, signal_type, channel,
+              card_what, card_sowhat, affected_date, severity,
+              title, body, hashtags, recipient,
+              original_ai_text, user_instruction,
+              status, artifact_mode,
+              created_at, updated_at
+            ) VALUES (
+              @draft_id, @user_id, @location_id, @signal_type, 'note_interne',
+              @card_what, '', SAFE.PARSE_DATE('%Y-%m-%d', NULLIF(@affected_date, '')), '',
+              @title, @body, '', @recipient,
+              @body, 'internal_send',
+              'active', 'post',
+              CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
+            )
+          `,
+          params: {
+            draft_id: crypto.randomUUID(),
+            user_id: userId,
+            location_id: locationId,
+            signal_type: payload.signal_type,
+            card_what: payload.signal_type,
+            affected_date: payload.affected_date,
+            title: payload.title,
+            body: payload.body,
+            recipient: payload.recipient,
+          },
+          location: "EU",
+        });
+        result = { ok: true };
+      } catch (e: any) {
+        result = { ok: false, error: e?.message || "Erreur d'enregistrement de la note" };
+      }
+    } else {
+      result = await handler!(config, payload);
+    }
 
     if (result.ok) {
       // Log to action_log
