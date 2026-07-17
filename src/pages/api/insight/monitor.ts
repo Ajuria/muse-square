@@ -135,7 +135,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         transit_network,
         summary,
         score_driver_label,
-        suppression_key
+        -- Suppression key DÉRIVÉE ICI (17/07) et non lue de la vue : le job dbt nocturne a reconstruit
+        -- la vue depuis main sans l'édit de branche (colonne disparue -> 400 -> Pulse mort). Les trois
+        -- composantes sont des colonnes stables de la vue ; la dérivation est identique à celle du
+        -- modèle dbt (change_subtype:location_id:affected_date) — même convention que les candidates.
+        CONCAT(change_subtype, ':', location_id, ':', CAST(affected_date AS STRING)) AS suppression_key
       FROM \`muse-square-open-data.semantic.vw_insight_event_change_feed\`
       WHERE location_id = @location_id
         AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
@@ -324,8 +328,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     let activeGoal: any = null;
     let activity: any = null;
     let disabledThemes: string[] = [];
+    // Performance volet (Pulse radar) — last 8 daily sales rows for the CA-vs-habituel glance +
+    // 7-day bars + freshness. Read alongside the per-user reads; fails soft to null (accounts
+    // with no CSV import simply have no rows — the volet renders its cold-start invite).
+    let salesSummary: any = null;
     if (clerk_user_id) {
-      const [goalRes, actRes, recoRes] = await Promise.all([
+      const [goalRes, actRes, recoRes, salesRes] = await Promise.all([
         bq.query({
           query: `
             SELECT goal, goal_label_fr, goal_scope
@@ -364,6 +372,26 @@ export const GET: APIRoute = async ({ url, locals }) => {
           params: { clerk_user_id, location_id },
           location: "EU",
         }).catch(() => [[]] as any[]),
+        bq.query({
+          query: `
+            SELECT
+              CAST(transaction_date AS STRING) AS date,
+              daily_revenue,
+              daily_transactions,
+              avg_basket,
+              revenue_30d_avg,
+              revenue_vs_30d_avg_pct,
+              revenue_same_weekday_last_week,
+              revenue_vs_last_week_pct,
+              revenue_robust_z
+            FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+            WHERE location_id = @location_id
+            ORDER BY transaction_date DESC
+            LIMIT 8
+          `,
+          params: { location_id },
+          location: "EU",
+        }).catch(() => [[]] as any[]),
       ]);
       const goalRows = goalRes?.[0];
       activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
@@ -378,6 +406,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           if (Array.isArray(cfg?.disabled_themes)) disabledThemes = cfg.disabled_themes;
         }
       } catch { disabledThemes = []; }
+      const salesRows = salesRes?.[0];
+      salesSummary = (Array.isArray(salesRows) && salesRows.length) ? salesRows : null;
     }
 
     const competitorAlertFeed = (Array.isArray(competitorAlertRows) ? competitorAlertRows : []).map((r: any) => ({
@@ -431,9 +461,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }));
 
     const changeFeed = (Array.isArray(feedRows) ? feedRows : []).map((r: any) => ({
-      // Ownership pivot (16/07): the view now derives suppression_key (change_subtype:location:date,
-      // the candidates convention) — carried through so (a) the feed filter below can suppress
-      // picked-up change cards and (b) Pulse stamps it as origin_suppression_key at M'engager.
+      // Ownership pivot (16/07, dérivation rapatriée ici 17/07): suppression_key est calculée dans la
+      // REQUÊTE monitor (change_subtype:location:date, la convention des candidates) — plus lue de la
+      // vue, dont la colonne a été perdue à un rebuild dbt nocturne. Portée pour (a) le filtre feed
+      // ci-dessous et (b) le stamp origin_suppression_key de Pulse à M'engager.
       suppression_key:               r?.suppression_key               ?? null,
       entity_id:                     r?.entity_id                     ?? null,
       feed_date:                     r?.feed_date?.value     ?? r?.feed_date     ?? null,
@@ -950,6 +981,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       })),
       active_goal: activeGoal,
       activity: activity,
+      sales_summary: salesSummary,
       event_status: eventStatus,
       worst_day_count: worstDayCount,
       total_day_count: days.length,

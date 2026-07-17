@@ -1,13 +1,18 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
-    const location_id   = String((locals as any)?.location_id   || "").trim();
+    // Radar v5 (17/07) : ?location_id optionnel, VÉRIFIÉ par ownership (pattern monitor) — la vue
+    // agrégée de Pulse fetch par site ; défaut = le site actif de la session (comportement existant).
+    const requested = String(url.searchParams.get("location_id") || "").trim();
+    if (requested) requireLocationOwnership(locals, requested);
+    const location_id = requested || String((locals as any)?.location_id || "").trim();
     if (!clerk_user_id || !location_id) {
       return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
         status: 401, headers: { "content-type": "application/json" },
@@ -166,7 +171,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           threat_level,
           audience_overlap_pct,
           industry_match_tier,
-          distance_km
+          distance_km,
+          lat,
+          lon
         FROM \`${projectId}.semantic.vw_insight_event_competitors_followed\`
         WHERE clerk_user_id = @clerk_user_id
           AND location_id   = @location_id
@@ -194,6 +201,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       competitor_secondary_audience: r.competitor_secondary_audience ?? null,
       city:                       r.city ?? null,
       address:                    r.address ?? null,
+      lat:                        r.lat != null ? Number(r.lat) : null,
+      lon:                        r.lon != null ? Number(r.lon) : null,
     }));
 
     const top_threats = (Array.isArray(threatRows) ? threatRows : []).map((r: any) => ({
