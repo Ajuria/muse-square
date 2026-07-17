@@ -723,8 +723,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       mobility_context: mobilityContext,
       user_instruction: userInstruction,
     };
+    // Journée analysée fournie EXPLICITEMENT : sans elle le modèle datait la note de sa
+    // propre année d'entraînement (« 2025 ») — hallucination que le validateur rejetait.
     const userPrompt = draftSeed
-      ? `CONSIGNE DE RÉDACTION (générée par le système) :\n${draftSeed}\n\n${userInstruction ? 'INSTRUCTION UTILISATEUR :\n' + userInstruction : ''}`
+      ? `CONSIGNE DE RÉDACTION (générée par le système) :\n${draftSeed}\n\nJournée analysée : ${safeStr((grounded as any).display_date) || affectedDate}. Ne date pas la note et n'écris aucune autre date ni année.\n\n${userInstruction ? 'INSTRUCTION UTILISATEUR :\n' + userInstruction : ''}`
       : buildUserPrompt(promptCtx);
 
     const templateId = (() => {
@@ -735,6 +737,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // ── Generate via the one client (registry model + prompt caching), then GROUND-VALIDATE. ──
     //    Regenerate once on a grounding failure; never hand back ungrounded copy for a publishable draft.
     const identityText = buildIdentityWhitelist(profile);
+    // 4e source légale du validateur : les faits de la carte (mart-rendus) + seed + payload —
+    // le brouillon a le DROIT de répéter les chiffres de la carte qu'il communique.
+    // + le label du canal : le modèle titre légitimement sa note « NOTE INTERNE » — sans lui,
+    // l'entité déclenchait un faux positif du check d'entités (norm() est insensible à la casse).
+    const cardFacts = [cardWhat, cardSowhat, draftSeed, JSON.stringify(signal ?? {}), CHANNEL_CONFIG[channel]?.label ?? ""].filter(Boolean).join("  ");
     const genDraft = async (): Promise<string> => {
       const call = await callClaudeMessagesAPI({
         system: systemPrompt,
@@ -748,11 +755,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     };
 
     let draftText = await genDraft();
-    let [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction });
+    let [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction, cardFacts });
     if (draftText && !gok) {
       console.warn("[generate-action-draft] grounding rejected, regenerating:", gerrs);
       draftText = await genDraft();
-      [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction });
+      [gok, gerrs] = validate_grounded_draft(draftText, { grounded, identityText, userInstruction, cardFacts });
     }
     if (draftText && !gok) {
       console.error("[generate-action-draft] grounding failed twice:", gerrs);
