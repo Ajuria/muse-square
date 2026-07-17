@@ -57,7 +57,17 @@ export function validate_grounded_draft(draftText: string, ctx: DraftLegalSource
       const e = norm(ent);
       if (e.length < 6 || seen.has(e)) continue;
       seen.add(e);
-      if (!legalEntities.includes(e)) errors.push(`grounded_draft: ungrounded named entity: "${ent}"`);
+      // Un run TOUT-EN-MAJUSCULES est un titre/une salutation (« ÉQUIPE OPS », « NOTE INTERNE »,
+      // « POSITIONNEMENT CONCURRENTIEL ») — du style, pas une entité nommée. Une entité fabriquée
+      // reprise dans le corps du texte reste en casse mixte → attrapée là (18/07).
+      if (ent === ent.toUpperCase()) continue;
+      if (legalEntities.includes(e)) continue;
+      // Repli par tokens : le modèle reformule légitimement une entité légale (« Le Guimet »,
+      // « Musée Guimet » pour le concurrent du payload). Passe si TOUS les tokens significatifs
+      // (≥ 4 lettres) existent dans le pool — un nom propre inventé introduit un token inconnu.
+      const toks = e.split(" ").filter((t) => t.length >= 4);
+      if (toks.length && toks.every((t) => legalEntities.includes(t))) continue;
+      errors.push(`grounded_draft: ungrounded named entity: "${ent}"`);
     }
   }
 
