@@ -952,7 +952,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         // _recoActions passé EXPLICITEMENT : le handler « Choisir ce plan » vivait dans
         // wireActionBar où _recoActions (local à renderClaimSkeleton) n'existe pas —
         // ReferenceError au clic, bouton mort (owner 18/07).
-        wireActionBar(root, day, prof, feedItem, _recoActions);
+        // cardText : le VRAI texte de la carte (titre + synthèse) — le brouillon Communiquer/
+        // Faire suivre était généré avec un slug en card_what et un sowhat vide → le modèle
+        // inventait, le validateur d'ancrage rejetait (owner 18/07). Même substance que Pulse.
+        wireActionBar(root, day, prof, feedItem, _recoActions, { what: m.title || '', sowhat: ctx || '' });
       }
 
       // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
@@ -1879,7 +1882,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             }
           });
         }
-        wireActionBar(root, day, prof, feedItem);
+        wireActionBar(root, day, prof, feedItem, null,
+          { what: heroTitle || '', sowhat: (sowhat && typeof sowhat === 'object') ? (sowhat.context || '') : String(sowhat || '') });
       }
 
       // ════════════════════════════════════════════════════════════════
@@ -2009,7 +2013,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         return '<span class="fs-ws-ch-icon" style="background:' + c.color + ';">' + esc(c.icon) + '</span>';
       }
 
-      function wireActionBar(root, day, prof, feedItem, recoActions) {
+      function wireActionBar(root, day, prof, feedItem, recoActions, cardText) {
         // Option A (owner 18/07) : plus de barre sticky \u2014 \u00ab Agir \u25be \u00bb dans le hero (slot
         // #fs-agir-slot), menu \u00e0 l'anatomie .ab-dd-item des cartes Pulse (inline \u2014 HTML inject\u00e9).
         // \u00ab Cr\u00e9er une action \u00bb SUPPRIM\u00c9 : doublon strict d'\u00ab \u00c9crire mon propre plan \u00bb
@@ -2118,7 +2122,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             try { draftSeed = window.getDraftSeed(signal_type, ch, feedItem, prof, day); } catch(e) {}
           }
 
-          var payload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem, card_what: signal_type, card_sowhat: "" };
+          var payload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem,
+            card_what: (cardText && cardText.what) || signal_type,
+            card_sowhat: (cardText && cardText.sowhat) || "" };
           if (draftSeed) payload.draft_seed = draftSeed;
 
           fetch("/api/insight/generate-action-draft", {
