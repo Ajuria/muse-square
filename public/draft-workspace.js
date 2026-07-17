@@ -12,13 +12,14 @@
 //               artifact_mode ('post'|'offer'), severity, channel (initial), draft_seed,
 //               detail_url (lien « Consulter le détail » joint aux envois), onStatus(status) }
 //   MSDraftWorkspace.openLibrary(opts)      — le tiroir « Mes brouillons » (partagé)
-//   MSDraftWorkspace.pickChannel(mode, cfg) — 'comm' → note interne ; 'send' → email/slack
-//                                             configuré, sinon note interne
+//   MSDraftWorkspace.pickChannel(mode, cfg) — 1er canal d'envoi configuré, sinon 1er canal
+//                                             public configuré, sinon null (marche à suivre)
 //   MSDraftWorkspace.fetchChannelConfigs(location_id) — cache partagé de la config canaux
 //
-// Règles portées depuis les fixes du 18/07 (identiques partout désormais) :
-//  - le canal API est TOUJOURS 'note_interne' (jamais 'internal', l'alias d'affichage) ;
-//  - note interne : bouton « Envoyer → » actif sans config (écrit interne via /api/channels/publish) ;
+// Règles (owner 18/07, identiques partout désormais) :
+//  - NOTE INTERNE SUPPRIMÉE (une note sans destinataire = néant) ; AUCUNE option inactive :
+//    le dropdown n'offre que les canaux réellement configurés ;
+//  - destinataires roster + suggestion signal_routing sur TOUS les canaux d'envoi ;
 //  - libellés par nature de canal (pub → Publier ; envoi → Envoyer) ;
 //  - erreurs d'envoi VISIBLES (la cause serveur s'affiche sous le pied du workspace).
 (function () {
@@ -31,8 +32,17 @@
   }
 
   var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel téléphonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
-  var CHANNEL_PUB = ["gbp", "facebook"];
-  var CHANNEL_SEND = ["email", "sms", "whatsapp", "slack", "internal", "phone"];
+  // Owner 18/07 : note interne SUPPRIMÉE (une note sans destinataire = néant pour l'opérateur)
+  // et AUCUNE option inactive — le dropdown n'offre que les canaux réellement configurés.
+  var CHANNEL_PUB_ALL = ["gbp", "facebook", "instagram"];
+  var CHANNEL_SEND_ALL = ["email", "slack", "sms", "whatsapp"];
+  function usableChannels(cfg) {
+    cfg = cfg || {};
+    return {
+      pub: CHANNEL_PUB_ALL.filter(function (c) { return !!cfg[c]; }),
+      send: CHANNEL_SEND_ALL.filter(function (c) { return !!cfg[c]; }),
+    };
+  }
   var NO_AUTOMATE = {high_competition_density:1,weather_window:1,top_day_approaching:1,audience_shift_opportunity:1,foreign_tourism_signal:1,competitor_threat_direct:1,regime_c_warning:1,competition_proximity:1,low_competition_window:1,extended_bad_weather:1,weekend_opportunity:1,mobility_disruption_resolved:1,mega_event_activation:1,competitor_price_drop:1,competitor_offering_removed:1,review_solicitation:1,competitor_positioning_gap:1,perfect_storm:1,weather_comp_opportunity:1,saturated_bad_weather:1,holiday_high_comp:1,best_day_of_week:1,day_opportunity:1,same_bucket_saturation:1,weekend_vacation_low_comp:1,commercial_event_match:1,weather_window_after_bad:1,extended_bad_weather_3d:1,tourist_high_season:1,tourist_surge_vacation:1,tourism_peak_window:1,tourism_weather_vacation:1,tourism_comp_squeeze:1,low_tourism_local_opp:1,tourism_mobility_hit:1,weather_mobility_double:1,mobility_comp_squeeze:1,ft_peak_bad_weather:1,ft_quiet_good_weather:1,ft_peak_saturated:1,ft_peak_low_comp:1,ft_peak_tourism_vacation:1,ft_peak_mobility:1,sales_missed_opportunity:1,sales_surge:1,sales_traffic_not_converting:1,sales_discount_no_lift:1,sales_revenue_down_wow:1,footfall_vs_basket_decomposition:1,proven_action_replication:1,offering_mix_shift:1};
 
   // 'internal' est un alias d'AFFICHAGE ; toutes les API parlent 'note_interne'.
@@ -101,9 +111,8 @@
   }
 
   function pickChannel(mode, cfg) {
-    cfg = cfg || {};
-    if (mode === "comm") return "note_interne";
-    return cfg.email ? "email" : cfg.slack ? "slack" : "note_interne";
+    var u = usableChannels(cfg);
+    return u.send[0] || u.pub[0] || null;
   }
 
   function autoResizeTextarea(el) {
@@ -177,8 +186,9 @@
   }
 
   // ── Dropdown canaux (extraction verbatim de Pulse) ──
-  function buildChannelDropdown(currentCh, idx) {
+  function buildChannelDropdown(currentCh, idx, cfg) {
     currentCh = displayChannel(currentCh);
+    var u = usableChannels(cfg);
     var ch = CHANNEL_DEFS[currentCh] || CHANNEL_DEFS.gbp;
     function chItems(list, heading) {
       return '<div style="padding:6px 14px 2px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;">' + heading + '</div>'
@@ -198,8 +208,8 @@
         + ' <span style="font-size:9px;color:#9ca3af;">▾</span>'
       + '</button>'
       + '<div data-ch-menu="' + idx + '" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:10;min-width:240px;overflow:hidden;">'
-        + chItems(CHANNEL_PUB, "Publier sur")
-        + chItems(CHANNEL_SEND, "Envoyer à")
+        + (u.pub.length ? chItems(u.pub, "Publier sur") : "")
+        + (u.send.length ? chItems(u.send, "Envoyer à") : "")
       + '</div>'
     + '</div>';
   }
@@ -211,7 +221,7 @@
     var isOffer = opts.artifact_mode === "offer";
     var showTitle = channel === "gbp" || channel === "email";
     var showHashtags = channel === "instagram" || channel === "gbp";
-    var showRecipient = ch.cat === "send" && channel !== "internal";
+    var showRecipient = ch.cat === "send";
     var bodyText = draft ? (draft.body || draft.full_text || "") : "";
     if (ch.cat === "send" && bodyText && opts.detail_url) {
       bodyText += '\n\n—\nConsulter le détail : ' + opts.detail_url;
@@ -223,14 +233,13 @@
     var cfg = _cfgByLoc[opts.location_id] || {};
     var drafts = _draftsByLoc[opts.location_id] || [];
     var isPub = ch.cat === "pub";
-    // note interne : envoi = écrit interne, jamais gaté sur une config externe.
-    var hasConfig = channel === "internal" ? true : !!cfg[apiChannel(channel)];
+    var hasConfig = !!cfg[apiChannel(channel)];
     var actionIdle = isPub ? "Publier →" : "Envoyer →";
 
     return '<div style="background:#fff;border:1px solid #E8EDF5;border-top:3px solid #1D3BB3;overflow:hidden;margin-top:10px;">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;">'
         + '<div style="display:flex;align-items:center;gap:8px;">'
-          + buildChannelDropdown(channel, idx)
+          + buildChannelDropdown(channel, idx, cfg)
           + '<button type="button" data-ws-close="' + idx + '" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;font-family:inherit;">×</button>'
         + '</div>'
         + (drafts.length > 0 ? '<button type="button" data-ws-library="' + idx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + drafts.length + ')</button>' : '')
@@ -323,7 +332,7 @@
   }
 
   function showRecipientSavePrompt(mount, idx, channel, locationId, recipVal) {
-    if (!recipVal || channel === "internal") return;
+    if (!recipVal) return;
     var isKnown = (_teamByLoc[locationId] || []).some(function (m) { return (m.channels_contact || {})[channel] === recipVal; });
     if (isKnown) return;
     var savePrompt = document.createElement("div");
@@ -379,8 +388,8 @@
     var recipVal = rEl ? rEl.value.trim() : "";
     var cfg = _cfgByLoc[opts.location_id] || {};
     var dCh = displayChannel(channel);
-    var hasChannelConfig = dCh === "internal" ? true : !!cfg[apiChannel(channel)];
-    var canPublish = hasChannelConfig && (dCh === "gbp" || dCh === "facebook" || dCh === "instagram" || dCh === "internal" || recipVal);
+    var hasChannelConfig = !!cfg[apiChannel(channel)];
+    var canPublish = hasChannelConfig && (dCh === "gbp" || dCh === "facebook" || dCh === "instagram" || recipVal);
 
     container.style.display = "block";
     container.innerHTML = '<div style="padding:12px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
@@ -707,7 +716,13 @@
       fetchTeamMembers(opts.location_id),
       fetchSavedDrafts(opts.location_id),
     ]).catch(function () {});
-    var channel = opts.channel || pickChannel(opts.mode || "comm", _cfgByLoc[opts.location_id] || {});
+    // Owner 18/07 : le canal initial est TOUJOURS résolu sur la config réelle (plus de canal
+    // imposé par l'appelant — c'est ce qui ouvrait des workspaces morts).
+    var channel = pickChannel(opts.mode || "comm", _cfgByLoc[opts.location_id] || {});
+    if (!channel) {
+      mount.innerHTML = '<div style="padding:16px;font-size:12.5px;color:#374151;line-height:1.6;"><div style="font-weight:600;margin-bottom:4px;">Aucun canal configuré</div>Connectez un canal (email, Slack, réseaux sociaux) pour communiquer depuis vos cartes.<div style="margin-top:10px;"><a href="/profile" style="display:inline-block;font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;border:1px solid #1D3BB3;border-radius:6px;padding:6px 12px;">Configurer mes canaux →</a></div></div>';
+      return idx;
+    }
     generate(mount, idx, channel, opts, null, null);
     return idx;
   }

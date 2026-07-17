@@ -149,7 +149,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     <script is:inline src="/action-cards.js?v=29"></script>
     <script is:inline src="/commit-form.js?v=5"></script>
     <script is:inline src="/card-kit.js?v=19"></script>
-    <script is:inline src="/draft-workspace.js?v=1"></script>
+    <script is:inline src="/draft-workspace.js?v=2"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -2050,12 +2050,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var agirSlot = document.getElementById('fs-agir-slot');
         if (agirSlot) {
           var _toolBtn = 'display:inline-flex;align-items:center;gap:6px;background:#fff;color:#1D3BB3;border:1px solid #DBEAFE;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;';
-          agirSlot.innerHTML = '<div style="display:flex;gap:8px;">'
-            + '<button type="button" id="fs-tool-comm" style="' + _toolBtn + '">\u270f\ufe0f Communiquer</button>'
-            + '<button type="button" id="fs-tool-send" style="' + _toolBtn + '">\u2197\ufe0f Faire suivre</button>'
-          + '</div>';
+          // Owner 18/07 : UN seul bouton — avec la note interne supprimée, « Faire suivre »
+          // était devenu le même acte que « Communiquer » (envoyer le brief à l'équipe).
+          agirSlot.innerHTML = '<button type="button" id="fs-tool-comm" style="' + _toolBtn + '">\u270f\ufe0f Communiquer</button>';
           document.getElementById("fs-tool-comm").addEventListener("click", function() { openWorkspace("comm"); });
-          document.getElementById("fs-tool-send").addEventListener("click", function() { openWorkspace("send"); });
         }
 
         // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card

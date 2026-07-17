@@ -343,7 +343,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=5"></script>
     <script is:inline src="/commit-form.js?v=5"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
-    <script is:inline src="/draft-workspace.js?v=1"></script>
+    <script is:inline src="/draft-workspace.js?v=2"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -2093,9 +2093,7 @@ if (!location_id) {
     // Communiquer en interne — open the internal-alert panel in the card workspace
     function buildAlertRecip(cardIdx, channel, signalType) {
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
-      if (channel === 'note_interne') {
-        return '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--color-border);">Enregistré dans vos notes internes — aucun destinataire.</div>';
-      }
+      // (branche note_interne supprimée — owner 18/07 : toujours un destinataire.)
       var ph = channel === 'email' ? 'destinataire@email.com' : '#canal ou @nom';
       var members = teamMembersPool(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
       // Propose a recipient by default: the member routed for this signal category, else the first
@@ -2143,7 +2141,8 @@ if (!location_id) {
       var isNotify = ctx.panelMode === 'notify';
       var isResidual = !!(ctx.card && ctx.card.residual_pct != null);
       var rule = (isNotify && ctx.existingRule) ? ctx.existingRule : null;
-      var selCh = (rule && rule.channel) ? rule.channel : 'note_interne';
+      // Owner 18/07 : note interne supprimée — défaut email ; une vieille règle note_interne s'affiche en email.
+      var selCh = (rule && rule.channel && rule.channel !== 'note_interne') ? rule.channel : 'email';
       var selFreq = (rule && rule.frequency) ? rule.frequency : 'first_occurrence';
       var thrVal = (rule && rule.threshold_pct != null) ? Math.round(Number(rule.threshold_pct)) : 20;
       if (rule && rule.message) msg = rule.message;
@@ -2163,7 +2162,6 @@ if (!location_id) {
       }
       html += '<div style="' + lbl + '">Canal interne</div>'
         + '<div style="display:inline-flex;border:1px solid #1D3BB3;margin-bottom:12px;">'
-          + '<button type="button" data-al-ch="note_interne" style="' + segStyle(selCh === 'note_interne', false) + '">Note interne</button>'
           + '<button type="button" data-al-ch="email" style="' + segStyle(selCh === 'email', false) + '">Email</button>'
           + '<button type="button" data-al-ch="slack" style="' + segStyle(selCh === 'slack', true) + '">Slack</button>'
         + '</div>'
