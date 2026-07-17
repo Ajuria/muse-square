@@ -39,8 +39,8 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/ms-loader.js?v=1"></script>
-    <script is:inline src="/commit-form.js?v=3"></script>
-    <script is:inline src="/card-kit.js?v=27"></script>
+    <script is:inline src="/commit-form.js?v=4"></script>
+    <script is:inline src="/card-kit.js?v=28"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -107,11 +107,16 @@ const id = Astro.url.searchParams.get("id") || "";
               return;
             }
             // re-commit: child on a fresh window, then supersede (soft-cancel) the parent.
-            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+            // Objectif libre (18/07) : un parent en base 'pct' transmet SON % à l'enfant
+            // (threshold_level 'custom' n'existe pas côté legacy — l'envoyer ferait un 400).
+            var thrPayload = (cm.threshold_basis === "pct" && cm.threshold_value != null)
+              ? { threshold_basis: "pct", threshold_pct: Number(cm.threshold_value) }
+              : { threshold_level: cm.threshold_level || "net" };
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({
               location_id: cm.location_id, origin_action_type: cm.origin_action_type, window_kind: cm.window_kind || "7d",
-              threshold_level: cm.threshold_level || "net", committed_action_text: cm.committed_action_text, owner_person_name: cm.owner_person_name,
+              committed_action_text: cm.committed_action_text, owner_person_name: cm.owner_person_name,
               origin_suppression_key: cm.origin_suppression_key || null, adjustment_move: move.v, adjustment_note: note, parent_commitment_id: cm.commitment_id
-            }) }).then(function (r) { return r.json(); }).then(function (j) {
+            }, thrPayload)) }).then(function (r) { return r.json(); }).then(function (j) {
               if (!j || !j.ok) { fail(j); return; }
               fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id }) })
                 .then(function () { toPulse(); }).catch(function () { toPulse(); });

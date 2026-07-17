@@ -57,7 +57,9 @@ function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
 }
 // Variance-inflation factor for a sum of n AR(1)-ish terms with lag-1 corr rho.
-function vif(rho: number, n: number): number {
+// Exporté (18/07) : le goal-context de /api/commitments réutilise la MÊME correction
+// d'autocorrélation pour traduire les seuils z en % détectable — jamais une 2e formule.
+export function vif(rho: number, n: number): number {
   if (n <= 1) return 1;
   let s = 0;
   for (let k = 1; k <= n - 1; k++) s += (1 - k / n) * Math.pow(rho, k);
@@ -187,8 +189,16 @@ export async function resolveCommitment(
   const windowActiveFactors = activeFactors.length ? activeFactors.join(",") : null;
 
   // 6. Provisional verdict + asymmetric gate (mets only).
-  const provisional = zCorr >= Number(snap.threshold_value) ? "met" : "missed";
-  const verdict = provisional === "met" && materialShare >= MATERIAL_SHARE ? "confounded" : provisional;
+  // Base 'pct' (18/07, objectif libre) : le verdict compare le % réalisé de la fenêtre au % FIXÉ
+  // par l'utilisateur — exactement sa promesse. Le z ne disparaît pas : un « met » en pct dont le
+  // z corrigé reste sous 1.0 n'est pas distinguable du bruit du lieu → confounded (Non concluant),
+  // jamais un gain attribué. Les engagements existants (basis residual_z) gardent l'ancien chemin.
+  const thresholdBasis = String(snap.threshold_basis || "residual_z");
+  const provisional = thresholdBasis === "pct"
+    ? (windowResidualPct >= Number(snap.threshold_value) ? "met" : "missed")
+    : (zCorr >= Number(snap.threshold_value) ? "met" : "missed");
+  let verdict = provisional === "met" && materialShare >= MATERIAL_SHARE ? "confounded" : provisional;
+  if (thresholdBasis === "pct" && verdict === "met" && zCorr < 1.0) verdict = "confounded";
 
   return {
     patch: {

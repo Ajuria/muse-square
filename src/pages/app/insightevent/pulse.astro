@@ -341,7 +341,7 @@ if (!location_id) {
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=1"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/commit-form.js?v=3"></script>
+    <script is:inline src="/commit-form.js?v=4"></script>
     <script is:inline src="/action-cards.js?v=29"></script>
   
   <PiloterBottomBar active="veille" />
@@ -4380,7 +4380,7 @@ if (!location_id) {
   function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
   // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
   function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
-  function _cgWin(k){ return k === 'day_of' ? 'le jour même' : k === '14d' ? '14 j' : '7 j'; }
+  function _cgWin(k){ return k === 'day_of' ? 'le jour même' : k === '30d' ? '30 j' : k === '14d' ? '14 j' : '7 j'; }
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
   // indicative % above "habituel" needed to validate the objective — the z threshold
   // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
@@ -4423,7 +4423,11 @@ if (!location_id) {
     // "votre habituel" (the window baseline captured at creation), + the % to clear it.
     var _days = r.window_days_expected || 7;
     var _base = r.window_expected_revenue != null ? Number(_cgFv(r.window_expected_revenue)) : null;
-    var _ypct = _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
+    // Base 'pct' (objectif libre) : le % du titre est EXACTEMENT celui fixé par l'utilisateur ;
+    // legacy residual_z : traduction indicative (constante globale) comme avant.
+    var _ypct = (r.threshold_basis === 'pct' && r.threshold_value != null)
+      ? Math.round(Number(_cgFv(r.threshold_value)))
+      : _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
     // Contrat 18/07 (proto validé, texte seul — aucune rangée/position ne change) :
     // titre = l'objectif chiffré, description = « Dispositif : le moyen » + l'état de mesure.

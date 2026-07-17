@@ -8,11 +8,13 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
+import { vif } from "../../../lib/commitmentResolve";
+import { RHO_FLOOR } from "../../../lib/commitmentConstants";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
 
-const WINDOW_DAYS: Record<string, number> = { day_of: 1, "7d": 7, "14d": 14 };
+const WINDOW_DAYS: Record<string, number> = { day_of: 1, "7d": 7, "14d": 14, "30d": 30 };
 const THRESHOLD_Z: Record<string, number> = { modeste: 1.0, net: 1.5 };
 // Raw driver stored as-captured (frozen provenance); folded to a bucket at read time.
 // 'both'/unknown/absent -> null (an ambiguous driver is not a driver). Advisory, never a gate.
@@ -49,6 +51,61 @@ export const GET: APIRoute = async ({ url, locals }) => {
     requireLocationOwnership(locals, locationId);
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
+
+    // ── ?goal_context=1&window_kind=… → traduction €/% pour le formulaire « M'engager » ──
+    // Objectif libre (18/07) : le formulaire affiche le CA habituel de la fenêtre + le plancher
+    // de détectabilité + les presets Modeste/Net traduits dans le VRAI bruit du lieu (même math
+    // que commitmentResolve : sigma jour récupérable |resid|/|z|, ρ mesuré flooré, VIF) — plus
+    // jamais la constante globale 0,19. Sans historique de ventes → nulls (le formulaire dégrade).
+    if (url.searchParams.get("goal_context")) {
+      const wk = String(url.searchParams.get("window_kind") || "7d").trim();
+      const days = WINDOW_DAYS[wk] || 7;
+      const [gRows] = await bq.query({
+        query: `
+          WITH base AS (
+            SELECT date, daily_revenue, expected_revenue, residual_z
+            FROM \`${BQ_PROJECT}.mart.fct_client_day_residual\`
+            WHERE location_id = @locationId
+              AND date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 56 DAY)
+          ),
+          mu AS (SELECT AVG(expected_revenue) AS mu_day, COUNT(*) AS n_days FROM base),
+          sig AS (
+            SELECT APPROX_QUANTILES(
+              SAFE_DIVIDE(ABS(daily_revenue - expected_revenue), NULLIF(ABS(residual_z), 0)), 2
+            )[OFFSET(1)] AS sigma_day
+            FROM base WHERE residual_z IS NOT NULL AND ABS(residual_z) >= 0.05
+          ),
+          rho AS (
+            SELECT CORR(residual_z, prev) AS rho
+            FROM (SELECT residual_z, LAG(residual_z) OVER (ORDER BY date) AS prev FROM base)
+            WHERE prev IS NOT NULL
+          )
+          SELECT mu.mu_day, mu.n_days, sig.sigma_day, rho.rho FROM mu, sig, rho
+        `,
+        params: { locationId },
+        location: "EU",
+      });
+      const g: any = (gRows as any[])[0] || {};
+      const mu = Number(g.mu_day) || 0;
+      const sigma = Number(g.sigma_day) || 0;
+      let rho = g.rho != null && Number.isFinite(Number(g.rho)) ? Number(g.rho) : RHO_FLOOR;
+      if (!(rho >= RHO_FLOOR)) rho = RHO_FLOOR;
+      const vifVal = vif(rho, days);
+      const pctForZ = (z: number): number | null =>
+        mu > 0 && sigma > 0 ? Math.max(1, Math.round((z * (sigma / mu) * Math.sqrt(vifVal) / Math.sqrt(days)) * 100)) : null;
+      return json({
+        ok: true,
+        window_kind: wk,
+        days,
+        n_days: Number(g.n_days) || 0,
+        baseline_daily: mu > 0 ? Math.round(mu) : null,
+        baseline_window: mu > 0 ? Math.round(mu * days) : null,
+        floor_pct: pctForZ(1.0),
+        preset_modeste_pct: pctForZ(1.0),
+        preset_net_pct: pctForZ(1.5),
+      });
+    }
+
     const [rows] = await bq.query({
       query: `
         SELECT * EXCEPT(rn) FROM (
@@ -80,7 +137,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const body = await request.json().catch(() => null);
     if (!body || !body.location_id || !body.origin_action_type ||
-        !body.window_kind || !body.threshold_level ||
+        !body.window_kind || (!body.threshold_level && body.threshold_pct == null) ||
         !body.committed_action_text || !body.owner_person_name) {
       return json({ ok: false, error: "Champs requis manquants" }, 400);
     }
@@ -93,9 +150,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!(windowKind in WINDOW_DAYS)) {
       return json({ ok: false, error: "window_kind invalide : " + windowKind }, 400);
     }
-    const thresholdLevel = String(body.threshold_level).trim();
-    if (!(thresholdLevel in THRESHOLD_Z)) {
-      return json({ ok: false, error: "threshold_level invalide : " + thresholdLevel }, 400);
+    // Objectif libre (18/07, proto validé) : base 'pct' — l'utilisateur fixe x % (1–100),
+    // le verdict comparera le % réalisé de la fenêtre à CE chiffre (commitmentResolve).
+    // Legacy modeste/net (base residual_z) conservé pour les anciens clients/prefills.
+    let thresholdLevel: string, thresholdBasis: string, thresholdValue: number;
+    if (String(body.threshold_basis || "").trim() === "pct" || body.threshold_pct != null) {
+      const p = Number(body.threshold_pct);
+      if (!Number.isFinite(p) || p < 1 || p > 100) {
+        return json({ ok: false, error: "threshold_pct invalide (1–100) : " + body.threshold_pct }, 400);
+      }
+      thresholdLevel = "custom";
+      thresholdBasis = "pct";
+      thresholdValue = Math.round(p);
+    } else {
+      thresholdLevel = String(body.threshold_level).trim();
+      if (!(thresholdLevel in THRESHOLD_Z)) {
+        return json({ ok: false, error: "threshold_level invalide : " + thresholdLevel }, 400);
+      }
+      thresholdBasis = "residual_z";
+      thresholdValue = THRESHOLD_Z[thresholdLevel];
     }
 
     requireLocationOwnership(locals, body.location_id);
@@ -132,8 +205,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       window_end: ymd(end),
       window_days_expected: days,
       threshold_level: thresholdLevel,
-      threshold_basis: "residual_z",
-      threshold_value: THRESHOLD_Z[thresholdLevel],
+      threshold_basis: thresholdBasis,
+      threshold_value: thresholdValue,
       committed_action_text: String(body.committed_action_text),
       owner_person_name: String(body.owner_person_name),
       owner_person_id: body.owner_person_id ? String(body.owner_person_id) : null,
