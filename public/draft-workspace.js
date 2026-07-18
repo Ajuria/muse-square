@@ -12,8 +12,9 @@
 //               artifact_mode ('post'|'offer'), severity, channel (initial), draft_seed,
 //               detail_url (lien « Consulter le détail » joint aux envois), onStatus(status) }
 //   MSDraftWorkspace.openLibrary(opts)      — le tiroir « Mes brouillons » (partagé)
-//   MSDraftWorkspace.pickChannel(mode, cfg) — 1er canal d'envoi configuré, sinon 1er canal
-//                                             public configuré, sinon null (marche à suivre)
+//   MSDraftWorkspace.pickChannel(mode, cfg) — "comm" : 1er canal d'ENVOI configuré, sinon null
+//                                             (marche à suivre) ; "offer" : 1er canal PUBLIC
+//                                             configuré, sinon null. JAMAIS de repli croisé.
 //   MSDraftWorkspace.fetchChannelConfigs(location_id) — cache partagé de la config canaux
 //
 // Règles (owner 18/07, identiques partout désormais) :
@@ -110,9 +111,15 @@
     return out;
   }
 
+  // Communiquer ("comm") = envoyer le brief interne à l'équipe : canal d'ENVOI uniquement.
+  // Le repli public (u.pub[0]) est INTERDIT — bug du 17/07 : sur un site sans email/slack
+  // configuré, Communiquer ouvrait Facebook avec un post marketing. Sans canal d'envoi →
+  // null = la marche à suivre (« Configurer mes canaux → /profile »). "offer" (Proposer une
+  // offre, Pulse) = canal PUBLIC uniquement, même règle sans repli croisé.
   function pickChannel(mode, cfg) {
     var u = usableChannels(cfg);
-    return u.send[0] || u.pub[0] || null;
+    if (mode === "offer") return u.pub[0] || null;
+    return u.send[0] || null;
   }
 
   function autoResizeTextarea(el) {
@@ -717,10 +724,25 @@
       fetchSavedDrafts(opts.location_id),
     ]).catch(function () {});
     // Owner 18/07 : le canal initial est TOUJOURS résolu sur la config réelle (plus de canal
-    // imposé par l'appelant — c'est ce qui ouvrait des workspaces morts).
-    var channel = pickChannel(opts.mode || "comm", _cfgByLoc[opts.location_id] || {});
+    // imposé par l'appelant — c'est ce qui ouvrait des workspaces morts). "offer" vient de
+    // Pulse (Proposer une offre) via artifact_mode ; tout le reste est Communiquer ("comm").
+    var mode = opts.mode || (opts.artifact_mode === "offer" ? "offer" : "comm");
+    var cfg = _cfgByLoc[opts.location_id] || {};
+    var channel = pickChannel(mode, cfg);
+    // Instrumentation (verify-by-behavior) : ce que CETTE page a réellement résolu.
+    try {
+      var _dbg = { location_id: opts.location_id || null, canaux_configures: Object.keys(cfg).sort(), mode: mode, canal_choisi: channel };
+      window.__msDbg = window.__msDbg || {};
+      window.__msDbg.draftWorkspace = _dbg;
+      console.log("[MSDraftWorkspace] " + JSON.stringify(_dbg));
+    } catch (e) {}
     if (!channel) {
-      mount.innerHTML = '<div style="padding:16px;font-size:12.5px;color:#374151;line-height:1.6;"><div style="font-weight:600;margin-bottom:4px;">Aucun canal configuré</div>Connectez un canal (email, Slack, réseaux sociaux) pour communiquer depuis vos cartes.<div style="margin-top:10px;"><a href="/profile" style="display:inline-block;font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;border:1px solid #1D3BB3;border-radius:6px;padding:6px 12px;">Configurer mes canaux →</a></div></div>';
+      // Config par SITE : la carte peut appartenir à un établissement sans canal du bon type.
+      var noChTitle = mode === "offer" ? "Aucun canal public configuré" : "Aucun canal d’envoi configuré";
+      var noChBody = mode === "offer"
+        ? "Une offre se publie sur un canal public (Google, Facebook, Instagram). Connectez-en un pour cet établissement."
+        : "Le brief s’envoie à votre équipe par email, Slack, SMS ou WhatsApp. Configurez un canal d’envoi pour cet établissement.";
+      mount.innerHTML = '<div style="padding:16px;font-size:12.5px;color:#374151;line-height:1.6;"><div style="font-weight:600;margin-bottom:4px;">' + noChTitle + '</div>' + noChBody + '<div style="margin-top:10px;"><a href="/profile" style="display:inline-block;font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;border:1px solid #1D3BB3;border-radius:6px;padding:6px 12px;">Configurer mes canaux →</a></div></div>';
       return idx;
     }
     generate(mount, idx, channel, opts, null, null);
