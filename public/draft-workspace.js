@@ -22,9 +22,20 @@
 //    le dropdown n'offre que les canaux réellement configurés ;
 //  - destinataires roster + suggestion signal_routing sur TOUS les canaux d'envoi ;
 //  - libellés par nature de canal (pub → Publier ; envoi → Envoyer) ;
-//  - erreurs d'envoi VISIBLES (la cause serveur s'affiche sous le pied du workspace).
+//  - erreurs d'envoi VISIBLES (la cause serveur s'affiche sous le pied du workspace) ;
+//  - l'éditeur s'affiche IMMÉDIATEMENT (owner 19/07) : la génération remplit les champs
+//    ensuite — état « Rédaction en cours » visible, actions gelées, jamais d'écran vide.
 (function () {
   "use strict";
+
+  // Le module est chargé sur des pages qui ne définissent pas toutes @keyframes ms-spin
+  // (pulse ne l'a pas) — il embarque son animation pour être auto-suffisant.
+  if (!document.getElementById("ms-dw-style")) {
+    var _style = document.createElement("style");
+    _style.id = "ms-dw-style";
+    _style.textContent = "@keyframes ms-spin { to { transform: rotate(360deg); } }";
+    document.head.appendChild(_style);
+  }
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -54,6 +65,12 @@
   var _cfgByLoc = {};
   var _teamByLoc = {};
   var _draftsByLoc = {};
+  // ── État par workspace (idx) : brouillon courant + jeton de génération ──
+  // _draftByIdx : le brouillon vit ici (pas dans la closure de wire) car la génération
+  // remplit les champs EN PLACE sans re-render. _genSeq : une réponse en retard (canal
+  // changé, panneau fermé, nouvelle génération) ne doit jamais écraser l'éditeur.
+  var _draftByIdx = {};
+  var _genSeq = {};
 
   async function fetchChannelConfigs(locationId) {
     if (_cfgByLoc[locationId]) return _cfgByLoc[locationId];
@@ -221,6 +238,17 @@
     + '</div>';
   }
 
+  // Texte du corps : brouillon + lien fiche signal pour les canaux d'envoi. Partagé entre
+  // le rendu initial et le remplissage en place post-génération.
+  function draftBodyText(channel, draft, opts) {
+    var ch = CHANNEL_DEFS[displayChannel(channel)] || CHANNEL_DEFS.gbp;
+    var bodyText = draft ? (draft.body || draft.full_text || "") : "";
+    if (ch.cat === "send" && bodyText && opts.detail_url) {
+      bodyText += "\n\n—\nConsulter le détail : " + opts.detail_url;
+    }
+    return bodyText;
+  }
+
   // ── Corps du workspace (extraction verbatim de Pulse, paramétrée par opts) ──
   function buildWorkspaceHtml(idx, channel, draft, isStyled, opts) {
     channel = displayChannel(channel);
@@ -229,10 +257,7 @@
     var showTitle = channel === "gbp" || channel === "email";
     var showHashtags = channel === "instagram" || channel === "gbp";
     var showRecipient = ch.cat === "send";
-    var bodyText = draft ? (draft.body || draft.full_text || "") : "";
-    if (ch.cat === "send" && bodyText && opts.detail_url) {
-      bodyText += '\n\n—\nConsulter le détail : ' + opts.detail_url;
-    }
+    var bodyText = draftBodyText(channel, draft, opts);
     var titleText = draft ? (draft.title || "") : "";
     var hashText = draft ? (draft.hashtags || "") : "";
     var charCount = bodyText.length + (titleText ? titleText.length + 1 : 0) + (hashText ? hashText.length + 1 : 0);
@@ -251,7 +276,7 @@
         + '</div>'
         + (drafts.length > 0 ? '<button type="button" data-ws-library="' + idx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + drafts.length + ')</button>' : '')
       + '</div>'
-      + (isStyled ? '<div data-ws-style-banner="' + idx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapté depuis votre brouillon précédent</span><button type="button" data-ws-regen="' + idx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">Réécrire sans modèle</button></div>' : '')
+      + '<div data-ws-style-banner="' + idx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:' + (isStyled ? 'flex' : 'none') + ';align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapté depuis votre brouillon précédent</span><button type="button" data-ws-regen="' + idx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">Réécrire sans modèle</button></div>'
       + (ch.cat === "send" && opts.detail_url ? '<div style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">📎 Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>' : '')
       + (showRecipient ? (function () {
         var members = teamMembersPool(opts.location_id).filter(function (m) { var cc = m.channels_contact || {}; return cc[channel]; });
@@ -286,7 +311,13 @@
         return html;
       })() : '')
       + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + idx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
-      + '<div style="padding:10px 14px;"><textarea data-ws-body="' + idx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
+      + '<div style="padding:10px 14px;">'
+        + '<div data-ws-genstate="' + idx + '" style="display:none;align-items:center;gap:8px;padding:2px 0 8px;color:#6b7280;font-size:11px;">'
+          + '<span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>'
+          + '<span data-ws-genstate-label="' + idx + '"></span>'
+        + '</div>'
+        + '<textarea data-ws-body="' + idx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea>'
+      + '</div>'
       + (isOffer ? '<div style="padding:0 14px 10px;border-top:1px solid #f3f4f6;">'
           + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin:10px 0 6px;">Offre</div>'
           + '<div style="display:flex;gap:8px;margin-bottom:6px;">'
@@ -312,12 +343,32 @@
         + '<div style="flex:1;"></div>'
         + (hasConfig
           ? '<button type="button" data-ws-publish="' + idx + '" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">' + actionIdle + '</button>'
-          : '<button type="button" disabled data-ws-publish="' + idx + '" title="Configurez ce canal dans vos paramètres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">' + actionIdle + '</button>')
+          : '<button type="button" disabled data-ws-publish="' + idx + '" data-ws-cfg-disabled="1" title="Configurez ce canal dans vos paramètres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">' + actionIdle + '</button>')
         + (NO_AUTOMATE[String(opts.signal_type || "")] ? "" : '<button type="button" data-ws-automate="' + idx + '" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">&#9889; Automatiser</button>')
       + '<div data-ws-auto-prompt="' + idx + '" style="display:none;"></div>'
       + '</div>'
       + '<div data-ws-pub-err="' + idx + '" style="display:none;padding:0 14px 12px;font-size:11px;color:#B91C1C;line-height:1.5;"></div>'
     + '</div>';
+  }
+
+  // État « rédaction en cours » (owner 19/07) : l'éditeur reste affiché, les champs texte
+  // et les actions sont gelés le temps de la génération — jamais d'écran vide. Le champ
+  // destinataire reste actif : le user peut choisir à qui envoyer pendant que ça rédige.
+  function setGenerating(mount, idx, on, label) {
+    var gs = mount.querySelector('[data-ws-genstate="' + idx + '"]');
+    var gsLabel = mount.querySelector('[data-ws-genstate-label="' + idx + '"]');
+    if (gs) gs.style.display = on ? "flex" : "none";
+    if (gsLabel && label) gsLabel.textContent = label;
+    ["data-ws-body", "data-ws-title", "data-ws-hashtags", "data-ws-adjust"].forEach(function (attr) {
+      var el = mount.querySelector('[' + attr + '="' + idx + '"]');
+      if (el) { el.disabled = on; el.style.opacity = on ? "0.45" : "1"; }
+    });
+    ["data-ws-copy", "data-ws-save", "data-ws-adjust-submit", "data-ws-automate", "data-ws-regen"].forEach(function (attr) {
+      var el = mount.querySelector('[' + attr + '="' + idx + '"]');
+      if (el) { el.disabled = on; el.style.opacity = on ? "0.5" : "1"; }
+    });
+    var pub = mount.querySelector('[data-ws-publish="' + idx + '"]');
+    if (pub && !pub.hasAttribute("data-ws-cfg-disabled")) { pub.disabled = on; pub.style.opacity = on ? "0.5" : "1"; }
   }
 
   function updateCharCount(mount, idx, channel) {
@@ -513,7 +564,8 @@
     mount.querySelectorAll('[data-ch-select]').forEach(function (chBtn) {
       chBtn.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        render(mount, idx, chBtn.getAttribute("data-ch-select"), draft, false, opts);
+        // _draftByIdx, pas la closure : la génération remplit en place sans re-wire.
+        render(mount, idx, chBtn.getAttribute("data-ch-select"), _draftByIdx[idx] || draft, false, opts);
       });
     });
 
@@ -570,7 +622,7 @@
           body: [bodyEl ? bodyEl.value : "", offerSuffix()].filter(Boolean).join("\n\n"),
           hashtags: hashEl ? hashEl.value : "",
           recipient: rEl ? rEl.value : "",
-          original_ai_text: draft ? (draft.full_text || draft.body || "") : "",
+          original_ai_text: (function () { var d = _draftByIdx[idx] || draft; return d ? (d.full_text || d.body || "") : ""; })(),
           user_instruction: "",
           artifact_mode: opts.artifact_mode || "post",
         }),
@@ -689,24 +741,56 @@
   }
 
   function render(mount, idx, channel, draft, isStyled, opts) {
+    // Tout re-render invalide la génération en vol : ses éléments n'existent plus.
+    _genSeq[idx] = (_genSeq[idx] || 0) + 1;
+    _draftByIdx[idx] = draft || null;
     mount.innerHTML = buildWorkspaceHtml(idx, channel, draft, isStyled, opts);
     wire(mount, idx, channel, draft, opts);
   }
 
   function generate(mount, idx, channel, opts, userInstruction, styleReference) {
     mount.style.display = "block";
-    mount.innerHTML = spinnerHtml(userInstruction ? "Ajustement en cours…" : styleReference ? "Adaptation en cours…" : "Rédaction en cours…");
+    // Owner 19/07 : l'éditeur s'affiche IMMÉDIATEMENT — la génération remplit les champs
+    // en place ensuite. Un panneau réduit à un spinner pendant les secondes de l'appel LLM
+    // lisait comme un bug. Premier passage : rendre le shell (brouillon vide) ; Ajuster /
+    // Réécrire / Adapter : l'éditeur existant reste en place, texte figé le temps du call.
+    if (!mount.querySelector('[data-ws-body="' + idx + '"]')) {
+      render(mount, idx, channel, _draftByIdx[idx] || null, false, opts);
+    }
+    setGenerating(mount, idx, true, userInstruction ? "Ajustement en cours…" : styleReference ? "Adaptation en cours…" : "Rédaction en cours…");
+    var errEl0 = mount.querySelector('[data-ws-pub-err="' + idx + '"]');
+    if (errEl0) { errEl0.style.display = "none"; errEl0.textContent = ""; }
+    _genSeq[idx] = (_genSeq[idx] || 0) + 1;
+    var token = _genSeq[idx];
     var payload = buildDraftPayload(opts, channel, userInstruction, styleReference);
     fetch("/api/insight/generate-action-draft", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }).then(function (res) { return res.json(); }).then(function (json) {
+      // Réponse en retard (canal changé, panneau fermé, nouvelle génération) : ignorer.
+      if (_genSeq[idx] !== token || !mount.querySelector('[data-ws-body="' + idx + '"]')) return;
       if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
+      _draftByIdx[idx] = json.draft;
+      var bodyEl = mount.querySelector('[data-ws-body="' + idx + '"]');
+      var titleEl = mount.querySelector('[data-ws-title="' + idx + '"]');
+      var hashEl = mount.querySelector('[data-ws-hashtags="' + idx + '"]');
+      if (bodyEl) bodyEl.value = draftBodyText(channel, json.draft, opts);
+      if (titleEl) titleEl.value = json.draft.title || "";
+      if (hashEl) hashEl.value = json.draft.hashtags || "";
+      var banner = mount.querySelector('[data-ws-style-banner="' + idx + '"]');
+      if (banner) banner.style.display = (!!json.is_styled || !!styleReference) ? "flex" : "none";
+      setGenerating(mount, idx, false, null);
+      if (bodyEl) autoResizeTextarea(bodyEl);
+      updateCharCount(mount, idx, channel);
       if (opts.onStatus && !userInstruction && !styleReference) opts.onStatus("drafted");
-      render(mount, idx, channel, json.draft, !!json.is_styled || !!styleReference, opts);
     }).catch(function (err) {
-      mount.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "Réessayez") + '</div>';
+      if (_genSeq[idx] !== token) return;
+      setGenerating(mount, idx, false, null);
+      // Erreur VISIBLE dans l'éditeur (règle owner) — le panneau reste ouvert, le user
+      // peut écrire son message lui-même ou réessayer via Ajuster.
+      var errEl = mount.querySelector('[data-ws-pub-err="' + idx + '"]');
+      if (errEl) { errEl.textContent = "Rédaction impossible : " + (err && err.message ? err.message : "réessayez") + ". Vous pouvez écrire votre message ci-dessus."; errEl.style.display = "block"; }
     });
   }
 
@@ -715,7 +799,8 @@
     opts = opts || {};
     var idx = "dw" + (++_seq);
     mount.style.display = "block";
-    mount.innerHTML = spinnerHtml("Rédaction en cours…");
+    // Bref (fetch config/roster, sub-seconde) — l'éditeur complet arrive via generate().
+    mount.innerHTML = spinnerHtml("Ouverture…");
     // Caches nécessaires au rendu (config → gating Publier/Envoyer + canal initial ;
     // roster → destinataires ; brouillons → « Mes brouillons »).
     await Promise.all([
