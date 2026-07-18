@@ -613,8 +613,12 @@
       _ownerDate = t('owner_line', { name: esc(cm.owner_person_name || '—'), date: esc(_cd) });
       if (cm.action_done_at) _ownerDate += t('done_suffix', { date: esc(msDateFr(String(cm.action_done_at).slice(0, 10))) });
     }
+    // Nom de l'établissement (owner 19/07, proto v3) : à droite du kicker « Engagement »,
+    // première ligne du HEADER du document (13px gris) — pas sur une ligne-label de section.
+    var _siteNmHd = String(data.site_name || '');
+    var _siteNmHdSpan = _siteNmHd ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmHd) + '</span>' : '';
     var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
-      + '<div style="font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement</div>'
+      + '<div style="' + (_siteNmHdSpan ? 'display:flex;align-items:baseline;' : '') + 'font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement' + _siteNmHdSpan + '</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
       + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
       + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
@@ -686,12 +690,7 @@
       if (cm.ctx_material_confound) holidayNote += '<div style="margin-top:6px;"><strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
       holidayNote += '</div>';
     }
-    // Nom de l'établissement (owner 19/07) : texte simple à droite de la première ligne-label
-    // (même motif que le header de la page insight) — flex inline sur CETTE instance seulement,
-    // la classe .eg-uc n'est pas modifiée.
-    var _siteNm = String(data.site_name || '');
-    var _siteNmSpan = _siteNm ? '<span style="margin-left:auto;font-size:12px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNm) + '</span>' : '';
-    var q1 = '<div class="eg-sec"><div class="eg-uc"' + (_siteNmSpan ? ' style="display:flex;align-items:baseline;"' : '') + '>' + esc(t('q1_title_decision')) + _siteNmSpan + '</div>' + headline + holidayNote
+    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote
       + '<div style="margin-top:16px;">' + chart(series) + '</div></div>';
 
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
