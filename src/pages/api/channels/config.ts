@@ -25,14 +25,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
     requireLocationOwnership(locals, locationId);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
+    // Owner 19/07 : le set-up Compte/Communication vaut pour TOUS les sites du compte —
+    // résolution « site d'abord, sinon compte » : la ligne du site demandé gagne si elle
+    // existe (tokens de page par site), sinon la dernière ligne du compte s'applique.
     const [rows] = await bq.query({
       query: `
         SELECT config_id, channel, config_json, enabled, created_at, updated_at
         FROM (
-          SELECT *, ROW_NUMBER() OVER (PARTITION BY channel ORDER BY updated_at DESC) AS rn
+          SELECT *, ROW_NUMBER() OVER (
+            PARTITION BY channel
+            ORDER BY (location_id = @locationId) DESC, updated_at DESC
+          ) AS rn
           FROM \`${BQ_PROJECT}.analytics.channel_configs\`
           WHERE user_id = @userId
-            AND location_id = @locationId
         )
         WHERE rn = 1
         ORDER BY channel ASC

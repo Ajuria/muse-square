@@ -93,7 +93,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
 | `channels/automation.ts` | GET/POST/DELETE | CRUD automation rules (signal→channel routing) | `analytics.automation_rules` |
-| `channels/config.ts` | GET/POST | Read/write channel configs (OAuth tokens) per location | `analytics.channel_configs` |
+| `channels/config.ts` | GET/POST | Read/write channel configs (OAuth tokens). GET resolves ACCOUNT-level (owner 19/07: one Compte/Communication setup for all venues) — latest row per channel across ALL the user's rows, requested-location row wins ties (per-site page tokens preserved); POST still stamps the active location | `analytics.channel_configs` |
 | `channels/gbp-callback.ts` | GET | Google Business Profile OAuth callback | `analytics.channel_configs`, Google Business Account/Info APIs |
 | `channels/gbp-connect.ts` | GET | Start GBP OAuth | none |
 | `channels/internal-alert.ts` | GET/POST/DELETE | CRUD internal alert rules (note_interne/slack/email), allowlisted action_types | `analytics.internal_alert_rules` |
@@ -103,7 +103,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `channels/publish.ts` | POST | **note_interne supported (18/07): internal write (same saved_drafts insert as the internal-send rail, `user_instruction='internal_send'` → surfaced by list-drafts on pulse/monitor) — no external side effect; internal-send rail itself stays Barrier-2 sealed.** Publish to channel (Slack/email/SMS/WhatsApp/GBP/FB/IG) w/ handler routing + logging | `analytics.channel_configs`, `…action_log`, `…publish_log`, Slack/Resend/Google/Meta |
 | `channels/slack-callback.ts` | GET | Slack OAuth callback | `analytics.channel_configs`, Slack OAuth |
 | `channels/slack-connect.ts` | GET | Start Slack OAuth | none |
-| `channels/team.ts` | GET/POST/DELETE | CRUD team members + routing config | `analytics.team_members` |
+| `channels/team.ts` | GET/POST/DELETE | CRUD team members + routing config. GET resolves ACCOUNT-level (owner 19/07: one roster for all venues, no per-site team yet) — latest version per member_id across ALL the user's rows, requested-location row wins ties | `analytics.team_members` |
 
 ### `commitments/` — "M'engager" engagement tracking
 
