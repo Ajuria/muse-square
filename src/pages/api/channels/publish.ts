@@ -274,15 +274,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     let config: any = {};
     let configId: string | null = null;
     if (locationId) {
+      // Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte (aligné sur le GET
+      // de config.ts : un site sans ligne propre hérite du set-up du compte, sinon l'envoi
+      // échouerait alors que le workspace vient d'offrir le canal).
       const [rows] = await bq.query({
         query: `
           SELECT config_json, config_id
           FROM \`${BQ_PROJECT}.analytics.channel_configs\`
           WHERE user_id = @userId
-            AND location_id = @locationId
             AND channel = @channel
             AND enabled = TRUE
-          ORDER BY updated_at DESC
+          ORDER BY (location_id = @locationId) DESC, updated_at DESC
           LIMIT 1
         `,
         params: { userId, locationId, channel },

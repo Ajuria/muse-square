@@ -97,10 +97,10 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `channels/gbp-callback.ts` | GET | Google Business Profile OAuth callback | `analytics.channel_configs`, Google Business Account/Info APIs |
 | `channels/gbp-connect.ts` | GET | Start GBP OAuth | none |
 | `channels/internal-alert.ts` | GET/POST/DELETE | CRUD internal alert rules (note_interne/slack/email), allowlisted action_types | `analytics.internal_alert_rules` |
-| `channels/internal-send.ts` | POST | One-off internal alert dispatch | `analytics.saved_drafts`, `…channel_configs` |
+| `channels/internal-send.ts` | POST | One-off internal alert dispatch. Channel config resolved ACCOUNT-level (19/07: site-first-else-account) | `analytics.saved_drafts`, `…channel_configs` |
 | `channels/meta-callback.ts` | GET | Meta OAuth callback (FB + IG dual configs) | `analytics.channel_configs`, Meta Graph |
 | `channels/meta-connect.ts` | GET | Start Meta OAuth | none |
-| `channels/publish.ts` | POST | **note_interne supported (18/07): internal write (same saved_drafts insert as the internal-send rail, `user_instruction='internal_send'` → surfaced by list-drafts on pulse/monitor) — no external side effect; internal-send rail itself stays Barrier-2 sealed.** Publish to channel (Slack/email/SMS/WhatsApp/GBP/FB/IG) w/ handler routing + logging | `analytics.channel_configs`, `…action_log`, `…publish_log`, Slack/Resend/Google/Meta |
+| `channels/publish.ts` | POST | **note_interne supported (18/07): internal write (same saved_drafts insert as the internal-send rail, `user_instruction='internal_send'` → surfaced by list-drafts on pulse/monitor) — no external side effect; internal-send rail itself stays Barrier-2 sealed.** Publish to channel (Slack/email/SMS/WhatsApp/GBP/FB/IG) w/ handler routing + logging. Channel config resolved ACCOUNT-level (19/07: site-first-else-account — aligned with config.ts GET so a venue the workspace offered a channel for can actually send) | `analytics.channel_configs`, `…action_log`, `…publish_log`, Slack/Resend/Google/Meta |
 | `channels/slack-callback.ts` | GET | Slack OAuth callback | `analytics.channel_configs`, Slack OAuth |
 | `channels/slack-connect.ts` | GET | Start Slack OAuth | none |
 | `channels/team.ts` | GET/POST/DELETE | CRUD team members + routing config. GET resolves ACCOUNT-level (owner 19/07: one roster for all venues, no per-site team yet) — latest version per member_id across ALL the user's rows, requested-location row wins ties | `analytics.team_members` |
@@ -165,7 +165,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `cron/daily-dispatch.ts` | Dispatch automation rules from today's change feed | `analytics.automation_rules`, `semantic.vw_insight_event_change_feed` |
 | `cron/daily.ts` | Daily emails 0–7d before saved event dates | `raw.saved_items`, `…insight_event_user_location_profile`, `…notification_preferences` |
 | `cron/digest.ts` | Weekly digest email (7d trends + competitor events) | `raw.insight_event_user_location_profile`, `…notification_preferences`, `dims.dim_client_location`, `semantic.…_ai_location_context`, `…_day_surface` |
-| `cron/internal-alert-sweep.ts` | Process internal alert cards → Slack/email → persist | `analytics.channel_configs`, `…saved_drafts` |
+| `cron/internal-alert-sweep.ts` | Process internal alert cards → Slack/email → persist. Channel config resolved ACCOUNT-level (19/07: site-first-else-account) | `analytics.channel_configs`, `…saved_drafts` |
 | `cron/snapshot-competitors.ts` | Snapshot Google Places details for competitor locations | `raw.insight_event_user_location_profile`, Google Places |
 | `cron/snapshot-homepage.ts` | Extract structured signals from institutional/media homepages via Browserless + Claude Haiku | `raw.competitor_directory`, `…competitor_tracking`, `…competitor_snapshots`, Browserless, Anthropic |
 | `cron/snapshot-own-locations.ts` | Snapshot Google Places for own locations w/ place_id | `raw.insight_event_user_location_profile`, Google Places |
