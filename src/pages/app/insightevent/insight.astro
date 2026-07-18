@@ -769,15 +769,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         // Option A (owner 18/07) : rang\u00e9e d'outils du hero \u2014 retour \u00e0 gauche, \u00ab Agir \u25be \u00bb \u00e0 droite
         // (m\u00eame placement que \u00ab Enregistrer en PDF \u00bb du rapport). Slot rempli par wireActionBar.
         html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><button class="fs-back" onclick="history.back()">\u2190 Retour</button><div id="fs-agir-slot" style="position:relative;flex-shrink:0;"></div></div>';
-        // Nom de l'établissement (owner 19/07) : texte simple à droite de la ligne catégorie —
-        // le signal doit dire À QUEL SITE il se rapporte (comptes multi-sites, noms proches).
+        // Nom de l'établissement (owner 19/07, proto v3) : texte simple gris en bout de la
+        // RANGÉE TITRE (pas sur la ligne catégorie — collait visuellement au bouton
+        // Communiquer). Le signal doit dire À QUEL SITE il se rapporte (multi-sites).
         var _siteNm = String(prof.site_name || prof.location_label || '');
-        html += '<div style="display:flex;align-items:baseline;font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat)
-          + (_siteNm ? '<span style="margin-left:auto;font-size:12px;font-weight:500;letter-spacing:normal;text-transform:none;color:' + SUB + ';white-space:nowrap;">' + esc(_siteNm) + '</span>' : '')
-          + '</div>'
+        html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap;">'
             + '<h1 style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:' + INK + ';">' + esc(m.title) + '</h1>'
             + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
+            + (_siteNm ? '<span style="margin-left:auto;font-size:13px;font-weight:500;color:' + SUB + ';white-space:nowrap;">' + esc(_siteNm) + '</span>' : '')
           + '</div>';
 
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
@@ -1444,7 +1444,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
           }
           var _siteNmH = String(prof.site_name || prof.location_label || '');
-          var _siteNmSpan = _siteNmH ? '<span style="margin-left:auto;font-size:12px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmH) + '</span>' : '';
+          var _siteNmSpan = _siteNmH ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmH) + '</span>' : '';
           html += '<div class="fs-hero ' + catClass + '">'
             + '<div class="fs-hero-cat" style="color:' + catColor + ';">' + esc(spec.icon) + ' ' + esc(cat) + _siteNmSpan + '</div>'
             + '<div class="fs-hero-title">' + esc(heroTitle) + '</div>'
@@ -1453,7 +1453,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var topicLabels = { weather:'M\u00e9t\u00e9o', competition:'Concurrence', mobility:'Mobilit\u00e9', score:'Score du jour', calendar:'Calendrier' };
           var topicClasses = { weather:'cat-meteo', competition:'cat-concurrence', mobility:'cat-urgent', score:'cat-intelligence', calendar:'cat-intelligence' };
           var _siteNmT = String(prof.site_name || prof.location_label || '');
-          var _siteNmTSpan = _siteNmT ? '<span style="margin-left:auto;font-size:12px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmT) + '</span>' : '';
+          var _siteNmTSpan = _siteNmT ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmT) + '</span>' : '';
           html += '<div class="fs-hero ' + (topicClasses[signal_type] || 'cat-intelligence') + '">'
             + '<div class="fs-hero-cat" style="color:#1e3a5f;">' + esc(topicLabels[signal_type] || signal_type) + _siteNmTSpan + '</div>'
             + '<div class="fs-hero-title">' + esc(topicLabels[signal_type] || signal_type) + ' \u2014 ' + esc(signal_date) + '</div>'
