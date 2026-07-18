@@ -361,10 +361,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
             SELECT config_json, enabled
             FROM (
               SELECT config_json, enabled,
-                     ROW_NUMBER() OVER (ORDER BY updated_at DESC) AS rn
+                     -- Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte
+                     ROW_NUMBER() OVER (ORDER BY (location_id = @location_id) DESC, updated_at DESC) AS rn
               FROM \`muse-square-open-data.analytics.channel_configs\`
               WHERE user_id = @clerk_user_id
-                AND location_id = @location_id
                 AND channel = 'recommendations'
             )
             WHERE rn = 1
