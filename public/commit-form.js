@@ -136,6 +136,14 @@
     var origin = opts.origin || {};
     var state = { window: pre.window_kind || "7d", goalPct: null };
 
+    // Plan pré-rempli (insight « Plan à essayer », engagement) : révélation mot à mot
+    // (MSTypewrite, ms-loader) — même effet « rédaction » que le workspace Communiquer.
+    // Interruption par toute interaction dans le formulaire ; repli : texte déjà posé.
+    var preTa = container.querySelector("[data-cm-action]");
+    if (preTa && preTa.value && window.MSTypewrite) {
+      window.MSTypewrite(preTa, preTa.value, { duration: 800, container: container });
+    }
+
     // ── Objectif libre : traduction % ⇄ € dans le vrai bruit du lieu ──
     var WIN_DAYS = { day_of: 1, "7d": 7, "14d": 14, "30d": 30 };
     var WIN_EUR_LAB = { day_of: "€ le jour même", "7d": "€ sur 7 jours", "14d": "€ sur 14 jours", "30d": "€ sur 30 jours" };
@@ -273,7 +281,14 @@
     container.querySelectorAll("[data-cm-sugg]").forEach(function (sg) {
       sg.addEventListener("click", function () {
         var ta = container.querySelector("[data-cm-action]");
-        if (ta) { ta.value = sg.getAttribute("data-cm-sugg-text"); ta.focus(); }
+        if (ta) {
+          var suggText = sg.getAttribute("data-cm-sugg-text");
+          // Révélation mot à mot ; le focus programmatique n'interrompt pas MSTypewrite
+          // (seuls mousedown/keydown/paste le font) — taper reprend la main instantanément.
+          if (window.MSTypewrite) window.MSTypewrite(ta, suggText, { duration: 700, container: container });
+          else ta.value = suggText;
+          ta.focus();
+        }
         container.querySelectorAll("[data-cm-sugg]").forEach(function (x) { x.style.borderColor = "#DBEAFE"; x.style.background = "#F5F7FF"; });
         sg.style.borderColor = "#1D3BB3"; sg.style.background = "#EEF2FF";
       });

@@ -71,6 +71,9 @@
   // changé, panneau fermé, nouvelle génération) ne doit jamais écraser l'éditeur.
   var _draftByIdx = {};
   var _genSeq = {};
+  // Révélation « machine à écrire » en cours par workspace (handle MSTypewrite) — toute
+  // nouvelle génération la termine d'abord pour que le champ ne soit jamais disputé.
+  var _twByIdx = {};
 
   async function fetchChannelConfigs(locationId) {
     if (_cfgByLoc[locationId]) return _cfgByLoc[locationId];
@@ -757,6 +760,7 @@
     if (!mount.querySelector('[data-ws-body="' + idx + '"]')) {
       render(mount, idx, channel, _draftByIdx[idx] || null, false, opts);
     }
+    if (_twByIdx[idx]) { _twByIdx[idx].finish(); _twByIdx[idx] = null; }
     setGenerating(mount, idx, true, userInstruction ? "Ajustement en cours…" : styleReference ? "Adaptation en cours…" : "Rédaction en cours…");
     var errEl0 = mount.querySelector('[data-ws-pub-err="' + idx + '"]');
     if (errEl0) { errEl0.style.display = "none"; errEl0.textContent = ""; }
@@ -775,13 +779,28 @@
       var bodyEl = mount.querySelector('[data-ws-body="' + idx + '"]');
       var titleEl = mount.querySelector('[data-ws-title="' + idx + '"]');
       var hashEl = mount.querySelector('[data-ws-hashtags="' + idx + '"]');
-      if (bodyEl) bodyEl.value = draftBodyText(channel, json.draft, opts);
+      // Titre/hashtags d'un coup ; le CORPS se révèle mot à mot (MSTypewrite, ms-loader).
+      // Interruption portée par mount en phase capture : un clic sur Copier/Envoyer/le champ
+      // complète le texte AVANT que le handler ne lise sa valeur — l'effet ne coûte jamais
+      // de temps ni de texte. Repli : sans MSTypewrite (page au loader périmé), pose directe.
       if (titleEl) titleEl.value = json.draft.title || "";
       if (hashEl) hashEl.value = json.draft.hashtags || "";
       var banner = mount.querySelector('[data-ws-style-banner="' + idx + '"]');
       if (banner) banner.style.display = (!!json.is_styled || !!styleReference) ? "flex" : "none";
       setGenerating(mount, idx, false, null);
-      if (bodyEl) autoResizeTextarea(bodyEl);
+      if (bodyEl) {
+        var fullBody = draftBodyText(channel, json.draft, opts);
+        if (window.MSTypewrite) {
+          _twByIdx[idx] = window.MSTypewrite(bodyEl, fullBody, {
+            duration: 1000,
+            container: mount,
+            onTick: function (el2) { autoResizeTextarea(el2); updateCharCount(mount, idx, channel); },
+          });
+        } else {
+          bodyEl.value = fullBody;
+          autoResizeTextarea(bodyEl);
+        }
+      }
       updateCharCount(mount, idx, channel);
       if (opts.onStatus && !userInstruction && !styleReference) opts.onStatus("drafted");
     }).catch(function (err) {
