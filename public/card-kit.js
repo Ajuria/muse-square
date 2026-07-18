@@ -686,7 +686,12 @@
       if (cm.ctx_material_confound) holidayNote += '<div style="margin-top:6px;"><strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
       holidayNote += '</div>';
     }
-    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote
+    // Nom de l'établissement (owner 19/07) : texte simple à droite de la première ligne-label
+    // (même motif que le header de la page insight) — flex inline sur CETTE instance seulement,
+    // la classe .eg-uc n'est pas modifiée.
+    var _siteNm = String(data.site_name || '');
+    var _siteNmSpan = _siteNm ? '<span style="margin-left:auto;font-size:12px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNm) + '</span>' : '';
+    var q1 = '<div class="eg-sec"><div class="eg-uc"' + (_siteNmSpan ? ' style="display:flex;align-items:baseline;"' : '') + '>' + esc(t('q1_title_decision')) + _siteNmSpan + '</div>' + headline + holidayNote
       + '<div style="margin-top:16px;">' + chart(series) + '</div></div>';
 
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';

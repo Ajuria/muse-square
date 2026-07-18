@@ -125,11 +125,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // "Lieux comparables" — an analog to try when under-performing. Resolve the venue's vertical,
     // map the card's action_type → lever, read the vetted plays (never a promised result).
     let best_in_class: any[] = [];
+    let site_name: string | null = null;
     try {
+      // site_name sur la MÊME requête contexte (owner 19/07) : la page évolution doit dire
+      // à quel établissement l'engagement se rapporte — aucun appel supplémentaire.
       const [irows] = await bq.query({
-        query: `SELECT client_industry_code FROM \`${BQ_PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`,
+        query: `SELECT client_industry_code, site_name FROM \`${BQ_PROJECT}.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@loc LIMIT 1`,
         params: { loc: snap.location_id }, location: "EU",
       });
+      site_name = irows.length ? String(flat(irows[0].site_name) || "") || null : null;
       const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
       if (industry) {
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
@@ -137,7 +141,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
-    return json({ ok: true, commitment, series, move_stats, best_in_class, ...extras });
+    return json({ ok: true, commitment, series, move_stats, best_in_class, site_name, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);
