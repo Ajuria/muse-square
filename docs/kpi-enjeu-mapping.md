@@ -6,7 +6,7 @@
 > (b) ordre amendé : STORE OFFLINE d'abord (avec classes concurrence+tourisme dans le batch) → classes
 > restantes + chevauchement + pill verte → boucle multi-KPI → pills K6/K3 + affichage K7 ;
 > (c) kpi_key = f(type de carte, origin_driver si présent) — jamais de la stratégie choisie (le levier
-> reste métadonnée d'apprentissage). Incrément 1 (store) LIVRÉ le 24/07 soir.
+> reste métadonnée d'apprentissage). Incrément 1 (store) LIVRÉ le 24/07 soir. ÉTAPE 2 LIVRÉE 24/07 nuit (classes complètes sauf boucle multi-KPI ; contrastes propres actifs — voir enjeu-day-class-registry.md ; démotions et affichage K7 : à implémenter avec la boucle).
 > Principe fondateur (owner, 24/07) : **pas de carte d'action sans grandeur mesurable** — la même unité sert
 > l'enjeu affiché AVANT (pill) et le suivi d'impact APRÈS (boucle M'engager → mesure). Une carte qui ne peut
 > pas fermer sa boucle n'est pas une carte d'action.

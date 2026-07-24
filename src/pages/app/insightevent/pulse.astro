@@ -1694,11 +1694,15 @@ if (!location_id) {
         }
       }
       // Enjeu \u20ac/an (serveur, mesure du motif \u2014 jamais extrapol\u00e9 du jour) : premi\u00e8re position,
-      // ambre = \u00e0 d\u00e9fendre, tier en suffixe. Pas de mesure \u2192 pas de pill.
+      // tier en suffixe. N\u00e9gatif = AMBRE (\u00e0 d\u00e9fendre), positif = VERTE (\u00e0 capter, chip-good) \u2014 \u00e9tape 2 valid\u00e9e 24/07. Pas de mesure \u2192 pas de pill.
       var enj = a && a.enjeu;
-      if (enj && Number(enj.eur_year) < 0 && enj.tier) {
+      if (enj && Number(enj.eur_year) && enj.tier) {
         var enjAmount = Math.abs(Math.round(Number(enj.eur_year))).toLocaleString('fr-FR');
-        pills.unshift('<span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu\u00a0<span class="ab-metric-val" style="color:#B45309;">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier)) + '</span>');
+        var enjPos = Number(enj.eur_year) > 0;
+        var enjBg = enjPos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
+        var enjFg = enjPos ? 'var(--color-pill-green-text)' : '#B45309';
+        var enjLabel = enjPos ? '\u00c0 capter' : 'Enjeu';
+        pills.unshift('<span class="ab-metric" style="background:' + enjBg + ';color:' + enjFg + ';">' + enjLabel + '\u00a0<span class="ab-metric-val" style="color:' + enjFg + ';">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier)) + '</span>');
       }
       return pills.join('');
     }
