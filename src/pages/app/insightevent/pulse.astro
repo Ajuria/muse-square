@@ -339,10 +339,11 @@ if (!location_id) {
     <!-- leaflet/map-markers intentionally NOT loaded here: the radar map renders in an
          <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
          page was ~166KB of dead render-blocking JS/CSS. -->
-    <script is:inline src="/ms-loader.js?v=1"></script>
+    <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/commit-form.js?v=4"></script>
-    <script is:inline src="/action-cards.js?v=29"></script>
+    <script is:inline src="/commit-form.js?v=6"></script>
+    <script is:inline src="/action-cards.js?v=30"></script>
+    <script is:inline src="/draft-workspace.js?v=5"></script>
   
   <PiloterBottomBar active="veille" />
 
@@ -1460,65 +1461,8 @@ if (!location_id) {
   // (only when showAdapt) re-styles it to the current signal via generate-action-draft.
   // Shared channel metadata — module scope so openBrouillonLibrary (and others) can reference it.
   var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel téléphonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
-  function openBrouillonLibrary(opts) {
-    var existing = document.getElementById("ms-draft-library");
-    if (existing) { existing.remove(); return; }
-    var drafts = opts.drafts || [];
-    var showAdapt = opts.showAdapt !== false;
-    var overlay = document.createElement("div");
-    overlay.id = "ms-draft-library";
-    overlay.style.cssText = "position:fixed;top:0;right:0;bottom:0;width:380px;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:9999;display:flex;flex-direction:column;font-family:inherit;";
-    var header = '<div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">'
-      + '<div><div style="font-weight:700;font-size:15px;color:#111827;">Mes brouillons</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + '</div></div>'
-      + '<button type="button" id="ms-lib-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;">×</button>'
-    + '</div>';
-    var SIGNAL_LABELS = {weather_worsened:"Météo dégradée",weather_improved:"Météo améliorée",weather_hazard_onset:"Alerte météo",competitor_event_launch:"Lancement concurrent",competitor_audience_conflict:"Conflit audience",competition_pressure_spike:"Pression concurrentielle",competitor_event_ending:"Fin concurrent",mobility_disruption:"Perturbation mobilité",score_up:"Score en hausse",_day_opportunity:"Opportunité jour",_best_day:"Meilleur jour",score_down:"Score en baisse",sales_surge:"CA au-dessus de l’attendu",sales_revenue_down_wow:"CA sous l’attendu",sales_traffic_not_converting:"Trafic sans conversion",sales_discount_no_lift:"Remise sans effet"};
-    var cards = '';
-    for (var di = 0; di < drafts.length; di++) {
-      var d = drafts[di];
-      var dCh = CHANNEL_DEFS[d.channel] || CHANNEL_DEFS.gbp;
-      var sigLbl = SIGNAL_LABELS[d.signal_type] || d.signal_type || "";
-      var isMatch = d.signal_type === opts.activeSignalType && d.channel === opts.activeChannel;
-      var preview = (d.body || "").substring(0, 120) + ((d.body || "").length > 120 ? "…" : "");
-      var dateLbl = d.created_at ? d.created_at.substring(0, 10) : "";
-      cards += '<div style="padding:12px 14px;border-radius:8px;margin-bottom:8px;border:' + (isMatch ? '1.5px solid #1D3BB3' : '1px solid #e5e7eb') + ';background:' + (isMatch ? '#F5F7FF' : '#fff') + ';cursor:pointer;">'
-        + '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;">'
-          + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;">' + escapeHtml(sigLbl) + '</span>'
-          + '<span style="font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:' + dCh.color + '18;color:' + dCh.color + ';">' + escapeHtml(dCh.icon + ' ' + dCh.label) + '</span>'
-          + (isMatch ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Correspondance</span>' : '')
-          + '<span style="font-size:10px;color:#9ca3af;margin-left:auto;">' + escapeHtml(dateLbl) + '</span>'
-        + '</div>'
-        + (d.title ? '<div style="font-weight:600;font-size:12px;color:#111827;margin-bottom:3px;">' + escapeHtml(d.title) + '</div>' : '')
-        + '<div style="font-size:11px;color:#6b7280;line-height:1.4;">' + escapeHtml(preview) + '</div>'
-        + (d.tone ? '<div style="font-size:10px;color:#9ca3af;margin-top:6px;font-style:italic;">Ton : ' + escapeHtml(d.tone) + '</div>' : '')
-        + '<div style="display:flex;gap:6px;margin-top:8px;">'
-          + (showAdapt ? '<button type="button" data-lib-style="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Adapter au signal</button>' : '')
-          + '<button type="button" data-lib-raw="' + di + '" style="flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Utiliser tel quel</button>'
-        + '</div>'
-      + '</div>';
-    }
-    overlay.innerHTML = header + '<div style="flex:1;overflow-y:auto;padding:12px 16px;">' + cards + '</div>';
-    document.body.appendChild(overlay);
-    document.getElementById("ms-lib-close").addEventListener("click", function() { overlay.remove(); });
-    overlay.querySelectorAll("[data-lib-raw]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var idx = parseInt(btn.getAttribute("data-lib-raw"), 10);
-        var picked = drafts[idx];
-        if (!picked) return;
-        overlay.remove();
-        if (opts.onRaw) opts.onRaw(picked);
-      });
-    });
-    if (showAdapt) overlay.querySelectorAll("[data-lib-style]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var idx = parseInt(btn.getAttribute("data-lib-style"), 10);
-        var picked = drafts[idx];
-        if (!picked) return;
-        overlay.remove();
-        if (opts.onAdapt) opts.onAdapt(picked);
-      });
-    });
-  }
+  function openBrouillonLibrary(opts) { return window.MSDraftWorkspace.openLibrary(opts); }
+  // (corps déplacé dans public/draft-workspace.js — tiroir partagé, 18/07.)
 
   // ---- Render ----
   function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount, activeGoalKey) {
@@ -1959,147 +1903,9 @@ if (!location_id) {
 // Paste this instead:
  
   function wireBriefHandlers(root, locationId, selectedDate) {
-    var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel t\u00e9l\u00e9phonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
-    var CHANNEL_PUB = ["gbp","facebook"];
-    var CHANNEL_SEND = ["email","sms","whatsapp","slack","internal","phone"];
-    var CHANNEL_LIST = CHANNEL_PUB.concat(CHANNEL_SEND);
- 
-    function buildChannelDropdown(currentCh, cardIdx) {
-      if (currentCh === "note_interne") currentCh = "internal";
-      var ch = CHANNEL_DEFS[currentCh] || CHANNEL_DEFS.gbp;
-      function chItems(list, heading) {
-        return '<div style="padding:6px 14px 2px;font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#9ca3af;">' + heading + '</div>'
-          + list.map(function(cId) {
-            var c = CHANNEL_DEFS[cId];
-            return '<button type="button" data-ch-select="' + cId + '" data-ch-card="' + cardIdx + '" style="display:flex;align-items:center;gap:10px;padding:8px 14px;width:100%;border:none;background:' + (cId === currentCh ? '#EFF6FF' : '#fff') + ';cursor:pointer;font-size:12px;color:#374151;font-family:inherit;text-align:left;border-bottom:0.5px solid #f3f4f6;">'
-              + '<span style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;background:' + c.color + ';flex-shrink:0;">' + c.icon + '</span>'
-              + '<span style="flex:1;">' + escapeHtml(c.label) + '</span>'
-              + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '')
-            + '</button>';
-          }).join("");
-      }
-      return '<div style="position:relative;display:inline-block;" data-ch-dropdown="' + cardIdx + '">'
-        + '<button type="button" data-ch-toggle="' + cardIdx + '" style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;cursor:pointer;font-size:11px;font-weight:600;color:#374151;font-family:inherit;">'
-          + '<span style="width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;background:' + ch.color + ';flex-shrink:0;">' + ch.icon + '</span>'
-          + escapeHtml(ch.label)
-          + ' <span style="font-size:9px;color:#9ca3af;">\u25be</span>'
-        + '</button>'
-        + '<div data-ch-menu="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:10;min-width:240px;overflow:hidden;">'
-          + chItems(CHANNEL_PUB, "Publier sur")
-          + chItems(CHANNEL_SEND, "Envoyer \u00e0")
-        + '</div>'
-      + '</div>';
-    }
- 
-    function buildWorkspaceHtml(cardIdx, channel, draft, isStyled, signalType, isOffer) {
-      if (channel === "note_interne") channel = "internal";
-      var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
-      var showTitle = channel === "gbp" || channel === "email";
-      var showHashtags = channel === "instagram" || channel === "gbp";
-      var showRecipient = ch.cat === "send" && channel !== "internal";
-      var bodyText = draft ? (draft.body || draft.full_text || "") : "";
-      if (ch.cat === "send" && signalType && bodyText) {
-        var _parent = document.querySelector('[data-ab-draft-affected]');
-        var _affDate = _parent ? (_parent.getAttribute('data-ab-draft-affected') || '') : '';
-        var _locId = typeof currentLocationId !== 'undefined' ? currentLocationId : (typeof locationId !== 'undefined' ? locationId : location_id);
-        bodyText += '\n\n\u2014\nConsulter le d\u00e9tail : ' + window.location.origin + '/app/insightevent/insight?type=' + encodeURIComponent(signalType) + '&date=' + encodeURIComponent(_affDate) + '&location_id=' + encodeURIComponent(_locId);
-      }
-      var titleText = draft ? (draft.title || "") : "";
-      var hashText = draft ? (draft.hashtags || "") : "";
-      var charCount = bodyText.length + (titleText ? titleText.length + 1 : 0) + (hashText ? hashText.length + 1 : 0);
-      var recipientPlaceholder = channel === "email" ? "destinataire@email.com" : channel === "sms" ? "+33 6 12 34 56 78" : channel === "whatsapp" ? "+33 6 12 34 56 78" : channel === "slack" ? "#canal ou @nom" : channel === "phone" ? "+33 6 12 34 56 78" : "";
+    // (CHANNEL_DEFS/buildChannelDropdown/buildWorkspaceHtml/updateCharCount supprimés —
+    //  portés par le workspace partagé public/draft-workspace.js, 18/07.)
 
-      return '<div style="background:#fff;border:1px solid #E8EDF5;border-top:3px solid #1D3BB3;overflow:hidden;margin-top:10px;">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f3f4f6;">'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + buildChannelDropdown(channel, cardIdx)
-            + '<button type="button" data-ws-close="' + cardIdx + '" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;font-family:inherit;">\u00d7</button>'
-          + '</div>'
-          + ((_savedDraftsCache && _savedDraftsCache.length > 0) ? '<button type="button" data-ws-library="' + cardIdx + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;">Mes brouillons (' + _savedDraftsCache.length + ')</button>' : '')
-        + '</div>'
-        + (isStyled ? '<div data-ws-style-banner="' + cardIdx + '" style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">Adapt\u00e9 depuis votre brouillon pr\u00e9c\u00e9dent</span><button type="button" data-ws-regen="' + cardIdx + '" style="background:none;border:none;color:#6b7280;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline;font-family:inherit;">R\u00e9\u00e9crire sans mod\u00e8le</button></div>' : '')
-        + (ch.cat === "send" ? '<div style="margin:8px 14px 0;padding:8px 12px;border-radius:6px;background:#F5F7FF;border:1px solid #DBEAFE;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>' : '')
-        + (showRecipient ? (function() {
-          var members = teamMembersPool(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
-          var ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',score_down:'opportunity',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition'};
-          var sigCat = ROUTING_MAP[signalType] || '';
-          var suggested = sigCat ? members.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
-          var html = '<div style="padding:8px 14px 0;position:relative;" data-ws-recipient-wrap="' + cardIdx + '">'
-            + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Destinataire</div>'
-            + '<input data-ws-recipient="' + cardIdx + '" placeholder="' + escapeHtml(recipientPlaceholder) + '" value="' + (suggested ? escapeHtml(suggested.channels_contact[channel]) : '') + '" data-display-name="' + (suggested ? escapeHtml(suggested.first_name + (suggested.last_name ? ' ' + suggested.last_name : '') + ' \u00b7 ' + suggested.channels_contact[channel]) : '') + '" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:12px;color:#111827;outline:none;font-family:inherit;background:transparent;" autocomplete="off" />';
-          if (members.length > 0) {
-            html += '<div data-ws-recipient-dd="' + cardIdx + '" style="display:none;position:absolute;top:100%;left:14px;right:14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.06);z-index:100;margin-top:4px;overflow:hidden;">';
-            if (suggested) {
-              html += '<div data-ws-pick-member="' + escapeHtml(suggested.channels_contact[channel]) + '" style="padding:10px 12px;cursor:pointer;background:#F5F7FF;border-bottom:1px solid #e5e7eb;">'
-                + '<div style="display:flex;align-items:center;justify-content:space-between;">'
-                  + '<div><span style="font-size:13px;font-weight:600;color:#111827;">' + escapeHtml(suggested.first_name + (suggested.last_name ? ' ' + suggested.last_name : '')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + escapeHtml(suggested.role || '') + '</span></div>'
-                  + '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Sugg\u00e9r\u00e9</span>'
-                + '</div>'
-                + '<div style="font-size:11px;color:#6b7280;margin-top:2px;">' + escapeHtml(suggested.channels_contact[channel]) + '</div>'
-              + '</div>';
-            }
-            members.filter(function(m) { return !suggested || m.member_id !== suggested.member_id; }).forEach(function(m) {
-              html += '<div data-ws-pick-member="' + escapeHtml(m.channels_contact[channel]) + '" style="padding:10px 12px;cursor:pointer;">'
-                + '<span style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(m.first_name + (m.last_name ? ' ' + m.last_name : '')) + '</span>'
-                + '<span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + escapeHtml(m.role || '') + '</span>'
-                + '<div style="font-size:11px;color:#6b7280;margin-top:1px;">' + escapeHtml(m.channels_contact[channel]) + '</div>'
-              + '</div>';
-            });
-            html += '<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;">Ou saisissez directement</div>';
-            html += '</div>';
-          }
-          html += '</div>';
-          return html;
-        })() : '')
-        + (showTitle ? '<div style="padding:10px 14px 0;"><input data-ws-title="' + cardIdx + '" value="' + escapeHtml(titleText) + '" placeholder="Titre" style="width:100%;border:none;border-bottom:1px solid #e5e7eb;padding:6px 0;font-size:13px;font-weight:600;color:#111827;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
-        + '<div style="padding:10px 14px;"><textarea data-ws-body="' + cardIdx + '" style="width:100%;border:none;outline:none;font-size:12.5px;color:#111827;line-height:1.6;resize:none;overflow:hidden;min-height:100px;font-family:inherit;background:transparent;">' + escapeHtml(bodyText) + '</textarea></div>'
-        + (isOffer ? '<div style="padding:0 14px 10px;border-top:1px solid #f3f4f6;">'
-            + '<div style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin:10px 0 6px;">Offre</div>'
-            + '<div style="display:flex;gap:8px;margin-bottom:6px;">'
-              + '<input data-ws-validity-from="' + cardIdx + '" placeholder="Valable du" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
-              + '<input data-ws-validity-to="' + cardIdx + '" placeholder="au" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
-            + '</div>'
-            + '<input data-ws-cta="' + cardIdx + '" placeholder="Appel \u00e0 l\u2019action (ex. R\u00e9server)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;margin-bottom:6px;" />'
-            + '<input data-ws-code="' + cardIdx + '" placeholder="Code promo (optionnel)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;box-sizing:border-box;" />'
-          + '</div>' : '')
-        + (showHashtags ? '<div style="padding:0 14px 10px;"><input data-ws-hashtags="' + cardIdx + '" value="' + escapeHtml(hashText) + '" placeholder="#hashtags" style="width:100%;border:none;border-top:1px solid #f3f4f6;padding:6px 0;font-size:11px;color:#6366f1;outline:none;font-family:inherit;background:transparent;" /></div>' : '')
-        + '<div style="padding:0 14px 10px;display:flex;align-items:center;gap:10px;" data-ws-charcount="' + cardIdx + '">'
-          + (ch.max
-            ? '<div style="flex:1;height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;"><div data-ws-charbar="' + cardIdx + '" style="width:' + Math.min(100, Math.round(charCount / ch.max * 100)) + '%;height:100%;background:#1D3BB3;border-radius:2px;transition:width 0.2s;"></div></div><span data-ws-charnum="' + cardIdx + '" style="font-size:10px;font-weight:500;white-space:nowrap;color:#9ca3af;">' + charCount + ' / ' + ch.max + '</span>'
-            : '<span data-ws-charnum="' + cardIdx + '" style="font-size:10px;color:#9ca3af;">' + charCount + ' caract\u00e8res</span>')
-        + '</div>'
-        + '<div style="padding:6px 14px 10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;">'
-          + '<input data-ws-adjust="' + cardIdx + '" placeholder="Ajuster : plus court, ajouter les horaires\u2026" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:11px;color:#111827;outline:none;font-family:inherit;background:#f9fafb;" />'
-          + '<button type="button" data-ws-adjust-submit="' + cardIdx + '" style="padding:6px 12px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">\u2192</button>'
-        + '</div>'
-        + '<div style="padding:10px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-          + '<button type="button" data-ws-copy="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Copier</button>'
-          + '<button type="button" data-ws-save="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
-          + '<div style="flex:1;"></div>'
-          + (function() { var hasConfig = _channelConfigsCache && _channelConfigsCache[channel]; return hasConfig ? '<button type="button" data-ws-publish="' + cardIdx + '" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' : '<button type="button" disabled data-ws-publish="' + cardIdx + '" title="Configurez ce canal dans vos param\u00e8tres" style="padding:7px 14px;border-radius:6px;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:not-allowed;font-family:inherit;opacity:0.5;">Publier \u2192</button>'; })()
-          + ((function(){ var NO_AUTOMATE = {high_competition_density:1,weather_window:1,top_day_approaching:1,audience_shift_opportunity:1,foreign_tourism_signal:1,competitor_threat_direct:1,regime_c_warning:1,competition_proximity:1,low_competition_window:1,extended_bad_weather:1,weekend_opportunity:1,mobility_disruption_resolved:1,mega_event_activation:1,competitor_price_drop:1,competitor_offering_removed:1,review_solicitation:1,competitor_positioning_gap:1,perfect_storm:1,weather_comp_opportunity:1,saturated_bad_weather:1,holiday_high_comp:1,best_day_of_week:1,day_opportunity:1,same_bucket_saturation:1,weekend_vacation_low_comp:1,commercial_event_match:1,weather_window_after_bad:1,extended_bad_weather_3d:1,tourist_high_season:1,tourist_surge_vacation:1,tourism_peak_window:1,tourism_weather_vacation:1,tourism_comp_squeeze:1,low_tourism_local_opp:1,tourism_mobility_hit:1,weather_mobility_double:1,mobility_comp_squeeze:1,ft_peak_bad_weather:1,ft_quiet_good_weather:1,ft_peak_saturated:1,ft_peak_low_comp:1,ft_peak_tourism_vacation:1,ft_peak_mobility:1,sales_missed_opportunity:1,sales_surge:1,sales_traffic_not_converting:1,sales_discount_no_lift:1,sales_revenue_down_wow:1,footfall_vs_basket_decomposition:1,proven_action_replication:1,offering_mix_shift:1}; return NO_AUTOMATE[String(signalType||"")] ? "" : '<button type="button" data-ws-automate="' + cardIdx + '" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">&#9889; Automatiser</button>'; })())
-        + '<div data-ws-auto-prompt="' + cardIdx + '" style="display:none;"></div>'
-        + '</div>'
-      + '</div>';
-    }
- 
-    function updateCharCount(cardIdx, channel) {
-      var ch = CHANNEL_DEFS[channel] || CHANNEL_DEFS.gbp;
-      var bodyEl = root.querySelector('[data-ws-body="' + cardIdx + '"]');
-      var titleEl = root.querySelector('[data-ws-title="' + cardIdx + '"]');
-      var hashEl = root.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-      var barEl = root.querySelector('[data-ws-charbar="' + cardIdx + '"]');
-      var numEl = root.querySelector('[data-ws-charnum="' + cardIdx + '"]');
-      var count = (bodyEl ? bodyEl.value.length : 0) + (titleEl ? titleEl.value.length + 1 : 0) + (hashEl ? hashEl.value.length + 1 : 0);
-      if (ch.max) {
-        var pct = Math.min(100, Math.round(count / ch.max * 100));
-        var over = count > ch.max;
-        if (barEl) { barEl.style.width = pct + "%"; barEl.style.background = over ? "#dc2626" : "#1D3BB3"; }
-        if (numEl) { numEl.textContent = count + " / " + ch.max; numEl.style.color = over ? "#dc2626" : "#9ca3af"; }
-      } else {
-        if (numEl) numEl.textContent = count + " caract\u00e8res";
-      }
-    }
  
     function autoResizeTextarea(el) {
       el.style.height = "auto";
@@ -2245,56 +2051,41 @@ if (!location_id) {
         var signalJson = {};
         try { signalJson = JSON.parse((parent ? parent.getAttribute("data-ab-draft-signal") : null) || "{}"); } catch(ex) {}
 
-        var payload = {
-          action_key: "draft",
-          channel: channel,
-          change_subtype: parent ? parent.getAttribute("data-ab-draft-sub") || "" : "",
-          signal: signalJson,
-          card_what: parent ? parent.getAttribute("data-ab-draft-what") || "" : "",
-          card_sowhat: parent ? parent.getAttribute("data-ab-draft-sowhat") || "" : "",
-          artifact_mode: artifactMode,
-        };
-        payload.data_payload = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
-        // Get draft seed from spec
-        var draftSeed = null;
-        if (window.getDraftSeed && window.ACTION_CARDS) {
-          var actionType = payload.change_subtype;
-          try {
-            var prof = data.profile || {};
-            var day = currentDay || {};
-            draftSeed = window.getDraftSeed(actionType, channel, signalJson, prof, day);
-          } catch(ex) {}
-        }
-        if (draftSeed) payload.draft_seed = draftSeed;
-
-        // Show loading
-        workspace.style.display = "block";
-        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
-
         var triggerBtn = root.querySelector('[data-agir-toggle="' + cardIdx + '"]');
-
-        fetch("/api/insight/generate-action-draft", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }).then(function(res) { return res.json(); }).then(function(json) {
-          if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
-          var draft = json.draft;
-
-          fetch("/api/analytics/track", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: payload.change_subtype, action_key: payload.action_key, channel: channel, affected_date: parent ? parent.getAttribute("data-ab-draft-affected") || null : null }),
-          }).catch(function(){});
-
-          if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Brouillon \u270e"; }
-
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype, artifactMode === "offer");
-          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-
-        }).catch(function(err) {
-          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-          if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Agir \u25be"; }
+        // UNIFIÉ (18/07, owner) : LE workspace partagé (public/draft-workspace.js — extraction
+        // fidèle de l'ancien workspace inline de cette page) sert Pulse ET la page détail.
+        // Le module self-fetch config canaux + roster + brouillons, génère (seed par carte via
+        // window.getDraftSeed), rend et câble — plus de copie locale.
+        var _dp = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
+        var _sig = {}; var _k;
+        for (_k in _dp) { if (_dp.hasOwnProperty(_k)) _sig[_k] = _dp[_k]; }
+        for (_k in signalJson) { if (signalJson.hasOwnProperty(_k)) _sig[_k] = signalJson[_k]; }
+        var _sub = parent ? (parent.getAttribute("data-ab-draft-sub") || "") : "";
+        var _aff = parent ? (parent.getAttribute("data-ab-draft-affected") || "") : "";
+        var _wsLocId = cardLocId(cardIdx) || locationId;
+        window.MSDraftWorkspace.open(workspace, {
+          location_id: _wsLocId,
+          signal_type: _sub,
+          affected_date: _aff,
+          card_what: parent ? (parent.getAttribute("data-ab-draft-what") || "") : "",
+          card_sowhat: parent ? (parent.getAttribute("data-ab-draft-sowhat") || "") : "",
+          signal: _sig,
+          artifact_mode: artifactMode,
+          severity: (function() { var c = btn.closest('.ab-card'); var pl = c ? c.querySelector('.ab-pill') : null; return pl ? pl.textContent : ''; })(),
+          channel: channel,
+          prof: data.profile || {},
+          day: currentDay || {},
+          detail_url: window.location.origin + '/app/insightevent/insight?type=' + encodeURIComponent(_sub) + '&date=' + encodeURIComponent(_aff) + '&location_id=' + encodeURIComponent(_wsLocId),
+          onStatus: function(st) {
+            if (st === 'drafted') {
+              if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Brouillon \u270e"; }
+              fetch("/api/analytics/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "draft_generated", location_id: locationId, change_subtype: _sub, action_key: "draft", channel: channel, affected_date: _aff || null }) }).catch(function(){});
+              return;
+            }
+            if (st === 'published' && triggerBtn) { triggerBtn.style.color = "#059669"; triggerBtn.textContent = "Trait\u00e9 \u2713"; }
+            updateBriefStatus(cardIdx, st);
+          },
+          onAutomationCreated: function() { delete _automationByLoc[locationId]; }
         });
       });
     });
@@ -2302,9 +2093,7 @@ if (!location_id) {
     // Communiquer en interne — open the internal-alert panel in the card workspace
     function buildAlertRecip(cardIdx, channel, signalType) {
       var lbl = 'font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);margin-bottom:6px;';
-      if (channel === 'note_interne') {
-        return '<div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--color-border);">Enregistré dans vos notes internes — aucun destinataire.</div>';
-      }
+      // (branche note_interne supprimée — owner 18/07 : toujours un destinataire.)
       var ph = channel === 'email' ? 'destinataire@email.com' : '#canal ou @nom';
       var members = teamMembersPool(cardLocId(cardIdx)).filter(function(m) { var cc = m.channels_contact || {}; return cc[channel]; });
       // Propose a recipient by default: the member routed for this signal category, else the first
@@ -2352,7 +2141,8 @@ if (!location_id) {
       var isNotify = ctx.panelMode === 'notify';
       var isResidual = !!(ctx.card && ctx.card.residual_pct != null);
       var rule = (isNotify && ctx.existingRule) ? ctx.existingRule : null;
-      var selCh = (rule && rule.channel) ? rule.channel : 'note_interne';
+      // Owner 18/07 : note interne supprimée — défaut email ; une vieille règle note_interne s'affiche en email.
+      var selCh = (rule && rule.channel && rule.channel !== 'note_interne') ? rule.channel : 'email';
       var selFreq = (rule && rule.frequency) ? rule.frequency : 'first_occurrence';
       var thrVal = (rule && rule.threshold_pct != null) ? Math.round(Number(rule.threshold_pct)) : 20;
       if (rule && rule.message) msg = rule.message;
@@ -2372,7 +2162,6 @@ if (!location_id) {
       }
       html += '<div style="' + lbl + '">Canal interne</div>'
         + '<div style="display:inline-flex;border:1px solid #1D3BB3;margin-bottom:12px;">'
-          + '<button type="button" data-al-ch="note_interne" style="' + segStyle(selCh === 'note_interne', false) + '">Note interne</button>'
           + '<button type="button" data-al-ch="email" style="' + segStyle(selCh === 'email', false) + '">Email</button>'
           + '<button type="button" data-al-ch="slack" style="' + segStyle(selCh === 'slack', true) + '">Slack</button>'
         + '</div>'
@@ -2651,474 +2440,8 @@ if (!location_id) {
       });
     });
 
-    function wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn) {
-      var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
-      if (!workspace) return;
- 
-      // Auto-resize + char count
-      var bodyEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
-      if (bodyEl) { autoResizeTextarea(bodyEl); bodyEl.addEventListener("input", function() { autoResizeTextarea(bodyEl); updateCharCount(cardIdx, channel); }); }
-      var titleEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
-      if (titleEl) titleEl.addEventListener("input", function() { updateCharCount(cardIdx, channel); });
-      var hashEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-      if (hashEl) hashEl.addEventListener("input", function() { updateCharCount(cardIdx, channel); });
- 
-      // Channel dropdown
-      var chToggle = workspace.querySelector('[data-ch-toggle="' + cardIdx + '"]');
-      var chMenu = workspace.querySelector('[data-ch-menu="' + cardIdx + '"]');
-      if (chToggle && chMenu) {
-        chToggle.addEventListener("click", function(ev) { ev.stopPropagation(); chMenu.style.display = chMenu.style.display === "none" ? "block" : "none"; });
-      }
-      workspace.querySelectorAll('[data-ch-select]').forEach(function(chBtn) {
-        chBtn.addEventListener("click", function(ev) {
-          ev.stopPropagation();
-          var newCh = chBtn.getAttribute("data-ch-select");
-          channel = newCh;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, newCh, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
-          wireWorkspaceButtons(cardIdx, newCh, draft, payload, triggerBtn);
-        });
-      });
- 
-      // Close
-      var closeBtn = workspace.querySelector('[data-ws-close="' + cardIdx + '"]');
-      if (closeBtn) closeBtn.addEventListener("click", function() {
-        workspace.style.display = "none";
-        workspace.innerHTML = "";
-      });
- 
-      // Offer fields → text suffix (empty when not an offer card; inputs absent)
-      function offerSuffix() {
-        var vfEl = workspace.querySelector('[data-ws-validity-from="' + cardIdx + '"]');
-        var vtEl = workspace.querySelector('[data-ws-validity-to="' + cardIdx + '"]');
-        var ctaEl = workspace.querySelector('[data-ws-cta="' + cardIdx + '"]');
-        var codeEl = workspace.querySelector('[data-ws-code="' + cardIdx + '"]');
-        var lines = [];
-        if (vfEl && vfEl.value) lines.push("Valable du " + vfEl.value + (vtEl && vtEl.value ? " au " + vtEl.value : ""));
-        else if (vtEl && vtEl.value) lines.push("Valable jusqu\u2019au " + vtEl.value);
-        if (ctaEl && ctaEl.value) lines.push(ctaEl.value);
-        if (codeEl && codeEl.value) lines.push("Code : " + codeEl.value);
-        return lines.length ? lines.join("\n") : "";
-      }
+    // (wireWorkspaceButtons/showAutoPrompt supprimés — portés par MSDraftWorkspace.)
 
-      // Copy
-      var copyBtn = workspace.querySelector('[data-ws-copy="' + cardIdx + '"]');
-      if (copyBtn) copyBtn.addEventListener("click", function() {
-        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
-        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
-        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-        var fullText = [tEl ? tEl.value : "", bEl ? bEl.value : "", offerSuffix(), hEl ? hEl.value : ""].filter(Boolean).join("\n\n");
-        navigator.clipboard.writeText(fullText).then(function() {
-          copyBtn.textContent = "Copi\u00e9 \u2713";
-          setTimeout(function() { copyBtn.textContent = "Copier"; }, 2000);
-        }).catch(function() {});
-        updateBriefStatus(cardIdx, "copied");
-        fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ event: "draft_copied", location_id: locationId, action_key: "draft", channel: channel, affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null }),
-        }).catch(function(){});
-      });
- 
-      // Save
-      var saveBtn = workspace.querySelector('[data-ws-save="' + cardIdx + '"]');
-      if (saveBtn) saveBtn.addEventListener("click", function() {
-        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
-        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
-        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-        var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
-        var draftData = { title: tEl ? tEl.value : "", body: bEl ? bEl.value : "", hashtags: hEl ? hEl.value : "", channel: channel };
-        try { localStorage.setItem("ms_draft_" + locationId + "_" + cardIdx, JSON.stringify(draftData)); } catch(e) {}
-        saveBtn.textContent = "\u2713 Enregistr\u00e9";
-        saveBtn.style.background = "#f0fdf4";
-        saveBtn.style.color = "#166534";
-        saveBtn.style.borderColor = "#bbf7d0";
-        setTimeout(function() { saveBtn.textContent = "Enregistrer"; saveBtn.style.background = "#f9fafb"; saveBtn.style.color = "#374151"; saveBtn.style.borderColor = "#e5e7eb"; }, 2000);
-        updateBriefStatus(cardIdx, "saved");
-        // Save to BigQuery
-        fetch("/api/analytics/save-draft", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            location_id: locationId,
-            signal_type: payload.change_subtype || "",
-            channel: channel,
-            card_what: payload.card_what || "",
-            card_sowhat: payload.card_sowhat || "",
-            affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null,
-            severity: triggerBtn.closest(".ab-card")?.querySelector(".ab-pill")?.textContent || "",
-            title: tEl ? tEl.value : "",
-            body: [bEl ? bEl.value : "", offerSuffix()].filter(Boolean).join("\n\n"),
-            hashtags: hEl ? hEl.value : "",
-            recipient: rEl ? rEl.value : "",
-            original_ai_text: draft ? (draft.full_text || draft.body || "") : "",
-            user_instruction: "",
-            artifact_mode: payload.artifact_mode || "post",
-          }),
-        }).then(function() { _savedDraftsCache = null; }).catch(function(){});
-        // Track event
-        fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ event: "draft_saved", location_id: locationId, action_key: "draft", channel: channel, affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || null }),
-        }).catch(function(){});
-      });
- 
-      // Regenerate
-      var regenBtn = workspace.querySelector('[data-ws-regen="' + cardIdx + '"]');
-      if (regenBtn) regenBtn.addEventListener("click", function() {
-        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>R\u00e9daction en cours\u2026</div>';
-        fetch("/api/insight/generate-action-draft", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }).then(function(res) { return res.json(); }).then(function(json) {
-          if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
-          draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, !!json.is_styled, payload.change_subtype, payload.artifact_mode === "offer");
-          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-        }).catch(function(err) {
-          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-        });
-      });
-
-      // Ajuster (inline refinement)
-      var adjustInput = workspace.querySelector('[data-ws-adjust="' + cardIdx + '"]');
-      var adjustBtn = workspace.querySelector('[data-ws-adjust-submit="' + cardIdx + '"]');
-      function submitAdjust() {
-        if (!adjustInput || !adjustInput.value.trim()) return;
-        var instruction = adjustInput.value.trim();
-        adjustInput.value = "";
-        workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Ajustement en cours\u2026</div>';
-        var adjustedPayload = JSON.parse(JSON.stringify(payload));
-        adjustedPayload.user_instruction = instruction;
-        fetch("/api/insight/generate-action-draft", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(adjustedPayload),
-        }).then(function(res) { return res.json(); }).then(function(json) {
-          if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
-          draft = json.draft;
-          workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
-          wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-        }).catch(function(err) {
-          workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-        });
-      }
-      if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
-      if (adjustInput) adjustInput.addEventListener("keydown", function(ev) { if (ev.key === "Enter") { ev.preventDefault(); submitAdjust(); } });
-
-      // Recipient dropdown
-      var recipInput = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
-      var recipDd = workspace.querySelector('[data-ws-recipient-dd="' + cardIdx + '"]');
-      if (recipInput && recipDd) {
-        // Add display label element
-        var recipWrap = recipInput.closest('[data-ws-recipient-wrap]');
-        var recipLabel = document.createElement('div');
-        recipLabel.setAttribute('data-ws-recipient-label', cardIdx);
-        recipLabel.style.cssText = 'font-size:12px;font-weight:500;color:#1D3BB3;margin-bottom:2px;display:none;cursor:pointer;';
-        recipInput.parentNode.insertBefore(recipLabel, recipInput);
-        // If suggested member pre-filled, show label
-        if (recipInput.getAttribute('data-display-name')) {
-          recipLabel.textContent = recipInput.getAttribute('data-display-name');
-          recipLabel.style.display = 'block';
-        }
-        recipLabel.addEventListener('click', function() { recipLabel.style.display = 'none'; recipInput.value = ''; recipInput.focus(); });
-        recipInput.addEventListener('focus', function() { recipDd.style.display = 'block'; });
-        recipInput.addEventListener('input', function() { recipDd.style.display = 'block'; recipLabel.style.display = 'none'; });
-        recipDd.querySelectorAll('[data-ws-pick-member]').forEach(function(opt) {
-          opt.addEventListener('click', function() {
-            var channelVal = opt.getAttribute('data-ws-pick-member');
-            var nameSpan = opt.querySelector('span');
-            var displayName = nameSpan ? nameSpan.textContent : '';
-            recipInput.value = channelVal;
-            recipLabel.textContent = displayName + ' \u00b7 ' + channelVal;
-            recipLabel.style.display = 'block';
-            recipDd.style.display = 'none';
-          });
-          opt.addEventListener('mouseenter', function() { opt.style.background = opt.style.background === 'rgb(245, 247, 255)' ? '#EBF0FF' : '#f9fafb'; });
-          opt.addEventListener('mouseleave', function() { opt.style.background = ''; });
-        });
-        document.addEventListener('click', function(ev) { if (!recipInput.contains(ev.target) && !recipDd.contains(ev.target) && !recipLabel.contains(ev.target)) recipDd.style.display = 'none'; });
-      }
-
-      // Publish
-      var pubBtn = workspace.querySelector('[data-ws-publish="' + cardIdx + '"]');
-      if (pubBtn && !pubBtn.disabled) pubBtn.addEventListener("click", function() {
-        var bEl = workspace.querySelector('[data-ws-body="' + cardIdx + '"]');
-        var tEl = workspace.querySelector('[data-ws-title="' + cardIdx + '"]');
-        var hEl = workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]');
-        var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
-        pubBtn.textContent = "Publication\u2026";
-        pubBtn.style.opacity = "0.6";
-        pubBtn.disabled = true;
-        fetch("/api/channels/publish", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            channel: channel,
-            location_id: locationId,
-            title: tEl ? tEl.value : "",
-            body: [bEl ? bEl.value : "", offerSuffix()].filter(Boolean).join("\n\n"),
-            hashtags: hEl ? hEl.value : "",
-            recipient: rEl ? rEl.value : "",
-            signal_type: payload.change_subtype || "",
-            affected_date: triggerBtn.getAttribute("data-ab-draft-affected") || "",
-          }),
-        }).then(function(res) { return res.json(); }).then(function(json) {
-          if (json && json.ok) {
-            pubBtn.textContent = "Publi\u00e9 \u2713";
-            pubBtn.style.background = "#f0fdf4";
-            pubBtn.style.color = "#166534";
-            pubBtn.style.borderColor = "#bbf7d0";
-            pubBtn.style.opacity = "1";
-            triggerBtn.style.color = "#059669";
-            triggerBtn.textContent = "Trait\u00e9 \u2713";
-            updateBriefStatus(cardIdx, "published");
-
-            // Post-publish: save unknown recipient
-            var rEl = workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]');
-            var recipVal = rEl ? rEl.value.trim() : "";
-            if (recipVal && channel !== "internal") {
-              var isKnown = teamMembersFor(locationId).some(function(m) { return (m.channels_contact || {})[channel] === recipVal; });
-              if (!isKnown) {
-                var savePrompt = document.createElement("div");
-                savePrompt.style.cssText = "margin:10px 0 0;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;";
-                savePrompt.innerHTML = '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Enregistrer ce destinataire ?</div>'
-                  + '<div style="font-size:11px;color:#6b7280;margin-bottom:12px;">' + escapeHtml(recipVal) + ' sera disponible pour vos prochaines publications.</div>'
-                  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
-                    + '<input data-save-recip-fn placeholder="Pr\u00e9nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
-                    + '<input data-save-recip-ln placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
-                  + '</div>'
-                  + '<input data-save-recip-role placeholder="R\u00f4le (optionnel)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-bottom:10px;box-sizing:border-box;" />'
-                  + '<div style="display:flex;gap:8px;">'
-                    + '<button type="button" data-save-recip-ok style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">Enregistrer</button>'
-                    + '<button type="button" data-save-recip-skip style="padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb;cursor:pointer;font-family:inherit;">Pas maintenant</button>'
-                  + '</div>';
-                workspace.appendChild(savePrompt);
-                savePrompt.querySelector("[data-save-recip-skip]").addEventListener("click", function() { savePrompt.remove(); });
-                savePrompt.querySelector("[data-save-recip-ok]").addEventListener("click", async function() {
-                  var fnEl = savePrompt.querySelector("[data-save-recip-fn]");
-                  var lnEl = savePrompt.querySelector("[data-save-recip-ln]");
-                  var roleEl = savePrompt.querySelector("[data-save-recip-role]");
-                  var fn = fnEl ? fnEl.value.trim() : "";
-                  if (!fn) { fnEl.style.borderColor = "#ef4444"; return; }
-                  var chContact = {};
-                  chContact[channel] = recipVal;
-                  this.disabled = true;
-                  this.textContent = "...";
-                  try {
-                    var res = await fetch("/api/channels/team", {
-                      method: "POST",
-                      headers: { "content-type": "application/json" },
-                      body: JSON.stringify({
-                        location_id: locationId,
-                        first_name: fn,
-                        last_name: lnEl ? lnEl.value.trim() : "",
-                        role: roleEl ? roleEl.value.trim() : "",
-                        channels_contact: chContact,
-                        signal_routing: {},
-                      }),
-                    });
-                    var json2 = await res.json();
-                    if (json2 && json2.ok) {
-                      delete _teamMembersByLoc[locationId];
-                      await fetchTeamMembers(locationId);
-                      savePrompt.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#166534;">\u2713</span><span style="font-size:12px;color:#166534;font-weight:500;">Destinataire enregistr\u00e9</span></div>';
-                      setTimeout(function() { savePrompt.remove(); }, 2000);
-                    }
-                  } catch(e) { this.textContent = "Erreur"; this.disabled = false; }
-                });
-              }
-            }
-          } else {
-            pubBtn.textContent = "Erreur";
-            pubBtn.style.color = "#B91C1C";
-            pubBtn.style.opacity = "1";
-            pubBtn.disabled = false;
-            setTimeout(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.color = "#1D3BB3"; pubBtn.style.borderColor = "#1D3BB3"; }, 2500);
-          }
-        }).catch(function() {
-          pubBtn.textContent = "Publier \u2192";
-          pubBtn.style.opacity = "1";
-          pubBtn.disabled = false;
-        });
-      });
-
-      // Library drawer (shared openBrouillonLibrary \u2014 same drawer as the notification panel)
-      var libBtn = workspace.querySelector('[data-ws-library="' + cardIdx + '"]');
-      if (libBtn) libBtn.addEventListener("click", function() {
-        openBrouillonLibrary({
-          drafts: _savedDraftsCache || [],
-          activeSignalType: payload.change_subtype,
-          activeChannel: channel,
-          showAdapt: true,
-          onRaw: function(picked) {
-            draft = { title: picked.title || null, body: picked.body || "", hashtags: picked.hashtags || null, full_text: picked.body || "" };
-            workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, false, payload.change_subtype, payload.artifact_mode === "offer");
-            wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-          },
-          onAdapt: function(picked) {
-            workspace.innerHTML = '<div style="padding:20px 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#9ca3af;font-size:11px;"><span style="width:10px;height:10px;border:1.5px solid #e5e7eb;border-top-color:#1D3BB3;border-radius:50%;display:inline-block;animation:ms-spin 0.7s linear infinite;flex-shrink:0;"></span>Adaptation en cours\u2026</div>';
-            var styledPayload = JSON.parse(JSON.stringify(payload));
-            styledPayload.style_reference = picked.body;
-            fetch("/api/insight/generate-action-draft", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify(styledPayload),
-            }).then(function(res) { return res.json(); }).then(function(json) {
-              if (!json || !json.ok || !json.draft) throw new Error("Draft vide");
-              draft = json.draft;
-              workspace.innerHTML = buildWorkspaceHtml(cardIdx, channel, draft, true, payload.change_subtype, payload.artifact_mode === "offer");
-              wireWorkspaceButtons(cardIdx, channel, draft, payload, triggerBtn);
-            }).catch(function(err) {
-              workspace.innerHTML = '<div style="padding:14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-            });
-          }
-        });
-      });
-
-      // Automate button
-      var autoBtn = workspace.querySelector('[data-ws-automate="' + cardIdx + '"]');
-      var autoPromptEl = workspace.querySelector('[data-ws-auto-prompt="' + cardIdx + '"]');
-      if (autoBtn && autoPromptEl) autoBtn.addEventListener("click", function() {
-        showAutoPrompt(autoPromptEl, cardIdx, channel, payload, triggerBtn);
-      });
-    }
-
-    function showAutoPrompt(container, cardIdx, channel, payload, triggerBtn) {
-      var ROUTING_MAP = window.MS_ROUTING_MAP || {};
-      var CAT_LABELS = {weather:"M\u00e9t\u00e9o",competition:"Concurrence",mobility:"Mobilit\u00e9",opportunity:"Opportunit\u00e9",calendar:"Calendrier"};
-      var sigCat = ROUTING_MAP[payload.change_subtype] || "competition";
-      var catLabel = CAT_LABELS[sigCat] || sigCat;
-      var chDef = {gbp:"GBP",instagram:"Instagram",facebook:"Facebook",email:"Email",sms:"SMS",whatsapp:"WhatsApp",slack:"Slack",internal:"Interne",phone:"T\u00e9l\u00e9phone"};
-      var chLabel = chDef[channel] || channel;
-      var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
-      var rEl = workspace ? workspace.querySelector('[data-ws-recipient="' + cardIdx + '"]') : null;
-      var recipVal = rEl ? rEl.value.trim() : "";
-      var hasChannelConfig = _channelConfigsCache && _channelConfigsCache[channel];
-      var canPublish = hasChannelConfig && (channel === "gbp" || channel === "facebook" || channel === "instagram" || channel === "internal" || recipVal);
-
-      container.style.display = "block";
-      container.innerHTML = '<div style="padding:12px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-          + '<span style="width:22px;height:22px;border-radius:5px;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">\u26A1</span>'
-          + '<span style="font-size:12px;font-weight:600;color:#1D3BB3;">Publier + automatiser</span>'
-        + '</div>'
-        + '<div style="font-size:11px;color:#4B5563;margin-bottom:8px;line-height:1.4;">'
-          + (canPublish
-            ? 'Publie ce brouillon sur <strong style="color:#1F2937;">' + escapeHtml(chLabel) + '</strong>' + (recipVal ? ' pour <strong style="color:#1F2937;">' + escapeHtml(recipVal) + '</strong>' : '') + ' maintenant, et automatise pour les prochains signaux <strong style="color:#1F2937;">' + escapeHtml(catLabel) + '</strong>.'
-            : 'Copie ce brouillon et automatise pour les prochains signaux <strong style="color:#1F2937;">' + escapeHtml(catLabel) + '</strong> sur <strong style="color:#1F2937;">' + escapeHtml(chLabel) + '</strong>' + (recipVal ? ' pour <strong style="color:#1F2937;">' + escapeHtml(recipVal) + '</strong>' : '') + '.')
-        + '</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-          + '<button type="button" data-auto-confirm="validation" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:5px;background:#1D3BB3;color:#fff;border:none;cursor:pointer;font-family:inherit;">' + (canPublish ? 'Publier + validation' : 'Copier + validation') + '</button>'
-          + '<button type="button" data-auto-confirm="auto" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:5px;background:#fff;color:#1D3BB3;border:1px solid #C7D2FE;cursor:pointer;font-family:inherit;">' + (canPublish ? 'Publier + auto' : 'Copier + auto') + '</button>'
-          + '<button type="button" data-auto-confirm="dismiss" style="font-size:10px;font-weight:500;padding:5px 6px;background:none;border:none;color:#9CA3AF;cursor:pointer;font-family:inherit;">Non merci</button>'
-        + '</div>'
-      + '</div>';
-
-      container.querySelectorAll("[data-auto-confirm]").forEach(function(btn) {
-        btn.addEventListener("click", function() {
-          var mode = btn.getAttribute("data-auto-confirm");
-          if (mode === "dismiss") { container.style.display = "none"; container.innerHTML = ""; return; }
-          btn.disabled = true;
-          btn.textContent = "...";
-          var locId = typeof locationId !== "undefined" ? locationId : "";
-
-          // Read draft content from workspace
-          var bEl = workspace ? workspace.querySelector('[data-ws-body="' + cardIdx + '"]') : null;
-          var tEl = workspace ? workspace.querySelector('[data-ws-title="' + cardIdx + '"]') : null;
-          var hEl = workspace ? workspace.querySelector('[data-ws-hashtags="' + cardIdx + '"]') : null;
-          var bodyText = bEl ? bEl.value : "";
-          var titleText = tEl ? tEl.value : "";
-          var hashText = hEl ? hEl.value : "";
-          var affectedDate = triggerBtn ? (triggerBtn.getAttribute("data-ab-draft-affected") || "") : "";
-
-          // Step 1: Create the automation rule
-          fetch("/api/channels/automation", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              location_id: locId,
-              signal_category: sigCat,
-              channel: channel,
-              recipient: recipVal,
-              require_approval: mode === "validation",
-              frequency: "first_occurrence",
-            }),
-          }).then(function(ruleRes) { return ruleRes.json(); }).then(function(ruleJson) {
-            if (!ruleJson || !ruleJson.ok) throw new Error(ruleJson?.error || "Erreur r\u00e8gle");
-            delete _automationByLoc[locId]; // new automation armed \u2014 force re-fetch so the card pill updates
-
-            // Step 2: Publish or copy
-            if (canPublish) {
-              return fetch("/api/channels/publish", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                  channel: channel,
-                  location_id: locId,
-                  title: titleText,
-                  body: bodyText,
-                  hashtags: hashText,
-                  recipient: recipVal,
-                  signal_type: payload.change_subtype || "",
-                  affected_date: affectedDate,
-                }),
-              }).then(function(pubRes) { return pubRes.json(); }).then(function(pubJson) {
-                if (pubJson && pubJson.ok) {
-                  // Track publish
-                  fetch("/api/analytics/track", {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ event: "auto_publish", location_id: locId, change_subtype: payload.change_subtype, action_key: "auto_publish", channel: channel, affected_date: affectedDate }),
-                  }).catch(function(){});
-                  // Update card status
-                  if (triggerBtn) { triggerBtn.style.color = "#059669"; triggerBtn.textContent = "Trait\u00e9 \u2713"; }
-                  updateBriefStatus(cardIdx, "published");
-                  // Show confirmation
-                  container.innerHTML = '<div style="padding:10px 14px;margin:8px 0 4px;background:#ECFDF5;border-radius:8px;border:1px solid #D1FAE5;">'
-                    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
-                      + '<span style="width:18px;height:18px;border-radius:50%;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u2713</span>'
-                      + '<span style="font-size:11px;color:#065F46;font-weight:600;">Publi\u00e9 sur ' + escapeHtml(chLabel) + '</span>'
-                    + '</div>'
-                    + '<div style="display:flex;align-items:center;gap:8px;">'
-                      + '<span style="width:18px;height:18px;border-radius:50%;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u26A1</span>'
-                      + '<span style="font-size:11px;color:#1D3BB3;font-weight:500;">R\u00e8gle cr\u00e9\u00e9e : ' + escapeHtml(catLabel) + ' \u2192 ' + escapeHtml(chLabel) + ' (' + (mode === "auto" ? "auto" : "validation") + ')</span>'
-                    + '</div>'
-                  + '</div>';
-                  // Check for unknown recipient → save prompt
-                  showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal);
-                } else {
-                  throw new Error(pubJson?.error || "Erreur publication");
-                }
-              });
-            } else {
-              // No channel config → copy to clipboard
-              var fullText = [titleText, bodyText, hashText].filter(Boolean).join("\n\n");
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(fullText).catch(function(){});
-              }
-              // Track copy
-              fetch("/api/analytics/track", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ event: "draft_copied", location_id: locId, change_subtype: payload.change_subtype, action_key: "draft", channel: channel, affected_date: affectedDate }),
-              }).catch(function(){});
-              if (triggerBtn) { triggerBtn.style.color = "#1D3BB3"; triggerBtn.textContent = "Copi\u00e9 \u270e"; }
-              updateBriefStatus(cardIdx, "copied");
-              container.innerHTML = '<div style="padding:10px 14px;margin:8px 0 4px;background:#EFF3FF;border-radius:8px;border:1px solid #D6DFFF;">'
-                + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
-                  + '<span style="width:18px;height:18px;border-radius:50%;background:#1D3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;">\u2713</span>'
-                  + '<span style="font-size:11px;color:#1D3BB3;font-weight:500;">Texte copi\u00e9 + R\u00e8gle cr\u00e9\u00e9e : ' + escapeHtml(catLabel) + ' \u2192 ' + escapeHtml(chLabel) + ' (' + (mode === "auto" ? "auto" : "validation") + ')</span>'
-                + '</div>'
-              + '</div>';
-            }
-          }).catch(function(err) {
-            container.innerHTML = '<div style="padding:10px 14px;font-size:11px;color:#B91C1C;">Erreur : ' + escapeHtml(err?.message || "R\u00e9essayez") + '</div>';
-          });
-        });
-      });
-    }
 
     function showRecipientSavePrompt(workspace, cardIdx, channel, locId, recipVal) {
       if (!recipVal || channel === "internal" || channel === "gbp" || channel === "facebook" || channel === "instagram") return;
@@ -4664,6 +3987,11 @@ if (!location_id) {
     competitorSignals._followedCompetitors = data._followed_competitors || [];
     const followedCount = Number(data._competitor_followed_count ?? data.competitor_followed_count ?? 0);
     const isMultisite = Array.isArray(data._locations) && data._locations.length > 1;
+    // Map location_id → nom de site, remplie AVANT renderDailyBrief : les cartes d'action
+    // système (renderActionCandidates → chip-n site du builder) la lisent au premier paint.
+    // (Déplacée d'après root.innerHTML — elle n'existait qu'après le rendu des candidates.)
+    window._engLocLabels = {};
+    if (isMultisite && Array.isArray(data._locations)) data._locations.forEach(function(l){ if (l && l.location_id) window._engLocLabels[l.location_id] = l.company_name || l.label || ''; });
 
     if (!currentDay) {
       root.innerHTML = `<div class="mon-error">Aucune donnée disponible.</div>`;
@@ -5236,8 +4564,7 @@ if (!location_id) {
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
     // covers (all in-view aggregate sites, or the single viewed site) so they behave like
     // system cards. data._locations is the aggregate site set; single-site => [currentLocationId].
-    window._engLocLabels = {};
-    if (isMultisite && Array.isArray(data._locations)) data._locations.forEach(function(l){ if (l && l.location_id) window._engLocLabels[l.location_id] = l.company_name || l.label || ''; });
+    // (_engLocLabels désormais remplie en tête de rendu — voir isMultisite plus haut.)
     _engagementLocs = isMultisite
       ? (data._locations || []).map(function(l){ return l && l.location_id; }).filter(Boolean)
       : [currentLocationId];

@@ -13,6 +13,13 @@ export interface DraftLegalSources {
   grounded: GroundedDayPayload;   // engines already excluded
   identityText: string;           // the venue identity block the system prompt was built from
   userInstruction: string;        // the operator's own instruction / offer (their prices/dates)
+  // 4e source légale (18/07) : les faits DE LA CARTE elle-même — titre/synthèse rendus depuis le
+  // mart + seed de rédaction + payload du signal. Première partie (les ventes du lieu, calculées
+  // par nos pipelines), même niveau de confiance que userInstruction : une note interne qui cite
+  // « 34,2 % remisés, 3 682 € réalisés » ne fabrique rien — elle répète la carte. Sans cette
+  // source, tout brouillon fidèle à une carte ventes était rejeté (ses chiffres ne sont pas dans
+  // le brief du cerveau). Le seam tient : entité/chiffre absent des 4 sources → rejet inchangé.
+  cardFacts?: string;             // cardWhat + cardSowhat + draftSeed + JSON(signal)
 }
 
 export function validate_grounded_draft(draftText: string, ctx: DraftLegalSources): [boolean, string[]] {
@@ -25,6 +32,7 @@ export function validate_grounded_draft(draftText: string, ctx: DraftLegalSource
   const legalText = factStrings.join("  ") + "  " +
     JSON.stringify(ctx.grounded.signals ?? {}) + "  " +
     (ctx.identityText ?? "") + "  " + (ctx.userInstruction ?? "") + "  " +
+    (ctx.cardFacts ?? "") + "  " +
     (ctx.grounded.display_date ?? "") + "  " + (ctx.grounded.date ?? "");
   const legalNums = extractNumbers(legalText);
   const legalEntities = norm(legalText);
@@ -41,11 +49,26 @@ export function validate_grounded_draft(draftText: string, ctx: DraftLegalSource
   //    in a legal source. The venue's own name/offerings (identity) pass; a fabricated competitor/event fails.
   const entityRe = makeEntityRegex();
   const seen = new Set<string>();
-  for (const ent of text.match(entityRe) ?? []) {
-    const e = norm(ent);
-    if (e.length < 6 || seen.has(e)) continue;
-    seen.add(e);
-    if (!legalEntities.includes(e)) errors.push(`grounded_draft: ungrounded named entity: "${ent}"`);
+  // Par LIGNE : un brouillon a des titres (« AUX ÉQUIPES COMMERCIALES ») suivis de texte — le
+  // regex traversait le saut de ligne et fusionnait titre + 1er mot du paragraphe en une pseudo-
+  // entité introuvable (18/07). Une vraie entité fabriquée vit sur une ligne : le seam tient.
+  for (const line of text.split(/[\r\n]+/)) {
+    for (const ent of line.match(entityRe) ?? []) {
+      const e = norm(ent);
+      if (e.length < 6 || seen.has(e)) continue;
+      seen.add(e);
+      // Un run TOUT-EN-MAJUSCULES est un titre/une salutation (« ÉQUIPE OPS », « NOTE INTERNE »,
+      // « POSITIONNEMENT CONCURRENTIEL ») — du style, pas une entité nommée. Une entité fabriquée
+      // reprise dans le corps du texte reste en casse mixte → attrapée là (18/07).
+      if (ent === ent.toUpperCase()) continue;
+      if (legalEntities.includes(e)) continue;
+      // Repli par tokens : le modèle reformule légitimement une entité légale (« Le Guimet »,
+      // « Musée Guimet » pour le concurrent du payload). Passe si TOUS les tokens significatifs
+      // (≥ 4 lettres) existent dans le pool — un nom propre inventé introduit un token inconnu.
+      const toks = e.split(" ").filter((t) => t.length >= 4);
+      if (toks.length && toks.every((t) => legalEntities.includes(t))) continue;
+      errors.push(`grounded_draft: ungrounded named entity: "${ent}"`);
+    }
   }
 
   // 3) OUTCOME / causal — no fabricated result on the venue OR an external entity ("augmentera vos ventes",

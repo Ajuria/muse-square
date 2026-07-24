@@ -20,7 +20,7 @@ export const prerender = false;
 
 const SYSTEM_PROMPT = `Tu es un agent de veille concurrentielle pour Muse Square Insight, une plateforme pour professionnels de l'événementiel en France.
 
-Ta mission : rechercher sur le web des événements, lieux ou marques correspondant à la requête de l'utilisateur dans une zone géographique donnée.
+Ta mission : rechercher sur le web des événements, lieux ou marques correspondant à la requête de l'utilisateur. Une zone géographique de référence est fournie : c'est une préférence de tri (le plus proche d'abord), JAMAIS un filtre d'exclusion.
 
 RÈGLES ABSOLUES :
 1. Recherche UNIQUEMENT ce qui correspond à la requête. Ne t'écarte pas du sujet.
@@ -29,6 +29,7 @@ RÈGLES ABSOLUES :
 4. Retourne entre 2 et 6 résultats pertinents, triés par pertinence décroissante.
 5. Retourne UNIQUEMENT du JSON valide. Aucun texte avant ou après.
 6. Distingue les types : "event" pour un événement ponctuel (salon, festival, exposition, conférence), "competitor" pour un lieu ou une marque permanente (musée, enseigne, organisateur, salle).
+7. Si la requête désigne une marque, une enseigne ou une URL, retourne cette marque MÊME SANS présence dans la zone de référence : son siège, son point de vente le plus proche de la zone, et sa boutique en ligne le cas échéant. Un acteur 100 % en ligne se retourne avec location: null. Ne retourne JAMAIS un tableau vide au motif que la marque est absente de la zone.
 
 SCHEMA DE SORTIE (tableau de 2 à 6 résultats) :
 [
@@ -112,37 +113,47 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 "${query}"
 
-Zone géographique : ${userCity}${userRegion ? `, ${userRegion}` : ""}, France
+Zone de référence (préférence de tri, pas un filtre) : ${userCity}${userRegion ? `, ${userRegion}` : ""}, France
 
 Retourne les 2 à 6 résultats les plus pertinents.
 Priorité des sources : site officiel > Eventbrite > Openagenda > presse locale > autres.`;
 
-    const { ok: aiOk, text: raw, errors: aiErrors } = await callClaudeWithWebSearch({
-      system:    SYSTEM_PROMPT,
-      userText:  userPrompt,
-      model:     modelFor("enrichment"),
-      maxTokens: 3000,
-    });
+    // One attempt = call + parse. Retried once when the first attempt yields nothing
+    // (web_search result quality is nondeterministic — a single retry squares the miss rate).
+    async function attemptSearch(): Promise<any[] | null> {
+      const { ok: aiOk, text: raw, errors: aiErrors } = await callClaudeWithWebSearch({
+        system:    SYSTEM_PROMPT,
+        userText:  userPrompt,
+        model:     modelFor("enrichment"),
+        maxTokens: 3000,
+      });
 
-    if (!aiOk) {
-      console.error("[search-web] Claude API error:", aiErrors.join("; ").slice(0, 200));
-      throw new Error("Claude API error");
+      if (!aiOk) {
+        console.error("[search-web] Claude API error:", aiErrors.join("; ").slice(0, 200));
+        return null;
+      }
+
+      try {
+        const jsonMatch =
+          raw.match(/```json\s*([\s\S]*?)```/) ||
+          raw.match(/```\s*([\s\S]*?)```/)     ||
+          raw.match(/(\[[\s\S]*\])/);
+
+        const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : raw;
+        const parsed  = JSON.parse(jsonStr.trim());
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
     }
 
-    // Parse JSON from response
-    let candidates: any[] = [];
-    try {
-      const jsonMatch =
-        raw.match(/```json\s*([\s\S]*?)```/) ||
-        raw.match(/```\s*([\s\S]*?)```/)     ||
-        raw.match(/(\[[\s\S]*\])/);
-
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : raw;
-      const parsed  = JSON.parse(jsonStr.trim());
-      candidates    = Array.isArray(parsed) ? parsed : [parsed];
-    } catch {
-      candidates = [];
+    let candidates = await attemptSearch();
+    if (!candidates || candidates.length === 0) {
+      console.log("[search-web] empty first attempt, retrying once");
+      const second = await attemptSearch();
+      if (second && second.length > 0) candidates = second;
     }
+    if (!candidates) throw new Error("Claude API error");
 
     // Sanitize each result
     const sanitized = candidates.slice(0, 6).map((c: any) => {

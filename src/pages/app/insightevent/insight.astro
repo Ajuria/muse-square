@@ -144,11 +144,12 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       </div>
     </div>
 
-    <script is:inline src="/ms-loader.js?v=1"></script>
+    <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/action-cards.js?v=29"></script>
-    <script is:inline src="/commit-form.js?v=4"></script>
+    <script is:inline src="/action-cards.js?v=30"></script>
+    <script is:inline src="/commit-form.js?v=6"></script>
     <script is:inline src="/card-kit.js?v=19"></script>
+    <script is:inline src="/draft-workspace.js?v=5"></script>
     <script is:inline define:vars={{ location_id, signal_type, signal_date, signal_instance }}>
     (function() {
       'use strict';
@@ -765,11 +766,18 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _isWeatherWindow = (signal_type === 'extended_bad_weather');
         var _isFootfall = (signal_type === 'best_day_of_week' || signal_type === 'ft_peak_bad_weather' || signal_type === 'ft_quiet_good_weather' || signal_type === 'ft_peak_saturated' || signal_type === 'ft_peak_low_comp' || signal_type === 'ft_peak_tourism_vacation' || signal_type === 'ft_peak_mobility');
         var html = '';
-        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+        // Option A (owner 18/07) : rang\u00e9e d'outils du hero \u2014 retour \u00e0 gauche, \u00ab Agir \u25be \u00bb \u00e0 droite
+        // (m\u00eame placement que \u00ab Enregistrer en PDF \u00bb du rapport). Slot rempli par wireActionBar.
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><button class="fs-back" onclick="history.back()">\u2190 Retour</button><div id="fs-agir-slot" style="position:relative;flex-shrink:0;"></div></div>';
+        // Nom de l'établissement (owner 19/07, proto v3) : texte simple gris en bout de la
+        // RANGÉE TITRE (pas sur la ligne catégorie — collait visuellement au bouton
+        // Communiquer). Le signal doit dire À QUEL SITE il se rapporte (multi-sites).
+        var _siteNm = String(prof.site_name || prof.location_label || '');
         html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:' + BR + ';">' + esc(m.cat) + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap;">'
             + '<h1 style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:' + INK + ';">' + esc(m.title) + '</h1>'
             + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
+            + (_siteNm ? '<span style="margin-left:auto;font-size:13px;font-weight:500;color:' + SUB + ';white-space:nowrap;">' + esc(_siteNm) + '</span>' : '')
           + '</div>';
 
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
@@ -869,16 +877,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _ctx = '';
         if (_isMovement || _isWeather) _ctx += zone('Historique \u00b7 jours comparables', '<div id="fs-analog-zone">' + _spin + '</div>');
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Votre audience', '<div id="fs-audience-zone">' + _spin + '</div>');
-        if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) _ctx += zone('Ce qui a march\u00e9', '<div id="fs-track-zone">' + _spin + '</div>');
+        // \u00ab Ce qui a march\u00e9 \u00bb (track record des engagements pass\u00e9s) RETIR\u00c9 des cartes syst\u00e8me
+        // (owner 18/07) : l'historique d'actions utilisateur vit sur les cartes engagement /
+        // page \u00e9volution, pas sur le d\u00e9tail d'une carte syst\u00e8me.
         if (!_isMovement && !_isWeather && !_isEvent && !_isCompetitor && !_isTourism && !_isFootfall && !_isDecomp && !_isDiscount && !_isWeatherWindow) _ctx += zone('Environnement du jour \u00b7 agent web', '<div id="fs-context-zone">' + _spin + '</div>');
-        // \u2500\u2500 Plan \u00e0 reprendre (Spec 1) \u2014 the best PAST plan for this card type, filled async by
-        // loadTrackRecord from /api/insight/track-record (best). Leads the actions: a system card offers
-        // a proven plan to pick up before generic suggestions. Empty until history exists (honest-absent).
-        // \u2500\u2500 ACTION SECTION \u2014 placed at the END (after context). Plan \u00e0 reprendre (Spec 1) leads when
-        // history exists (fs-plan-reprendre, filled async by loadTrackRecord); "Plan \u00e0 essayer" applies
+        // \u2500\u2500 ACTION SECTION \u2014 placed at the END (after context). "Plan \u00e0 essayer" applies
         // the rich card treatment to the EXISTING reco strings (reco-library / live line) \u2014 no parallel
-        // data structure. Both CLICKABLE \u2192 M'engager (fsOpenCommit) via data-reco-pick / data-reco-own.
-        var _actionsHtml = '<div id="fs-plan-reprendre"></div>';
+        // data structure. CLICKABLE \u2192 M'engager (fsOpenCommit) via data-reco-pick / data-reco-own.
+        // (fs-plan-reprendre retiré avec la zone « Ce qui a marché » — même moteur track-record.)
+        var _actionsHtml = '';
         if (_recoActions.length) {
           var _refs = [];
           var _cards = _recoActions.map(function (a, _i) {
@@ -935,7 +942,6 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMovement || _isWeather) loadAnalogs(location_id, signal_date, document.getElementById('fs-analog-zone'), _isMovement);
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
-          loadTrackRecord(location_id, signal_type, document.getElementById('fs-track-zone'), fsOpenCommit);
           loadBestInClass(location_id, signal_type, document.getElementById('fs-bic-zone'));
         }
 
@@ -949,7 +955,13 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           loadCompetitorDescriptif(m.competitor_id, m.competitor_name, panel, descBtn);
         });
 
-        wireActionBar(root, day, prof, feedItem);
+        // _recoActions passé EXPLICITEMENT : le handler « Choisir ce plan » vivait dans
+        // wireActionBar où _recoActions (local à renderClaimSkeleton) n'existe pas —
+        // ReferenceError au clic, bouton mort (owner 18/07).
+        // cardText : le VRAI texte de la carte (titre + synthèse) — le brouillon Communiquer/
+        // Faire suivre était généré avec un slug en card_what et un sowhat vide → le modèle
+        // inventait, le validateur d'ancrage rejetait (owner 18/07). Même substance que Pulse.
+        wireActionBar(root, day, prof, feedItem, _recoActions, { what: m.title || '', sowhat: ctx || '' });
       }
 
       // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
@@ -1416,7 +1428,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
 
         // ── Back button ──
-        html += '<button class="fs-back" onclick="history.back()">\u2190 Retour</button>';
+        // Option A (owner 18/07) : rang\u00e9e d'outils du hero \u2014 retour \u00e0 gauche, \u00ab Agir \u25be \u00bb \u00e0 droite
+        // (m\u00eame placement que \u00ab Enregistrer en PDF \u00bb du rapport). Slot rempli par wireActionBar.
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><button class="fs-back" onclick="history.back()">\u2190 Retour</button><div id="fs-agir-slot" style="position:relative;flex-shrink:0;"></div></div>';
 
         // ── Hero — minimal: category + title only ──
         if (spec) {
@@ -1429,15 +1443,19 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
             heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
           }
+          var _siteNmH = String(prof.site_name || prof.location_label || '');
+          var _siteNmSpan = _siteNmH ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmH) + '</span>' : '';
           html += '<div class="fs-hero ' + catClass + '">'
-            + '<div class="fs-hero-cat" style="color:' + catColor + ';">' + esc(spec.icon) + ' ' + esc(cat) + '</div>'
+            + '<div class="fs-hero-cat" style="color:' + catColor + ';">' + esc(spec.icon) + ' ' + esc(cat) + _siteNmSpan + '</div>'
             + '<div class="fs-hero-title">' + esc(heroTitle) + '</div>'
           + '</div>';
         } else if (isGenericTopic) {
           var topicLabels = { weather:'M\u00e9t\u00e9o', competition:'Concurrence', mobility:'Mobilit\u00e9', score:'Score du jour', calendar:'Calendrier' };
           var topicClasses = { weather:'cat-meteo', competition:'cat-concurrence', mobility:'cat-urgent', score:'cat-intelligence', calendar:'cat-intelligence' };
+          var _siteNmT = String(prof.site_name || prof.location_label || '');
+          var _siteNmTSpan = _siteNmT ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmT) + '</span>' : '';
           html += '<div class="fs-hero ' + (topicClasses[signal_type] || 'cat-intelligence') + '">'
-            + '<div class="fs-hero-cat" style="color:#1e3a5f;">' + esc(topicLabels[signal_type] || signal_type) + '</div>'
+            + '<div class="fs-hero-cat" style="color:#1e3a5f;">' + esc(topicLabels[signal_type] || signal_type) + _siteNmTSpan + '</div>'
             + '<div class="fs-hero-title">' + esc(topicLabels[signal_type] || signal_type) + ' \u2014 ' + esc(signal_date) + '</div>'
           + '</div>';
         }
@@ -1874,7 +1892,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             }
           });
         }
-        wireActionBar(root, day, prof, feedItem);
+        wireActionBar(root, day, prof, feedItem, null,
+          { what: heroTitle || '', sowhat: (sowhat && typeof sowhat === 'object') ? (sowhat.context || '') : String(sowhat || '') });
       }
 
       // ════════════════════════════════════════════════════════════════
@@ -1987,32 +2006,15 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       // ════════════════════════════════════════════════════════════════
       // ACTION BAR + WORKSPACE (unchanged)
       // ════════════════════════════════════════════════════════════════
-      var CH_DEFS = {
-        gbp:{label:"Google Business Profile",icon:"G",color:"#4285F4",max:1500,cat:"pub"},
-        instagram:{label:"Instagram",icon:"IG",color:"#E1306C",max:2200,cat:"pub"},
-        facebook:{label:"Facebook",icon:"FB",color:"#0866FF",max:null,cat:"pub"},
-        email:{label:"Email",icon:"@",color:"#6B7280",max:null,cat:"send"},
-        slack:{label:"Slack",icon:"SL",color:"#4A154B",max:null,cat:"send"},
-        whatsapp:{label:"WhatsApp",icon:"WA",color:"#25D366",max:1000,cat:"send"},
-        note_interne:{label:"Note interne",icon:"N",color:"#374151",max:null,cat:"send"}
-      };
-      var CH_PUB = ["gbp","facebook"];
-      var CH_SEND = ["email","slack"];
+      // (CH_DEFS/chIconHtml supprimés — le workspace partagé MSDraftWorkspace les porte.)
 
-      function chIconHtml(key) {
-        var c = CH_DEFS[key]; if (!c) return '';
-        return '<span class="fs-ws-ch-icon" style="background:' + c.color + ';">' + esc(c.icon) + '</span>';
-      }
 
-      function wireActionBar(root, day, prof, feedItem) {
-        var barHtml = '<div class="fs-action-bar" id="fs-action-bar">'
-          + '<div class="fs-action-bar-inner">'
-            + '<button type="button" class="fs-btn-comm" id="fs-btn-comm">\u270f\ufe0f Communiquer</button>'
-            + '<button type="button" class="fs-btn-send" id="fs-btn-send">\u2197\ufe0f Faire suivre</button>'
-            + '<button type="button" id="fs-btn-act" style="flex:1;padding:12px 0;border-radius:10px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Cr\u00e9er une action</button>'
-          + '</div>'
-        + '</div>'
-        + '<div class="fs-ws-overlay" id="fs-ws-overlay">'
+      function wireActionBar(root, day, prof, feedItem, recoActions, cardText) {
+        // Option A (owner 18/07) : plus de barre sticky \u2014 \u00ab Agir \u25be \u00bb dans le hero (slot
+        // #fs-agir-slot), menu \u00e0 l'anatomie .ab-dd-item des cartes Pulse (inline \u2014 HTML inject\u00e9).
+        // \u00ab Cr\u00e9er une action \u00bb SUPPRIM\u00c9 : doublon strict d'\u00ab \u00c9crire mon propre plan \u00bb
+        // (m\u00eame fsOpenCommit) \u2014 la section Plan est l'unique porte de cr\u00e9ation d'action.
+        var barHtml = '<div class="fs-ws-overlay" id="fs-ws-overlay">'
           + '<div class="fs-ws-panel" id="fs-ws-panel"></div>'
         + '</div>'
         + '<div class="fs-ws-overlay" id="fs-cm-overlay">'
@@ -2022,25 +2024,27 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
         var overlay = document.getElementById("fs-ws-overlay");
         var panel = document.getElementById("fs-ws-panel");
-        var currentChannel = "gbp";
-        var _teamCache = null;
-        var _draftCache = {};
 
-        async function fetchTeam() {
-          if (_teamCache) return _teamCache;
-          try {
-            var res = await fetch("/api/channels/team?location_id=" + encodeURIComponent(location_id));
-            var json = await res.json().catch(function(){ return null; });
-            if (json && json.ok && Array.isArray(json.items)) { _teamCache = json.items; return _teamCache; }
-          } catch(e) {}
-          _teamCache = [];
-          return [];
-        }
-
-        function openWorkspace(mode) {
-          currentChannel = mode === "comm" ? "gbp" : "note_interne";
+        async function openWorkspace(mode) {
+          // UNIFIÉ (18/07, owner) : LE workspace partagé (public/draft-workspace.js — extraction
+          // du workspace Pulse validé) remplace la copie locale de cette page. Communiquer =
+          // note interne (voix management) ; Faire suivre = 1er canal d'envoi configuré, avec
+          // destinataires roster. Une seule implémentation, plus aucune dérive possible.
           overlay.classList.add("is-open");
-          generateDraft(currentChannel);
+          window.MSDraftWorkspace.open(panel, {
+            mode: mode,
+            location_id: location_id,
+            signal_type: signal_type,
+            affected_date: signal_date || (feedItem && feedItem.affected_date) || "",
+            card_what: (cardText && cardText.what) || signal_type,
+            card_sowhat: (cardText && cardText.sowhat) || "",
+            signal: feedItem || {},
+            artifact_mode: "post",
+            prof: prof || {},
+            day: day || {},
+            detail_url: window.location.href,
+            onClose: closeWorkspace
+          });
         }
 
         function closeWorkspace() {
@@ -2049,8 +2053,17 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         }
 
         overlay.addEventListener("click", function(e) { if (e.target === overlay) closeWorkspace(); });
-        document.getElementById("fs-btn-comm").addEventListener("click", function() { openWorkspace("comm"); });
-        document.getElementById("fs-btn-send").addEventListener("click", function() { openWorkspace("send"); });
+        // Alternative (owner 18/07) : pas de dropdown \u2014 deux boutons compacts et DIRECTS,
+        // nomm\u00e9s par ce qu'ils font. \u00ab Agir \u00bb dispara\u00eet de la page (le user vient d'y cliquer
+        // sur la carte : le r\u00e9p\u00e9ter ici lisait comme un parcours qui n'avance pas).
+        var agirSlot = document.getElementById('fs-agir-slot');
+        if (agirSlot) {
+          var _toolBtn = 'display:inline-flex;align-items:center;gap:6px;background:#fff;color:#1D3BB3;border:1px solid #DBEAFE;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;';
+          // Owner 18/07 : UN seul bouton — avec la note interne supprimée, « Faire suivre »
+          // était devenu le même acte que « Communiquer » (envoyer le brief à l'équipe).
+          agirSlot.innerHTML = '<button type="button" id="fs-tool-comm" style="' + _toolBtn + '">\u270f\ufe0f Communiquer</button>';
+          document.getElementById("fs-tool-comm").addEventListener("click", function() { openWorkspace("comm"); });
+        }
 
         // "Créer une action" -> the shared M'engager form (window.MSCommitForm), seeded from THIS card
         // (origin_action_type = signal_type; allowlisted in commitmentOrigins.ts). The user sets the
@@ -2067,7 +2080,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             location_id: location_id,
             prefill: pre,
             origin: { origin_action_type: signal_type || null },
-            fetchOwners: fetchTeam,
+            // Roster : chemin par défaut du formulaire (self-fetch /api/channels/team) — le
+            // fetchTeam local servait le même endpoint ; un seul chemin, celui prouvé (18/07).
             onCancel: closeCommit,
             onDone: function(j) {
               cmPanel.innerHTML = '<div style="padding:16px;font-size:13px;color:' + (j && j.ok ? '#166534' : '#b91c1c') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l’échéance.' : ('Erreur : ' + ((j && j.error) || 'réessayez'))) + '</div>';
@@ -2075,11 +2089,9 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           });
           cmOverlay.classList.add("is-open");
         }
-        var actBtn = document.getElementById("fs-btn-act");
-        if (actBtn) actBtn.addEventListener("click", function() { fsOpenCommit(""); });
         // "Plan à essayer" — each reco opens M'engager pre-filled with that plan (same shared form).
         (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-pick]')) : []).forEach(function(btn) {
-          btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = _recoActions && _recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
+          btn.addEventListener('click', function() { var i = parseInt(btn.getAttribute('data-reco-pick'), 10); var _p = recoActions && recoActions[i]; fsOpenCommit((window.MS_planText ? window.MS_planText(_p) : _p) || ""); });
         });
         // "Écrire mon propre plan" — opens M'engager blank (write your own).
         (root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('[data-reco-own]')) : []).forEach(function(btn) {
@@ -2095,184 +2107,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           });
         });
 
-        function generateDraft(ch) {
-          currentChannel = ch;
-          if (_draftCache[ch]) { renderWorkspace(ch, _draftCache[ch]); return; }
-          var chDef = CH_DEFS[ch] || CH_DEFS.gbp;
-          panel.innerHTML = '<div style="padding:40px 0;text-align:center;font-size:12px;color:#9ca3af;"><span class="fs-loading-spin"></span> R\u00e9daction en cours\u2026</div>';
-
-          var draftSeed = null;
-          if (window.getDraftSeed && window.ACTION_CARDS) {
-            try { draftSeed = window.getDraftSeed(signal_type, ch, feedItem, prof, day); } catch(e) {}
-          }
-
-          var payload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem, card_what: signal_type, card_sowhat: "" };
-          if (draftSeed) payload.draft_seed = draftSeed;
-
-          fetch("/api/insight/generate-action-draft", {
-            method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
-          }).then(function(r) { return r.json(); }).then(function(json) {
-            if (!json || !json.ok || !json.draft) throw new Error(json?.error || "Draft vide");
-            _draftCache[ch] = json.draft;
-            renderWorkspace(ch, json.draft);
-          }).catch(function(err) {
-            panel.innerHTML = '<div style="padding:20px 16px;font-size:12px;color:#B91C1C;">Erreur : ' + esc(err?.message || "R\u00e9essayez") + '</div>';
-          });
-        }
-
-        function renderWorkspace(ch, draft) {
-          var chDef = CH_DEFS[ch] || CH_DEFS.gbp;
-          var isSend = chDef.cat === "send";
-          var showTitle = ch === "gbp" || ch === "email";
-          var showHashtags = ch === "instagram" || ch === "gbp";
-          var showRecipient = isSend && ch !== "note_interne";
-          var recipPlaceholder = ch === "email" ? "destinataire@email.com" : ch === "slack" ? "#canal ou @nom" : ch === "whatsapp" ? "+33 6 12 34 56 78" : "";
-          var insightUrl = window.location.href;
-          var bodyText = draft.body || draft.full_text || "";
-          var titleText = draft.title || "";
-          var hashText = draft.hashtags || "";
-          if (isSend) bodyText += "\n\n\u2014\nConsulter le d\u00e9tail : " + insightUrl;
-
-          var html = '';
-          html += '<div class="fs-ws-header"><div style="display:flex;align-items:center;gap:8px;"><div style="position:relative;" id="fs-ch-wrap"><button type="button" class="fs-ws-ch-btn" id="fs-ch-toggle">' + chIconHtml(ch) + ' ' + esc(chDef.label) + ' <span style="font-size:9px;color:#9ca3af;">\u25be</span></button><div class="fs-ws-ch-menu" id="fs-ch-menu"><div class="fs-ws-ch-heading">Publier sur</div>' + CH_PUB.map(function(k) { var c = CH_DEFS[k]; return '<button type="button" class="fs-ws-ch-item" data-fs-ch="' + k + '" style="background:' + (k === ch ? '#EFF6FF' : '#fff') + ';">' + chIconHtml(k) + ' <span style="flex:1;">' + esc(c.label) + '</span>' + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '') + '</button>'; }).join('') + '<div class="fs-ws-ch-heading">Envoyer \u00e0</div>' + CH_SEND.map(function(k) { var c = CH_DEFS[k]; return '<button type="button" class="fs-ws-ch-item" data-fs-ch="' + k + '" style="background:' + (k === ch ? '#EFF6FF' : '#fff') + ';">' + chIconHtml(k) + ' <span style="flex:1;">' + esc(c.label) + '</span>' + (c.max ? '<span style="font-size:10px;color:#9ca3af;">' + c.max + ' car.</span>' : '') + '</button>'; }).join('') + '</div></div><button type="button" id="fs-ws-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px 4px;line-height:1;">\u00d7</button></div></div>';
-          if (isSend) html += '<div class="fs-ws-banner"><span style="font-size:11px;color:#1D3BB3;font-weight:500;">\ud83d\udcce Fiche signal jointe au message</span><span style="font-size:10px;color:#9ca3af;">auto</span></div>';
-          if (showRecipient) html += '<div style="padding:8px 16px 0;position:relative;" id="fs-recip-wrap"><div class="fs-ws-field-label">Destinataire</div><div id="fs-recip-display" style="font-size:12px;font-weight:500;color:#1D3BB3;margin-bottom:2px;cursor:pointer;display:none;"></div><input class="fs-ws-input" id="fs-recip-input" placeholder="' + esc(recipPlaceholder) + '" /><div class="fs-ws-recip-dd" id="fs-recip-dd"></div></div>';
-          if (showTitle) html += '<div style="padding:10px 16px 0;"><input class="fs-ws-title" id="fs-ws-title" value="' + esc(titleText) + '" placeholder="Titre / Objet" /></div>';
-          html += '<div style="padding:10px 16px;"><textarea class="fs-ws-body" id="fs-ws-body">' + esc(bodyText) + '</textarea></div>';
-          if (showHashtags) html += '<div style="padding:0 16px 10px;"><input class="fs-ws-hashtags" id="fs-ws-hashtags" value="' + esc(hashText) + '" placeholder="#hashtags" /></div>';
-          html += '<div style="padding:0 16px 10px;display:flex;align-items:center;gap:10px;" id="fs-charcount"></div>';
-          html += '<div style="padding:6px 16px 10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;"><input class="fs-ws-adjust" id="fs-ws-adjust" placeholder="Ajuster : plus court, ajouter les horaires\u2026" /><button type="button" class="fs-ws-adjust-btn" id="fs-ws-adjust-btn">\u2192</button></div>';
-          html += '<div style="padding:10px 16px 14px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><button type="button" class="fs-ws-copy" id="fs-ws-copy">Copier</button><button type="button" class="fs-ws-save" id="fs-ws-save">Enregistrer</button><div style="flex:1;"></div><button type="button" id="fs-ws-publish" style="padding:7px 14px;border-radius:6px;background:#fff;color:#1D3BB3;border:1px solid #1D3BB3;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Publier \u2192</button>' + ((function(){ var NO_AUTOMATE = {high_competition_density:1,weather_window:1,top_day_approaching:1,audience_shift_opportunity:1,foreign_tourism_signal:1,competitor_threat_direct:1,regime_c_warning:1,competition_proximity:1,low_competition_window:1,extended_bad_weather:1,weekend_opportunity:1,mobility_disruption_resolved:1,mega_event_activation:1,competitor_price_drop:1,competitor_offering_removed:1,review_solicitation:1,competitor_positioning_gap:1,perfect_storm:1,weather_comp_opportunity:1,saturated_bad_weather:1,holiday_high_comp:1,best_day_of_week:1,day_opportunity:1,same_bucket_saturation:1,weekend_vacation_low_comp:1,commercial_event_match:1,weather_window_after_bad:1,extended_bad_weather_3d:1,tourist_high_season:1,tourist_surge_vacation:1,tourism_peak_window:1,tourism_weather_vacation:1,tourism_comp_squeeze:1,low_tourism_local_opp:1,tourism_mobility_hit:1,weather_mobility_double:1,mobility_comp_squeeze:1,ft_peak_bad_weather:1,ft_quiet_good_weather:1,ft_peak_saturated:1,ft_peak_low_comp:1,ft_peak_tourism_vacation:1,ft_peak_mobility:1,sales_missed_opportunity:1,sales_surge:1,sales_traffic_not_converting:1,sales_discount_no_lift:1,sales_revenue_down_wow:1,footfall_vs_basket_decomposition:1,proven_action_replication:1,offering_mix_shift:1}; return NO_AUTOMATE[String(signal_type||"")] ? "" : '<button type="button" id="fs-ws-automate" style="padding:7px 10px;border-radius:6px;background:none;color:#1D3BB3;border:1px dashed #C7D2FE;font-size:10px;font-weight:500;cursor:pointer;font-family:inherit;">\u26a1 Automatiser</button>'; })()) + '</div>';
-
-          panel.innerHTML = html;
-
-          var bodyEl = document.getElementById("fs-ws-body");
-          if (bodyEl) { bodyEl.style.height = "auto"; bodyEl.style.height = bodyEl.scrollHeight + "px"; }
-
-          function updateChars() {
-            var b = document.getElementById("fs-ws-body");
-            var t = document.getElementById("fs-ws-title");
-            var h = document.getElementById("fs-ws-hashtags");
-            var count = (b ? b.value.length : 0) + (t ? t.value.length + 1 : 0) + (h ? h.value.length + 1 : 0);
-            var el = document.getElementById("fs-charcount");
-            if (!el) return;
-            if (chDef.max) {
-              var pctVal = Math.min(100, Math.round(count / chDef.max * 100));
-              var over = count > chDef.max;
-              el.innerHTML = '<div style="flex:1;height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden;"><div style="width:' + pctVal + '%;height:100%;background:' + (over ? '#dc2626' : '#1D3BB3') + ';border-radius:2px;transition:width 0.2s;"></div></div><span style="font-size:10px;font-weight:500;white-space:nowrap;color:' + (over ? '#dc2626' : '#9ca3af') + ';">' + count + ' / ' + chDef.max + '</span>';
-            } else {
-              el.innerHTML = '<span style="font-size:10px;color:#9ca3af;">' + count + ' caract\u00e8res</span>';
-            }
-          }
-          updateChars();
-
-          if (bodyEl) bodyEl.addEventListener("input", function() { bodyEl.style.height = "auto"; bodyEl.style.height = bodyEl.scrollHeight + "px"; updateChars(); });
-          var titleEl = document.getElementById("fs-ws-title"); if (titleEl) titleEl.addEventListener("input", updateChars);
-          var hashEl = document.getElementById("fs-ws-hashtags"); if (hashEl) hashEl.addEventListener("input", updateChars);
-
-          document.getElementById("fs-ws-close").addEventListener("click", closeWorkspace);
-
-          var chToggle = document.getElementById("fs-ch-toggle");
-          var chMenu = document.getElementById("fs-ch-menu");
-          if (chToggle && chMenu) chToggle.addEventListener("click", function(e) { e.stopPropagation(); chMenu.style.display = chMenu.style.display === "none" ? "block" : "none"; });
-          panel.querySelectorAll("[data-fs-ch]").forEach(function(btn) { btn.addEventListener("click", function(e) { e.stopPropagation(); generateDraft(btn.getAttribute("data-fs-ch")); }); });
-
-          document.getElementById("fs-ws-copy").addEventListener("click", function() {
-            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags");
-            var full = [t ? t.value : "", b ? b.value : "", h ? h.value : ""].filter(Boolean).join("\n\n");
-            navigator.clipboard.writeText(full).then(function() {
-              var btn = document.getElementById("fs-ws-copy"); btn.textContent = "Copi\u00e9 \u2713"; btn.style.background = "#f0fdf4"; btn.style.color = "#166534"; btn.style.border = "1px solid #bbf7d0";
-              setTimeout(function() { btn.textContent = "Copier"; btn.style.background = "#1D3BB3"; btn.style.color = "#fff"; btn.style.border = "none"; }, 2000);
-            }).catch(function(){});
-            fetch("/api/analytics/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "draft_copied", location_id: location_id, change_subtype: signal_type, channel: ch, affected_date: signal_date }) }).catch(function(){});
-          });
-
-          document.getElementById("fs-ws-save").addEventListener("click", function() {
-            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags"); var r = document.getElementById("fs-recip-input");
-            var btn = document.getElementById("fs-ws-save"); btn.textContent = "\u2713 Enregistr\u00e9"; btn.style.background = "#f0fdf4"; btn.style.color = "#166534"; btn.style.borderColor = "#bbf7d0";
-            setTimeout(function() { btn.textContent = "Enregistrer"; btn.style.background = "#f9fafb"; btn.style.color = "#374151"; btn.style.borderColor = "#e5e7eb"; }, 2000);
-            fetch("/api/analytics/save-draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: location_id, signal_type: signal_type, channel: ch, card_what: signal_type, card_sowhat: "", affected_date: signal_date, title: t ? t.value : "", body: b ? b.value : "", hashtags: h ? h.value : "", recipient: r ? r.value : "", original_ai_text: draft.body || draft.full_text || "", user_instruction: "" }) }).catch(function(){});
-            fetch("/api/analytics/track", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "draft_saved", location_id: location_id, change_subtype: signal_type, channel: ch, affected_date: signal_date }) }).catch(function(){});
-          });
-
-          var adjustInput = document.getElementById("fs-ws-adjust");
-          var adjustBtn = document.getElementById("fs-ws-adjust-btn");
-          function submitAdjust() {
-            if (!adjustInput || !adjustInput.value.trim()) return;
-            var instruction = adjustInput.value.trim(); adjustInput.value = "";
-            panel.innerHTML = '<div style="padding:40px 0;text-align:center;font-size:12px;color:#9ca3af;"><span class="fs-loading-spin"></span> Ajustement en cours\u2026</div>';
-            var adjustedPayload = { action_key: "draft", channel: ch, change_subtype: signal_type, signal: feedItem, card_what: signal_type, card_sowhat: "", user_instruction: instruction };
-            fetch("/api/insight/generate-action-draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(adjustedPayload) })
-              .then(function(r) { return r.json(); })
-              .then(function(json) { if (!json || !json.ok || !json.draft) throw new Error("Draft vide"); renderWorkspace(ch, json.draft); })
-              .catch(function(err) { panel.innerHTML = '<div style="padding:20px 16px;font-size:12px;color:#B91C1C;">Erreur : ' + esc(err?.message || "R\u00e9essayez") + '</div>'; });
-          }
-          if (adjustBtn) adjustBtn.addEventListener("click", submitAdjust);
-          if (adjustInput) adjustInput.addEventListener("keydown", function(e) { if (e.key === "Enter") { e.preventDefault(); submitAdjust(); } });
-
-          var pubBtn = document.getElementById("fs-ws-publish");
-          if (pubBtn) pubBtn.addEventListener("click", function() {
-            var b = document.getElementById("fs-ws-body"); var t = document.getElementById("fs-ws-title"); var h = document.getElementById("fs-ws-hashtags"); var r = document.getElementById("fs-recip-input");
-            pubBtn.textContent = "Publication\u2026"; pubBtn.style.opacity = "0.6"; pubBtn.disabled = true;
-            fetch("/api/channels/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel: ch, location_id: location_id, title: t ? t.value : "", body: b ? b.value : "", hashtags: h ? h.value : "", recipient: r ? r.value : "", signal_type: signal_type, affected_date: signal_date }) })
-              .then(function(res) { return res.json(); }).then(function(json) {
-                if (json && json.ok) { pubBtn.textContent = "Publi\u00e9 \u2713"; pubBtn.style.background = "#f0fdf4"; pubBtn.style.color = "#166534"; pubBtn.style.borderColor = "#bbf7d0"; pubBtn.style.opacity = "1"; }
-                else { pubBtn.textContent = "Erreur"; pubBtn.style.color = "#B91C1C"; pubBtn.style.opacity = "1"; pubBtn.disabled = false; setTimeout(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.color = "#1D3BB3"; pubBtn.style.borderColor = "#1D3BB3"; }, 2500); }
-              }).catch(function() { pubBtn.textContent = "Publier \u2192"; pubBtn.style.opacity = "1"; pubBtn.disabled = false; });
-          });
-
-          var autoBtn = document.getElementById("fs-ws-automate");
-          if (autoBtn) autoBtn.addEventListener("click", function() {
-            var ROUTING_MAP = window.MS_ROUTING_MAP || {};
-            var sigCat = ROUTING_MAP[signal_type] || 'competition';
-            var r = document.getElementById("fs-recip-input");
-            autoBtn.disabled = true; autoBtn.textContent = "\u26a1 ...";
-            fetch("/api/channels/automation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: location_id, signal_category: sigCat, channel: ch, recipient: r ? r.value : "", require_approval: true, frequency: "first_occurrence" }) })
-              .then(function(res) { return res.json(); }).then(function(json) {
-                if (json && json.ok) { autoBtn.textContent = "\u2713 R\u00e8gle cr\u00e9\u00e9e"; autoBtn.style.background = "#f0fdf4"; autoBtn.style.color = "#166534"; autoBtn.style.borderColor = "#bbf7d0"; }
-                else { autoBtn.textContent = "Erreur"; autoBtn.disabled = false; setTimeout(function() { autoBtn.textContent = "\u26a1 Automatiser"; }, 2000); }
-              }).catch(function() { autoBtn.textContent = "\u26a1 Automatiser"; autoBtn.disabled = false; });
-          });
-
-          if (showRecipient) {
-            var recipInput = document.getElementById("fs-recip-input");
-            var recipDD = document.getElementById("fs-recip-dd");
-            var recipDisplay = document.getElementById("fs-recip-display");
-            fetchTeam().then(function(members) {
-              var contactField = ch === "email" ? "email" : ch === "slack" ? "slack" : ch === "whatsapp" ? "whatsapp" : null;
-              if (!contactField) return;
-              var chMembers = members.filter(function(m) { return m.channels_contact && m.channels_contact[contactField]; });
-              if (!chMembers.length) return;
-              var ROUTING_MAP = {weather_worsened:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competition_pressure_spike:'competition',mobility_disruption:'mobility',score_up:'opportunity',score_down:'opportunity'};
-              var sigCat = ROUTING_MAP[signal_type] || '';
-              var suggested = sigCat ? chMembers.find(function(m) { var r = m.signal_routing || {}; return r[sigCat] === true || r[sigCat] === 'true'; }) : null;
-              if (suggested) {
-                recipInput.value = suggested.channels_contact[contactField];
-                recipDisplay.textContent = (suggested.first_name || '') + ' ' + (suggested.last_name || '') + ' \u00b7 ' + suggested.channels_contact[contactField];
-                recipDisplay.style.display = "block"; recipInput.style.display = "none";
-              }
-              recipDisplay.addEventListener("click", function() { recipDisplay.style.display = "none"; recipInput.style.display = "block"; recipInput.value = ""; recipInput.focus(); });
-              var ddHtml = '';
-              if (suggested) {
-                ddHtml += '<div data-fs-pick="' + esc(suggested.channels_contact[contactField]) + '" data-fs-pick-name="' + esc((suggested.first_name||'') + ' ' + (suggested.last_name||'')) + '" style="padding:10px 12px;cursor:pointer;background:#F5F7FF;border-bottom:1px solid #f3f4f6;"><div style="display:flex;align-items:center;justify-content:space-between;"><div><span style="font-size:13px;font-weight:600;color:#111827;">' + esc((suggested.first_name||'') + ' ' + (suggested.last_name||'')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + esc(suggested.role||'') + '</span></div><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:#DCFCE7;color:#166534;">Sugg\u00e9r\u00e9</span></div><div style="font-size:11px;color:#6b7280;margin-top:2px;">' + esc(suggested.channels_contact[contactField]) + '</div></div>';
-              }
-              chMembers.filter(function(m) { return !suggested || m.member_id !== suggested.member_id; }).forEach(function(m) {
-                ddHtml += '<div data-fs-pick="' + esc(m.channels_contact[contactField]) + '" data-fs-pick-name="' + esc((m.first_name||'') + ' ' + (m.last_name||'')) + '" style="padding:10px 12px;cursor:pointer;"><span style="font-size:13px;font-weight:500;color:#111827;">' + esc((m.first_name||'') + ' ' + (m.last_name||'')) + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px;">' + esc(m.role||'') + '</span><div style="font-size:11px;color:#6b7280;margin-top:1px;">' + esc(m.channels_contact[contactField]) + '</div></div>';
-              });
-              ddHtml += '<div style="padding:8px 12px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;">Ou saisissez directement</div>';
-              recipDD.innerHTML = ddHtml;
-              recipInput.addEventListener("focus", function() { recipDD.style.display = "block"; });
-              recipDD.querySelectorAll("[data-fs-pick]").forEach(function(opt) {
-                opt.addEventListener("click", function() {
-                  recipInput.value = opt.getAttribute("data-fs-pick");
-                  recipDisplay.textContent = opt.getAttribute("data-fs-pick-name") + ' \u00b7 ' + opt.getAttribute("data-fs-pick");
-                  recipDisplay.style.display = "block"; recipInput.style.display = "none"; recipDD.style.display = "none";
-                });
-              });
-              document.addEventListener("click", function(e) { if (!recipInput.contains(e.target) && !recipDD.contains(e.target) && !recipDisplay.contains(e.target)) recipDD.style.display = "none"; });
-            });
-          }
-        }
+        // (generateDraft/renderWorkspace supprimés — remplacés par MSDraftWorkspace.)
       }
     })();
     </script>

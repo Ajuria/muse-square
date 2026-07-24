@@ -38,12 +38,13 @@ function renderInternalBody(headlineFr: string, payloadJson: string): string {
 // mirror of publish.ts channel-config load (analytics.channel_configs). Reading tokens is not
 // a leak surface; the send primitives live in the sealed internalSend.ts, not here.
 async function loadChannelConfig(bq: any, userId: string, locationId: string, channel: string): Promise<any> {
+  // Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte (aligné sur config.ts GET).
   const [rows] = await bq.query({
     query: `
       SELECT config_json
       FROM \`${BQ_PROJECT}.analytics.channel_configs\`
-      WHERE user_id = @userId AND location_id = @locationId AND channel = @channel AND enabled = TRUE
-      ORDER BY updated_at DESC
+      WHERE user_id = @userId AND channel = @channel AND enabled = TRUE
+      ORDER BY (location_id = @locationId) DESC, updated_at DESC
       LIMIT 1
     `,
     params: { userId, locationId, channel },

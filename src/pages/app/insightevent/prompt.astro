@@ -1734,6 +1734,14 @@ if (!location_id) {
         if (webCtaEl) webCtaEl.style.display = 'none';
         if (webResultsEl) { webResultsEl.style.display = 'none'; webResultsEl.innerHTML = ''; }
         if (emptyEl) emptyEl.style.display = 'none';
+        // Genuine empty vs technical failure need distinct copy — same element, message set at show time.
+        const showConcEmpty = (isError) => {
+          if (!emptyEl) return;
+          emptyEl.textContent = isError
+            ? 'Recherche indisponible. Réessayez dans un instant.'
+            : 'Aucun résultat. Essayez un autre mot-clé.';
+          emptyEl.style.display = 'block';
+        };
         if (loadingEl) loadingEl.style.display = 'block';
         const emptyStateEl = document.getElementById('ie-conc-empty-state');
         if (emptyStateEl) emptyStateEl.style.display = 'none';
@@ -1764,11 +1772,11 @@ if (!location_id) {
               if (wResults.length > 0 && webResultsEl) {
                 renderWebResults(wResults, webResultsEl);
               } else {
-                if (emptyEl) emptyEl.style.display = 'block';
+                showConcEmpty(!wRes.ok || !wJson || wJson.ok === false);
               }
             } catch {
               if (webLoadingEl) webLoadingEl.style.display = 'none';
-              if (emptyEl) emptyEl.style.display = 'block';
+              showConcEmpty(true);
             }
           } else {
             renderDbResults(results, dbResultsEl);
@@ -1799,7 +1807,7 @@ if (!location_id) {
 
         } catch {
           if (loadingEl) loadingEl.style.display = 'none';
-          if (emptyEl) emptyEl.style.display = 'block';
+          showConcEmpty(true);
         }
       }
 
@@ -2080,9 +2088,9 @@ if (!location_id) {
     })();
     </script>
 
-    <script is:inline src="/ms-loader.js?v=1"></script>
+    <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/card-kit.js?v=37"></script>
-    <script is:inline src="/commit-form.js?v=4"></script>
+    <script is:inline src="/commit-form.js?v=6"></script>
     <script type="module" src="/scripts/ie-prompt.js?v=29" defer></script>
 
   </BaseLayout>

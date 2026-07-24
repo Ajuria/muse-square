@@ -25,14 +25,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     requireLocationOwnership(locals, locationId);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
 
+    // Owner 19/07 : le roster est un réglage de COMPTE (pas d'équipe par site à ce stade) —
+    // résolution « site d'abord, sinon compte » : dernière version de chaque membre sur
+    // toutes les lignes du user, la ligne du site demandé gagnant à égalité.
     const [rows] = await bq.query({
       query: `
         SELECT member_id, first_name, last_name, role, channels_contact, signal_routing, created_at, updated_at
         FROM (
-          SELECT *, ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY updated_at DESC) AS rn
+          SELECT *, ROW_NUMBER() OVER (
+            PARTITION BY member_id
+            ORDER BY (location_id = @locationId) DESC, updated_at DESC
+          ) AS rn
           FROM \`${BQ_PROJECT}.analytics.team_members\`
           WHERE user_id = @userId
-            AND location_id = @locationId
         )
         WHERE rn = 1
         ORDER BY first_name ASC

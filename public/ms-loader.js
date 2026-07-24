@@ -116,4 +116,64 @@
   }
 
   window.MSLoader = { html: html, mount: mount, msgs: MSGS };
+
+  // ── MSTypewrite (owner 19/07) — révèle un texte mot à mot dans un input/textarea ──
+  // Effet « rédaction » appliqué au texte COMPLET déjà validé côté serveur (le validateur
+  // anti-fabrication exige le texte entier : aucun vrai streaming possible sans l'affaiblir)
+  // — pur effet de présentation, jamais un état de vérité.
+  // Interruption : toute interaction (mousedown/keydown/paste sur le champ, ou mousedown
+  // n'importe où dans opts.container — phase CAPTURE, donc AVANT les handlers click qui
+  // lisent field.value, ex. Copier/Envoyer) affiche instantanément le texte complet.
+  // Le focus programmatique n'interrompt PAS (une suggestion cliquée focus le champ).
+  // typewrite(el, text, { duration?: ms (défaut 900), container?, onTick?(el), onDone?(el) })
+  // → { done, finish() } ; finish() est idempotent.
+  function typewrite(el, text, opts) {
+    opts = opts || {};
+    var full = String(text == null ? "" : text);
+    var handle = { done: false, finish: finish };
+    var timer = null;
+    var backstop = null;
+    var cont = opts.container || null;
+    function cleanup() {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (backstop) { clearTimeout(backstop); backstop = null; }
+      el.removeEventListener("mousedown", finish, true);
+      el.removeEventListener("keydown", finish, true);
+      el.removeEventListener("paste", finish, true);
+      if (cont) cont.removeEventListener("mousedown", finish, true);
+    }
+    function finish() {
+      if (handle.done) return;
+      handle.done = true;
+      cleanup();
+      el.value = full;
+      if (opts.onTick) try { opts.onTick(el); } catch (e) {}
+      if (opts.onDone) try { opts.onDone(el); } catch (e) {}
+    }
+    if (!el) { handle.done = true; return handle; }
+    // split conservant les séparateurs : la révélation reconstitue le texte à l'octet près
+    var words = full ? full.split(/(\s+)/) : [];
+    if (!full || words.length <= 2) { finish(); return handle; }
+    var duration = Math.max(200, Number(opts.duration) || 900);
+    el.addEventListener("mousedown", finish, true);
+    el.addEventListener("keydown", finish, true);
+    el.addEventListener("paste", finish, true);
+    if (cont) cont.addEventListener("mousedown", finish, true);
+    // Progression au TEMPS ÉCOULÉ, pas au compte de ticks : les navigateurs throttlent
+    // setInterval — un tick en retard rattrape la bonne position au lieu de traîner.
+    // Garde-fou : quoi qu'il arrive, texte complet à duration + 250 ms.
+    var startTs = Date.now();
+    el.value = "";
+    timer = setInterval(function () {
+      if (!el.isConnected) { finish(); return; }
+      var frac = (Date.now() - startTs) / duration;
+      if (frac >= 1) { finish(); return; }
+      var n = Math.min(words.length, Math.max(2, Math.ceil((frac * words.length) / 2) * 2));
+      el.value = words.slice(0, n).join("");
+      if (opts.onTick) try { opts.onTick(el); } catch (e) {}
+    }, 50);
+    backstop = setTimeout(finish, duration + 250);
+    return handle;
+  }
+  window.MSTypewrite = typewrite;
 })();

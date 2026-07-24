@@ -136,6 +136,14 @@
     var origin = opts.origin || {};
     var state = { window: pre.window_kind || "7d", goalPct: null };
 
+    // Plan pré-rempli (insight « Plan à essayer », engagement) : révélation mot à mot
+    // (MSTypewrite, ms-loader) — même effet « rédaction » que le workspace Communiquer.
+    // Interruption par toute interaction dans le formulaire ; repli : texte déjà posé.
+    var preTa = container.querySelector("[data-cm-action]");
+    if (preTa && preTa.value && window.MSTypewrite) {
+      window.MSTypewrite(preTa, preTa.value, { duration: 800, container: container });
+    }
+
     // ── Objectif libre : traduction % ⇄ € dans le vrai bruit du lieu ──
     var WIN_DAYS = { day_of: 1, "7d": 7, "14d": 14, "30d": 30 };
     var WIN_EUR_LAB = { day_of: "€ le jour même", "7d": "€ sur 7 jours", "14d": "€ sur 14 jours", "30d": "€ sur 30 jours" };
@@ -245,13 +253,19 @@
     });
     refreshGoalCtx();
 
-    if (opts.ownerPool) renderOwnerPool(container, opts.ownerPool, opts.location_id);
-    else if (typeof opts.fetchOwners === "function") {
-      try { opts.fetchOwners().then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {}); } catch (e) {}
-    } else {
-      // Default: the team roster (profile) — no caller wiring needed beyond location_id.
-      fetchTeamDefault(opts.location_id).then(function (pool) { renderOwnerPool(container, pool, opts.location_id); }).catch(function () {});
-    }
+    // Roster Responsable : pool/fetch custom d'abord, mais un résultat custom VIDE ou en
+    // échec retombe TOUJOURS sur le self-fetch par défaut (/api/channels/team, roster
+    // Destinataires du profil) — une surface peut enrichir le pool, jamais tuer les
+    // propositions en silence (owner 18/07 : chips absents sur la page détail).
+    var _customPool = opts.ownerPool
+      ? Promise.resolve(opts.ownerPool)
+      : (typeof opts.fetchOwners === "function"
+          ? Promise.resolve().then(function () { return opts.fetchOwners(); }).catch(function () { return []; })
+          : Promise.resolve([]));
+    _customPool.then(function (pool) {
+      if (pool && pool.length) { renderOwnerPool(container, pool, opts.location_id); return; }
+      return fetchTeamDefault(opts.location_id).then(function (p2) { renderOwnerPool(container, p2, opts.location_id); });
+    }).catch(function () {});
 
     container.querySelectorAll("[data-cm-chip]").forEach(function (c) {
       c.addEventListener("click", function () {
@@ -267,7 +281,14 @@
     container.querySelectorAll("[data-cm-sugg]").forEach(function (sg) {
       sg.addEventListener("click", function () {
         var ta = container.querySelector("[data-cm-action]");
-        if (ta) { ta.value = sg.getAttribute("data-cm-sugg-text"); ta.focus(); }
+        if (ta) {
+          var suggText = sg.getAttribute("data-cm-sugg-text");
+          // Révélation mot à mot ; le focus programmatique n'interrompt pas MSTypewrite
+          // (seuls mousedown/keydown/paste le font) — taper reprend la main instantanément.
+          if (window.MSTypewrite) window.MSTypewrite(ta, suggText, { duration: 700, container: container });
+          else ta.value = suggText;
+          ta.focus();
+        }
         container.querySelectorAll("[data-cm-sugg]").forEach(function (x) { x.style.borderColor = "#DBEAFE"; x.style.background = "#F5F7FF"; });
         sg.style.borderColor = "#1D3BB3"; sg.style.background = "#EEF2FF";
       });

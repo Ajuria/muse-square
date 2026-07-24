@@ -2192,7 +2192,12 @@
       actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
       actions.push({ text: 'Sauvegarder', meta: '', key: 'save', channel: '' });
       actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: currentDay.location_label || '', action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType };
+      // location_label : le chip site du builder (pulse chip-n) existe déjà — il n'était jamais
+      // alimenté pour les candidates. Source = la map multi-sites de pulse (_engLocLabels,
+      // remplie depuis data._locations uniquement si multi-sites) via le location_id de LA
+      // candidate ; repli sur le label du jour courant. Mono-site : map vide → pas de chip.
+      var _locLbl = (ac.location_id && window._engLocLabels && window._engLocLabels[String(ac.location_id)]) || currentDay.location_label || '';
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;
