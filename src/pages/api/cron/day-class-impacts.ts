@@ -35,12 +35,13 @@ export const GET: APIRoute = async ({ request }) => {
       location: "EU",
     });
     const [countRows] = await bq.query({
-      query: `SELECT COUNT(*) AS rows, COUNT(DISTINCT location_id) AS locations FROM \`${projectId}.${DAY_CLASS_STORE}\``,
+      // NB: `rows` est un mot RÉSERVÉ BigQuery — d'où n_rows (500 prod du 24/07 au premier test).
+      query: `SELECT COUNT(*) AS n_rows, COUNT(DISTINCT location_id) AS locations FROM \`${projectId}.${DAY_CLASS_STORE}\``,
       location: "EU",
     });
     const stats = (countRows as any[])[0] || {};
-    console.log(`[day-class-impacts] rebuilt: ${stats.rows} rows / ${stats.locations} locations in ${Date.now() - t0}ms`);
-    return new Response(JSON.stringify({ ok: true, rows: Number(stats.rows ?? 0), locations: Number(stats.locations ?? 0), ms: Date.now() - t0 }), {
+    console.log(`[day-class-impacts] rebuilt: ${stats.n_rows} rows / ${stats.locations} locations in ${Date.now() - t0}ms`);
+    return new Response(JSON.stringify({ ok: true, rows: Number(stats.n_rows ?? 0), locations: Number(stats.locations ?? 0), ms: Date.now() - t0 }), {
       status: 200, headers: { "content-type": "application/json" },
     });
   } catch (err: any) {
