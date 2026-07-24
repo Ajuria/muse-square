@@ -66,6 +66,8 @@ quel que soit le t.
    « explique »-t-elle l'écart d'aujourd'hui ? oui → fuite saisonnière), stabilité (effet présent sur
    les deux moitiés de l'historique). Échec → tier plafonné `estimé`.
 
+> **24/07 pm — voir `docs/kpi-enjeu-mapping.md`** : mapping complet des 83 sous-types → (KPI, enjeu ou non + raison, KPI de suivi), dictionnaire de KPIs vérifié bq-verify, décisions en attente owner. Il PRÉCÈDE ce backlog : le palier 2 s'implémente selon ce mapping une fois tranché.
+
 ## Backlog (ordre recommandé)
 
 1. **Store offline nightly** (pattern Type B : batch → `analytics.*` → lecteur) : une ligne
