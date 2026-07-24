@@ -254,6 +254,15 @@ if (!root) {
 
     container.insertAdjacentHTML('afterend', html);
 
+    // The fetch can land AFTER the user switched off Planning — inject hidden in that case,
+    // setMode's live query re-shows them on return to Planning.
+    var activeBtn = document.querySelector('.ie-mode-btn.active');
+    var activeMode = activeBtn && activeBtn.dataset ? activeBtn.dataset.mode : 'planning';
+    if (activeMode !== 'planning') {
+      container.style.display = 'none';
+      document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(c) { c.style.display = 'none'; });
+    }
+
     document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
       card.addEventListener('click', function(e) {
         e.preventDefault();

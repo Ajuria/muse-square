@@ -1060,7 +1060,6 @@ if (!location_id) {
       const inputEl       = document.getElementById('ie-prompt-input');
 
       // Cards to show/hide per mode
-      const planningCards = document.querySelectorAll('.ie-prompt-card');
       const finderForm    = document.getElementById('ie-finder-form');
 
       function setMode(m) {
@@ -1085,7 +1084,9 @@ if (!location_id) {
         // Planning cards + suggestions label
         const showPlanning = m === 'planning';
         if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
-        planningCards.forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
+        // Live query, NOT the init-time `planningCards` snapshot: the suggestion cards are injected
+        // by ie-prompt.js AFTER its data fetch, so a snapshot taken at init never hides them.
+        document.querySelectorAll('.ie-prompt-card').forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
         if (finderForm) finderForm.style.display = 'none';
         const actionsLabel = document.getElementById('ie-prompt-actions-label');
         if (actionsLabel) actionsLabel.style.display = showPlanning ? '' : 'none';
@@ -2123,7 +2124,7 @@ if (!location_id) {
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/card-kit.js?v=37"></script>
     <script is:inline src="/commit-form.js?v=6"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=29" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=30" defer></script>
 
   </BaseLayout>
 </Show>
