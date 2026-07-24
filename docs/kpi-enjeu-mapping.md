@@ -1,6 +1,12 @@
 # Mapping KPI / Enjeu — les sous-types de cartes d'action
 
-> **Statut : PROPOSITION à valider par l'owner, carte par carte (24/07/2026). Zéro code tant que non tranché.**
+> **Statut : VALIDÉ par l'owner le 24/07/2026, avec amendements** : (a) C2 scindé — trio réputation
+> (`review_surge/drop`, `reputation_strength`, `review_solicitation`) garde le KPI K7 ; les signaux
+> prix/horaires/contenu/offre concurrents sont DÉMEUS au Fil d'actualité (groupe I élargi) ;
+> (b) ordre amendé : STORE OFFLINE d'abord (avec classes concurrence+tourisme dans le batch) → classes
+> restantes + chevauchement + pill verte → boucle multi-KPI → pills K6/K3 + affichage K7 ;
+> (c) kpi_key = f(type de carte, origin_driver si présent) — jamais de la stratégie choisie (le levier
+> reste métadonnée d'apprentissage). Incrément 1 (store) LIVRÉ le 24/07 soir.
 > Principe fondateur (owner, 24/07) : **pas de carte d'action sans grandeur mesurable** — la même unité sert
 > l'enjeu affiché AVANT (pill) et le suivi d'impact APRÈS (boucle M'engager → mesure). Une carte qui ne peut
 > pas fermer sa boucle n'est pas une carte d'action.

@@ -24,15 +24,19 @@
 
 | Tier | Conditions |
 |---|---|
-| *(rien)* | n < 5 OU span < 60 j OU écart positif |
-| `estimé` | n ≥ 5 ET span ≥ 60 j |
+| *(rien)* | n < 5 OU span < 60 j OU **\|t\| < 1** OU écart positif |
+| `estimé` | n ≥ 5 ET span ≥ 60 j ET \|t\| ≥ 1 |
 | `mesuré` | n ≥ 10 ET \|t\| ≥ 2 ET **span ≥ 300 j** |
+
+Le plancher **\|t\| ≥ 1** (ajout incrément 1) existe parce que les classes TERCILES passent n ≥ 5 par
+construction (~1/3 des jours) : sans plancher de signal, du bruit pur s'annualise — prouvé en réel :
+competition_high n=31, écart −2,8 €, t=0,08 aurait affiché « ~352 €/an ».
 
 Le plancher span ≥ 300 j pour `mesuré` est délibéré : une fréquence extrapolée d'une saison est
 biaisée (8 jours de pluie sur 90 jours d'été ≠ taux annuel). Un span court ne gagne JAMAIS `mesuré`,
 quel que soit le t.
 
-## Couverture actuelle (v1 + Phase 1, 24/07)
+## Couverture actuelle (incrément 1 — store offline, 24/07 soir)
 
 - Classes : les 5 conditions météo (`lvl_* >= 2` de `fct_location_context_daily`), mutuellement
   exclusives par construction (CASE premier-match, ordre = priorité heat > rain > wind > snow > cold)
@@ -41,12 +45,21 @@ quel que soit le t.
   `weather_worsened` / `extended_bad_weather` / `extended_bad_weather_3d` (condition résolue depuis la
   DATE AFFECTÉE via `conditionByDate` — le payload ne la porte pas). Épisodes multi-jours : on prend la
   condition dominante du jour de la carte (simplification assumée).
+- **Store offline** : `analytics.day_class_impacts` (agrégats BRUTS location × classe — la POLICY
+  gates/tiers/€ reste dans `rowsToImpacts` du lib, appliquée à la LECTURE : un changement de gate ne
+  demande jamais de re-batch). Rebuild nightly par `api/cron/day-class-impacts.ts` (CREATE OR REPLACE,
+  une requête, Bearer CRON_SECRET soft — **l'owner enregistre le ping quotidien sur cron.org**).
+  Historique borné à 730 j (partition + fraîcheur). `monitor.ts` lit le store ; store vide pour un
+  site (compte neuf) → fallback calcul live, même SQL, même policy.
+- **Classes en batch** : météo 5 + `competition_high` + `tourism_high` (terciles hauts de l'index du
+  site — associations MARGINALES v1, policy de chevauchement à l'étape 2). Attache cartes :
+  `enjeuForCandidate` (payload / date affectée / mapping type→classe).
 - Surface : Pulse (monitor.ts). `days.ts` / page insight : en file.
-- Calcul : à la requête (2 queries légères par site, échec soft). Le store offline nightly est le
-  prochain palier (voir backlog) — les chiffres bougent au mois, pas à la requête.
-- Preuve réelle (f10c3e58, 90 j) : rain n=8, avg −103,6 €, t≈2,9 → **~3 363 €/an · estimé** (span
-  90 j < 300 → jamais mesuré) ; heat n=2 → sous plancher → pas de pill. `conditionByDate` : 18-19/07
-  → heat, 20/07 → rain, 24/07 → aucune.
+- Preuve réelle E2E (24/07 soir, store + lib) : Occitanie → carte météo 3j+ = heat **−12 978 €/an ·
+  estimé** (t=2,42, parité exacte avec le calcul live pré-store) ; carte tourisme = tourism_high
+  **−12 731 €/an · estimé** (t=2,14 — vos jours de fort tourisme SOUS la normale : pill ambre sur une
+  carte « opportunité », honnête et non-évident) ; carte concurrence = null (t=0,08 filtré).
+  f10c3e58 : rain −103,6 €/j t=2,9 inchangé.
 
 ## Échelle de causalité (advisory owner 24/07 — à respecter dans toute extension)
 

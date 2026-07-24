@@ -6,7 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
-import { computeDayClassImpacts, enjeuForWeatherCandidate } from "../../../lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuForCandidate } from "../../../lib/dayClassRegistry";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -290,9 +290,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location: "EU",
       }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
       // Enjeu (€/an) — day-class registry (lib/dayClassRegistry.ts, spec docs/enjeu-day-class-registry.md):
-      // poids ANNUEL du motif mesuré sur l'historique (écart résiduel moyen × fréquence réelle),
-      // jamais une extrapolation du jour de la carte. Échec soft → pas de pill (absence honnête).
-      computeDayClassImpacts(bq, location_id, selected_dates)
+      // lecture du STORE nightly (analytics.day_class_impacts, incrément 1) + fallback live pour un
+      // compte pas encore batché. Échec soft → pas de pill (absence honnête).
+      getDayClassImpacts(bq, location_id, selected_dates)
         .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
     ]);
 
@@ -976,7 +976,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         .map((r: any) => ({
-        enjeu:           enjeuForWeatherCandidate(dayClassResult as any, r),
+        enjeu:           enjeuForCandidate(dayClassResult as any, r),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
