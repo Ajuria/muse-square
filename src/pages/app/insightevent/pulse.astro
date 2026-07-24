@@ -1702,7 +1702,7 @@ if (!location_id) {
         var enjBg = enjPos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
         var enjFg = enjPos ? 'var(--color-pill-green-text)' : '#B45309';
         var enjLabel = enjPos ? '\u00c0 capter' : 'Enjeu';
-        pills.unshift('<span class="ab-metric" style="background:' + enjBg + ';color:' + enjFg + ';">' + enjLabel + '\u00a0<span class="ab-metric-val" style="color:' + enjFg + ';">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier)) + '</span>');
+        pills.unshift('<span class="ab-metric" style="background:' + enjBg + ';color:' + enjFg + ';">' + enjLabel + '\u00a0<span class="ab-metric-val" style="color:' + enjFg + ';">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier_label_fr || enj.tier)) + '</span>');
       }
       return pills.join('');
     }

@@ -8479,6 +8479,7 @@
       "location_id",
       "class_key",
       "family",
+      "basis",
       "n_days",
       "avg_gap_eur",
       "sd_gap_eur",
