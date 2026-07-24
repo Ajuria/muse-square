@@ -1734,6 +1734,14 @@ if (!location_id) {
         if (webCtaEl) webCtaEl.style.display = 'none';
         if (webResultsEl) { webResultsEl.style.display = 'none'; webResultsEl.innerHTML = ''; }
         if (emptyEl) emptyEl.style.display = 'none';
+        // Genuine empty vs technical failure need distinct copy — same element, message set at show time.
+        const showConcEmpty = (isError) => {
+          if (!emptyEl) return;
+          emptyEl.textContent = isError
+            ? 'Recherche indisponible. Réessayez dans un instant.'
+            : 'Aucun résultat. Essayez un autre mot-clé.';
+          emptyEl.style.display = 'block';
+        };
         if (loadingEl) loadingEl.style.display = 'block';
         const emptyStateEl = document.getElementById('ie-conc-empty-state');
         if (emptyStateEl) emptyStateEl.style.display = 'none';
@@ -1764,11 +1772,11 @@ if (!location_id) {
               if (wResults.length > 0 && webResultsEl) {
                 renderWebResults(wResults, webResultsEl);
               } else {
-                if (emptyEl) emptyEl.style.display = 'block';
+                showConcEmpty(!wRes.ok || !wJson || wJson.ok === false);
               }
             } catch {
               if (webLoadingEl) webLoadingEl.style.display = 'none';
-              if (emptyEl) emptyEl.style.display = 'block';
+              showConcEmpty(true);
             }
           } else {
             renderDbResults(results, dbResultsEl);
@@ -1799,7 +1807,7 @@ if (!location_id) {
 
         } catch {
           if (loadingEl) loadingEl.style.display = 'none';
-          if (emptyEl) emptyEl.style.display = 'block';
+          showConcEmpty(true);
         }
       }
 
