@@ -6,6 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
+import { computeDayClassImpacts, enjeuForWeatherCandidate } from "../../../lib/dayClassRegistry";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -154,7 +155,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, enjeuConditionRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -288,42 +289,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         types: { selected_dates: ["STRING"], perf_types: ["STRING"] },
         location: "EU",
       }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
-      // Enjeu (€/an) par condition météo — le poids ANNUEL du motif mesuré sur l'historique de
-      // ventes : écart résiduel moyen (CA réel − attendu dow+trend) des jours à condition lvl>=2,
-      // annualisé par la fréquence réelle de ces jours. Jamais une extrapolation du jour de la
-      // carte (décision proto 24/07). Comptes sans historique → 0 ligne → pas de pill (absence
-      // honnête). Une requête par site, toutes conditions à la fois; échec soft → pas de pill.
-      bq.query({
-        query: `
-          WITH cond AS (
-            SELECT
-              c.date,
-              CASE
-                WHEN c.lvl_heat >= 2 THEN 'heat'
-                WHEN c.lvl_rain >= 2 THEN 'rain'
-                WHEN c.lvl_wind >= 2 THEN 'wind'
-                WHEN c.lvl_snow >= 2 THEN 'snow'
-                WHEN c.lvl_cold >= 2 THEN 'cold'
-              END AS condition,
-              r.daily_revenue - r.expected_revenue AS gap_eur
-            FROM \`muse-square-open-data.mart.fct_location_context_daily\` c
-            JOIN \`muse-square-open-data.mart.fct_client_day_residual\` r
-              ON r.location_id = c.location_id AND r.date = c.date
-            WHERE c.location_id = @location_id
-          )
-          SELECT
-            condition,
-            COUNT(*) AS n_days,
-            AVG(gap_eur) AS avg_gap_eur,
-            STDDEV_SAMP(gap_eur) AS sd_gap_eur,
-            (SELECT DATE_DIFF(MAX(date), MIN(date), DAY) + 1 FROM cond) AS span_days
-          FROM cond
-          WHERE condition IS NOT NULL
-          GROUP BY condition
-        `,
-        params: { location_id },
-        location: "EU",
-      }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
+      // Enjeu (€/an) — day-class registry (lib/dayClassRegistry.ts, spec docs/enjeu-day-class-registry.md):
+      // poids ANNUEL du motif mesuré sur l'historique (écart résiduel moyen × fréquence réelle),
+      // jamais une extrapolation du jour de la carte. Échec soft → pas de pill (absence honnête).
+      computeDayClassImpacts(bq, location_id, selected_dates)
+        .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
     ]);
 
     const _t2 = Date.now();
@@ -1001,41 +971,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,
-      action_candidates: (() => {
-        // Enjeu €/an par condition (voir la requête) : tier 'mesuré' = n>=10 et |t|>=2 (même
-        // discipline qu'impactContrast), 'estimé' = n>=5 ; en dessous → pas d'enjeu. Attaché
-        // UNIQUEMENT quand négatif (enjeu à défendre) et quand la carte porte sa condition
-        // (weather_hazard_onset : data_payload.new_value = "heat:2").
-        const enjeuByCondition = new Map<string, any>();
-        for (const row of (enjeuConditionRows as any[])) {
-          const n = Number(row?.n_days ?? 0);
-          const avg = Number(row?.avg_gap_eur ?? NaN);
-          const sd = Number(row?.sd_gap_eur ?? NaN);
-          const spanDays = Number(row?.span_days ?? 0);
-          if (!row?.condition || !Number.isFinite(avg) || n < 5 || spanDays < 60) continue;
-          const eurYear = avg * (n / (spanDays / 365.25));
-          if (eurYear >= 0) continue;
-          const t = Number.isFinite(sd) && sd > 0 ? Math.abs(avg) / (sd / Math.sqrt(n)) : 0;
-          const tier = (n >= 10 && t >= 2) ? "mesuré" : "estimé";
-          enjeuByCondition.set(String(row.condition), {
-            eur_year: Math.round(eurYear),
-            tier,
-            condition: String(row.condition),
-            n_days: n,
-            span_months: Math.round(spanDays / 30.44),
-          });
-        }
-        const enjeuForCandidate = (r: any): any => {
-          if (String(r?.action_type || "") !== "weather_hazard_onset") return null;
-          let payload: any = r?.data_payload ?? null;
-          if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch { payload = null; } }
-          const cond = String(payload?.new_value || "").split(":")[0];
-          return cond ? (enjeuByCondition.get(cond) ?? null) : null;
-        };
-        return filterDisabledThemes(actionCandidateRows, disabledThemes)
+      // Enjeu policy (tiers, négatif-only, résolution de condition) vit dans lib/dayClassRegistry —
+      // monitor est un simple lecteur : enjeu = {eur_year, tier, label_fr, n_days, span_months} | null.
+      action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         .map((r: any) => ({
-        enjeu:           enjeuForCandidate(r),
+        enjeu:           enjeuForWeatherCandidate(dayClassResult as any, r),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
@@ -1046,8 +987,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
-      }));
-      })(),
+      })),
       active_goal: activeGoal,
       activity: activity,
       sales_summary: salesSummary,
