@@ -36,6 +36,30 @@ Le plancher span ≥ 300 j pour `mesuré` est délibéré : une fréquence extra
 biaisée (8 jours de pluie sur 90 jours d'été ≠ taux annuel). Un span court ne gagne JAMAIS `mesuré`,
 quel que soit le t.
 
+## Étape 2 (24/07 nuit) — classes complètes, contrastes PROPRES, pill verte
+
+- **Classes ajoutées au batch** : `events_high` (tercile `events_within_500m_count` — la vraie
+  variable des cartes competition_proximity/density/saturation, qui comptent des ÉVÉNEMENTS),
+  `mobility_disruption` (flag), `followed_activity_high` (tercile d'intensité parmi les jours
+  actifs ; garde anti-dégénérescence : une exposition permanente 89/89 j ne fait pas une classe),
+  `school_holiday` + `public_holiday` (CONTRÔLÉES mois × type-de-jour, contrôle ≥ 3 jours propres).
+- **Contrastes propres (policy validée)** : une classe n'agrège que ses jours PURS
+  (`n_memberships = 1` sur les 8 classes). Conséquence assumée et MESURÉE : sur un historique de
+  90 j, les classes d'été se recouvrent (chaleur ⊂ vacances ⊂ tourisme haut) et les pills
+  marginales de l'incrément 1 (Occitanie chaleur −12 978, tourisme −12 731) DISPARAISSENT — elles
+  facturaient partiellement les mêmes jours. Ce qui reste est SÉPARABLE : Occitanie `events_high`
+  **+7 104 €/an à capter** (n=15 purs, t=2,87). Les autres classes reviennent quand l'historique
+  s'étale sur les saisons (ou au barreau 3, VIF/co-estimation). C'est le comportement épistémique
+  voulu : « indissociable sur votre historique » ⇒ pas de chiffre.
+- **Pill VERTE « À capter ~X €/an »** (chip-good) : écart positif ; ambre = négatif. Policy de
+  signe dans le lib, couleur au client (pulse buildMetricsStrip).
+- **Attache** : mapping type→classe conforme au doc kpi-enjeu-mapping (proximity/density/saturation
+  → events_high — vérité de la variable, pas du nom) ; cartes calendrier résolues par la date
+  (vacances d'abord, férié sinon) ; COMBINÉS = la classe au plus grand |€/an| mesuré parmi les
+  familles du combiné (dominance PAR LA MESURE, jamais une pondération inventée).
+- Types BOOL vérifiés (flags mobilité/calendrier) ; suivis via `vw_insight_event_competitor_signals`
+  (`event_date_end`, garde 366 j par événement).
+
 ## Couverture actuelle (incrément 1 — store offline, 24/07 soir)
 
 - Classes : les 5 conditions météo (`lvl_* >= 2` de `fct_location_context_daily`), mutuellement
