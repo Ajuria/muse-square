@@ -122,7 +122,7 @@ if (!location_id) {
               </div>
             </div>
 
-            <div id="ie-conc-loading" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Recherche en cours...</div>
+            <div id="ie-conc-loading" style="display:none;padding:24px 0;font-size:13px;"></div>
             <div id="ie-conc-empty" style="display:none;text-align:center;padding:24px 0;color:#9CA3AF;font-size:14px;">Aucun résultat. Essayez un autre mot-clé.</div>
 
             <div id="ie-conc-db-results" style="display:none;"></div>
@@ -130,21 +130,9 @@ if (!location_id) {
             <div id="ie-conc-web-cta" style="display:none;border:0.5px dashed rgba(0,0,0,0.12);border-radius:0;padding:14px 16px;text-align:center;margin:16px 0;cursor:pointer;transition:background 120ms;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
               <span style="font-size:13px;color:#1D3BB3;font-weight:500;">Rechercher aussi sur le web →</span>
             </div>
-            <div id="ie-conc-web-loading" style="display:none;text-align:center;padding:16px 0;color:#9CA3AF;font-size:13px;">Recherche des sources…</div>
-            <script is:inline>
-              (function(){
-                var webMsgs = ['Recherche des sources…','Analyse des concurrents proches…','Vérification sur le web…','Consolidation des résultats…'];
-                var wi = 0;
-                var mMsgs = ['Analyse en cours…','Recherche dans vos données…','Consultation du web…','Préparation de la réponse…'];
-                var mi = 0;
-                setInterval(function(){
-                  var web = document.getElementById('ie-conc-web-loading');
-                  if (web && web.style.display !== 'none') { web.textContent = webMsgs[wi % webMsgs.length]; wi++; } else { wi = 0; }
-                  var m = document.querySelector('.ie-load-msg');
-                  if (m) { mi = (mi + 1) % mMsgs.length; m.textContent = mMsgs[mi]; } else { mi = 0; }
-                }, 1500);
-              })();
-            </script>
+            <!-- Staged loader (showConcStages) renders into ie-conc-web-loading; the old text rotator
+                 (webMsgs/mMsgs setInterval) is gone — it would overwrite the stage rows every 1.5 s. -->
+            <div id="ie-conc-web-loading" style="display:none;padding:16px 0;font-size:13px;"></div>
             <div id="ie-conc-web-results" style="display:none;"></div>
 
             <div id="ie-conc-manual-section" style="display:none;margin-top:20px;">
@@ -1060,7 +1048,6 @@ if (!location_id) {
       const inputEl       = document.getElementById('ie-prompt-input');
 
       // Cards to show/hide per mode
-      const planningCards = document.querySelectorAll('.ie-prompt-card');
       const finderForm    = document.getElementById('ie-finder-form');
 
       function setMode(m) {
@@ -1085,7 +1072,9 @@ if (!location_id) {
         // Planning cards + suggestions label
         const showPlanning = m === 'planning';
         if (suggestionsEl) suggestionsEl.style.display = showPlanning ? '' : 'none';
-        planningCards.forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
+        // Live query, NOT the init-time `planningCards` snapshot: the suggestion cards are injected
+        // by ie-prompt.js AFTER its data fetch, so a snapshot taken at init never hides them.
+        document.querySelectorAll('.ie-prompt-card').forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
         if (finderForm) finderForm.style.display = 'none';
         const actionsLabel = document.getElementById('ie-prompt-actions-label');
         if (actionsLabel) actionsLabel.style.display = showPlanning ? '' : 'none';
@@ -1707,6 +1696,39 @@ if (!location_id) {
         return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       }
 
+      // Staged loader for the veille search — same .ie-load-stage rows (pulsing dot -> check) as the
+      // Consulter answer loader in ie-prompt.js. NO timers: the client knows the real transitions
+      // (annuaire response, web response), stages advance only on them — same honesty rule.
+      function showConcStages(el, labels) {
+        if (!el) return null;
+        var css = '<style>@keyframes iePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.45}}'
+          + '.ie-load-stage.on{opacity:1 !important;color:#111827;}'
+          + '.ie-load-stage.on .ie-load-dot{animation:iePulse 1.1s ease-in-out infinite;}'
+          + '.ie-load-stage.done{opacity:.55 !important;}'
+          + '.ie-load-stage.done .ie-load-dot{animation:none;background:transparent;position:relative;}'
+          + '.ie-load-stage.done .ie-load-dot::after{content:"\\2713";position:absolute;top:-6px;left:-1px;font-size:11px;color:#0F6E56;}'
+          + '@media (prefers-reduced-motion:reduce){.ie-load-stage.on .ie-load-dot{animation:none;}}</style>';
+        var rows = labels.map(function(label, i) {
+          return '<div class="ie-load-stage" data-stage="' + i + '" style="display:flex;align-items:center;gap:9px;opacity:0;transition:opacity .35s;font-size:13.5px;color:#6b7280;">'
+            + '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-brand-blue,#0b37e5);flex:none;"></span>'
+            + '<span>' + escapeHtmlSearch(label) + '</span></div>';
+        }).join('');
+        el.innerHTML = css + '<div class="ie-load-stages" style="display:flex;flex-direction:column;gap:7px;" role="status" aria-label="Recherche en cours">' + rows + '</div>';
+        el.style.display = 'block';
+        var api = {
+          advance: function(idx) {
+            var r = el.querySelectorAll('.ie-load-stage');
+            for (var i = 0; i < r.length; i++) {
+              if (i < idx) { r[i].classList.remove('on'); r[i].classList.add('done'); }
+              else if (i === idx) r[i].classList.add('on');
+            }
+          },
+          finish: function() { el.style.display = 'none'; el.innerHTML = ''; }
+        };
+        api.advance(0);
+        return api;
+      }
+
       async function runConcSearch() {
         const q = (document.getElementById('ie-prompt-input')?.value || '').trim();
         if (!q) {
@@ -1742,7 +1764,8 @@ if (!location_id) {
             : 'Aucun résultat. Essayez un autre mot-clé.';
           emptyEl.style.display = 'block';
         };
-        if (loadingEl) loadingEl.style.display = 'block';
+        // Staged loader (blue dots) — stages advance on REAL transitions, never on timers.
+        const stager = showConcStages(loadingEl, ['Annuaire local', 'Recherche web des sources', 'Vérification des résultats']);
         const emptyStateEl = document.getElementById('ie-conc-empty-state');
         if (emptyStateEl) emptyStateEl.style.display = 'none';
 
@@ -1755,19 +1778,18 @@ if (!location_id) {
           const json = await res.json().catch(() => null);
           const results = Array.isArray(json?.results) ? json.results : [];
 
-          if (loadingEl) loadingEl.style.display = 'none';
-
           if (results.length === 0) {
             // Auto-fallback to web search when DB has no results
-            if (webLoadingEl) webLoadingEl.style.display = 'block';
+            if (stager) stager.advance(1);
             try {
               const wRes = await fetch('/api/competitive/search-web', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ query: q }),
               });
+              if (stager) stager.advance(2);
               const wJson = await wRes.json().catch(() => null);
-              if (webLoadingEl) webLoadingEl.style.display = 'none';
+              if (stager) stager.finish();
               const wResults = Array.isArray(wJson?.results) ? wJson.results : [];
               if (wResults.length > 0 && webResultsEl) {
                 renderWebResults(wResults, webResultsEl);
@@ -1775,10 +1797,11 @@ if (!location_id) {
                 showConcEmpty(!wRes.ok || !wJson || wJson.ok === false);
               }
             } catch {
-              if (webLoadingEl) webLoadingEl.style.display = 'none';
+              if (stager) stager.finish();
               showConcEmpty(true);
             }
           } else {
+            if (stager) stager.finish();
             renderDbResults(results, dbResultsEl);
           }
 
@@ -1786,27 +1809,28 @@ if (!location_id) {
             webCtaEl.style.display = results.length > 0 ? 'flex' : 'none';
             webCtaEl.onclick = async () => {
               webCtaEl.style.display = 'none';
-              if (webLoadingEl) webLoadingEl.style.display = 'block';
+              const webStager = showConcStages(webLoadingEl, ['Recherche web des sources', 'Vérification des résultats']);
               try {
                 const wRes = await fetch('/api/competitive/search-web', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
                   body: JSON.stringify({ query: q }),
                 });
+                if (webStager) webStager.advance(1);
                 const wJson = await wRes.json().catch(() => null);
                 const wResults = Array.isArray(wJson?.results) ? wJson.results : [];
-                if (webLoadingEl) webLoadingEl.style.display = 'none';
+                if (webStager) webStager.finish();
                 if (wResults.length > 0) {
                   renderWebResults(wResults, webResultsEl);
                 }
               } catch {
-                if (webLoadingEl) webLoadingEl.style.display = 'none';
+                if (webStager) webStager.finish();
               }
             };
           }
 
         } catch {
-          if (loadingEl) loadingEl.style.display = 'none';
+          if (stager) stager.finish();
           showConcEmpty(true);
         }
       }
@@ -2014,17 +2038,49 @@ if (!location_id) {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body),
           });
-          await res.json();
-          card.style.opacity = '0.4';
-          card.querySelectorAll('button, a, input, select').forEach(function(b) { b.disabled = true; });
+          var json = await res.json().catch(function() { return null; });
+          if (!res.ok || !json || json.ok === false) {
+            ieWebFollowError(btn, confirmEl);
+            return;
+          }
+          card.querySelectorAll('button, input, select').forEach(function(b) { b.disabled = true; });
           if (confirmEl) confirmEl.style.display = 'none';
           var actionArea = document.getElementById('ie-web-actions-' + idx);
-          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#0F6E56;font-weight:500;">Suivi</span>';
+          if (actionArea) actionArea.innerHTML = '<span style="font-size:12px;color:#059669;font-weight:600;">Ajouté ✓</span>';
+          var detailEl = document.getElementById('ie-web-detail-' + idx);
+          if (detailEl) {
+            detailEl.style.display = 'block';
+            var nextMsg = type === 'event'
+              ? 'Cet événement est maintenant surveillé. Vous recevrez des alertes si les conditions changent.'
+              : json?.discovered_url
+                ? 'URL agenda détectée — première extraction cette nuit à 03h00.'
+                : json?.source_url
+                  ? 'Première extraction cette nuit à 03h00.'
+                  : 'Ajoutez une URL agenda dans <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;font-weight:500;">Mes suivis</a> pour démarrer la veille.';
+            detailEl.innerHTML = '<div style="padding:12px 0;display:flex;flex-direction:column;gap:8px;">'
+              + '<div style="font-size:13px;color:#059669;line-height:1.5;">' + nextMsg + '</div>'
+              + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">Voir mes suivis →</a>'
+            + '</div>';
+          }
         } catch(e) {
-          btn.disabled = false;
-          btn.textContent = 'Suivre';
+          ieWebFollowError(btn, confirmEl);
         }
       };
+
+      // Shared failure state for the web-result follow: re-arm the button + one inline error line.
+      function ieWebFollowError(btn, confirmEl) {
+        btn.disabled = false;
+        btn.textContent = 'Suivre';
+        if (!confirmEl) return;
+        var err = confirmEl.querySelector('.ie-web-follow-err');
+        if (!err) {
+          err = document.createElement('div');
+          err.className = 'ie-web-follow-err';
+          err.style.cssText = 'font-size:12px;color:#b91c1c;margin-top:8px;';
+          confirmEl.appendChild(err);
+        }
+        err.textContent = "L'ajout a échoué — réessayez.";
+      }
 
       window.markWebVerified = function(idx) {
         const actionsEl = document.getElementById('ie-web-actions-' + idx);
@@ -2091,7 +2147,7 @@ if (!location_id) {
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/card-kit.js?v=37"></script>
     <script is:inline src="/commit-form.js?v=6"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=29" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=30" defer></script>
 
   </BaseLayout>
 </Show>

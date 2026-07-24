@@ -6,6 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
+import { getDayClassImpacts, enjeuForCandidate } from "../../../lib/dayClassRegistry";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -154,7 +155,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -288,6 +289,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         types: { selected_dates: ["STRING"], perf_types: ["STRING"] },
         location: "EU",
       }).then((r: any) => Array.isArray(r?.[0]) ? r[0] : []).catch(() => []),
+      // Enjeu (€/an) — day-class registry (lib/dayClassRegistry.ts, spec docs/enjeu-day-class-registry.md):
+      // lecture du STORE nightly (analytics.day_class_impacts, incrément 1) + fallback live pour un
+      // compte pas encore batché. Échec soft → pas de pill (absence honnête).
+      getDayClassImpacts(bq, location_id, selected_dates)
+        .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
     ]);
 
     const _t2 = Date.now();
@@ -965,9 +971,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
             is_outdoor: String(profile.location_type || "").toLowerCase() === "outdoor",
           }
         : null,
+      // Enjeu policy (tiers, négatif-only, résolution de condition) vit dans lib/dayClassRegistry —
+      // monitor est un simple lecteur : enjeu = {eur_year, tier, label_fr, n_days, span_months} | null.
       action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         .map((r: any) => ({
+        enjeu:           enjeuForCandidate(dayClassResult as any, r),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,

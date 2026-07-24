@@ -342,7 +342,7 @@ if (!location_id) {
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
     <script is:inline src="/commit-form.js?v=6"></script>
-    <script is:inline src="/action-cards.js?v=30"></script>
+    <script is:inline src="/action-cards.js?v=31"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
   <PiloterBottomBar active="veille" />
@@ -1685,9 +1685,20 @@ if (!location_id) {
           fait:    { txt:'D\u00e9j\u00e0 fait', bg:'#DCFCE7', fg:'#166534', icon:'<path d="M20 6 9 17l-5-5"/>', strike:false },
           ecarte:  { txt:'Pas pour moi', bg:'#F3F4F6', fg:'#9ca3af', icon:'<path d="M18 6 6 18"/><path d="M6 6 18 18"/>', strike:true }
         };
-        var o = OUT[st] || { txt:'\u00c0 traiter', bg:'#FEF3E2', fg:'#B45309', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', strike:false };
-        var strikeCss = o.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '';
-        pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
+        // D\u00e9cision 24/07 (proto Enjeu v2) : plus de pill \u00ab \u00c0 traiter \u00bb par d\u00e9faut \u2014 seuls les
+        // \u00e9tats r\u00e9els (R\u00e9pondu / D\u00e9j\u00e0 fait / Pas pour moi) s'affichent. Simple.
+        var o = OUT[st];
+        if (o) {
+          var strikeCss = o.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '';
+          pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
+        }
+      }
+      // Enjeu \u20ac/an (serveur, mesure du motif \u2014 jamais extrapol\u00e9 du jour) : premi\u00e8re position,
+      // ambre = \u00e0 d\u00e9fendre, tier en suffixe. Pas de mesure \u2192 pas de pill.
+      var enj = a && a.enjeu;
+      if (enj && Number(enj.eur_year) < 0 && enj.tier) {
+        var enjAmount = Math.abs(Math.round(Number(enj.eur_year))).toLocaleString('fr-FR');
+        pills.unshift('<span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu\u00a0<span class="ab-metric-val" style="color:#B45309;">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier)) + '</span>');
       }
       return pills.join('');
     }
@@ -1791,7 +1802,6 @@ if (!location_id) {
                     + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
-                    + (t._card_type === 'action' ? '<span class="chip-n" style="background:#F3F4F6;color:#6B7280;border:1px dashed #C9CDD4;">Sans pilote</span>' : '')
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
                   + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
