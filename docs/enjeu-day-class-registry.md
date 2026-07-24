@@ -60,6 +60,20 @@ quel que soit le t.
 - Types BOOL vérifiés (flags mobilité/calendrier) ; suivis via `vw_insight_event_competitor_signals`
   (`event_date_end`, garde 366 j par événement).
 
+## Étape 2.5 (24/07 nuit) — base « facteurs mêlés » : couverture sans mensonge
+
+Deux BASES par classe dans le store (`basis` : 'pure' | 'marginal') :
+- **pure** = jours purs (n_memberships = 1), gap brut vs normale (calendrier : contrôlé hors-classe) ;
+- **marginal** = TOUS les jours de la classe, gap − contrôle HORS-CLASSE du même mois × type de jour
+  (>= 3 j de contrôle par cellule ; contrôle possiblement contaminé par d'autres classes — c'est
+  précisément ce que l'étiquette assume).
+La LECTURE préfère la pure ; sinon marginale, **plafonnée 'estimé' + étiquette « estimé, facteurs
+mêlés »** (`tier_label_fr`/`entangled`) — l'intrication est DITE, jamais cachée ni maquillée.
+Preuves réelles (Occitanie, 90 j) : chaleur revient à **−5 690 €/an mêlé** (vs −12 978 marginal brut
+de l'incrément 1 : l'ajustement saison a dégonflé un chiffre gonflé) ; vacances −4 021 mêlé (t=1,05) ;
+événements reste PUR +7 104 ; tourisme reste ABSENT même en mêlé — la classe EST la saison sur cette
+fenêtre (zéro contraste intra-cellule), absence honnête. Bruit toujours filtré (|t| >= 1).
+
 ## Couverture actuelle (incrément 1 — store offline, 24/07 soir)
 
 - Classes : les 5 conditions météo (`lvl_* >= 2` de `fct_location_context_daily`), mutuellement
