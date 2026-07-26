@@ -195,10 +195,21 @@ async function extractBusinessProfile(
 }
 
 // Re-enrich when missing OR when on the old (pre-offering_items) shape — self-migrates the 3 existing rows.
+// Re-enrichissement PÉRIODIQUE (fix 26/07) : avant, l'enrichissement ne tournait qu'UNE fois —
+// writeOfferingSnapshot recopiait ensuite une photo FIGÉE à chaque crawl, donc les deltas d'offres
+// (int_competitor_offering_changes) étaient STRUCTURELLEMENT impossibles (0 pour tous, toujours).
+// Désormais : re-enrichit si offering_items absent OU pas d'horodatage OU plus vieux que 7 jours —
+// un appel Claude par concurrent par semaine, le prix d'une détection d'offres qui existe.
+const ENRICHMENT_TTL_DAYS = 7;
 function needsBusinessEnrichment(aed: string | null): boolean {
   if (!aed) return true;
-  try { return !Array.isArray(JSON.parse(aed)?.offering_items); }
-  catch { return true; }
+  try {
+    const parsed = JSON.parse(aed);
+    if (!Array.isArray(parsed?.offering_items)) return true;
+    const at = Date.parse(parsed?.enriched_at || "");
+    if (!Number.isFinite(at)) return true;
+    return (Date.now() - at) > ENRICHMENT_TTL_DAYS * 86400000;
+  } catch { return true; }
 }
 
 // Normalize item name for cross-crawl matching: lowercase, strip accents,
@@ -787,6 +798,7 @@ async function runSurveillance() {
           try {
             const profile = await extractBusinessProfile(anthropic, enrichContent, comp.source_url, comp.competitor_name ?? "");
             if (profile) {
+              (profile as any).enriched_at = crawledAt; // horodatage du TTL de re-enrichissement
               await bq.query({
                 query: `
                   UPDATE \`${projectId}.raw.competitor_directory\`
@@ -842,14 +854,22 @@ async function runSurveillance() {
 
         rawExtractionJson = rawText;
 
+        // Réponse VIDE = le modèle n'a rien trouvé à extraire (catalogue e-commerce sans agenda) —
+        // un VIDE HONNÊTE, pas un échec (prouvé Les Olivades 26/07 : Casamance/Etoffe/Élitis en
+        // « failed » 5 jours de suite sur des pages 200 sans événements).
+        if (!rawText || !rawText.trim()) {
+          extractionStatus = "partial";
+          throw new Error("empty_model_response_no_events");
+        }
+
         const parsedRaw = JSON.parse(rawText.replace(/```json|```/g, "").trim());
         const extractionArray: ExtractionResult[] = Array.isArray(parsedRaw)
           ? parsedRaw.map(validateExtraction)
           : [validateExtraction(parsedRaw)];
 
         if (extractionArray.length === 0) {
-          extractionStatus = "failed";
-          throw new Error("no_events_extracted");
+          extractionStatus = "partial"; // vide honnête ([] parsé) — même sémantique que le gate no_event_signals
+          throw new Error("no_events_on_page");
         }
 
         let anySuccess = false;
@@ -1229,8 +1249,12 @@ async function runSurveillance() {
         }
 
       } catch (err: any) {
-        if (extractionStatus !== "fetch_error") extractionStatus = "failed";
-        results.failed++;
+        // « partial » (vide honnête : gate no_event_signals, réponse vide, [] parsé) doit SURVIVRE
+        // au catch — avant ce fix, tout non-fetch_error était écrasé en « failed » (bug prouvé
+        // Les Olivades 26/07 : la sémantique partial du gate n'atteignait jamais la table).
+        if (extractionStatus !== "fetch_error" && extractionStatus !== "partial") extractionStatus = "failed";
+        if (extractionStatus === "partial") results.partial++;
+        else results.failed++;
         results.errors.push(`${comp.competitor_id}: ${err?.message ?? String(err)}`);
 
         // Write failure row — every crawl attempt is auditable
