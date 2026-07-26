@@ -72,7 +72,16 @@ auto) reste complémentaire — jamais fusionnée avec les pratiques déclarées
    message de succès) — la carte engagement la remplace via renderEngagements ; au prochain
    chargement la suppression serveur Phase 1 (origin_suppression_key) prend le relais.
 
-Gap connu (chip tâche séparée) : la whitelist candidates d'action-cards.js (~l. 2200) ne porte
-pas origin_driver/residual/avg_30d → les engagements/pratiques nés d'un action_candidate ont
-un driver null (kpi retombe sur revenue_residual) et pas de baseline carte. À enrichir
-monitor.ts → whitelist.
+Gap « whitelist candidates » — RÉSOLU FAUX DIAGNOSTIC (vérifié par comportement 26/07) : la
+ligne qui suit le `var item` (action-cards.js ~l. 2201) recopie TOUT `data_payload` dans `item`
+depuis mai (caf8742), et monitor.ts émet `data_payload` parsé intégral. Preuve Node (vrai
+action-cards.js + vrai `_commitOriginFor` de pulse.astro, payloads BQ réels) : sur
+`sales_surge`/`sales_revenue_down_wow`, `origin_driver` (transactions/footfall),
+`creation_baseline_daily` (avg_30d) et `creation_residual_z` arrivent bien dans l'origin des
+deux formulaires. Les vrais gaps restants sont AILLEURS :
+1. `sales_discount_no_lift` : son `data_payload` (côté dbt) ne porte NI driver NI
+   avg_30d/expected_revenue → baseline null pour ce type (le kpi reste correct : TYPE_KPI le
+   mappe en dur sur `discount`). Fix = enrichir le payload dans le mart (dbt Cloud IDE).
+2. Page profonde insight.astro (`fsOpenCommit`, ~l. 2082) : origin = `{ origin_action_type }`
+   seul, alors que la candidate aplatie `a` porte les champs — driver/baseline/residual perdus
+   sur CETTE surface uniquement.
