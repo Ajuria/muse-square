@@ -389,7 +389,15 @@
           creation_confidence_tier: origin.creation_confidence_tier || null,
           // the card's own past-performance baseline (daily) -> the measurable goal reference
           // (window_expected_revenue server-side). Pulse migration 16/07 — was pulse-only.
-          creation_baseline_daily: origin.creation_baseline_daily != null ? Number(origin.creation_baseline_daily) : null
+          creation_baseline_daily: origin.creation_baseline_daily != null ? Number(origin.creation_baseline_daily) : null,
+          // Gel de l'enjeu d'origine (26/07) : champs VERBATIM de la pill de la carte, fournis
+          // par la surface dans opts.origin — la page évolution les rendra tels quels.
+          creation_enjeu_eur_year: origin.creation_enjeu_eur_year != null ? Number(origin.creation_enjeu_eur_year) : null,
+          creation_enjeu_tier_label_fr: origin.creation_enjeu_tier_label_fr || null,
+          creation_enjeu_label_fr: origin.creation_enjeu_label_fr || null,
+          creation_enjeu_class_key: origin.creation_enjeu_class_key || null,
+          creation_enjeu_entangled: typeof origin.creation_enjeu_entangled === "boolean" ? origin.creation_enjeu_entangled : null,
+          creation_enjeu_inherited: typeof origin.creation_enjeu_inherited === "boolean" ? origin.creation_enjeu_inherited : null
         })
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (typeof opts.onDone === "function") opts.onDone(j);

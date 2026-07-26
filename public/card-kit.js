@@ -628,7 +628,12 @@
     if (!received.length) {
       var _z = cm.threshold_level === 'net' ? 1.5 : 1.0;
       var _odays = cm.window_days_expected || 7;
-      var _ytgt = Math.max(1, Math.round(_z * 0.19 / Math.sqrt(_odays) * 100));
+      // Objectif libre (base 'pct') : l'objectif affiché est LE % fixé par l'utilisateur —
+      // la formule 0,19 ne sert plus que de repli pour les vieux engagements modeste/net.
+      // (Bug attrapé par la harness J1 26/07 : +10 % affiché « +7 % ».)
+      var _ytgt = (cm.threshold_basis === 'pct' && cm.threshold_value != null)
+        ? Math.max(1, Math.round(Number(cm.threshold_value)))
+        : Math.max(1, Math.round(_z * 0.19 / Math.sqrt(_odays) * 100));
       var _obase = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
       var _ouplift = _obase != null ? Math.round((_obase / _odays) * _ytgt / 100 / 10) * 10 : null;
       var _obj = _ouplift != null
@@ -690,8 +695,64 @@
       if (cm.ctx_material_confound) holidayNote += '<div style="margin-top:6px;"><strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
       holidayNote += '</div>';
     }
-    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote
-      + '<div style="margin-top:16px;">' + chart(series) + '</div></div>';
+    // ── Bloc Enjeu (proto evolution-j1-proto.html, validé 26/07) ─────────────────────────
+    // L'enjeu de la carte d'ORIGINE, gelé à la création (creation_enjeu_*) et rendu VERBATIM :
+    // le suffixe du chiffre est le tier_label_fr exact de la pill — page et carte ne peuvent
+    // pas diverger. Deux étages : hérité → « Facteur principal de cette journée » (fait calculé,
+    // sélection max |€/an| par dayClassRegistry) ; classe directe → coûtent/rapportent selon le
+    // signe. Pas d'enjeu gelé → pas de bloc (absence honnête).
+    function enjeuBlock() {
+      if (cm.creation_enjeu_eur_year == null) return '';
+      var eur = Math.abs(Math.round(Number(cm.creation_enjeu_eur_year)));
+      var pos = Number(cm.creation_enjeu_eur_year) > 0;
+      var tierLbl = cm.creation_enjeu_tier_label_fr ? ' <span style="font-size:12px;font-weight:500;color:#6B7280;">· ' + esc(cm.creation_enjeu_tier_label_fr) + '</span>' : '';
+      var cls = String(cm.creation_enjeu_label_fr || '');
+      var clsShort = cls.replace(/^jours (de |d’|à )/, '');
+      var line = cm.creation_enjeu_inherited
+        ? 'Facteur principal de cette journée : ' + esc(clsShort || 'ce motif') + ' — le plus lourd des motifs mesurés ce jour-là chez vous.'
+        : 'Ce que ' + (cls ? 'les ' + esc(cls) : 'ces journées') + (pos ? ' vous rapportent en plus' : ' vous coûtent') + ' à l’année, d’après vos ventes.';
+      return '<div style="margin:14px 0 0;padding:12px 14px;background:#F8FAFC;border:0.5px solid #E5E7EB;border-radius:10px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Enjeu</div>'
+        + '<div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">' + intfr(eur) + ' €/an' + tierLbl + '</div>'
+        + '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + line + '</div>'
+      + '</div>';
+    }
+    // ── État J1 (< 2 journées reçues) : frise de fenêtre + consigne de retour ───────────
+    // Remplace la courbe tant qu'elle n'est pas traçable. Zéro donnée inventée : dates réelles
+    // de la fenêtre, habituel = window_expected_revenue/jours (déjà stocké), objectif = le %
+    // fixé par l'utilisateur. Dès 2 journées reçues, chart(series) reprend, inchangé.
+    function j1Block() {
+      function addDays(iso, n) { var d = new Date(String(iso) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+      var days = Number(cm.window_days_expected) || 7;
+      var startIso = String(cm.window_start || '').slice(0, 10);
+      if (!startIso) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
+      var dates = []; for (var di = 0; di < days; di++) dates.push(addDays(startIso, di));
+      var got = {}; received.forEach(function (d) { got[String(d.date).slice(0, 10)] = true; });
+      var n = dates.length, padL = 46, plotW = 706;
+      var xOf = function (i) { return n === 1 ? padL + plotW / 2 : padL + i * plotW / (n - 1); };
+      var svg = '<svg viewBox="0 0 760 56" style="width:100%;height:auto;margin-top:12px;">'
+        + '<line x1="' + padL + '" y1="22" x2="752" y2="22" stroke="#eef1f6" stroke-width="2"/>';
+      for (var i = 0; i < n; i++) {
+        var x = xOf(i).toFixed(1), last = i === n - 1;
+        if (got[dates[i]]) svg += '<circle cx="' + x + '" cy="22" r="' + (last ? 5 : 4) + '" fill="#1D3BB3"/>';
+        else if (last) svg += '<circle cx="' + x + '" cy="22" r="5" fill="#fff" stroke="#1D3BB3" stroke-width="1.8"/>';
+        else svg += '<circle cx="' + x + '" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>';
+        var lbl = (i === 0 || last) ? dates[i].slice(8, 10) + '/' + dates[i].slice(5, 7) : String(parseInt(dates[i].slice(8, 10), 10));
+        svg += '<text x="' + x + '" y="48" font-size="9" fill="#9ca3af" text-anchor="' + (last ? 'end' : (i === 0 ? 'start' : 'middle')) + '">' + lbl + '</text>';
+      }
+      svg += '<text x="' + xOf(0).toFixed(1) + '" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="start">J1</text>'
+        + '<text x="748" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="end">verdict</text></svg>';
+      var baseDaily = (cm.window_expected_revenue != null && days) ? Math.round(Number(cm.window_expected_revenue) / days) : null;
+      var goalPct = (cm.threshold_basis === 'pct' && cm.threshold_value != null) ? Math.round(Number(cm.threshold_value)) : null;
+      var consigne = 'Revenez ici pour consulter l’impact de votre action par rapport à '
+        + (baseDaily != null ? 'votre CA habituel (' + intfr(baseDaily) + ' €/jour) et à ' : '')
+        + 'votre objectif' + (goalPct != null ? ' (+' + goalPct + ' %)' : '') + '. Verdict le ' + msDateFr(String(cm.window_end || '').slice(0, 10)) + '.';
+      return svg
+        + '<div style="margin-top:10px;padding:12px 14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:10px;font-size:13px;color:#1D3BB3;font-weight:600;line-height:1.5;">' + consigne + '</div>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:6px;">Suivi aussi depuis la carte engagement de votre page Pulse → « Consulter l’évolution ».</div>';
+    }
+    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote + enjeuBlock()
+      + '<div style="margin-top:16px;">' + (received.length < 2 ? j1Block() : chart(series)) + '</div></div>';
 
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
     var q4 = captureHtml(cm, open);
@@ -801,7 +862,9 @@
     if (open) {
       moveForm = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('move_title')) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc(_under ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'
+        // « Ça marche » ne se dit qu'avec des journées reçues — à J1 (zéro donnée), intro
+        // neutre (bug attrapé par la harness J1 26/07 : verdict fabriqué sans données).
+        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc((_under || !received.length) ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'
         + _mc('poursuivre', t('move_poursuivre'), t('move_poursuivre_d'))
         + _mc('doubler', t('move_doubler'), t('move_doubler_d'))
         + _mc('pivoter', t('move_pivoter'), t('move_pivoter_d'))
@@ -861,12 +924,14 @@
     return html;
   }
 
-  // Shared "Ampleur" block — is this a pattern (recurrence) and is it worth acting on (€/an at stake)?
+  // Shared stake block — is this a pattern (recurrence) and is it worth acting on (€/an at stake)?
   // The € is DESCRIPTIVE (what you spend / what these days represent), never a causal "acting earns +X".
+  // Kicker « Ampleur » → « Enjeu » PARTOUT (owner 26/07) : même concept que les pills des cartes,
+  // donc même mot — un concept = un mot.
   function msScale(s) {
     if (!s || (s.annual_eur == null && !s.headline && !s.enjeu && !s.recurrence)) return '';
     var out = '<div style="margin:14px 0 0;padding:12px 14px;background:#F8FAFC;border:0.5px solid #E5E7EB;border-radius:10px;">'
-      + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Ampleur</div>';
+      + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Enjeu</div>';
     if (s.annual_eur != null) out += '<div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">≈ ' + frInt(Math.round(s.annual_eur)) + ' €'
       + (s.annual_label ? ' <span style="font-size:12px;font-weight:500;color:#6B7280;">' + esc(s.annual_label) + '</span>' : '') + '</div>';
     else if (s.headline) out += '<div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">' + esc(s.headline) + '</div>';

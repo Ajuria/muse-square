@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — J1 de l'engagement : le contrat en graphique</title>
+<style>
+  body { font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif; background:#F8F9FB; margin:0; padding:28px 16px 80px; color:#111827; }
+  .wrap { max-width:800px; margin:0 auto; }
+  .doc { background:#fff; border:1px solid rgba(0,0,0,0.08); border-radius:10px; padding:26px 28px; box-shadow:0 1px 3px rgba(16,24,40,0.06); margin-bottom:14px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 6px; }
+  .note { font-size:12.5px; color:#6b7280; line-height:1.5; margin:0 0 22px; }
+  .dir { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:rgba(17,24,39,0.45); font-weight:600; margin:26px 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Page évolution à J1 — le contrat en graphique</h1>
+  <p class="note">Rendu réel du doc « Consulter l'évolution » (markup et conventions copiés de <code>card-kit.js renderEvolution</code> : mêmes tailles, mêmes couleurs, même grille SVG 760×200). Données de VOTRE engagement de ce soir. En dessous : l'état actuel à J1, puis le remplacement proposé. Rappel du flux validé : après « M'engager sur +10 % », message de succès 1,4 s (avec « notification envoyée ») puis redirection ici.</p>
+
+  <!-- ===== EN-TÊTE RÉEL DU DOC (markup renderEvolution) ===== -->
+  <div class="doc">
+    <div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">
+      <div style="display:flex;align-items:baseline;font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">MS Test</span></div>
+      <div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">Offre ou mise en avant spécifique ce jour-là</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:6px;">Objectif : +10 % de CA vs habituel · sous 7 jours</div>
+      <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Engagé par Poeiti Barnier · le 26/07/2026</div>
+    </div>
+
+    <div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">Augmenter le CA de +107 €/jour (+10 % vs CA habituel)</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:6px;">La fenêtre a démarré — le suivi jour par jour apparaîtra ici au fil des ventes.</div>
+
+    <div class="dir">Avant (actuel) — l'emplacement du graphe à J1</div>
+    <div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>
+
+    <div class="dir">Après — Enjeu + frise de fenêtre + consigne de retour</div>
+
+    <!-- Bloc « Enjeu » : markup RÉEL de msScale (card-kit.js, kicker renommé Ampleur → Enjeu
+         PARTOUT — validé) — l'enjeu de la carte d'origine, gelé à la création. Poids du MOTIF,
+         jamais une promesse de rendement de l'action ; libellé coûtent/rapportent selon le signe. -->
+    <div style="margin:14px 0 0;padding:12px 14px;background:#F8FAFC;border:0.5px solid #E5E7EB;border-radius:10px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Enjeu</div>
+      <div style="font-size:21px;font-weight:700;color:#1D3BB3;line-height:1.1;">12 016 €/an <span style="font-size:12px;font-weight:500;color:#6B7280;">· estimé, cause multifactorielle</span></div>
+      <div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">Facteur principal de cette journée : les vacances scolaires — le plus lourd des motifs mesurés ce jour-là chez vous.</div>
+    </div>
+    <!-- Frise fine de la fenêtre : les 7 jours réels + verdict — la seule information que le
+         texte ne compacte pas (où on en est). Conventions du graphe réel : points/jours 9px
+         #9ca3af, jour reçu = #1D3BB3, jour à venir = cercle vide #e5e7eb. -->
+    <svg viewBox="0 0 760 56" style="width:100%;height:auto;margin-top:12px;">
+      <line x1="46" y1="22" x2="752" y2="22" stroke="#eef1f6" stroke-width="2"/>
+      <circle cx="46" cy="22" r="5" fill="#1D3BB3"/>
+      <text x="46" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="middle">J1 · aujourd'hui</text>
+      <circle cx="163.7" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+      <circle cx="281.3" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+      <circle cx="399" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+      <circle cx="516.7" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+      <circle cx="634.3" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>
+      <circle cx="752" cy="22" r="5" fill="#fff" stroke="#1D3BB3" stroke-width="1.8"/>
+      <text x="748" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="end">verdict</text>
+      <text x="46" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">26/07</text>
+      <text x="163.7" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">27</text>
+      <text x="281.3" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">28</text>
+      <text x="399" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">29</text>
+      <text x="516.7" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">30</text>
+      <text x="634.3" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">31</text>
+      <text x="752" y="48" font-size="9" fill="#9ca3af" text-anchor="middle">01/08</text>
+    </svg>
+    <!-- Consigne de retour explicite — ce que la page attend de l'utilisateur -->
+    <div style="margin-top:10px;padding:12px 14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:10px;font-size:13px;color:#1D3BB3;font-weight:600;line-height:1.5;">
+      Revenez ici pour consulter l'impact de votre action par rapport à votre CA habituel (1 076 €/jour) et à votre objectif (+10 %). Verdict le 01/08/2026.
+    </div>
+    <div style="font-size:11px;color:#9ca3af;margin-top:6px;">Suivi aussi depuis la carte engagement de votre page Pulse → « Consulter l'évolution ».</div>
+  </div>
+
+  <p class="note" style="margin-top:14px;"><b>Règles portées par ce proto.</b> Le bloc Enjeu = l'enjeu de la carte d'ORIGINE, gelé à la création de l'engagement (mêmes colonnes de provenance que creation_residual_*) — le poids du motif, jamais une promesse de rendement de l'action ; le suffixe du chiffre = le `tier_label_fr` VERBATIM de la pill d'origine (« estimé », « mesuré », ou « estimé, cause multifactorielle ») — gelé à la création, donc pill et page ne peuvent pas diverger, par construction ; phrase en français direct, à DEUX étages distincts : (1) le classement ENTRE facteurs — pour un motif hérité/combiné, la classe affichée est SÉLECTIONNÉE par l'engine comme la plus lourde en |€/an| parmi les motifs mesurés de la journée (dayClassRegistry, météo du jour + calendrier) → on la nomme « facteur principal », c'est un fait calculé ; (2) la prudence SUR la mesure du gagnant — `entangled` → « poids estimé, ces journées cumulent d'autres facteurs, parts non séparables ». Non-mêlé → la classe nommée directement (« les jours de forte chaleur vous coûtent… ») ; carte de classe DIRECTE (non héritée) → pas de « principal » (la classe est l'angle de mesure, pas un gagnant de classement). Carte d'origine sans enjeu → pas de bloc. Le kicker « Ampleur » du composant partagé devient « Enjeu » PARTOUT (pages profondes incluses) — même concept, même mot que les pills. Le grand graphe à J1 est remplacé par la frise (où on en est) + la consigne de retour — l'habituel et l'objectif restent dans le titre, pas de décor qui duplique. Dès 2 journées reçues, le graphe existant prend la place, inchangé. Repli sans historique de ventes : texte actuel conservé. Redirection : succès 1,4 s sur Pulse (avec « notification envoyée à … ») puis navigation vers cette page.</p>
+</div>
+</body>
+</html>

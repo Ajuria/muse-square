@@ -296,6 +296,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
       adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
       parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
+      // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
+      // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
+      // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).
+      creation_enjeu_eur_year: body.creation_enjeu_eur_year != null ? Number(body.creation_enjeu_eur_year) : null,
+      creation_enjeu_tier_label_fr: body.creation_enjeu_tier_label_fr ? String(body.creation_enjeu_tier_label_fr) : null,
+      creation_enjeu_label_fr: body.creation_enjeu_label_fr ? String(body.creation_enjeu_label_fr) : null,
+      creation_enjeu_class_key: body.creation_enjeu_class_key ? String(body.creation_enjeu_class_key) : null,
+      creation_enjeu_entangled: typeof body.creation_enjeu_entangled === "boolean" ? body.creation_enjeu_entangled : null,
+      creation_enjeu_inherited: typeof body.creation_enjeu_inherited === "boolean" ? body.creation_enjeu_inherited : null,
     };
 
     // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
