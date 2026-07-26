@@ -77,8 +77,8 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
 export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
   { key: "mobility_disruption", family: "mobility", label_fr: "jours à perturbation de mobilité" },
   { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité de vos concurrents suivis" },
-  { key: "school_holiday", family: "calendar", label_fr: "jours de vacances scolaires (contrôlé mois et type de jour)" },
-  { key: "public_holiday", family: "calendar", label_fr: "jours fériés (contrôlé mois et type de jour)" },
+  { key: "school_holiday", family: "calendar", label_fr: "jours de vacances scolaires" },
+  { key: "public_holiday", family: "calendar", label_fr: "jours fériés" },
   // Étape 4 (26/07) :
   // - traffic_high : tercile haut de VOS visiteurs mesurés (fct_client_daily_performance) — la
   //   classe honnête derrière « Trafic sans conversion » (le manque à convertir CONTREFACTUEL du

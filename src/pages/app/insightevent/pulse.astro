@@ -1910,6 +1910,7 @@ if (!location_id) {
         + '<span style="font-size:10px;color:#6B7280;">' + completedCount + '/' + top.length + '</span>'
       + '</div>'
       + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
+      + '<div id="pls-structural"></div>'
       + '<div id="pls-past-actions" style="margin-top:18px;"></div>'
     + '</div>';
   }
@@ -1923,6 +1924,8 @@ if (!location_id) {
 // Paste this instead:
  
   function wireBriefHandlers(root, locationId, selectedDate) {
+    // Chantiers structurels : rendu apres montage du brief (le conteneur #pls-structural existe).
+    try { renderStructuralSection(); } catch (e) {}
     // (CHANNEL_DEFS/buildChannelDropdown/buildWorkspaceHtml/updateCharCount supprimés —
     //  portés par le workspace partagé public/draft-workspace.js, 18/07.)
 
@@ -3934,6 +3937,117 @@ if (!location_id) {
     log.innerHTML = '<div style="margin-bottom:18px;"><p class="eb" style="margin:0 0 10px;">Vos engagements</p><div class="tl">' + rows + '</div></div>';
     log.querySelectorAll('[data-eng-evo]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
   }
+  // ── Chantiers structurels (proto validé 26/07, escapes: voir CLAUDE.md) ─────────────
+  // Motifs récurrents du day-class store (monitor.day_class_impacts, copy serveur contextCopy).
+  // États : Actif (aucun engagement) / En amélioration (engagement structural_<classe> ouvert).
+  // « Résolu » = palier suivant (exige l'historique des motifs disparus). Section vide → ligne honnête.
+  function renderStructuralSection() {
+    var mount = document.getElementById('pls-structural');
+    if (!mount) return;
+    var imps = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts.slice() : [];
+    imps.sort(function(a, b) { return Math.abs(Number(b.eur_year) || 0) - Math.abs(Number(a.eur_year) || 0); });
+    var FAM_FR = { weather: 'M\u00e9t\u00e9o', competition: 'Concurrence', tourism: 'Tourisme', events: '\u00c9v\u00e9nements', mobility: 'Mobilit\u00e9', suivis: 'Concurrents suivis', calendar: 'Calendrier', traffic: 'Affluence', sales: 'Remises' };
+    var commits = Array.isArray(window._plsCommitments) ? window._plsCommitments : [];
+    function activeCommitFor(imp) {
+      for (var i = 0; i < commits.length; i++) {
+        var c = commits[i];
+        if (String(c.origin_action_type || '') === 'structural_' + imp.class_key
+          && String(c.location_id || '') === String(imp.location_id || '')
+          && (c.status === 'open' || c.status === 'pending')) return c;
+      }
+      return null;
+    }
+    var head = '<div style="display:flex;align-items:baseline;gap:10px;margin:26px 0 4px;">'
+      + '<span class="eb" style="font-size:12px;">Chantiers structurels</span>'
+      + (imps.length ? '<span style="font-size:11px;color:#9CA3AF;">' + imps.length + ' motif' + (imps.length > 1 ? 's' : '') + ' mesuré' + (imps.length > 1 ? 's' : '') + ' · réévalués chaque mois</span>' : '')
+      + '</div>'
+      + '<div style="font-size:12px;color:#6B7280;margin:0 0 12px;">Ce que vos données prouvent de RÉCURRENT — à traiter par un dispositif durable, pas une action du jour.</div>';
+    if (!imps.length) {
+      mount.innerHTML = head + '<div style="font-size:12px;color:#9CA3AF;padding:10px 0 4px;">Pas encore assez d’historique mesuré — les chantiers apparaissent quand vos données prouvent un motif récurrent.</div>';
+      return;
+    }
+    var html = imps.map(function(imp, i) {
+      var pos = Number(imp.eur_year) > 0;
+      var bar = pos ? '#059669' : '#B45309';
+      var pillBg = pos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
+      var pillFg = pos ? 'var(--color-pill-green-text)' : '#B45309';
+      var pillLabel = pos ? 'À capter' : 'Enjeu';
+      var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
+      var eng = activeCommitFor(imp);
+      var stateChip = eng
+        ? '<span class="chip-n" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">En amélioration</span>'
+        : '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">Actif</span>';
+      var engPill = eng ? '<span class="ab-metric">Engagement en cours' + (eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>' : '';
+      var btn = eng
+        ? '<button type="button" class="agir-btn" data-struct-follow="1">Voir l’engagement</button>'
+        : '<button type="button" class="agir-btn" data-struct-commit="' + i + '">M’engager</button>';
+      return '<div class="ab-card" style="border-left:3px solid ' + bar + ';">'
+        + '<div class="ab-card-row"><div class="ab-inner">'
+          + '<div class="ab-summary">'
+            + '<div class="ab-pills">'
+              + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>'
+              + '<span class="chip-n">' + escapeHtml(FAM_FR[imp.family] || imp.family || '') + '</span>'
+              + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
+              + stateChip
+            + '</div>'
+            + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
+            + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
+            + '<div class="aline">' + escapeHtml(String(imp.chantier_fr || '')) + '</div>'
+          + '</div>'
+          + '<div class="ab-metrics-strip" style="align-items:center;">'
+            + '<span class="ab-metric" style="background:' + pillBg + ';color:' + pillFg + ';">' + pillLabel + ' <span class="ab-metric-val" style="color:' + pillFg + ';">~' + amount + ' €/an</span> · ' + escapeHtml(String(imp.tier_label_fr || '')) + '</span>'
+            + engPill
+            + '<span style="margin-left:auto;">' + btn + '</span>'
+          + '</div>'
+          + '<div id="struct-ws-' + i + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
+        + '</div></div>'
+      + '</div>';
+    }).join('');
+    mount.innerHTML = head + html;
+    mount.querySelectorAll('[data-struct-follow]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var eng = document.getElementById('pls-engagement-cards');
+        if (eng) eng.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    mount.querySelectorAll('[data-struct-commit]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var i = Number(b.getAttribute('data-struct-commit'));
+        var imp = imps[i];
+        var ws = document.getElementById('struct-ws-' + i);
+        if (!imp || !ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        if (!window.MSCommitForm) { ws.style.display = 'block'; ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+        ws.style.display = 'block';
+        ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^Chantier\s*:\s*/, '')] });
+        window.MSCommitForm.wire(ws, {
+          location_id: imp.location_id,
+          origin: {
+            origin_action_type: 'structural_' + imp.class_key,
+            origin_driver: null,
+            origin_suppression_key: 'structural:' + imp.class_key + ':' + imp.location_id,
+            origin_card_instance_id: null,
+            origin_affected_date: null,
+            creation_residual_pct: null,
+            creation_residual_z: null,
+            creation_confidence_tier: null,
+            creation_baseline_daily: null
+          },
+          fetchOwners: function() {
+            return fetchTeamMembers(imp.location_id).then(function(members) {
+              return (members && members.length) ? members : teamMembersPool(imp.location_id);
+            });
+          },
+          onDone: function(j) {
+            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé — le motif passe « En amélioration » ; le batch mensuel dira si le poids recule.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
+            if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch (err) {} }
+          },
+          onCancel: function() { ws.style.display = 'none'; ws.innerHTML = ''; }
+        });
+      });
+    });
+  }
+
   function renderEngagements(locationIds) {
     // Engagement cards are FULL action cards (card_type=engagement) rendered through the
     // system .ab-card anatomy, as the FIRST cards in Actions du jour (mount =
@@ -3953,6 +4067,8 @@ if (!location_id) {
     })).then(function(lists){
       var items = [];
       lists.forEach(function(l){ items = items.concat(l); });
+      window._plsCommitments = items;
+      try { renderStructuralSection(); } catch (e) {}
       var pastMount = document.getElementById('pls-past-actions');
       if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); if (typeof fillOpsVolet === 'function') fillOpsVolet([], []); return; }
       // newest first across all sites (updated_at may serialize as {value})
@@ -4000,6 +4116,7 @@ if (!location_id) {
 
     const days = Array.isArray(data.days) ? data.days : [];
     window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
+    window._lastDayClassImpacts = Array.isArray(data.day_class_impacts) ? data.day_class_impacts : [];
     const dayMap = new Map(days.map(d => [normalizeYmd(d.date), d]));
     const currentDay = dayMap.get(selectedDate) || days[0] || null;
     const allFeed = Array.isArray(data.all_feed) ? data.all_feed : [];
@@ -5216,6 +5333,9 @@ if (!location_id) {
             all_feed: mergedFeed,
             action_candidates: valid.flatMap(({ data, loc }) =>
               (data.action_candidates || []).map(ac => ({ ...ac, location_id: ac.location_id || loc.location_id, location_label: loc.company_name || loc.location_id }))
+            ),
+            day_class_impacts: valid.flatMap(({ data, loc }) =>
+              (data.day_class_impacts || []).map(i => ({ ...i, location_id: loc.location_id, location_label: loc.company_name || '' }))
             ),
             _locations: locs,
             competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
