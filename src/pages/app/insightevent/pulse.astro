@@ -350,7 +350,8 @@ if (!location_id) {
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/commit-form.js?v=6"></script>
+    <script is:inline src="/commit-form.js?v=7"></script>
+    <script is:inline src="/bp-form.js?v=1"></script>
     <script is:inline src="/action-cards.js?v=32"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
@@ -1758,8 +1759,11 @@ if (!location_id) {
       if (!sendChannel) sendChannel = 'note_interne';
 
       // --- Agir dropdown (opens below) ---
+      // Branche positive de M'engager : la NATURE de la carte (opportunité), jamais la couleur
+      // du montant, décide du formulaire (bonnes pratiques vs objectif) — validé 26/07.
+      var _agirPositive = t.barClass === 'ab-opportunity' ? ' data-agir-positive="1"' : '';
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
+        + '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
           + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
           + '</button>'
@@ -1788,7 +1792,7 @@ if (!location_id) {
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
+          + '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
             + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
             + '</button>'
@@ -2063,6 +2067,83 @@ if (!location_id) {
 
     // M'engager — the commitment form is the SHARED MSCommitForm (commit-form.js) since 16/07;
     // the inline duplicate (cmChip*/buildCommitFormHtml/wireCommitForm) was removed with the migration.
+    // Origine partagée par les DEUX formulaires (objectif + bonnes pratiques) — un seul
+    // constructeur, mêmes champs. day_class_key vient de l'enjeu serveur (classe du motif).
+    function _commitOriginFor(card) {
+      return {
+        origin_action_type: card.change_subtype || card.action_type,
+        origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
+        origin_suppression_key: card.suppression_key || null,
+        origin_card_instance_id: card.card_instance_id || null,
+        origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
+        day_class_key: (card.enjeu && card.enjeu.class_key) || null,
+        creation_residual_pct: card.residual_pct != null ? Number(card.residual_pct) : null,
+        creation_residual_z: card.residual_z != null ? Number(card.residual_z) : null,
+        creation_confidence_tier: card.confidence_tier || null,
+        creation_baseline_daily: card.avg_30d != null ? Number(card.avg_30d) : (card.expected_revenue != null ? Number(card.expected_revenue) : null)
+      };
+    }
+    function _openCommitForm(ws, card, prefill) {
+      // Pulse migration 16/07: the SHARED MSCommitForm (commit-form.js) replaces the inline
+      // duplicate — same fields, same POST shape (incl. creation_baseline_daily), plus the shared
+      // extras (roster self-fetch fallback below + last-used responsable prefill). Suggestions and
+      // the cross-site roster fallback are preserved via opts.
+      if (!window.MSCommitForm) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+      ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: (card && card.__suggested_actions) || [], prefill: prefill || null });
+      window.MSCommitForm.wire(ws, {
+        location_id: card.location_id,
+        prefill: prefill || null,
+        origin: _commitOriginFor(card),
+        fetchOwners: function(){
+          return fetchTeamMembers(card.location_id).then(function(members){
+            return (members && members.length) ? members : teamMembersPool(card.location_id);
+          });
+        },
+        onDone: function(j){
+          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
+          if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(err) {} }
+          // Chaîne « rejouer » (bonnes pratiques) : lier l'engagement créé à la pratique pour
+          // que son tier passe « prouvée » à la résolution (lecture par JOIN, aucun cron).
+          if (j && j.ok && j.commitment_id && ws.getAttribute('data-bp-chain-practice')) {
+            fetch('/api/best-practices', { method: 'PATCH', headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ practice_id: ws.getAttribute('data-bp-chain-practice'), location_id: card.location_id, replay_commitment_id: j.commitment_id }) }).catch(function(){});
+            ws.removeAttribute('data-bp-chain-practice');
+          }
+        },
+        onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; ws.removeAttribute('data-bp-chain-practice'); }
+      });
+    }
+    // Branche POSITIVE de M'engager (validé 26/07, proto methode-proto.html) : sur une carte
+    // opportunité (nature du signal — data-agir-positive posé au build sur t.barClass), le
+    // menu ouvre « Enrichir vos bonnes pratiques » (MSBpForm) au lieu du formulaire objectif.
+    function _openBpForm(ws, card) {
+      if (!window.MSBpForm) { _openCommitForm(ws, card); return; } // repli : jamais un mur
+      var anchor = '';
+      try {
+        var d = card.affected_date ? normalizeYmd(card.affected_date) : '';
+        var dFr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '';
+        anchor = (dFr ? '<b>' + dFr + '</b> — ' : '') + 'très bonne journée sur ce signal'
+          + ((card.enjeu && card.enjeu.inherited && card.enjeu.label_fr) ? ', ' + window.MSBpForm.escapeHtml(String(card.enjeu.label_fr)) : '') + '.';
+      } catch(ex) {}
+      // Pistes d'hypothèses tirées du driver de la carte — des points de départ, jamais des réponses.
+      var drv = String(card.primary_revenue_driver || card.dominant_factor || '').toLowerCase();
+      var pistes = (drv.indexOf('basket') >= 0 || drv.indexOf('panier') >= 0)
+        ? ['Offre ou mise en avant spécifique ce jour-là (le panier a suivi)', 'Vente additionnelle poussée par l\'équipe', 'Communication publiée avant la journée']
+        : ['Staffing renforcé sur le créneau de pointe (l\'affluence a été convertie, pas subie)', 'Offre ou mise en avant spécifique ce jour-là', 'Communication publiée avant la journée'];
+      ws.innerHTML = window.MSBpForm.buildHtml({ anchorHtml: anchor, pistes: pistes });
+      window.MSBpForm.wire(ws, {
+        location_id: card.location_id,
+        origin: _commitOriginFor(card),
+        onSaved: function(){
+          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Ajoutée à vos bonnes pratiques. Elle sera proposée sur les signaux comparables.</div>';
+        },
+        onChain: function(practiceId, text){
+          ws.setAttribute('data-bp-chain-practice', String(practiceId || ''));
+          _openCommitForm(ws, card, { committed_action_text: text, window_kind: '7d' });
+        },
+        onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; }
+      });
+    }
     root.querySelectorAll("[data-agir-commit]").forEach(function(btn){
       btn.addEventListener("click", function(e){
         e.stopPropagation();
@@ -2071,36 +2152,8 @@ if (!location_id) {
         var ws = document.getElementById("ab-card-" + cardIdx + "-workspace"); if (!ws) return;
         var card = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
         ws.style.display = "block";
-        // Pulse migration 16/07: the SHARED MSCommitForm (commit-form.js) replaces the inline
-        // duplicate — same fields, same POST shape (incl. creation_baseline_daily), plus the shared
-        // extras (roster self-fetch fallback below + last-used responsable prefill). Suggestions and
-        // the cross-site roster fallback are preserved via opts.
-        if (!window.MSCommitForm) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
-        ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: (card && card.__suggested_actions) || [] });
-        window.MSCommitForm.wire(ws, {
-          location_id: card.location_id,
-          origin: {
-            origin_action_type: card.change_subtype || card.action_type,
-            origin_driver: card.primary_revenue_driver || card.dominant_factor || null,
-            origin_suppression_key: card.suppression_key || null,
-            origin_card_instance_id: card.card_instance_id || null,
-            origin_affected_date: card.affected_date ? normalizeYmd(card.affected_date) : null,
-            creation_residual_pct: card.residual_pct != null ? Number(card.residual_pct) : null,
-            creation_residual_z: card.residual_z != null ? Number(card.residual_z) : null,
-            creation_confidence_tier: card.confidence_tier || null,
-            creation_baseline_daily: card.avg_30d != null ? Number(card.avg_30d) : (card.expected_revenue != null ? Number(card.expected_revenue) : null)
-          },
-          fetchOwners: function(){
-            return fetchTeamMembers(card.location_id).then(function(members){
-              return (members && members.length) ? members : teamMembersPool(card.location_id);
-            });
-          },
-          onDone: function(j){
-            ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
-            if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(err) {} }
-          },
-          onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; }
-        });
+        if (btn.getAttribute("data-agir-positive")) _openBpForm(ws, card);
+        else _openCommitForm(ws, card);
       });
     });
 

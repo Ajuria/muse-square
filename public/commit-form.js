@@ -278,7 +278,7 @@
     });
 
     // Suggestion rows: click -> fill « Mon action » (still editable) + highlight the picked one.
-    container.querySelectorAll("[data-cm-sugg]").forEach(function (sg) {
+    function wireSugg(sg) {
       sg.addEventListener("click", function () {
         var ta = container.querySelector("[data-cm-action]");
         if (ta) {
@@ -292,7 +292,52 @@
         container.querySelectorAll("[data-cm-sugg]").forEach(function (x) { x.style.borderColor = "#DBEAFE"; x.style.background = "#F5F7FF"; });
         sg.style.borderColor = "#1D3BB3"; sg.style.background = "#EEF2FF";
       });
-    });
+    }
+    container.querySelectorAll("[data-cm-sugg]").forEach(wireSugg);
+
+    // « Vos bonnes pratiques » (validé 26/07, proto methode-proto.html) : self-fetch — TOUTE
+    // surface MSCommitForm (pulse, insight, chat, évolution) reçoit les pratiques du lieu
+    // appariées à l'origine (même kpi + levier dérivé ou classe de jour, calculés serveur).
+    // Prouvées d'abord, signées et datées avec leur tier — la connaissance du lieu passe
+    // AU-DESSUS des suggestions génériques. Échec/vide → rien, le formulaire reste tel quel.
+    if (opts.location_id && origin.origin_action_type) {
+      var bpQs = "location_id=" + encodeURIComponent(opts.location_id)
+        + "&origin_action_type=" + encodeURIComponent(origin.origin_action_type)
+        + (origin.origin_driver ? "&origin_driver=" + encodeURIComponent(origin.origin_driver) : "")
+        + (origin.day_class_key ? "&day_class_key=" + encodeURIComponent(origin.day_class_key) : "");
+      fetch("/api/best-practices?" + bpQs)
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var items = (j && j.ok && Array.isArray(j.practices)) ? j.practices : [];
+          if (!items.length) return;
+          var ta = container.querySelector("[data-cm-action]");
+          if (!ta || !ta.parentNode) return;
+          function frDate(ymd) {
+            var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ""));
+            return m ? m[3] + "/" + m[2] : "";
+          }
+          var block = document.createElement("div");
+          block.setAttribute("data-cm-bp-block", "1");
+          block.style.marginBottom = "8px";
+          block.innerHTML = '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;">Vos bonnes pratiques — ce qui a marché chez vous :</div>'
+            + items.map(function (p) {
+              var d = frDate(p.origin_affected_date);
+              var tag = p.tier === "prouvee"
+                ? '<span style="font-size:10.5px;color:#059669;white-space:nowrap;font-weight:600;">prouvée' + (d ? " le " + d : "") + "</span>"
+                : '<span style="font-size:10.5px;color:#9ca3af;white-space:nowrap;">déclarée' + (d ? " le " + d : "") + "</span>";
+              var who = p.author_person_name ? " — ajoutée par " + escapeHtml(p.author_person_name) : "";
+              return '<div data-cm-sugg data-cm-sugg-text="' + escapeHtml(p.practice_text) + '" style="font-size:12px;color:#374151;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;line-height:1.4;display:flex;justify-content:space-between;gap:10px;align-items:baseline;"><span>' + escapeHtml(p.practice_text) + who + "</span>" + tag + "</div>";
+            }).join("");
+          // Au-dessus du bloc suggestions existant (ou du textarea s'il n'y en a pas) :
+          // remonter la première rangée suggestion jusqu'à l'enfant direct de la section.
+          var anchorEl = ta;
+          var fs = ta.parentNode.querySelector("[data-cm-sugg]");
+          if (fs) { while (fs.parentNode && fs.parentNode !== ta.parentNode) fs = fs.parentNode; if (fs.parentNode === ta.parentNode) anchorEl = fs; }
+          ta.parentNode.insertBefore(block, anchorEl);
+          block.querySelectorAll("[data-cm-sugg]").forEach(wireSugg);
+        })
+        .catch(function () {});
+    }
 
     var cancel = container.querySelector("[data-cm-cancel]");
     if (cancel) cancel.addEventListener("click", function () { if (typeof opts.onCancel === "function") opts.onCancel(); });
