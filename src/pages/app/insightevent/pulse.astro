@@ -1704,6 +1704,12 @@ if (!location_id) {
         var enjLabel = enjPos ? '\u00c0 capter' : 'Enjeu';
         pills.unshift('<span class="ab-metric" style="background:' + enjBg + ';color:' + enjFg + ';">' + enjLabel + '\u00a0<span class="ab-metric-val" style="color:' + enjFg + ';">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + escapeHtml(String(enj.tier_label_fr || enj.tier)) + '</span>');
       }
+      // Trio réputation (étape 4, mapping C2) : pas de pill € — le KPI de suivi est affiché en
+      // clair (mesure via GBP connect à venir ; jamais un € inventé sur la réputation).
+      var REPUTATION_TYPES = { competitor_review_surge: 1, competitor_review_drop: 1, competitor_reputation_strength: 1, review_solicitation: 1 };
+      if (REPUTATION_TYPES[actionType]) {
+        pills.unshift('<span class="ab-metric">Suivi\u00a0: note Google</span>');
+      }
       return pills.join('');
     }
 
