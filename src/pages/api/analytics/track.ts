@@ -19,6 +19,11 @@ const VALID_EVENTS = [
   "card_already_done",
   "card_not_done",
   "card_ignored",
+  // Sorties honnêtes du formulaire « Enrichir vos bonnes pratiques » (bp-form.js, 26/07) :
+  // rien n'entre dans la base des pratiques — on mesure seulement la fréquence des journées
+  // inexpliquées / portées par le contexte.
+  "bp_context_exit",
+  "bp_unexplained_exit",
 ];
 
 export const POST: APIRoute = async ({ request, locals }) => {

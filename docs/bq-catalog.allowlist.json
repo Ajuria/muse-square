@@ -8500,6 +8500,24 @@
       "sd_gap_eur",
       "span_days",
       "computed_at"
+    ],
+    "analytics.best_practices": [
+      "practice_id",
+      "user_id",
+      "location_id",
+      "created_at",
+      "author_person_name",
+      "origin_card_instance_id",
+      "origin_action_type",
+      "origin_driver",
+      "origin_affected_date",
+      "kpi",
+      "outcome_lever",
+      "means_lever",
+      "day_class_key",
+      "practice_text",
+      "replay_commitment_id",
+      "status"
     ]
   }
 }
