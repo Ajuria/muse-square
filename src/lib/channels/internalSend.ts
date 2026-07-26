@@ -81,3 +81,31 @@ export async function sendEmail(
   }
   return { ok: true };
 }
+
+// ── Config canal (compte-niveau : « site d'abord, sinon compte » — owner 19/07) ──
+// Extraction 26/07 de la copie locale d'internal-send.ts (qui se marquait elle-même
+// « extract-to-shared candidate ») : le POST /api/commitments (notification d'assignation)
+// en a besoin aussi — une 3e copie aurait été une de trop. Le cron internal-alert-sweep
+// garde la sienne (choix documenté sur place : ne pas toucher le sweep livré).
+export async function loadChannelConfig(
+  bq: any,
+  userId: string,
+  locationId: string,
+  channel: string,
+): Promise<InternalSendConfig> {
+  const project = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+  const [rows] = await bq.query({
+    query: `
+      SELECT config_json
+      FROM \`${project}.analytics.channel_configs\`
+      WHERE user_id = @userId AND channel = @channel AND enabled = TRUE
+      ORDER BY (location_id = @locationId) DESC, updated_at DESC
+      LIMIT 1
+    `,
+    params: { userId, locationId, channel },
+    location: "EU",
+  });
+  let config: InternalSendConfig = {};
+  if (rows?.[0]) { try { config = JSON.parse(rows[0].config_json || "{}"); } catch {} }
+  return config;
+}

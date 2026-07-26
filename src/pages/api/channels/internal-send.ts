@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { sendSlack, sendEmail } from "../../../lib/channels/internalSend";
+import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 // NO import of ./publish — the manual internal-send rail has no path to any public handler.
 import { V1_ALERT_ACTION_TYPE_SET } from "../../../lib/internalAlertCards";
 
@@ -13,26 +13,9 @@ const BQ_PROJECT = "muse-square-open-data";
 // rail share one Barrier-3 surface (the seal stays by-construction).
 const INTERNAL_CHANNELS = new Set(["note_interne", "slack", "email"]);
 
-// Duplicated from cron/internal-alert-sweep.ts (not leak surfaces: a config read + a saved_drafts
-// INSERT). Kept local to avoid touching the shipped sweep; extract-to-shared candidate later.
-async function loadChannelConfig(bq: any, userId: string, locationId: string, channel: string): Promise<any> {
-  // Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte (aligné sur config.ts GET).
-  const [rows] = await bq.query({
-    query: `
-      SELECT config_json
-      FROM \`${BQ_PROJECT}.analytics.channel_configs\`
-      WHERE user_id = @userId AND channel = @channel AND enabled = TRUE
-      ORDER BY (location_id = @locationId) DESC, updated_at DESC
-      LIMIT 1
-    `,
-    params: { userId, locationId, channel },
-    location: "EU",
-  });
-  let config: any = {};
-  if (rows?.[0]) { try { config = JSON.parse(rows[0].config_json || "{}"); } catch {} }
-  return config;
-}
-
+// loadChannelConfig : extrait vers lib/channels/internalSend (26/07, notification d'assignation
+// des engagements) — c'était le « extract-to-shared candidate » annoncé ici. writeInternalNote
+// reste local (INSERT saved_drafts spécifique à ce rail).
 async function writeInternalNote(
   bq: any,
   args: { userId: string; locationId: string; actionType: string; title: string; body: string; recipient: string; affectedDate: string },

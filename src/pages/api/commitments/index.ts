@@ -5,6 +5,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { kpiKeyForOrigin, measureKpiBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
@@ -35,6 +36,67 @@ function uid(locals: any): string | null {
 }
 function errStatus(err: any): number {
   return String(err?.message || "").startsWith("FORBIDDEN") ? 403 : 500;
+}
+
+// ── Notification d'assignation (owner 26/07) ──────────────────────────────────────────────
+// Désigner un responsable ENVOIE désormais : le membre du roster dont le nom correspond reçoit
+// la notification sur son canal de contact (email d'abord, sinon Slack), via les configs de
+// canal du compte (loadChannelConfig, « site d'abord sinon compte »). NON BLOQUANT : pas de
+// membre / pas de contact / pas de config / échec d'envoi → l'engagement est créé quand même
+// et la réponse porte assignment_notified=false — jamais un 500, jamais un mur.
+// Connu et assumé : le créateur qui s'assigne lui-même reçoit aussi la notification (aucun
+// mapping fiable user_id → membre du roster pour l'exclure sans le deviner).
+const WINDOW_FR: Record<string, string> = { day_of: "le jour même", "7d": "7 jours", "14d": "14 jours", "30d": "30 jours" };
+async function notifyAssignment(
+  bq: any,
+  userId: string,
+  locationId: string,
+  args: { ownerName: string; actionText: string; thresholdBasis: string; thresholdValue: number; thresholdLevel: string; windowKind: string; windowEnd: string },
+): Promise<{ channel: string; ok: boolean; error?: string } | null> {
+  // Membre du roster par nom — même résolution compte que /api/channels/team (site d'abord).
+  const [rows] = await bq.query({
+    query: `
+      SELECT channels_contact FROM (
+        SELECT channels_contact, ROW_NUMBER() OVER (
+          PARTITION BY member_id
+          ORDER BY (location_id = @locationId) DESC, updated_at DESC
+        ) AS rn
+        FROM \`${BQ_PROJECT}.analytics.team_members\`
+        WHERE user_id = @userId
+          AND LOWER(TRIM(CONCAT(IFNULL(first_name, ''), ' ', IFNULL(last_name, '')))) = LOWER(TRIM(@name))
+      )
+      WHERE rn = 1
+      LIMIT 1
+    `,
+    params: { userId, locationId, name: args.ownerName },
+    location: "EU",
+  });
+  let contact: any = {};
+  if (rows?.[0]) { try { contact = JSON.parse(rows[0].channels_contact || "{}"); } catch {} }
+
+  // Copie FR terse (voix produit) ; date verdict JJ/MM/AAAA — jamais l'ISO en face utilisateur.
+  const we = String(args.windowEnd || "");
+  const verdictFr = we.length >= 10 ? we.slice(8, 10) + "/" + we.slice(5, 7) + "/" + we.slice(0, 4) : we;
+  const goalFr = args.thresholdBasis === "pct"
+    ? "+" + Math.round(args.thresholdValue) + " % (CA vs attendu)"
+    : "niveau « " + args.thresholdLevel + " » (CA vs attendu)";
+  const title = "Muse Square — un engagement vous est assigné";
+  const body = args.ownerName + ", un engagement vous est assigné.\n\n"
+    + "Action : " + args.actionText + "\n"
+    + "Objectif : " + goalFr + " sur " + (WINDOW_FR[args.windowKind] || args.windowKind) + " — verdict le " + verdictFr + ".\n\n"
+    + "À suivre sur votre page Pulse.";
+
+  if (contact && typeof contact.email === "string" && contact.email.includes("@")) {
+    const config = await loadChannelConfig(bq, userId, locationId, "email");
+    const r = await sendEmail(config, { title, body, recipient: contact.email });
+    return { channel: "email", ok: r.ok, error: r.error };
+  }
+  if (contact && typeof contact.slack === "string" && contact.slack.trim()) {
+    const config = await loadChannelConfig(bq, userId, locationId, "slack");
+    const r = await sendSlack(config, { title, body, recipient: contact.slack });
+    return { channel: "slack", ok: r.ok, error: r.error };
+  }
+  return null; // pas de contact → rien à envoyer (le responsable voit la carte dans l'app)
 }
 
 // ── GET /api/commitments?location_id=… → latest-per-commitment, non-cancelled ──
@@ -245,7 +307,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     await readMergeWrite(bq, { commitmentId, transitionType: "created", create: true, patch });
-    return json({ ok: true, commitment_id: commitmentId });
+
+    // Notification d'assignation — attendue (Vercel ne garantit pas le travail post-réponse)
+    // mais jamais bloquante : tout échec retombe sur notified=null, l'engagement est déjà créé.
+    let notified: { channel: string; ok: boolean; error?: string } | null = null;
+    try {
+      notified = await notifyAssignment(bq, userId, String(patch.location_id), {
+        ownerName: String(patch.owner_person_name),
+        actionText: String(patch.committed_action_text),
+        thresholdBasis, thresholdValue, thresholdLevel,
+        windowKind,
+        windowEnd: String(patch.window_end),
+      });
+    } catch { notified = null; }
+    return json({
+      ok: true,
+      commitment_id: commitmentId,
+      assignment_notified: Boolean(notified && notified.ok),
+      assignment_channel: notified && notified.ok ? notified.channel : null,
+    });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, errStatus(err));
   }
