@@ -2101,7 +2101,12 @@ if (!location_id) {
           });
         },
         onDone: function(j){
-          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé. Il sera évalué à l\'échéance.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
+          // Notification d'assignation (26/07) : le serveur dit s'il a prévenu le responsable
+          // (email/Slack du roster) — on l'affiche, sinon message générique inchangé.
+          var _okMsg = (j && j.assignment_notified)
+            ? 'Engagement créé — notification envoyée au responsable (' + (j.assignment_channel === 'slack' ? 'Slack' : 'email') + ').'
+            : 'Engagement créé. Il sera évalué à l\'échéance.';
+          ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? _okMsg : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>';
           if (j && j.ok) { try { renderEngagements(_engagementLocs); } catch(err) {} }
           // Chaîne « rejouer » (bonnes pratiques) : lier l'engagement créé à la pratique pour
           // que son tier passe « prouvée » à la résolution (lecture par JOIN, aucun cron).

@@ -94,3 +94,17 @@ deux formulaires. Les vrais gaps restants sont AILLEURS :
    primary_revenue_driver‖dominant_factor, avg_30d puis expected_revenue), prouvé par harness
    Node sur lignes BQ réelles. Check owner authed au prochain tirage d'une carte sales
    émettrice sur f10c3e58 (aucune active au 26/07).
+
+## Notification d'assignation (26/07 soir, demande owner après E2E réussi)
+
+Désigner un responsable ENVOIE désormais (avant : simple enregistrement + affichage). Dans le
+POST /api/commitments, après création : résolution du membre du roster par nom (même SQL
+compte-niveau que /api/channels/team), envoi sur son canal de contact — email d'abord, sinon
+Slack — via le rail interne existant (`lib/channels/internalSend` ; `loadChannelConfig` extrait
+d'internal-send.ts, qui se marquait « extract-to-shared candidate »). Copie FR terse, verdict en
+JJ/MM/AAAA. NON bloquant : pas de contact/config ou échec d'envoi → engagement créé quand même,
+`assignment_notified:false`. Pulse affiche « notification envoyée au responsable (email/Slack) ».
+Assumé : l'auto-assignation notifie aussi (pas de mapping fiable user→membre pour l'exclure).
+Vérifié par données : Poeiti Barnier → email perle.bernier@gmail.com (roster réel), config
+email active (×2) sur le compte — l'envoi réel = prochain M'engager authentifié de l'owner
+(APRÈS promotion prod). Doublon de pratique du premier essai archivé (status='archivee').
