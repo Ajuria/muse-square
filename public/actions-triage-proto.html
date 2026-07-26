@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — Actions par site (tri horizon puis enjeu)</title>
+<style>
+  :root {
+    --color-bg-card: #ffffff;
+    --color-border: rgba(0,0,0,0.08);
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: rgba(17,24,39,0.45);
+    --color-pill-green-bg: #E6F6F0;
+    --color-pill-green-text: #059669;
+    --color-pill-source-low-bg: #F3F4F6;
+    --color-pill-source-low-text: #6b7280;
+    --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  body { font-family: var(--font-family); background:#F8F9FB; margin:0; padding:28px 16px 80px; color:var(--color-text-primary); }
+  .wrap { max-width:680px; margin:0 auto; }
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:10px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-summary { padding:13px 16px 11px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; align-items:center; }
+  .ab-metric { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
+  .ab-metric-val { font-weight:600; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:0; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 4px; }
+  .note { font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin:0 0 18px; }
+  /* filtres */
+  .fbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:0 0 18px; }
+  .fchip { font-size:12px; padding:4px 11px; border-radius:20px; border:1px solid var(--color-border); background:#fff; color:#374151; cursor:pointer; font-family:inherit; }
+  .fchip.on { border-color:#1D3BB3; color:#1D3BB3; font-weight:600; background:#EEF2FF; }
+  .fsep { width:1px; height:18px; background:var(--color-border); margin:0 4px; }
+  /* site block */
+  .site { margin:26px 0 6px; }
+  .site-head { display:flex; align-items:baseline; gap:10px; margin:0 0 10px; }
+  .site-name { font-size:14px; font-weight:600; color:#111827; }
+  .site-meta { font-size:11px; color:#9CA3AF; }
+  .subhead { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:14px 0 8px 2px; }
+  .more-btn { font-size:12px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:4px 2px 0; font-family:inherit; }
+  .hiddencard { display:none; }
+  /* structurel compact */
+  .st-row { display:flex; align-items:center; gap:10px; padding:10px 14px; }
+  .st-title { font-size:12.5px; font-weight:600; color:#111827; flex:1; min-width:0; line-height:1.35; }
+  .st-sub { font-size:11px; color:#9CA3AF; font-weight:400; display:block; margin-top:2px; }
+  .footnote { font-size:11px; color:#9CA3AF; line-height:1.5; margin:16px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Actions — proto v2 (validé : blocs par site, tri horizon puis enjeu)</h1>
+  <p class="note">Données réelles de votre feed du 26/07. Tri par défaut : ce qui expire d'abord, puis |enjeu| décroissant ; sans enjeu = sous le pli. Filtres cliquables. Les chantiers structurels sont dans le bloc du site, en format compact (clic = détail).</p>
+
+  <div class="fbar">
+    <button class="fchip on" data-f="h" data-v="tous">Tous</button>
+    <button class="fchip" data-f="h" data-v="today">Aujourd'hui</button>
+    <button class="fchip" data-f="h" data-v="week">Cette semaine</button>
+    <button class="fchip" data-f="h" data-v="struct">Structurel</button>
+    <div class="fsep"></div>
+    <button class="fchip on" data-f="n" data-v="tous">Tout</button>
+    <button class="fchip" data-f="n" data-v="defend">À défendre</button>
+    <button class="fchip" data-f="n" data-v="capture">À capter</button>
+    <div class="fsep"></div>
+    <button class="fchip" id="sort-enjeu">Trier par enjeu</button>
+  </div>
+
+  <!-- ============ SITE : Muse Square Occitanie ============ -->
+  <div class="site" data-site="occ">
+    <div class="site-head"><span class="site-name">Muse Square Occitanie</span><span class="site-meta">5 actions · 4 chantiers</span></div>
+
+    <div class="ab-card ctx" data-h="today" data-n="defend" data-e="5694" style="border-left:3px solid #B45309;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Aujourd'hui</span><span class="chip-n">Météo</span></div>
+        <div class="ab-what">Météo dégradée 3+ jours</div>
+        <div class="ab-sowhat">3+ jours consécutifs de mauvais temps — alerte vent (niveau 4). Site sensible — impact prolongé sur la fréquentation.</div>
+        <div class="aline">À adapter : planifiez des alternatives couvertes sur toute la période et adaptez vos effectifs.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu <span class="ab-metric-val" style="color:#B45309;">~5 694 €/an</span> · estimé, cause multifactorielle</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div>
+
+    <div class="ab-card ctx" data-h="week" data-n="capture" data-e="28016" style="border-left:3px solid #059669;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Conversion</span><span class="chip-n">À confirmer</span></div>
+        <div class="ab-what">Trafic sans conversion</div>
+        <div class="ab-sowhat">Le public était là (1645 visiteurs, +128 % vs habitude) mais peu d'achats : 20 % convertissent, contre ~42 % d'ordinaire.</div>
+        <div class="aline">À corriger : vérifiez accueil, caisse et mise en avant, et posez une routine pour les prochains jours à fort passage.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">À capter <span class="ab-metric-val" style="color:var(--color-pill-green-text);">~28 016 €/an</span> · estimé, cause multifactorielle</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div>
+
+    <div class="ab-card ctx" data-h="week" data-n="defend" data-e="1039" style="border-left:3px solid #B45309;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Remises</span><span class="chip-n">À confirmer</span></div>
+        <div class="ab-what">Remises sans effet</div>
+        <div class="ab-sowhat">Vous avez remisé 2.7 % du CA aujourd'hui, contre ~2.2 % d'ordinaire — sans que le CA suive.</div>
+        <div class="aline">À corriger : réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d'offre.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu <span class="ab-metric-val" style="color:#B45309;">~1 039 €/an</span> · estimé</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div>
+
+    <div class="ab-card ctx foldable hiddencard" data-h="week" data-n="none" data-e="0" style="border-left:3px solid #6B7280;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Ventes</span><span class="chip-n">Probable</span></div>
+        <div class="ab-what">CA inférieur à vos jeudis</div>
+        <div class="ab-sowhat">CA 1035 € — journée en retrait, sous vos jeudis. Le recul vient de moins de trafic. Enjeu non mesurable (anomalie ponctuelle) — suivi : le résiduel de vos prochains jeudis.</div>
+      </div>
+      <div class="ab-metrics-strip"><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+    </div>
+
+    <div class="ab-card ctx foldable hiddencard" data-h="week" data-n="none" data-e="0" style="border-left:3px solid #6B7280;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Tourisme</span></div>
+        <div class="ab-what">Pic touristique régional</div>
+        <div class="ab-sowhat">Pic détecté (indice 60, saison haute). Enjeu tourisme non séparable sur votre historique (la classe est la saison) — reviendra à l'automne.</div>
+      </div>
+      <div class="ab-metrics-strip"><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+    </div>
+
+    <button class="more-btn" data-more="occ-ctx">Voir 2 autres actions</button>
+
+    <div class="subhead">Chantiers structurels</div>
+
+    <div class="ab-card st" data-h="struct" data-n="capture" data-e="28016" style="border-left:3px solid #059669;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de forte affluence pèsent ~28 016 €/an de plus<span class="st-sub">31 j / 3 mois · estimé, cause multifactorielle · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st" data-h="struct" data-n="defend" data-e="5976" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de vacances scolaires vous coûtent ~5 976 €/an<span class="st-sub">15 j / 3 mois · contrôlé mois et type de jour · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="5694" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de forte chaleur vous coûtent ~5 694 €/an<span class="st-sub">17 j / 3 mois · estimé, cause multifactorielle · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="1039" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">~1 039 €/an de remises sans effet mesuré<span class="st-sub">8 j / 3 mois · estimé · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <button class="more-btn" data-more="occ-st">Voir 2 autres chantiers</button>
+  </div>
+
+  <!-- ============ SITE : MS Test ============ -->
+  <div class="site" data-site="mst">
+    <div class="site-head"><span class="site-name">MS Test</span><span class="site-meta">3 actions · 2 chantiers</span></div>
+
+    <div class="ab-card ctx" data-h="today" data-n="none" data-e="0" style="border-left:3px solid #6B7280;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Aujourd'hui</span><span class="chip-n">Concurrence</span></div>
+        <div class="ab-what">CA en baisse — concurrence à surveiller</div>
+        <div class="ab-sowhat">CA 1306 € — −15 % vs la veille. Concomitant à une pression ×1.6. Confirmez la récurrence avant d'agir.</div>
+      </div>
+      <div class="ab-metrics-strip"><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+    </div>
+
+    <div class="ab-card ctx" data-h="week" data-n="defend" data-e="12016" style="border-left:3px solid #059669;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Opportunité</span><span class="chip-n">Probable</span></div>
+        <div class="ab-what">CA supérieur à vos jeudis</div>
+        <div class="ab-sowhat">CA 1623 € — très bonne journée, portée par les vacances scolaires (+29 % de tickets, panier +9 %). À rejouer sur vos journées comparables — <b>ce bon jour est l'exception : le motif vacances vous coûte en moyenne.</b></div>
+        <div class="aline">À rejouer : identifiez ce qui a fait convertir (offre, équipe, météo) et répliquez-le sur les prochains jours de vacances.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Motif de fond <span class="ab-metric-val" style="color:#B45309;">~12 016 €/an</span> · vacances scolaires · estimé</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div>
+
+    <div class="ab-card ctx" data-h="week" data-n="capture" data-e="5039" style="border-left:3px solid #059669;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Concurrence</span></div>
+        <div class="ab-what">Tourisme élevé mais concurrence forte</div>
+        <div class="ab-sowhat">Tourisme élevé (72) mais pression ×1.6. Ciblez un segment que vos concurrents n'adressent pas.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">À capter <span class="ab-metric-val" style="color:var(--color-pill-green-text);">~5 039 €/an</span> · estimé</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div>
+
+    <div class="subhead">Chantiers structurels</div>
+    <div class="ab-card st" data-h="struct" data-n="defend" data-e="12016" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de vacances scolaires vous coûtent ~12 016 €/an<span class="st-sub">18 j / 3 mois · contrôlé mois et type de jour · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="1013" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">~1 013 €/an de remises sans effet mesuré<span class="st-sub">9 j / 3 mois · estimé · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <button class="more-btn" data-more="mst-st">Voir 1 autre chantier</button>
+  </div>
+
+  <!-- ============ SITE : Muse Square ============ -->
+  <div class="site" data-site="msq">
+    <div class="site-head"><span class="site-name">Muse Square</span><span class="site-meta">2 actions · 5 chantiers</span></div>
+
+    <div class="ab-card ctx" data-h="week" data-n="none" data-e="0" style="border-left:3px solid #6B7280;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Concurrence</span></div>
+        <div class="ab-what">Différenciez-vous de vos concurrents proches</div>
+        <div class="ab-sowhat">7 événements à moins de 500 m. Renforcez votre visibilité locale. Enjeu non mesurable : ce site n'a pas encore d'historique de ventes.</div>
+      </div>
+      <div class="ab-metrics-strip"><span class="ab-metric">Auto · à valider → Poeiti</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+    </div>
+    <div class="ab-card ctx foldable hiddencard" data-h="week" data-n="none" data-e="0" style="border-left:3px solid #6B7280;">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">Météo</span></div>
+        <div class="ab-what">Retour au beau après mauvais temps</div>
+        <div class="ab-sowhat">Amélioration après 2+ jours dégradés — relancez vos visiteurs et rouvrez vos espaces extérieurs.</div>
+      </div>
+      <div class="ab-metrics-strip"><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+    </div>
+    <button class="more-btn" data-more="msq-ctx">Voir 1 autre action</button>
+
+    <div class="subhead">Chantiers structurels</div>
+    <div class="ab-card st" data-h="struct" data-n="capture" data-e="8385" style="border-left:3px solid #059669;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours à faible pression concurrentielle rapportent ~8 385 €/an de plus<span class="st-sub">29 j / 3 mois · estimé, cause multifactorielle · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st" data-h="struct" data-n="capture" data-e="8175" style="border-left:3px solid #059669;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Les jours d'activité de vos concurrents suivis rapportent ~8 175 €/an de plus<span class="st-sub">17 j / 3 mois · estimé, cause multifactorielle · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="3868" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de pluie marquée vous coûtent ~3 868 €/an<span class="st-sub">8 j / 3 mois · estimé, cause multifactorielle · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="2209" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">Vos jours de basse saison touristique vous coûtent ~2 209 €/an<span class="st-sub">8 j / 3 mois · estimé · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <div class="ab-card st foldable hiddencard" data-h="struct" data-n="defend" data-e="1192" style="border-left:3px solid #B45309;">
+      <div class="st-row">
+        <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+        <span class="st-title">~1 192 €/an de remises sans effet mesuré<span class="st-sub">11 j / 3 mois · estimé · Actif</span></span>
+        <button class="agir-btn">M'engager</button>
+      </div>
+    </div>
+    <button class="more-btn" data-more="msq-st">Voir 3 autres chantiers</button>
+  </div>
+
+  <p class="footnote">Règles rendues ici : tri par défaut = horizon (Aujourd'hui → Semaine → Structurel) puis |enjeu| décroissant ; cartes sans enjeu sous le pli avec la RAISON énoncée (anomalie / historique jeune / non séparable) ; « Motif de fond » = enjeu hérité de la classe du jour ou du driver (jamais l'anomalie annualisée) — une pill ambre peut coexister avec une carte opportunité : le bon jour est l'exception du motif. Les mentions « cause multifactorielle » détaillées vivent au clic sur la carte, plus dans chaque sowhat.</p>
+</div>
+<script>
+(function(){
+  var fh = 'tous', fn = 'tous', sortEnjeu = false;
+  function apply() {
+    document.querySelectorAll('.ab-card').forEach(function(c){
+      var okH = fh === 'tous' || c.getAttribute('data-h') === fh;
+      var okN = fn === 'tous' || c.getAttribute('data-n') === fn;
+      var folded = c.classList.contains('foldable') && c.classList.contains('hiddencard');
+      var filtering = fh !== 'tous' || fn !== 'tous';
+      c.style.display = (okH && okN && (!folded || filtering)) ? '' : 'none';
+    });
+    document.querySelectorAll('.more-btn').forEach(function(b){
+      b.style.display = (fh === 'tous' && fn === 'tous') ? '' : 'none';
+    });
+    document.querySelectorAll('.subhead').forEach(function(sh){
+      sh.style.display = (fh === 'tous' || fh === 'struct') ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('.fchip[data-f]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var f = b.getAttribute('data-f'), v = b.getAttribute('data-v');
+      document.querySelectorAll('.fchip[data-f="' + f + '"]').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      if (f === 'h') fh = v; else fn = v;
+      apply();
+    });
+  });
+  document.getElementById('sort-enjeu').addEventListener('click', function(){
+    sortEnjeu = !sortEnjeu;
+    this.classList.toggle('on', sortEnjeu);
+    document.querySelectorAll('.site').forEach(function(site){
+      var cards = [].slice.call(site.querySelectorAll('.ab-card'));
+      var sorted = cards.slice().sort(function(a, b){
+        if (sortEnjeu) return Number(b.getAttribute('data-e')) - Number(a.getAttribute('data-e'));
+        var ho = { today: 0, week: 1, struct: 2 };
+        var d = ho[a.getAttribute('data-h')] - ho[b.getAttribute('data-h')];
+        return d !== 0 ? d : Number(b.getAttribute('data-e')) - Number(a.getAttribute('data-e'));
+      });
+      var anchor = site.querySelector('.site-head');
+      sorted.forEach(function(c){ site.appendChild(c); });
+      if (sortEnjeu) { site.querySelectorAll('.subhead, .more-btn').forEach(function(x){ x.style.display = 'none'; }); document.querySelectorAll('.foldable').forEach(function(c){ c.style.display = ''; }); }
+      else { location.reload(); }
+    });
+  });
+  document.querySelectorAll('.more-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var site = b.closest('.site');
+      var isSt = b.getAttribute('data-more').indexOf('-st') > 0;
+      var shown = false;
+      site.querySelectorAll(isSt ? '.st.foldable' : '.ctx.foldable').forEach(function(c){
+        if (c.classList.contains('hiddencard')) { c.classList.remove('hiddencard'); c.style.display = ''; shown = true; }
+        else { c.classList.add('hiddencard'); c.style.display = 'none'; }
+      });
+      b.textContent = shown ? 'Voir moins' : b.getAttribute('data-label') || 'Voir plus';
+      if (!shown) location.reload();
+    });
+  });
+})();
+</script>
+</body>
+</html>

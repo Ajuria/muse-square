@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prototype — Pulse premium : header-score + 3 volets</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<style>
+  /* Real tokens — copied from src/styles/design-tokens.css (no invented values) */
+  :root{
+    --color-bg-page: #f5f6f8;
+    --color-bg-card: #ffffff;
+    --color-border: rgba(0,0,0,0.08);
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: rgba(17,24,39,0.45);
+    --color-brand-blue:#0b37e5;
+    --color-bg-recessed:#F4F5F7;
+    --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--color-bg-page);font-family:var(--font-family);color:var(--color-text-primary);padding:28px 16px 60px;}
+  .wrap{max-width:560px;margin:0 auto;}
+  a{color:inherit;}
+  [data-acc-body]{overflow:hidden;transition:max-height .18s ease;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══ Prototype header (not part of the page) ══ -->
+  <div style="background:#fff;border:1px solid var(--color-border);border-radius:10px;padding:14px 16px;margin-bottom:22px;">
+    <p style="font-size:13px;font-weight:600;color:var(--color-text-primary);margin:0 0 6px;">Prototype — Pulse premium : score dans le header (cliquable) + 3 volets</p>
+    <ul style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin:0;padding-left:16px;">
+      <li>Couleur = signal : volets neutres tant que rien ne mérite l'attention ; aujourd'hui le seul signal est la vigilance météo, portée par le header.</li>
+      <li>« Pourquoi ce score » s'ouvre depuis le header. Concurrence répond « que font-ils, où sont-ils » : carte réelle + activité réelle (3 expositions Pompidou en cours).</li>
+      <li>Un volet ouvert à la fois ; l'état est mémorisé. Point bleu = nouveauté depuis la dernière visite.</li>
+      <li>Données réelles du 16/07/2026 (compte Muse Square) ; Opérations : état réel = aucune, exemple étiqueté en bas.</li>
+    </ul>
+  </div>
+
+  <!-- ══ Header — score + verdict, cliquable → Pourquoi ce score ══ -->
+  <div data-hero-toggle style="cursor:pointer;padding-top:2px;">
+    <p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">jeudi 16 juillet 2026</p>
+    <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">
+      <div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">5.8</span><span style="font-size:16px;color:var(--color-text-muted);">/10</span></div>
+      <div style="flex:1;min-width:220px;">
+        <p style="font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">Contexte correct. Mardi est plus favorable cette semaine.</p>
+        <p style="font-size:12px;color:var(--color-text-secondary);margin:4px 0 0;">Jour le moins favorable de la semaine</p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+      <span style="font-size:12px;color:#1D3BB3;font-weight:500;">Pourquoi ce score <span data-hero-chevron style="display:inline-block;transition:transform .15s;">&#8595;</span></span>
+      <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#FEE2E2;color:#991B1B;">Vigilance niv. 3</span>
+    </div>
+  </div>
+
+  <!-- Révélation inline : pourquoi ce score -->
+  <div data-acc-body data-hero-body style="max-height:0;">
+    <div style="padding-top:14px;">
+      <div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;padding:2px 14px 14px;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #E6E8EC;">
+          <div style="min-width:0;">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Météo</div>
+            <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Nuageux · 21° – 32°</div>
+          </div>
+          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#FEE2E2;color:#991B1B;flex-shrink:0;">Vigilance niv. 3</span>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #E6E8EC;">
+          <div style="min-width:0;">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Fréquentation</div>
+            <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Pic estimé 90 % à 18h</div>
+          </div>
+          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#475569;flex-shrink:0;">5e sur 7</span>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #E6E8EC;">
+          <div style="min-width:0;">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Événements autour</div>
+            <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">7 à moins de 500 m · 324 à 5 km</div>
+          </div>
+          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#475569;flex-shrink:0;">Pression ×1,1</span>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;">
+          <div style="min-width:0;">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Calendrier</div>
+            <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Vacances d'été · Temps fort commercial</div>
+          </div>
+          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#475569;flex-shrink:0;">Vacances</span>
+        </div>
+
+        <!-- Fréquentation — carte existante -->
+        <div style="background:#fff;border:0.5px solid var(--color-border);border-radius:12px;overflow:hidden;margin-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;">
+            <span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">&#128694; Fréquentation</span>
+            <span style="display:inline-flex;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:500;background:var(--color-bg-recessed);color:var(--color-text-secondary);">5e sur 7</span>
+          </div>
+          <div style="padding:8px 16px 0;display:flex;align-items:baseline;gap:8px;">
+            <span style="font-size:28px;font-weight:500;color:var(--color-text-primary);">90</span>
+            <span style="font-size:14px;color:var(--color-text-secondary);">%</span>
+            <span style="font-size:13px;color:var(--color-text-secondary);">pic estimé</span>
+          </div>
+          <div style="padding:2px 16px 12px;font-size:12px;color:var(--color-text-muted);">Moyenne : 53% · Pic estimé : 90%</div>
+          <div style="display:flex;align-items:flex-end;gap:6px;padding:0 16px 4px;height:80px;">
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">18%</div><div style="width:100%;border-radius:3px 3px 0 0;height:11px;background:rgba(24,95,165,0.34);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">6h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">33%</div><div style="width:100%;border-radius:3px 3px 0 0;height:20px;background:rgba(24,95,165,0.46);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">8h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">48%</div><div style="width:100%;border-radius:3px 3px 0 0;height:29px;background:rgba(24,95,165,0.58);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">10h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">70%</div><div style="width:100%;border-radius:3px 3px 0 0;height:42px;background:rgba(24,95,165,0.76);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">12h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">72%</div><div style="width:100%;border-radius:3px 3px 0 0;height:43px;background:rgba(24,95,165,0.78);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">14h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">83%</div><div style="width:100%;border-radius:3px 3px 0 0;height:50px;background:rgba(24,95,165,0.86);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">16h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">90%</div><div style="width:100%;border-radius:3px 3px 0 0;height:54px;background:rgba(24,95,165,0.92);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">18h</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">74%</div><div style="width:100%;border-radius:3px 3px 0 0;height:45px;background:rgba(24,95,165,0.79);"></div><div style="font-size:10px;color:var(--color-text-muted);margin-top:4px;">20h</div></div>
+          </div>
+          <div style="display:flex;border-top:0.5px solid var(--color-border);">
+            <div style="flex:1;padding:10px 16px;"><div style="font-size:10px;color:var(--color-text-muted);margin-bottom:2px;">Pic habituel</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">18h – 19h</div></div>
+            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border);"><div style="font-size:10px;color:var(--color-text-muted);margin-bottom:2px;">Heure creuse</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">3h</div></div>
+            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border);"><div style="font-size:10px;color:var(--color-text-muted);margin-bottom:2px;">Heures chargées</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">8h</div></div>
+          </div>
+        </div>
+
+        <div style="padding-top:12px;text-align:right;">
+          <a href="#" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Fiabilité des alertes &#8594;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Mon environnement — 3 volets, neutres (couleur = signal) ══ -->
+  <div style="margin-top:26px;margin-bottom:20px;">
+    <p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p>
+    <div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">
+
+      <!-- ── Volet 1 : Opérations en cours (état réel : aucune) ── -->
+      <div>
+        <div data-acc-toggle="ops" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:14px;color:var(--color-text-primary);margin:0;">Opérations en cours</p>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">Aucune opération en cours</p>
+          </div>
+          <svg data-acc-chevron="ops" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div data-acc-body data-acc-panel="ops" style="max-height:0;">
+          <div style="padding:0 14px 14px;">
+            <div style="display:flex;align-items:center;gap:14px;padding:6px 0 2px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;color:#6B7280;line-height:1.5;">Engagez-vous sur une carte du jour : son impact sera mesuré ici, en euros.</div>
+              </div>
+              <a href="#" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Voir les actions du jour</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Volet 2 : Performance de l'entreprise ── -->
+      <div style="border-top:1px solid var(--color-border);">
+        <div data-acc-toggle="perf" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:14px;color:var(--color-text-primary);margin:0;">Performance de l'entreprise</p>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">CA du jour : 1&#8239;270&nbsp;€ · 285 ventes</p>
+          </div>
+          <span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;background:#F1F5F9;color:#475569;white-space:nowrap;flex-shrink:0;">+10&#8239;% vs moy. 30&#8239;j</span>
+          <svg data-acc-chevron="perf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div data-acc-body data-acc-panel="perf" style="max-height:0;">
+          <div style="padding:0 14px 14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #E6E8EC;">
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">CA réalisé — jeudi 16/07</div>
+                <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">1&#8239;270&nbsp;€ · moyenne 30&#8239;j : 1&#8239;158&nbsp;€</div>
+              </div>
+              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#475569;flex-shrink:0;">+10&#8239;%</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #E6E8EC;">
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">vs jeudi dernier — 09/07</div>
+                <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">1&#8239;513&nbsp;€ réalisés ce jour-là</div>
+              </div>
+              <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11.5px;font-weight:600;background:#F1F5F9;color:#475569;flex-shrink:0;">&#8722;16&#8239;%</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;">
+              <div style="min-width:0;">
+                <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Panier moyen</div>
+                <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">4,46&nbsp;€ · 285 ventes</div>
+              </div>
+            </div>
+
+            <div style="background:#fff;border:0.5px solid var(--color-border);border-radius:12px;overflow:hidden;margin-top:10px;">
+              <div style="padding:14px 16px 0;">
+                <span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">CA — 7 derniers jours</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;padding:12px 16px 4px;height:80px;">
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;465</div><div style="width:100%;border-radius:3px 3px 0 0;height:54px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">VEN</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;454</div><div style="width:100%;border-radius:3px 3px 0 0;height:54px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">SAM</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;196</div><div style="width:100%;border-radius:3px 3px 0 0;height:44px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">DIM</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;513</div><div style="width:100%;border-radius:3px 3px 0 0;height:56px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">LUN</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;247</div><div style="width:100%;border-radius:3px 3px 0 0;height:46px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">MAR</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">1&#8239;117</div><div style="width:100%;border-radius:3px 3px 0 0;height:41px;background:#cbd5e1;"></div><div style="font-size:10px;margin-top:4px;color:var(--color-text-muted);">MER</div></div>
+                <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;"><div style="font-size:10px;font-weight:500;color:#185FA5;margin-bottom:3px;">1&#8239;270</div><div style="width:100%;border-radius:3px 3px 0 0;height:47px;background:#185FA5;"></div><div style="font-size:10px;margin-top:4px;font-weight:500;color:#185FA5;">JEU</div></div>
+              </div>
+              <div style="padding:6px 16px 12px;font-size:11px;color:var(--color-text-muted);">Dernier import : 16/07/2026</div>
+            </div>
+
+            <div style="padding-top:12px;text-align:right;">
+              <a href="#" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">Rapport de ventes &#8594;</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Volet 3 : Concurrence — que font-ils, où sont-ils ── -->
+      <div style="border-top:1px solid var(--color-border);">
+        <div data-acc-toggle="conc" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:14px;color:var(--color-text-primary);margin:0;">Concurrence <span data-new-dot style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#1D3BB3;vertical-align:middle;margin-left:4px;"></span></p>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">2 suivis · 3 expositions en cours</p>
+          </div>
+          <span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;background:#F1F5F9;color:#475569;white-space:nowrap;flex-shrink:0;">Aucun conflit direct</span>
+          <svg data-acc-chevron="conc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div data-acc-body data-acc-panel="conc" style="max-height:0;">
+          <div style="padding:0 14px 14px;">
+
+            <!-- Où sont-ils — carte réelle -->
+            <div style="border:0.5px solid var(--color-border);border-radius:10px;overflow:hidden;margin-top:2px;">
+              <div id="conc-map" style="height:200px;background:#EBEEF2;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#fff;">
+                <span style="font-size:11px;color:var(--color-text-secondary);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1D3BB3;margin-right:4px;"></span>Vous&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#d97706;margin-right:4px;"></span>Menace modérée&nbsp;&nbsp;<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;margin-right:4px;"></span>Menace faible</span>
+                <a href="#" style="font-size:11px;font-weight:600;color:#1D3BB3;text-decoration:none;">Ouvrir la carte &#8594;</a>
+              </div>
+            </div>
+
+            <!-- Que font-ils — activité réelle -->
+            <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin:14px 0 2px;">Ce qu'ils font</div>
+
+            <div style="display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid #E6E8EC;">
+              <div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">CP</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:14px;font-weight:500;color:#111827;">Centre Pompidou</span>
+                  <span style="font-size:11px;color:#8A909A;">6.2 km</span>
+                </div>
+                <div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.55;">
+                  <div>« Raoul Dufy, la mélodie du bonheur » — jusqu'au 20/09</div>
+                  <div>« La mer est ton miroir » — jusqu'au 01/11</div>
+                  <div>« Vasarely et l'architecture » — jusqu'au 01/11</div>
+                </div>
+              </div>
+              <span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil &#8594;</span>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:11px;padding:11px 0;">
+              <div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">MG</div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:14px;font-weight:500;color:#111827;">Musée Guimet</span>
+                  <span style="font-size:11px;color:#8A909A;">2.4 km</span>
+                  <span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;">Menace modérée</span>
+                </div>
+                <div style="font-size:12px;color:#6b7280;margin-top:4px;">Aucun événement en cours · dernier : « K-Music », 21/06</div>
+              </div>
+              <span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil &#8594;</span>
+            </div>
+
+            <div style="padding:8px 0 0;display:flex;justify-content:space-between;align-items:center;">
+              <a href="#" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">+ Ajouter un concurrent (via Consulter)</a>
+              <a href="#" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Gérer mes suivis &#8594;</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ EXEMPLE — volet Opérations avec des opérations actives ══ -->
+  <div style="margin-top:34px;">
+    <p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Exemple — Opérations avec 2 actions suivies <span style="text-transform:none;letter-spacing:0;">(données d'un autre compte, pour juger le rendu)</span></p>
+    <div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">
+      <div>
+        <div data-acc-toggle="opsx" style="display:flex;align-items:center;gap:11px;padding:13px 14px;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:14px;color:var(--color-text-primary);margin:0;">Opérations en cours</p>
+            <p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">1 en cours · 1 terminée</p>
+          </div>
+          <span style="font-size:12px;font-weight:500;padding:3px 9px;border-radius:20px;background:#DCFCE7;color:#166534;white-space:nowrap;flex-shrink:0;">+510&nbsp;€ mesurés</span>
+          <svg data-acc-chevron="opsx" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;transform:rotate(180deg);"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div data-acc-body data-acc-panel="opsx" style="max-height:none;">
+          <div style="padding:0 14px 14px;">
+
+            <div style="padding:13px 0;border-bottom:1px solid #E6E8EC;">
+              <div style="display:flex;align-items:flex-start;gap:11px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:500;color:#111827;">Offre d'appel sur vos créneaux creux (formule ou menu du jour)</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+                    <span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#EEF2FF;color:#1D3BB3;">En cours</span>
+                    <span style="font-size:12px;color:#6b7280;">J+3 / 14 · verdict le 27/07</span>
+                  </div>
+                </div>
+                <span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Détail &#8594;</span>
+              </div>
+              <div style="height:3px;border-radius:2px;background:#E6E8EC;margin-top:10px;overflow:hidden;">
+                <div style="height:100%;width:21%;border-radius:2px;background:#1D3BB3;"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 0;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:500;color:#111827;">Relancer une offre les jours de forte chaleur</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+                  <span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#dcfce7;color:#166534;">Objectif atteint</span>
+                  <span style="font-size:12px;color:#6b7280;">10&#8239;620&nbsp;€ réalisés vs 10&#8239;110&nbsp;€ attendus · +5&#8239;% (+510&nbsp;€)</span>
+                </div>
+              </div>
+              <span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Détail &#8594;</span>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;border-top:1px solid #E6E8EC;">
+              <span style="font-size:12px;color:var(--color-text-secondary);">Mesuré depuis janvier : <span style="font-weight:600;color:#166534;">+510&nbsp;€</span></span>
+              <a href="#" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Historique &#8594;</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script>
+  // Accordion — one open at a time in the main container; state remembered.
+  var PANELS = ["ops", "perf", "conc"];
+  function setOpen(id, open) {
+    var body = document.querySelector('[data-acc-panel="' + id + '"]');
+    var ch = document.querySelector('[data-acc-chevron="' + id + '"]');
+    if (!body) return;
+    if (open) {
+      body.style.maxHeight = body.scrollHeight + "px";
+      setTimeout(function () { if (body.style.maxHeight !== "0px") body.style.maxHeight = "none"; }, 200);
+    } else {
+      if (body.style.maxHeight === "none") body.style.maxHeight = body.scrollHeight + "px";
+      requestAnimationFrame(function () { body.style.maxHeight = "0px"; });
+    }
+    if (ch) ch.style.transform = open ? "rotate(180deg)" : "";
+  }
+  PANELS.forEach(function (id) {
+    var btn = document.querySelector('[data-acc-toggle="' + id + '"]');
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var body = document.querySelector('[data-acc-panel="' + id + '"]');
+      var isOpen = body.style.maxHeight !== "0px";
+      PANELS.forEach(function (other) { if (other !== id) setOpen(other, false); });
+      if (isOpen) { setOpen(id, false); }
+      if (!isOpen) {
+        setOpen(id, true);
+        try { localStorage.setItem("msProto3Open", id); } catch (e) {}
+        if (id === "conc") {
+          var dot = document.querySelector("[data-new-dot]");
+          if (dot) dot.style.display = "none";
+          try { localStorage.setItem("msProto3SeenConc", "1"); } catch (e) {}
+        }
+        if (id === "conc" && !window._concMapDone) initConcMap();
+      } else {
+        try { localStorage.setItem("msProto3Open", ""); } catch (e) {}
+      }
+    });
+  });
+
+  // Example volet toggle (independent of the accordion)
+  (function () {
+    var btn = document.querySelector('[data-acc-toggle="opsx"]');
+    var body = document.querySelector('[data-acc-panel="opsx"]');
+    var ch = document.querySelector('[data-acc-chevron="opsx"]');
+    btn.addEventListener("click", function () {
+      var isOpen = body.style.maxHeight !== "0px";
+      if (isOpen) {
+        if (body.style.maxHeight === "none") body.style.maxHeight = body.scrollHeight + "px";
+        requestAnimationFrame(function () { body.style.maxHeight = "0px"; });
+        ch.style.transform = "";
+      } else {
+        body.style.maxHeight = body.scrollHeight + "px";
+        setTimeout(function () { if (body.style.maxHeight !== "0px") body.style.maxHeight = "none"; }, 200);
+        ch.style.transform = "rotate(180deg)";
+      }
+    });
+  })();
+
+  // Hero reveal — Pourquoi ce score
+  (function () {
+    var hero = document.querySelector("[data-hero-toggle]");
+    var body = document.querySelector("[data-hero-body]");
+    var ch = document.querySelector("[data-hero-chevron]");
+    hero.addEventListener("click", function () {
+      var isOpen = body.style.maxHeight !== "0px";
+      if (isOpen) {
+        if (body.style.maxHeight === "none") body.style.maxHeight = body.scrollHeight + "px";
+        requestAnimationFrame(function () { body.style.maxHeight = "0px"; });
+        ch.style.transform = "";
+      } else {
+        body.style.maxHeight = body.scrollHeight + "px";
+        setTimeout(function () { if (body.style.maxHeight !== "0px") body.style.maxHeight = "none"; }, 200);
+        ch.style.transform = "rotate(180deg)";
+      }
+    });
+  })();
+
+  // Real map — venue + followed competitors (real coordinates from dims/semantic)
+  function initConcMap() {
+    window._concMapDone = true;
+    if (typeof L === "undefined") {
+      document.getElementById("conc-map").innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:#94a3b8;">Carte indisponible (Leaflet non chargé)</div>';
+      return;
+    }
+    var map = L.map("conc-map", { zoomControl: false, scrollWheelZoom: false, dragging: false, doubleClickZoom: false });
+    window._concMap = map;
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap contributors" }).addTo(map);
+    var venue = [48.852764, 2.267418];
+    var guimet = [48.8651018, 2.2937604];
+    var pompidou = [48.8608316, 2.3517012];
+    L.circleMarker(venue, { radius: 8, color: "#fff", weight: 2, fillColor: "#1D3BB3", fillOpacity: 1 }).addTo(map).bindTooltip("Vous", { direction: "top" });
+    L.circleMarker(guimet, { radius: 7, color: "#fff", weight: 2, fillColor: "#d97706", fillOpacity: 1 }).addTo(map).bindTooltip("Musée Guimet", { direction: "top" });
+    L.circleMarker(pompidou, { radius: 7, color: "#fff", weight: 2, fillColor: "#94a3b8", fillOpacity: 1 }).addTo(map).bindTooltip("Centre Pompidou", { direction: "top" });
+    map.fitBounds([venue, guimet, pompidou], { padding: [28, 28] });
+    // The volet is still height-animating when the map mounts — remeasure once it settles.
+    setTimeout(function () {
+      map.invalidateSize();
+      map.fitBounds([venue, guimet, pompidou], { padding: [28, 28] });
+    }, 280);
+  }
+
+  // Restore remembered state; hide the "nouveau" dot if Concurrence already seen.
+  (function () {
+    try {
+      if (localStorage.getItem("msProto3SeenConc") === "1") {
+        var dot = document.querySelector("[data-new-dot]");
+        if (dot) dot.style.display = "none";
+      }
+      var open = localStorage.getItem("msProto3Open");
+      if (open && PANELS.indexOf(open) >= 0) {
+        setOpen(open, true);
+        if (open === "conc") initConcMap();
+      }
+    } catch (e) {}
+  })();
+</script>
+</body>
+</html>
