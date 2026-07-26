@@ -350,7 +350,7 @@ if (!location_id) {
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/reco-library.js?v=5"></script>
-    <script is:inline src="/commit-form.js?v=7"></script>
+    <script is:inline src="/commit-form.js?v=8"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
     <script is:inline src="/action-cards.js?v=32"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
@@ -1761,12 +1761,16 @@ if (!location_id) {
       // --- Agir dropdown (opens below) ---
       // Branche positive de M'engager : la NATURE de la carte (opportunité), jamais la couleur
       // du montant, décide du formulaire (bonnes pratiques vs objectif) — validé 26/07.
+      // Retour de test 26/07 soir : sur une carte positive, l'entr\u00e9e s'appelle \u00ab Enrichir vos
+      // bonnes pratiques \u00bb (on documente ce qui a march\u00e9, on ne s'engage pas \u2014 le libell\u00e9 suit).
       var _agirPositive = t.barClass === 'ab-opportunity' ? ' data-agir-positive="1"' : '';
+      var _commitEntry = '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
+        + '<div class="ab-dd-icon ab-dd-icon-send">' + (_agirPositive ? '\ud83d\udca1' : '\ud83c\udfaf') + '</div>'
+        + '<div><div class="ab-dd-label">' + (_agirPositive ? 'Enrichir vos bonnes pratiques' : 'M\u2019engager') + '</div>'
+          + '<div class="ab-dd-desc">' + (_agirPositive ? 'Garder ce qui a march\u00e9 \u2014 et le rejouer' : 'Fixer une action, un objectif et un responsable') + '</div></div>'
+      + '</button>';
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
-          + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
-          + '</button>'
+        + _commitEntry
         + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
           + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">V\u00e9rifier les faits avant de s\u2019engager</div></div>'
@@ -1792,10 +1796,7 @@ if (!location_id) {
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
-            + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
-            + '</button>'
+          + _commitEntry
           + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
             + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Vérifier les faits avant de s’engager</div></div>'
@@ -2108,6 +2109,14 @@ if (!location_id) {
             fetch('/api/best-practices', { method: 'PATCH', headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ practice_id: ws.getAttribute('data-bp-chain-practice'), location_id: card.location_id, replay_commitment_id: j.commitment_id }) }).catch(function(){});
             ws.removeAttribute('data-bp-chain-practice');
+          }
+          // Retour de test 26/07 : la carte système engagée sort de la liste tout de suite
+          // (la carte engagement la remplace via renderEngagements ; au prochain chargement la
+          // suppression serveur Phase 1 — origin_suppression_key — prend le relais).
+          if (j && j.ok) {
+            var _m = /^ab-card-(\d+)-workspace$/.exec(ws.id || '');
+            var _cardEl = _m ? document.getElementById('ab-card-' + _m[1]) : null;
+            if (_cardEl) setTimeout(function(){ _cardEl.style.display = 'none'; }, 1400);
           }
         },
         onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; ws.removeAttribute('data-bp-chain-practice'); }

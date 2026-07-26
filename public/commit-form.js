@@ -344,10 +344,32 @@
 
     var submit = container.querySelector("[data-cm-submit]");
     if (submit) submit.addEventListener("click", function () {
-      var owner = ((container.querySelector("[data-cm-owner]") || {}).value || "").trim();
-      var action = ((container.querySelector("[data-cm-action]") || {}).value || "").trim();
+      var ownerEl = container.querySelector("[data-cm-owner]");
+      var actionEl = container.querySelector("[data-cm-action]");
+      var owner = ((ownerEl || {}).value || "").trim();
+      var action = ((actionEl || {}).value || "").trim();
       var goalPct = Number(state.goalPct);
-      if (!owner || !action || !Number.isFinite(goalPct) || goalPct < 1 || goalPct > 100) return;
+      // Validation BRUYANTE (retour de test 26/07 : le return muet laissait croire à un clic
+      // sans effet — aucun engagement créé, aucun message). Champs manquants surlignés + dit.
+      var missing = [];
+      if (!action) missing.push("votre action");
+      if (!owner) missing.push("un responsable");
+      if (!Number.isFinite(goalPct) || goalPct < 1 || goalPct > 100) missing.push("un objectif entre 1 et 100 %");
+      if (ownerEl) ownerEl.style.borderColor = !owner ? "#B45309" : "#e5e7eb";
+      if (actionEl) actionEl.style.borderColor = !action ? "#B45309" : "#e5e7eb";
+      var warn = container.querySelector("[data-cm-warn]");
+      if (missing.length) {
+        if (!warn) {
+          warn = document.createElement("div");
+          warn.setAttribute("data-cm-warn", "1");
+          warn.style.cssText = "font-size:11px;color:#B45309;margin-bottom:8px;line-height:1.5;";
+          submit.parentNode.parentNode.insertBefore(warn, submit.parentNode);
+        }
+        warn.textContent = "Il manque " + missing.join(" et ") + " pour vous engager.";
+        (!action && actionEl ? actionEl : ownerEl) && (!action && actionEl ? actionEl : ownerEl).focus();
+        return;
+      }
+      if (warn) warn.remove();
       rememberOwner(opts.location_id, owner);   // a typed name counts too — it prefills next time
       submit.disabled = true; submit.textContent = "Envoi…";
       fetch("/api/commitments", {

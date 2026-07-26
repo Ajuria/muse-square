@@ -58,3 +58,21 @@ Remontée PROACTIVE sur jours comparables À VENIR (registre de classes → « d
 rejouez X ») — même table, aucun schéma à changer. Multi-sites : lecture compte (site d'abord,
 sinon compte). La carte `proven_action_replication` (corrélation des actions PUBLIÉES, mesure
 auto) reste complémentaire — jamais fusionnée avec les pratiques déclarées.
+
+## Retour de test owner (26/07 soir) — 3 corrections
+
+1. **Libellé** : sur carte positive l'entrée de menu ne dit plus « M'engager » mais « Enrichir
+   vos bonnes pratiques » (desc « Garder ce qui a marché — et le rejouer ») — on documente, on
+   ne s'engage pas ; le libellé suit le geste. (`_commitEntry` partagé par les deux variantes.)
+2. **Engagement silencieusement perdu** : la pratique s'écrivait (vérifié en BQ) mais AUCUN
+   commitment n'était créé — le submit de MSCommitForm faisait un `return` muet quand
+   Responsable/Action/Objectif manquait. Validation bruyante ajoutée (surlignage + « Il manque
+   … pour vous engager » + focus). Cause probable du « M'engager sur +10 % ne fait rien ».
+3. **Carte système retirée immédiatement** après engagement créé (setTimeout 1,4 s après le
+   message de succès) — la carte engagement la remplace via renderEngagements ; au prochain
+   chargement la suppression serveur Phase 1 (origin_suppression_key) prend le relais.
+
+Gap connu (chip tâche séparée) : la whitelist candidates d'action-cards.js (~l. 2200) ne porte
+pas origin_driver/residual/avg_30d → les engagements/pratiques nés d'un action_candidate ont
+un driver null (kpi retombe sur revenue_residual) et pas de baseline carte. À enrichir
+monitor.ts → whitelist.
