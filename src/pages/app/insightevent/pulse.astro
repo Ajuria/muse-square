@@ -199,7 +199,9 @@ if (!location_id) {
       /* ---- Action-card chips / action line / Agir / disposition ---- */
       .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
       .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
-      .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
+      /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html) : la ligne d'action est
+         l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
+      .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
       .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
       .disc { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
       .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:10px; padding:4px 10px; cursor:pointer; font-family:inherit; }
@@ -221,8 +223,15 @@ if (!location_id) {
       .ab-summary { padding:14px 16px; cursor:pointer; }
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
       .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
-      .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+      .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
       .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+      /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
+         invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
+         « cause multifactorielle » + sens de la couleur en infobulle (title), signalée par le
+         pointillé. Couleur du montant = sens du flux (vert = à capter, ambre = à défendre). */
+      .amt { text-align:right; flex:none; cursor:help; max-width:150px; }
+      .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
+      .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
       /* Décision D (18/07) : cartes action fermées à 3 lignes, « Voir plus » seulement si ça déborde. */
       .ab-sowhat.pls-clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
       .pls-more { font-size:11.5px; font-weight:600; color:#1D3BB3; cursor:pointer; margin-top:5px; }
@@ -1693,18 +1702,10 @@ if (!location_id) {
           pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
         }
       }
-      // Enjeu \u20ac/an (serveur, mesure du motif \u2014 jamais extrapol\u00e9 du jour) : premi\u00e8re position,
-      // tier en suffixe. N\u00e9gatif = AMBRE (\u00e0 d\u00e9fendre), positif = VERTE (\u00e0 capter, chip-good) \u2014 \u00e9tape 2 valid\u00e9e 24/07. Pas de mesure \u2192 pas de pill.
+      // Enjeu \u20ac/an : depuis le restyle R1 (valid\u00e9 26/07, proto cards-restyle-proto.html) le
+      // montant ne vit plus ici \u2014 il est rendu dans la zone titre (bloc .amt, cf. cardsHtml).
+      // La strip garde : automation/\u00e9tat, r\u00e9putation, raison d'absence, disposition (R3).
       var enj = a && a.enjeu;
-      if (enj && Number(enj.eur_year) && enj.tier) {
-        var enjAmount = Math.abs(Math.round(Number(enj.eur_year))).toLocaleString('fr-FR');
-        var enjPos = Number(enj.eur_year) > 0;
-        var enjBg = enjPos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
-        var enjFg = enjPos ? 'var(--color-pill-green-text)' : '#B45309';
-        var enjLabel = enj.inherited ? 'Motif de fond' : (enjPos ? '\u00c0 capter' : 'Enjeu');
-        var enjSuffix = enj.inherited && enj.label_fr ? escapeHtml(String(enj.label_fr).replace(/^jours /, '')) + ' \u00b7 ' : '';
-        pills.unshift('<span class="ab-metric" style="background:' + enjBg + ';color:' + enjFg + ';">' + enjLabel + '\u00a0<span class="ab-metric-val" style="color:' + enjFg + ';">~' + enjAmount + '\u00a0\u20ac/an</span>\u00a0\u00b7 ' + enjSuffix + escapeHtml(String(enj.tier_label_fr || enj.tier)) + '</span>');
-      }
       // Trio réputation (étape 4, mapping C2) : pas de pill € — le KPI de suivi est affiché en
       // clair (mesure via GBP connect à venir ; jamais un € inventé sur la réputation).
       var REPUTATION_TYPES = { competitor_review_surge: 1, competitor_review_drop: 1, competitor_reputation_strength: 1, review_solicitation: 1 };
@@ -1811,7 +1812,40 @@ if (!location_id) {
       var _tH = (t.urgencyPill && String(t.urgencyPill.label).indexOf('ujourd') >= 0) ? 0 : ((t.urgencyPill && String(t.urgencyPill.label).indexOf('semaine') >= 0) ? 1 : 2);
       var _tE = (entry.item.enjeu && entry.item.enjeu.eur_year) ? Math.abs(Math.round(Number(entry.item.enjeu.eur_year))) : 0;
       var _tN = (entry.item.enjeu && Number(entry.item.enjeu.eur_year)) ? (Number(entry.item.enjeu.eur_year) > 0 ? 'capture' : 'defend') : 'none';
-      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '" style="border-left:3px solid #6B7280;">'
+
+      // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html) ----
+      // R2 : barre latérale sémantique = border-left de la carte (couleurs .ab-bar existantes :
+      // rouge menace / ambre vigilance / vert opportunité, gris neutre sinon).
+      var _barColor = t.barClass === 'ab-threat' ? '#e24b4a' : t.barClass === 'ab-warning' ? '#ef9f27' : t.barClass === 'ab-opportunity' ? '#059669' : '#6B7280';
+      // R2 : chip catégorie sobre — sans emoji, sans MAJUSCULES (le sémantique est sur la barre).
+      var _catNice = catLabel ? catLabel.charAt(0) + catLabel.slice(1).toLowerCase() : '';
+      // R1/R5/R6 : montant en zone titre. Sans « ~ » (« estimé » porte la prudence). Libellé
+      // invariant deux mots ; « cause multifactorielle » + sens de la couleur en infobulle.
+      // Couleur = sens du flux mesuré (vert = à capter, ambre = à défendre), indépendante de la barre.
+      var _amtHtml = '';
+      if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
+        var _enj = entry.item.enjeu;
+        var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
+        var _aPos = Number(_enj.eur_year) > 0;
+        var _aFg = _aPos ? 'var(--color-pill-green-text)' : '#B45309';
+        var _aLbl = (_enj.inherited ? 'Motif de fond' : 'Enjeu') + ' · ' + String(_enj.tier || '');
+        var _aTip = [];
+        if (_enj.inherited && _enj.label_fr) _aTip.push('Motif de fond de la journée : ' + String(_enj.label_fr).replace(/^jours (de |d’|à )?/, '') + '.');
+        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
+        _aTip.push(_aPos ? 'Montant vert : € encaissés en plus sur ces jours — à capter.' : 'Montant ambre : € perdus sur ce motif — à défendre.');
+        _amtHtml = '<div class="amt" title="' + escapeHtml(_aTip.join(' ')) + '">'
+          + '<div class="amt-val" style="color:' + _aFg + ';">' + _aVal + ' €/an</div>'
+          + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
+        + '</div>';
+      }
+      // R3 : « Action menée ? » fusionnée dans la strip (2 rangées au lieu de 3) — mêmes
+      // data-ab-dispo-* (le handler passe par closest('[data-ab-dispo-row]'), inchangé).
+      var _dispoHtml = (t._card_type === 'action') ? ('<span data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '" style="display:inline-flex;align-items:center;gap:8px;">'
+        + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
+        + '<button type="button" data-ab-dispo-btn="card_already_done" class="disc-btn">Déjà fait</button>'
+        + '<button type="button" data-ab-dispo-btn="card_not_done" class="disc-btn">Pas pour moi</button>'
+      + '</span>') : '';
+      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '" style="border-left:3px solid ' + _barColor + ';">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
@@ -1823,11 +1857,16 @@ if (!location_id) {
                     + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
                     + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                    + '<span class="chip-n' + (t.barClass === 'ab-opportunity' ? ' chip-good' : '') + '">' + escapeHtml(t.typePill.label) + '</span>'
+                    + '<span class="chip-n">' + escapeHtml(_catNice) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
-                  + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
-                  + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
+                  + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+                    + '<div style="flex:1;min-width:0;">'
+                      + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
+                      + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
+                    + '</div>'
+                    + _amtHtml
+                  + '</div>'
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
                 + '</div>'
               + '</div>'
@@ -1839,6 +1878,7 @@ if (!location_id) {
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
               + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
+              + _dispoHtml
               + metricsHtml
               + '<span style="margin-left:auto;display:inline-flex;align-items:center;">'
               + (showAgir
@@ -1852,11 +1892,6 @@ if (!location_id) {
               )
               + '</span>'
             + '</div>'
-            + (t._card_type === 'action' ? ('<div class="disc" data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '">'
-                + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
-                + '<button type="button" data-ab-dispo-btn="card_already_done" class="disc-btn">Déjà fait</button>'
-                + '<button type="button" data-ab-dispo-btn="card_not_done" class="disc-btn">Pas pour moi</button>'
-              + '</div>') : '')
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
           + '</div>'
         + '</div>'
@@ -3796,7 +3831,7 @@ if (!location_id) {
     var sowhat = r.status === 'open' ? escapeHtml(_dispositif)
       : r.status === 'pending' ? escapeHtml(_dispositif + ' · Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j · réévaluation automatique.')
       : r.status === 'expired' ? escapeHtml(_dispositif + ' · Aucune donnée de ventes reçue en 30 j.')
-      : escapeHtml(_dispositif + ' · CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ~' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
+      : escapeHtml(_dispositif + ' · CA ' + (Number(pct) >= 0 ? '+' : '') + pct + ' % vs attendu' + (_base ? ' (habituel ' + _cgEur(_base) + ')' : '') + ' · ' + _cgWin(r.window_kind) + '.');
     var vStyle = 'background:' + v.bg + ';color:' + v.fg + ';font-weight:600;' + (v.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '');
     var pill = '<span class="ab-metric" style="' + vStyle + '">' + _cgIcon(v.p, v.fg) + v.label + (amber ? '<span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;margin-left:2px;"></span>' : '') + '</span>';
     var locLabel = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
@@ -3992,7 +4027,7 @@ if (!location_id) {
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
         + '</span>'
-        + '<span class="ab-metric" style="background:' + pillBg + ';color:' + pillFg + ';flex:none;">' + (pos ? 'À capter' : 'Enjeu') + ' <span class="ab-metric-val" style="color:' + pillFg + ';">~' + amount + ' €/an</span></span>'
+        + '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? 'Montant vert : € encaissés en plus sur ces jours — à capter.' : 'Montant ambre : € perdus sur ce motif — à défendre.') + '">' + amount + ' €/an</span>'
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'

@@ -99,3 +99,37 @@ profondeur : Résolu = motif présent avant, absent des gates maintenant, avec e
   `{class_key: school_holiday, eur_year: −12 016, inherited: true}`.
 - Payload structurel Occitanie : 4 motifs, copy conforme au proto validé.
 - `node --check` sur les 6 scripts inline + `tsc` propres. Rendu visuel + clics = passage owner.
+
+## Restyle des cartes R1-R6 — LIVRÉ sur pulse UNIQUEMENT (26/07 soir)
+
+Validé sur `public/cards-restyle-proto.html` (avant/après). **Pas de parité monitor.astro —
+décision owner 26/07 : monitor est une page différente, elle garde son rendu.** Tout est dans le
+bâtisseur inline de `pulse.astro` (cardsHtml + buildMetricsStrip + `_structRowHtml`).
+
+- **R1 chiffre d'abord** : l'Enjeu €/an quitte la strip du bas et devient un bloc `.amt` à droite
+  du titre (16 px, gras). Pas de mesure → pas de bloc (raison d'absence inchangée dans la strip).
+- **R2 barre sémantique** : `border-left` de `.ab-card` prend la couleur du signal (rouge
+  `#e24b4a` menace / ambre `#ef9f27` vigilance / vert `#059669` opportunité / gris neutre —
+  les couleurs `.ab-bar` historiques). La chip catégorie devient sobre : sans emoji, sans
+  MAJUSCULES (title-case générique de `category_label_fr`). La chip confiance (Probable /
+  À confirmer) est CONSERVÉE — le proto ne la montrait pas mais sa note disait « toutes les
+  pills conservées » ; la retirer serait un retrait de comportement approuvé.
+- **R3 deux rangées** : « Action menée ? » + Déjà fait / Pas pour moi fusionnés DANS la strip
+  (span portant les mêmes `data-ab-dispo-*` ; le handler passe par
+  `closest('[data-ab-dispo-row]')`, inchangé). Le rang `.disc` séparé des cartes action est
+  supprimé (les cartes engagement gardent le leur).
+- **R4** : `.aline` passe en gras (600).
+- **R5/R6 montant honnête et lisible** : plus AUCUN « ~ » (« estimé » porte la prudence) — y
+  compris « habituel ~X € » des cartes engagement et la ligne structurelle. Libellé invariant
+  deux mots sous le montant : « Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité.
+  « cause multifactorielle », la classe héritée et le SENS DE LA COULEUR (vert = € encaissés en
+  plus, à capter ; ambre = € perdus, à défendre — indépendant de la barre) passent en infobulle
+  `title` sur `.amt` (pointillé discret). La ligne structurelle garde « cause multifactorielle »
+  en toutes lettres (elle a la place) et son montant devient texte coloré nu (plus de pill).
+
+Preuve (26/07 soir) : bloc cardsHtml RÉEL extrait du fichier et exécuté en Node sur 4 formes
+d'enjeu (positif simple / hérité+mêlé / mesuré négatif / absent) — zéro « ~ », 3 blocs `.amt`,
+0 rang `.disc`, 3 spans dispo ; HTML injecté dans une harness avec le CSS réel de pulse,
+screenshots conformes au proto. `node --check` propre sur les 6 scripts inline. Le test a
+attrapé un vrai bug (préfixe « jours » mal strippé → « de vacances scolaires » dans l'infobulle),
+corrigé avant livraison. E2E authentifié = passage owner.
