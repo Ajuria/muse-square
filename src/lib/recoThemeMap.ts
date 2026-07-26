@@ -96,17 +96,41 @@ export function themeForActionType(actionType: string | null | undefined): strin
   return ACTION_TYPE_TO_THEME[actionType] || CHAT_DECISION_THEME[actionType] || null;
 }
 
-// Drop candidates whose action_type belongs to a disabled theme.
-// Uncovered action_types (not in any theme) always pass.
+// DÉMOTIONS (étape 4, décision owner 24/07, docs/kpi-enjeu-mapping.md §I + amendement C2) :
+// cartes SANS grandeur mesurable attachée → pas des cartes d'action. Elles quittent « À piloter »
+// (candidates) ; leur information reste servie par le Fil d'actualité (change feed) et Consulter.
+// Le trio réputation (review_surge/drop, reputation_strength) + review_solicitation RESTENT des
+// cartes (KPI réputation affiché, mesure via GBP connect à venir).
+export const DEMOTED_TO_FEED = new Set([
+  // informationnelles (groupe I)
+  "competitor_positioning_brief",
+  "competitor_positioning_gap",
+  "institution_campaign_detected",
+  "media_mention_detected",
+  "weekly_briefing",
+  // signaux concurrents ponctuels non-réputation (amendement C2) : aucune grandeur de VOTRE
+  // activité ne mesure l'issue de « réagir au reprix d'un concurrent » — vigilance, pas action.
+  "competitor_price_drop",
+  "competitor_price_increase",
+  "competitor_repricing_event",
+  "competitor_hours_change",
+  "competitor_new_offering",
+  "competitor_offering_removed",
+  "competitor_content_spike",
+  "competitor_content_silent",
+]);
+
+// Drop candidates whose action_type belongs to a disabled theme, plus the DEMOTED types
+// (feed-only). Uncovered action_types (not in any theme) always pass the theme check.
 export function filterDisabledThemes<T extends { action_type?: string | null }>(
   candidates: T[],
   disabledThemes: string[] | null | undefined
 ): T[] {
-  if (!disabledThemes || !disabledThemes.length) return candidates;
-  const disabled = new Set(disabledThemes);
+  const disabled = new Set(disabledThemes || []);
   return candidates.filter((c) => {
     const at = c.action_type;
     if (!at) return true;
+    if (DEMOTED_TO_FEED.has(at)) return false;
     const theme = ACTION_TYPE_TO_THEME[at];
     return !(theme && disabled.has(theme));
   });

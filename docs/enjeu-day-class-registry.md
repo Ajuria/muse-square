@@ -74,6 +74,26 @@ de l'incrément 1 : l'ajustement saison a dégonflé un chiffre gonflé) ; vacan
 événements reste PUR +7 104 ; tourisme reste ABSENT même en mêlé — la classe EST la saison sur cette
 fenêtre (zéro contraste intra-cellule), absence honnête. Bruit toujours filtré (|t| >= 1).
 
+## Étape 4 (26/07) — pills remises & trafic, KPI réputation, démotions
+
+- **`discount_no_lift`** : classe COÛT — € remisés les jours `is_discount_without_lift` (mart
+  signals), stockés NÉGATIFS → pill ambre. Fait du jour : HORS masque de pureté, HORS ajustement
+  saison, base 'pure' par nature. Réel : les 4 sites mesurent (−27 à −32 €/j ; Occitanie
+  **~−1 039 €/an**, t=8,1).
+- **`traffic_high`** : tercile haut de VOS visiteurs mesurés (`fct_client_daily_performance`) — la
+  classe honnête derrière « Trafic sans conversion » ; le « manque à convertir » contrefactuel du
+  mapping initial était un risque de fabrication (on MESURE le résiduel des jours à forte
+  affluence, on n'invente pas un « récupérable »). Réel : Occitanie **+28 016 €/an · mêlé** (les
+  jours de forte affluence SUR-performent — l'enjeu que la conversion défend) ; absent partout où
+  les visiteurs ne sont pas comptés (absence honnête).
+- **Trio réputation** (`review_surge/drop`, `reputation_strength`, `review_solicitation`) : chip
+  neutre « Suivi : note Google » (pulse) — jamais un € inventé sur la réputation ; mesure à
+  l'arrivée d'une source own-rating (GBP connect).
+- **DÉMOTIONS actives** (`recoThemeMap.DEMOTED_TO_FEED`, appliquées par `filterDisabledThemes` →
+  monitor + days d'un coup) : informationnelles (positioning_brief/gap, institution_campaign,
+  media_mention, weekly_briefing) + signaux concurrents non-réputation (prix/horaires/contenu/offre)
+  — plus jamais dans « À piloter » ; le Fil d'actualité les sert toujours.
+
 ## Couverture actuelle (incrément 1 — store offline, 24/07 soir)
 
 - Classes : les 5 conditions météo (`lvl_* >= 2` de `fct_location_context_daily`), mutuellement

@@ -75,6 +75,16 @@ export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: s
   { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité de vos concurrents suivis" },
   { key: "school_holiday", family: "calendar", label_fr: "jours de vacances scolaires (contrôlé mois et type de jour)" },
   { key: "public_holiday", family: "calendar", label_fr: "jours fériés (contrôlé mois et type de jour)" },
+  // Étape 4 (26/07) :
+  // - traffic_high : tercile haut de VOS visiteurs mesurés (fct_client_daily_performance) — la
+  //   classe honnête derrière « Trafic sans conversion » (le manque à convertir CONTREFACTUEL du
+  //   mapping était un risque de fabrication : on mesure le résiduel des jours à forte affluence,
+  //   on n'invente pas un « récupérable »).
+  // - discount_no_lift : classe COÛT, pas contraste — € remisés les jours à remise sans lift
+  //   (is_discount_without_lift, mart signals), stockés NÉGATIFS (coût → pill ambre). Un fait du
+  //   jour, pas une attribution : HORS masque de pureté et HORS ajustement saison.
+  { key: "traffic_high", family: "traffic", label_fr: "jours à forte affluence" },
+  { key: "discount_no_lift", family: "sales", label_fr: "jours de remise sans effet mesuré" },
 ];
 
 const CLASS_LABELS: Record<string, string> = Object.fromEntries([
@@ -135,7 +145,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         f.tourism_index_region,
         COALESCE(f.mobility_disruption_flag_event_window, FALSE) AS mobility_flag,
         e.events_within_500m_count AS events_500m,
-        COALESCE(sv.active_ct, 0) AS suivis_ct
+        COALESCE(sv.active_ct, 0) AS suivis_ct,
+        perf.daily_visitors AS visitors,
+        COALESCE(sg.is_discount_without_lift, FALSE) AS discount_no_lift_flag,
+        sg.daily_discount_total AS discount_total
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
       JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
         ON r.location_id = c.location_id AND r.date = c.date
@@ -149,6 +162,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         AND e.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND e.date <= CURRENT_DATE()
       LEFT JOIN suivis_daily sv
         ON sv.location_id = c.location_id AND sv.date = c.date
+      LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
+        ON perf.location_id = c.location_id AND perf.transaction_date = c.date
+      LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` sg
+        ON sg.location_id = c.location_id AND sg.transaction_date = c.date
       WHERE c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND c.date <= CURRENT_DATE()
       ${singleLocation ? "AND c.location_id = @location_id" : ""}
     ),
@@ -162,7 +179,9 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         APPROX_QUANTILES(events_500m, 3)[OFFSET(2)] AS ev_t2,
         MIN(events_500m) AS ev_min, MAX(events_500m) AS ev_max,
         APPROX_QUANTILES(IF(suivis_ct > 0, suivis_ct, NULL), 3)[OFFSET(2)] AS sv_t2,
-        COUNT(DISTINCT IF(suivis_ct > 0, suivis_ct, NULL)) AS sv_distinct
+        COUNT(DISTINCT IF(suivis_ct > 0, suivis_ct, NULL)) AS sv_distinct,
+        APPROX_QUANTILES(visitors, 3)[OFFSET(2)] AS vis_t2,
+        MIN(visitors) AS vis_min, MAX(visitors) AS vis_max
       FROM joined
       GROUP BY location_id
     ),
@@ -176,14 +195,16 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         (j.mobility_flag IS TRUE) AS in_mobility,
         (j.suivis_ct > 0 AND t.sv_distinct > 1 AND j.suivis_ct >= t.sv_t2) AS in_suivis,
         (j.school_flag IS TRUE) AS in_school,
-        (j.holiday_flag IS TRUE) AS in_holiday
+        (j.holiday_flag IS TRUE) AS in_holiday,
+        (j.visitors IS NOT NULL AND t.vis_max > t.vis_min AND j.visitors >= t.vis_t2) AS in_traffic
       FROM joined j
       JOIN th t ON t.location_id = j.location_id
     ),
     counted AS (
       SELECT *,
         CAST(in_weather AS INT64) + CAST(in_comp AS INT64) + CAST(in_tour AS INT64) + CAST(in_events AS INT64)
-        + CAST(in_mobility AS INT64) + CAST(in_suivis AS INT64) + CAST(in_school AS INT64) + CAST(in_holiday AS INT64) AS n_memberships
+        + CAST(in_mobility AS INT64) + CAST(in_suivis AS INT64) + CAST(in_school AS INT64) + CAST(in_holiday AS INT64)
+        + CAST(in_traffic AS INT64) AS n_memberships
       FROM flags
     ),
     -- Étape 2.5 : jours de classe (TOUTES appartenances, pureté en colonne) — une passe par classe.
@@ -205,6 +226,9 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       UNION ALL
       SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'suivis' AS family, 'followed_activity_high' AS class_key
       FROM counted WHERE in_suivis
+      UNION ALL
+      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
+      FROM counted WHERE in_traffic
       UNION ALL
       SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
       FROM counted WHERE in_school
@@ -244,6 +268,11 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       UNION ALL
       SELECT location_id, date, gap_eur - ctrl_gap, family, class_key, 'marginal'
       FROM adjusted WHERE ctrl_n >= 3 AND ctrl_gap IS NOT NULL
+      UNION ALL
+      -- discount_no_lift : classe COÛT (€ remisés, stockés négatifs) — fait du jour, hors pureté,
+      -- hors ajustement saison, base 'pure' par nature.
+      SELECT location_id, date, -discount_total, 'sales', 'discount_no_lift', 'pure'
+      FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
     ),
     span AS (
       SELECT location_id, DATE_DIFF(MAX(date), MIN(date), DAY) + 1 AS span_days
@@ -391,6 +420,8 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
 // D'ÉVÉNEMENTS dans leur payload — leur variable réelle est la densité événementielle, pas l'indice
 // de pression ambiante ; elles mappent donc events_high (vérité de la variable, pas du nom).
 const CARD_TYPE_CLASS: Record<string, string> = {
+  sales_traffic_not_converting: "traffic_high",
+  sales_discount_no_lift: "discount_no_lift",
   competition_pressure_spike: "competition_high",
   competition_proximity: "events_high",
   high_competition_density: "events_high",
