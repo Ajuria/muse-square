@@ -99,9 +99,15 @@ const sql = `
 
 let saved_safe: Record<string, string> | null = null;
 
+// Métadonnées Clerk hissées ici : servent au fallback complet (pas de ligne BQ) ET au repli
+// champ-par-champ des attributs UTILISATEUR (position, objectif) quand la ligne PRIMAIRE ne les
+// porte pas — l'onboarding n'écrit ces champs que sur le site créé à ce moment-là ; sur un compte
+// multi-sites le primaire peut être un site ajouté SANS ces champs → affichage vide alors que la
+// donnée existe (bug « rôle pas sauvegardé », Les Olivades 26/07).
+const clerkMeta = (clerkUser.publicMetadata ?? {}) as Record<string, any>;
+
 // Fallback: if no BQ row, use Clerk data
 if (!saved_safe) {
-  const clerkMeta = (clerkUser.publicMetadata ?? {}) as Record<string, any>;
   saved_safe = {
     email: escAttr(clerkEmail),
     first_name: escAttr(clerkUser.firstName),
@@ -150,7 +156,7 @@ try {
       email: escAttr(saved_row.email),
       first_name: escAttr(saved_row.first_name),
       last_name: escAttr(saved_row.last_name),
-      position: escAttr(saved_row.position),
+      position: escAttr(saved_row.position || clerkMeta.position || ""),
       company_name: escAttr(saved_row.company_name),
       company_address: escAttr(saved_row.company_address),
       company_activity_type: escAttr(saved_row.company_activity_type),
@@ -176,7 +182,7 @@ try {
       event_type_3: escAttr(saved_row.event_type_3),
       weather_sensitivity: escAttr(saved_row.weather_sensitivity),
       seasonality: escAttr(saved_row.seasonality),
-      main_event_objective: escAttr(saved_row.main_event_objective),
+      main_event_objective: escAttr(saved_row.main_event_objective || clerkMeta.main_event_objective || ""),
       operating_hours: escAttr(saved_row.operating_hours),
     };
   }
