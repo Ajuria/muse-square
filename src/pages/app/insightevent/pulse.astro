@@ -1753,10 +1753,10 @@ if (!location_id) {
 
       // --- Agir dropdown (opens below) ---
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-          + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
-        + '</button>'
+        + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
+          + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
+          + '</button>'
         + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
           + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
@@ -1771,10 +1771,10 @@ if (!location_id) {
       var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
       if (_isInternalAlert && commChannels.length === 0) {
         menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-            + '<div><div class="ab-dd-label">Analyser et agir</div><div class="ab-dd-desc">Analyser le signal et choisir un plan</div></div>'
-          + '</button>'
+          + '<button type="button" data-agir-commit="' + cardIdx + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
+            + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
+            + '</button>'
           + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
             + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019\u00e9quipe maintenant</div></div>'

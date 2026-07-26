@@ -35,6 +35,21 @@
    motif globalement perdant, et c'est l'insight. Une pill ambre sur une carte opportunité n'est
    pas une contradiction.
 
+## Vocabulaire des CTA (décision owner 26/07 soir — UN concept = UN mot)
+
+- **« M'engager »** est LE mot du concept d'engagement, partout : item du menu Agir des cartes
+  contextuelles ET bouton direct des cartes structurelles. Dans les deux cas il ouvre DIRECTEMENT
+  le formulaire complet (MSCommitForm inline : méthode = 3 recommandations adaptées à la carte +
+  champ libre, objectif % ⇄ €/jour ancré sur le bruit réel du site, fenêtre, responsable).
+- **« Analyser et agir » est SUPPRIMÉ du menu** : l'item dupliquait un chemin qui existe déjà —
+  le clic sur le corps de la carte ouvre l'analyse (`data-consult-open`) ; le bouton « Voir → »
+  des cartes non-action garde son chemin consult propre.
+- Correction d'une justification antérieure FAUTIVE (la mienne) : l'asymétrie « la structurelle
+  n'a pas besoin d'analyse car l'analyse est déjà faite » présumait du comportement de
+  l'utilisateur sans données — un utilisateur peut vouloir creuser DAVANTAGE avant un engagement
+  durable. La vraie règle est vocabulaire : même concept, même mot ; l'analyse est accessible
+  par la carte elle-même, pas par un item de menu.
+
 ## Implémentation (chemin de données)
 
 - **Serveur** : `monitor.ts` → chaque candidate porte `enjeu: DayClassImpact|null`
