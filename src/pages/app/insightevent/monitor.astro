@@ -287,7 +287,7 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
          <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
          page was ~166KB of dead render-blocking JS/CSS (L. is never used inline here). -->
     <script is:inline src="/ms-loader.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=31"></script>
+    <script is:inline src="/action-cards.js?v=32"></script>
   
   <PiloterBottomBar active="evenements" />
 
@@ -1428,6 +1428,23 @@ const focused_date  = Astro.url?.searchParams?.get("date") ?? "";
               + '<div class="ab-sowhat">' + escapeHtml(_swText) + '</div>'
                   + (t.action ? '<div style="font-size:12.5px;font-weight:600;color:#1D3BB3;margin-top:6px;">' + escapeHtml(t.action) + '</div>' : '')
             + '</div>'
+            // Pill Enjeu + raison d'absence (parité Pulse, 26/07) — monitor n'a pas .ab-metric : styles inline.
+            + (function(){
+                var enj = entry.item && entry.item.enjeu;
+                if (enj && Number(enj.eur_year) && enj.tier) {
+                  var amt = Math.abs(Math.round(Number(enj.eur_year))).toLocaleString('fr-FR');
+                  var pos = Number(enj.eur_year) > 0;
+                  var bg = pos ? '#E6F6F0' : '#FEF3E2';
+                  var fg = pos ? '#059669' : '#B45309';
+                  var lab = enj.inherited ? 'Motif de fond' : (pos ? '\u00c0 capter' : 'Enjeu');
+                  var suf = enj.inherited && enj.label_fr ? escapeHtml(String(enj.label_fr).replace(/^jours /, '')) + ' \u00b7 ' : '';
+                  return '<div style="padding:8px 16px 0;"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:' + bg + ';color:' + fg + ';font-size:12px;">' + lab + ' <span style="font-weight:600;">~' + amt + ' \u20ac/an</span> \u00b7 ' + suf + escapeHtml(String(enj.tier_label_fr || enj.tier)) + '</span></div>';
+                }
+                if (entry.item && entry.item.enjeu_reason_fr) {
+                  return '<div style="padding:8px 16px 0;font-size:11px;color:#9CA3AF;">' + escapeHtml(String(entry.item.enjeu_reason_fr)) + '</div>';
+                }
+                return '';
+              })()
             + '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;"'
               + ' data-ab-card-idx-ref="' + cardIdx + '"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
