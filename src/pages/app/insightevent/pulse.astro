@@ -1763,14 +1763,25 @@ if (!location_id) {
           + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
           + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
           + '</button>'
+        + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+          + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">V\u00e9rifier les faits avant de s\u2019engager</div></div>'
+        + '</button>'
         + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
           + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
         + '</button>'
-        + (pubChannel && t.barClass === 'ab-opportunity' ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
-        + '</button>' : '')
+        // Offre sur carte opportunit\u00e9 : TOUJOURS visible (d\u00e9cision owner 26/07 \u2014 une config
+        // manquante ne cache pas une fonctionnalit\u00e9, elle d\u00e9clenche la compl\u00e9tion de profil).
+        + (t.barClass === 'ab-opportunity' ? (pubChannel
+          ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
+            + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
+          + '</button>'
+          : '<button type="button" data-agir-offer-config="' + cardIdx + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
+            + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">Configurez d\u2019abord un canal de publication</div></div>'
+          + '</button>') : '')
       + '</div>';
 
       // RULE performance cards (Communiquer en interne): swap the comms menu for the internal-alert menu.
@@ -1781,6 +1792,10 @@ if (!location_id) {
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83c\udfaf</div>'
             + '<div><div class="ab-dd-label">M\u2019engager</div><div class="ab-dd-desc">Fixer une action, un objectif et un responsable</div></div>'
             + '</button>'
+          + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
+            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
+            + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Vérifier les faits avant de s’engager</div></div>'
+          + '</button>'
           + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
             + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
             + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019\u00e9quipe maintenant</div></div>'
@@ -1802,9 +1817,11 @@ if (!location_id) {
       _swText = _s1.length > 200 ? _s1.slice(0, 197) + '...' : _s1;
 
       var metricsHtml = buildMetricsStrip(entry, currentDay);
-      var isAction = t._card_type === 'action' && commChannels.length > 0;
-      var showAgir = isAction || (_isInternalAlert && commChannels.length === 0);
-      var consultOpen = (t._card_type === 'action') ? (' data-consult-open="' + cardIdx + '" style="cursor:pointer;"') : '';
+      // Menu Agir UNIVERSEL (décision owner 26/07) : toute carte « Actions du jour » est une
+      // action en cours ou à gérer — le menu complet s'affiche toujours (M'engager n'a besoin
+      // d'aucune config ; Communiquer retombe sur note_interne ; la source est toujours
+      // consultable). Le pattern « Voir » n'existe que dans le fil d'actualité, jamais ici.
+      var consultOpen = ' data-consult-open="' + cardIdx + '" style="cursor:pointer;"';
 
       // Triage par site (validé 26/07, proto actions-triage-proto.html) : chaque carte porte ses
       // clés de tri — site, horizon (0=aujourd'hui,1=semaine,2=autre), |enjeu|, nature.
@@ -1881,15 +1898,12 @@ if (!location_id) {
               + _dispoHtml
               + metricsHtml
               + '<span style="margin-left:auto;display:inline-flex;align-items:center;">'
-              + (showAgir
-                ? '<div style="position:relative;display:inline-block;" data-agir-wrap="' + cardIdx + '">'
-                    + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" class="agir-btn">'
-                      + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
-                    + '</button>'
-                    + menuHtml
-                  + '</div>'
-                : '<button type="button" data-agir-consult="' + cardIdx + '" data-agir-target="' + escapeHtml(t._consulter_target || '') + '" style="font-size:12px;font-weight:700;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;">Voir \u2192</button>'
-              )
+                + '<div style="position:relative;display:inline-block;" data-agir-wrap="' + cardIdx + '">'
+                  + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" class="agir-btn">'
+                    + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
+                  + '</button>'
+                  + menuHtml
+                + '</div>'
               + '</span>'
             + '</div>'
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -2423,6 +2437,28 @@ if (!location_id) {
         var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
         if (menu) menu.style.display = "none";
         openConsultForCard(cardIdx);
+      });
+    });
+
+    // Proposer une offre SANS canal de publication — la config manquante est un déclencheur
+    // de complétion de profil (décision owner 26/07), jamais une fonctionnalité cachée :
+    // invite dans le workspace de la carte, lien vers l'onglet Communication du compte.
+    root.querySelectorAll("[data-agir-offer-config]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var cardIdx = btn.getAttribute("data-agir-offer-config");
+        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
+        if (menu) menu.style.display = "none";
+        var ws = document.getElementById("ab-card-" + cardIdx + "-workspace");
+        if (!ws) return;
+        if (ws.style.display === "block" && ws.getAttribute("data-ws-kind") === "offer-config") { ws.style.display = "none"; ws.innerHTML = ""; ws.removeAttribute("data-ws-kind"); return; }
+        ws.setAttribute("data-ws-kind", "offer-config");
+        ws.style.display = "block";
+        ws.innerHTML = '<div style="margin-top:10px;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;">'
+          + '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Aucun canal de publication configuré</div>'
+          + '<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Pour proposer une offre depuis cette carte, connectez un canal (Google Business Profile, Instagram, Facebook ou site web) dans votre compte.</div>'
+          + '<a href="/profile?tab=comm" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;text-decoration:none;">Configurer mes canaux</a>'
+        + '</div>';
       });
     });
 

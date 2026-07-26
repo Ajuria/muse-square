@@ -133,3 +133,33 @@ d'enjeu (positif simple / hérité+mêlé / mesuré négatif / absent) — zéro
 screenshots conformes au proto. `node --check` propre sur les 6 scripts inline. Le test a
 attrapé un vrai bug (préfixe « jours » mal strippé → « de vacances scolaires » dans l'infobulle),
 corrigé avant livraison. E2E authentifié = passage owner.
+
+## Menu Agir universel — LIVRÉ (26/07 soir, corrections owner)
+
+Doctrine (owner, 26/07) : **toute carte « Actions du jour » est une action en cours ou à gérer,
+point barre** — le pattern « Voir » n'existe que dans le fil d'actualité. Et **une configuration
+manquante ne cache jamais une fonctionnalité : elle devient le déclencheur de complétion de
+profil**.
+
+Le trou constaté : le menu Agir exigeait `card_type === 'action'` ET ≥1 canal configuré — les
+15 specs `card_type: 'notification'` (ex. `sales_competition_cannibalization`, la carte « CA en
+baisse — concurrence à surveiller » du compte MS Test) tombaient sur un bouton « Voir → ».
+
+Livré (pulse.astro, bâtisseur cardsHtml + handlers) :
+- Menu Agir rendu sur TOUTES les cartes du bloc ; branche « Voir → » supprimée ; clic titre
+  (consult) désormais actif sur toutes les cartes.
+- « Consulter la source » redevient une entrée du menu (les deux variantes), à côté de
+  M'engager — on vérifie les faits avant de s'engager ; le clic titre reste.
+- « Proposer une offre » (cartes opportunité) : toujours visible ; sans canal de publication,
+  l'entrée ouvre une invite « Configurer mes canaux » dans le workspace de la carte →
+  `/profile?tab=comm` (grammaire du prompt destinataire existant). « Communiquer en interne »
+  retombe déjà sur note_interne — aucun canal requis.
+- `src/lib/commitmentOrigins.ts` : allowlist complétée avec les 47 clés SPECS manquantes
+  (extraction mécanique regex sur les `reg()` de public/action-cards.js — son TODO d'origine),
+  sinon l'API commitments aurait rejeté M'engager sur ces cartes. `kpiKeyForOrigin` retombe sur
+  `revenue_residual` pour les types non mappés — POST sûr pour tout le registre.
+
+Preuve : bloc cardsHtml réel exécuté en Node sur 3 formes — carte notification sans canal
+(menu complet, plus de Voir, titre cliquable), opportunité sans canal (entrée offre-config,
+pas d'offre directe), variante alerte interne (Consulter ajouté, alerte/notification intactes).
+`node --check` propre (6 scripts inline), `tsc --noEmit` propre. E2E authentifié = passage owner.
