@@ -79,12 +79,18 @@ action-cards.js + vrai `_commitOriginFor` de pulse.astro, payloads BQ réels) : 
 `sales_surge`/`sales_revenue_down_wow`, `origin_driver` (transactions/footfall),
 `creation_baseline_daily` (avg_30d) et `creation_residual_z` arrivent bien dans l'origin des
 deux formulaires. Les vrais gaps restants sont AILLEURS :
-1. `sales_discount_no_lift` : son `data_payload` (côté dbt) ne porte NI driver NI
-   avg_30d/expected_revenue → baseline null pour ce type (le kpi reste correct : TYPE_KPI le
-   mappe en dur sur `discount`). Fix = enrichir le payload dans le mart (dbt Cloud IDE).
+1. `sales_discount_no_lift` : son `data_payload` (côté dbt) ne portait NI driver NI
+   avg_30d/expected_revenue → baseline null pour ce type (le kpi restait correct : TYPE_KPI le
+   mappe en dur sur `discount`) — CORRIGÉ le 26/07 (dbt a31d8ad, Ajuria-branch :
+   `fct_location_daily_action_candidates`, struct payload + `avg_30d` + `primary_revenue_driver`,
+   colonnes vérifiées live sur `fct_client_sales_signals_daily`). Struct rejoué en BQ sur la
+   ligne réelle f10c3e58 du 11/07 (avg_30d 1122, driver transactions) puis chaîne client prouvée
+   en Node (origin_driver=transactions, creation_baseline_daily=1122). Modèle
+   `materialized='table'` → propagation au prochain run planifié ; pull à faire dans dbt Cloud
+   IDE avant tout travail sur Ajuria-branch.
 2. Page profonde insight.astro (`fsOpenCommit`) : origin = `{ origin_action_type }` seul alors
-   que la candidate aplatie (feedItem) porte les champs — CORRIGÉ le 26/07 (branche
-   claude/infallible-turing-176940, ae57f01) : même mapping que le feed Pulse (replis
+   que la candidate aplatie (feedItem) porte les champs — CORRIGÉ le 26/07 (sur dev depuis
+   63143f4, en prod via 1164429) : même mapping que le feed Pulse (replis
    primary_revenue_driver‖dominant_factor, avg_30d puis expected_revenue), prouvé par harness
    Node sur lignes BQ réelles. Check owner authed au prochain tirage d'une carte sales
    émettrice sur f10c3e58 (aucune active au 26/07).
