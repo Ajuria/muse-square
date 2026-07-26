@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — Chantiers structurels (PILOTER)</title>
+<style>
+  :root {
+    --color-bg-card: #ffffff;
+    --color-border: rgba(0,0,0,0.08);
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: rgba(17,24,39,0.45);
+    --color-pill-green-bg: #E6F6F0;
+    --color-pill-green-text: #059669;
+    --color-pill-source-low-bg: #F3F4F6;
+    --color-pill-source-low-text: #6b7280;
+    --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  body { font-family: var(--font-family); background:#F8F9FB; margin:0; padding:32px 16px 80px; color:var(--color-text-primary); }
+  .wrap { max-width:680px; margin:0 auto; }
+  /* ==== REAL card CSS (pulse.astro, copié verbatim) ==== */
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .aline { color:#1D3BB3; font-size:13px; line-height:1.55; margin:8px 0 0; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-card-row { display:flex; }
+  .ab-inner { flex:1; min-width:0; }
+  .ab-summary { padding:14px 16px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; align-items:center; }
+  .ab-metric { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
+  .ab-metric-val { font-weight:600; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:0; }
+  /* proto scaffolding */
+  h1 { font-size:18px; font-weight:600; margin:0 0 6px; }
+  .note { font-size:13px; color:var(--color-text-secondary); line-height:1.5; margin:0 0 24px; }
+  .sechead { display:flex; align-items:baseline; gap:10px; margin:28px 0 4px; }
+  .sechead .eb { font-size:12px; }
+  .secsub { font-size:12px; color:var(--color-text-secondary); margin:0 0 14px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Chantiers structurels — proto (section PILOTER)</h1>
+  <p class="note">Données 100 % réelles du store (Muse Square Occitanie, 3 mois d'historique). Une carte = un MOTIF récurrent qui passe les gates — pas de date, réévalué chaque mois par le batch nocturne. Tri par |€/an| décroissant. Un motif sous les gates n'apparaît pas (absence honnête) ; il apparaît quand l'historique le prouve.</p>
+
+  <div class="sechead"><p class="eb">Chantiers structurels</p><span style="font-size:11px;color:#9CA3AF;">4 motifs mesurés · réévalués chaque mois</span></div>
+  <p class="secsub">Ce que vos données prouvent de RÉCURRENT — à traiter par un dispositif durable, pas une action du jour.</p>
+
+  <!-- 1. traffic_high — vert, le plus gros -->
+  <div class="ab-card" style="border-left:3px solid #059669;">
+    <div class="ab-card-row"><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills">
+          <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+          <span class="chip-n">Affluence</span>
+          <span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">Actif</span>
+        </div>
+        <div class="ab-what">Vos jours de forte affluence pèsent ~28 000 € de plus par an</div>
+        <div class="ab-sowhat">Mesuré sur 31 jours à forte affluence / 3 mois — estimé, cause multifactorielle. C'est l'enjeu que votre conversion défend : chaque point de conversion perdu ces jours-là coûte plus cher qu'ailleurs.</div>
+        <div class="aline">Chantier : routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d'affluence.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">À capter <span class="ab-metric-val" style="color:var(--color-pill-green-text);">~28 016 €/an</span> · estimé, cause multifactorielle</span>
+        <span style="margin-left:auto;"><button class="agir-btn">M'engager ▾</button></span>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 2. events_high — vert pur -->
+  <div class="ab-card" style="border-left:3px solid #059669;">
+    <div class="ab-card-row"><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills">
+          <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+          <span class="chip-n">Événements</span>
+          <span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">Actif</span>
+        </div>
+        <div class="ab-what">Les jours d'événements proches (500 m), vous SUR-performez : ~7 100 €/an</div>
+        <div class="ab-sowhat">Mesuré sur 15 jours purs (séparés des autres facteurs) / 3 mois — estimé, t=2,9. L'animation locale vous apporte du monde : c'est un levier à amplifier, pas une menace.</div>
+        <div class="aline">Chantier : calendrier des événements voisins → offre/horaires alignés systématiquement.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">À capter <span class="ab-metric-val" style="color:var(--color-pill-green-text);">~7 104 €/an</span> · estimé</span>
+        <span style="margin-left:auto;"><button class="agir-btn">M'engager ▾</button></span>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 3. heat — ambre, mêlé -->
+  <div class="ab-card" style="border-left:3px solid #B45309;">
+    <div class="ab-card-row"><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills">
+          <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+          <span class="chip-n">Météo</span>
+          <span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">Actif</span>
+        </div>
+        <div class="ab-what">Vos jours de forte chaleur vous coûtent ~5 700 €/an</div>
+        <div class="ab-sowhat">Mesuré sur 17 jours / 3 mois, ajusté saison — estimé, cause multifactorielle (chaleur, vacances et haute saison encore indissociables sur votre historique ; se précisera à l'automne).</div>
+        <div class="aline">Chantier : plan chaleur permanent — ombrage, offre fraîcheur, communication déclenchée dès prévision &gt;32 °C.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu <span class="ab-metric-val" style="color:#B45309;">~5 694 €/an</span> · estimé, cause multifactorielle</span>
+        <span style="margin-left:auto;"><button class="agir-btn">M'engager ▾</button></span>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 4. discount — ambre + exemple d'état EN AMÉLIORATION -->
+  <div class="ab-card" style="border-left:3px solid #B45309;">
+    <div class="ab-card-row"><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills">
+          <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>
+          <span class="chip-n">Remises</span>
+          <span class="chip-n" style="background:var(--color-pill-green-bg);color:var(--color-pill-green-text);">En amélioration</span>
+        </div>
+        <div class="ab-what">~1 000 €/an de remises accordées sans effet mesuré sur le CA</div>
+        <div class="ab-sowhat">8 jours de remise sans lift / 3 mois (t=8,1 — signal net). État « En amélioration » : un engagement actif couvre ce motif — le batch mensuel dira si le coût recule.</div>
+        <div class="aline">Chantier : règle de remise — plafond % et ciblage revus, reconduction conditionnée au lift mesuré.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span class="ab-metric" style="background:#FEF3E2;color:#B45309;">Enjeu <span class="ab-metric-val" style="color:#B45309;">~1 039 €/an</span> · estimé</span>
+        <span class="ab-metric">Engagement en cours → Julen</span>
+        <span style="margin-left:auto;"><button class="agir-btn">Suivre ▾</button></span>
+      </div>
+    </div></div>
+  </div>
+
+  <p class="note" style="margin-top:28px;">États du cycle de vie : <b>Actif</b> (motif prouvé, personne dessus) · <b>En amélioration</b> (engagement en cours — le M'engager re-mesure le MÊME motif au batch suivant) · <b>Résolu</b> (motif passé sous les gates après action — la carte s'archive avec son historique) · <i>données insuffisantes = pas de carte</i>. Placement : section propre sous PILOTER, jamais dans Actions du jour. Le « Chantier : … » est éditable au M'engager (même workspace que les cartes système).</p>
+</div>
+</body>
+</html>
