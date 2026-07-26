@@ -74,6 +74,14 @@ de l'incrément 1 : l'ajustement saison a dégonflé un chiffre gonflé) ; vacan
 événements reste PUR +7 104 ; tourisme reste ABSENT même en mêlé — la classe EST la saison sur cette
 fenêtre (zéro contraste intra-cellule), absence honnête. Bruit toujours filtré (|t| >= 1).
 
+## Retouches post-étape 4 (26/07, feedback owner)
+- Étiquette d'intrication renommée : « estimé, **cause multifactorielle** » (ex-« facteurs mêlés »).
+- Classes BASSES ajoutées (trou vs mapping B2/D2) : `competition_low` / `tourism_low` (tercile bas,
+  fenêtres favorables → pill verte attendue) — mappées sur low_competition_window /
+  weekend_vacation_low_comp / low_tourism_local_opp. Réel : les 4 lignes basses/hautes concurrence
+  des sites test échouent au plancher |t|>=1 (0,30–0,87) → pas de pill, absence honnête.
+- `sales_competition_cannibalization` mappée → competition_high (mapping H).
+
 ## Étape 4 (26/07) — pills remises & trafic, KPI réputation, démotions
 
 - **`discount_no_lift`** : classe COÛT — € remisés les jours `is_discount_without_lift` (mart

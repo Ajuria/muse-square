@@ -68,6 +68,10 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
   { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte pression concurrentielle" },
   { key: "tourism_high", family: "tourism", index_col: "tourism_index_region", label_fr: "jours à fort flux touristique" },
   { key: "events_high", family: "events", index_col: "events_within_500m_count", label_fr: "jours à forte densité d'événements (500 m)" },
+  // Classes BASSES (mapping B2/D2, ajoutées 26/07) : tercile bas — les fenêtres favorables
+  // (basse pression, basse saison) ; écart positif attendu → pill verte « À capter ».
+  { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible pression concurrentielle" },
+  { key: "tourism_low", family: "tourism", index_col: "tourism_index_region", label_fr: "jours de basse saison touristique" },
 ];
 
 export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
@@ -172,8 +176,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     th AS (
       SELECT
         location_id,
+        APPROX_QUANTILES(competition_index_local, 3)[OFFSET(1)] AS comp_t1,
         APPROX_QUANTILES(competition_index_local, 3)[OFFSET(2)] AS comp_t2,
         MIN(competition_index_local) AS comp_min, MAX(competition_index_local) AS comp_max,
+        APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(1)] AS tour_t1,
         APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(2)] AS tour_t2,
         MIN(tourism_index_region) AS tour_min, MAX(tourism_index_region) AS tour_max,
         APPROX_QUANTILES(events_500m, 3)[OFFSET(2)] AS ev_t2,
@@ -196,7 +202,9 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         (j.suivis_ct > 0 AND t.sv_distinct > 1 AND j.suivis_ct >= t.sv_t2) AS in_suivis,
         (j.school_flag IS TRUE) AS in_school,
         (j.holiday_flag IS TRUE) AS in_holiday,
-        (j.visitors IS NOT NULL AND t.vis_max > t.vis_min AND j.visitors >= t.vis_t2) AS in_traffic
+        (j.visitors IS NOT NULL AND t.vis_max > t.vis_min AND j.visitors >= t.vis_t2) AS in_traffic,
+        (j.competition_index_local IS NOT NULL AND t.comp_max > t.comp_min AND j.competition_index_local <= t.comp_t1) AS in_comp_low,
+        (j.tourism_index_region IS NOT NULL AND t.tour_max > t.tour_min AND j.tourism_index_region <= t.tour_t1) AS in_tour_low
       FROM joined j
       JOIN th t ON t.location_id = j.location_id
     ),
@@ -204,7 +212,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       SELECT *,
         CAST(in_weather AS INT64) + CAST(in_comp AS INT64) + CAST(in_tour AS INT64) + CAST(in_events AS INT64)
         + CAST(in_mobility AS INT64) + CAST(in_suivis AS INT64) + CAST(in_school AS INT64) + CAST(in_holiday AS INT64)
-        + CAST(in_traffic AS INT64) AS n_memberships
+        + CAST(in_traffic AS INT64) + CAST(in_comp_low AS INT64) + CAST(in_tour_low AS INT64) AS n_memberships
       FROM flags
     ),
     -- Étape 2.5 : jours de classe (TOUTES appartenances, pureté en colonne) — une passe par classe.
@@ -229,6 +237,12 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       UNION ALL
       SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
       FROM counted WHERE in_traffic
+      UNION ALL
+      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_low' AS class_key
+      FROM counted WHERE in_comp_low
+      UNION ALL
+      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_low' AS class_key
+      FROM counted WHERE in_tour_low
       UNION ALL
       SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
       FROM counted WHERE in_school
@@ -317,7 +331,7 @@ function rowToImpact(row: any, entangled: boolean): DayClassImpact | null {
     label_fr: CLASS_LABELS[key],
     eur_year: Math.round(avg * (n / (spanDays / 365.25))),
     tier,
-    tier_label_fr: entangled ? "estimé, facteurs mêlés" : tier,
+    tier_label_fr: entangled ? "estimé, cause multifactorielle" : tier,
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),
@@ -422,7 +436,11 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
 const CARD_TYPE_CLASS: Record<string, string> = {
   sales_traffic_not_converting: "traffic_high",
   sales_discount_no_lift: "discount_no_lift",
+  sales_competition_cannibalization: "competition_high",
   competition_pressure_spike: "competition_high",
+  low_competition_window: "competition_low",
+  weekend_vacation_low_comp: "competition_low",
+  low_tourism_local_opp: "tourism_low",
   competition_proximity: "events_high",
   high_competition_density: "events_high",
   same_bucket_saturation: "events_high",
