@@ -34,6 +34,29 @@ export const GET: APIRoute = async ({ request }) => {
       query: `CREATE OR REPLACE TABLE \`${projectId}.${DAY_CLASS_STORE}\` AS ${dayClassAggregateSql(false)}`,
       location: "EU",
     });
+    // HISTORIQUE (préalable de l'état « Résolu », validé 26/07) : le store est un snapshot ÉCRASÉ
+    // chaque nuit — sans archive, aucun motif ne peut jamais être constaté « disparu ». Append
+    // idempotent du batch du jour (delete-insert sur batch_date, partitionné). Schéma EXPLICITE
+    // (jamais SELECT *) pour survivre aux évolutions du store.
+    await bq.query({
+      query: `CREATE TABLE IF NOT EXISTS \`${projectId}.analytics.day_class_impacts_history\` (
+        batch_date DATE, location_id STRING, class_key STRING, family STRING, basis STRING,
+        n_days INT64, avg_gap_eur FLOAT64, sd_gap_eur FLOAT64, span_days INT64, computed_at TIMESTAMP
+      ) PARTITION BY batch_date`,
+      location: "EU",
+    });
+    await bq.query({
+      query: `DELETE FROM \`${projectId}.analytics.day_class_impacts_history\` WHERE batch_date = CURRENT_DATE('Europe/Paris')`,
+      location: "EU",
+    });
+    await bq.query({
+      query: `INSERT INTO \`${projectId}.analytics.day_class_impacts_history\`
+        (batch_date, location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at)
+        SELECT CURRENT_DATE('Europe/Paris'), location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at
+        FROM \`${projectId}.${DAY_CLASS_STORE}\``,
+      location: "EU",
+    });
+
     const [countRows] = await bq.query({
       // NB: `rows` est un mot RÉSERVÉ BigQuery — d'où n_rows (500 prod du 24/07 au premier test).
       query: `SELECT COUNT(*) AS n_rows, COUNT(DISTINCT location_id) AS locations FROM \`${projectId}.${DAY_CLASS_STORE}\``,

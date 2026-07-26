@@ -536,6 +536,27 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
   return result.impacts.get(cond) ?? null;
 }
 
+// Raisons d'absence (triage validé 26/07 — l'absence de pill est EXPLIQUÉE, jamais muette,
+// sauf absence PAR DESIGN : composites/score, démues… → silence voulu, pas de raison affichée).
+export const ABSENCE_REASON_FR = {
+  anomaly: "Anomalie ponctuelle — pas d'enjeu annualisable ; suivi sur vos prochains jours comparables.",
+  no_history: "Pas encore d'historique de ventes mesuré pour ce site.",
+  not_separable: "Motif du jour non séparable ou insuffisant sur votre historique — mûrit avec les saisons.",
+} as const;
+
+/** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null } {
+  const enjeu = enjeuForCandidate(result, candidate);
+  if (enjeu) return { enjeu, reason_fr: null };
+  const actionType = String(candidate?.action_type || "");
+  if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
+  const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
+    || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
+  if (!mapped) return { enjeu: null, reason_fr: null };
+  if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history };
+  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable };
+}
+
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
 const SALES_INHERIT_TYPES = new Set([
   "sales_surge",

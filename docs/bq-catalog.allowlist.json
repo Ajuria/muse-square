@@ -8488,6 +8488,18 @@
       "sd_gap_eur",
       "span_days",
       "computed_at"
+    ],
+    "analytics.day_class_impacts_history": [
+      "batch_date",
+      "location_id",
+      "class_key",
+      "family",
+      "basis",
+      "n_days",
+      "avg_gap_eur",
+      "sd_gap_eur",
+      "span_days",
+      "computed_at"
     ]
   }
 }

@@ -6,7 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
-import { getDayClassImpacts, enjeuForCandidate } from "../../../lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate } from "../../../lib/dayClassRegistry";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -976,7 +976,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         .map((r: any) => ({
-        enjeu:           enjeuForCandidate(dayClassResult as any, r),
+        ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,

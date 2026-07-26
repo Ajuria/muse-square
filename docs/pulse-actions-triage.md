@@ -71,14 +71,27 @@
 - **Pill** (`buildMetricsStrip`) : `enj.inherited` → étiquette « Motif de fond » + classe en
   suffixe ; sinon Enjeu (ambre) / À capter (verte).
 
+## Raisons d'absence — LIVRÉES (26/07 soir)
+
+`enjeuWithReasonForCandidate` (dayClassRegistry) = la façade des endpoints : `{enjeu, reason_fr}`.
+Trois raisons nommées (`ABSENCE_REASON_FR`) : anomalie ponctuelle / pas d'historique de ventes /
+motif non séparable. **Silence VOULU** pour les absences par design (composites, démues) — pas de
+raison affichée. Rendu : micro-texte gris dans la strip (pulse `buildMetricsStrip`) et sous les
+pills de monitor.astro (qui gagne au passage la pill Enjeu/Motif de fond — parité des surfaces).
+CORRECTION de doc : `days.ts` n'a AUCUN consommateur client (l'ancienne note « insight page » du
+data-path est périmée — insight.astro fetch monitor.ts) ; la « 2e surface » réelle est monitor.astro.
+
+## Historique des motifs — LIVRÉ (préalable de « Résolu », 26/07 soir)
+
+Le cron nightly archive chaque batch dans `analytics.day_class_impacts_history` (append idempotent
+par batch_date, partitionné, schéma explicite). Sans cette archive, aucun motif ne pouvait jamais
+être constaté « disparu ». L'UI « Résolu » viendra quand l'historique aura des semaines de
+profondeur : Résolu = motif présent avant, absent des gates maintenant, avec engagement résolu.
+
 ## Différé, assumé (à reprendre plus tard)
 
-- **Raisons d'absence par carte** (le proto les montrait dans le sowhat : « anomalie ponctuelle »,
-  « site sans historique », « non séparable ») — non implémentées carte par carte ; seule la logique
-  de rang les traite. À faire proprement via un champ serveur `enjeu_absence_reason`.
-- **État « Résolu »** des chantiers : exige l'historique des motifs disparus (le store est un
-  snapshot) — palier suivant.
-- Verdict par KPI (variances à établir), pills sur la page insight (`days.ts`), barreau 3 (VIF).
+- **État « Résolu »** (UI) : l'archive tourne — attendre la profondeur d'historique.
+- Verdict par KPI (variances à établir), barreau 3 (VIF).
 
 ## Preuves E2E (26/07)
 
