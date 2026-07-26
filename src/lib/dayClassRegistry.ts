@@ -40,6 +40,9 @@ export type DayClassImpact = {
   span_months: number;
   avg_gap_eur: number;
   t_stat: number;
+  inherited?: boolean;    // « Motif de fond » (validé 26/07) : pill héritée de la classe du JOUR de la
+                          // carte (météo/calendrier de la date) — jamais l'anomalie annualisée. Le
+                          // client rend « Motif de fond ~X €/an · <classe> » au lieu d'« Enjeu ».
 };
 
 export type DayClassResult = {
@@ -515,7 +518,28 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
     return best;
   } else if (CARD_TYPE_CLASS[actionType]) {
     cond = CARD_TYPE_CLASS[actionType];
+  } else if (SALES_INHERIT_TYPES.has(actionType)) {
+    // « Motif de fond » (validé 26/07) : une carte d'ANOMALIE ventes n'annualise jamais son écart
+    // (circularité) mais HÉRITE de la classe de son jour — la plus lourde en |€/an| parmi la
+    // condition météo et le calendrier de la date affectée. Ex. réel : « CA supérieur à vos
+    // jeudis » un jour de vacances → « Motif de fond ~12 016 €/an · vacances scolaires » — le bon
+    // jour est l'exception du motif, et c'est l'insight.
+    let best: DayClassImpact | null = null;
+    for (const token of ["weather@date", "calendar@date"]) {
+      const key = resolveClassToken(token, result, iso);
+      const imp = key ? (result.impacts.get(key) ?? null) : null;
+      if (imp && (!best || Math.abs(imp.eur_year) > Math.abs(best.eur_year))) best = imp;
+    }
+    return best ? { ...best, inherited: true } : null;
   }
   if (!cond) return null;
   return result.impacts.get(cond) ?? null;
 }
+
+// Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
+const SALES_INHERIT_TYPES = new Set([
+  "sales_surge",
+  "sales_revenue_down_wow",
+  "sales_underperformance",
+  "sales_missed_opportunity",
+]);

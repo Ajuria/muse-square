@@ -94,6 +94,15 @@ STRUCTURELLES — grain motif × site, SANS date :
   porte le poids, un jour n'est jamais facturé deux fois). Réel Occitanie : affluence +28 016 (mêlé),
   vacances −5 976 (contrôlé, mêlé), chaleur −5 694 (mêlé), remises −1 039 (pur).
 
+## Triage par site + « Motif de fond » (26/07 soir — voir docs/pulse-actions-triage.md)
+Le rendu Pulse est réorganisé en blocs par site (doctrine complète dans pulse-actions-triage.md).
+Côté registre : `enjeuForCandidate` gagne l'HÉRITAGE — les cartes d'anomalie ventes
+(`SALES_INHERIT_TYPES` : surge / revenue_down_wow / underperformance / missed_opportunity)
+héritent de la classe de leur JOUR (météo/calendrier de la date, max |€/an|) avec
+`inherited: true` → pill « Motif de fond ~X €/an · <classe> ». JAMAIS l'anomalie annualisée
+(circularité, position inchangée). Preuve : sales_surge un jeudi de vacances MS Test →
+school_holiday −12 016 hérité.
+
 ## Retouches post-étape 4 (26/07, feedback owner)
 - Étiquette d'intrication renommée : « estimé, **cause multifactorielle** » (ex-« facteurs mêlés »).
 - Classes BASSES ajoutées (trou vs mapping B2/D2) : `competition_low` / `tourism_low` (tercile bas,
