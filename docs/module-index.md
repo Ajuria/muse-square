@@ -130,7 +130,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `analytics/pending-feedback.ts` | GET | Recent draft events (7d) | `analytics.action_log` |
 | `analytics/save-draft.ts` | POST | Create/save a draft | `analytics.saved_drafts` |
 | `analytics/signal-accuracy.ts` | GET | Signal accuracy metrics by type | `semantic.vw_insight_event_signal_accuracy` |
-| `analytics/track.ts` | POST | Log user events (views/drafts/confirmations/outcomes) | `analytics.action_log` |
+| `analytics/track.ts` | POST | Log user events (views/drafts/confirmations/outcomes ; allowlist VALID_EVENTS — tout nouvel événement client DOIT y être ajouté, sinon rejet 400 silencieux côté appelant). 26/07 : + `bp_context_exit`/`bp_unexplained_exit` (sorties honnêtes bonnes pratiques) | `analytics.action_log` |
 
 ### `saved-items/` — saved events lifecycle
 
