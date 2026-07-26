@@ -18,6 +18,7 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
+import { isKpiMeasurable, measureKpiWindow, kpiDeltaPct as kpiDeltaPctFn } from "./kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "./sensitivityFeatures.json";
 
@@ -200,8 +201,24 @@ export async function resolveCommitment(
   let verdict = provisional === "met" && materialShare >= MATERIAL_SHARE ? "confounded" : provisional;
   if (thresholdBasis === "pct" && verdict === "met" && zCorr < 1.0) verdict = "confounded";
 
+  // 7. Boucle multi-KPI (étape 3, 26/07) : quand le commitment porte un KPI non-K1 (measured_metric
+  // ≠ revenue_residual, dérivé carte+driver à la création), mesure ADDITIVE avant/après dans SON
+  // unité (kpi_* — matière du futur verdict par KPI). Le verdict CA ci-dessus reste inchangé :
+  // la bande de bruit par KPI n'est pas établie (décision étape 3). Échec soft → null.
+  let kpiWindowValue: number | null = null;
+  let kpiDeltaPct: number | null = null;
+  const kpiKey = String(snap.measured_metric || "revenue_residual") as any;
+  if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
+    try {
+      kpiWindowValue = await measureKpiWindow(bq, String(snap.location_id), kpiKey, String(snap.window_start), String(snap.window_end));
+      kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; }
+  }
+
   return {
     patch: {
+      kpi_window_value: kpiWindowValue,
+      kpi_delta_pct: kpiDeltaPct,
       status: "resolved",
       verdict,
       resolved_at: nowIso,

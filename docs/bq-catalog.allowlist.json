@@ -112,7 +112,10 @@
       "adjustment_move",
       "adjustment_note",
       "parent_commitment_id",
-      "execution_quality"
+      "execution_quality",
+      "kpi_baseline",
+      "kpi_window_value",
+      "kpi_delta_pct"
     ],
     "analytics.action_log": [
       "log_id",

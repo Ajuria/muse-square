@@ -89,6 +89,12 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["adjustment_note", "STRING"],
   ["parent_commitment_id", "STRING"],
   ["execution_quality", "STRING"],
+  // Boucle multi-KPI (étape 3, 26/07) — mesure avant/après dans l'UNITÉ du commitment
+  // (measured_metric = kpi de lib/kpiRegistry.ts ; 'revenue_residual' garde ses colonnes window_*).
+  // Additif via ALTER ADD COLUMN ; policy/mesure dans kpiRegistry, jamais ici.
+  ["kpi_baseline", "FLOAT64"],
+  ["kpi_window_value", "FLOAT64"],
+  ["kpi_delta_pct", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -153,6 +159,9 @@ export interface CommitmentRow {
   adjustment_note: string | null;        // what changed (family-hinted)
   parent_commitment_id: string | null;   // the adjustment chain (this commitment adjusts that one)
   execution_quality: string | null;      // complete|partial|none — self-reported run quality (routes advice)
+  kpi_baseline: number | null;           // moyenne journalière 30 j avant fenêtre, unité de measured_metric
+  kpi_window_value: number | null;       // moyenne journalière de la fenêtre, même unité
+  kpi_delta_pct: number | null;          // (window − baseline) / |baseline|, en %
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

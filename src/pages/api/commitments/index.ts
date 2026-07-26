@@ -5,6 +5,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { kpiKeyForOrigin, measureKpiBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
@@ -199,7 +200,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
-      measured_metric: "revenue_residual",
+      // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
+      // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
+      // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
+      // window/delta à la résolution).
+      measured_metric: kpiKeyForOrigin(
+        originActionType,
+        DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
+          ? String(body.origin_driver).trim().toLowerCase() : null,
+      ),
       window_kind: windowKind,
       window_start: ymd(start),
       window_end: ymd(end),
@@ -226,6 +235,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
       parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
     };
+
+    // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
+    // Non bloquant : échec/absence de données → null (jamais un chiffre inventé, jamais un 500).
+    if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
+      try {
+        patch.kpi_baseline = await measureKpiBaseline(bq, String(patch.location_id), patch.measured_metric as any, String(patch.window_start));
+      } catch { patch.kpi_baseline = null; }
+    }
 
     await readMergeWrite(bq, { commitmentId, transitionType: "created", create: true, patch });
     return json({ ok: true, commitment_id: commitmentId });
