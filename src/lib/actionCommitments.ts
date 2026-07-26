@@ -95,6 +95,17 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["kpi_baseline", "FLOAT64"],
   ["kpi_window_value", "FLOAT64"],
   ["kpi_delta_pct", "FLOAT64"],
+  // Gel de l'enjeu d'ORIGINE (26/07, page évolution J1 — proto evolution-j1-proto.html) : les
+  // champs VERBATIM de la pill de la carte au moment du M'engager. La page évolution rend
+  // tier_label_fr TEL QUEL → pill et page ne peuvent pas diverger, par construction.
+  // inherited distingue « facteur principal de la journée » (motif hérité, sélection max |€/an|
+  // par dayClassRegistry) d'une carte de classe directe. Additif via ALTER ADD COLUMN.
+  ["creation_enjeu_eur_year", "FLOAT64"],
+  ["creation_enjeu_tier_label_fr", "STRING"],
+  ["creation_enjeu_label_fr", "STRING"],
+  ["creation_enjeu_class_key", "STRING"],
+  ["creation_enjeu_entangled", "BOOL"],
+  ["creation_enjeu_inherited", "BOOL"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -162,6 +173,14 @@ export interface CommitmentRow {
   kpi_baseline: number | null;           // moyenne journalière 30 j avant fenêtre, unité de measured_metric
   kpi_window_value: number | null;       // moyenne journalière de la fenêtre, même unité
   kpi_delta_pct: number | null;          // (window − baseline) / |baseline|, en %
+  // Enjeu d'origine gelé à la création (26/07) — champs VERBATIM de la pill de la carte,
+  // rendus tels quels par la page évolution (bloc Enjeu). Null = carte sans enjeu.
+  creation_enjeu_eur_year: number | null;
+  creation_enjeu_tier_label_fr: string | null;
+  creation_enjeu_label_fr: string | null;
+  creation_enjeu_class_key: string | null;
+  creation_enjeu_entangled: boolean | null;
+  creation_enjeu_inherited: boolean | null;
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

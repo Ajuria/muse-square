@@ -195,3 +195,34 @@ school_holiday −12 016 hérité.
    une classe dont le poids annuel passe les gates. Grain location × pattern_id (sans date),
    `action_category='structurel'`, section « Chantiers structurels » (PILOTER), réévaluation
    mensuelle. Voir memory `enjeu-chip-and-structural-cards`.
+
+## Gel de l'enjeu à la création + page évolution J1 (26/07 soir, proto evolution-j1-proto.html)
+
+**Gel (provenance)** : au M'engager, la surface passe les champs VERBATIM de l'enjeu de la carte
+(`creation_enjeu_eur_year/tier_label_fr/label_fr/class_key/entangled/inherited` — colonnes
+additives d'`action_commitments`, ALTER appliqué en prod). Pulse (`_commitOriginFor`) et insight
+(`fsOpenCommit`) fournissent ; commit-form.js transmet ; /api/commitments stocke ;
+/api/commitments/evolution renvoie. La page évolution rend `tier_label_fr` TEL QUEL → la pill de
+la carte et la page ne peuvent pas diverger, par construction.
+
+**Bloc Enjeu (card-kit renderEvolution)** — deux étages qui ne se mélangent pas :
+- hérité (`inherited`) → « Facteur principal de cette journée : <classe> — le plus lourd des
+  motifs mesurés ce jour-là chez vous. » C'est un FAIT calculé (sélection max |€/an| du registre).
+- classe directe → « Ce que les <classe> vous coûtent / vous rapportent en plus à l'année,
+  d'après vos ventes. » (signe du gel).
+- suffixe du chiffre = tier_label_fr verbatim ; pas d'enjeu gelé → pas de bloc.
+- Le kicker « Ampleur » du composant partagé `msScale` devient « Enjeu » PARTOUT (un concept =
+  un mot, celui des pills).
+
+**État J1 (< 2 journées reçues)** : la courbe est remplacée par la frise de fenêtre (dates
+réelles, jours reçus pleins, verdict en anneau) + la consigne « Revenez ici pour consulter
+l'impact de votre action par rapport à votre CA habituel (X €/jour) et à votre objectif
+(+Y %). Verdict le JJ/MM/AAAA. » — habituel omis si baseline absente (repli honnête). Dès 2
+journées, chart() reprend, inchangé. **Redirection** : après M'engager sur Pulse, succès 1,4 s
+puis navigation vers `engagement?id=<commitment_id>`.
+
+**Deux bugs préexistants attrapés par la harness J1** (public/card-kit.js) : le headline
+« fenêtre démarrée » calculait l'objectif avec la constante 0,19 au lieu de lire la base `pct`
+(+10 % affiché « +7 % ») ; l'intro du panneau « Votre prochain mouvement » disait « Ça marche. »
+à J1 sans aucune donnée → intro neutre tant que zéro journée reçue. Preuves : harness navigateur
+sur le VRAI card-kit.js (cas enjeu hérité+mêlé et cas replis), `node --check` + `tsc` propres.

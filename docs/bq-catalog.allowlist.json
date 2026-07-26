@@ -115,7 +115,13 @@
       "execution_quality",
       "kpi_baseline",
       "kpi_window_value",
-      "kpi_delta_pct"
+      "kpi_delta_pct",
+      "creation_enjeu_eur_year",
+      "creation_enjeu_tier_label_fr",
+      "creation_enjeu_label_fr",
+      "creation_enjeu_class_key",
+      "creation_enjeu_entangled",
+      "creation_enjeu_inherited"
     ],
     "analytics.action_log": [
       "log_id",

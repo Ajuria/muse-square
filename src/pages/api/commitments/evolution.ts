@@ -102,6 +102,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
       threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
+      // Enjeu d'origine gelé à la création (26/07) — rendu VERBATIM par le bloc Enjeu du doc
+      // (tier_label_fr tel quel : pill et page alignées par construction). Null → pas de bloc.
+      creation_enjeu_eur_year: snap.creation_enjeu_eur_year != null ? Number(flat(snap.creation_enjeu_eur_year)) : null,
+      creation_enjeu_tier_label_fr: snap.creation_enjeu_tier_label_fr ?? null,
+      creation_enjeu_label_fr: snap.creation_enjeu_label_fr ?? null,
+      creation_enjeu_class_key: snap.creation_enjeu_class_key ?? null,
+      creation_enjeu_entangled: snap.creation_enjeu_entangled === true,
+      creation_enjeu_inherited: snap.creation_enjeu_inherited === true,
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
