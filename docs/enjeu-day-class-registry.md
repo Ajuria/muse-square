@@ -74,6 +74,26 @@ de l'incrément 1 : l'ajustement saison a dégonflé un chiffre gonflé) ; vacan
 événements reste PUR +7 104 ; tourisme reste ABSENT même en mêlé — la classe EST la saison sur cette
 fenêtre (zéro contraste intra-cellule), absence honnête. Bruit toujours filtré (|t| >= 1).
 
+## Chantiers structurels (26/07 — proto validé, section LIVRÉE)
+
+La section « Chantiers structurels » (Pulse, sous « À piloter ») rend les motifs du store en CARTES
+STRUCTURELLES — grain motif × site, SANS date :
+- **Serveur** : `monitor.ts` expose `day_class_impacts` (impacts passant les gates + copy
+  owner-éditable `contextCopy.structuralCardCopyFr` : titre chiffré, honnêteté du pool, chantier
+  proposé par classe). Tri |€/an| décroissant, merge multi-sites côté client (location_label).
+- **Client** (`pulse.astro renderStructuralSection`) : anatomie `.ab-card` validée au proto
+  (`public/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
+  (ambre/verte), « Chantier : … », M'engager → `MSCommitForm` avec
+  `origin_action_type = structural_<class_key>` (préfixe accepté par `isCommitmentOrigin` ;
+  `kpiKeyForOrigin` : structural_discount_no_lift → discount, structural_traffic_high → conversion,
+  défaut K1). États : **Actif** / **En amélioration** (engagement `structural_*` open/pending sur le
+  site — bouton « Voir l'engagement ») ; **Résolu** = palier suivant (exige l'historique des motifs
+  disparus — non implémenté, documenté) ; section vide → ligne honnête.
+- **Dynamique de pureté à connaître** : l'ajout de `traffic_high` a ABSORBÉ `events_high` sur le
+  site test (les jours d'événements SONT des jours de forte affluence — la classe la plus large
+  porte le poids, un jour n'est jamais facturé deux fois). Réel Occitanie : affluence +28 016 (mêlé),
+  vacances −5 976 (contrôlé, mêlé), chaleur −5 694 (mêlé), remises −1 039 (pur).
+
 ## Retouches post-étape 4 (26/07, feedback owner)
 - Étiquette d'intrication renommée : « estimé, **cause multifactorielle** » (ex-« facteurs mêlés »).
 - Classes BASSES ajoutées (trou vs mapping B2/D2) : `competition_low` / `tourism_low` (tercile bas,

@@ -84,5 +84,11 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
 ]);
 
 export function isCommitmentOrigin(actionType: unknown): boolean {
-  return COMMITMENT_ORIGIN_ACTION_TYPES.has(String(actionType ?? "").trim());
+  const t = String(actionType ?? "").trim();
+  // Chantiers structurels (26/07) : une carte structurelle seede un engagement avec
+  // origin_action_type = `structural_<class_key>` (classes de lib/dayClassRegistry — grain
+  // location × motif, sans date). Préfixe plutôt que liste : le registre des classes est
+  // LA source de vérité, on ne la duplique pas ici.
+  if (t.startsWith("structural_")) return true;
+  return COMMITMENT_ORIGIN_ACTION_TYPES.has(t);
 }

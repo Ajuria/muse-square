@@ -5,7 +5,7 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
-import { formatWeatherAlert, formatEstimatePct } from "../../../lib/contextCopy";
+import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
 import { getDayClassImpacts, enjeuForCandidate } from "../../../lib/dayClassRegistry";
 
 function json(status: number, body: unknown) {
@@ -997,6 +997,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       days,
       all_feed: mergedFeed,
       competitor_followed_count: Number((followedCountRows as any[])[0]?.cnt ?? 0),
+      // Chantiers structurels (26/07, proto validé) : les motifs du day-class store qui passent les
+      // gates, avec leur copy owner-éditable (contextCopy.structuralCardCopyFr). Grain motif × site,
+      // sans date. Le client (pulse) rend la section + le lien lifecycle (engagements structural_*).
+      day_class_impacts: [...((dayClassResult as any)?.impacts?.values?.() ?? [])]
+        .map((i: any) => ({ ...i, ...structuralCardCopyFr(i) }))
+        .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year)),
     });
   } catch (err: any) {
     return json(400, {

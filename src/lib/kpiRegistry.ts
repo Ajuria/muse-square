@@ -64,6 +64,9 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
 const TYPE_KPI: Record<string, KpiKey> = {
   sales_traffic_not_converting: "conversion",
   sales_discount_no_lift: "discount",
+  // Chantiers structurels : le motif nomme son KPI ; défaut K1 (poids CA du motif).
+  structural_discount_no_lift: "discount",
+  structural_traffic_high: "conversion",
   competitor_review_surge: "reputation",
   competitor_review_drop: "reputation",
   competitor_reputation_strength: "reputation",

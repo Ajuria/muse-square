@@ -289,3 +289,51 @@ export function fillContextFallback(labelKey: string, vars: Record<string, strin
   if (!tpl) return null;
   return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
 }
+
+// ── Chantiers structurels (proto validé 26/07) ───────────────────────────────────────────────
+// Copy des cartes structurelles — UNE phrase-titre chiffrée + l'honnêteté du pool + le chantier
+// proposé. Owner-éditable ici (voix : phrases nominales, jamais de français robotique).
+const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
+  heat: "Plan chaleur permanent — ombrage, offre fraîcheur, communication déclenchée dès prévision de forte chaleur.",
+  rain: "Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
+  wind: "Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
+  snow: "Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
+  cold: "Plan grand froid — confort d'accueil et offre chaude mis en avant.",
+  traffic_high: "Routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d'affluence.",
+  events_high: "Calendrier des événements voisins — offre et horaires alignés systématiquement.",
+  discount_no_lift: "Règle de remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
+  tourism_high: "Offre visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
+  tourism_low: "Programme basse saison — animer la clientèle locale sur les jours calmes.",
+  competition_high: "Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
+  competition_low: "Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
+  mobility_disruption: "Protocole perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
+  followed_activity_high: "Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
+  school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
+  public_holiday: "Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
+};
+
+export function structuralCardCopyFr(i: {
+  class_key: string; label_fr: string; eur_year: number; tier_label_fr: string;
+  n_days: number; span_months: number; entangled: boolean;
+}): { title_fr: string; sowhat_fr: string; chantier_fr: string } {
+  const abs = Math.abs(Math.round(i.eur_year)).toLocaleString("fr-FR");
+  const pos = i.eur_year > 0;
+  let title: string;
+  if (i.class_key === "discount_no_lift") {
+    title = `~${abs} €/an de remises accordées sans effet mesuré sur le CA`;
+  } else if (i.class_key === "events_high" && pos) {
+    title = `Les jours d'événements proches, vous sur-performez : ~${abs} €/an`;
+  } else {
+    title = pos
+      ? `Vos ${i.label_fr} vous rapportent ~${abs} €/an de plus`
+      : `Vos ${i.label_fr} vous coûtent ~${abs} €/an`;
+  }
+  const isCalendar = i.class_key === "school_holiday" || i.class_key === "public_holiday";
+  const sowhat = `Mesuré sur ${i.n_days} jours / ${i.span_months} mois — ${i.tier_label_fr}.`
+    + (isCalendar ? " Contrôlé par mois et type de jour (l'effet vacances, pas la saison)." : "")
+    + (i.entangled ? " Facteurs encore indissociables sur votre historique — se précisera avec plus de saisons." : "")
+    + " Réévalué chaque mois par vos données.";
+  const chantier = STRUCTURAL_CHANTIER_FR[i.class_key]
+    || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.";
+  return { title_fr: title, sowhat_fr: sowhat, chantier_fr: "Chantier : " + chantier };
+}
