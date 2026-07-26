@@ -82,6 +82,9 @@ deux formulaires. Les vrais gaps restants sont AILLEURS :
 1. `sales_discount_no_lift` : son `data_payload` (côté dbt) ne porte NI driver NI
    avg_30d/expected_revenue → baseline null pour ce type (le kpi reste correct : TYPE_KPI le
    mappe en dur sur `discount`). Fix = enrichir le payload dans le mart (dbt Cloud IDE).
-2. Page profonde insight.astro (`fsOpenCommit`, ~l. 2082) : origin = `{ origin_action_type }`
-   seul, alors que la candidate aplatie `a` porte les champs — driver/baseline/residual perdus
-   sur CETTE surface uniquement.
+2. Page profonde insight.astro (`fsOpenCommit`) : origin = `{ origin_action_type }` seul alors
+   que la candidate aplatie (feedItem) porte les champs — CORRIGÉ le 26/07 (branche
+   claude/infallible-turing-176940, ae57f01) : même mapping que le feed Pulse (replis
+   primary_revenue_driver‖dominant_factor, avg_30d puis expected_revenue), prouvé par harness
+   Node sur lignes BQ réelles. Check owner authed au prochain tirage d'une carte sales
+   émettrice sur f10c3e58 (aucune active au 26/07).
