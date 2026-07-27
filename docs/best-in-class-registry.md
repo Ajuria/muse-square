@@ -1,0 +1,76 @@
+# Best-in-class — registre de sources, gate de recommandabilité, doctrine (27/07/2026)
+
+> **Statut : VALIDÉ owner 27/07/2026** (3 décisions successives : registre → « récupération + b » →
+> « purge + gate », après un audit déclenché par son retour « the outcome is SHIT »). Objet de ce
+> doc : pourquoi la bibliothèque des « références de votre secteur » est construite ainsi.
+> Code : `src/lib/bestInClassCrawlCore.mjs` (LE contrat), `bestInClassStore.ts` (lecture),
+> `src/scripts/crawl-best-in-class.mjs` (build offline), `api/cron/crawl-best-in-class.ts` (drain).
+> Surfaces : formulaire M'engager (commit-form.js, « Références de votre secteur »), insight
+> « Plan à essayer », panneau diagnostic de la page évolution.
+
+## La doctrine (dans l'ordre où elle s'est construite)
+
+1. **Provenance d'abord — registre de sources par vertical** (`SOURCE_REGISTRY`). Tier 1 =
+   institutionnel/fondation/académique/fédération (France Num, Bpifrance, CCI, Wallace Foundation,
+   CultureHive/AMA, UNIMEV, Cornell CHR, UMIH, Atout France + motifs `.gouv.fr`/`.gov`/`.edu`),
+   cherché en priorité (`site:`). Tier 2 = rapports de données multi-lieux + presse professionnelle
+   reconnue (TRG Arts, Spektrix, L'Hôtellerie-Restauration, Vitisphere, LSA, Néorestauration,
+   Snacking, B.R.A., Great Wine Capitals…), confiance plafonnée « moyen ». **Hors registre →
+   play REJETÉ à `validate`** (blogs de vendeurs SaaS, agences, inconnus). Une cellule vide vaut
+   mieux qu'un exemple douteux. Le registre est owner-editable, comme reco-library.
+2. **LEÇON CENTRALE (audit owner 27/07) : la source fiable ne suffit pas.** Un cas vrai, sourcé,
+   peut rester un conseil risqué (« menu à prix libre »), vague (« pivot numérique 360° »),
+   anonymisé au point d'être inutilisable (« opération nationale » sans nom), hypothétique
+   (« si 10 % choisissent… »), ou d'échelle non transposable (CRM du Barbican, stade de 70 000
+   places). D'où le **gate de recommandabilité** :
+   - prompt SYSTEM : ne retenir un cas que si on le **recommanderait de vive voix à un patron
+     indépendant** — geste unique, exécutable cette semaine, sans équipe dédiée ; refus des
+     expérimentations tarifaires risquées (prix libre, gratuité de masse, remise permanente
+     forte), des stratégies fourre-tout, des institutions nationales non transposables, du
+     non-conforme RGPD ; outil/opération NOMMÉS ; titre en mots de patron ; un cas = un play ;
+   - garde-fous MÉCANIQUES dans `validate` : outcome-méta (« la source ne quantifie pas… ») et
+     chiffre hypothétique (« si N %… ») → drop, quoi qu'écrive le modèle ;
+   - `dedupePlays` (partagé script + cron) : même source + même industrie dans un run → un play.
+3. **Chiffres vendeurs : option (b), décision owner.** Un geste de qualité trouvé chez un
+   prestataire (SMS jour creux, empreinte bancaire anti no-show, menu engineering…) est GARDÉ,
+   mais son chiffre d'auto-promo est RETIRÉ — outcome qualitatif honnête portant explicitement
+   « chiffres du prestataire, non vérifiés indépendamment », `source_tier` 3, confiance faible.
+   Jamais un chiffre qu'on ne peut pas défendre.
+4. **Tri de lecture** (`getBestInClassPlays`) : `source_tier` d'abord (1 → 2 → 3), puis confiance,
+   puis source nommée. Dans le formulaire M'engager, l'ordre des étages est : bonnes pratiques du
+   lieu → références secteur → plans reco-library.
+
+## L'audit du 27/07 (36 lignes purgées sur 77)
+
+Motifs de purge, avec exemples réels : risqués (prix libre ×2, places gratuites de masse ×3,
+abonnement −35 % permanent) ; fourre-tout/anonymisés (pivot numérique 360°, « opération
+nationale » non nommée) ; sans résultat réel (outcome-méta, démonstration arithmétique
+hypothétique du Saint-Émilion) ; échelle non transposable (monétisation YouTube à 100 M de vues,
+CSO 250 k$, CRASHfest, partage de listes TRG — RGPD) ; ~14 doublons du même cas décliné par
+intention (After Hours ×4, familles CJM ×4, peak/off-peak ×3…). Les cellules vidées redeviennent
+« manquantes » : le cron les re-crawle SOUS le gate.
+
+## Sauvegardes & état
+
+- `analytics.best_in_class_plays_backup_20260727` = photo PERMANENTE de la table pré-registre
+  (45 lignes, ère « blogs vendeurs ») — c'est d'elle que vient la récupération option b.
+- État post-purge : **41 plays** (28 du crawl sous registre + 13 récupérés option b, dont 3 cas
+  crédibles qui gardent leurs chiffres : carte d'adhésion flexible TNB/L'Œil du Public, formules
+  flexibles Spektrix/JCA 85-88 % vs 80 %, multi-activités Philharmonie/DEPS 30 % primo-visiteurs).
+- Trous ASSUMÉS (vides honnêtes, le cron retente à chaque TTL 90 j) : commercial×yield,
+  culture×conversion/panier, food_nightlife×yield/fidelisation, live_event×frequentation (1 seul),
+  wine_tourism×yield/fidelisation ; wine_tourism n'a aucune source tier 1 qui produise.
+
+## Opérations
+
+- Build offline : `INDUSTRIES=… MODE=full|merge CONCURRENCY=8 node src/scripts/crawl-best-in-class.mjs`
+  (full = WRITE_TRUNCATE ; merge = supersède les seules cellules recrawlées ; retry 529/429 intégré).
+- Cron nightly (demand-drain, ≤3 cellules/run) : mêmes contrat et gate via `bestInClassCrawlCore`.
+- Vertical `commercial` : mélange boutique/restauration — les gestes resto y dominent. Scission
+  du code industrie = chantier de taxonomie AMONT, non traité ici (noté, à arbitrer owner).
+
+## Reste ouvert
+
+- E2E owner authentifié du formulaire M'engager avec les trois étages.
+- Déploiement : tout ce chantier vit sur `dev` (registre ce37296 → gate 2e641ce) — PAS en prod.
+- Normalisation des codes industrie sales en base (`cultural`, `Culture & Patrimoine`).

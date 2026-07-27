@@ -9,7 +9,7 @@ obligatoire, deux sorties honnêtes sans écriture) ; branchement sur la NATURE 
 
 | Candidat existant | Verdict |
 |---|---|
-| `analytics.best_in_class_plays` | Références EXTERNES crawlées (industry_code, source_url, pas de location/auteur) — autre concept (« références du secteur »), pas de collision de nom. Son vocabulaire `lever` (conversion/panier/yield/frequentation/fidelisation) + `leverForActionType()` (bestInClassStore.ts) est RÉUTILISÉ comme levier-résultat dérivé. |
+| `analytics.best_in_class_plays` | Références EXTERNES crawlées (industry_code, source_url, pas de location/auteur) — autre concept (« références du secteur »), pas de collision de nom. Son vocabulaire `lever` (conversion/panier/yield/frequentation/fidelisation) + `leverForActionType()` (bestInClassStore.ts) est RÉUTILISÉ comme levier-résultat dérivé. **Depuis le 27/07 : registre de sources + gate de recommandabilité + `source_tier` — doctrine complète dans `docs/best-in-class-registry.md`.** |
 | `analytics.action_commitments` | Grain objectif+fenêtre ; les colonnes retro (`retro_worked`/`retro_change`/`retro_repeat`) capturent la connaissance À LA RÉSOLUTION. Une pratique sans objectif n'y a pas sa place (cron de résolution, track-record) — mais les engagements résolus `verdict='met'` SONT des pratiques prouvées : la lecture les UNIONNE. |
 | → `analytics.best_practices` | NOUVELLE table app-write (motif actionCommitments COLUMN_SPEC + CREATE IF NOT EXISTS au premier usage — zéro modèle dbt en v1, conforme « s'il manque des modèles, après »). Créée en prod le 26/07. |
 
