@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — cartes engagement R1-R6 + code couleur lisible (A signe · B mot de direction)</title>
+<style>
+  :root {
+    --color-bg-card: #ffffff;
+    --color-border: rgba(0,0,0,0.08);
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: rgba(17,24,39,0.45);
+    --color-pill-green-bg: #E6F6F0;
+    --color-pill-green-text: #059669;
+    --color-pill-source-low-bg: #F3F4F6;
+    --color-pill-source-low-text: #6b7280;
+    --font-family: 'Avenir Next', Avenir, 'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  body { font-family: var(--font-family); background:#F8F9FB; margin:0; padding:28px 16px 80px; color:var(--color-text-primary); }
+  .wrap { max-width:680px; margin:0 auto; }
+  /* ==== CSS réel (pulse.astro) ==== */
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:10px; padding:4px 10px; cursor:pointer; font-family:inherit; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-summary { padding:13px 16px 11px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; align-items:center; }
+  .ab-what { font-size:13px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .ab-metrics-strip { display:flex; gap:7px; flex-wrap:wrap; padding:0 16px 12px; align-items:center; }
+  .ab-metric { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
+  .aline-strong { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:7px 0 0; }
+  /* identité engagement RÉELLE (couleur d'appartenance, 13/07) */
+  .eng { background:#F6F8FE; border-left:3px solid #1D3BB3; }
+  .avatar { width:22px; height:22px; border-radius:50%; background:rgba(29,59,179,.12); color:#1D3BB3; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; }
+  /* barres sémantiques système */
+  .bar-threat { border-left:3px solid #e24b4a; }
+  .bar-opportunity { border-left:3px solid #059669; }
+  /* R1 : titre + montant */
+  .head-row { display:flex; align-items:flex-start; gap:12px; justify-content:space-between; }
+  .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
+  .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  /* proto scaffolding */
+  h1 { font-size:18px; font-weight:600; margin:0 0 6px; }
+  .note { font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin:0 0 22px; }
+  .dir { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:600; margin:30px 0 10px; }
+  .sechdr { font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:#9ca3af; margin:0 0 10px 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Code couleur lisible — montant signé + mini-phrase</h1>
+  <p class="note">Le sous-libellé répond à la question « ce chiffre, c'est quoi ? » avec des mots de tous les jours : <b>à gagner</b> · <b>perdus pendant les vacances scolaires</b> · <b>votre objectif</b> · <b>objectif atteint / manqué</b>. Le montant est signé (+ / −), la couleur ne fait que confirmer. « Estimé », « mesuré », « cause multifactorielle », « motif de fond » partent en infobulle (survolez les montants). Retours précédents inclus : « Attente de ventes », repli d'« Action menée ? » en coche.</p>
+
+  <div class="dir">Cartes engagement (grammaire R1-R6, identité conservée)</div>
+  <div class="sechdr">Vos actions en cours</div>
+
+  <div class="ab-card eng">
+    <div class="ab-summary">
+      <div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:#EAEFFB;color:#1D3BB3;">Planification</span></div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Offre d'appel sur vos créneaux creux (formule ou menu du jour) pour convertir le passage sans casser vos prix</div>
+          <div class="ab-sowhat">Mesure sur 14 j · CA habituel 15 414 € · réévaluation automatique.</div>
+        </div>
+        <div class="amt" title="Objectif fixé : +8 % vs votre CA habituel, soit +90 €/jour sur 14 jours. Bleu : rien n'est mesuré encore — l'engagement est en cours.">
+          <div class="amt-val" style="color:#1D3BB3;">+90 €/jour</div>
+          <div class="amt-sub">votre objectif</div>
+        </div>
+      </div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span class="ab-metric" style="background:#EEF2FF;color:#1D3BB3;font-weight:600;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>En cours</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;"><span class="avatar">JD</span><span style="font-size:12px;color:#374151;">Julen de Ajuriaguerra</span></span>
+      <span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>
+      <button class="disc-btn">Fait</button>
+      <button class="disc-btn">Pas encore</button>
+      <span style="margin-left:auto;"><button class="agir-btn">Piloter ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card eng">
+    <div class="ab-summary">
+      <div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:#EAEFFB;color:#1D3BB3;">Exécution</span></div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Améliorer rituel de vente</div>
+          <div class="ab-sowhat">Ventes reçues 5 / 7 j · CA habituel 7 707 € · réévaluation automatique.</div>
+        </div>
+        <div class="amt" title="Objectif fixé : +7 % vs votre CA habituel, soit +80 €/jour sur 7 jours. Bleu : rien n'est mesuré encore — verdict dès que les ventes couvrent la fenêtre.">
+          <div class="amt-val" style="color:#1D3BB3;">+80 €/jour</div>
+          <div class="amt-sub">votre objectif</div>
+        </div>
+      </div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span class="ab-metric" style="background:#F3F4F6;color:#6b7280;font-weight:600;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Attente de ventes</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;"><span class="avatar">J</span><span style="font-size:12px;color:#374151;">julen</span></span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Action menée</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Piloter ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card eng">
+    <div class="ab-summary">
+      <div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:#FAEEDA;color:#854F0B;">À documenter</span></div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Relancer une offre les jours de forte chaleur</div>
+          <div class="ab-sowhat">CA +5 % vs attendu · habituel 10 110 € · fenêtre 10 j.</div>
+        </div>
+        <div class="amt" title="Résultat mesuré sur la fenêtre de 10 jours : CA +5 % vs attendu — objectif atteint.">
+          <div class="amt-val" style="color:#166534;">+5 %</div>
+          <div class="amt-sub">objectif atteint</div>
+        </div>
+      </div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span class="ab-metric" style="background:#DCFCE7;color:#166534;font-weight:600;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Atteint</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;"><span class="avatar">J</span><span style="font-size:12px;color:#374151;">Julen</span></span>
+      <span class="ab-metric" style="text-decoration:line-through;text-decoration-color:#d1d5db;" title="La métrique a bougé sans l'action confirmée — pas votre gain, exclu de l'apprentissage.">Action non confirmée</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Piloter ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card eng">
+    <div class="ab-summary">
+      <div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:#FAEEDA;color:#854F0B;">À documenter</span><span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">exemple simulé</span></div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Pousser la formule déjeuner auprès des bureaux voisins</div>
+          <div class="ab-sowhat">CA −3 % vs attendu · habituel 7 700 € · fenêtre 7 j.</div>
+        </div>
+        <div class="amt" title="Résultat mesuré sur la fenêtre de 7 jours : CA −3 % vs attendu — objectif manqué. À documenter : ce qui n'a pas pris nourrit vos prochains engagements.">
+          <div class="amt-val" style="color:#b91c1c;">−3 %</div>
+          <div class="amt-sub">objectif manqué</div>
+        </div>
+      </div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span class="ab-metric" style="background:#FCEBEB;color:#b91c1c;font-weight:600;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>Manqué</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;"><span class="avatar">J</span><span style="font-size:12px;color:#374151;">Julen</span></span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Action menée</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Piloter ▾</button></span>
+    </div>
+  </div>
+
+  <div class="dir">Cartes système — mêmes règles A + B</div>
+
+  <div class="ab-card bar-threat">
+    <div class="ab-summary">
+      <div class="ab-pills">
+        <span class="chip-n">Cette semaine</span>
+        <span class="chip-n">Muse Square Occitanie</span>
+        <span class="chip-n">Conversion</span>
+      </div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Trafic sans conversion</div>
+          <div class="ab-sowhat">Le public était là (1645 visiteurs, +128 % vs habitude) mais peu d'achats : 20 % convertissent, contre 42 % d'ordinaire.</div>
+        </div>
+        <div class="amt" title="€ encaissés en plus sur ces jours — à gagner en les amplifiant. Estimation prudente : plusieurs facteurs se mêlent (cause multifactorielle).">
+          <div class="amt-val" style="color:var(--color-pill-green-text);">+28 016 €/an</div>
+          <div class="amt-sub">à gagner</div>
+        </div>
+      </div>
+      <div class="aline-strong">À corriger : vérifiez accueil, caisse et mise en avant aujourd'hui — posez une routine pour les jours à fort passage.</div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>
+      <button class="disc-btn">Déjà fait</button>
+      <button class="disc-btn">Pas pour moi</button>
+      <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card bar-opportunity">
+    <div class="ab-summary">
+      <div class="ab-pills">
+        <span class="chip-n">Cette semaine</span>
+        <span class="chip-n">MS Test</span>
+        <span class="chip-n">Ventes</span>
+      </div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">CA supérieur à vos jeudis</div>
+          <div class="ab-sowhat">CA 1623 € — très bonne journée, portée par l'affluence : +29 % de tickets, panier +9 %.</div>
+        </div>
+        <div class="amt" title="Motif de fond hérité de la journée : ce montant vient des vacances scolaires dans leur ensemble, pas de cette seule journée. Estimation prudente, plusieurs facteurs se mêlent (cause multifactorielle).">
+          <div class="amt-val" style="color:#B45309;">−12 016 €/an</div>
+          <div class="amt-sub">perdus · vacances scolaires</div>
+        </div>
+      </div>
+      <div class="aline-strong">À rejouer : identifiez ce qui a converti (offre, équipe) et répliquez-le sur les prochains jours de vacances.</div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>
+      <button class="disc-btn">Déjà fait</button>
+      <button class="disc-btn">Pas pour moi</button>
+      <span class="ab-metric">Alerte auto → Poeiti</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card" style="border-left:3px solid #ef9f27;">
+    <div class="ab-summary">
+      <div class="ab-pills">
+        <span class="chip-n">Aujourd'hui</span>
+        <span class="chip-n">Muse Square Occitanie</span>
+        <span class="chip-n">Météo</span>
+      </div>
+      <div class="head-row">
+        <div style="flex:1;min-width:0;">
+          <div class="ab-what" style="font-size:14px;">Météo dégradée 3+ jours</div>
+          <div class="ab-sowhat">3+ jours consécutifs de mauvais temps — alerte vent (niveau 4). Site sensible — impact prolongé sur la fréquentation.</div>
+        </div>
+        <div class="amt" title="Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle). Détail dans l'analyse.">
+          <div class="amt-val" style="color:#B45309;">−5 694 €/an</div>
+          <div class="amt-sub">perdus · mauvais temps</div>
+        </div>
+      </div>
+      <div class="aline-strong">À adapter : planifiez des alternatives couvertes sur la période et ajustez vos effectifs.</div>
+    </div>
+    <div class="ab-metrics-strip">
+      <span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>
+      <button class="disc-btn">Déjà fait</button>
+      <button class="disc-btn">Pas pour moi</button>
+      <span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span>
+    </div>
+  </div>
+
+  <div class="ab-card bar-opportunity">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">
+      <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>
+      <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">Vos jours de forte affluence pèsent 28 016 €/an de plus
+        <span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">31 j / 3 mois · à gagner · estimé, cause multifactorielle · Affluence · Actif</span>
+      </span>
+      <span class="amt-val" style="font-size:13px;color:var(--color-pill-green-text);white-space:nowrap;">+28 016 €/an</span>
+      <button class="agir-btn" style="white-space:nowrap;">M'engager</button>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:26px;">Une seule règle, lisible sans aucune spec : <b>le montant dit combien</b> (signé + / −), <b>la mini-phrase dit gagné ou perdu, et sur quoi</b> — « à gagner », « perdus · vacances scolaires », « perdus · mauvais temps », « votre objectif », « objectif atteint / manqué ». La cause vient des données existantes (<code>label_fr</code> de la classe, préfixe « jours de » retiré — rien d'écrit à la main). « Estimé », « mesuré », « cause multifactorielle » et « motif de fond » vivent en infobulle : de la prudence méthodologique, pas de l'information de décision. Retours précédents intégrés : « Attente de ventes » remplace « En attente » ; « Action menée ? » se replie en coche verte une fois répondu (cartes 2 et 4 ; carte 1 : pas encore répondue). La 4e carte engagement est un <i>exemple simulé</i> (aucun engagement manqué réel à ce jour) pour valider le code couleur complet.</p>
+</div>
+</body>
+</html>

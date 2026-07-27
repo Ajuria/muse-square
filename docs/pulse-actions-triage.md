@@ -134,6 +134,41 @@ screenshots conformes au proto. `node --check` propre sur les 6 scripts inline. 
 attrapé un vrai bug (préfixe « jours » mal strippé → « de vacances scolaires » dans l'infobulle),
 corrigé avant livraison. E2E authentifié = passage owner.
 
+## Cartes engagement au standard R1-R6 + code couleur lisible — LIVRÉ (27/07)
+
+Proto validé `public/engagement-cards-restyle-proto.html` (3 itérations owner : mini-phrases en
+français courant, « Attente de ventes », repli d'« Action menée ? »). AUCUN changement de
+structure de page (les engagements restent dans `#pls-engagement-cards`, hors triage — décision
+owner : « just cards »).
+
+- **Engagement R1** (`_cgActionCardHtml`) : le titre est l'ACTION (`committed_action_text`) ;
+  le chiffre monte en zone titre (`.amt`) — objectif « +90 €/jour » bleu #1D3BB3 tant que rien
+  n'est mesuré (mini-phrase « votre objectif »), résultat « +5 % » couleur verdict une fois
+  résolu (« objectif atteint / manqué », « non concluant »). Le contrat 18/07 (titre = objectif
+  chiffré, « Dispositif : » en description) est REMPLACÉ — décision owner 27/07. La description
+  porte l'état de mesure (« Mesure sur 14 j · CA habituel X € · réévaluation automatique. »).
+- **Engagement R3** : « Action menée ? » fusionnée DANS la strip (2 rangées) ; répondu « fait »
+  → coche verte repliée ; « pas_encore » GARDE les boutons (l'état doit pouvoir passer à Fait —
+  capture du documenter loop) ; résolu non confirmé → pill barrée, note d'exclusion de
+  l'apprentissage en infobulle. Les caveats vacances scolaires restent en toutes lettres.
+- **« En attente » → « Attente de ventes »** (`_cgVerdict`, status pending).
+- **Code couleur lisible, les DEUX familles** : montant SIGNÉ (+/−) + mini-phrase — « à
+  gagner », « perdus · <cause> » (cause = `label_fr` de la classe, préfixe « jours de » retiré,
+  jamais écrite à la main). Appliqué au bloc `.amt` système (cardsHtml), aux lignes
+  structurelles (`_structRowHtml`) et aux engagements. « Enjeu / Motif de fond · estimé »
+  disparaît du visible → tout en infobulle (tier, motif de fond, multifactoriel).
+- **Fixes embarqués** : `_cgWin` générique (`Nd` → « N j » — « 10d » rendait « 7 j ») ; la
+  ligne legacy sans seuil n'invente plus « Objectif : +1 % » (pas de bloc objectif sans
+  `threshold_value`).
+- **Hors périmètre, assumé** : monitor.astro garde ses pills Enjeu ancienne grammaire (décision
+  owner 26/07 : pas de parité) ; la page évolution (J1) garde son bloc Enjeu gelé.
+
+Preuve (27/07) : builder réel exécuté en Node sur les 5 lignes BQ réelles
+(`analytics.action_commitments`, café) + 3 états simulés (pending/missed/expired) — 24
+assertions PASS (zéro « Dispositif : », zéro rang `.disc`, signes, mini-phrases, infobulles) ;
+HTML injecté dans une harness au CSS réel de pulse, screenshots conformes au proto ;
+`node --check` propre sur le script inline. E2E authentifié = passage owner.
+
 ## Menu Agir universel — LIVRÉ (26/07 soir, corrections owner)
 
 Doctrine (owner, 26/07) : **toute carte « Actions du jour » est une action en cours ou à gérer,
