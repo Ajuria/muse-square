@@ -46,20 +46,131 @@ export type Intent = "pivot" | "reinforce" | "scale";
 const STATE_INTENT: Record<PlayState, Intent> = { below: "pivot", aligned: "reinforce", above: "scale" };
 export function intentForState(state: PlayState): Intent { return STATE_INTENT[state]; }
 
-// Map a card's action_type onto ONE lever. Explicit for known families, keyword fallback otherwise
-// so a new action_type still routes sensibly instead of returning nothing.
+// Map a card's action_type onto ONE lever — TABLE EXPLICITE pour tout le registre des origins
+// d'engagement (étape 2 « méthodes pertinentes », 27/07 — avant : 4 entrées + fallback, la
+// quasi-totalité des 80+ sous-types retombait sur « conversion »). Résolution :
+//   1. table explicite ; 2. origin_driver de la carte (les cartes sales K1 : le levier est le
+//   driver qui décroche, pas le type) ; 3. préfixe structural_ → frequentation (classes de jours) ;
+//   4. mots-clés (filet pour un futur type non listé) ; 5. conversion.
 const ACTION_LEVER: Record<string, Lever> = {
-  sales_revenue_down_wow: "conversion",
+  // Ventes — types à levier PROPRE (le driver ne les change pas)
+  sales_traffic_not_converting: "conversion",
+  sales_missed_opportunity: "conversion",
+  sales_underperformance: "conversion",
   offre_appel: "conversion",
-  competition_proximity: "frequentation",
+  offering_mix_shift: "conversion",
   sales_discount_no_lift: "yield",
+  structural_discount_no_lift: "yield",
+  structural_traffic_high: "conversion",
+  chat_decision_salesdiscount: "yield",
+  chat_decision_offering: "conversion",
+  // Prix concurrents → yield
+  competitor_price_drop: "yield",
+  competitor_price_increase: "yield",
+  competitor_repricing_event: "yield",
+  // Réputation / contenu → fidélisation (réduire la sensibilité à l'offre d'en face)
+  competitor_review_surge: "fidelisation",
+  competitor_review_drop: "fidelisation",
+  competitor_reputation_strength: "fidelisation",
+  review_solicitation: "fidelisation",
+  competitor_content_spike: "fidelisation",
+  competitor_content_silent: "fidelisation",
+  sales_competition_cannibalization: "fidelisation",
+  proven_action_replication: "fidelisation",
+  // Positionnement concurrent → conversion (différenciation)
+  competitor_positioning_brief: "conversion",
+  competitor_positioning_gap: "conversion",
+  competitor_new_offering: "conversion",
+  competitor_offering_removed: "conversion",
+  competitor_threat_direct: "conversion",
+  // Météo → fréquentation (la condition joue sur le flux)
+  weather_hazard_onset: "frequentation",
+  weather_worsened: "frequentation",
+  weather_improved: "frequentation",
+  extended_bad_weather: "frequentation",
+  extended_bad_weather_3d: "frequentation",
+  weather_window: "frequentation",
+  weather_window_after_bad: "frequentation",
+  saturated_bad_weather: "frequentation",
+  weather_mobility_double: "frequentation",
+  weather_comp_opportunity: "frequentation",
+  chat_decision_weather: "frequentation",
+  // Calendrier / événements / jours → fréquentation
+  commercial_event_match: "frequentation",
+  mega_event_activation: "frequentation",
+  mega_event_end: "frequentation",
+  top_day_approaching: "frequentation",
+  weekend_opportunity: "frequentation",
+  day_opportunity: "frequentation",
+  weekend_vacation_low_comp: "frequentation",
+  best_day_of_week: "frequentation",
+  holiday_high_comp: "frequentation",
+  perfect_storm: "frequentation",
+  calendar_audience_shift: "frequentation",
+  audience_shift_opportunity: "frequentation",
+  chat_decision_calendar: "frequentation",
+  chat_decision_events: "frequentation",
+  chat_decision_audience: "frequentation",
+  // Concurrence ambiante / événements concurrents → fréquentation
+  competition_proximity: "frequentation",
+  high_competition_density: "frequentation",
+  competition_pressure_spike: "frequentation",
+  same_bucket_saturation: "frequentation",
+  low_competition_window: "frequentation",
+  mobility_comp_squeeze: "frequentation",
+  competitor_event_launch: "frequentation",
+  competitor_event_ending: "frequentation",
+  competitor_audience_conflict: "frequentation",
+  competitor_sold_out: "frequentation",
+  competitor_hours_change: "frequentation",
+  chat_decision_competitor: "frequentation",
+  // Tourisme → fréquentation
+  tourist_high_season: "frequentation",
+  tourist_surge_vacation: "frequentation",
+  tourism_peak_window: "frequentation",
+  tourism_weather_vacation: "frequentation",
+  tourism_comp_squeeze: "frequentation",
+  low_tourism_local_opp: "frequentation",
+  foreign_tourism_signal: "frequentation",
+  tourism_mobility_hit: "frequentation",
+  chat_decision_tourism: "frequentation",
+  // Mobilité / score / régime → fréquentation
+  mobility_disruption: "frequentation",
+  mobility_disruption_planned: "frequentation",
+  mobility_disruption_resolved: "frequentation",
+  score_up: "frequentation",
+  score_down: "frequentation",
+  regime_change: "frequentation",
+  regime_c_warning: "frequentation",
+  medal_change: "frequentation",
+  score_driver_shift: "frequentation",
+  chat_decision_footfall: "frequentation",
+  ft_peak_bad_weather: "frequentation",
+  ft_quiet_good_weather: "frequentation",
+  ft_peak_saturated: "frequentation",
+  ft_peak_low_comp: "frequentation",
+  ft_peak_tourism_vacation: "frequentation",
+  ft_peak_mobility: "frequentation",
+  // Visibilité institutionnelle / médias → fréquentation
+  institution_campaign_detected: "frequentation",
+  media_mention_detected: "frequentation",
 };
-export function leverForActionType(actionType?: string | null): Lever {
+const DRIVER_LEVER: Record<string, Lever> = {
+  basket: "panier",
+  conversion: "conversion",
+  footfall: "frequentation",
+  transactions: "frequentation", // transactions folds into footfall (même règle que reco-library)
+};
+export function leverForActionType(actionType?: string | null, driver?: string | null): Lever {
   const at = String(actionType || "").toLowerCase();
   if (ACTION_LEVER[at]) return ACTION_LEVER[at];
+  const dv = String(driver || "").toLowerCase();
+  if (DRIVER_LEVER[dv]) return DRIVER_LEVER[dv]; // sales_surge / revenue_down_wow / decomposition
+  if (/^structural_/.test(at)) return "frequentation"; // classes de jours (météo/tourisme/concurrence)
   if (/panier|basket|upsell|addition/.test(at)) return "panier";
   if (/yield|prix|price|discount|remise|tarif|early/.test(at)) return "yield";
-  if (/freq|affluence|footfall|attendance|proximity|competition|concurrent/.test(at)) return "frequentation";
+  if (/review|reputation|avis/.test(at)) return "fidelisation";
+  if (/freq|affluence|footfall|attendance|proximity|competition|concurrent|weather|meteo|tourism|tourist|event|calendar|mobility|score|regime|audience|weekend/.test(at)) return "frequentation";
   if (/fidel|repeat|retention|revenir|abonn/.test(at)) return "fidelisation";
   return "conversion";
 }
