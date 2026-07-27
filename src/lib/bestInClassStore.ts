@@ -29,6 +29,7 @@ export interface BestInClassPlay {
   published_at: string;
   confidence: Confidence;
   venue_named: boolean;
+  source_tier: number; // 1 institutionnel/académique · 2 rapport multi-lieux/presse pro · 3 legacy pré-registre
 }
 
 const CONF_RANK: Record<string, number> = { eleve: 3, moyen: 2, faible: 1 };
@@ -81,7 +82,7 @@ export async function getBestInClassPlays(
     [rows] = await bq.query({
       query:
         `SELECT play_id, industry_code, lever, intent, title, context, move, outcome, steps, ` +
-        `source_name, source_url, published_at, confidence, venue_named ` +
+        `source_name, source_url, published_at, confidence, venue_named, source_tier ` +
         `FROM \`${STORE_TABLE}\` WHERE ${conds.join(" AND ")}`,
       params,
       location: "EU",
@@ -105,7 +106,8 @@ export async function getBestInClassPlays(
       published_at: flat(r.published_at),
       confidence: (flat(r.confidence) || "faible") as Confidence,
       venue_named: flat(r.venue_named) === true,
+      source_tier: Number(flat(r.source_tier)) || 3, // legacy pré-registre → dernier rang
     }))
-    .sort((a, b) => (CONF_RANK[b.confidence] || 0) - (CONF_RANK[a.confidence] || 0) || (b.venue_named ? 1 : 0) - (a.venue_named ? 1 : 0))
+    .sort((a, b) => a.source_tier - b.source_tier || (CONF_RANK[b.confidence] || 0) - (CONF_RANK[a.confidence] || 0) || (b.venue_named ? 1 : 0) - (a.venue_named ? 1 : 0))
     .slice(0, limit);
 }
