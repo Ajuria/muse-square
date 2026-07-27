@@ -103,7 +103,16 @@ async function main() {
     while (next < cells.length) {
       const { industry, lever, intent } = cells[next++];
       try {
-        const text = await core.callSearch(API_KEY, MODEL, industry, lever, intent);
+        // Retry 529/429 (surcharge transitoire) : 2 reprises avec backoff — sinon la cellule
+        // resterait vide pour tout le TTL alors que l'erreur est passagère.
+        let text;
+        for (let attempt = 0; ; attempt++) {
+          try { text = await core.callSearch(API_KEY, MODEL, industry, lever, intent); break; }
+          catch (e) {
+            if (attempt >= 2 || !/529|429|overloaded/i.test(String(e.message))) throw e;
+            await new Promise((r) => setTimeout(r, 8000 * (attempt + 1)));
+          }
+        }
         const raw = core.extractPlays(text);
         let kept = 0;
         raw.forEach((r, i) => { const v = core.validate(r, industry, lever, intent, i, NOW); if (v) { rows.push(v); kept++; } });
