@@ -52,7 +52,15 @@ const CULTURE_SOURCES = {
 };
 const COMMERCE_SOURCES = {
   tier1: ["ecommons.cornell.edu", "sha.cornell.edu", "umih.fr"],
-  tier2: ["lhotellerie-restauration.fr", "hospitalitynet.org", "restaurant.org"],
+  // Élargi 27/07 (owner) : presse professionnelle FRANÇAISE du commerce/CHR — titres établis de
+  // la filière (rédactions identifiées), jamais des blogs de vendeurs ni d'agences.
+  tier2: [
+    "lhotellerie-restauration.fr", "hospitalitynet.org", "restaurant.org",
+    "lsa-conso.fr",                    // LSA — commerce & distribution
+    "neorestauration.com",             // Néorestauration — restauration commerciale
+    "snacking.fr",                     // France Snacking — restauration rapide/vente à emporter
+    "bra-tendances-restauration.fr",   // B.R.A. Tendances Restauration
+  ],
 };
 const SOURCE_REGISTRY = {
   _generic: GENERIC_SOURCES,
