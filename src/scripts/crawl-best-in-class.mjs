@@ -94,19 +94,26 @@ async function main() {
   const MODE = process.env.MODE || "full"; // full = WRITE_TRUNCATE (whole rebuild); merge/refresh = supersede only the crawled cells
   const cells = await selectCells(MODE);
   if (!cells.length) { console.log("nothing to crawl (all fresh)"); return; }
+  // CONCURRENCY (défaut 6) : les cellules sont indépendantes (une recherche web ~20-40 s chacune) —
+  // un pool de workers ramène un full build de ~40 min à ~5 min sans toucher au contrat.
+  const CONC = Math.max(1, Math.min(10, Number(process.env.CONCURRENCY || 6)));
   const rows = [];
-  for (const { industry, lever, intent } of cells) {
-    process.stdout.write(`crawl ${industry} x ${lever} x ${intent} ... `);
-    try {
-      const text = await core.callSearch(API_KEY, MODEL, industry, lever, intent);
-      const raw = core.extractPlays(text);
-      let kept = 0;
-      raw.forEach((r, i) => { const v = core.validate(r, industry, lever, intent, i, NOW); if (v) { rows.push(v); kept++; } });
-      console.log(`${raw.length} found, ${kept} kept`);
-    } catch (e) {
-      console.log(`ERR ${e.message}`);
+  let next = 0, done = 0;
+  async function worker() {
+    while (next < cells.length) {
+      const { industry, lever, intent } = cells[next++];
+      try {
+        const text = await core.callSearch(API_KEY, MODEL, industry, lever, intent);
+        const raw = core.extractPlays(text);
+        let kept = 0;
+        raw.forEach((r, i) => { const v = core.validate(r, industry, lever, intent, i, NOW); if (v) { rows.push(v); kept++; } });
+        console.log(`[${++done}/${cells.length}] ${industry} x ${lever} x ${intent} : ${raw.length} found, ${kept} kept`);
+      } catch (e) {
+        console.log(`[${++done}/${cells.length}] ${industry} x ${lever} x ${intent} : ERR ${e.message}`);
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(CONC, cells.length) }, () => worker()));
   if (!rows.length) { console.error("no plays kept — nothing loaded"); process.exit(2); }
   const tmp = path.join(os.tmpdir(), `bic_${INDUSTRIES.join("-")}.ndjson`);
   fs.writeFileSync(tmp, rows.map((r) => JSON.stringify(r)).join("\n"));
