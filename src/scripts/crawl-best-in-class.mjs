@@ -125,7 +125,9 @@ async function main() {
   await Promise.all(Array.from({ length: Math.min(CONC, cells.length) }, () => worker()));
   if (!rows.length) { console.error("no plays kept — nothing loaded"); process.exit(2); }
   const tmp = path.join(os.tmpdir(), `bic_${INDUSTRIES.join("-")}.ndjson`);
-  fs.writeFileSync(tmp, rows.map((r) => JSON.stringify(r)).join("\n"));
+  const deduped = core.dedupePlays(rows);
+  if (deduped.length < rows.length) console.log(`dedup: ${rows.length - deduped.length} doublon(s) même source écarté(s)`);
+  fs.writeFileSync(tmp, deduped.map((r) => JSON.stringify(r)).join("\n"));
   const table = bq.dataset("analytics").table("best_in_class_plays");
   const supersede = MODE === "merge" || MODE === "refresh"; // both write only the crawled cells
   if (supersede) {

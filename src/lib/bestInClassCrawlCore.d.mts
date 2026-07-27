@@ -8,12 +8,16 @@ export interface CrawlPlayRow {
   play_id: string; generated_at: string; industry_code: string; lever: string; intent: string;
   title: string; context: string; move: string; outcome: string; steps: string[];
   source_name: string; source_url: string; published_at: string; confidence: string; venue_named: boolean;
+  source_tier: number;
 }
 export interface BqSchema { fields: Array<{ name: string; type: string; mode?: string }>; }
 
 export const LEVER_LABELS: Record<string, string>;
 export const INDUSTRY_LABELS: Record<string, string>;
 export const INTENT_LABELS: Record<string, string>;
+export const SOURCE_REGISTRY: Record<string, { tier1: string[]; tier2: string[] }>;
+export function tierForSource(industry: string, url: string): number | null;
+export function dedupePlays<T extends { industry_code: string; source_url: string }>(rows: T[]): T[];
 export const SYSTEM: string;
 export function userPrompt(industry: string, lever: string, intent: string): string;
 export function callSearch(apiKey: string, model: string, industry: string, lever: string, intent: string): Promise<string>;

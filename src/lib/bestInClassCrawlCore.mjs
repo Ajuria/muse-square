@@ -110,6 +110,13 @@ const SYSTEM = [
   "SECTEUR : le cas doit provenir du MEME secteur que le lieu cible. Refuse les secteurs adjacents meme si le levier se ressemble — pour un commerce/cafe/restaurant de proximite, EXCLURE l'hotellerie/les resorts, les chaines internationales, le e-commerce pur; pour une salle d'evenementiel, EXCLURE l'hotellerie et le retail. Dans le doute sur la comparabilite du secteur, EXCLURE. Mieux vaut une liste vide qu'un exemple hors-secteur.",
   "Ne JAMAIS inventer de chiffre : le resultat doit etre celui rapporte par la source. Si la source ne quantifie pas, formule le resultat qualitativement.",
   "Nommer le lieu UNIQUEMENT si la source le nomme publiquement (etude de cas publique). Sinon, decris-le anonymement ('un lieu comparable ...').",
+  // ── Gate de RECOMMANDABILITE (audit owner 27/07 — la source fiable ne suffit pas, le geste doit etre conseillable) ──
+  "RECOMMANDABILITE : ne retiens un cas que si tu recommanderais le geste DE VIVE VOIX a un patron independant : un geste UNIQUE et concret, executable cette semaine, sans equipe dediee, sans cabinet d'etude, sans infrastructure de grande institution.",
+  "REFUSE : les experimentations tarifaires risquees (prix libre, gratuite de masse, remise permanente forte) ; les strategies globales fourre-tout ('pivot numerique', 'strategie 360', 'transformation digitale') ; les cas d'institutions nationales ou de stades non transposables a un independant ; les dispositifs inapplicables en France (donnees partagees non conformes RGPD).",
+  "NOMME toujours l'outil, l'operation ou le dispositif concerne — une 'operation nationale' sans nom est inutilisable.",
+  "Le RESULTAT ('outcome') enonce LE resultat lui-meme, jamais un commentaire sur la source ('la source ne quantifie pas...' est interdit) ; un chiffre doit etre un MESURE reel — jamais une demonstration hypothetique ('si 10 % choisissent...').",
+  "Le TITRE est en mots simples de patron — pas de jargon d'etude ('non-pratiquants', 'intendants', 'segments').",
+  "UN CAS = UN play : ne decline pas un meme cas celebre sous plusieurs angles.",
   "Reponds en francais. Copie sobre, orientee action, sans superlatifs.",
 ].join(" ");
 
@@ -184,6 +191,10 @@ function validate(raw, industry, lever, intent, idx, nowIso) {
   // a "moyen" (un rapport de vendeur multi-lieux n'est jamais "eleve").
   const tier = tierForSource(industry, src);
   if (tier == null) return null;
+  // Gate de recommandabilite (27/07) — garde-fous MECANIQUES sur les deux travers vus a l'audit :
+  // un outcome qui commente la source au lieu d'enoncer un resultat, et un chiffre hypothetique.
+  if (/^\s*(la |aucun(e)? )?source ne (quantifie|fournit|rapporte|publie)/i.test(outcome) || /^\s*aucun chiffre/i.test(outcome)) return null;
+  if (/si \d+\s?%/i.test(outcome)) return null;
   const steps = Array.isArray(raw.steps) ? raw.steps.map(clean).filter(Boolean).slice(0, 4) : [];
   let conf = ["eleve", "moyen", "faible"].includes(raw.confidence) ? raw.confidence : "faible";
   if (tier === 2 && conf === "eleve") conf = "moyen";
@@ -205,6 +216,19 @@ function validate(raw, industry, lever, intent, idx, nowIso) {
     confidence: conf,
     venue_named: raw.venue_named === true,
   };
+}
+
+// Dedup d'un run : un meme cas decline sur plusieurs cellules (meme source, meme industrie) ne
+// charge qu'UN play — l'audit 27/07 a montre ~25 doublons/64 sans ce garde. Les deux callers
+// passent leurs rows collectees ici avant load.
+function dedupePlays(rows) {
+  const seen = new Set();
+  return (rows || []).filter((r) => {
+    const key = `${r.industry_code}|${(r.source_url || "").toLowerCase().replace(/[#?].*$/, "")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // BigQuery load schema for analytics.best_in_class_plays (both callers load through this).
@@ -229,4 +253,4 @@ const SCHEMA = {
   ],
 };
 
-export { LEVER_LABELS, INDUSTRY_LABELS, INTENT_LABELS, SOURCE_REGISTRY, tierForSource, SYSTEM, userPrompt, callSearch, extractPlays, clean, validate, SCHEMA };
+export { LEVER_LABELS, INDUSTRY_LABELS, INTENT_LABELS, SOURCE_REGISTRY, tierForSource, dedupePlays, SYSTEM, userPrompt, callSearch, extractPlays, clean, validate, SCHEMA };
