@@ -449,16 +449,22 @@
   );
 
   // #8 — low_competition_window
-  reg('low_competition_window', 'Prenez la parole \u2014 faible concurrence', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
+  reg('low_competition_window', 'Moins d’activité que d’habitude dans votre périmètre', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
     function(a, p, d) {
-      var pr = Number(d.competition_pressure_ratio || 0);
-      var n = Number(d.events_within_5km_count || 0);
-      var score = num(d.opportunity_score_final_local);
-      var edge = userEdge(p);
-      var line = 'Pression concurrentielle faible (\u00d7' + pr.toFixed(1) + ') \u2014 ' + n + ' \u00e9v\u00e9nements \u00e0 5 km. Score ' + score + '/10.';
-      line += ' C\u2019est le moment de communiquer \u2014 moins de bruit, plus de visibilit\u00e9.';
-      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      // Un seul chiffre : l'ecart en % sous la normale DU LIEU. On ne compare plus un compte
+      // d'evenements a un indice pondere (unites differentes : competition_index_local =
+      // 0,7 x (4x500m + 3x5km + 2x10km + 50km)). La direction vient de l'ecart MESURE sur ce
+      // lieu (a.enjeu, classe competition_low) et n'est JAMAIS affirmee sans mesure : verifie
+      // le 28/07, 4 sites sur 24 ont une mesure et les signes divergent (+88 / -49 EUR/j).
+      var pr = (a && a.pressure_ratio != null) ? Number(a.pressure_ratio)
+             : (d && d.competition_pressure_ratio != null) ? Number(d.competition_pressure_ratio) : null;
+      var line = (pr != null && pr < 1)
+        ? 'L’activité autour de vous sera inférieure de ' + Math.round((1 - pr) * 100) + ' % à votre moyenne.'
+        : 'L’activité autour de vous sera plus faible que d’habitude.';
+      var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
+      if (eur != null && eur > 0) line += ' Chez vous, ces journées rapportent plus que la moyenne.';
+      else if (eur != null && eur < 0) line += ' Chez vous, ces journées rapportent moins que la moyenne.';
+      else line += ' On ne sait pas encore si elles vous rapportent plus ou moins.';
       return line;
     },
     {
@@ -2328,14 +2334,10 @@
       return s;
     }, urgency: 'soon' },
     'low_competition_window': { action: function(a, p, d) {
-      var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var ev = a.events_5km != null ? Number(a.events_5km) : null;
-      var base = a.baseline_avg != null ? Number(a.baseline_avg) : null;
-      var s = 'À capter : concurrence sous la normale';
-      if (pr != null) s += ' (pression ×' + pr.toFixed(1) + ')';
-      if (ev != null && base != null) s += ' — ' + ev + ' événements à 5 km vs ~' + Math.round(base) + ' habituellement';
-      s += '. Fenêtre rare : prenez la parole pendant que vos concurrents sont silencieux.';
-      return s;
+      var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
+      if (eur != null && eur > 0) return 'À faire : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.';
+      if (eur != null && eur < 0) return 'À faire : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.';
+      return 'À vérifier : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
     }, urgency: 'now' },
     'competition_pressure_spike': { action: function(a, p, d) {
       var name = a.competitor_name || null;
