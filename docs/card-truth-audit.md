@@ -64,6 +64,38 @@
 
 Spécification de correction : `docs/competition-split-spec.md`.
 
+
+## Correction du 28/07 (2) — le classement de FRÉQUENCE de cet audit était faussé
+
+La table est reconstruite entièrement à chaque run. La plupart des CTE n'émettent que sur
+J → J+3 (4 dates), **mais `competition_proximity` et `high_competition_density` n'ont AUCUN filtre
+de date** : elles balayent toute la fenêtre de `daily_state` (J−30 → J+7 = 38 dates). Leurs gros
+totaux (347, 133) sont donc un artefact, pas une fréquence. Rapporté au jour :
+
+| Carte | lignes/jour | sites touchés | lignes datées dans le passé |
+|---|---|---|---|
+| `foreign_tourism_signal` | 32 | **32 / 32** | 0 |
+| `extended_bad_weather_3d` | 32 | **32 / 32** | 0 |
+| `review_solicitation` | 31 | 31 | 0 |
+| `audience_shift_opportunity` | 31 | 31 | 0 |
+| `weekend_opportunity` | 30 | 30 | 0 |
+| `low_competition_window` | 24 | 24 | 0 |
+| `competition_proximity` | **9,1** | **10 / 32** | **275 / 347** |
+
+Conséquences : (a) `competition_proximity` n'est PAS la carte la plus fréquente — c'est la moins
+fréquente du haut de tableau, sur 10 sites, et 3/4 de ses lignes portent une date passée
+(**bug de filtre**, pas un arbitrage) ; (b) les vraies cartes ubiquitaires sont
+`foreign_tourism_signal` et `extended_bad_weather_3d`, sur TOUS les sites TOUS les jours.
+
+Deux verdicts de l'audit sont aussi tempérés :
+- **`extended_bad_weather_3d` a RAISON de tirer partout** : les 32 sites sont réellement en alerte
+  ≥ 2 sur 5 jours (niveau moyen 2,0-3,3) — épisode national réel. Le défaut restant est seulement
+  qu'elle lit `site_sensitivity` là où la mesure du lieu dit l'inverse.
+- **`weekend_opportunity`** : ses 60 tirs sont en alerte ≥ 2 parce que la fenêtre courante est dans
+  cet épisode, pas par contradiction systémique. Le vrai défaut : elle appelle « météo acceptable »
+  une alerte de niveau 3 et n'en dit pas un mot (`case when alert = 0 then 'beau temps' else
+  'meteo acceptable' end`).
+
 ## Suite décidée (owner, 27/07)
 
 - ~~Durcir `low_competition_window`~~ — **ANNULÉ le 28/07** (voir correction ci-dessus) : la règle
