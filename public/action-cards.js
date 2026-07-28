@@ -2808,6 +2808,18 @@
     var d = String((a && (a.primary_revenue_driver || a.dominant_factor)) || '').toLowerCase();
     return d === 'transactions' ? 'footfall' : d;
   }
+  // Conditionnalite par SIGNE MESURE (28/07). Certaines cartes n'ont pas de driver mais un
+  // enjeu mesure sur le lieu : le geste depend alors du SENS de cet ecart, pas du type de carte.
+  // Cas d'ecole low_competition_window : les jours calmes rapportent +88 EUR/j a un lieu et
+  // -49 EUR/j a un autre — un plan generique serait faux pour l'un des deux. Sans mesure
+  // (20 sites sur 24), on retombe sur _default, dont le geste est de MESURER, pas d'affirmer.
+  // Namespace distinct des cles driver (footfall/basket/conversion) : aucune collision possible.
+  function _recoSignKey(a) {
+    var e = a && a.enjeu;
+    var v = (e && e.eur_year != null) ? Number(e.eur_year) : null;
+    if (v == null || !isFinite(v) || v === 0) return '';
+    return v > 0 ? 'enjeu_positif' : 'enjeu_negatif';
+  }
   // A reco entry is EITHER a legacy string OR a structured plan { title, description, why, tag }.
   // _planText flattens to the committable action text (title — description) for string consumers
   // (M'engager field, sales report). The insight page reads the raw object for the premium card.
@@ -2825,10 +2837,10 @@
     var byInd = (ind && typeof window !== 'undefined' && window.MS_SALES_RECO_LIB_BY_INDUSTRY && window.MS_SALES_RECO_LIB_BY_INDUSTRY[ind]) ? window.MS_SALES_RECO_LIB_BY_INDUSTRY[ind][cardType] : null;
     var lib = byInd || ((typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) ? window.MS_SALES_RECO_LIB[cardType] : null);
     if (!lib) return [];
-    var arr = lib[_recoDriverKey(a)] || lib._default || [];
+    var arr = lib[_recoDriverKey(a)] || lib[_recoSignKey(a)] || lib._default || [];
     return Array.isArray(arr) ? arr.slice(0, 3) : [];
   }
-  ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization'].forEach(function (_rt) {
+  ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization', 'low_competition_window'].forEach(function (_rt) {
     if (!SPECS[_rt]) return;
     SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
     SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? _planText(r[0]) : ''; }; })(_rt);

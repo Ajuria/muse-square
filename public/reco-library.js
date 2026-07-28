@@ -123,6 +123,36 @@ window.MS_SALES_RECO_LIB = {
     ],
   },
 
+  // Peu d'activite dans le perimetre — CONDITIONNE AU SIGNE MESURE (28/07).
+  // Verifie sur donnees reelles : sur 24 sites qui recoivent cette carte, 4 seulement ont une
+  // mesure, et les signes DIVERGENT (+88 EUR/j sur un lieu, -49 EUR/j sur le cafe). Un plan
+  // generique « ces jours vous reussissent » serait sans fondement pour 20 sites et FAUX pour
+  // l'un des quatre. D'ou les trois jeux ci-dessous : le geste suit le signe du lieu, et sans
+  // mesure le geste est de MESURER — jamais d'affirmer une direction.
+  // Selection : _recoSignKey(a) lit a.enjeu.eur_year (classe competition_low, dayClassRegistry).
+  low_competition_window: {
+
+    // Le lieu gagne plus ces jours-la (ecart mesure positif) — amplifier.
+    enjeu_positif: [
+      { title: "Gardez votre meilleure annonce pour ces jours", description: "Decalez la plus forte communication du mois sur la fenetre, et n'envoyez rien d'autre les 5 jours suivants.", why: "Ces journees rapportent deja plus que votre habitude sur ce lieu (voir le montant sur la carte). Autant y mettre votre munition la plus forte plutot que de la depenser un jour ordinaire.", tag: "Visibilite", steps: ["Lister ce que vous comptiez communiquer ce mois-ci.", "Decaler la plus forte de ces annonces sur les jours de la fenetre.", "Envoyer 48 h avant, sur votre canal le plus direct — un seul envoi, date.", "Ne rien envoyer d'autre pendant les 5 jours suivants."] },
+      { title: "Ouvrez un creneau de plus sur le jour le plus tendu", description: "Ajouter une seance ou un service supplementaire sur la journee la plus chargee de la fenetre.", why: "Si ces journees rapportent deja plus, le frein n'est pas d'etre connu mais ce que vous pouvez servir. Ouvrir un creneau coute moins qu'une campagne.", tag: "Capacite", steps: ["Regarder vos reservations sur la fenetre, reperer le jour le plus tendu.", "Ouvrir un creneau ou une seance supplementaire.", "L'annoncer a ceux qui vous suivent deja, sans budget publicitaire.", "Caler l'equipe avant, pas pendant."] },
+      { title: "Concentrez votre budget de visibilite sur ces jours", description: "Basculer sur la fenetre ce que vous depensez d'habitude en publicite ou mise en avant.", why: "Depenser la ou vous performez deja : le budget accompagne une journee porteuse au lieu d'essayer d'en fabriquer une.", tag: "Budget", steps: ["Identifier ce que vous depensez en visibilite sur un mois type.", "En basculer la moitie sur les seuls jours de la fenetre.", "Ne rien depenser sur les jours a forte activite du meme mois.", "Comparer le cout par visite entre les deux periodes."] }
+    ],
+
+    // Le lieu gagne MOINS ces jours-la (ecart mesure negatif) — proteger la marge, provoquer la venue.
+    enjeu_negatif: [
+      { title: "Ajustez vos couts variables sur ces journees", description: "Reduire l'effectif et les commandes perissables sur les jours de la fenetre.", why: "Ces journees rapportent moins que votre habitude sur ce lieu (voir le montant sur la carte). Ce qui se joue d'abord, c'est ce que vous engagez pour les servir.", tag: "Couts", steps: ["Comparer votre planning et vos commandes a une journee ordinaire.", "Retirer ce qui est ajustable sans degrader l'accueil.", "Prevenir l'equipe la veille, pas le matin meme.", "Comparer la marge du jour a vos journees comparables."] },
+      { title: "Donnez une raison de venir precisement ce jour-la", description: "Une offre ou un rendez-vous date, annonce 48 h avant, valable uniquement sur la fenetre.", why: "Sans declencheur, une journee creuse le reste. Une raison datee transforme l'intention en visite avant qu'elle ne s'oublie.", tag: "Trafic", steps: ["Choisir une offre ou un format simple a tenir.", "Le dater explicitement sur les jours de la fenetre.", "L'annoncer 48 h avant sur votre canal le plus direct.", "Compter les venues attribuables a cette annonce."] },
+      { title: "Deplacez ce qui peut l'etre sur une journee porteuse", description: "Reporter operations, lancements et gros achats hors de la fenetre.", why: "Lancer quelque chose un jour ou vous faites moins que d'habitude, c'est lui donner sa pire chance.", tag: "Arbitrage", steps: ["Lister ce qui est prevu sur la fenetre.", "Identifier ce qui n'est pas contraint par une date.", "Le reporter sur une journee comparable plus porteuse.", "Noter ce qui a ete deplace pour comparer ensuite."] }
+    ],
+
+    // AUCUNE mesure sur ce lieu (cas majoritaire : 20 sites sur 24) — le geste est de MESURER.
+    _default: [
+      { title: "Fixez-vous un objectif sur ces journees pour savoir ce qu'elles valent", description: "S'engager sur un objectif de CA sur la fenetre, pour trancher si ces journees vous rapportent ou vous coutent.", why: "Personne ne sait encore, chez vous, si les journees calmes sont bonnes ou mauvaises — cela varie fortement d'un lieu a l'autre. Une seule fenetre mesuree vaut mieux qu'une intuition.", tag: "Mesure", steps: ["Fixer un objectif de CA sur les jours de la fenetre.", "Ne rien changer d'autre pendant la periode, pour que le resultat soit lisible.", "Laisser la mesure se faire a la fermeture de la fenetre.", "Recommencer sur la fenetre suivante pour confirmer."] },
+      { title: "Notez ce que vous observez ces jours-la", description: "Relever frequentation, panier et ambiance sur la fenetre, pour nourrir la comparaison.", why: "Le chiffre d'affaires seul ne dit pas si c'est le passage ou le panier qui bouge. L'observation d'une fenetre oriente le geste de la suivante.", tag: "Observation", steps: ["Noter le passage ressenti et le panier moyen chaque jour de la fenetre.", "Comparer a une journee ordinaire de la meme semaine.", "En deduire lequel des deux decroche ou progresse.", "Choisir le geste de la prochaine fenetre en consequence."] }
+    ]
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [
