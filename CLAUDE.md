@@ -50,6 +50,7 @@
 - Dividers: `ms-divider my-[6px] sm:my-[8px] lg:my-[12px]`.
 
 ## Localization (France — non-negotiable)
+- **Conseils applicables en DROIT FRANÇAIS.** Un plan d'action ne doit jamais proposer un geste illégal ou impraticable ici. Cas réel (28/07, rattrapé par l'owner) : « Retirez une personne du planning » et « Prévenez l'équipe la veille » — la modification des horaires suppose un **délai de prévenance** (7 j, réductible à 3 en HCR par accord). Ce qu'un exploitant maîtrise à 2-3 jours : ses **achats**, le fait de **ne pas appeler d'extra**, et **ce qu'il fait faire** à l'équipe déjà planifiée. Vaut aussi pour : soldes (dates légales), promotions (revente à perte), affichage des prix, RGPD sur les fichiers clients.
 - The product is French, based in France. ALL user-facing dates render `JJ/MM/AAAA` (day/month/year) — NEVER US `YYYY-MM-DD` or `MM/DD/YYYY`. Keep ISO `Y-m-d` only as the internal/API value (store it in `data-iso` or a hidden field); display the French form.
 - Numbers/currency: French formatting (comma decimal, € after the number) via the existing `frDec`/`frInt` helpers — never raw JS `toString()`.
 - No US-centric defaults anywhere in user-facing copy or inputs.
