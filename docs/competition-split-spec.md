@@ -71,6 +71,82 @@ la classe `competition_low` mesure **+88 €/j (t = 2,4, n_days = 30)**. Le durc
 (≤ 0,5) aurait mis la carte à **zéro tir** et cassé l'alignement carte ↔ mesure. `pressure_ratio`
 est relatif à la baseline DU LIEU : 0,93 = « 7 % sous votre normale ».
 
+## Les 5 modifications appliquées (dbt Cloud IDE, 28/07 — RUN PASSÉ)
+
+Toutes dans `models/ms_open_data/mart/fct_location_daily_action_candidates.sql`.
+
+**1 · Unité du payload — 4 occurrences** (CTE `high_competition`, `saturated_bad_weather`,
+`same_bucket_saturation`, `ft_peak_saturated`). Remplacer partout :
+```
+round(d.pct_same_bucket_5km, 1) as pct_same_sector
+```
+par :
+```
+round(d.pct_same_bucket_5km * 100, 1) as pct_same_sector
+```
+⚠️ Piège rencontré : `round(x, 100)` (le 100 en 2e argument) arrondit à 100 décimales — le `* 100`
+va sur le PREMIER argument. Et vérifier la virgule de fin de ligne : deux ont été perdues à la
+saisie, ce qui casse la compilation.
+
+**2 · Seuils morts — 3 occurrences** (`saturated_bad_weather`, `same_bucket_saturation`,
+`ft_peak_saturated`). Remplacer :
+```
+and d.pct_same_bucket_5km > 25
+```
+par :
+```
+and d.pct_same_bucket_5km > 0.25
+```
+
+**3 · Exposer la scission — CTE `daily_state`**, insérer sous `r.pct_same_bucket_5km,` :
+```
+        r.events_within_5km_same_bucket_count,
+```
+
+**4 · Porter la scission — CTE `high_competition`**, dans le `to_json_string(struct(...))`,
+entre `pct_same_sector` et `score_driver` :
+```
+            d.events_within_5km_same_bucket_count as events_5km_same_sector,
+            d.events_within_5km_count - d.events_within_5km_same_bucket_count as events_5km_other_sector,
+```
+
+**5 · Le geste suit la scission — CTE `high_competition`**, `detail_fr`. Remplacer le `case`
+sur `pressure_ratio` par :
+```
+            case
+                when d.pct_same_bucket_5km >= 0.25 then concat(
+                    cast(round(d.pct_same_bucket_5km * 100, 0) as string),
+                    '% sont dans votre secteur - ils disputent votre public. Differenciez votre offre.')
+                else concat(
+                    'Seulement ',
+                    cast(round(d.pct_same_bucket_5km * 100, 0) as string),
+                    '% sont dans votre secteur : ce public est dans le quartier sans vous etre dispute. Allez le capter.')
+            end
+```
+
+## Dérives d'en-tête constatées (28/07, non corrigées — documentation seule)
+
+- « 17 types d'action » : il y en a **53** dans le `UNION ALL` ; la liste cite encore
+  `score_driver_shift`, supprimé.
+- **8 sources manquantes** dans `AUTHORITATIVE SOURCES` : `fct_location_impact_daily_calendar`,
+  `fct_foreign_tourism_context_daily`, `int_client_weather_alerts_daily`,
+  `fct_client_sales_signals_daily`, `fct_client_day_residual`,
+  `int_competitor_offering_changes`, `fct_location_action_learning`,
+  `source('raw_crawl','watched_competitors')`.
+- `NOTES` annonce `suppression_key = '{action_type}:{location_id}:{date}'` : faux pour plusieurs
+  CTE — `high_competition_density` écrit `'competition_pressure_spike:…'` (**collision de clé**
+  avec la carte de transition du change_feed : le dédup en garde une par priorité — à arbitrer),
+  `low_competition_window` écrit `'low_competition:'`, `same_bucket_saturation` `'same_bucket_sat:'`.
+
+## Côté app — À FAIRE maintenant que le payload est corrigé
+
+`public/action-cards.js` applique `Math.round()` à ce qui était un ratio (5 emplacements, cartes
+`same_bucket_saturation`, `ft_peak_saturated`, `saturated_bad_weather`,
+`competition_pressure_spike`, `high_competition_density`). Le payload envoyant désormais 0-100,
+ces `Math.round()` doivent lire la valeur telle quelle. Les deux changements vont ensemble :
+tant que l'app n'est pas corrigée, un 53 % s'affichera « 53 » sans anomalie visible, mais la
+logique d'arrondi reste à nettoyer.
+
 ## Vérification après application
 
 1. `same_bucket_saturation`, `saturated_bad_weather`, `ft_peak_saturated` produisent des lignes.
