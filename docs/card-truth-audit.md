@@ -18,10 +18,10 @@
 | # | Carte (tirs 90 j) | Ce qu'elle affirme | Ce que dit la donnée | Verdict |
 |---|---|---|---|---|
 | 1 | `competition_proximity` (347) | « Différenciez-vous de vos concurrents proches » | Recouvrement d'audience plat à **33 %**, sous la barre **40 %** que la page profonde concurrence applique déjà (état A honnête) ; « concurrents » = Louvre, Orsay, Quai Branly ; classe `competition_high` mesurée **+14 €/j, t = 0,4** → bruit | **Durcir** (overlap ≥ 40 %) ou démettre |
-| 2 | `high_competition_density` (133) | « Différenciez-vous face à vos concurrents » | Payload : 1 004 événements à 5 km, **`pct_same_sector = 0`**, et `score_driver = météo` — la carte affirme la concurrence quand le moteur dit météo | **Durcir** (exiger % même secteur > 0) |
+| 2 | `high_competition_density` (133) | « Différenciez-vous face à vos concurrents » | La règle de tir **ignore complètement le même-secteur** : elle exige `pressure_ratio >= 1.3` + `events_5km >= 10`, jamais une densité CONCURRENTE. Sur 74 des 133 tirs le payload affiche « 0 » (bug d'unité, cf. plus bas) alors que la part réelle moyenne est de 28 % — et de **53 % sur f10c3e58** | **Brancher la copie** sur la part même-secteur (défendre vs capter) + corriger l'unité |
 | 3 | `foreign_tourism_signal` (128) | « Adaptez-vous au public touristique étranger » | Payload = liste de **24 pays en vacances scolaires** en août ⇒ « c'est l'été » ; aucune mesure de tourisme étranger sur le lieu | **Démettre au Fil** |
 | 4 | `audience_shift_opportunity` (124) | « Ajustez votre message au public du jour » | Libellé du payload : « Certains résidents partent en vacances, d'autres restent en ville » — n'affirme rien ; `school_holiday` mesurée t = −1,1 (non significative) | **Démettre** ou réécrire le libellé |
-| 5 | `low_competition_window` (96) | « Prenez la parole — faible concurrence » | Tire jusqu'à **`pressure_ratio` 0,96** (moyenne 0,70) — une pression normale, pas faible. **MAIS** `competition_low` mesurée **+88 €/j sur 30 j, t = 2,4** → fait réel | **Durcir le seuil** (≈ ≤ 0,5) **puis garder** |
+| 5 | `low_competition_window` (96) | « Prenez la parole — faible concurrence » | **CORRECTION 28/07 : la règle est SAINE.** `pressure_ratio < 1.0` sélectionne 30 jours sur 90 — soit exactement le tercile bas de `competition_index_local` (31 j) sur lequel `competition_low` mesure **+88 €/j, t = 2,4** (n_days = 30). Le ratio est relatif à la baseline DU LIEU : « 0,93 » veut dire « 7 % sous votre normale », pas « pression normale » | **GARDER TELLE QUELLE** — durcir la découplerait de sa mesure |
 | 6 | `tourism_peak_window` (76) | « Pic touristique régional » | Aucune classe « tourisme haut » mesurée sur ce lieu ⇒ zéro € au compteur ; seule `tourism_low` existe (−59 €/j, t = −1,3, non significative) | **Fil** tant qu'il n'y a pas de mesure |
 | 7 | `weekend_opportunity` (60) | « Activez une opération ce week-end » | Payload : **`weather_alert = 2`** actif ; or la pluie est mesurée **−131 €/j (t = −3,5)** sur ce lieu — la carte annonce une opportunité sur un jour mesuré perdant | **Durcir** (pas d'opportunité si alerte ≥ 2) |
 | 8 | `weekend_vacation_low_comp` (35) | « Week-end de vacances — faible concurrence » | `pressure_ratio` 0,02-0,79 (moy. 0,53) → réellement faible ✓, adossée au +88 €/j mesuré ✓ | **Garder** — la plus saine du lot |
@@ -44,10 +44,30 @@
    Les cartes les plus vues sont les moins fondées ; les mieux fondées (cartes ventes : résiduel,
    décomposition, remises) sortent 4 à 13 fois et sont déjà les seules à avoir des plans.
 
+
+## Correction du 28/07 — deux erreurs de ma part, et un troisième bug découvert
+
+1. **`pct_same_sector` : erreur de lecture de ma part.** J'avais lu « 0 » sur un payload agrégé
+   toutes-sites. `pct_same_bucket_5km` est un **ratio 0-1** ; le payload fait `round(ratio, 1)` et le
+   client fait `Math.round(x) + '%'`. Donc 53 % → payload 0,5 → **affiché « 1 % »** ; 28 % → 0,3 →
+   **« 0 % »**. Sur f10c3e58 la vraie part est **53 %** (155 des 295 événements à 5 km, et 7/7 à
+   moins de 500 m) : le canal de cannibalisation n'est PAS vide, contrairement à ce que j'avais dit.
+2. **`low_competition_window` : ma recommandation de durcissement était FAUSSE.** Vérifié : la règle
+   `pressure_ratio < 1.0` produit le même ensemble de jours que le tercile bas qui porte la mesure
+   de +88 €/j. La durcir à 0,5 aurait supprimé la carte (0 tir) ET cassé l'alignement carte↔mesure.
+   Décision corrigée : **ne rien changer** à cette règle.
+3. **TROISIÈME BUG — trois cartes n'ont JAMAIS tiré.** `same_bucket_saturation`,
+   `saturated_bad_weather` et `ft_peak_saturated` filtrent sur `pct_same_bucket_5km > 25` alors que
+   la colonne est un ratio dont le **maximum possible est 1,0**. Condition impossible → 0 ligne
+   depuis la création du modèle (vérifié sur toute la table). Trois types de cartes sur 54 sont du
+   code mort.
+
+Spécification de correction : `docs/competition-split-spec.md`.
+
 ## Suite décidée (owner, 27/07)
 
-- **Durcir `low_competition_window`** (seuil ≈ `pressure_ratio` ≤ 0,5) — validé owner — puis écrire
-  ses plans : c'est la seule du haut de classement adossée à un fait mesuré.
+- ~~Durcir `low_competition_window`~~ — **ANNULÉ le 28/07** (voir correction ci-dessus) : la règle
+  est déjà alignée sur la mesure. Ses plans restent à écrire, la carte ne change pas.
 - Les autres verdicts (durcir / démettre / bug de source) restent **à arbitrer** : ils touchent
   soit les règles de tir côté dbt, soit `DEMOTED_TO_FEED` côté app.
 - Rappel de méthode : la spécificité d'un plan vient des **données du lieu** (créneau, jour, écart
