@@ -138,18 +138,31 @@ sur `pressure_ratio` par :
   avec la carte de transition du change_feed : le dédup en garde une par priorité — à arbitrer),
   `low_competition_window` écrit `'low_competition:'`, `same_bucket_saturation` `'same_bucket_sat:'`.
 
-## Côté app — À FAIRE maintenant que le payload est corrigé
+## Côté app — FAIT (28/07, `action-cards.js` v=33)
 
-`public/action-cards.js` applique `Math.round()` à ce qui était un ratio (5 emplacements, cartes
-`same_bucket_saturation`, `ft_peak_saturated`, `saturated_bad_weather`,
-`competition_pressure_spike`, `high_competition_density`). Le payload envoyant désormais 0-100,
-ces `Math.round()` doivent lire la valeur telle quelle. Les deux changements vont ensemble :
-tant que l'app n'est pas corrigée, un 53 % s'affichera « 53 » sans anomalie visible, mais la
-logique d'arrondi reste à nettoyer.
+**DEUX unités coexistent désormais**, c'est le piège à retenir :
+- `a.pct_same_sector` (payload de la carte) = **pourcentage 0-100** depuis le correctif dbt ;
+- `d.pct_same_bucket_5km` (vue sémantique du jour) = **ratio 0-1**, inchangé.
 
-## Vérification après application
+Le helper `samePct(a, d)` porte seul cette normalisation (payload prioritaire, vue en repli ×100)
+et les 5 emplacements passent tous par lui : `same_bucket_saturation` (sowhat + note interne),
+`ft_peak_saturated` (sowhat + note interne), `saturated_bad_weather` (ACTION_SENTENCES).
+Deux bugs annexes corrigés au passage : les calculs inline faisaient `Math.round()` sur une
+**chaîne** déjà arrondie par `num()`, et le `a.pct_same_sector || d.pct_same_bucket_5km` faisait
+basculer un **vrai 0 %** sur le repli. Cache-buster `?v=33` sur pulse / insight / monitor / rapport.
 
-1. `same_bucket_saturation`, `saturated_bad_weather`, `ft_peak_saturated` produisent des lignes.
+Preuve : 9 assertions Node sur le helper réel extrait du fichier (payload 21,8 → 22 % ;
+vue 0,534 → 53 % ; vue 0,04 → 4 % au lieu de « 0 % » ; payload prioritaire ; 0 réel préservé ;
+régression de l'ancien bug 53 % → « 1 % »). `node --check` propre.
+
+## Vérification après application — RÉSULTAT (28/07, run dbt passé)
+
+1. **`same_bucket_saturation` : 20 lignes. `saturated_bad_weather` : 20 lignes.** Les deux
+   ressuscitent après des mois à zéro (part moyenne 50,5 %). **`ft_peak_saturated` reste à 0** :
+   ses autres conditions (jour de pointe `ft_day_rank_max <= 2` + `pressure_ratio > 1.3` +
+   secteur > 25 %) ne se sont pas encore croisées — conjonction rare, plus un bug d'unité.
+2. `high_competition_density` : 133 tirs, part moyenne réelle **21,8 %** (affichait « 0 »), et
+   **133/133 portent la scission** `events_5km_same_sector` / `events_5km_other_sector`.
 2. Plus aucun tir n'affiche 0 % avec un ratio réel > 5 %.
 3. `low_competition_window` garde son volume (~96 tirs / 90 j).
 4. Sur `f10c3e58`, `high_competition_density` porte `pct_same_sector ≈ 53` et la branche « défendre ».

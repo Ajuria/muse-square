@@ -25,11 +25,15 @@
   function num(v) { return v != null ? String(Math.round(Number(v))) : ''; }
   function temp(v) { return v != null ? Math.round(Number(v)) + '\u00b0C' : ''; }
   function ratio(v) { return v != null ? '\u00d7' + Number(v).toFixed(1) : ''; }
+  // Part des evenements a 5 km dans VOTRE secteur, en POURCENTAGE (0-100).
+  // DEUX unites coexistent depuis le correctif dbt du 28/07 :
+  //   a.pct_same_sector      = payload de la carte -> deja un POURCENTAGE (0-100)
+  //   d.pct_same_bucket_5km  = vue semantique du jour -> RATIO (0-1), a multiplier
+  // Le payload gagne (c'est la valeur du jour de la carte) ; la vue est le repli.
   function samePct(a, d) {
-    var v = (d && d.pct_same_bucket_5km != null) ? Number(d.pct_same_bucket_5km)
-          : (a && a.pct_same_sector != null) ? Number(a.pct_same_sector)
-          : null;
-    return v != null ? Math.round(v * 100) : null;
+    if (a && a.pct_same_sector != null && a.pct_same_sector !== '') return Math.round(Number(a.pct_same_sector));
+    if (d && d.pct_same_bucket_5km != null) return Math.round(Number(d.pct_same_bucket_5km) * 100);
+    return null;
   }
   function siteName(p) { return p.site_name || p.location_label || 'votre site'; }
   // De-lever staffing language — agnostic across verticals (no RH-flex assumption).
@@ -1347,15 +1351,15 @@
   // C7 — same_bucket_saturation
   reg('same_bucket_saturation', 'Saturation dans votre secteur', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
     function(a, p, d) {
-      var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
+      var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = Math.round(pctSame) + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
+      var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
       var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Secteur satur\u00e9. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Saturation sectorielle ' + num(a.pct_same_sector) + '%. Diff\u00e9rencier offre.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Saturation sectorielle ' + samePct(a, d) + '%. Diff\u00e9rencier offre.'; }
     }
   );
 
@@ -1607,15 +1611,15 @@
   reg('ft_peak_saturated', 'Jour de pointe satur\u00e9', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
-      var pctSame = num(a.pct_same_sector || d.pct_same_bucket_5km) || 0;
+      var pctSame = samePct(a, d) || 0;
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
-      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + Math.round(pctSame) + '% du secteur en concurrence directe.';
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + pctSame + '% du secteur en concurrence directe.';
       var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Pic + saturation ' + num(a.pct_same_sector) + '%. Diff\u00e9rencier.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Pic + saturation ' + samePct(a, d) + '%. Diff\u00e9rencier.'; }
     }
   );
 
@@ -2508,7 +2512,7 @@
     }, urgency: 'now' },
     'saturated_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
-      var pct = a.pct_same_sector != null ? Math.round(Number(a.pct_same_sector)) : null;
+      var pct = samePct(a, d);
       var s = 'À adapter : ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et secteur saturé' + (pct != null ? ' (' + pct + ' % des événements à 5 km dans votre secteur)' : '') + '. Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure fenêtre.';
       return s;
     }, urgency: 'now' },
