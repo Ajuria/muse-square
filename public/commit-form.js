@@ -339,51 +339,13 @@
         .catch(function () {});
     }
 
-    // « Références de votre secteur » (étape 3 « méthodes pertinentes », 27/07) : cas tiers
-    // SOURCÉS du store best-in-class (registre de sources fiables — institutionnel/presse pro,
-    // jamais de blog vendeur), appariés secteur × levier (driver passé au serveur). Ordre voulu :
-    // vos bonnes pratiques (le vécu du lieu) AU-DESSUS, puis ces références, puis les plans
-    // génériques reco-library. Échec/vide → rien, le formulaire reste tel quel.
-    if (opts.location_id && origin.origin_action_type) {
-      var bicQs = "location_id=" + encodeURIComponent(opts.location_id)
-        + "&action_type=" + encodeURIComponent(origin.origin_action_type)
-        + (origin.origin_driver ? "&driver=" + encodeURIComponent(origin.origin_driver) : "");
-      fetch("/api/insight/best-in-class?" + bicQs)
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          var plays = (j && j.ok && j.found && Array.isArray(j.plays)) ? j.plays : [];
-          if (!plays.length) return;
-          var ta = container.querySelector("[data-cm-action]");
-          if (!ta || !ta.parentNode) return;
-          var block = document.createElement("div");
-          block.setAttribute("data-cm-bic-block", "1");
-          block.style.marginBottom = "8px";
-          block.innerHTML = '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;">Références de votre secteur — des lieux comparables l’ont fait :</div>'
-            + plays.map(function (p) {
-              var srcLink = p.source_url
-                ? '<a href="' + escapeHtml(p.source_url) + '" target="_blank" rel="noopener" data-cm-bic-src style="font-size:10.5px;color:#9ca3af;white-space:nowrap;text-decoration:underline dotted;text-underline-offset:2px;">' + escapeHtml(p.source_name || "source") + "</a>"
-                : "";
-              return '<div data-cm-sugg data-cm-sugg-text="' + escapeHtml(p.title) + '" style="font-size:12px;color:#374151;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:7px 10px;margin-bottom:5px;cursor:pointer;line-height:1.4;display:flex;justify-content:space-between;gap:10px;align-items:baseline;">'
-                + "<span>" + escapeHtml(p.title) + ' <span style="color:#059669;">· ' + escapeHtml(p.outcome) + "</span></span>" + srcLink + "</div>";
-            }).join("");
-          // Position : sous « Vos bonnes pratiques » si déjà inséré, sinon au-dessus de la
-          // première suggestion générique (même logique d'ancre que le bloc bp) ; les deux
-          // fetchs sont concurrents, chaque bloc gère l'ordre quel que soit l'arrivé premier.
-          var anchorEl = ta;
-          var rows = ta.parentNode.querySelectorAll("[data-cm-sugg]");
-          for (var ri = 0; ri < rows.length; ri++) {
-            var el = rows[ri];
-            if (el.closest && el.closest("[data-cm-bp-block]")) continue; // rester SOUS les bonnes pratiques
-            while (el.parentNode && el.parentNode !== ta.parentNode) el = el.parentNode;
-            if (el.parentNode === ta.parentNode) { anchorEl = el; break; }
-          }
-          ta.parentNode.insertBefore(block, anchorEl);
-          block.querySelectorAll("[data-cm-sugg]").forEach(wireSugg);
-          // Le lien source s'ouvre sans remplir le champ (le clic rangée reste le geste de choix).
-          block.querySelectorAll("[data-cm-bic-src]").forEach(function (a) { a.addEventListener("click", function (e) { e.stopPropagation(); }); });
-        })
-        .catch(function () {});
-    }
+    // « Références de votre secteur » — RETIRÉ le 27/07 (décision owner, après test).
+    // Le store best-in-class produit des PREUVES (« X a fait Y → résultat Z »), pas des PLANS
+    // (le how). Ce slot-ci demande le how : l'utilisateur a déjà le quoi (sous-type de carte) et
+    // l'objectif (KPI mesuré). Les cas crawlés restent affichés là où une preuve est à sa place :
+    // panneau « lieux comparables » de la page évolution + insight « Plan à essayer ».
+    // Les 3 méthodes = vos bonnes pratiques (vécu du lieu) puis les plans reco-library.
+    // Doctrine + preuves du test : docs/best-in-class-registry.md.
 
     var cancel = container.querySelector("[data-cm-cancel]");
     if (cancel) cancel.addEventListener("click", function () { if (typeof opts.onCancel === "function") opts.onCancel(); });

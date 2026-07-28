@@ -5,8 +5,9 @@
 > doc : pourquoi la bibliothèque des « références de votre secteur » est construite ainsi.
 > Code : `src/lib/bestInClassCrawlCore.mjs` (LE contrat), `bestInClassStore.ts` (lecture),
 > `src/scripts/crawl-best-in-class.mjs` (build offline), `api/cron/crawl-best-in-class.ts` (drain).
-> Surfaces : formulaire M'engager (commit-form.js, « Références de votre secteur »), insight
-> « Plan à essayer », panneau diagnostic de la page évolution.
+> Surfaces : insight « Plan à essayer », panneau diagnostic de la page évolution. **PAS le
+> formulaire M'engager** — le bloc y a été ajouté puis RETIRÉ le 27/07 (voir la section « Test du
+> 27/07 (soir) » : ce store produit des PREUVES, pas des PLANS).
 
 ## La doctrine (dans l'ordre où elle s'est construite)
 
@@ -37,8 +38,10 @@
    « chiffres du prestataire, non vérifiés indépendamment », `source_tier` 3, confiance faible.
    Jamais un chiffre qu'on ne peut pas défendre.
 4. **Tri de lecture** (`getBestInClassPlays`) : `source_tier` d'abord (1 → 2 → 3), puis confiance,
-   puis source nommée. Dans le formulaire M'engager, l'ordre des étages est : bonnes pratiques du
-   lieu → références secteur → plans reco-library.
+   puis source nommée.
+5. **Ce store est une bibliothèque de PREUVES, pas de méthodes** (leçon du test du 27/07 au soir,
+   section dédiée plus bas) : un play répond « est-ce que ça marche ailleurs ? », jamais « comment
+   je fais ». Ne jamais le rebrancher sur un slot qui demande le how.
 
 ## L'audit du 27/07 (36 lignes purgées sur 77)
 
@@ -69,8 +72,42 @@ intention (After Hours ×4, familles CJM ×4, peak/off-peak ×3…). Les cellule
 - Vertical `commercial` : mélange boutique/restauration — les gestes resto y dominent. Scission
   du code industrie = chantier de taxonomie AMONT, non traité ici (noté, à arbitrer owner).
 
+## Test du 27/07 (soir) — le crawl NE PEUT PAS produire des PLANS : bloc M'engager RETIRÉ
+
+Test owner : produire 3 plans exécutables pour `sales_traffic_not_converting` (café), à partir de
+sources HOW-TO (et non de case studies). Résultat : 2 plans grounded (Cornell CHR — vente
+suggestive +23 % en test contrôlé, + la règle non-évidente « pas d'extras quand des clients
+attendent » ; L'Hôtellerie — carte de digestifs), et **le 3e, le plus proche du problème de la
+carte, impossible à sourcer** → conseil 101 générique.
+
+Preuves de l'impasse structurelle :
+- **Les institutionnels VENDENT le how** : la page CCI « aménagez votre magasin » décrit la
+  formation et facture le contenu (400 € la journée, 700 € le diagnostic, 800 € le coaching) ;
+  zones chaudes / hauteurs / circulation ne sont pas publiques.
+- **France Num est derrière une protection anti-robot** (Imperva) — non contournable, donc pas
+  crawlable de façon fiable.
+- **L'académique donne des effets mesurés, pas des procédures**, et parfois du contenu
+  inutilisable : le compendium Cornell liste « toucher le client » et « se maquiller (pour les
+  serveuses) » à côté de la vente suggestive — aucun gate automatique ne rattrape ça sûrement.
+- **La presse pro donne des anecdotes**, une par une, sans couverture systématique.
+
+**Décision owner : reverse du bloc « Références de votre secteur » dans MSCommitForm** (v=11).
+Le store reste affiché là où une PREUVE est à sa place : panneau « lieux comparables » de la page
+évolution + insight « Plan à essayer ». Les 3 méthodes du M'engager = bonnes pratiques du lieu,
+puis reco-library.
+
+**Le vrai chantier des méthodes** (décidé le 27/07) : étendre `reco-library` (la bonne forme :
+titre · description · pourquoi · steps), en voix owner, **avec des variables remplies par le
+pipeline** (créneau, produit, jour, écart en €) — la spécificité vient des données du lieu, pas
+d'un cas étranger. Périmètre réel mesuré sur `mart.fct_location_daily_action_candidates` (90 j) :
+**24 sous-types vivants**, dont **20 sans plans** (reco-library en couvre 7). Top déclencheurs :
+`competition_proximity` (347 tirs / 10 sites), `high_competition_density` (133),
+`foreign_tourism_signal` (128), `audience_shift_opportunity` (124), `low_competition_window` (96).
+Sur les deux comptes réels : `competition_proximity` (38), puis audience/tourisme, puis les
+cartes ventes. Le crawl devient une matière première de rédaction, jamais du texte publié.
+
 ## Reste ouvert
 
-- E2E owner authentifié du formulaire M'engager avec les trois étages.
+- Rédaction reco-library sur les 20 sous-types vivants sans plans (voix owner + variables données).
 - Déploiement : tout ce chantier vit sur `dev` (registre ce37296 → gate 2e641ce) — PAS en prod.
 - Normalisation des codes industrie sales en base (`cultural`, `Culture & Patrimoine`).
