@@ -364,7 +364,23 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
 // Étape 2.5 : la lecture PRÉFÈRE la base 'pure' (classes séparées) ; si elle ne passe pas les
 // gates, elle retombe sur la base 'marginal' (ajustée saison) ÉTIQUETÉE « facteurs mêlés » et
 // plafonnée 'estimé' — l'intrication est dite à l'utilisateur, jamais cachée ni maquillée.
-function rowToImpact(row: any, entangled: boolean): DayClassImpact | null {
+// PORTE DE MATÉRIALITÉ (29/07/2026, arbitrage owner). Les portes existantes testent la
+// SIGNIFICATIVITÉ (n, span, |t|) et jamais la MATÉRIALITÉ — un enjeu peut être statistiquement
+// béton et économiquement nul. Cas déclencheur : chez Les Olivades, `discount_no_lift` portait le
+// t LE PLUS ÉLEVÉ du lieu (3,41) pour −274 €/an sur 959 730 € de CA, soit 0,03 % — pendant que
+// leurs journées à ≥ 35 °C, qui valaient potentiellement 66 000 €/an, étaient tues pour t = 0,77.
+// Mécanique : des remises minuscules ET régulières ont une variance minuscule, donc un t énorme.
+//
+// Seuil 0,3 % du CA annualisé du LIEU (relatif, donc valable pour un café comme pour une
+// manufacture). Mesuré sur les 25 pills du parc au 29/07 : les 4 pills `discount_no_lift` de tout
+// le parc tiennent sous 0,26 %, la suivante est à 0,52 % — 0,3 % tombe dans ce vide et ne retire
+// QUE ce que l'owner a signalé. À 0,5 % on perdait heat_32_34 (−2 451 €), à 1 % les vacances
+// scolaires (−4 558 €) : trop large.
+//
+// Sans CA connu, la porte NE S'APPLIQUE PAS (on ne juge pas une matérialité sans dénominateur).
+const MATERIALITY_PCT_OF_REVENUE = 0.003;
+
+function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null): DayClassImpact | null {
   const key = String(row?.class_key ?? row?.condition ?? "");
   const n = Number(row?.n_days ?? 0);
   const avg = Number(row?.avg_gap_eur ?? NaN);
@@ -375,12 +391,17 @@ function rowToImpact(row: any, entangled: boolean): DayClassImpact | null {
   // |t| >= 1 floor for ANY pill (incrément 1) : tercile classes pass n>=5 BY CONSTRUCTION, so
   // without a signal floor pure noise gets annualized (proven live: t=0,08 → « ~352 €/an »).
   if (t < 1) return null;
+  const eurYear = Math.round(avg * (n / (spanDays / 365.25)));
+  if (
+    annualRevenue != null && Number.isFinite(annualRevenue) && annualRevenue > 0 &&
+    Math.abs(eurYear) < annualRevenue * MATERIALITY_PCT_OF_REVENUE
+  ) return null;
   const tier: DayClassImpact["tier"] =
     !entangled && n >= 10 && t >= 2 && spanDays >= 300 ? "mesuré" : "estimé";
   return {
     class_key: key,
     label_fr: CLASS_LABELS[key],
-    eur_year: Math.round(avg * (n / (spanDays / 365.25))),
+    eur_year: eurYear,
     tier,
     tier_label_fr: entangled ? "estimé, cause multifactorielle" : tier,
     entangled,
@@ -391,7 +412,7 @@ function rowToImpact(row: any, entangled: boolean): DayClassImpact | null {
   };
 }
 
-function rowsToImpacts(rows: any[]): Map<string, DayClassImpact> {
+function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, DayClassImpact> {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
     const key = String(row?.class_key ?? row?.condition ?? "");
@@ -405,8 +426,8 @@ function rowsToImpacts(rows: any[]): Map<string, DayClassImpact> {
   const impacts = new Map<string, DayClassImpact>();
   for (const [key, bucket] of byClass) {
     const impact =
-      (bucket.pure ? rowToImpact(bucket.pure, false) : null)
-      ?? (bucket.marginal ? rowToImpact(bucket.marginal, true) : null);
+      (bucket.pure ? rowToImpact(bucket.pure, false, annualRevenue) : null)
+      ?? (bucket.marginal ? rowToImpact(bucket.marginal, true, annualRevenue) : null);
     if (impact) impacts.set(key, impact);
   }
   return impacts;
@@ -441,15 +462,16 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
  * for this location yet (fresh account before the nightly batch). Same SQL, same policy.
  */
 export async function computeDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
-  const [aggRows, dateRes] = await Promise.all([
+  const [aggRows, dateRes, annualRevenue] = await Promise.all([
     bq.query({
       query: dayClassAggregateSql(true),
       params: { location_id },
       location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     dateResolutionQuery(bq, location_id, dates),
+    annualRevenueQuery(bq, location_id),
   ]);
-  return { impacts: rowsToImpacts(aggRows as any[]), ...dateRes };
+  return { impacts: rowsToImpacts(aggRows as any[], annualRevenue), ...dateRes };
 }
 
 /**
@@ -457,17 +479,37 @@ export async function computeDayClassImpacts(bq: any, location_id: string, dates
  * live (light, window-dependent). Store empty for this location → live-compute fallback, so a
  * fresh account is never blind between two batch runs. This is what monitor.ts calls.
  */
+// CA annualisé du LIEU — dénominateur de la porte de matérialité. Annualisé sur l'étendue réelle
+// de l'historique (et non sur 365 j supposés) pour qu'un compte de 3 mois ne soit pas jugé sur un
+// CA sous-estimé d'un facteur 4. Renvoie null si le lieu n'a pas de ventes : la porte ne
+// s'applique alors pas — on ne juge pas une matérialité sans dénominateur.
+async function annualRevenueQuery(bq: any, location_id: string): Promise<number | null> {
+  const rows = await bq.query({
+    query: `
+      SELECT SAFE_DIVIDE(SUM(daily_revenue),
+                         NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY) + 1, 0)) * 365.25 AS annual_revenue
+      FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+      WHERE location_id = @location_id
+    `,
+    params: { location_id },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const v = Number((rows as any[])[0]?.annual_revenue);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
-  const [storeRows, dateRes] = await Promise.all([
+  const [storeRows, dateRes, annualRevenue] = await Promise.all([
     bq.query({
       query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
       params: { location_id },
       location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     dateResolutionQuery(bq, location_id, dates),
+    annualRevenueQuery(bq, location_id),
   ]);
   if ((storeRows as any[]).length > 0) {
-    return { impacts: rowsToImpacts(storeRows as any[]), ...dateRes };
+    return { impacts: rowsToImpacts(storeRows as any[], annualRevenue), ...dateRes };
   }
   const live = await computeDayClassImpacts(bq, location_id, []);
   return { impacts: live.impacts, ...dateRes };
