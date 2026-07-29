@@ -30,6 +30,11 @@
 - Diagnose first, fix second. Confirm root cause from evidence before proposing code changes.
 - Never propose a find-and-replace without first confirming the exact text exists in the target file.
 - When something is broken, check `INFORMATION_SCHEMA` or the actual file content before guessing.
+- **N'ANNONCE JAMAIS UN DÉFAUT AVANT D'AVOIR ÉLIMINÉ TA PROPRE LECTURE.** Avant d'écrire « c'est un doublon / c'est cassé / c'est faux », faire les trois :
+  1. **Identité par la CLÉ, jamais par un nom.** Joindre sur l'`id`. Un libellé identique ou proche n'est pas une preuve — et un libellé ABSENT ne prouve rien non plus (élargir la requête avant de conclure à l'absence).
+  2. **Établir le RÉFÉRENTIEL de chaque nombre avant de comparer deux nombres.** Code postal ≠ code INSEE, ratio 0-1 ≠ pourcentage 0-100, niveau d'échelle ≠ seuil métier, significativité ≠ plancher d'affichage. Deux nombres plausibles côte à côte ne sont pas comparables tant que leur unité n'est pas établie.
+  3. **Lire le modèle qui produit le champ** (règle ci-dessus, § Working Method) — souvent l'en-tête donne la réponse.
+  Cinq échecs le 28-29/07, tous rattrapés par l'owner : `LIKE '%olivade%'` → « aucun site à Paris » (il s'appelle *Esprit de Fabrique*) ; profil→dimension apparié par ressemblance de libellé → mauvaise ligne désignée ; CP `13103` vs INSEE `13094` → « bug de géocodage » inexistant ; `pct_same_bucket_5km` (ratio) comparé à `25` ; classe `heat` déclarée non mesurable sur la significativité seule, sans appliquer le plancher `n>=5`. **Un défaut annoncé à tort coûte à l'owner le travail de me réfuter — c'est plus cher qu'une vérification de plus.**
 
 ## BigQuery Gotchas
 - BigQuery Node client silently returns 0 rows on DATE/STRING type mismatches — always use explicit `DATE()` casts.
