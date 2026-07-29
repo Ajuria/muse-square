@@ -1517,24 +1517,50 @@ if (!location_id) {
     var _catCounts = {};
     var MAX_PER_CAT = 2;
 
+    // SÉLECTION PAR SITE (29/07/2026). Tout ce qui suit — clés de dédup, plafond par catégorie,
+    // top-N, quotas objectif et performance — était GLOBAL au compte, écrit quand un compte
+    // n'avait qu'un lieu. Sur un compte multi-sites, deux cartes du MÊME type venues de DEUX
+    // LIEUX s'effondraient en une seule : l'écran montrait le payload d'un site sous un en-tête
+    // nommant les deux. Constaté sur le compte Les Olivades le 29/07 — « météo niveau 4 » de
+    // Paris affiché pour Saint-Étienne-du-Grès qui est à 3 ; « 1 126 événements à 5 km » de
+    // Paris pour un site qui en compte 0. Ce n'était pas un regroupement discutable, c'était
+    // faux à l'écran.
+    // On scope tout par site : la dédup GARDE son rôle À L'INTÉRIEUR d'un lieu
+    // (weather_hazard_onset + weather_worsened -> une seule carte météo) et ne traverse plus
+    // les lieux. La concaténation de libellés « A · B » plus bas devient de ce fait morte —
+    // elle créait une entité qui n'existe dans aucun Compte.
+    function _siteKey(c) {
+      var it = c && c.item ? c.item : null;
+      return String((it && (it.location_id || it.location_label)) || '');
+    }
+    function _topForSite(k) {
+      var n = 0;
+      for (var _ti = 0; _ti < top.length; _ti++) if (_siteKey(top[_ti]) === k) n++;
+      return n;
+    }
+    var MAX_PER_SITE = 10;
+    var _goalCounts = {};
+    var _perfCounts = {};
+
     // Goal pass: up to 3 cards serving the active weekly goal, surfaced first.
     var _goalTypes = (activeGoalKey && window.GOAL_SERVING_TYPES) ? (window.GOAL_SERVING_TYPES[activeGoalKey] || []) : [];
     var _goalSet = {};
     for (var _gi = 0; _gi < _goalTypes.length; _gi++) _goalSet[String(_goalTypes[_gi]).toLowerCase()] = true;
     if (_goalTypes.length) {
-      var _goalCount = 0;
-      for (var _gj = 0; _gj < candidates.length && _goalCount < 3; _gj++) {
+      for (var _gj = 0; _gj < candidates.length; _gj++) {
         var _gc = candidates[_gj];
+        var _gk = _siteKey(_gc);
+        if ((_goalCounts[_gk] || 0) >= 3) continue;   // 3 cartes objectif PAR SITE
         var _gsub = String(_gc.item.change_subtype||"").toLowerCase();
         var _salesGoal = (window.msSalesGoal ? window.msSalesGoal(_gc.item) : null);
         if (!_goalSet[_gsub] && _salesGoal !== activeGoalKey) continue;
         var _gDedupSub = (_gsub === "weather_hazard_onset" || _gsub === "weather_worsened") ? "weather_alert" : (_gsub === "high_competition_density" || _gsub === "competition_proximity") ? "competition_density" : _gsub;
-        var _gDedup = _gDedupSub + "|" + normalizeYmd(_gc.item.affected_date);
+        var _gDedup = _gk + "|" + _gDedupSub + "|" + normalizeYmd(_gc.item.affected_date);
         if (seen[_gDedup]) continue;
         seen[_gDedup] = true;
         _gc.tmpl._goal_card = true;
         top.push(_gc);
-        _goalCount++;
+        _goalCounts[_gk] = (_goalCounts[_gk] || 0) + 1;
       }
     }
 
@@ -1542,41 +1568,43 @@ if (!location_id) {
     // pulse on their numbers — without the feed being crowded by 4 sales cards regardless
     // of priority. Priority-relevant sales cards come through the goal pass above (driver-
     // routed via msSalesGoal); any extra through the context pass (capped low).
-    var _perfCount = 0;
-    for (var _pj = 0; _pj < candidates.length && _perfCount < 4 && top.length < 10; _pj++) {
+    for (var _pj = 0; _pj < candidates.length; _pj++) {
       var _pc = candidates[_pj];
       if (String(_pc.item.action_category || "").toLowerCase() !== "performance") continue;
+      var _pk = _siteKey(_pc);
+      if ((_perfCounts[_pk] || 0) >= 4 || _topForSite(_pk) >= MAX_PER_SITE) continue;
       var _psub = String(_pc.item.change_subtype || "").toLowerCase();
-      var _pdedup = _psub + "|" + normalizeYmd(_pc.item.affected_date);
+      var _pdedup = _pk + "|" + _psub + "|" + normalizeYmd(_pc.item.affected_date);
       if (seen[_pdedup]) continue;
       seen[_pdedup] = true;
       top.push(_pc);
-      _perfCount++;
-      _catCounts["performance"] = (_catCounts["performance"] || 0) + 1;
+      _perfCounts[_pk] = (_perfCounts[_pk] || 0) + 1;
+      _catCounts[_pk + "|performance"] = (_catCounts[_pk + "|performance"] || 0) + 1;
     }
 
-    for (var j = 0; j < candidates.length && top.length < 10; j++) {
+    for (var j = 0; j < candidates.length; j++) {
       var c = candidates[j];
+      var _ck = _siteKey(c);
+      if (_topForSite(_ck) >= MAX_PER_SITE) continue;
       var sub2 = String(c.item.change_subtype||"").toLowerCase();
       var dedupSub = (sub2 === "weather_hazard_onset" || sub2 === "weather_worsened") ? "weather_alert" : (sub2 === "high_competition_density" || sub2 === "competition_proximity") ? "competition_density" : sub2;
-      var dedup = dedupSub + "|" + normalizeYmd(c.item.affected_date);
-      if (seen[dedup]) {
-        var existingIdx = top.findIndex(function(t) { return (String(t.item.change_subtype||"").toLowerCase() === dedupSub || ((dedupSub === "weather_alert") && (String(t.item.change_subtype||"").toLowerCase() === "weather_hazard_onset" || String(t.item.change_subtype||"").toLowerCase() === "weather_worsened"))) && normalizeYmd(t.item.affected_date) === normalizeYmd(c.item.affected_date); });
-        if (existingIdx >= 0 && c.item.location_label && top[existingIdx].item.location_label && top[existingIdx].item.location_label.indexOf(c.item.location_label) < 0) {
-          top[existingIdx].item.location_label += " \u00b7 " + c.item.location_label;
-        }
-        continue;
-      }
+      var dedup = _ck + "|" + dedupSub + "|" + normalizeYmd(c.item.affected_date);
+      // La clé porte le site : deux lieux gardent chacun leur carte, avec LEUR payload. La
+      // concaténation de libellés qui vivait ici est supprimée — elle fabriquait un site
+      // « A · B » absent du Compte, et masquait les chiffres du second lieu.
+      if (seen[dedup]) continue;
       seen[dedup] = true;
       var catKey = dedupSub.startsWith("weather") || dedupSub === "_extended_bad_weather" || dedupSub === "_saturated_bad_weather" || dedupSub === "_ft_peak_bad_weather" || dedupSub === "_weather_window" || dedupSub === "_weather_mobility_double" ? "_weather" : dedupSub.startsWith("calendar_") || dedupSub === "_audience_mismatch" ? "_audience" : null;
       if (catKey) {
-        var catCount = top.filter(function(t) { var s2 = String(t.item.change_subtype||"").toLowerCase(); return catKey === "_weather" ? (s2.startsWith("weather") || s2 === "_extended_bad_weather" || s2 === "_saturated_bad_weather" || s2 === "_ft_peak_bad_weather" || s2 === "_weather_window" || s2 === "_weather_mobility_double" || s2 === "_weather_hazard_onset") : (s2.startsWith("calendar_") || s2 === "_audience_mismatch"); }).length;
+        // Plafond « une seule carte météo / audience » — compté PAR SITE (29/07). Global, il
+        // supprimait purement et simplement la météo du second lieu, en plus de la dédup.
+        var catCount = top.filter(function(t) { if (_siteKey(t) !== _ck) return false; var s2 = String(t.item.change_subtype||"").toLowerCase(); return catKey === "_weather" ? (s2.startsWith("weather") || s2 === "_extended_bad_weather" || s2 === "_saturated_bad_weather" || s2 === "_ft_peak_bad_weather" || s2 === "_weather_window" || s2 === "_weather_mobility_double" || s2 === "_weather_hazard_onset") : (s2.startsWith("calendar_") || s2 === "_audience_mismatch"); }).length;
         if (catCount >= 1) continue;
       }
-      var _acCat = String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
+      var _acCat = _ck + "|" + String(c.item.action_category || c.item.change_subtype || "other").toLowerCase();
       // Sales/performance cards are now one-per-type (deduped in renderActionCandidates), so this
       // budget = how many DISTINCT sales situations (surge, down, discount, traffic…) can show.
-      var _catMax = _acCat === "performance" ? 5 : MAX_PER_CAT;
+      var _catMax = _acCat === (_ck + "|performance") ? 5 : MAX_PER_CAT;
       _catCounts[_acCat] = (_catCounts[_acCat] || 0) + 1;
       if (_catCounts[_acCat] > _catMax) continue;
       top.push(c);
