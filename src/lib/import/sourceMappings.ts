@@ -31,6 +31,22 @@ export const GENERIC_MAPPING: ColumnMapping = {
     'ticket count', 'receipts', 'nb clients', 'nombre de clients', 'clients',
   ],
   // ── optional intelligence columns ──
+  // Grain LIGNE DE FACTURE (29/07) : les suites comptables françaises exportent le n° de pièce
+  // et la référence article sur CHAQUE ligne. Sans invoice_number, 7 lignes d'une même facture
+  // comptent pour 7 ventes et le panier moyen est divisé d'autant (constaté sur le premier export
+  // Sage 100 réel : 6 308 lignes pour 871 pièces, panier 152 € au lieu de 1 100 €).
+  invoice_number: ['n° pièce', 'no piece', 'num piece', 'numero piece', 'piece',
+                   'n° facture', 'no facture', 'numero facture', 'facture',
+                   'n° document', 'numero document', 'n° ticket', 'numero ticket',
+                   'invoice', 'invoice number', 'invoice no', 'receipt number'],
+  // Le CODE article seul reste lisible par l'exploitant — il lit ses propres références tous les
+  // jours. La DÉSIGNATION est ce qui les rend lisibles par tous ; fct_client_offering_profile est
+  // grainé sur item_category × item_description.
+  item_code: ['reference article', 'ref article', 'code article', 'reference', 'ref',
+              'code produit', 'code', 'sku', 'item code', 'article code', 'product code'],
+  item_description: ['designation', 'designation article', 'libelle', 'libelle article',
+                     'description', 'description article', 'nom article', 'intitule',
+                     'produit', 'article', 'item description', 'product name'],
   item_category: ['categorie', 'famille', 'rayon', 'gamme', 'category', 'product category', 'type produit',
                   'famille article', 'categorie article', 'famille de produits'],
   quantity: ['quantite', 'qte', 'nb articles', 'nombre articles', 'quantity', 'qty', 'units',
