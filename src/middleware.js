@@ -73,6 +73,12 @@ const isLocalsRoute = createRouteMatcher([
   "/api/competitive(.*)",
   "/api/analytics(.*)",
   "/api/channels(.*)",
+  // 29/07 : /api/import manquait. Ses deux routes lisent locals.location_id /
+  // all_location_ids — sans elles, /api/import/locations renvoyait une liste VIDE (la page
+  // ne demandait donc jamais « Pour quel établissement ? ») et /api/import/sales-csv
+  // répondait NO_LOCATION. Le dépôt d'un fichier de ventes n'avait donc jamais pu aboutir,
+  // pour aucun compte. Trouvé sur le premier upload réel (Les Olivades, 29/07).
+  "/api/import(.*)",
 ]);
 
 const DEV_BYPASS_PROMPT =
