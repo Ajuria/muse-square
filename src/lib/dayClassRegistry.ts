@@ -54,12 +54,28 @@ export type DayClassResult = {
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
 // 29/07 — cf. conditionCaseSql). Order matters: DÉPARTAGE À SÉVÉRITÉ ÉGALE — chaque jour
 // d'historique appartient à AU PLUS UNE classe météo.
-export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; label_fr: string }> = [
-  { key: "heat", level_col: "lvl_heat", label_fr: "jours de forte chaleur" },
-  { key: "rain", level_col: "lvl_rain", label_fr: "jours de pluie marquée" },
-  { key: "wind", level_col: "lvl_wind", label_fr: "jours de vent fort" },
-  { key: "snow", level_col: "lvl_snow", label_fr: "jours de neige" },
-  { key: "cold", level_col: "lvl_cold", label_fr: "jours de grand froid" },
+// LIBELLÉS : les classes chaleur portent leur BANDE DE TEMPÉRATURE, pas un mot de météo.
+// `lvl_heat` est une température maximale d'UNE journée : ni nuit, ni durée, ni seuil
+// départemental. Il ne permet donc pas de dire qu'un jour était en canicule — la canicule est
+// définie par le gouvernement sur l'IBM (min+max moyennés sur 3 jours) comparé à un seuil
+// départemental, pendant 3 jours ET 3 nuits. Elle existe indépendamment de ce qu'on mesure ;
+// c'est notre variable qui ne l'identifie pas. Le jour où l'on ingérera la vigilance canicule
+// publiée par Météo-France (par département, quotidienne), on aura une vraie classe `canicule`
+// avec le mot juste — d'ici là, on nomme la mesure.
+//
+// SCISSION heat (29/07/2026, arbitrage owner). Une seule classe `heat` additionnait deux régimes
+// de SIGNES OPPOSÉS et sortait zéro. Vérifié sur les 4 sites ayant un historique de ventes :
+// 32-34 °C -> +70 €/j (68 jours, t = 3,33) ; >= 35 °C -> -72 €/j (95 jours, t = 3,62). Groupées,
+// elles donnaient +39 €/j à t = 0,84 — sous le plancher, donc muettes. La pluie RESTE groupée :
+// son signe est constant à toutes les doses (-38 / -133 / -131 / -102), la mise en commun y est
+// légitime. On ne scinde que là où les signes divergent.
+export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lvl: number; max_lvl?: number; label_fr: string }> = [
+  { key: "heat_32_34",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "journées à 32–34 °C" },
+  { key: "heat_35_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "journées à 35 °C et plus" },
+  { key: "rain", level_col: "lvl_rain", min_lvl: 1, label_fr: "jours de pluie marquée" },
+  { key: "wind", level_col: "lvl_wind", min_lvl: 1, label_fr: "jours de vent fort" },
+  { key: "snow", level_col: "lvl_snow", min_lvl: 1, label_fr: "jours de neige" },
+  { key: "cold", level_col: "lvl_cold", min_lvl: 1, label_fr: "jours de grand froid" },
 ];
 
 // Cross-family classes (étape 2 validée 24/07) : chaque classe est mesurée en CONTRASTE PROPRE —
@@ -130,10 +146,18 @@ export const DAY_CLASS_STORE = "analytics.day_class_impacts";
 // sur la base 'marginal' (entangled -> tier plafonné « estimé, cause multifactorielle »). C'est le
 // comportement voulu, pas une perte. Le seuil de TIR des cartes (alert_level_max >= 2, côté dbt)
 // est indépendant et n'est PAS touché : ce changement ne concerne que la couche de mesure.
+// Balayage par niveau DÉCROISSANT, égalité stricte sur le niveau : à chaque palier on n'émet que
+// les classes dont la bande [min_lvl, max_lvl] contient ce palier. L'égalité (et non `>=`) est ce
+// qui rend les bandes BORNÉES possibles — `heat_32_34` ne doit pas capturer un jour à 38 °C. Le
+// balayage décroissant conserve la priorité de sévérité ; l'ordre de WEATHER_DAY_CLASSES ne
+// départage qu'à sévérité égale.
 function conditionCaseSql(): string {
-  return "CASE " + [4, 3, 2, 1]
-    .map((lvl) => WEATHER_DAY_CLASSES.map((c) => `WHEN c.${c.level_col} >= ${lvl} THEN '${c.key}'`).join(" "))
-    .join(" ") + " END";
+  const branches = [4, 3, 2, 1].flatMap((lvl) =>
+    WEATHER_DAY_CLASSES
+      .filter((c) => c.min_lvl <= lvl && (c.max_lvl == null || lvl <= c.max_lvl))
+      .map((c) => `WHEN c.${c.level_col} = ${lvl} THEN '${c.key}'`)
+  );
+  return "CASE " + branches.join(" ") + " END";
 }
 
 /**

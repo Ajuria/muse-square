@@ -191,3 +191,52 @@ Un signal réel que la mesure ne voit pas n'est pas un signal faible : c'est une
 Avant de conclure « pas assez de données », vérifier que **le seuil de la classe voit l'événement
 que l'exploitant vit**. Le plancher statistique protège contre la fabrication ; il ne doit jamais
 servir d'excuse pour taire un fait établi.
+
+
+## Scission de la classe chaleur par la dose (29/07, après reconstruction du store)
+
+Le correctif de seuil a fait son travail — `heat` est passée de 2 à 20 jours mesurés sur
+`f10c3e58`. Mais l'enjeu restait muet : **+38,7 €/j, t = 0,84**, sous le plancher. Cause réelle :
+la classe additionnait **deux régimes de signes opposés**.
+
+Dose-réponse, sur les 4 sites ayant un historique de ventes (écart vs attendu) :
+
+| bande | jours | €/jour | t |
+|---|---|---|---|
+| < 32 °C | 197 | +29 | 1,85 |
+| **32–34 °C** | **68** | **+70** | **3,33** |
+| **≥ 35 °C** | **95** | **−72** | **3,62** |
+
+Les deux régimes sont fortement significatifs et opposés : groupés, ils s'annulent. Sur le compte
+de l'owner seul : 32–34 °C → **+111 €/j sur 19 jours (t = 2,52)**, ≥ 35 °C → −163 €/j sur 2 jours.
+**Ses journées chaudes sont ses bonnes journées** — l'inverse de l'hypothèse de départ.
+
+`WEATHER_DAY_CLASSES` porte désormais des bandes bornées (`min_lvl`/`max_lvl`) :
+`heat_32_34` et `heat_35_plus`. La pluie **reste groupée** — son signe est constant à toutes les
+doses (−38 / −133 / −131 / −102), la mise en commun y est légitime. **On ne scinde que là où les
+signes divergent.**
+
+`conditionCaseSql` balaie par niveau décroissant avec **égalité stricte** sur le niveau (et non
+`>=`) : c'est ce qui rend les bandes bornées possibles — sans quoi `heat_32_34` capturerait un
+jour à 38 °C. La priorité de sévérité est conservée.
+
+### Sur les libellés — et pourquoi aucun n'est un mot de météo
+
+Les classes chaleur portent leur **bande de température**, pas un terme de vigilance.
+`lvl_heat` est une température maximale d'**une** journée : ni nuit, ni durée, ni seuil
+départemental. Il ne permet donc pas de dire qu'un jour était en canicule — la canicule est
+définie par le gouvernement sur l'**IBM** (minimales + maximales moyennées sur 3 jours) comparé à
+un seuil **départemental**, pendant **3 jours et 3 nuits consécutifs**. Météo-France distingue en
+outre *pic de chaleur* (1–2 j), *épisode persistant de chaleur* (> 3 j), *canicule*, *canicule
+extrême* — tous des termes de durée, aucun applicable à notre variable.
+
+À noter, une erreur de raisonnement à ne pas refaire : la canicule **existe indépendamment de ce
+qu'on mesure**. Dire « on n'a pas de canicule » parce que le pipeline ne l'identifie pas est faux.
+Ce qui est vrai, plus étroitement : *notre variable actuelle ne l'identifie pas*.
+
+**Chantier ouvert** : ingérer la **vigilance canicule publiée par Météo-France** (par département,
+quotidienne). C'est une donnée officielle à ingérer, pas à dériver d'une température — et elle
+donnerait une vraie classe `canicule` avec le mot juste et la définition du gouvernement derrière.
+
+Sources : [Canicule, pic ou vague de chaleur](https://meteofrance.com/actualites-et-dossiers/comprendre-la-meteo/canicule-vague-ou-pic-de-chaleur) ·
+[Qu'est-ce que la Vigilance canicule ?](https://meteofrance.com/comprendre-la-vigilance/vigilance-canicule)
