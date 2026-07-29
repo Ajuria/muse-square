@@ -51,8 +51,9 @@ export type DayClassResult = {
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
 };
 
-// The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 2).
-// Order matters: it is the CASE priority — each history day belongs to AT MOST ONE weather class.
+// The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
+// 29/07 — cf. conditionCaseSql). Order matters: DÉPARTAGE À SÉVÉRITÉ ÉGALE — chaque jour
+// d'historique appartient à AU PLUS UNE classe météo.
 export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; label_fr: string }> = [
   { key: "heat", level_col: "lvl_heat", label_fr: "jours de forte chaleur" },
   { key: "rain", level_col: "lvl_rain", label_fr: "jours de pluie marquée" },
@@ -106,9 +107,32 @@ const PROJECT = "muse-square-open-data";
 // time, so a gate change never requires a re-batch. Rebuilt nightly by api/cron/day-class-impacts.
 export const DAY_CLASS_STORE = "analytics.day_class_impacts";
 
+// Seuil et départage des classes météo — FOYER UNIQUE (alimente le store ligne ~146 ET la
+// résolution carte→classe ligne ~372, donc les deux ne peuvent pas diverger).
+//
+// SEUIL >= 1 (29/07/2026, arbitrage owner). Était >= 2, ce qui pour la chaleur veut dire 35 °C.
+// Or le seuil de canicule de Météo-France en Île-de-France est de 31 °C : la classe était plus
+// stricte que la définition officielle ET que le vécu de l'exploitant. Constat déclencheur — la
+// canicule que l'owner subissait depuis deux semaines donnait n_days = 2 chez lui : 22 jours à
+// >= 32 °C sur 90, dont 3 seulement à >= 35 °C. La mesure ne voyait pas l'événement.
+// Effet vérifié sur les 4 sites ayant un historique de ventes : chaleur mesurable sur 1 site
+// -> 4 sur 4 (55 -> 123 jours), pluie 3 -> 4 sites (23 -> 61 jours). Vent et froid inchangés
+// (0 site, l'aléa ne se produit pas). Barème amont : stg_weather_alerts_daily_all.sql
+// (chaleur 32/35/38/40 °C, pluie 20/40/80/120 mm, froid -5/-8/-12/-16 °C).
+//
+// SÉVÉRITÉ D'ABORD. L'ancienne chaîne prenait la première classe de la liste qui matchait, donc
+// une chaleur de niveau 1 pouvait éclipser une pluie de niveau 2 — 4 jours sur 364 sur le parc
+// réel, et la carte aurait alors été rattachée à la mauvaise classe. On balaie par niveau
+// décroissant : l'aléa LE PLUS SÉVÈRE du jour nomme la classe, l'ordre de WEATHER_DAY_CLASSES ne
+// départageant plus qu'à sévérité égale.
+//
+// NB : abaisser le seuil rend plus de jours multi-appartenance, donc non « purs » ; ils basculent
+// sur la base 'marginal' (entangled -> tier plafonné « estimé, cause multifactorielle »). C'est le
+// comportement voulu, pas une perte. Le seuil de TIR des cartes (alert_level_max >= 2, côté dbt)
+// est indépendant et n'est PAS touché : ce changement ne concerne que la couche de mesure.
 function conditionCaseSql(): string {
-  return "CASE " + WEATHER_DAY_CLASSES
-    .map((c) => `WHEN c.${c.level_col} >= 2 THEN '${c.key}'`)
+  return "CASE " + [4, 3, 2, 1]
+    .map((lvl) => WEATHER_DAY_CLASSES.map((c) => `WHEN c.${c.level_col} >= ${lvl} THEN '${c.key}'`).join(" "))
     .join(" ") + " END";
 }
 

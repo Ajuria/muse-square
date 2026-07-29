@@ -136,3 +136,58 @@ Un bruit en remplacerait un autre.
 
 Volume retiré des Actions du jour : **~81 lignes/jour** (les trois cartes les plus fréquentes et
 les moins fondées). Elles restent servies par le Fil d'actualité et Consulter.
+
+
+## Correction du 29/07 — le seuil des classes météo ne voyait pas la canicule
+
+**Constat owner** : « C'est la canicule depuis 2 semaines. Pas trivial. Réel problème. Il ne faut
+pas démonétiser les signaux pour des raisons statistiques : ce qui compte c'est la rigueur ET
+l'impact business. »
+
+Il avait raison, et mon arbitrage de la veille était bâti sur une évidence incomplète. J'avais
+justifié « piloter la météo par la mesure » en annonçant `heat` significative sur 4 sites/4 —
+j'avais compté la significativité (|t| ≥ 2) **sans appliquer le plancher qui décide réellement de
+l'affichage** (`n_days ≥ 5` ET `span ≥ 60 j` ET |t| ≥ 1, `dayClassRegistry.ts` `rowToImpact`).
+Au plancher réel : `heat` passait sur **1 site**, `rain` sur 3.
+
+**La cause n'était pas le manque d'historique — c'était le seuil de la classe.**
+
+| chez `f10c3e58`, 90 j | jours |
+|---|---|
+| `lvl_heat >= 1` (≥ 32 °C) | **22** |
+| `lvl_heat >= 2` (≥ 35 °C) — ce que la classe comptait | **3** |
+
+La classe météo n'admettait que le niveau ≥ 2, soit **35 °C**, alors que le seuil de canicule de
+Météo-France en Île-de-France est de **31 °C**. La mesure était plus stricte que la définition
+officielle *et* que le vécu de l'exploitant : elle jetait 19 jours sur 22.
+
+**Deux correctifs, un seul foyer** (`conditionCaseSql`, `src/lib/dayClassRegistry.ts` — il alimente
+à la fois la construction du store et la résolution carte→classe, donc les deux ne divergent pas) :
+
+1. **Seuil `>= 2` → `>= 1`.** Effet vérifié sur les 4 sites ayant un historique de ventes :
+   chaleur mesurable **1 → 4 sites** (55 → 119 jours classés), pluie **3 → 4 sites** (23 → 49).
+   Vent/froid inchangés (l'aléa ne se produit pas). Barème amont : `stg_weather_alerts_daily_all.sql`
+   — chaleur 32/35/38/40 °C, pluie 20/40/80/120 mm, froid −5/−8/−12/−16 °C.
+2. **Sévérité d'abord.** L'ancienne chaîne prenait la première classe de la LISTE qui matchait ;
+   au seuil ≥ 1 une chaleur de niveau 1 aurait éclipsé une pluie de niveau 2 — **4 jours sur 364**
+   sur le parc réel. On balaie désormais par niveau décroissant (4→1) ; l'ordre de
+   `WEATHER_DAY_CLASSES` ne départage plus qu'à sévérité égale. Prouvé : ces 4 jours donnent bien
+   `rain`.
+
+**Ce qui n'est PAS touché** : le seuil de TIR des cartes (`alert_level_max >= 2`, côté dbt). Le
+changement est confiné à la couche de mesure.
+
+**Effet de bord assumé** : abaisser le seuil rend plus de jours multi-appartenance, donc non
+« purs » ; ils basculent sur la base `marginal` (tier plafonné « estimé, cause multifactorielle »).
+C'est le comportement honnête, pas une perte.
+
+**Le store doit être reconstruit** (`/api/cron/day-class-impacts`) pour que le changement porte :
+le seuil vit dans la requête qui ALIMENTE `analytics.day_class_impacts`, pas dans la politique de
+lecture.
+
+### La leçon, plus large que la météo
+
+Un signal réel que la mesure ne voit pas n'est pas un signal faible : c'est une mesure mal calibrée.
+Avant de conclure « pas assez de données », vérifier que **le seuil de la classe voit l'événement
+que l'exploitant vit**. Le plancher statistique protège contre la fabrication ; il ne doit jamais
+servir d'excuse pour taire un fait établi.
