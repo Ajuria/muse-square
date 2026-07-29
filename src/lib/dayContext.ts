@@ -279,7 +279,20 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   ]);
 
   // Top-3 followed competitors, proximity-aware (threat_score is NOT distance-weighted), + rating/enriched.
-  const [compRows] = wantContext ? await bq.query({
+  // ── PARALLÉLISATION (29/07/2026) ──────────────────────────────────────────────────────────
+  // Après le lot parallèle ci-dessus, cette fonction enchaînait NEUF allers-retours BigQuery EN
+  // SÉQUENCE. À ~0,5-1 s le round-trip, c'était 4,5 à 9 s — l'essentiel des 10 s de chargement de
+  // la page Pulse, constatées par l'owner le 29/07 (« 3 secondes max, sinon c'est inutilisable »).
+  //
+  // Les dépendances réelles ne sont que DEUX chaînes de profondeur 2 :
+  //   compRows -> (off, tr)        les enrichissements ont besoin des competitor_id
+  //   sensibilités -> checks       le predicate à évaluer dépend des features mesurées
+  // Les quatre autres requêtes ne dépendent de rien d'autre que du registre (statique).
+  //
+  // On les AMORCE ici et on les ATTEND à leur place d'origine : le corps de la fonction et tout
+  // son post-traitement restent identiques, seuls les points d'attente changent. Profondeur
+  // ramenée de 9 à 2.
+  const _pComp = wantContext ? bq.query({
     query:
       `SELECT tp.competitor_id AS cid, tp.competitor_name AS name, tp.distance_km AS km, tp.threat_level AS threat_level, ` +
       `dir.google_rating AS rating, dir.google_rating_count AS rating_count, ` +
@@ -289,7 +302,29 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       `WHERE tp.is_followed AND tp.location_id=@loc AND tp.distance_km IS NOT NULL ` +
       `ORDER BY tp.threat_score/(1+tp.distance_km/5) DESC LIMIT 3`,
     params: { loc }, location: 'EU',
-  }) : [[]] as any[];
+  }) : Promise.resolve([[]] as any[]);
+
+  const _pSens = wantContext
+    ? getSensitivities(bq, loc, { metric: 'revenue', storeTable: opts.devSeed ? 'analytics.b_demo_sensitivity' : undefined })
+    : Promise.resolve([] as any[]);
+
+  const _learnTable = opts.devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
+  const _pLrows = wantEngines ? bq.query({
+    query: `SELECT factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.${_learnTable}\` ` +
+      `WHERE location_id=@loc${opts.devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
+    params: { loc }, location: 'EU',
+  }) : Promise.resolve([[]] as any[]);
+
+  const _pActionRollup = (wantEngines && !opts.devSeed) ? getActionRollup(bq, loc) : Promise.resolve({} as any);
+
+  // Impacts tier-2 : les colonnes viennent du REGISTRE (statique), jamais d'un await — la requête
+  // est donc amorçable ici. Seul son FILTRAGE dépend des features mesurées, et il reste en place.
+  const _t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
+  const _pImpacts = (wantContext && wantEstimation && !opts.devSeed && _t2feats.length)
+    ? one(`SELECT ${[...new Set(_t2feats.map((f) => f.impact_col as string))].join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d })
+    : Promise.resolve({} as any);
+
+  const [compRows] = await _pComp;
   const cids = (compRows || []).map((c: any) => flatVal(c.cid));
   // offering changes + rating trends for those competitors (live tables; empty for offering-less verticals)
   const offeringByCid: Record<string, string> = {};
@@ -337,7 +372,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
 
   // ── Engines folded in: consumers read these from the payload; NONE reads the store/learning marts. ──
   // Engine 2 — measured sensitivities (Tier 1), via the one typed accessor. Part of context{} (cheap store read).
-  const sensRaw = wantContext ? await getSensitivities(bq, loc, { metric: 'revenue', storeTable: opts.devSeed ? 'analytics.b_demo_sensitivity' : undefined }) : [];
+  const sensRaw = await _pSens;   // amorcée plus haut — plus d'aller-retour ici
   // active-today flag: the single-source registry predicate against context_daily (this mart).
   const REG = featureRegistry.revenue as Array<{ key: string; predicate?: string }>;
   let activeSet = new Set<string>();
@@ -353,18 +388,13 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   const sensitivities: SensitivityToday[] = sensRaw.map((s) => ({ ...s, active_today: activeSet.has(s.feature) }));
 
   // Engine 1 factor-level (Tier 4) — the dbt learning mart, factor-keyed (NOT re-exploded in TS).
-  const learnTable = opts.devSeed ? 'analytics.b_commitment_learning_seed' : 'mart.fct_location_commitment_learning';
-  const [lrows] = wantEngines ? await bq.query({
-    query: `SELECT factor, action_type, SUM(beat_count) AS beat, SUM(done_count) AS done FROM \`${PROJECT}.${learnTable}\` ` +
-      `WHERE location_id=@loc${opts.devSeed ? '' : " AND source='commitment'"} GROUP BY 1, 2`,
-    params: { loc }, location: 'EU',
-  }) : [[]] as any[];
+  const [lrows] = await _pLrows;   // amorcée plus haut
   const actionTrackByFactor: CommitmentFactorTrack[] = (lrows || [])
     .map((r: any) => ({ factor: flatVal(r.factor), action_type: flatVal(r.action_type), beat: Number(flatVal(r.beat)), done: Number(flatVal(r.done)) }))
     .filter((x: CommitmentFactorTrack) => x.factor);
 
   // Engine 1 action_type-level (évolution ③) — via the ONE sub-accessor (pre-explode outcomes).
-  const actionTrackByType = (wantEngines && !opts.devSeed) ? await getActionRollup(bq, loc) : {};
+  const actionTrackByType = await _pActionRollup;   // amorcée plus haut
 
   // Tier-2 estimation priors (delta_att) — folded in, with SUPPRESS-IN-2 applied HERE (measured
   // supersedes the estimated prior per venue×factor), so the payload ships reconciled: no factor in
@@ -373,8 +403,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   const t2feats = (featureRegistry.revenue as Array<{ key: string; tier?: number[]; impact_col?: string }>).filter((f) => (f.tier || []).includes(2) && f.impact_col);
   const impacts: Record<string, number> = {};
   if (wantContext && wantEstimation && !opts.devSeed && t2feats.length) {
-    const cols = [...new Set(t2feats.map((f) => f.impact_col as string))];
-    const r = await one(`SELECT ${cols.join(',')} FROM \`${PROJECT}.${(featureRegistry as any).impact_table}\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
+    const r = await _pImpacts;   // amorcée plus haut
     t2feats.forEach((f) => { const v = Number(flatVal(r[f.impact_col as string])) || 0; if (v !== 0 && !measuredFeatures.has(f.key)) impacts[f.key] = v; });
   }
 

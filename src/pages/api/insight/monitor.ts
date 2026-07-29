@@ -975,6 +975,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // monitor est un simple lecteur : enjeu = {eur_year, tier, label_fr, n_days, span_months} | null.
       action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
+        // MATÉRIALITÉ (29/07) : une carte dont la classe est MESURÉE et négligeable ne sort pas.
+        // Décision owner : « ni carte ni chantier ». Le garde-fou retirait la pastille mais
+        // laissait la carte s'afficher sans euro, avec le motif « non séparable ou insuffisant »
+        // — un aveu d'ignorance là où l'on sait, et où la réponse est « ça ne pèse rien ».
+        .filter((r: any) => !enjeuWithReasonForCandidate(dayClassResult as any, r).immaterial)
         .map((r: any) => ({
         ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
         date:            (r?.date?.value ?? r?.date ?? null),
