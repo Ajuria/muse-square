@@ -49,6 +49,7 @@ export type DayClassResult = {
   impacts: Map<string, DayClassImpact>;   // class_key -> impact (all classes passing the floor)
   conditionByDate: Map<string, string>;   // 'YYYY-MM-DD' -> weather class_key (for date-resolved cards)
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
+  immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -412,7 +413,11 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
   };
 }
 
-function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, DayClassImpact> {
+// Renvoie les impacts ET les classes écartées POUR MATÉRIALITÉ seulement (29/07). Sans cette
+// distinction, une classe mesurée-mais-négligeable était indiscernable d'une classe non mesurable :
+// le lecteur affichait « non séparable ou insuffisant sur votre historique », ce qui est faux — on
+// SAIT, et la réponse est « c'est négligeable ». La carte doit alors disparaître, pas s'excuser.
+function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
     const key = String(row?.class_key ?? row?.condition ?? "");
@@ -424,13 +429,25 @@ function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, 
     byClass.set(key, bucket);
   }
   const impacts = new Map<string, DayClassImpact>();
+  const immaterial = new Set<string>();
   for (const [key, bucket] of byClass) {
     const impact =
       (bucket.pure ? rowToImpact(bucket.pure, false, annualRevenue) : null)
       ?? (bucket.marginal ? rowToImpact(bucket.marginal, true, annualRevenue) : null);
-    if (impact) impacts.set(key, impact);
+    if (impact) { impacts.set(key, impact); continue; }
+    // Écartée : est-ce la MATÉRIALITÉ ou une autre porte ? On rejoue la MÊME fonction sans le
+    // dénominateur — si elle passe alors, c'est bien la matérialité qui l'a écartée. Pas de
+    // politique dupliquée : une seule implémentation, interrogée deux fois.
+    const sansPorte =
+      (bucket.pure ? rowToImpact(bucket.pure, false, null) : null)
+      ?? (bucket.marginal ? rowToImpact(bucket.marginal, true, null) : null);
+    if (sansPorte) immaterial.add(key);
   }
-  return impacts;
+  return { impacts, immaterial };
+}
+
+function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, DayClassImpact> {
+  return rowsToImpactsWithImmaterial(rows, annualRevenue).impacts;
 }
 
 async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }> }> {
@@ -471,7 +488,8 @@ export async function computeDayClassImpacts(bq: any, location_id: string, dates
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
   ]);
-  return { impacts: rowsToImpacts(aggRows as any[], annualRevenue), ...dateRes };
+  const { impacts, immaterial } = rowsToImpactsWithImmaterial(aggRows as any[], annualRevenue);
+  return { impacts, immaterial, ...dateRes };
 }
 
 /**
@@ -509,7 +527,8 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
     annualRevenueQuery(bq, location_id),
   ]);
   if ((storeRows as any[]).length > 0) {
-    return { impacts: rowsToImpacts(storeRows as any[], annualRevenue), ...dateRes };
+    const { impacts, immaterial } = rowsToImpactsWithImmaterial(storeRows as any[], annualRevenue);
+    return { impacts, immaterial, ...dateRes };
   }
   const live = await computeDayClassImpacts(bq, location_id, []);
   return { impacts: live.impacts, ...dateRes };
@@ -635,9 +654,19 @@ export const ABSENCE_REASON_FR = {
 } as const;
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null } {
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);
   if (enjeu) return { enjeu, reason_fr: null };
+  // MATÉRIALITÉ (29/07) : la classe de cette carte a bien été MESURÉE, et elle est négligeable.
+  // Ce n'est pas « on ne sait pas » — c'est « on sait, et ça ne pèse rien ». La carte ne doit donc
+  // pas s'afficher du tout (décision owner : « ni carte ni chantier »), et surtout pas avec le
+  // motif « non séparable ou insuffisant », qui accuse l'historique à tort.
+  const imm = (result as any)?.immaterial as Set<string> | undefined;
+  if (imm && imm.size) {
+    const at = String(candidate?.action_type || "");
+    const mappedKey = CARD_TYPE_CLASS[at];
+    if (mappedKey && imm.has(mappedKey)) return { enjeu: null, reason_fr: null, immaterial: true };
+  }
   const actionType = String(candidate?.action_type || "");
   if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
