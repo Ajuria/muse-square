@@ -1449,7 +1449,16 @@ if (!root) {
         if (!chipEl) {
           chipEl = document.createElement("div");
           chipEl.id = "ie-import-chip";
-          chipEl.style.cssText = "margin:0 0 8px 4px;";
+          // Aligne la pastille sur #ie-prompt-input-bar. Elle est insérée dans
+          // #ie-prompt-input-wrap, qui est fixed left:0 right:0 — sans margin auto elle se colle
+          // au bord de l'écran pendant que la barre reste centrée (c'était le défaut).
+          // Le padding n'est pas décoratif : la barre n'a PAS box-sizing:border-box, donc son
+          // max-width:720px porte sur la boîte de CONTENU et sa largeur réelle vaut
+          // 720 + 16 + 10 (padding) + 2 (bordure) = 748. Mesuré à 1280 px de large : barre à
+          // 266, pastille sans padding à 280. On rend donc les 28 px manquants — 17 à gauche
+          // (16 de padding + 1 de bordure) et 11 à droite (10 + 1) — ce qui aligne la boîte sur
+          // la barre ET la pastille grise sur le texte du champ de saisie.
+          chipEl.style.cssText = "max-width:720px;margin:0 auto 8px;padding:0 11px 0 17px;";
           if (wrap && bar) wrap.insertBefore(chipEl, bar);
           else if (wrap) wrap.appendChild(chipEl);
         }
@@ -1469,7 +1478,16 @@ if (!root) {
         if (!chipEl) {
           chipEl = document.createElement("div");
           chipEl.id = "ie-import-chip";
-          chipEl.style.cssText = "margin:0 0 8px 4px;";
+          // Aligne la pastille sur #ie-prompt-input-bar. Elle est insérée dans
+          // #ie-prompt-input-wrap, qui est fixed left:0 right:0 — sans margin auto elle se colle
+          // au bord de l'écran pendant que la barre reste centrée (c'était le défaut).
+          // Le padding n'est pas décoratif : la barre n'a PAS box-sizing:border-box, donc son
+          // max-width:720px porte sur la boîte de CONTENU et sa largeur réelle vaut
+          // 720 + 16 + 10 (padding) + 2 (bordure) = 748. Mesuré à 1280 px de large : barre à
+          // 266, pastille sans padding à 280. On rend donc les 28 px manquants — 17 à gauche
+          // (16 de padding + 1 de bordure) et 11 à droite (10 + 1) — ce qui aligne la boîte sur
+          // la barre ET la pastille grise sur le texte du champ de saisie.
+          chipEl.style.cssText = "max-width:720px;margin:0 auto 8px;padding:0 11px 0 17px;";
           if (wrap && bar) wrap.insertBefore(chipEl, bar);
           else if (wrap) wrap.appendChild(chipEl);
         }
