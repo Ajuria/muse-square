@@ -73,6 +73,15 @@
 - Action-candidate / performance cards may carry an INGESTION date (past; `date = expires_at`), not an action date — they're surfaced on TODAY (days.ts widens the fetch; `renderActionCandidates` renders latest-per-type on today). Don't assume `date` = when actionable.
 - App is Clerk-gated; `MS_AUTH_BYPASS=1` only bypasses `/api/insight/prompt` — you can't curl pulse/days authed. E2E = user clicks, you query BigQuery.
 
+## Performance des pages — BUDGET DUR, non négociable
+- **3 secondes maximum** pour qu'une page soit utilisable. L'owner va et vient sur Pulse plusieurs fois par session : au-delà, elle ne sert à rien. Ce budget se vérifie AVANT de dire qu'une page est prête, pas quand l'owner s'en plaint (29/07 : « it keeps happening, this is not acceptable »).
+- **MESURER, JAMAIS DÉDUIRE.** Le 29/07 j'ai diagnostiqué deux fois la lenteur en lisant la structure du code, et je me suis trompé deux fois. La mesure hors HTTP a tranché en une minute : `npx tsx` qui appelle directement la fonction avec `Date.now()` autour de chaque phase. Repères mesurés ce jour-là : **un aller-retour BigQuery nu = ~500 ms**, `assembleDayContext` = 2,5 s à chaud / 5 s à froid. Toute lenteur se convertit donc en NOMBRE D'ALLERS-RETOURS SÉQUENTIELS — c'est la seule unité qui compte.
+- **Les deux motifs qui reviennent**, tous deux trouvés le 29/07, tous deux invisibles à la lecture :
+  1. **`await` en série sur des requêtes indépendantes.** `dayContext` en enchaînait 9 après son lot parallèle. Correctif : AMORCER tôt (`const p = bq.query(...)` sans `await`), ATTENDRE en place. Le corps de la fonction ne bouge pas, seuls les points d'attente changent.
+  2. **Vagues de fetch séquentielles côté client.** Pulse attendait la vague principale pour lancer une seconde vague de 8+ endpoints qui n'en dépendait QUE PAR L'ORDRE DU CODE. Le total valait la somme au lieu du max.
+- **Avant de fusionner deux vagues, prouver l'indépendance** : lister les entrées de la seconde et vérifier qu'aucune ne vient des RÉSULTATS de la première (celles de Pulse venaient toutes de `locs`, connu d'avance). Rattacher ensuite par identifiant, jamais par position dans un tableau.
+- Une requête ajoutée à un `Promise.all` existant ne coûte que si elle est la plus lente — mais une requête ajoutée sur un chemin séquentiel coûte son aller-retour entier. Vérifier lequel des deux avant d'en ajouter une.
+
 ## Verify Before Done
 - `.astro` inline scripts and `public/action-cards.js` are plain JS — `node --check` them (extract the inline `<script>` for `.astro`) after edits; `.ts` → `npx tsc --noEmit`. Do this before claiming a change complete.
 - The Edit tool normalizes hand-typed `\uXXXX` back to the character. To write unicode escapes into an inline script, use a python pass building the escape from `chr(92)`, matching on the raw char.
