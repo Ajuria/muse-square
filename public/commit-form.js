@@ -339,6 +339,14 @@
         .catch(function () {});
     }
 
+    // « Références de votre secteur » — RETIRÉ le 27/07 (décision owner, après test).
+    // Le store best-in-class produit des PREUVES (« X a fait Y → résultat Z »), pas des PLANS
+    // (le how). Ce slot-ci demande le how : l'utilisateur a déjà le quoi (sous-type de carte) et
+    // l'objectif (KPI mesuré). Les cas crawlés restent affichés là où une preuve est à sa place :
+    // panneau « lieux comparables » de la page évolution + insight « Plan à essayer ».
+    // Les 3 méthodes = vos bonnes pratiques (vécu du lieu) puis les plans reco-library.
+    // Doctrine + preuves du test : docs/best-in-class-registry.md.
+
     var cancel = container.querySelector("[data-cm-cancel]");
     if (cancel) cancel.addEventListener("click", function () { if (typeof opts.onCancel === "function") opts.onCancel(); });
 

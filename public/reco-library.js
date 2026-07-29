@@ -123,6 +123,79 @@ window.MS_SALES_RECO_LIB = {
     ],
   },
 
+  // Peu d'activité dans le périmètre — CONDITIONNÉ AU SIGNE MESURÉ (28/07).
+  // Vérifié sur données réelles : sur 24 sites qui reçoivent cette carte, 4 seulement ont une
+  // mesure, et les signes DIVERGENT (+88 €/j sur un lieu, −49 €/j sur le café). Un plan
+  // générique « ces jours vous réussissent » serait sans fondement pour 20 sites et FAUX pour
+  // l'un des quatre. Sans mesure, le geste est de MESURER — jamais d'affirmer une direction.
+  // Sélection : _recoSignKey(a) lit a.enjeu.eur_year (classe competition_low, dayClassRegistry).
+  low_competition_window: {
+
+    // Le lieu gagne PLUS ces jours-là.
+    enjeu_positif: [
+      { title: "Sortez votre meilleure offre ces jours-là",
+        description: "Ce que vous gardiez pour plus tard, annoncez-le maintenant.",
+        why: "Ces journées vous rapportent déjà plus que d'habitude. Autant y mettre ce que vous avez de plus fort.",
+        tag: "Communication",
+        steps: ["Choisissez l'offre ou la nouveauté que vous vouliez annoncer ce mois-ci.",
+                "Annoncez-la 2 jours avant, par mail ou sur vos réseaux.",
+                "N'envoyez rien d'autre la semaine qui suit."] },
+      { title: "Ouvrez une heure de plus, ou un service en plus",
+        description: "Sur le jour le plus rempli de la période.",
+        why: "Ces journées marchent déjà : le frein n'est pas d'être connu, c'est ce que vous pouvez servir.",
+        tag: "Ouverture",
+        steps: ["Regardez vos réservations : quel jour est le plus rempli ?",
+                "Vérifiez ce que votre planning permet — un changement d'horaire suppose un délai de prévenance.",
+                "Sinon, tenez le créneau avec un extra ou vous-même."] },
+      { title: "Si vous payez de la pub, payez-la ces jours-là",
+        description: "Plutôt que d'étaler la dépense sur tout le mois.",
+        why: "Mieux vaut pousser un jour qui marche déjà que d'essayer d'en sauver un mauvais.",
+        tag: "Publicité",
+        steps: ["Regardez ce que vous dépensez en pub sur un mois.",
+                "Mettez-en la moitié sur ces seuls jours.",
+                "Comparez le nombre de clients par euro dépensé."] }
+    ],
+
+    // Le lieu gagne MOINS ces jours-là.
+    enjeu_negatif: [
+      { title: "Commandez moins, et occupez l'équipe autrement",
+        description: "Ces jours-là, vous servez moins que d'habitude.",
+        why: "Vos chiffres montrent que ces journées rapportent moins. Ce que vous maîtrisez à 2 jours, c'est ce que vous achetez et ce que vous faites faire — pas le planning, qui suppose un délai de prévenance.",
+        tag: "Achats",
+        steps: ["Réduisez vos commandes de frais pour ces jours.",
+                "Ne prévoyez pas d'extra.",
+                "Basculez l'équipe déjà planifiée sur l'inventaire, la mise en place ou la formation.",
+                "Regardez si votre marge du jour s'améliore."] },
+      { title: "Donnez une raison de venir ce jour précis",
+        description: "Une offre valable uniquement ce jour-là.",
+        why: "Un jour creux le reste tant que rien ne pousse à venir. Une date limite fait bouger.",
+        tag: "Offre",
+        steps: ["Choisissez une offre simple à tenir.",
+                "Dites clairement : valable le [jour] uniquement.",
+                "Annoncez-la 2 jours avant.",
+                "Comptez combien de clients viennent avec."] },
+      { title: "Ne lancez rien ce jour-là",
+        description: "Reportez les nouveautés et les grosses commandes après la période.",
+        why: "Lancer quelque chose le jour où vous faites le moins, c'est lui donner sa pire chance.",
+        tag: "Report",
+        steps: ["Regardez ce qui est prévu sur ces jours.",
+                "Repoussez ce qui n'a pas de date obligatoire.",
+                "Reprogrammez-le sur un jour qui marche mieux."] }
+    ],
+
+    // AUCUNE mesure sur ce lieu (20 sites sur 24) — un seul geste : trancher.
+    _default: [
+      { title: "Vérifiez si ces jours sont bons ou mauvais chez vous",
+        description: "Fixez-vous un objectif de chiffre d'affaires sur la période. À la fin, vous saurez.",
+        why: "Chez certains, les jours calmes rapportent plus ; chez d'autres, moins. Personne ne peut le deviner à votre place, et une seule période suffit à trancher.",
+        tag: "Test",
+        steps: ["Fixez un objectif de chiffre d'affaires sur ces jours.",
+                "Ne changez rien d'autre pendant la période.",
+                "Attendez le verdict à la fin.",
+                "Recommencez une fois pour confirmer."] }
+    ]
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [

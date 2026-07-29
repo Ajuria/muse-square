@@ -52,7 +52,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const practices = await listMatchedPractices(bq, {
       location_id: locationId,
       kpi: kpiKeyForOrigin(originType, driver),
-      outcome_lever: leverForActionType(originType),
+      outcome_lever: leverForActionType(originType, driver),
       day_class_key: String(url.searchParams.get("day_class_key") || "").trim() || null,
     });
     return json({ ok: true, practices });
@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_driver: driver,
       origin_affected_date: String(origin?.origin_affected_date || "").trim() || null,
       kpi: kpiKeyForOrigin(originType, driver),
-      outcome_lever: leverForActionType(originType),
+      outcome_lever: leverForActionType(originType, driver),
       means_lever: MEANS_LEVERS.has(meansRaw) ? meansRaw : null,
       day_class_key: String(origin?.day_class_key || "").trim() || null,
       practice_text: text.slice(0, 2000),

@@ -28,7 +28,68 @@ const INDUSTRY_LABELS = {
   live_event: "un lieu d'evenementiel live independant (salle de concert, de spectacle, theatre, salle d'evenements a jauge)",
   cafe: "un cafe, bar ou restaurant de proximite independant",
   commercial: "un commerce ou restaurant de proximite independant (cafe, restaurant, boutique, point de vente local)",
+  food_nightlife: "un bar, restaurant ou lieu de vie nocturne independant",
+  culture: "un lieu culturel recevant du public (musee, centre d'art, site patrimonial, galerie)",
+  cultural: "un lieu culturel recevant du public (musee, centre d'art, site patrimonial, galerie)",
+  non_profit: "une organisation culturelle ou associative recevant du public",
+  wine_tourism: "un domaine viticole ou site oenotouristique independant (caveau de degustation, visites, vente directe)",
 };
+
+// ── SOURCE REGISTRY (etape 1, 27/07 — owner-editable, comme reco-library) ──
+// Tier 1 = institutionnel / fondation / academique / federation : cherche EN PRIORITE (site:).
+// Tier 2 = rapports de donnees multi-lieux + presse professionnelle reconnue : acceptes, confiance
+//          plafonnee a "moyen".
+// Hors registre : *.gouv.fr / *.gov / *.edu passent tier 1 par motif ; TOUT LE RESTE est REJETE a
+// la validation (blogs de vendeurs SaaS, agences, inconnus) — un play sans source fiable n'entre
+// jamais en base. Une cellule vide vaut mieux qu'un exemple douteux.
+const GENERIC_SOURCES = {
+  tier1: ["francenum.gouv.fr", "economie.gouv.fr", "lelab.bpifrance.fr", "bigmedia.bpifrance.fr", "bpifrance.fr", "cci.fr"],
+  tier2: [],
+};
+const CULTURE_SOURCES = {
+  tier1: ["wallacefoundation.org", "culturehive.co.uk", "a-m-a.co.uk", "unimev.fr", "americanorchestras.org"],
+  tier2: ["trgarts.com", "spektrix.com", "info.spektrix.com", "profession-spectacle.com", "colleendilen.com"],
+};
+const COMMERCE_SOURCES = {
+  tier1: ["ecommons.cornell.edu", "sha.cornell.edu", "umih.fr"],
+  // Élargi 27/07 (owner) : presse professionnelle FRANÇAISE du commerce/CHR — titres établis de
+  // la filière (rédactions identifiées), jamais des blogs de vendeurs ni d'agences.
+  tier2: [
+    "lhotellerie-restauration.fr", "hospitalitynet.org", "restaurant.org",
+    "lsa-conso.fr",                    // LSA — commerce & distribution
+    "neorestauration.com",             // Néorestauration — restauration commerciale
+    "snacking.fr",                     // France Snacking — restauration rapide/vente à emporter
+    "bra-tendances-restauration.fr",   // B.R.A. Tendances Restauration
+  ],
+};
+const SOURCE_REGISTRY = {
+  _generic: GENERIC_SOURCES,
+  live_event: CULTURE_SOURCES,
+  culture: CULTURE_SOURCES,
+  cultural: CULTURE_SOURCES,
+  non_profit: CULTURE_SOURCES,
+  commercial: COMMERCE_SOURCES,
+  cafe: COMMERCE_SOURCES,
+  food_nightlife: COMMERCE_SOURCES,
+  wine_tourism: {
+    tier1: ["atout-france.fr"],
+    tier2: ["vitisphere.com", "greatwinecapitals.com"],
+  },
+};
+
+function domainOf(url) {
+  try { return new URL(String(url)).hostname.replace(/^www\./, "").toLowerCase(); } catch (e) { return ""; }
+}
+// Tier of a source URL for an industry: 1 / 2 / null (null = hors registre -> play rejete).
+function tierForSource(industry, url) {
+  const d = domainOf(url);
+  if (!d) return null;
+  const inList = (list) => (list || []).some((x) => d === x || d.endsWith("." + x));
+  const reg = SOURCE_REGISTRY[industry] || { tier1: [], tier2: [] };
+  if (inList(GENERIC_SOURCES.tier1) || inList(reg.tier1) || /\.gouv\.fr$|\.gov$|\.edu$/.test(d)) return 1;
+  if (inList(GENERIC_SOURCES.tier2) || inList(reg.tier2)) return 2;
+  return null;
+}
 
 // Intent — chosen by the owner's own result ("Votre action paie-t-elle ?"). Distinct case per intent
 // (verdict -> intent map lives in bestInClassStore.intentForState):
@@ -44,11 +105,18 @@ const INTENT_LABELS = {
 const SYSTEM = [
   "Tu es un analyste qui documente des cas concrets et VERIFIABLES d'operateurs de lieux, pour inspirer un exploitant francais.",
   "Tu cherches sur le web des etudes de cas reelles ou un lieu comparable a applique un levier precis et a obtenu un resultat MESURABLE (avant -> apres).",
-  "Sources acceptees : presse specialisee, etudes de cas publiees, federations/organismes de la filiere, blogs d'operateurs etablis, medias reconnus.",
-  "Sources REFUSEES : forums, fermes de contenu SEO, listicles generees, pages sans source identifiable. Si tu ne trouves aucune source credible et nommee avec une URL, renvoie une liste vide.",
+  "Sources acceptees : organismes publics et institutionnels, fondations, recherche academique appliquee, federations de la filiere, rapports de donnees multi-lieux, presse professionnelle reconnue.",
+  "Sources REFUSEES : blogs et etudes de cas de VENDEURS DE LOGICIELS ou de prestataires (leur contenu vante leur produit), agences marketing, forums, fermes de contenu SEO, listicles generees, blogs personnels, pages sans source identifiable. Si tu ne trouves aucune source credible et nommee avec une URL, renvoie une liste vide.",
   "SECTEUR : le cas doit provenir du MEME secteur que le lieu cible. Refuse les secteurs adjacents meme si le levier se ressemble — pour un commerce/cafe/restaurant de proximite, EXCLURE l'hotellerie/les resorts, les chaines internationales, le e-commerce pur; pour une salle d'evenementiel, EXCLURE l'hotellerie et le retail. Dans le doute sur la comparabilite du secteur, EXCLURE. Mieux vaut une liste vide qu'un exemple hors-secteur.",
   "Ne JAMAIS inventer de chiffre : le resultat doit etre celui rapporte par la source. Si la source ne quantifie pas, formule le resultat qualitativement.",
   "Nommer le lieu UNIQUEMENT si la source le nomme publiquement (etude de cas publique). Sinon, decris-le anonymement ('un lieu comparable ...').",
+  // ── Gate de RECOMMANDABILITE (audit owner 27/07 — la source fiable ne suffit pas, le geste doit etre conseillable) ──
+  "RECOMMANDABILITE : ne retiens un cas que si tu recommanderais le geste DE VIVE VOIX a un patron independant : un geste UNIQUE et concret, executable cette semaine, sans equipe dediee, sans cabinet d'etude, sans infrastructure de grande institution.",
+  "REFUSE : les experimentations tarifaires risquees (prix libre, gratuite de masse, remise permanente forte) ; les strategies globales fourre-tout ('pivot numerique', 'strategie 360', 'transformation digitale') ; les cas d'institutions nationales ou de stades non transposables a un independant ; les dispositifs inapplicables en France (donnees partagees non conformes RGPD).",
+  "NOMME toujours l'outil, l'operation ou le dispositif concerne — une 'operation nationale' sans nom est inutilisable.",
+  "Le RESULTAT ('outcome') enonce LE resultat lui-meme, jamais un commentaire sur la source ('la source ne quantifie pas...' est interdit) ; un chiffre doit etre un MESURE reel — jamais une demonstration hypothetique ('si 10 % choisissent...').",
+  "Le TITRE est en mots simples de patron — pas de jargon d'etude ('non-pratiquants', 'intendants', 'segments').",
+  "UN CAS = UN play : ne decline pas un meme cas celebre sous plusieurs angles.",
   "Reponds en francais. Copie sobre, orientee action, sans superlatifs.",
 ].join(" ");
 
@@ -56,9 +124,16 @@ function userPrompt(industry, lever, intent) {
   const iv = INDUSTRY_LABELS[industry] || industry;
   const lv = LEVER_LABELS[lever] || lever;
   const it = INTENT_LABELS[intent] || intent;
+  const reg = SOURCE_REGISTRY[industry] || { tier1: [], tier2: [] };
+  const t1 = GENERIC_SOURCES.tier1.concat(reg.tier1 || []);
+  const t2 = (GENERIC_SOURCES.tier2 || []).concat(reg.tier2 || []);
   return [
     `Trouve 1 a 2 cas reels ou ${iv} a travaille le levier suivant : ${lv}.`,
     `Cas recherche : ${it}.`,
+    `Cherche EN PRIORITE dans ces sources de reference (utilise l'operateur site: dans tes requetes) : ${t1.join(", ")}.`
+      + (t2.length ? ` Egalement acceptees : ${t2.join(", ")}.` : "")
+      + " Les sites gouvernementaux (.gouv.fr, .gov) et academiques (.edu) sont aussi acceptes."
+      + " Un cas venant d'une autre source sera REJETE a la validation — ne le propose pas.",
     "Pour chaque cas, renvoie un objet JSON avec EXACTEMENT ces cles :",
     '{ "title": string (le geste, phrase-titre courte),',
     '  "context": string (le lieu et sa situation, anonymise si besoin),',
@@ -112,9 +187,19 @@ function validate(raw, industry, lever, intent, idx, nowIso) {
   const src = clean(raw.source_url);
   const srcName = clean(raw.source_name);
   if (!move || !outcome || !src || !srcName || !/^https?:\/\//i.test(src)) return null;
+  // Registre de sources (etape 1) : hors registre -> play REJETE ; tier 2 -> confiance plafonnee
+  // a "moyen" (un rapport de vendeur multi-lieux n'est jamais "eleve").
+  const tier = tierForSource(industry, src);
+  if (tier == null) return null;
+  // Gate de recommandabilite (27/07) — garde-fous MECANIQUES sur les deux travers vus a l'audit :
+  // un outcome qui commente la source au lieu d'enoncer un resultat, et un chiffre hypothetique.
+  if (/^\s*(la |aucun(e)? )?source ne (quantifie|fournit|rapporte|publie)/i.test(outcome) || /^\s*aucun chiffre/i.test(outcome)) return null;
+  if (/si \d+\s?%/i.test(outcome)) return null;
   const steps = Array.isArray(raw.steps) ? raw.steps.map(clean).filter(Boolean).slice(0, 4) : [];
-  const conf = ["eleve", "moyen", "faible"].includes(raw.confidence) ? raw.confidence : "faible";
+  let conf = ["eleve", "moyen", "faible"].includes(raw.confidence) ? raw.confidence : "faible";
+  if (tier === 2 && conf === "eleve") conf = "moyen";
   return {
+    source_tier: tier,
     play_id: `${industry}:${lever}:${intent}:${idx}`,
     generated_at: nowIso,
     industry_code: industry,
@@ -131,6 +216,19 @@ function validate(raw, industry, lever, intent, idx, nowIso) {
     confidence: conf,
     venue_named: raw.venue_named === true,
   };
+}
+
+// Dedup d'un run : un meme cas decline sur plusieurs cellules (meme source, meme industrie) ne
+// charge qu'UN play — l'audit 27/07 a montre ~25 doublons/64 sans ce garde. Les deux callers
+// passent leurs rows collectees ici avant load.
+function dedupePlays(rows) {
+  const seen = new Set();
+  return (rows || []).filter((r) => {
+    const key = `${r.industry_code}|${(r.source_url || "").toLowerCase().replace(/[#?].*$/, "")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // BigQuery load schema for analytics.best_in_class_plays (both callers load through this).
@@ -151,7 +249,8 @@ const SCHEMA = {
     { name: "published_at", type: "STRING" },
     { name: "confidence", type: "STRING" },
     { name: "venue_named", type: "BOOLEAN" },
+    { name: "source_tier", type: "INTEGER" },
   ],
 };
 
-export { LEVER_LABELS, INDUSTRY_LABELS, INTENT_LABELS, SYSTEM, userPrompt, callSearch, extractPlays, clean, validate, SCHEMA };
+export { LEVER_LABELS, INDUSTRY_LABELS, INTENT_LABELS, SOURCE_REGISTRY, tierForSource, dedupePlays, SYSTEM, userPrompt, callSearch, extractPlays, clean, validate, SCHEMA };

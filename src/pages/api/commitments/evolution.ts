@@ -145,7 +145,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
       if (industry) {
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type), { limit: 9 });
+        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type, snap.origin_driver), { limit: 9 });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 

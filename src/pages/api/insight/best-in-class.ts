@@ -36,7 +36,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
     if (!industry) return json(200, { ok: true, found: false, action_type });
 
-    const lever = leverForActionType(action_type);
+    const lever = leverForActionType(action_type, url.searchParams.get("driver"));
     const plays = await getBestInClassPlays(bq, industry, lever, { limit: 2 });
     return json(200, { ok: true, found: plays.length > 0, action_type, lever, plays });
   } catch (err: any) {

@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-07-15",
+"generated_date": "2026-07-27",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "b5d8579",
-"table_count": 440,
-"column_count": 7588
+"dbt_repo_sha_at_generation": "a31d8ad",
+"table_count": 455,
+"column_count": 7947
 },
 "tables": {
 "airbyte_internal.rawidf_traffic_infoc00f23c8bf4ddc5184ffee1e73f7338b": {
@@ -71,6 +71,143 @@
 {
 "name": "applicationPeriods",
 "type": "JSON"
+}
+]
+},
+"airbyte_internal.rawlocationnda_paca115b86f9ffaa4e05e1100777774a2e49": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "name",
+"type": "STRING"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "email",
+"type": "STRING"
+},
+{
+"name": "image",
+"type": "JSON"
+},
+{
+"name": "insee",
+"type": "STRING"
+},
+{
+"name": "links",
+"type": "JSON"
+},
+{
+"name": "phone",
+"type": "STRING"
+},
+{
+"name": "state",
+"type": "NUMERIC"
+},
+{
+"name": "access",
+"type": "STRING"
+},
+{
+"name": "extIds",
+"type": "JSON"
+},
+{
+"name": "setUid",
+"type": "NUMERIC"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "website",
+"type": "STRING"
+},
+{
+"name": "latitude",
+"type": "NUMERIC"
+},
+{
+"name": "timezone",
+"type": "STRING"
+},
+{
+"name": "createdAt",
+"type": "STRING"
+},
+{
+"name": "longitude",
+"type": "NUMERIC"
+},
+{
+"name": "updatedAt",
+"type": "STRING"
+},
+{
+"name": "postalCode",
+"type": "STRING"
+},
+{
+"name": "adminLevel1",
+"type": "STRING"
+},
+{
+"name": "adminLevel2",
+"type": "STRING"
+},
+{
+"name": "adminLevel3",
+"type": "STRING"
+},
+{
+"name": "adminLevel4",
+"type": "STRING"
+},
+{
+"name": "adminLevel5",
+"type": "STRING"
+},
+{
+"name": "adminLevel6",
+"type": "STRING"
+},
+{
+"name": "countryCode",
+"type": "STRING"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "imageCredits",
+"type": "STRING"
 }
 ]
 },
@@ -446,6 +583,42 @@
 {
 "name": "execution_quality",
 "type": "STRING"
+},
+{
+"name": "kpi_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "kpi_window_value",
+"type": "FLOAT64"
+},
+{
+"name": "kpi_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_eur_year",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_tier_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_class_key",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_entangled",
+"type": "BOOL"
+},
+{
+"name": "creation_enjeu_inherited",
+"type": "BOOL"
 }
 ]
 },
@@ -1118,6 +1291,144 @@
 {
 "name": "venue_named",
 "type": "BOOL"
+},
+{
+"name": "source_tier",
+"type": "INT64"
+}
+]
+},
+"analytics.best_in_class_plays_backup_20260727": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "play_id",
+"type": "STRING"
+},
+{
+"name": "generated_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "industry_code",
+"type": "STRING"
+},
+{
+"name": "lever",
+"type": "STRING"
+},
+{
+"name": "intent",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "context",
+"type": "STRING"
+},
+{
+"name": "move",
+"type": "STRING"
+},
+{
+"name": "outcome",
+"type": "STRING"
+},
+{
+"name": "steps",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "source_name",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "published_at",
+"type": "STRING"
+},
+{
+"name": "confidence",
+"type": "STRING"
+},
+{
+"name": "venue_named",
+"type": "BOOL"
+}
+]
+},
+"analytics.best_practices": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "practice_id",
+"type": "STRING"
+},
+{
+"name": "user_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "author_person_name",
+"type": "STRING"
+},
+{
+"name": "origin_card_instance_id",
+"type": "STRING"
+},
+{
+"name": "origin_action_type",
+"type": "STRING"
+},
+{
+"name": "origin_driver",
+"type": "STRING"
+},
+{
+"name": "origin_affected_date",
+"type": "DATE"
+},
+{
+"name": "kpi",
+"type": "STRING"
+},
+{
+"name": "outcome_lever",
+"type": "STRING"
+},
+{
+"name": "means_lever",
+"type": "STRING"
+},
+{
+"name": "day_class_key",
+"type": "STRING"
+},
+{
+"name": "practice_text",
+"type": "STRING"
+},
+{
+"name": "replay_commitment_id",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
 }
 ]
 },
@@ -1196,6 +1507,31 @@
 {
 "name": "created_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "declarant_name",
+"type": "STRING"
+}
+]
+},
+"analytics.consulter_telemetry": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "event_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "event_type",
+"type": "STRING"
+},
+{
+"name": "payload",
+"type": "STRING"
 }
 ]
 },
@@ -1277,6 +1613,92 @@
 },
 {
 "name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.day_class_impacts": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.day_class_impacts_history": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "batch_date",
+"type": "DATE"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "computed_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -6025,6 +6447,10 @@
 "type": "STRING"
 },
 {
+"name": "declarant_name",
+"type": "STRING"
+},
+{
 "name": "corrected_at",
 "type": "TIMESTAMP"
 }
@@ -6541,6 +6967,135 @@
 ]
 },
 "intermediate.int_events_daily_occitanie": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "event_uid",
+"type": "STRING"
+},
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "data_provenance",
+"type": "STRING"
+},
+{
+"name": "city_id",
+"type": "STRING"
+},
+{
+"name": "city_name",
+"type": "STRING"
+},
+{
+"name": "region_id",
+"type": "STRING"
+},
+{
+"name": "geo_point",
+"type": "GEOGRAPHY"
+},
+{
+"name": "latitude",
+"type": "FLOAT64"
+},
+{
+"name": "longitude",
+"type": "FLOAT64"
+},
+{
+"name": "event_label",
+"type": "STRING"
+},
+{
+"name": "event_venue_name",
+"type": "STRING"
+},
+{
+"name": "event_venue_address",
+"type": "STRING"
+},
+{
+"name": "event_url",
+"type": "STRING"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "longDescription",
+"type": "STRING"
+},
+{
+"name": "keywords",
+"type": "STRING"
+},
+{
+"name": "theme",
+"type": "STRING"
+},
+{
+"name": "organizer_name",
+"type": "STRING"
+},
+{
+"name": "event_start_date",
+"type": "DATE"
+},
+{
+"name": "event_end_date",
+"type": "DATE"
+},
+{
+"name": "event_duration_days",
+"type": "INT64"
+},
+{
+"name": "is_multi_day_bool",
+"type": "BOOL"
+},
+{
+"name": "is_free_bool",
+"type": "BOOL"
+},
+{
+"name": "is_cancelled_bool",
+"type": "BOOL"
+},
+{
+"name": "is_sold_out",
+"type": "BOOL"
+},
+{
+"name": "industry_code",
+"type": "STRING"
+},
+{
+"name": "keyword_priority_rank",
+"type": "INT64"
+},
+{
+"name": "estimated_attendance",
+"type": "INT64"
+},
+{
+"name": "venue_capacity",
+"type": "INT64"
+},
+{
+"name": "confidence_score",
+"type": "FLOAT64"
+}
+]
+},
+"intermediate.int_events_daily_paca": {
 "type": "BASE TABLE",
 "columns": [
 {
@@ -7239,6 +7794,47 @@
 {
 "name": "departure_travel_rate_pct",
 "type": "FLOAT64"
+}
+]
+},
+"intermediate.int_location_declared_metrics_current": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "metric_key",
+"type": "STRING"
+},
+{
+"name": "value_raw",
+"type": "STRING"
+},
+{
+"name": "value_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "prior_value_raw",
+"type": "STRING"
+},
+{
+"name": "prior_value_numeric",
+"type": "FLOAT64"
+},
+{
+"name": "declarant_name",
+"type": "STRING"
+},
+{
+"name": "declared_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "declared_on",
+"type": "DATE"
 }
 ]
 },
@@ -13007,6 +13603,59 @@
 }
 ]
 },
+"mart.fct_location_corrections_learning": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "correction_type",
+"type": "STRING"
+},
+{
+"name": "n_events",
+"type": "INT64"
+},
+{
+"name": "n_asserts",
+"type": "INT64"
+},
+{
+"name": "n_supersedes",
+"type": "INT64"
+},
+{
+"name": "n_clears",
+"type": "INT64"
+},
+{
+"name": "first_event_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "last_event_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "distinct_declarants",
+"type": "INT64"
+},
+{
+"name": "current_value",
+"type": "STRING"
+},
+{
+"name": "current_declarant_name",
+"type": "STRING"
+},
+{
+"name": "current_declared_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "mart.fct_location_daily_action_candidates": {
 "type": "BASE TABLE",
 "columns": [
@@ -18157,6 +18806,51 @@
 }
 ]
 },
+"raw.agenda_paca": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "image",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "official",
+"type": "BOOL"
+},
+{
+"name": "description",
+"type": "STRING"
+}
+]
+},
 "raw.alerts": {
 "type": "BASE TABLE",
 "columns": [
@@ -19459,6 +20153,251 @@
 }
 ]
 },
+"raw.events_by_agenda_paca": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "id",
+"type": "NUMERIC"
+},
+{
+"name": "age",
+"type": "JSON"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "user",
+"type": "JSON"
+},
+{
+"name": "draft",
+"type": "NUMERIC"
+},
+{
+"name": "image",
+"type": "JSON"
+},
+{
+"name": "links",
+"type": "JSON"
+},
+{
+"name": "state",
+"type": "NUMERIC"
+},
+{
+"name": "theme",
+"type": "JSON"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "agenda",
+"type": "JSON"
+},
+{
+"name": "cibles",
+"type": "JSON"
+},
+{
+"name": "extIds",
+"type": "JSON"
+},
+{
+"name": "member",
+"type": "JSON"
+},
+{
+"name": "status",
+"type": "NUMERIC"
+},
+{
+"name": "canEdit",
+"type": "BOOL"
+},
+{
+"name": "country",
+"type": "STRING"
+},
+{
+"name": "fileKey",
+"type": "STRING"
+},
+{
+"name": "private",
+"type": "NUMERIC"
+},
+{
+"name": "removed",
+"type": "BOOL"
+},
+{
+"name": "featured",
+"type": "BOOL"
+},
+{
+"name": "keywords",
+"type": "JSON"
+},
+{
+"name": "ownerUid",
+"type": "NUMERIC"
+},
+{
+"name": "addMethod",
+"type": "STRING"
+},
+{
+"name": "agendaUid",
+"type": "NUMERIC"
+},
+{
+"name": "createdAt",
+"type": "STRING"
+},
+{
+"name": "dateRange",
+"type": "STRING"
+},
+{
+"name": "undefined",
+"type": "JSON"
+},
+{
+"name": "updatedAt",
+"type": "STRING"
+},
+{
+"name": "aggregated",
+"type": "STRING"
+},
+{
+"name": "conditions",
+"type": "STRING"
+},
+{
+"name": "creatorUid",
+"type": "NUMERIC"
+},
+{
+"name": "lastTiming",
+"type": "JSON"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "firstTiming",
+"type": "JSON"
+},
+{
+"name": "locationUid",
+"type": "NUMERIC"
+},
+{
+"name": "sourcePaths",
+"type": "JSON"
+},
+{
+"name": "type_public",
+"type": "NUMERIC"
+},
+{
+"name": "imageCredits",
+"type": "STRING"
+},
+{
+"name": "originAgenda",
+"type": "JSON"
+},
+{
+"name": "registration",
+"type": "JSON"
+},
+{
+"name": "specificites",
+"type": "JSON"
+},
+{
+"name": "accessibility",
+"type": "JSON"
+},
+{
+"name": "sourceAgendas",
+"type": "JSON"
+},
+{
+"name": "attendanceMode",
+"type": "NUMERIC"
+},
+{
+"name": "type_de_public",
+"type": "NUMERIC"
+},
+{
+"name": "longDescription",
+"type": "STRING"
+},
+{
+"name": "onlineAccessLink",
+"type": "STRING"
+},
+{
+"name": "types_devenement",
+"type": "NUMERIC"
+},
+{
+"name": "type_organisateur_autre",
+"type": "NUMERIC"
+},
+{
+"name": "conditions_de_participation",
+"type": "JSON"
+},
+{
+"name": "type_organisateur_autre_libre",
+"type": "STRING"
+},
+{
+"name": "numero_d_ordre_agence_ou_collectif",
+"type": "STRING"
+},
+{
+"name": "type_organisateur_agence_ou_collectif",
+"type": "JSON"
+},
+{
+"name": "jaccepte_que_limage_puisse_etre_librement_utilisee_a_la_condition",
+"type": "BOOL"
+}
+]
+},
 "raw.fact_poi_unified": {
 "type": "BASE TABLE",
 "columns": [
@@ -20273,6 +21212,143 @@
 },
 {
 "name": "google_place_id",
+"type": "STRING"
+}
+]
+},
+"raw.locations_by_agenda_paca": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "name",
+"type": "STRING"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "email",
+"type": "STRING"
+},
+{
+"name": "image",
+"type": "JSON"
+},
+{
+"name": "insee",
+"type": "STRING"
+},
+{
+"name": "links",
+"type": "JSON"
+},
+{
+"name": "phone",
+"type": "STRING"
+},
+{
+"name": "state",
+"type": "NUMERIC"
+},
+{
+"name": "access",
+"type": "STRING"
+},
+{
+"name": "extIds",
+"type": "JSON"
+},
+{
+"name": "setUid",
+"type": "NUMERIC"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "website",
+"type": "STRING"
+},
+{
+"name": "latitude",
+"type": "NUMERIC"
+},
+{
+"name": "timezone",
+"type": "STRING"
+},
+{
+"name": "createdAt",
+"type": "STRING"
+},
+{
+"name": "longitude",
+"type": "NUMERIC"
+},
+{
+"name": "updatedAt",
+"type": "STRING"
+},
+{
+"name": "postalCode",
+"type": "STRING"
+},
+{
+"name": "adminLevel1",
+"type": "STRING"
+},
+{
+"name": "adminLevel2",
+"type": "STRING"
+},
+{
+"name": "adminLevel3",
+"type": "STRING"
+},
+{
+"name": "adminLevel4",
+"type": "STRING"
+},
+{
+"name": "adminLevel5",
+"type": "STRING"
+},
+{
+"name": "adminLevel6",
+"type": "STRING"
+},
+{
+"name": "countryCode",
+"type": "STRING"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "imageCredits",
 "type": "STRING"
 }
 ]
@@ -22779,30 +23855,6 @@
 "type": "FLOAT64"
 },
 {
-"name": "weather_label_fr",
-"type": "STRING"
-},
-{
-"name": "lvl_heat",
-"type": "INT64"
-},
-{
-"name": "lvl_cold",
-"type": "INT64"
-},
-{
-"name": "lvl_rain",
-"type": "INT64"
-},
-{
-"name": "lvl_snow",
-"type": "INT64"
-},
-{
-"name": "lvl_wind",
-"type": "INT64"
-},
-{
 "name": "events_within_500m_count",
 "type": "INT64"
 },
@@ -22954,30 +24006,6 @@
 {
 "name": "wind_speed_10m_max",
 "type": "FLOAT64"
-},
-{
-"name": "weather_label_fr",
-"type": "STRING"
-},
-{
-"name": "lvl_heat",
-"type": "INT64"
-},
-{
-"name": "lvl_cold",
-"type": "INT64"
-},
-{
-"name": "lvl_rain",
-"type": "INT64"
-},
-{
-"name": "lvl_snow",
-"type": "INT64"
-},
-{
-"name": "lvl_wind",
-"type": "INT64"
 },
 {
 "name": "events_within_500m_count",
@@ -26774,6 +27802,59 @@
 }
 ]
 },
+"staging.stg_agenda_paca": {
+"type": "VIEW",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "uid_num",
+"type": "NUMERIC"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "image",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "official",
+"type": "BOOL"
+},
+{
+"name": "official_bool",
+"type": "BOOL"
+},
+{
+"name": "description",
+"type": "STRING"
+}
+]
+},
 "staging.stg_alerts": {
 "type": "VIEW",
 "columns": [
@@ -27194,6 +28275,70 @@
 {
 "name": "ctx_material_confound",
 "type": "BOOL"
+},
+{
+"name": "committed_action_text",
+"type": "STRING"
+},
+{
+"name": "owner_person_name",
+"type": "STRING"
+},
+{
+"name": "owner_person_id",
+"type": "STRING"
+},
+{
+"name": "authorship",
+"type": "STRING"
+},
+{
+"name": "origin_suppression_key",
+"type": "STRING"
+},
+{
+"name": "threshold_level",
+"type": "STRING"
+},
+{
+"name": "threshold_value",
+"type": "FLOAT64"
+},
+{
+"name": "action_done_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "execution_quality",
+"type": "STRING"
+},
+{
+"name": "dispositif_note",
+"type": "STRING"
+},
+{
+"name": "retro_worked",
+"type": "STRING"
+},
+{
+"name": "retro_change",
+"type": "STRING"
+},
+{
+"name": "retro_repeat",
+"type": "BOOL"
+},
+{
+"name": "adjustment_move",
+"type": "STRING"
+},
+{
+"name": "adjustment_note",
+"type": "STRING"
+},
+{
+"name": "parent_commitment_id",
+"type": "STRING"
 }
 ]
 },
@@ -28115,6 +29260,10 @@
 "type": "STRING"
 },
 {
+"name": "declarant_name",
+"type": "STRING"
+},
+{
 "name": "created_at",
 "type": "TIMESTAMP"
 }
@@ -28222,6 +29371,319 @@
 },
 {
 "name": "collection_channel",
+"type": "STRING"
+}
+]
+},
+"staging.stg_events_by_agenda_paca": {
+"type": "VIEW",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "id",
+"type": "NUMERIC"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "slug",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "image",
+"type": "JSON"
+},
+{
+"name": "links",
+"type": "JSON"
+},
+{
+"name": "user",
+"type": "JSON"
+},
+{
+"name": "owner_uid",
+"type": "NUMERIC"
+},
+{
+"name": "creator_uid",
+"type": "NUMERIC"
+},
+{
+"name": "agenda",
+"type": "JSON"
+},
+{
+"name": "agenda_uid",
+"type": "NUMERIC"
+},
+{
+"name": "location_uid",
+"type": "STRING"
+},
+{
+"name": "country",
+"type": "STRING"
+},
+{
+"name": "state",
+"type": "NUMERIC"
+},
+{
+"name": "status",
+"type": "NUMERIC"
+},
+{
+"name": "draft",
+"type": "NUMERIC"
+},
+{
+"name": "private",
+"type": "NUMERIC"
+},
+{
+"name": "removed",
+"type": "BOOL"
+},
+{
+"name": "featured",
+"type": "BOOL"
+},
+{
+"name": "canEdit",
+"type": "BOOL"
+},
+{
+"name": "keywords",
+"type": "JSON"
+},
+{
+"name": "theme",
+"type": "JSON"
+},
+{
+"name": "cibles",
+"type": "JSON"
+},
+{
+"name": "extIds",
+"type": "JSON"
+},
+{
+"name": "age",
+"type": "JSON"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "longDescription",
+"type": "STRING"
+},
+{
+"name": "createdAt",
+"type": "STRING"
+},
+{
+"name": "updatedAt",
+"type": "STRING"
+},
+{
+"name": "dateRange",
+"type": "STRING"
+},
+{
+"name": "firstTiming",
+"type": "JSON"
+},
+{
+"name": "lastTiming",
+"type": "JSON"
+},
+{
+"name": "registration",
+"type": "JSON"
+},
+{
+"name": "accessibility",
+"type": "JSON"
+},
+{
+"name": "specificites",
+"type": "JSON"
+},
+{
+"name": "sourceAgendas",
+"type": "JSON"
+},
+{
+"name": "originAgenda",
+"type": "JSON"
+},
+{
+"name": "conditions",
+"type": "STRING"
+},
+{
+"name": "conditions_de_participation",
+"type": "JSON"
+},
+{
+"name": "onlineAccessLink",
+"type": "STRING"
+},
+{
+"name": "types_evenement",
+"type": "NUMERIC"
+},
+{
+"name": "type_public",
+"type": "NUMERIC"
+},
+{
+"name": "type_de_public",
+"type": "NUMERIC"
+},
+{
+"name": "type_organisateur_autre",
+"type": "NUMERIC"
+},
+{
+"name": "type_organisateur_autre_libre",
+"type": "STRING"
+},
+{
+"name": "type_organisateur_agence_ou_collectif",
+"type": "JSON"
+},
+{
+"name": "numero_d_ordre_agence_ou_collectif",
+"type": "STRING"
+},
+{
+"name": "imageCredits",
+"type": "STRING"
+},
+{
+"name": "fileKey",
+"type": "STRING"
+},
+{
+"name": "aggregated",
+"type": "STRING"
+},
+{
+"name": "sourcePaths",
+"type": "JSON"
+},
+{
+"name": "undefined",
+"type": "JSON"
+},
+{
+"name": "consent_flag",
+"type": "BOOL"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "updated_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "first_start_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "first_end_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "last_start_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "last_end_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "consent_flag_bool",
+"type": "BOOL"
+},
+{
+"name": "removed_bool",
+"type": "BOOL"
+},
+{
+"name": "featured_bool",
+"type": "BOOL"
+},
+{
+"name": "can_edit_bool",
+"type": "BOOL"
+},
+{
+"name": "type_public_num",
+"type": "NUMERIC"
+},
+{
+"name": "type_de_public_num",
+"type": "NUMERIC"
+},
+{
+"name": "types_evenement_num",
+"type": "NUMERIC"
+},
+{
+"name": "type_org_autre_num",
+"type": "NUMERIC"
+},
+{
+"name": "city_id",
+"type": "STRING"
+},
+{
+"name": "city_name",
+"type": "STRING"
+},
+{
+"name": "region_code",
+"type": "STRING"
+},
+{
+"name": "zip_code",
+"type": "STRING"
+},
+{
+"name": "location_name",
+"type": "STRING"
+},
+{
+"name": "location_address",
 "type": "STRING"
 }
 ]
@@ -29492,6 +30954,55 @@
 {
 "name": "place_id",
 "type": "STRING"
+}
+]
+},
+"staging.stg_locations_by_agenda_paca": {
+"type": "VIEW",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "location_uid_num",
+"type": "NUMERIC"
+},
+{
+"name": "location_uid",
+"type": "STRING"
+},
+{
+"name": "name",
+"type": "STRING"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "latitude",
+"type": "FLOAT64"
+},
+{
+"name": "longitude",
+"type": "FLOAT64"
+},
+{
+"name": "state",
+"type": "NUMERIC"
 }
 ]
 },
@@ -32560,12 +34071,6 @@
 "type": "FLOAT64"
 }
 ]
-},
-"analytics.consulter_telemetry": [
-"event_ts",
-"location_id",
-"event_type",
-"payload"
-]
+}
 }
 }

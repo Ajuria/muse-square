@@ -100,18 +100,20 @@ async function crawlAndLoad(bq: any, cells: Array<{ industry: string; lever: str
       } catch (e: any) { console.error(`[cron/best-in-class] cell ${industry}:${lever}:${intent} failed`, e?.message); }
     }
     if (!rows.length) { console.log("[cron/best-in-class] crawled", cells.length, "cell(s), 0 plays kept"); return; }
-    const cellKeys = Array.from(new Set(rows.map((r) => `${r.industry_code}|${r.lever}|${r.intent}`)));
+    // Dedup intra-run (gate 27/07) : un même cas décliné sur plusieurs cellules ne charge qu'un play.
+    const rowsD = core.dedupePlays(rows);
+    const cellKeys = Array.from(new Set(rowsD.map((r: any) => `${r.industry_code}|${r.lever}|${r.intent}`)));
     await bq.query({
       query: `DELETE FROM \`${STORE}\` WHERE CONCAT(industry_code,'|',lever,'|',intent) IN UNNEST(@cells)`,
       params: { cells: cellKeys }, types: { cells: ["STRING"] }, location: "EU",
     });
     const tmp = join(tmpdir(), `bic_cron_${Date.now()}.ndjson`);
-    writeFileSync(tmp, rows.map((r) => JSON.stringify(r)).join("\n"));
+    writeFileSync(tmp, rowsD.map((r: any) => JSON.stringify(r)).join("\n"));
     await bq.dataset("analytics").table("best_in_class_plays").load(tmp, {
       sourceFormat: "NEWLINE_DELIMITED_JSON", schema: core.SCHEMA, writeDisposition: "WRITE_APPEND", location: "EU",
     });
     unlinkSync(tmp);
-    console.log("[cron/best-in-class] loaded", rows.length, "plays for", cellKeys.join(", "));
+    console.log("[cron/best-in-class] loaded", rowsD.length, "plays for", cellKeys.join(", "));
   } catch (err: any) {
     console.error("[cron/best-in-class] crawlAndLoad fatal", err?.message);
   }
