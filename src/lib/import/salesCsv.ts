@@ -19,6 +19,14 @@ export type CanonicalField =
   | 'time'
   | 'ticket_count'
   // optional intelligence columns
+  // invoice_number / item_code / item_description (29/07) : les trois colonnes de
+  // raw.client_transactions que cet importeur laissait vides. Un export au grain LIGNE DE
+  // FACTURE (Sage 100 et la famille comptable française) porte le n° de pièce et la référence
+  // article sur chaque ligne — sans elles, 7 lignes d'une même facture comptent pour 7 ventes
+  // et fct_client_offering_profile (grain item_category × item_description) n'a rien à lire.
+  | 'invoice_number'
+  | 'item_code'
+  | 'item_description'
   | 'item_category'
   | 'quantity'
   | 'unit_price'
@@ -46,6 +54,9 @@ export interface CanonicalRow {
   // optionals present only when the source carried a valid value
   time?: string;         // normalized HH:MM:SS (assigns the row to an hour)
   ticket_count?: number;
+  invoice_number?: string;
+  item_code?: string;
+  item_description?: string;
   item_category?: string;
   quantity?: number;
   unit_price?: number;
@@ -364,6 +375,9 @@ export function validateGrid(
     setNum(canonical, 'ticket_count', cell(r, 'ticket_count'));
     const t = parseTime(cell(r, 'time'));
     if (t) canonical.time = t;
+    setStr(canonical, 'invoice_number', cell(r, 'invoice_number'));
+    setStr(canonical, 'item_code', cell(r, 'item_code'));
+    setStr(canonical, 'item_description', cell(r, 'item_description'));
     setStr(canonical, 'item_category', cell(r, 'item_category'));
     setNum(canonical, 'quantity', cell(r, 'quantity'));
     setNum(canonical, 'unit_price', cell(r, 'unit_price'));
@@ -412,7 +426,7 @@ export function parseSalesCsv(
 
 // ── small assignment helpers (keep optionals absent rather than undefined-valued) ──
 
-type StrField = 'item_category' | 'channel' | 'customer_type' | 'payment_method' | 'currency';
+type StrField = 'invoice_number' | 'item_code' | 'item_description' | 'item_category' | 'channel' | 'customer_type' | 'payment_method' | 'currency';
 type NumField = 'ticket_count' | 'quantity' | 'unit_price' | 'discount_amount' | 'transaction_hour' | 'visitor_count';
 
 function setStr(row: CanonicalRow, field: StrField, raw: string | undefined): void {
