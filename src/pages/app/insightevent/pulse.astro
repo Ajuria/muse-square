@@ -5793,6 +5793,32 @@ if (!location_id) {
           }
         } catch (e) {}
 
+        // DEUX VAGUES -> UNE (29/07/2026). La vague secondaire (signaux concurrents par site,
+        // feedback, brouillons, configs canaux, équipe, règles, états de cartes) n'attendait la
+        // vague principale que par l'ordre du code : TOUTES ses entrées viennent de `locs` et de
+        // currentLocationId, connus AVANT. Mesuré le 29/07 : assembleDayContext coûte 2,5 s à
+        // chaud et 5 s à froid ; enchaîner la seconde vague derrière doublait l'attente pour rien.
+        // On les amorce ensemble — le total devient le MAX des deux, plus leur somme.
+        var _locIdForSecondary = locs[0]?.location_id || currentLocationId;
+        // The aggregated feed shows cards from every venue, so rule/team caches must be
+        // fetched per venue — otherwise a card matches the wrong venue's rules (or none).
+        var _feedLocIds = (locs || []).map(function(l){ return l && l.location_id; }).filter(Boolean);
+        if (_locIdForSecondary && _feedLocIds.indexOf(_locIdForSecondary) < 0) _feedLocIds.push(_locIdForSecondary);
+        var _ruleFetches = [];
+        _feedLocIds.forEach(function(lid){ _ruleFetches.push(fetchTeamMembers(lid), fetchAlertRules(lid), fetchAutomationRules(lid), fetchCardStates(lid)); });
+        // Les signaux concurrents sont demandés PAR SITE depuis `locs` (et non depuis les résultats
+        // de la vague 1) : même ensemble d'identifiants, mais plus aucune dépendance d'ordre.
+        var _pCsByLoc = Promise.all((locs || []).map(function(l){
+          return fetchCompetitorSignals(todayYmd(), l.location_id)
+            .then(function(cs){ return { id: l.location_id, cs: cs }; })
+            .catch(function(){ return { id: l.location_id, cs: { signals: [], followed_count: 0, top_threats: [], followed_competitors: [] } }; });
+        }));
+        var _pSecondary = Promise.all([
+          fetchPendingFeedback(_locIdForSecondary),
+          fetchSavedDrafts(_locIdForSecondary),
+          fetchChannelConfigs(_locIdForSecondary),
+        ].concat(_ruleFetches));
+
         const results = await Promise.all(
           locs.map(l => pulseFor(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
@@ -5810,13 +5836,6 @@ if (!location_id) {
         mergedData.all_feed = filterFeedByWindow(mergedData.all_feed, 0);
         renderPulse(mergedData, todayYmd(), "radar");
 
-        var _locIdForSecondary = locs[0]?.location_id || currentLocationId;
-        // The aggregated feed shows cards from every venue, so rule/team caches must be
-        // fetched per venue — otherwise a card matches the wrong venue's rules (or none).
-        var _feedLocIds = (locs || []).map(function(l){ return l && l.location_id; }).filter(Boolean);
-        if (_locIdForSecondary && _feedLocIds.indexOf(_locIdForSecondary) < 0) _feedLocIds.push(_locIdForSecondary);
-        var _ruleFetches = [];
-        _feedLocIds.forEach(function(lid){ _ruleFetches.push(fetchTeamMembers(lid), fetchAlertRules(lid), fetchAutomationRules(lid), fetchCardStates(lid)); });
         // Radar v5 (17/07) : la Concurrence est PAR SITE côté serveur (signaux, suivis, menaces) —
         // un seul fetch sur le site de session ne couvrait qu'un site en vue agrégée. Fetch par
         // site (ownership vérifié par l'endpoint), stash sur valid[i]._cs pour le switch, et FUSION
@@ -5824,16 +5843,17 @@ if (!location_id) {
         // le plus proche — la distance par site n'a pas de sens agrégée autrement), signaux
         // dédupliqués par competitor_event_id, compte = les lignes de suivi du user (clerk-scoped,
         // identique dans chaque réponse — jamais une somme qui double-compterait).
-        const _csAll = await Promise.all([
-          Promise.all(valid.map(function(v){
-            return fetchCompetitorSignals(todayYmd(), v.loc.location_id)
-              .then(function(cs){ v._cs = cs; return cs; })
-              .catch(function(){ var cs = { signals: [], followed_count: 0, top_threats: [], followed_competitors: [] }; v._cs = cs; return cs; });
-          })),
-          fetchPendingFeedback(_locIdForSecondary),
-          fetchSavedDrafts(_locIdForSecondary),
-          fetchChannelConfigs(_locIdForSecondary),
-        ].concat(_ruleFetches)).then(function(r){ return r[0]; });
+        // Les deux vagues tournaient EN MÊME TEMPS que la principale — ici on ne fait que
+        // récolter. Le rattachement à valid[i]._cs (dont dépend le switch de site) se fait par
+        // location_id, plus par la position dans le tableau.
+        var _csPairs = await _pCsByLoc;
+        await _pSecondary;
+        var _csById = {};
+        _csPairs.forEach(function(p){ _csById[p.id] = p.cs; });
+        valid.forEach(function(v){
+          v._cs = _csById[v.loc && v.loc.location_id] || { signals: [], followed_count: 0, top_threats: [], followed_competitors: [] };
+        });
+        const _csAll = _csPairs.map(function(p){ return p.cs; });
         const _fused = fuseCompetitorSignals(_csAll);
         mergedData._competitor_signals = _fused.signals;
         mergedData._competitor_followed_count = _fused.followed_count;
