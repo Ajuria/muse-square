@@ -240,3 +240,44 @@ donnerait une vraie classe `canicule` avec le mot juste et la définition du gou
 
 Sources : [Canicule, pic ou vague de chaleur](https://meteofrance.com/actualites-et-dossiers/comprendre-la-meteo/canicule-vague-ou-pic-de-chaleur) ·
 [Qu'est-ce que la Vigilance canicule ?](https://meteofrance.com/comprendre-la-vigilance/vigilance-canicule)
+
+
+## Porte de matérialité (29/07, arbitrage owner)
+
+**Constat owner** : « −274 €/an → irrelevant as a yearly number ». Il avait raison, et la preuve est
+plus forte que l'intuition : chez Les Olivades, `discount_no_lift` portait le **t le plus élevé du
+lieu (3,41)** pour **−274 €/an sur 959 730 € de CA, soit 0,03 %** — pendant que leurs journées à
+≥ 35 °C, qui valaient potentiellement 66 000 €/an, étaient tues pour t = 0,77.
+
+Mécanique du piège : des remises **minuscules ET régulières** ont une variance minuscule, donc un
+t énorme. Le total des remises des Olivades sur l'année entière est de **391 €** — la carte
+chiffrait 71 % de tout ce qui a jamais été remisé.
+
+**Les portes existantes testaient la SIGNIFICATIVITÉ (n ≥ 5, span ≥ 60 j, |t| ≥ 1) et jamais la
+MATÉRIALITÉ.** Un enjeu peut être statistiquement béton et économiquement nul.
+
+Seuil retenu : **0,3 % du CA annualisé du LIEU** (relatif, donc valable pour un café comme pour une
+manufacture). Choisi sur la mesure, pas à l'estime — les 25 pills du parc au 29/07 forment deux
+amas séparés par un vide :
+
+```
+discount_no_lift   0,026 %  0,216 %  0,222 %  0,257 %  0,257 %
+        ── vide ──
+heat_32_34         0,523 %
+competition_high   0,677 %
+followed_activity  0,710 %
+school_holiday     0,982 %  0,982 %
+```
+
+0,3 % tombe dans le vide. À 0,5 % on perdait `heat_32_34` (−2 451 €), à 1 % les vacances scolaires
+(−4 558 €) : trop large.
+
+Implémentation dans `rowToImpact` (`dayClassRegistry.ts`), foyer unique de la politique, donc
+effective **sans re-batch**. Le dénominateur vient d'une requête parallèle (`annualRevenueQuery`),
+annualisée sur l'étendue RÉELLE de l'historique — un compte de 3 mois n'est pas jugé sur un CA
+sous-estimé d'un facteur 4. **Sans CA connu, la porte ne s'applique pas** : on ne juge pas une
+matérialité sans dénominateur.
+
+Preuve par le comportement : `rowToImpact` extrait TEL QUEL du fichier, exécuté sur les 45 lignes
+réelles du store — **25 pills → 20**, et les 5 supprimées sont les 5 `discount_no_lift` du parc,
+une par site. Les +127 900 €/an des Olivades survivent.
