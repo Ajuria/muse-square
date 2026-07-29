@@ -104,3 +104,35 @@ Deux verdicts de l'audit sont aussi tempérés :
   soit les règles de tir côté dbt, soit `DEMOTED_TO_FEED` côté app.
 - Rappel de méthode : la spécificité d'un plan vient des **données du lieu** (créneau, jour, écart
   en €), pas d'un cas étranger — voir `docs/best-in-class-registry.md`.
+
+
+## Arbitrage des verdicts — DÉCIDÉ ET APPLIQUÉ (28/07, owner)
+
+**① Météo pilotée par la mesure, plus par le flag.** `extended_bad_weather_3d` lisait
+`weather_sensitivity`, **NULL sur 15 sites sur 32**, alors que la météo est la famille la MIEUX
+mesurée du produit (`heat` significative sur 4 sites/4, `rain` sur 2/4). La carte dit désormais ce
+que ces journées coûtent RÉELLEMENT au lieu (`a.enjeu.eur_year`), ou « on ne sait pas encore ».
+`action-cards.js` v=36.
+
+**② Collision de clé — clé propre + exclusion au source.** `high_competition_density` écrivait
+`'competition_pressure_spike:'` et **perdait 18 fois sur 22** face à la carte de transition du
+change_feed. L'owner voulait que l'état gagne (il porte la scission même-secteur et le bon geste).
+Implémenté selon le patron DÉJÀ établi dans le modèle pour `competitor_event_launch` — mutuellement
+exclusives *au source*, jamais via un détournement de `action_priority` (qui signifie l'urgence,
+pas le départage).
+
+**③ Trois démotions au Fil** (`DEMOTED_TO_FEED`, `src/lib/recoThemeMap.ts`) — décidées sur la
+couverture de mesure réellement constatée, et contre mon conseil précédent :
+- `audience_shift_opportunity` (31/j sur 31 sites) : libellé qui n'affirme rien, 1 classe
+  calendrier significative sur 8 ;
+- `tourism_peak_window` (19/j) : signal RÉGIONAL, pas local ; `tourism_high` sur 2 sites ;
+- `review_solicitation` (31/j) : **renverse la décision du 24/07** — aucune série de la note Google
+  du lieu, la boucle ne peut pas se fermer sans connecteur GBP. À re-promouvoir quand GBP arrive.
+
+**Raison transverse, à retenir** : le patron « on ne sait pas encore — fixez un objectif » **ne se
+duplique pas**. Il marche pour `low_competition_window` (fenêtre datée, rare) ; appliqué à quatre
+cartes tirant chaque jour sur trente sites, il servirait la même injonction quatre fois par jour.
+Un bruit en remplacerait un autre.
+
+Volume retiré des Actions du jour : **~81 lignes/jour** (les trois cartes les plus fréquentes et
+les moins fondées). Elles restent servies par le Fil d'actualité et Consulter.

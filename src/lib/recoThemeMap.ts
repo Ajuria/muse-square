@@ -99,9 +99,23 @@ export function themeForActionType(actionType: string | null | undefined): strin
 // DÉMOTIONS (étape 4, décision owner 24/07, docs/kpi-enjeu-mapping.md §I + amendement C2) :
 // cartes SANS grandeur mesurable attachée → pas des cartes d'action. Elles quittent « À piloter »
 // (candidates) ; leur information reste servie par le Fil d'actualité (change feed) et Consulter.
-// Le trio réputation (review_surge/drop, reputation_strength) + review_solicitation RESTENT des
-// cartes (KPI réputation affiché, mesure via GBP connect à venir).
+// AMENDEMENT 28/07 (owner, après l'audit de vérité — docs/card-truth-audit.md) : trois démotions
+// de plus, décidées sur la couverture de mesure réellement constatée :
+//   - audience_shift_opportunity : tire sur 31 sites TOUS LES JOURS, son libellé n'affirme rien
+//     (« certains résidents partent, d'autres restent »), 1 classe calendrier significative sur 8 ;
+//   - tourism_peak_window : signal RÉGIONAL, pas local ; tourism_high mesurée sur 2 sites seulement ;
+//   - review_solicitation : RENVERSE la décision du 24/07 ci-dessous. Aucune série de la note Google
+//     du lieu n'existe (kpiRegistry : mesure NULL) — sa boucle ne peut pas se fermer aujourd'hui ni
+//     demain sans connecteur GBP. La garder en Actions du jour, c'est promettre une mesure qui
+//     n'existe pas. À re-promouvoir le jour où GBP connect est livré.
+// Raison transverse : le patron « on ne sait pas encore — fixez un objectif » ne se duplique pas.
+// Il marche pour low_competition_window (fenêtre datée, rare) ; appliqué à 4 cartes tirant chaque
+// jour sur 30 sites, il servirait la même injonction 4 fois par jour — un bruit en remplace un autre.
 export const DEMOTED_TO_FEED = new Set([
+  // démotions du 28/07 (audit de vérité)
+  "audience_shift_opportunity",
+  "tourism_peak_window",
+  "review_solicitation",
   // informationnelles (groupe I)
   "competitor_positioning_brief",
   "competitor_positioning_gap",

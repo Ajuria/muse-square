@@ -1425,15 +1425,21 @@
   // C11 — extended_bad_weather_3d
   reg('extended_bad_weather_3d', 'M\u00e9t\u00e9o d\u00e9grad\u00e9e 3+ jours', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
     function(a, p, d) {
+      // La direction vient de la MESURE du lieu (a.enjeu, classes meteo heat/rain), pas du flag
+      // declaratif weather_sensitivity — NULL sur 15 sites sur 32 (verifie le 28/07), alors que
+      // la meteo est la famille la MIEUX mesuree du produit (heat significative 4 sites sur 4).
       var alert = Number(a.alert_level || d.alert_level_max || 0);
-      var line = '3+ jours cons\u00e9cutifs de mauvais temps \u2014 ' + hazardPhrase(d) + ' (niveau ' + alert + ').';
-      if (weatherSens(p)) line += ' Site sensible \u2014 impact prolong\u00e9 sur la fr\u00e9quentation.';
-      if (isOutdoor(p)) line += ' Activez votre offre int\u00e9rieure.';
+      var line = '3+ jours consécutifs de mauvais temps — ' + hazardPhrase(d) + ' (niveau ' + alert + ').';
+      var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
+      if (eur != null && eur < 0) line += ' Chez vous, ces journées coûtent en moyenne plus que les autres.';
+      else if (eur != null && eur > 0) line += ' Chez vous, ces journées ne vous pénalisent pas — vous y faites même mieux que la moyenne.';
+      else line += ' On ne sait pas encore ce que ces journées vous coûtent.';
+      if (isOutdoor(p)) line += ' Activez votre offre intérieure.';
       else line += ' Positionnez-vous comme refuge.';
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note urgente. M\u00e9t\u00e9o d\u00e9grad\u00e9e 3+ jours. ' + (weatherSens(p) ? 'Adapter effectif.' : 'Impact limit\u00e9.'); }
+      note_interne: function(a, p, d) { var e = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null; return 'Note urgente. Météo dégradée 3+ jours. ' + (e != null && e < 0 ? 'Ces journées nous coûtent : ajuster achats et ne pas prévoir d’extra.' : 'Impact non mesuré à ce jour.'); }
     }
   );
 
