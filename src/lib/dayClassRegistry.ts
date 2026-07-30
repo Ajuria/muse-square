@@ -66,13 +66,19 @@ export type DayClassResult = {
 //
 // SCISSION heat (29/07/2026, arbitrage owner). Une seule classe `heat` additionnait deux régimes
 // de SIGNES OPPOSÉS et sortait zéro. Vérifié sur les 4 sites ayant un historique de ventes :
-// 32-34 °C -> +70 €/j (68 jours, t = 3,33) ; >= 35 °C -> -72 €/j (95 jours, t = 3,62). Groupées,
+// 25-27 °C -> +70 €/j (68 jours, t = 3,33) ; >= 28 °C -> -72 €/j (95 jours, t = 3,62). Groupées,
 // elles donnaient +39 €/j à t = 0,84 — sous le plancher, donc muettes. La pluie RESTE groupée :
 // son signe est constant à toutes les doses (-38 / -133 / -131 / -102), la mise en commun y est
 // légitime. On ne scinde que là où les signes divergent.
+// BARÈME — CORRIGÉ le 29/07 au soir. Les bandes affichées étaient FAUSSES DE 7 °C : j'avais pris
+// l'échelle de `stg_weather_alerts_daily_all.sql` (32/35/38/40), qui n'alimente PAS cette chaîne.
+// Le moteur lit `lvl_heat` depuis fct_location_context_daily <- fct_location_weather_alerts_daily
+// <- int_client_weather_alerts_daily, dont l'échelle est 25/28/32/35 (lignes 120-127). Vérifié sur
+// la donnée : 32,7 °C y donne lvl_heat = 3, pas 1. La MESURE de la scission reste valide (elle
+// porte sur lvl 1 vs lvl >= 2, et les +70/-72 €/j sont réels) — seuls les degrés étaient faux.
 export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lvl: number; max_lvl?: number; label_fr: string }> = [
-  { key: "heat_32_34",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "journées à 32–34 °C" },
-  { key: "heat_35_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "journées à 35 °C et plus" },
+  { key: "heat_25_27",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "journées à 25–27 °C" },
+  { key: "heat_28_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "journées à 28 °C et plus" },
   { key: "rain", level_col: "lvl_rain", min_lvl: 1, label_fr: "jours de pluie marquée" },
   { key: "wind", level_col: "lvl_wind", min_lvl: 1, label_fr: "jours de vent fort" },
   { key: "snow", level_col: "lvl_snow", min_lvl: 1, label_fr: "jours de neige" },
@@ -135,7 +141,7 @@ export const DAY_CLASS_STORE = "analytics.day_class_impacts";
 // Effet vérifié sur les 4 sites ayant un historique de ventes : chaleur mesurable sur 1 site
 // -> 4 sur 4 (55 -> 123 jours), pluie 3 -> 4 sites (23 -> 61 jours). Vent et froid inchangés
 // (0 site, l'aléa ne se produit pas). Barème amont : stg_weather_alerts_daily_all.sql
-// (chaleur 32/35/38/40 °C, pluie 20/40/80/120 mm, froid -5/-8/-12/-16 °C).
+// (échelle RÉELLE de cette chaîne : chaleur 25/28/32/35 °C — cf. correction du barème plus haut).
 //
 // SÉVÉRITÉ D'ABORD. L'ancienne chaîne prenait la première classe de la liste qui matchait, donc
 // une chaleur de niveau 1 pouvait éclipser une pluie de niveau 2 — 4 jours sur 364 sur le parc
@@ -149,7 +155,7 @@ export const DAY_CLASS_STORE = "analytics.day_class_impacts";
 // est indépendant et n'est PAS touché : ce changement ne concerne que la couche de mesure.
 // Balayage par niveau DÉCROISSANT, égalité stricte sur le niveau : à chaque palier on n'émet que
 // les classes dont la bande [min_lvl, max_lvl] contient ce palier. L'égalité (et non `>=`) est ce
-// qui rend les bandes BORNÉES possibles — `heat_32_34` ne doit pas capturer un jour à 38 °C. Le
+// qui rend les bandes BORNÉES possibles — `heat_25_27` ne doit pas capturer un jour à 32 °C. Le
 // balayage décroissant conserve la priorité de sévérité ; l'ordre de WEATHER_DAY_CLASSES ne
 // départage qu'à sévérité égale.
 function conditionCaseSql(): string {
@@ -375,7 +381,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
 // Seuil 0,3 % du CA annualisé du LIEU (relatif, donc valable pour un café comme pour une
 // manufacture). Mesuré sur les 25 pills du parc au 29/07 : les 4 pills `discount_no_lift` de tout
 // le parc tiennent sous 0,26 %, la suivante est à 0,52 % — 0,3 % tombe dans ce vide et ne retire
-// QUE ce que l'owner a signalé. À 0,5 % on perdait heat_32_34 (−2 451 €), à 1 % les vacances
+// QUE ce que l'owner a signalé. À 0,5 % on perdait heat_25_27 (−2 451 €), à 1 % les vacances
 // scolaires (−4 558 €) : trop large.
 //
 // Sans CA connu, la porte NE S'APPLIQUE PAS (on ne juge pas une matérialité sans dénominateur).
