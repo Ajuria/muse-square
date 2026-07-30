@@ -170,8 +170,10 @@ Trois partis pris :
   ⚠️ **`events_within_20km_count` N'EXISTE PAS** dans `fct_location_events_radius_daily`, qui porte
   500 m, 1 km, 5 km, 10 km, 50 km. Son ajout est l'**étape zéro** du chantier — rien ne fonctionne
   sans elle. Le modèle calcule déjà les distances : ajouter une bande est mécanique.
-- **Défaut** : **aucun**. Tant que la réponse est absente, garder le comportement actuel (la classe
-  n'existe pas). Un rayon deviné réintroduirait l'instabilité mesurée plus haut, et cette fois elle
+- **Défaut** : **aucun changement**. Tant que la réponse est absente, garder le comportement actuel.
+  ⚠️ **CORRIGÉ le 30/07** : cette ligne disait « la classe n'existe pas ». C'est faux — `events_high`
+  est mesurée pour 3 lieux dans `analytics.day_class_impacts`. « Comportement actuel » signifie donc
+  **500 m** dans le registre et dans les cartes, PAS `NULL`. Un `ELSE NULL` aurait détruit ces mesures. Un rayon deviné réintroduirait l'instabilité mesurée plus haut, et cette fois elle
   serait invisible parce qu'elle ressemblerait à une vraie mesure.
 - **Endroits à toucher** : les 5 occurrences `events_within_500m_count` + les 2 `events_within_1km_count`
   du mart des cartes, la ligne 97 du registre, et le libellé de `events_high` qui affiche

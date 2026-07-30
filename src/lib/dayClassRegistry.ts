@@ -94,7 +94,10 @@ export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lv
 export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col: string; label_fr: string }> = [
   { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte pression concurrentielle" },
   { key: "tourism_high", family: "tourism", index_col: "tourism_index_region", label_fr: "jours à fort flux touristique" },
-  { key: "events_high", family: "events", index_col: "events_within_500m_count", label_fr: "jours à forte densité d'événements (500 m)" },
+  // index_col RETIRÉ : il n'était lu nulle part (seul label_fr sert, via CLASS_LABELS) et faisait
+  // croire à une autorité qu'il n'avait pas. Le rayon dépend désormais du périmètre déclaré par le
+  // lieu (1 km / 20 km / 500 m par défaut) : le libellé ne peut plus l'annoncer en dur.
+  { key: "events_high", family: "events", index_col: "", label_fr: "jours à forte densité d'événements" },
   // Classes BASSES (mapping B2/D2, ajoutées 26/07) : tercile bas — les fenêtres favorables
   // (basse pression, basse saison) ; écart positif attendu → pill verte « À capter ».
   { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible pression concurrentielle" },
@@ -206,7 +209,18 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         f.competition_index_local,
         f.tourism_index_region,
         COALESCE(f.mobility_disruption_flag_event_window, FALSE) AS mobility_flag,
-        e.events_within_500m_count AS events_500m,
+        -- Périmètre de clientèle DÉCLARÉ (docs/perimetre-client-spec.md) : commune -> 1 km,
+        -- beyond -> 20 km. c.client_catchment vient de fct_location_context_daily, qui la porte
+        -- déjà (vérifié sur INFORMATION_SCHEMA le 30/07) — aucun join supplémentaire.
+        -- ELSE = 500 m, le comportement actuel. La spec écrivait « tant que la réponse est
+        -- absente, la classe n'existe pas » : c'est FAUX, events_high est mesurée pour 3 lieux
+        -- dans analytics.day_class_impacts. Un ELSE NULL aurait supprimé ces trois mesures.
+        -- L'alias est renommé : events_500m mentait sur son contenu dès que le rayon varie.
+        CASE c.client_catchment
+          WHEN 'commune' THEN e.events_within_1km_count
+          WHEN 'beyond'  THEN e.events_within_20km_count
+          ELSE                e.events_within_500m_count
+        END AS events_radius,
         COALESCE(sv.active_ct, 0) AS suivis_ct,
         perf.daily_visitors AS visitors,
         COALESCE(sg.is_discount_without_lift, FALSE) AS discount_no_lift_flag,
@@ -240,8 +254,8 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(1)] AS tour_t1,
         APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(2)] AS tour_t2,
         MIN(tourism_index_region) AS tour_min, MAX(tourism_index_region) AS tour_max,
-        APPROX_QUANTILES(events_500m, 3)[OFFSET(2)] AS ev_t2,
-        MIN(events_500m) AS ev_min, MAX(events_500m) AS ev_max,
+        APPROX_QUANTILES(events_radius, 3)[OFFSET(2)] AS ev_t2,
+        MIN(events_radius) AS ev_min, MAX(events_radius) AS ev_max,
         APPROX_QUANTILES(IF(suivis_ct > 0, suivis_ct, NULL), 3)[OFFSET(2)] AS sv_t2,
         COUNT(DISTINCT IF(suivis_ct > 0, suivis_ct, NULL)) AS sv_distinct,
         APPROX_QUANTILES(visitors, 3)[OFFSET(2)] AS vis_t2,
@@ -255,7 +269,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         (j.weather_class IS NOT NULL) AS in_weather,
         (j.competition_index_local IS NOT NULL AND t.comp_max > t.comp_min AND j.competition_index_local >= t.comp_t2) AS in_comp,
         (j.tourism_index_region IS NOT NULL AND t.tour_max > t.tour_min AND j.tourism_index_region >= t.tour_t2) AS in_tour,
-        (j.events_500m IS NOT NULL AND t.ev_max > t.ev_min AND j.events_500m >= t.ev_t2) AS in_events,
+        (j.events_radius IS NOT NULL AND t.ev_max > t.ev_min AND j.events_radius >= t.ev_t2) AS in_events,
         (j.mobility_flag IS TRUE) AS in_mobility,
         (j.suivis_ct > 0 AND t.sv_distinct > 1 AND j.suivis_ct >= t.sv_t2) AS in_suivis,
         (j.school_flag IS TRUE) AS in_school,

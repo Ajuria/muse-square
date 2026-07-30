@@ -68,7 +68,25 @@ exploitant puisse corriger sa réponse sans attendre qu'une carte la lui redeman
 
 ---
 
-## Étage 2 — Le registre (`src/lib/dayClassRegistry.ts`)
+## Étage 2 — Le registre (`src/lib/dayClassRegistry.ts`) — **FAIT le 30/07/2026**
+
+> **La prémisse de la spec était FAUSSE, et c'est la mesure qui l'a montré.** La spec écrivait
+> « tant que la réponse est absente, garder le comportement actuel (la classe n'existe pas) ».
+> `events_high` **existe** : 3 lieux dans `analytics.day_class_impacts` (Muse Square n=6,
+> Muse Square Occitanie n=3, Poeiti test n=4). Un `ELSE NULL` aurait supprimé ces trois mesures.
+>
+> Le `CASE` livré applique donc le PRINCIPE de la spec (ne rien changer sans réponse) et non sa
+> DESCRIPTION : `commune` → 1 km, `beyond` → 20 km, **absence de réponse → 500 m, l'existant**.
+>
+> `client_catchment` est lue sur `c.client_catchment` — `fct_location_context_daily` la porte déjà
+> (vérifié sur `INFORMATION_SCHEMA`), donc **aucun join supplémentaire**, ce que le chantier laissait
+> à trancher. L'alias `events_500m` est renommé `events_radius` (3 usages suivis, lignes 243/244/258),
+> et `index_col` est vidé : il n'était lu nulle part.
+>
+> Équivalence prouvée : la requête d'agrégat rend des lignes **identiques** avant/après sur les trois
+> lieux (12, 10 et 11 classes, mêmes `n`, `avg_gap_eur`, `span_days`).
+
+### Ce qui était prévu (conservé pour mémoire)
 
 ### 2.1 La colonne de rayon devient conditionnelle
 
