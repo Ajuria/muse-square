@@ -981,7 +981,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // — un aveu d'ignorance là où l'on sait, et où la réponse est « ça ne pèse rien ».
         .filter((r: any) => !enjeuWithReasonForCandidate(dayClassResult as any, r).immaterial)
         .map((r: any) => ({
-        ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
+        ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,

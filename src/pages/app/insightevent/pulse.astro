@@ -1743,7 +1743,23 @@ if (!location_id) {
       }
       // Raison d'absence (triage 26/07) : quand la carte est ÉLIGIBLE mais sans mesure, la
       // raison s'affiche en micro-texte discret — l'absence est expliquée, jamais muette.
-      if (!enj && a && a.enjeu_reason_fr) {
+      // PÉRIMÈTRE DE CLIENTÈLE (étage 4, 30/07 — docs/perimetre-client-spec.md) : quand la mesure
+      // est impossible faute de rayon déclaré, la QUESTION REMPLACE le motif d'absence, au même
+      // emplacement. Décision owner : sur CHAQUE carte concernée et INDÉFINIMENT tant qu'aucune
+      // réponse n'est donnée. Une réponse les résout toutes — d'où la ligne sous les boutons.
+      if (!enj && a && a.needs_catchment === true) {
+        var _locId = String((a && a.location_id) || (entry && entry.item && entry.item.location_id) || '');
+        pills.unshift(
+          '<span class="ms-catchment-ask" data-location-id="' + escapeHtml(_locId) + '" style="display:block;width:100%;background:transparent;border:0;padding:0;margin:2px 0 0;font-size:11px;color:#6B7280;line-height:1.5;">' +
+            '<span style="display:block;">Pour chiffrer ce que cette concurrence vous coûte, une seule chose manque : la plupart de vos clients viennent-ils de votre commune, ou de plus loin ?</span>' +
+            '<span style="display:block;margin:6px 0 4px;">' +
+              '<button type="button" data-catchment="commune" style="cursor:pointer;border:1px solid #D1D5DB;background:#fff;border-radius:6px;padding:4px 10px;font-size:11px;color:#111827;margin-right:6px;">De ma commune</button>' +
+              '<button type="button" data-catchment="beyond" style="cursor:pointer;border:1px solid #D1D5DB;background:#fff;border-radius:6px;padding:4px 10px;font-size:11px;color:#111827;">De plus loin, ils se déplacent</button>' +
+            '</span>' +
+            '<span style="display:block;color:#9CA3AF;">Votre réponse fixe le périmètre sur lequel on mesure — une seule fois, pour toutes vos cartes.</span>' +
+          '</span>'
+        );
+      } else if (!enj && a && a.enjeu_reason_fr) {
         pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;">' + escapeHtml(String(a.enjeu_reason_fr)) + '</span>');
       }
       return pills.join('');
@@ -5950,6 +5966,54 @@ if (!location_id) {
       console.error(e);
     }
   })();
+
+  // PÉRIMÈTRE DE CLIENTÈLE (étage 4) — un clic répond, POST vers set-catchment, puis la question
+  // est remplacée EN PLACE par la confirmation. Le délai est annoncé : le recalcul est nocturne
+  // (cron day-class-impacts), le taire ferait croire à un bug. Une réponse résout TOUTES les cartes,
+  // donc on retire aussi les questions des autres cartes du même site sans recharger la page.
+  if (!window.__msCatchmentBound) {
+    window.__msCatchmentBound = true;
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.ms-catchment-ask button[data-catchment]') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var box = btn.closest('.ms-catchment-ask');
+      if (!box) return;
+      var locId = box.getAttribute('data-location-id') || '';
+      var val = btn.getAttribute('data-catchment') || '';
+      if (!locId || (val !== 'commune' && val !== 'beyond')) return;
+      var boxes = Array.prototype.slice.call(document.querySelectorAll('.ms-catchment-ask[data-location-id="' + locId + '"]'));
+      boxes.forEach(function (b) { b.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); });
+      fetch('/api/profile/set-catchment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location_id: locId, catchment: val })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          if (j && j.ok) {
+            var txt = '\u2713 P\u00e9rim\u00e8tre ' + (val === 'commune' ? 'communal' : 'r\u00e9gional')
+              + ' enregistr\u00e9 \u2014 le montant appara\u00eetra demain';
+            boxes.forEach(function (b) {
+              b.innerHTML = '<span style="display:block;color:#0b37e5;">' + txt + '</span>';
+            });
+          } else {
+            boxes.forEach(function (b) {
+              b.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+              var last = b.lastElementChild;
+              if (last) { last.textContent = 'Enregistrement impossible. R\u00e9essayez.'; last.style.color = '#B91C1C'; }
+            });
+          }
+        })
+        .catch(function () {
+          boxes.forEach(function (b) {
+            b.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+            var last = b.lastElementChild;
+            if (last) { last.textContent = 'Enregistrement impossible. R\u00e9essayez.'; last.style.color = '#B91C1C'; }
+          });
+        });
+    });
+  }
 
 })();
 </script>

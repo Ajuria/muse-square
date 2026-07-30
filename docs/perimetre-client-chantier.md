@@ -144,7 +144,24 @@ décision séparée.
 
 ---
 
-## Étage 4 — Le rendu (`src/pages/app/insightevent/pulse.astro`)
+## Étage 4 — Le rendu (`src/pages/app/insightevent/pulse.astro`) — **FAIT le 30/07/2026**
+
+> **Signal** : `enjeuWithReasonForCandidate` renvoie `needs_catchment`. Une carte est CONCERNÉE si
+> `CARD_TYPE_CLASS[action_type] === 'events_high'` — dérivé du mapping existant, jamais d'une liste
+> recopiée : un futur type mappé sur `events_high` héritera de la question sans toucher au code.
+> Mesuré sur `f10c3e58` : **2 types sur 19** le portent (`competition_proximity`,
+> `same_bucket_saturation`). `high_competition_density` y est mappé aussi mais absent ce jour-là.
+>
+> **Coût : ZÉRO aller-retour.** `client_catchment` est lue par `dateResolutionQuery`, qui interroge
+> déjà `fct_location_context_daily` — laquelle porte la colonne depuis l'étage 1.
+>
+> **Le drapeau ne sort QUE sans enjeu** : si le montant est chiffré, la question n'a plus d'objet ;
+> une carte écartée pour matérialité reste masquée.
+>
+> Bascule prouvée : `clientCatchment = null` → question ; `'commune'` et `'beyond'` → le motif
+> d'absence normal reprend sa place.
+
+### Ce qui était prévu (conservé pour mémoire)
 
 ### 4.1 Le signal côté API
 

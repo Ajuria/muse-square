@@ -50,6 +50,7 @@ export type DayClassResult = {
   conditionByDate: Map<string, string>;   // 'YYYY-MM-DD' -> weather class_key (for date-resolved cards)
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
   immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
+  clientCatchment?: string | null;        // périmètre DÉCLARÉ du lieu ('commune'|'beyond'|null)
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -470,13 +471,14 @@ function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, 
   return rowsToImpactsWithImmaterial(rows, annualRevenue).impacts;
 }
 
-async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }> }> {
-  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>() };
+async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }>; clientCatchment: string | null }> {
+  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>(), clientCatchment: null as string | null };
   if (!dates.length) return empty;
   const rows = await bq.query({
     query: `
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
-             c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag
+             c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
+             c.client_catchment AS client_catchment
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
       WHERE c.location_id = @location_id
         AND c.date IN UNNEST(ARRAY(SELECT PARSE_DATE('%Y-%m-%d', d) FROM UNNEST(@dates) AS d))
@@ -490,6 +492,8 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
     if (!row?.date) continue;
     if (row?.condition) out.conditionByDate.set(String(row.date), String(row.condition));
     out.calendarByDate.set(String(row.date), { school: row?.school_flag === true, holiday: row?.holiday_flag === true });
+    // Grain LIEU : identique sur toutes les lignes, on garde la première valeur non nulle.
+    if (out.clientCatchment == null && row?.client_catchment != null) out.clientCatchment = String(row.client_catchment);
   }
   return out;
 }
@@ -674,7 +678,7 @@ export const ABSENCE_REASON_FR = {
 } as const;
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean } {
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);
   if (enjeu) return { enjeu, reason_fr: null };
   // MATÉRIALITÉ (29/07) : la classe de cette carte a bien été MESURÉE, et elle est négligeable.
@@ -688,12 +692,20 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
     if (mappedKey && imm.has(mappedKey)) return { enjeu: null, reason_fr: null, immaterial: true };
   }
   const actionType = String(candidate?.action_type || "");
+  // ÉTAGE 4 (30/07) — la question du périmètre de clientèle (docs/perimetre-client-spec.md).
+  // Une carte est CONCERNÉE si sa classe est events_high : c'est la seule dont le rayon dépend de
+  // client_catchment (registre ligne 209 + colonnes events_within_catchment_* du mart). Dérivé de
+  // CARD_TYPE_CLASS, jamais d'une liste recopiée — competition_proximity et high_competition_density
+  // y sont mappés, et un futur type le sera sans toucher ici.
+  // Le drapeau n'accompagne QUE les retours sans enjeu : si le montant est déjà chiffré, la question
+  // n'a plus d'objet. Il ne sort pas non plus sur une carte écartée pour matérialité (carte masquée).
+  const needsCatchment = result?.clientCatchment == null && CARD_TYPE_CLASS[actionType] === "events_high";
   if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
   if (!mapped) return { enjeu: null, reason_fr: null };
-  if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history };
-  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable };
+  if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history, needs_catchment: needsCatchment };
+  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable, needs_catchment: needsCatchment };
 }
 
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
