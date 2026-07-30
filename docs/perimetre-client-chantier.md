@@ -14,12 +14,25 @@
 | Nom | `client_catchment` |
 | Grain | `location_id` |
 | Valeurs | `'commune'` · `'beyond'` · `NULL` (non répondu) |
-| Rayon correspondant | 5 km · 50 km · *aucun — comportement actuel* |
+| Rayon correspondant | **1 km** · **20 km** · *aucun — comportement actuel* |
 
 `NULL` est un état de plein droit, pas une valeur manquante à combler : c'est lui qui déclenche
 l'affichage de la question.
 
 ---
+
+## Étage 0 — La colonne 20 km (bloquant absolu)
+
+`fct_location_events_radius_daily` porte **500 m, 1 km, 5 km, 10 km, 50 km**. Le rayon retenu pour
+une clientèle « au-delà de la commune » est **20 km**, et cette bande **n'existe pas**.
+
+Rien de ce qui suit ne fonctionne sans elle : à 10 km Les Olivades n'ont que **6 valeurs
+distinctes** (dégénéré), à 20 km ils en ont **46**.
+
+Le modèle calcule déjà les distances par bande — ajouter `events_within_20km_count` et son pendant
+`events_within_20km_same_bucket_count` est mécanique. **À faire en premier, et à vérifier avant de
+coder quoi que ce soit d'autre** : la mesure de référence est 46 valeurs distinctes sur Les
+Olivades, obtenue en recalculant les distances à la volée.
 
 ## Étage 1 — Stockage et saisie
 
@@ -69,8 +82,8 @@ exploitant puisse corriger sa réponse sans attendre qu'une carte la lui redeman
 colonne y est propagée — **à trancher au moment de coder, en lisant le modèle**.
 
 Sémantique attendue :
-- `commune` → `events_within_5km_count`
-- `beyond` → `events_within_50km_count`
+- `commune` → `events_within_1km_count`
+- `beyond` → `events_within_20km_count` *(colonne à créer — étage 0)*
 - `NULL` → **NULL** (la classe `events_high` ne se calcule pas — comportement actuel préservé)
 
 L'alias `events_500m` doit être renommé (`events_radius`) : garder un nom qui ment sur son contenu
@@ -155,7 +168,8 @@ Le fichier est un script inline : `node --check` sur le bloc extrait, et bump du
 
 ## Ordre d'exécution
 
-1. **Colonne + propagation dbt** (étage 1.1). Sans elle, rien d'autre ne peut lire la valeur.
+0. **La colonne 20 km** (étage 0). Bloquant absolu, à vérifier avant tout le reste.
+1. **Colonne `client_catchment` + propagation dbt** (étage 1.1). Sans elle, rien d'autre ne peut lire la valeur.
 2. **Endpoint + formulaire** (1.2, 1.3). Permet de répondre, donc de tester la suite sur un vrai
    lieu.
 3. **Mart des cartes** (étage 3) et **registre** (étage 2) — indépendants l'un de l'autre.
@@ -172,8 +186,8 @@ Le compte de référence est urbain, Les Olivades est rural : les deux branches 
 | étape | attendu |
 |---|---|
 | Réponse `beyond` sur Les Olivades | `events_high` apparaît dans `analytics.day_class_impacts` après le cron |
-| Le rayon utilisé | 50 km — **22 valeurs distinctes** mesurées, contre 1 à 500 m et 1 à 5 km |
-| Réponse `commune` sur un lieu parisien | `events_high` calculée sur 5 km, signal non dégénéré (360 valeurs distinctes mesurées) |
+| Le rayon utilisé | **20 km — 46 valeurs distinctes** mesurées, contre 1 à 1 km et 6 à 10 km |
+| Réponse `commune` sur un lieu parisien | `events_high` calculée sur **1 km** — 56 à 62 valeurs distinctes mesurées sur les lieux parisiens |
 | Lieu sans réponse | **aucun changement** — `events_high` reste absente, la carte affiche la question |
 
 Le recalcul passe par `/api/cron/day-class-impacts` — d'où le « demain » de la confirmation.

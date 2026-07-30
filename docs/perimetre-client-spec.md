@@ -82,18 +82,55 @@ Une seule, binaire, posée en langage d'exploitant :
 « Commune » plutôt que « village » ou « ville » : c'est administrativement précis, tout exploitant
 connaît la sienne, et le mot fonctionne du 3ᵉ arrondissement à Saint-Étienne-du-Grès.
 
-**Deux réponses suffisent — vérifié sur 35 lieux :**
+### Les deux rayons : 1 km et 20 km — CORRIGÉ le 30/07
 
-| | 5 km (commune) | 50 km (au-delà) |
+Une première version proposait 5 km / 50 km. **L'owner l'a récusée, et la mesure lui a donné
+raison** : « In a city 1 km is already a lot ; in the countryside 50 km imply hours of driving,
+20 km is already a lot ».
+
+**Où se trouve réellement la masse d'événements** — 90 jours autour de Saint-Étienne-du-Grès :
+
+| bande | événements | cumul |
 |---|---|---|
-| Signal exploitable (≥ 10 valeurs distinctes) | 21 / 35 | **32 / 35** |
-| Signal dégénéré | 14 | 3 |
-| Zéro événement | 4 | 0 |
+| 0–5 km | 14 | 0,3 % |
+| 5–10 km | 177 | 4 % |
+| **10–20 km** | **2 581** | **59 %** |
+| 20–30 km | 902 | 79 % |
+| 30–40 km | 513 | 90 % |
+| 40–50 km | 491 | 100 % |
 
-Les 14 lieux dégénérés à 5 km **ne sont pas un échec de mesure** : si un commerce déclare une
-clientèle communale et qu'il n'y a rien dans 5 km, alors il n'y a réellement aucune concurrence
-événementielle dans son périmètre. « Il ne se passe rien autour de vous » est une réponse vraie et
-utile — aujourd'hui elle est cachée derrière un motif d'absence qui accuse l'historique.
+**56 % de la masse tient dans la bande 10–20 km.** Les villes le confirment : à 20 km on trouve
+Avignon (19 km), les Baux (8 km), Fontvieille (10 km), Fourques (14 km) — le bassin réel. Au-delà
+on ramasse **Aigues-Mortes à 49 km et Lacoste à 45 km** : personne ne traverse la Camargue pour une
+boutique de tissus provençaux.
+
+**Signal vérifié sur les 31 lieux géolocalisés** (distances recalculées à la volée, la colonne
+20 km n'existant pas encore) — valeurs distinctes par rayon :
+
+| | 1 km | 10 km | **20 km** | 50 km |
+|---|---|---|---|---|
+| **Les Olivades** | **1 (constante)** | 6 | **46** | 54 |
+| Mourgues du Grès | 1 | 4 | **39** | 55 |
+| Domaine de Poulvarel | 2 | 4 | **33** | 61 |
+| Les Baux-de-Provence | 2 | 4 | **30** | 54 |
+| Esprit de Fabrique (Paris) | **62** | 78 | 77 | 82 |
+| Boutique Châtelet | **56** | 81 | 82 | 82 |
+
+Deux blocs nets. **Les lieux parisiens ont 56 à 62 valeurs distinctes dès 1 km** — le rayon local
+leur suffit, et monter plus haut noierait leur signal dans toute l'Île-de-France. **Les lieux
+ruraux sont à 1 ou 2 valeurs à 1 km, 3 à 6 à 10 km, et 28 à 46 à 20 km** : le 20 km est exactement
+le seuil où ils deviennent mesurables.
+
+Deux cas résistent sur 31 : `MS Test` (7 valeurs, lieu de test isolé) et `Franquevaux` (14 —
+passerait le plancher de 10). Un lieu qui reste dégénéré à son rayon déclaré **n'est pas un échec
+de mesure** : il n'y a réellement rien autour de lui. « Il ne se passe rien dans votre périmètre »
+est une réponse vraie et utile — aujourd'hui elle est cachée derrière un motif d'absence qui accuse
+l'historique.
+
+**Le temps de trajet n'a PAS été mesuré et ne doit pas l'être à l'estime** : nous n'avons aucun
+service d'itinéraire, et une vitesse moyenne inventée serait exactement le genre d'affirmation qui
+a coûté une journée le 29/07. La distribution des distances répond à la même question sans rien
+supposer.
 
 ## Où poser la question — décision owner 30/07
 
@@ -129,8 +166,10 @@ Trois partis pris :
 
 - **Stockage** : nouvelle colonne au grain `location_id`. Ne pas surcharger
   `location_access_pattern`.
-- **Correspondance** : `commune` → 5 km · `au-delà` → 50 km. Les colonnes existent déjà, il n'y a
-  rien à ingérer.
+- **Correspondance** : `commune` → **1 km** · `au-delà` → **20 km**.
+  ⚠️ **`events_within_20km_count` N'EXISTE PAS** dans `fct_location_events_radius_daily`, qui porte
+  500 m, 1 km, 5 km, 10 km, 50 km. Son ajout est l'**étape zéro** du chantier — rien ne fonctionne
+  sans elle. Le modèle calcule déjà les distances : ajouter une bande est mécanique.
 - **Défaut** : **aucun**. Tant que la réponse est absente, garder le comportement actuel (la classe
   n'existe pas). Un rayon deviné réintroduirait l'instabilité mesurée plus haut, et cette fois elle
   serait invisible parce qu'elle ressemblerait à une vraie mesure.
