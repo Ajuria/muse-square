@@ -137,3 +137,51 @@ l'intersection — 19 jours chez Les Olivades pour 223 jours de ventes.
 Tout nouveau client vivra la même chose tant que l'**import de ventes ne déclenchera pas le rejeu
 du contexte sur la période importée**. C'est ce chaînage, plus que chaque source prise isolément,
 qui est le vrai chantier.
+
+
+## CORRECTION du 29/07 — le chantier A est MORT, ne pas le relancer
+
+**Le chantier A ci-dessus était faux sur son affirmation centrale.** Je l'avais bâti en lisant
+trois bornes à 120 jours dans le code, **sans vérifier qu'elles étaient effectivement
+contraignantes**. Elles ne le sont pas.
+
+Vérifié après coup :
+
+- `fct_location_context_daily` est matérialisé en **`table`** — donc entièrement reconstruit à
+  chaque run, avec `backfill_days = 120`, ce qui autoriserait le **31/03**. Il produit quand même
+  **18/04**. Entre les deux, la source n'a rien.
+- Ce plancher du 18/04 est **identique pour les 8 lieux du parc**, à la journée près. Ce n'est donc
+  pas un effet de la date de création d'un compte : c'est la profondeur réelle de la donnée amont.
+- `fct_client_day_residual` couvre déjà **99 des 102 jours** de contexte disponibles. Il n'y a rien
+  à libérer.
+
+**Conclusion** : élargir `backfill_days` ou `analog_lookback_days` produirait des **jours vides**,
+pas des jours de mesure. Le seul chantier qui déplace l'aiguille est l'**acquisition** (B et C) —
+et la météo à 19 jours reste le plafond dur pour toutes les classes météo.
+
+**Leçon de méthode** : une borne lue dans le code n'est pas une contrainte tant qu'on n'a pas
+montré que la donnée EXISTE au-delà. Mesurer la donnée d'abord, lire le code ensuite.
+
+
+## DÉCISION OWNER du 29/07 — chantiers B et C ÉCARTÉS
+
+« I will not ingest new sources and code all weather dbt models again! Not my priority atm. »
+
+Ne pas reproposer l'ingestion d'archive météo ni d'archive événementielle. Vérifié au passage,
+pour mémoire si la question revient un jour :
+
+- l'API historique d'Open-Meteo exige le **plan Professional ou supérieur** (« Historical, climate,
+  ensemble, and satellite radiation APIs require the Professional API Plan or higher ») ;
+- l'offre gratuite est explicitement réservée aux sites privés/à but non lucratif sans abonnement
+  ni publicité, à la domotique personnelle et à la recherche publique — **aucune ne couvre Muse
+  Square** ;
+- les montants ne sont **pas publiés** dans le texte des pages tarifs/conditions (paiement Stripe
+  au clic) ;
+- le volume nécessaire serait dérisoire : l'archive rend une plage entière en **un appel par
+  lieu**, soit ~8 appels de rattrapage et 1 par nouveau client. On paierait un palier dimensionné
+  pour 5 M d'appels/mois pour en passer une dizaine — le plan est fermé sur la FONCTIONNALITÉ, pas
+  sur le volume.
+
+**Conséquence assumée** : les classes météo mûrissent au rythme d'un jour par jour (19 jours au
+29/07 → ~110 dans trois mois). Le message « mûrit avec les saisons » est donc littéralement vrai.
+Le seul enjeu chiffrable pour Les Olivades d'ici là reste le calendrier (+87 572 €/an).
