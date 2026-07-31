@@ -86,12 +86,42 @@ describe("Impact narration — end-to-end determinism", () => {
       }))
     ).toMatchInlineSnapshot(`
       [
-        { "id": "W2", "impact": "structuring", "risk": "medium", "confidence": "medium" },
-        { "id": "W5", "impact": "structuring", "risk": "medium", "confidence": "medium" },
-        { "id": "CAL_G3", "impact": "structuring", "risk": "medium", "confidence": "medium" },
-        { "id": "CAL_C1", "impact": "structuring", "risk": "medium", "confidence": "medium" },
-        { "id": "CP_C1", "impact": "structuring", "risk": "medium", "confidence": "medium" },
-        { "id": "CP_C4", "impact": "secondary", "risk": "medium", "confidence": "medium" },
+        {
+          "confidence": "medium",
+          "id": "W2",
+          "impact": "structuring",
+          "risk": "medium",
+        },
+        {
+          "confidence": "medium",
+          "id": "W5",
+          "impact": "structuring",
+          "risk": "medium",
+        },
+        {
+          "confidence": "medium",
+          "id": "CAL_G3",
+          "impact": "structuring",
+          "risk": "medium",
+        },
+        {
+          "confidence": "medium",
+          "id": "CAL_C1",
+          "impact": "structuring",
+          "risk": "medium",
+        },
+        {
+          "confidence": "medium",
+          "id": "CP_C1",
+          "impact": "structuring",
+          "risk": "medium",
+        },
+        {
+          "confidence": "medium",
+          "id": "CP_C4",
+          "impact": "secondary",
+          "risk": "medium",
+        },
       ]
     `);
   });

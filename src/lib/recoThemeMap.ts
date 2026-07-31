@@ -35,6 +35,13 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     "commercial_event_match", "holiday_high_comp", "mega_event_activation",
     "mega_event_end", "institution_campaign_detected", "media_mention_detected",
     "ft_peak_tourism_vacation",
+    // 31/07/2026 — MANQUAIT ici alors que le CLIENT le range sous « Calendrier & affluence »
+    // (window.RECO_TAXONOMY). Un type absent de cette table « passe toujours » (voir
+    // filterDisabledThemes plus bas) : couper le thème dans /profile n'aurait donc PAS fait
+    // disparaître la carte, et c'est la PLUS FRÉQUENTE du parc (128 tirs sur 32 lieux, 90 j).
+    // Le bouton aurait menti. Entré côté client le 15/06 (096a015), jamais côté serveur —
+    // la dérive était rouge dans recoThemeMap.parity.test.ts depuis.
+    "foreign_tourism_signal",
   ],
   tourisme: [
     "tourist_high_season", "tourist_surge_vacation", "tourism_peak_window",
@@ -58,6 +65,11 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     "sales_underperformance", "sales_surge", "sales_missed_opportunity",
     "sales_competition_cannibalization", "sales_traffic_not_converting",
     "sales_discount_no_lift", "sales_revenue_down_wow", "offering_mix_shift",
+    // 31/07/2026 — même dérive, côté « Performance ventes » (entré client le 10/06, 832b294).
+    // Portée réelle plus faible : monitor.ts l'exclut déjà à la frontière de sa requête
+    // (« Retired: redundant with sales_surge »). On l'aligne quand même — un vocabulaire qui
+    // ment sur un type ment sur le suivant.
+    "footfall_vs_basket_decomposition",
   ],
   apprentissage: [
     "proven_action_replication", "weekly_briefing",
