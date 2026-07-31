@@ -351,7 +351,7 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 | `ui_normalized/ui_normalized_v2.ts` | `buildUiNormalizedV2`, `normalizeWindowTopDayRow` | Normalize raw rows, month filters, per-date facts |
 | `ui_packaging_v3/buildUiPackagingV3Month.ts` | `buildUiPackagingV3Month` | Deterministic month packager (truth-only sections). Weather facts NAME their nature via `contextCopy.weatherNatureFr` (`lvl_*`) + the warehouse's `weather_label_fr` — never a raw WMO code or "niveau N"; reads `vw_insight_event_30d_day_surface` (via `prompt.ts` `SELECT *`) |
 
-> `src/components/ai/render/shared/render_points_cles_v1.ts` and `src/components/ai/ir/lookup_ir_v1.ts` mirror/consume these on the component side.
+> `src/components/ai/ir/lookup_ir_v1.ts` mirrors/consumes these on the component side (importé par `api/insight/prompt.ts`). **31/07** : `src/components/ai/render/shared/render_points_cles_v1.ts` SUPPRIMÉ — copie orpheline, octet pour octet identique à `src/lib/ai/render/shared/render_points_cles_v1.ts` et importée par personne (l'import de `day_why_v1.ts` résout vers `lib/`, pas vers `components/`). Il restait DEUX autres fonctions du même nom, à ne pas confondre : `lib/ai/render/shared/…` (127 l., 22/02) sert le plancher grounded du chat Consulter via `day_why_v1` → `prompt.ts:4513` — VIVANTE et SANS TEST ; `lib/ai/points_cles/points_cles_v1.ts` (328 l., réécrite le 16/03) sert `api/insight/days.ts` → `days.astro`, où `MS.pointsCles` est affecté puis **jamais relu** (sortie calculée et jetée à chaque chargement).
 
 ---
 
