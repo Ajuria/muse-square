@@ -217,7 +217,11 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         -- absente, la classe n'existe pas » : c'est FAUX, events_high est mesurée pour 3 lieux
         -- dans analytics.day_class_impacts. Un ELSE NULL aurait supprimé ces trois mesures.
         -- L'alias est renommé : events_500m mentait sur son contenu dès que le rayon varie.
-        CASE c.client_catchment
+        -- Lu sur la DIMENSION (dcl), pas sur c : fct_location_context_daily ne porte pas la
+        -- colonne. Même correction que dateResolutionQuery — ici l'échec était total : la requête
+        -- entière tombait (« Name client_catchment not found inside c »), donc le repli live
+        -- computeDayClassImpacts ne rendait plus rien pour un compte sans lignes au store.
+        CASE dcl.client_catchment
           WHEN 'commune' THEN e.events_within_1km_count
           WHEN 'beyond'  THEN e.events_within_20km_count
           ELSE                e.events_within_500m_count
@@ -243,6 +247,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         ON perf.location_id = c.location_id AND perf.transaction_date = c.date
       LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` sg
         ON sg.location_id = c.location_id AND sg.transaction_date = c.date
+      -- Périmètre déclaré, grain location_id (32 lignes / 32 lieux vérifié) : aucune
+      -- démultiplication des jours, donc aucun effet sur les agrégats existants.
+      LEFT JOIN \`${PROJECT}.dims.dim_client_location\` dcl
+        ON dcl.location_id = c.location_id
       WHERE c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND c.date <= CURRENT_DATE()
       ${singleLocation ? "AND c.location_id = @location_id" : ""}
     ),
@@ -478,8 +486,20 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
     query: `
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
              c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
-             c.client_catchment AS client_catchment
+             dcl.client_catchment AS client_catchment
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+      -- Périmètre déclaré : lu sur la DIMENSION, pas sur le mart de contexte.
+      -- 31/07/2026 — la version précédente lisait c.client_catchment, colonne qui N'EXISTE PAS
+      -- dans fct_location_context_daily (49 colonnes, vérifié live). La requête échouait, son
+      -- catch avalait l'erreur, et TOUT ce qu'elle rend tombait à vide : clientCatchment bien sûr
+      -- (donc répondre à la question ne pouvait jamais l'éteindre), mais AUSSI conditionByDate et
+      -- calendarByDate — soit la résolution météo/calendrier par date de TOUTES les cartes.
+      -- Mesuré sur f10c3e58 : 0 / 0 / null. Introduit par 4f86360, jamais parti en prod.
+      -- La dimension est le bon référentiel : set-catchment.ts l'écrit dans la seconde, donc la
+      -- question disparaît au rechargement suivant sans attendre un run dbt. Grain vérifié :
+      -- 32 lignes pour 32 lieux, une par location_id — aucune démultiplication possible.
+      LEFT JOIN \`${PROJECT}.dims.dim_client_location\` dcl
+        ON dcl.location_id = c.location_id
       WHERE c.location_id = @location_id
         AND c.date IN UNNEST(ARRAY(SELECT PARSE_DATE('%Y-%m-%d', d) FROM UNNEST(@dates) AS d))
     `,
