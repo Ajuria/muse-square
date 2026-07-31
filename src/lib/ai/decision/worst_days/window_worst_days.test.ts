@@ -71,7 +71,7 @@ describe("windowWorstDaysDeterministic", () => {
     expect(out.key_facts.some((s) => s.includes("Météo : signaux météo présents"))).toBe(true);
   });
 
-  it("competition tri-state: unknown when both 5km and 10km counts are missing", () => {
+  it("competition tri-state: unknown when the 500m/1km/5km counts are all missing", () => {
     const rows = [{ date: "2026-01-10" }, { date: "2026-01-11" }, { date: "2026-01-12" }];
 
     const out = windowWorstDaysDeterministic({ rows });
