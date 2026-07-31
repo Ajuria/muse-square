@@ -914,72 +914,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }));
     }
 
-    // Enrichit chaque ligne de jour : interpretation, top_competition_events, competition_context.
+    // Enrichit chaque ligne de jour : top_competition_events (le reste vient de ...day).
     const days_enriched = days_deduped.map((day) => {
-      // interpretation sentences based on attendance deltas
-      const eventsDelta = Number(day?.delta_att_events_pct ?? 0);
-      const weatherDelta = Number(day?.delta_att_weather_total_pct ?? 0);
-      const mobilityDelta = Number(day?.delta_att_mobility_pct ?? 0);
-      const calendarDelta = Number(day?.delta_att_calendar_pct ?? 0);
-
-      function interpretEvents(v:number){
-        if(v > 3) return "Forte concurrence d'événements à proximité.";
-        if(v > 1) return "Concurrence modérée d'événements.";
-        if(v > -1) return "Peu d'événements concurrents.";
-        return "Très peu de concurrence événementielle.";
-      }
-
-      function interpretWeather(_v:number){
-        const alertMax = Number(day?.alert_level_max ?? 0);
-        const lvlRain  = Number(day?.lvl_rain  ?? 0);
-        const lvlSnow  = Number(day?.lvl_snow  ?? 0);
-        const lvlWind  = Number(day?.lvl_wind  ?? 0);
-        const lvlHeat  = Number(day?.lvl_heat  ?? 0);
-        const lvlCold  = Number(day?.lvl_cold  ?? 0);
-        const locationType = location_context?.location_type ?? null;
-        const isIndoor = locationType === "indoor";
-        if (alertMax >= 3 || lvlSnow >= 2) return isIndoor ? "Accès au site potentiellement perturbé." : "Risque élevé sur la fréquentation et les installations.";
-        if (alertMax >= 1 || lvlRain >= 2 || lvlWind >= 2) return isIndoor ? "Légère friction à l'entrée, sans impact sur la venue globale." : "Surveiller l'impact sur la fréquentation et les installations extérieures.";
-        if (lvlRain === 1 || lvlWind === 1) return isIndoor ? "Aucun impact attendu sur la venue." : "Impact limité, surveiller les installations légères.";
-        if (lvlHeat >= 1) return isIndoor ? "Chaleur forte : prévoir climatisation." : "Chaleur forte : impact possible sur le confort et le temps de présence.";
-        if (lvlCold >= 1) return isIndoor ? "Froid intense : prévoir chauffage à l'entrée." : "Froid intense : impact possible sur la fréquentation.";
-        return "Aucun impact météo attendu sur la venue ou les installations.";
-      }
-
-      function interpretMobility(v:number){
-        if(v > 1) return "Accessibilité facilitée.";
-        if(v > -1) return "Conditions de transport normales.";
-        return "Risque de perturbations de transport.";
-      }
-
-      function interpretCalendar(v:number){
-        if(v > 1) return "Contexte calendrier favorable.";
-        if(v > -1) return "Contexte calendrier neutre.";
-        return "Contexte calendrier défavorable.";
-      }
-
       return {
         ...day,
-        interpretation: {
-          regime: day?.opportunite_regime_fr ?? null,
-          events: interpretEvents(eventsDelta),
-          weather: interpretWeather(weatherDelta),
-          mobility: interpretMobility(mobilityDelta),
-          calendar: interpretCalendar(calendarDelta),
-        },
         top_competition_events: computeTopCompetitionEvents(day, location_context),
-        competition_context: {
-          events_within_500m_same_bucket_count: day?.events_within_500m_same_bucket_count ?? null,
-          events_within_1km_same_bucket_count: day?.events_within_1km_same_bucket_count ?? null,
-          events_within_5km_same_bucket_count: day?.events_within_5km_same_bucket_count ?? null,
-          events_within_10km_same_bucket_count: day?.events_within_10km_same_bucket_count ?? null,
-          events_within_50km_same_bucket_count: day?.events_within_50km_same_bucket_count ?? null,
-          pct_same_bucket_5km: day?.pct_same_bucket_5km ?? null,
-          competition_pressure_ratio: day?.competition_pressure_ratio ?? null,
-          baseline_comp_avg: day?.baseline_comp_avg ?? null,
-          has_valid_baseline_flag: day?.has_valid_baseline_flag ?? null,
-          competition_index_local: day?.competition_index_local ?? null,
-        },
       };
     });
 
