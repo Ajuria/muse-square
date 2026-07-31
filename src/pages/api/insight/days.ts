@@ -881,52 +881,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Computes the actual list the UI should display: radius + industry + distance
-    function computeTopCompetitionEvents(day: any, location_context: any): any[] {
-      const clientIndustry = location_context?.client_industry_code;
-
-      const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
-
-      let pool: any[] = [];
-      for (const k of buckets) {
-        const arr = Array.isArray(day?.[k]) ? day[k] : [];
-        if (arr.length) { pool = arr; break; }
-      }
-      if (!pool.length) return [];
-
-      const sameIndustry = pool.filter((e) => e?.industry_code === clientIndustry);
-      const chosen = sameIndustry.length ? sameIndustry : pool;
-
-      const sorted = chosen.slice().sort(
-        (a, b) =>
-          Number(a?.distance_m ?? 1e18) - Number(b?.distance_m ?? 1e18) ||
-          String(a?.event_uid ?? "").localeCompare(String(b?.event_uid ?? ""))
-      );
-
-      // Return only fields you render + computed one-liner
-      return sorted.slice(0, 3).map((e) => ({
-        event_uid: e?.event_uid ?? null,
-        event_label: e?.event_label ?? null,
-        city_name: e?.city_name ?? null,
-        distance_m: (typeof e?.distance_m === "number" ? e.distance_m : null),
-        industry_code: e?.industry_code ?? null,
-        radius_bucket: e?.radius_bucket ?? null,
-        one_liner: eventOneLine(e),
-      }));
-    }
-
-    // Enrichit chaque ligne de jour : top_competition_events (le reste vient de ...day).
-    const days_enriched = days_deduped.map((day) => {
-      return {
-        ...day,
-        top_competition_events: computeTopCompetitionEvents(day, location_context),
-      };
-    });
-
     return new Response(
       JSON.stringify({
         location_id,
         selected_dates,
-        days: days_enriched,
+        days: days_deduped,
         alerts,
         action_candidates,
         competition_summary,
