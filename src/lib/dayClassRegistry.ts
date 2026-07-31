@@ -587,13 +587,25 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   mobility_disruption: "mobility_disruption",
   mobility_disruption_planned: "mobility_disruption",
   ft_peak_mobility: "mobility_disruption",
-  competitor_event_launch: "followed_activity_high",
-  competitor_event_ending: "followed_activity_high",
-  competitor_audience_conflict: "followed_activity_high",
-  competitor_sold_out: "followed_activity_high",
-  competitor_content_spike: "followed_activity_high",
-  competitor_content_silent: "followed_activity_high",
-  competitor_threat_direct: "followed_activity_high",
+  // ── RETIRÉ le 31/07/2026 — les 7 cartes CONCURRENT ────────────────────────────────────────
+  // Elles étaient mappées sur followed_activity_high. Le fait annoncé est un ÉVÉNEMENT SINGULIER
+  // (« le Musée de l'Orangerie lance 1er dimanche gratuit ») ; la classe mesure une POPULATION DE
+  // JOURS (« les journées où l'activité des concurrents suivis est dans le tercile haut »). Deux
+  // référentiels différents : aucun geste sur le premier ne déplace le second. Le montant fabriquait
+  // donc une urgence, sans prise.
+  //
+  // Deux d'entre elles avaient le signe INVERSÉ : competitor_event_ending (une activité qui
+  // s'ARRÊTE) et competitor_content_silent (un concurrent qui se TAIT) affichaient le prix des
+  // jours de FORTE activité — elles chiffraient le contraire de ce qu'elles annonçaient.
+  //
+  // Le retrait ne repose sur AUCUNE statistique : le défaut est logique. La mesure tentée le 31/07
+  // était d'ailleurs invalide (3 lieux sur 4 sont des comptes de démonstration alimentés par un jeu
+  // Kaggle, et elle confondait cannibalisation et entraînement — cf docs/competition-split-spec.md).
+  //
+  // Ces cartes restent affichées, SANS pastille € : elles sont décidables par l'urgence, pas par
+  // l'argent. Rouvrir le sujet suppose (1) plusieurs comptes réels avec ventes + concurrents suivis,
+  // (2) une normalisation d'event_type (146 valeurs libres pour 496 lignes aujourd'hui),
+  // (3) la scission secteur/audience de competition-split-spec.md. Voir docs/card-truth-audit.md.
 };
 
 // Cartes calendrier : classe résolue par la DATE affectée (vacances d'abord, férié sinon).
