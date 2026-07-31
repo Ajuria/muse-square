@@ -77,6 +77,7 @@ indépendamment ».
 ## Format de sortie — une fiche par méthode
 
 ```
+RÉFÉRENCE       : <TYPE>-<n° de fiche> — ex. foreign_tourism_signal-2
 TYPE DE CARTE   : <l'identifiant exact ci-dessous>
 TITRE           : le geste, en mots de patron, à l'impératif. Court.
 DESCRIPTION     : comment on fait, en une ligne.
@@ -91,6 +92,12 @@ CE QUE J'AI DÛ DÉDUIRE : ce que tu as comblé toi-même, s'il y a lieu. Dis-le
 ```
 
 **Trois fiches maximum par type de carte.** Au-delà, elles seraient jetées.
+
+**Chaque fiche porte une RÉFÉRENCE et se juge SEULE.** Deux fiches d'un même type peuvent reposer
+sur des mécanismes différents : l'une peut tomber et l'autre tenir. Quand je te réponds, mon
+verdict porte donc sur **la fiche que je cite par sa référence**, jamais sur le type entier — sauf
+si j'écris explicitement « tout le type ». Si mon message est ambigu, **demande-moi avant de
+retirer quoi que ce soit** : une bonne fiche jetée par malentendu coûte plus cher qu'une question.
 
 ---
 
@@ -110,7 +117,7 @@ Priorité mesurée sur 90 jours de production. Les quatre premiers représentent
 Les **variables** listées sont celles que notre pipeline remplira automatiquement dans le texte :
 tu peux écrire des phrases qui les appellent, mais **jamais leur valeur**.
 
-### 1. `foreign_tourism_signal` — 128 déclenchements, 32 établissements
+### A. `foreign_tourism_signal` — 128 déclenchements, 32 établissements
 Ce que la carte annonce déjà : « **Adaptez-vous au public touristique étranger** » — un public
 étranger est en congés (vacances scolaires ou jour férié dans son pays), et ce flux passe devant
 l'établissement.
@@ -119,20 +126,20 @@ Variables : `countries_named`, `n_countries`, `share_total_pct`, `school_holiday
 Cherche : accueil multilingue à coût nul, signalétique, adaptation de l'offre à un public de
 passage étranger, paiement, attentes par nationalité.
 
-### 2. `audience_shift_opportunity` — 124 déclenchements, 31 établissements
+### B. `audience_shift_opportunity` — 124 déclenchements, 31 établissements
 « **Ajustez votre message au public du jour** » — le public disponible aujourd'hui n'est pas la
 cible habituelle (vacances, férié, événement commercial).
 Variables : `audience_availability_label`, `commercial_event_name`, `vacation_name`, `holiday_name`,
 `delta_att_calendar_pct`, `events_5km`, `pressure_ratio`.
 Cherche : adaptation d'offre et de message à un public de substitution, sur 24-48 h.
 
-### 3. `tourism_peak_window` — 80 déclenchements, 20 établissements
+### C. `tourism_peak_window` — 80 déclenchements, 20 établissements
 « **Pic touristique régional** » — la fréquentation touristique de la région entre dans une phase
 haute.
 Variables : `tourism_index`, `tourism_status`, `is_peak`, `score`.
 Cherche : ce qu'on prépare AVANT un pic (achats, amplitude, mise en avant), pas pendant.
 
-### 4. `weekend_opportunity` — 60 déclenchements, 30 établissements
+### D. `weekend_opportunity` — 60 déclenchements, 30 établissements
 « **Activez une opération ce week-end** » — les conditions du week-end à venir sont favorables.
 Variables : `events_5km`, `is_holiday`, `regime`, `score`, `weather_alert`.
 Cherche : opérations de week-end montables en 48 h, sans embauche ni remise généralisée.
@@ -147,7 +154,7 @@ Cherche : opérations de week-end montables en 48 h, sans embauche ni remise gé
 
 ## Comment je veux que tu procèdes
 
-1. **Un type à la fois.** Termine `foreign_tourism_signal` avant de passer au suivant.
+1. **Un type à la fois**, dans l'ordre A → B → C → D. Termine A avant de passer à B.
 2. **Dis-moi ce que tu as cherché** — les requêtes, les sites — avant de me dire ce que tu as
    trouvé. Je veux pouvoir juger la couverture, pas seulement le résultat.
 3. **Écarte à voix haute.** Si tu trouves dix candidats et n'en gardes qu'un, dis-moi pourquoi les
