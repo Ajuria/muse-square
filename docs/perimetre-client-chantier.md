@@ -144,7 +144,20 @@ décision séparée.
 
 ---
 
-## Étage 4 — Le rendu (`src/pages/app/insightevent/pulse.astro`) — **FAIT le 30/07/2026**
+## Étage 4 — Le rendu (`src/pages/app/insightevent/pulse.astro`) — **FAIT le 30-31/07/2026**
+
+> **Place réservée (31/07)** — une passe dédiée dans `pulse.astro`, AVANT la boucle générale,
+> réserve **une place par site** à une carte `needs_catchment`. Sans elle la carte était coupée :
+> sans enjeu elle tombe en fin du tri `b.score - a.score`, et `MAX_PER_CAT = 2` la supprime.
+> Mesuré le 31/07 sur `f10c3e58` : 7 cartes de catégorie concurrence pour 2 places, les deux
+> porteuses de la question étant sans enjeu donc dernières servies.
+>
+> **Tri, en deux temps (décision owner)** — temps 1 : priorité de la carte puis nombre d'événements
+> concurrents. **Ce n'est pas un montant €**, ces cartes n'en ont pas ; en fabriquer un serait la
+> faute corrigée le 31/07 sur les 7 cartes concurrent. **Temps 2, NON COMMENCÉ** : le cron calcule
+> l'enjeu de `events_high` sous les DEUX hypothèses (1 km et 20 km) et les stocke — la carte
+> affichera « entre X et Y €/an selon votre réponse », qui sert à la fois de critère de tri et
+> d'argument pour répondre.
 
 > **Signal** : `enjeuWithReasonForCandidate` renvoie `needs_catchment`. Une carte est CONCERNÉE si
 > `CARD_TYPE_CLASS[action_type] === 'events_high'` — dérivé du mapping existant, jamais d'une liste
