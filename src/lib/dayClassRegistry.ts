@@ -608,6 +608,13 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   // (3) la scission secteur/audience de competition-split-spec.md. Voir docs/card-truth-audit.md.
 };
 
+// Cartes dont le CONTENU dépend du périmètre de clientèle déclaré (client_catchment) — donc les
+// seules qui peuvent porter la question de l'étage 4. Recensement mécanique du 31/07 sur
+// fct_location_daily_action_candidates : ce sont les deux seuls action_type dont le texte et le
+// payload utilisent un rayon LOCAL (500 m / 1 km). Tout le reste du parc est à 5 / 10 / 50 km,
+// rayons que le périmètre ne remplace pas.
+const CATCHMENT_DEPENDENT_TYPES = new Set(["competition_proximity", "high_competition_density"]);
+
 // Cartes calendrier : classe résolue par la DATE affectée (vacances d'abord, férié sinon).
 const CALENDAR_TYPES = new Set(["calendar_audience_shift", "audience_shift_opportunity"]);
 
@@ -704,14 +711,29 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
     if (mappedKey && imm.has(mappedKey)) return { enjeu: null, reason_fr: null, immaterial: true };
   }
   const actionType = String(candidate?.action_type || "");
-  // ÉTAGE 4 (30/07) — la question du périmètre de clientèle (docs/perimetre-client-spec.md).
-  // Une carte est CONCERNÉE si sa classe est events_high : c'est la seule dont le rayon dépend de
-  // client_catchment (registre ligne 209 + colonnes events_within_catchment_* du mart). Dérivé de
-  // CARD_TYPE_CLASS, jamais d'une liste recopiée — competition_proximity et high_competition_density
-  // y sont mappés, et un futur type le sera sans toucher ici.
+  // ÉTAGE 4 — la question du périmètre de clientèle (docs/perimetre-client-spec.md).
+  //
+  // CORRIGÉ le 31/07. La première version dérivait « carte concernée » de
+  // CARD_TYPE_CLASS[type] === 'events_high'. C'ÉTAIT FAUX : ce mapping décrit la classe d'ENJEU,
+  // pas le CONTENU de la carte. Il attrapait same_bucket_saturation, dont le texte et le payload
+  // sont entièrement à 5 km (« Plus de 25% des evenements a 5km sont dans votre secteur »,
+  // { pct_same_sector, events_5km, pressure_ratio }) — un rayon que le périmètre déclaré ne change
+  // PAS, et qui est hors périmètre par décision owner (scission même-secteur,
+  // docs/competition-split-spec.md). On aurait posé la question sur une carte qu'elle ne débloque
+  // pas : la faute même corrigée le matin du 31/07 sur les 7 cartes concurrent.
+  //
+  // La liste est donc EXPLICITE, et issue d'un recensement mécanique du mart : sur les 54 blocs
+  // to_json_string de fct_location_daily_action_candidates, DEUX seulement utilisent un rayon local
+  // (500 m / 1 km) — les seuls que le périmètre remplace. Vérifié en base après reconstruction :
+  // competition_proximity 36/36 et high_competition_density 4/4 portent events_catchment,
+  // same_bucket_saturation 0/28.
+  //
+  // Une liste nommée est moins élégante qu'une dérivation, mais elle ne ment pas. Ajouter un type
+  // ici suppose de vérifier d'abord que SON CONTENU lit les colonnes events_within_catchment_*.
+  //
   // Le drapeau n'accompagne QUE les retours sans enjeu : si le montant est déjà chiffré, la question
   // n'a plus d'objet. Il ne sort pas non plus sur une carte écartée pour matérialité (carte masquée).
-  const needsCatchment = result?.clientCatchment == null && CARD_TYPE_CLASS[actionType] === "events_high";
+  const needsCatchment = result?.clientCatchment == null && CATCHMENT_DEPENDENT_TYPES.has(actionType);
   if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
