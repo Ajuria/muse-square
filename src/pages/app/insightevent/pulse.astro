@@ -1582,6 +1582,52 @@ if (!location_id) {
       _catCounts[_pk + "|performance"] = (_catCounts[_pk + "|performance"] || 0) + 1;
     }
 
+    // PÉRIMÈTRE PASS (étage 4, 31/07/2026) — UNE place réservée PAR SITE pour une carte qui attend
+    // la réponse de périmètre. Même motif que la performance pass ci-dessus, et pour la même raison :
+    // ces cartes n'ont PAS d'enjeu (c'est leur définition), elles tombent donc en fin du tri
+    // `b.score - a.score` et le plafond MAX_PER_CAT = 2 les coupe. Sans place réservée la question
+    // ne serait jamais posée, donc jamais répondue, donc la famille resterait muette pour toujours —
+    // exactement le raisonnement qui a fait rejeter le formulaire de profil comme unique entrée.
+    //
+    // Tri entre candidates d'un même site : priorité de la carte, puis nombre d'événements
+    // concurrents décroissant. CE N'EST PAS un montant € — ces cartes n'en ont pas, et en fabriquer
+    // un serait la faute corrigée le 31/07 sur les cartes concurrent. Le vrai critère en euros
+    // viendra du calcul des deux hypothèses (1 km / 20 km) au cron, chantier séparé (temps 2).
+    //
+    // La place disparaît d'elle-même dès que la réponse est donnée : needs_catchment repasse à
+    // false côté registre, et la carte rejoint le flux normal avec son montant.
+    var _catchCounts = {};
+    var _evCount = function (it) {
+      var pl = it && it.data_payload;
+      if (typeof pl === 'string') { try { pl = JSON.parse(pl); } catch (e) { pl = null; } }
+      if (!pl) return 0;
+      return Number(pl.events_catchment != null ? pl.events_catchment : (pl.events_500m || 0)) || 0;
+    };
+    var _catchCands = [];
+    for (var _qi = 0; _qi < candidates.length; _qi++) {
+      if (candidates[_qi].item && candidates[_qi].item.needs_catchment === true) _catchCands.push(candidates[_qi]);
+    }
+    _catchCands.sort(function (x, y) {
+      var px = Number(x.item.action_priority) || 0, py = Number(y.item.action_priority) || 0;
+      if (py !== px) return py - px;
+      return _evCount(y.item) - _evCount(x.item);
+    });
+    for (var _qj = 0; _qj < _catchCands.length; _qj++) {
+      var _qc = _catchCands[_qj];
+      var _qk = _siteKey(_qc);
+      if ((_catchCounts[_qk] || 0) >= 1) continue;              // UNE seule par site
+      if (_topForSite(_qk) >= MAX_PER_SITE) continue;
+      var _qsub = String(_qc.item.change_subtype || _qc.item.action_type || "").toLowerCase();
+      var _qDedupSub = (_qsub === "high_competition_density" || _qsub === "competition_proximity") ? "competition_density" : _qsub;
+      var _qDedup = _qk + "|" + _qDedupSub + "|" + normalizeYmd(_qc.item.affected_date);
+      if (seen[_qDedup]) continue;
+      seen[_qDedup] = true;
+      top.push(_qc);
+      _catchCounts[_qk] = (_catchCounts[_qk] || 0) + 1;
+      _catCounts[_qk + "|" + String(_qc.item.action_category || "").toLowerCase()] =
+        (_catCounts[_qk + "|" + String(_qc.item.action_category || "").toLowerCase()] || 0) + 1;
+    }
+
     for (var j = 0; j < candidates.length; j++) {
       var c = candidates[j];
       var _ck = _siteKey(c);
