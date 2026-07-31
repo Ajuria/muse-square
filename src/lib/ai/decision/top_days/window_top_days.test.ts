@@ -111,10 +111,11 @@ describe("windowTopDaysDeterministic", () => {
       { date: "2026-01-12" },
     ];
     const outUnknown = windowTopDaysDeterministic({ rows: unknownRows });
-    const covUnknown = outUnknown.v1.coverage.by_dimension.find((d) => d.dimension === "calendar");
+    expect(outUnknown.v1).toBeDefined();
+    const covUnknown = outUnknown.v1!.coverage.by_dimension.find((d) => d.dimension === "calendar");
     expect(covUnknown?.status).toBe("none");
     expect(
-      Object.values(outUnknown.v1.facts_by_date).flat().some((f) => f.dimension === "calendar")
+      Object.values(outUnknown.v1!.facts_by_date).flat().some((f) => f.dimension === "calendar")
     ).toBe(false);
 
     const someRows = [
@@ -123,12 +124,13 @@ describe("windowTopDaysDeterministic", () => {
       { date: "2026-01-12", is_weekend: false },
     ];
     const outSome = windowTopDaysDeterministic({ rows: someRows });
-    const covSome = outSome.v1.coverage.by_dimension.find((d) => d.dimension === "calendar");
+    expect(outSome.v1).toBeDefined();
+    const covSome = outSome.v1!.coverage.by_dimension.find((d) => d.dimension === "calendar");
     expect(covSome?.status).toBe("partial");
     expect(covSome?.present_fields).toContain("is_weekend");
-    const calSome = outSome.v1.facts_by_date["2026-01-11"].filter((f) => f.dimension === "calendar");
+    const calSome = outSome.v1!.facts_by_date["2026-01-11"].filter((f) => f.dimension === "calendar");
     expect(calSome.map((f) => f.label_fr)).toContain("week-end");
-    const calPlain = outSome.v1.facts_by_date["2026-01-10"].filter((f) => f.dimension === "calendar");
+    const calPlain = outSome.v1!.facts_by_date["2026-01-10"].filter((f) => f.dimension === "calendar");
     expect(calPlain.map((f) => f.label_fr)).toContain("calendrier standard");
   });
 

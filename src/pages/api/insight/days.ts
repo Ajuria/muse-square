@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
-import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
@@ -652,10 +651,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // -----------------------------
     // Helpers (minimal, deterministic)
     // -----------------------------
-    function nonEmptyString(v: any): string | null {
-      const s = typeof v === "string" ? v.trim() : "";
-      return s ? s : null;
-    }
 
     function normalizeStringArray(v: any): string[] {
       if (!Array.isArray(v)) return [];
@@ -677,29 +672,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
       };
 
       return dict[v] ?? v;
-    }
-
-    function normalizeCommercialEvents(v: any): string[] {
-      // array<string>
-      if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
-        return Array.from(new Set(v.map((x) => x.trim()).filter(Boolean)));
-      }
-
-      // array<{event_name: string}>  (common dbt shape)
-      if (Array.isArray(v) && v.length && typeof v[0] === "object") {
-        const names = v
-          .map((x) => (x && typeof x.event_name === "string" ? x.event_name.trim() : ""))
-          .filter(Boolean);
-        return Array.from(new Set(names));
-      }
-
-      // string or other scalar
-      if (typeof v === "string") {
-        const s = v.trim();
-        return s ? [s] : [];
-      }
-
-      return [];
     }
 
     // -----------------------------
@@ -827,35 +799,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
 
     // 5) Special days extraction MUST also run on deduped days
-    const special_days = (() => {
-      const out: Array<{ date: string; labels: string[] }> = [];
-
-      for (const d of days_deduped) {
-        const date = typeof d?.date === "string" ? d.date.trim() : "";
-        if (!date) continue;
-
-        const labels: string[] = [];
-
-        const holiday = nonEmptyString(d?.holiday_name);
-        if (holiday) labels.push(holiday);
-
-        const vacation = nonEmptyString(d?.vacation_name);
-        if (vacation) labels.push(vacation);
-
-        // commercial_events could be:
-        // - array<string>
-        // - array<{event_name:string}>
-        // - string
-        const ce = normalizeCommercialEvents(d?.commercial_events);
-        if (ce.length) labels.push(...ce);
-
-        const uniq = Array.from(new Set(labels.map((x) => String(x).trim()).filter(Boolean)));
-        if (uniq.length) out.push({ date, labels: uniq });
-      }
-
-      out.sort((a, b) => a.date.localeCompare(b.date));
-      return out;
-    })();
 
     // 6) (Optional but recommended) Competition summary inputs
     const competition_summary = (() => {
@@ -971,19 +914,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }));
     }
 
-    // Compute points_cles per day and embed inside each day row
-    const days_with_points_cles = days_deduped.map((day) => {
-      const day_special_labels =
-        special_days.find((x) => x.date === day.date)?.labels ?? [];
-
-      const text = renderPointsClesV1({
-        mode: "selected_day",
-        current_day: day,
-        selection_days: days_deduped,
-        current_special_labels: day_special_labels,
-        location_context,
-      });
-
+    // Enrichit chaque ligne de jour : interpretation, top_competition_events, competition_context.
+    const days_enriched = days_deduped.map((day) => {
       // interpretation sentences based on attendance deltas
       const eventsDelta = Number(day?.delta_att_events_pct ?? 0);
       const weatherDelta = Number(day?.delta_att_weather_total_pct ?? 0);
@@ -1028,7 +960,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
       return {
         ...day,
-        points_cles: { text, location_context },
         interpretation: {
           regime: day?.opportunite_regime_fr ?? null,
           events: interpretEvents(eventsDelta),
@@ -1056,15 +987,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       JSON.stringify({
         location_id,
         selected_dates,
-        days: days_with_points_cles,
+        days: days_enriched,
         alerts,
         action_candidates,
         competition_summary,
-        // keep global for backward compat (uses first date)
-        points_cles: {
-          location_context,
-          text: days_with_points_cles[0]?.points_cles?.text ?? null,
-        },
       }),
       {
         status: 200,

@@ -1729,7 +1729,6 @@ const show_actions = has_selected_dates;
         const MS = (window.__MS_DAYS__ ||= {});
         MS.editingId ||= "";
         MS.editingDates ||= [];
-        MS.pointsCles ||= null;
         MS.draftDates ||= [];
 
         // Allow BottomBar to open modal without tight coupling
@@ -3811,7 +3810,7 @@ const show_actions = has_selected_dates;
           }
 
           if (!Array.isArray(selectedDates) || selectedDates.length === 0) {
-            return { days: [], points_cles: null };
+            return { days: [] };
           }
 
           const qs = new URLSearchParams();
@@ -4048,7 +4047,6 @@ const show_actions = has_selected_dates;
               }
             }
 
-            MS.pointsCles = data.points_cles ?? null;
             MS.alerts = Array.isArray(data.alerts) ? data.alerts : [];
             MS.savedItemMeta = savedItemMeta ?? null;
             MS.competitorSignals = _csInitial.signals;
