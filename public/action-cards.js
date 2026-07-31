@@ -2848,11 +2848,29 @@
     var arr = lib[_recoDriverKey(a)] || lib[_recoSignKey(a)] || lib._default || [];
     return Array.isArray(arr) ? arr.slice(0, 3) : [];
   }
-  ['sales_revenue_down_wow', 'sales_surge', 'sales_traffic_not_converting', 'sales_discount_no_lift', 'footfall_vs_basket_decomposition', 'sales_competition_cannibalization', 'low_competition_window'].forEach(function (_rt) {
-    if (!SPECS[_rt]) return;
-    SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
-    SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? _planText(r[0]) : ''; }; })(_rt);
-  });
+  // CABLAGE DERIVE DE LA BIBLIOTHEQUE (31/07/2026) — et non plus une liste de types recopiee.
+  // Cette liste etait figee a 7 types alors que l'allowlist des engagements a ete completee au
+  // registre SPECS entier (83 types) le 26/07. Consequence mesuree : 27 des 33 types qui tirent
+  // sur 90 jours n'ont aucun plan, et ajouter une entree dans reco-library.js ne suffisait PAS a
+  // la faire apparaitre — il fallait penser a modifier CE fichier aussi. Deux gestes pour un,
+  // donc un oubli garanti : c'est exactement l'invariant de docs/features/commitments.md §5
+  // (« every COMMITMENT_ORIGIN_ACTION_TYPES entry MUST have a reco-library entry »), viole 76
+  // fois sur 83. Il devient mecanique : UNE entree dans la bibliotheque = des plans dans
+  // « M'engager », sans second geste. Un type absent de SPECS est ignore en silence, comme avant.
+  (function () {
+    var _seen = {}, _libs = [(typeof window !== 'undefined' && window.MS_SALES_RECO_LIB) || {}];
+    var _byInd = (typeof window !== 'undefined' && window.MS_SALES_RECO_LIB_BY_INDUSTRY) || {};
+    for (var _ind in _byInd) if (Object.prototype.hasOwnProperty.call(_byInd, _ind)) _libs.push(_byInd[_ind] || {});
+    for (var _l = 0; _l < _libs.length; _l++) {
+      for (var _rt in _libs[_l]) {
+        if (!Object.prototype.hasOwnProperty.call(_libs[_l], _rt)) continue;
+        if (_seen[_rt] || !SPECS[_rt]) continue;
+        _seen[_rt] = true;
+        SPECS[_rt].recos = (function (t) { return function (a) { return _recosFor(t, a); }; })(_rt);
+        SPECS[_rt].reco = (function (t) { return function (a) { var r = _recosFor(t, a); return r.length ? _planText(r[0]) : ''; }; })(_rt);
+      }
+    }
+  })();
 
   window.ACTION_CARDS = SPECS;
   window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};

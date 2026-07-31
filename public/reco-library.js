@@ -225,3 +225,391 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
   },
 
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// ÉCHAFAUDAGE À REMPLIR — 27 types qui TIRENT et n'ont aucun plan (31/07/2026)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// POURQUOI CE BLOC. Le 26/07 l'allowlist des engagements a été complétée au registre SPECS
+// entier (83 types, commitmentOrigins.ts). La bibliothèque, elle, n'a jamais couvert que les
+// cartes de vente : 7 types. L'invariant de docs/features/commitments.md §5 est donc violé 76
+// fois sur 83, et « Mon action » s'ouvre vide sur presque toutes les cartes.
+//
+// MESURE (90 jours, tous lieux, semantic.vw_insight_event_action_candidates) :
+//   33 types tirent · 6 ont des plans · 27 n'en ont pas — les voici, du plus fréquent au moins.
+//
+// COMMENT REMPLIR. Décommentez l'entrée, écrivez les phrases. Rien d'autre à faire : depuis le
+// 31/07 action-cards.js DÉRIVE son câblage des clés de ce fichier (vérifié : une entrée ajoutée
+// ici suffit à faire apparaître les plans dans « M'engager »).
+//
+// ORDRE DE RÉSOLUTION (_recosFor, action-cards.js) : driver → signe d'enjeu → _default.
+//   · clés driver  — 'footfall' | 'basket' | 'conversion'. N'existent que si la carte porte
+//     primary_revenue_driver / dominant_factor. Sur ces 27 types, SEUL sales_underperformance
+//     porte un champ 'driver' dans son payload — pour tous les autres, écrivez _default.
+//   · clés de signe — 'enjeu_positif' / 'enjeu_negatif', quand le geste doit suivre le SENS de
+//     l'écart mesuré sur CE lieu (cas low_competition_window : +88 €/j ici, −49 €/j là).
+//   · _default — toujours servi en dernier. Son geste doit rester valable sans mesure.
+//
+// BARÈME (CLAUDE.md « Card Quality Bar ») : spécifique et pilotable cette semaine · pertinent
+// en € · vertical-correct · non-évident. Et applicable en DROIT FRANÇAIS — pas de modification
+// d'horaires à 2 jours (délai de prévenance), pas de revente à perte, pas de soldes hors dates.
+//
+// LES CHIFFRES NE S'ÉCRIVENT PAS À LA MAIN : chaque entrée liste les variables réellement
+// présentes dans le payload de CETTE carte, relevées sur 90 jours. Écrivez les phrases,
+// le pipeline fournit les nombres.
+//
+// CONSTAT À VÉRIFIER AVANT D'ÉCRIRE, pas un verdict : ces groupes partagent un jeu de clés
+// STRICTEMENT identique, de forme « concurrent » (competitor_name, distance_m, google_rating…),
+// y compris pour des cartes météo. À confirmer sur le modèle avant d'écrire leurs plans —
+// un plan écrit sur un payload mal compris serait faux :
+//     competition_pressure_spike · competitor_event_ending · competitor_event_launch ·
+//     event_new · weather_hazard_onset · weather_improved · weather_worsened
+//
+// À CORRIGER AUSSI : low_competition_window est couvert mais ne rend qu'UN plan, pas trois.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// ── foreign_tourism_signal ── 128 tirs · 32 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      countries_named, countries_on_public_holiday, countries_on_school_holiday,
+//      country_iso_code, country_name_en, has_foreign_public_holiday_signal,
+//      has_foreign_school_holiday_signal, has_nationwide_holiday,
+//      has_nationwide_public_holiday, location_access_pattern, n_countries,
+//      pct_subdivisions_on_holiday, public_holiday_names, school_holiday_names,
+//      share_total_pct
+// window.MS_SALES_RECO_LIB.foreign_tourism_signal = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── audience_shift_opportunity ── 124 tirs · 31 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_availability_label, commercial_event_code, commercial_event_name,
+//      delta_att_calendar_pct, events_5km, holiday_name, is_commercial, is_holiday,
+//      is_vacation, pressure_ratio, score, vacation_name
+// window.MS_SALES_RECO_LIB.audience_shift_opportunity = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── tourism_peak_window ── 80 tirs · 20 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      is_peak, score, tourism_index, tourism_status
+// window.MS_SALES_RECO_LIB.tourism_peak_window = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── weekend_opportunity ── 60 tirs · 30 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, is_holiday, regime, score, weather_alert
+// window.MS_SALES_RECO_LIB.weekend_opportunity = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competition_proximity ── 36 tirs · 9 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      catchment_label, events_1km, events_1km_same_sector, events_500m,
+//      events_500m_same_sector, events_5km, events_catchment, events_catchment_same_sector,
+//      top_competitor, top_competitor_distance_km, top_competitor_overlap_pct,
+//      top_threat_level, top_threat_score
+// window.MS_SALES_RECO_LIB.competition_proximity = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── review_solicitation ── 31 tirs · 31 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      favorable_days_next_5, peak_window
+// window.MS_SALES_RECO_LIB.review_solicitation = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── extended_bad_weather_3d ── 31 tirs · 31 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      alert_level, site_sensitivity
+// window.MS_SALES_RECO_LIB.extended_bad_weather_3d = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── same_bucket_saturation ── 28 tirs · 7 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, pct_same_sector, pressure_ratio
+// window.MS_SALES_RECO_LIB.same_bucket_saturation = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── saturated_bad_weather ── 28 tirs · 7 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, pct_same_sector, pressure_ratio, weather_alert
+// window.MS_SALES_RECO_LIB.saturated_bad_weather = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_reputation_strength ── 23 tirs · 7 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_id, competitor_name, entity_threat_distance_km,
+//      entity_threat_level, google_rating, google_rating_count
+// window.MS_SALES_RECO_LIB.competitor_reputation_strength = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── weather_hazard_onset ── 17 tirs · 14 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.weather_hazard_onset = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── weather_worsened ── 15 tirs · 13 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.weather_worsened = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── tourism_comp_squeeze ── 12 tirs · 3 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, pressure_ratio, tourism_index, tourism_status
+// window.MS_SALES_RECO_LIB.tourism_comp_squeeze = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── tourist_high_season ── 12 tirs · 4 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, is_peak, score, tourism_index, tourism_status
+// window.MS_SALES_RECO_LIB.tourist_high_season = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── tourist_surge_vacation ── 12 tirs · 4 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      is_vacation, score, tourism_index, tourism_status
+// window.MS_SALES_RECO_LIB.tourist_surge_vacation = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_event_ending ── 7 tirs · 2 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.competitor_event_ending = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_threat_direct ── 7 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap, audience_overlap_pct, audience_overlap_score,
+//      competitor_enriched_description, competitor_id, competitor_name, conflict_score,
+//      distance_m, entity_threat_industry_tier, entity_threat_level, event_label,
+//      event_primary_audience, google_rating, google_rating_count, threat_distance_km,
+//      threat_level, threat_score
+// window.MS_SALES_RECO_LIB.competitor_threat_direct = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── ft_peak_bad_weather ── 6 tirs · 3 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      ft_peak_busyness_pct, ft_peak_hour, ft_rank, score, weather_alert
+// window.MS_SALES_RECO_LIB.ft_peak_bad_weather = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── high_competition_density ── 4 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      catchment_label, events_10km, events_500m, events_5km, events_5km_other_sector,
+//      events_5km_same_sector, events_catchment, pct_same_sector, pressure_ratio,
+//      score_driver
+// window.MS_SALES_RECO_LIB.high_competition_density = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_event_launch ── 4 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.competitor_event_launch = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── event_new ── 4 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.event_new = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_positioning_brief ── 3 tirs · 3 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitive_analysis_json, competitor_enriched_description,
+//      competitor_id, competitor_name, entity_threat_distance_km, entity_threat_level,
+//      google_rating, google_rating_count
+// window.MS_SALES_RECO_LIB.competitor_positioning_brief = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── sales_underperformance ── 2 tirs · 2 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      avg_30d, daily_revenue, driver, events_5km, pressure_ratio, revenue_vs_avg_pct,
+//      top_competitor, weather_alert
+// window.MS_SALES_RECO_LIB.sales_underperformance = {
+//   footfall: [ … ], basket: [ … ], conversion: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── weather_improved ── 2 tirs · 2 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.weather_improved = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competitor_positioning_gap ── 2 tirs · 2 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      client_product_count, enriched_competitor_count, location_id, top_item_description,
+//      top_item_revenue_share, watched_competitor_count
+// window.MS_SALES_RECO_LIB.competitor_positioning_gap = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── weekend_vacation_low_comp ── 2 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      events_5km, is_vacation, is_weekend, pressure_ratio, score
+// window.MS_SALES_RECO_LIB.weekend_vacation_low_comp = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };
+
+// ── competition_pressure_spike ── 1 tirs · 1 lieux (90 j)
+//    Variables disponibles dans le payload :
+//      audience_overlap_pct, competitor_enriched_description, competitor_id, competitor_name,
+//      direction, distance_m, entity_threat_distance_km, entity_threat_industry_tier,
+//      entity_threat_level, entity_threat_score, event_label, google_rating,
+//      google_rating_count, industry_code, new_value, old_value, radius_bucket, score_delta,
+//      score_driver_label, signal_type
+// window.MS_SALES_RECO_LIB.competition_pressure_spike = {
+//   _default: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+// };

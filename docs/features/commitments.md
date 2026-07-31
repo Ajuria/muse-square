@@ -106,6 +106,16 @@ Plumbing (the piece that silently regressed once — see §7):
 3. **Load order**: surfaces that show recos must load `/reco-library.js` **before**
    `/action-cards.js` — currently **pulse** (the form) and **rapport** (the report). Monitor
    loads action-cards.js but never calls recos.
+   **31/07 — le câblage est DÉRIVÉ des clés de la bibliothèque**, plus une liste de types
+   recopiée dans `action-cards.js`. Cette liste était figée à 7 alors que l'allowlist §4 avait
+   été complétée aux 83 types le 26/07 : il fallait DEUX gestes pour ajouter des plans, donc
+   l'oubli était garanti — l'invariant ci-dessous est désormais mécanique côté câblage. Vérifié :
+   7 types câblés avant comme après (aucune régression), et une entrée ajoutée à la bibliothèque
+   suffit à câbler son type.
+   **État de la couverture au 31/07, mesuré sur 90 j** : 33 types tirent, **6 ont des plans, 27
+   n'en ont pas**. L'échafaudage des 27 (variables de payload réelles par type, classées par
+   fréquence de tir) est en fin de `public/reco-library.js`, commenté — il attend le contenu en
+   voix owner. `low_competition_window` est couvert mais ne rend qu'**1 plan sur 3**.
 4. **Render**: pulse computes `entry.item.__suggested_actions = spec.recos(item)` at card
    render; `cmSuggestionsHtml` renders the rows; clicking fills `data-cm-action` (editable).
 
