@@ -146,6 +146,24 @@ décision séparée.
 
 ## Étage 4 — Le rendu (`src/pages/app/insightevent/pulse.astro`) — **FAIT le 30-31/07/2026**
 
+> **Pourquoi la carte restait invisible malgré huit correctifs (31/07) — mesuré, pas déduit.**
+> Toutes les corrections précédentes portaient sur la **sélection**. Le blocage était **après** :
+> `buildTriageLayout` re-trie les cartes du DOM par `(data-t-h, |data-t-e|)` et **replie tout au-delà
+> du rang 3** (`display:none`). La carte périmètre n'a pas d'enjeu — c'est sa définition — donc
+> `data-t-e = 0` la renvoie en fin de son groupe d'horizon.
+>
+> **Mesure** (vrai `public/action-cards.js` en `vm`, puis bloc de sélection et bloc de triage
+> extraits byte-exacts de `pulse.astro`, sur `f10c3e58`, 31/07) : 8 cartes pour le site — ce qui
+> reproduit exactement l'en-tête « Muse Square 8 actions » de l'owner —, `competition_proximity`
+> au **rang 3, le premier rang replié**. `buildMetricsStrip` produisait bien
+> `.ms-catchment-ask` avec le bon `location_id` : **le bloc était caché, pas absent.**
+>
+> **Correctif** : la place réservée de la sélection est ré-honorée au rendu — la carte qui porte
+> `.ms-catchment-ask` est remontée au **dernier rang visible (2)** juste après le tri. Les deux
+> cartes les plus urgentes gardent leur rang. La carte est reconnue par le bloc qu'elle porte,
+> jamais par une liste de types recopiée ; sans carte périmètre le bloc est un no-op (`_pIdx = -1`).
+> Vérifié après correctif par le même harnais : rang 2, **VISIBLE**.
+
 > **Place réservée (31/07)** — une passe dédiée dans `pulse.astro`, AVANT la boucle générale,
 > réserve **une place par site** à une carte `needs_catchment`. Sans elle la carte était coupée :
 > sans enjeu elle tombe en fin du tri `b.score - a.score`, et `MAX_PER_CAT = 2` la supprime.
@@ -173,6 +191,50 @@ décision séparée.
 >
 > Bascule prouvée : `clientCatchment = null` → question ; `'commune'` et `'beyond'` → le motif
 > d'absence normal reprend sa place.
+
+> **La lecture du périmètre était cassée depuis l'étage 4 — corrigé le 31/07.**
+> `dateResolutionQuery` **et** `dayClassAggregateSql` lisaient `c.client_catchment` sur
+> `mart.fct_location_context_daily`, **qui ne porte pas la colonne** (49 colonnes, vérifié live ;
+> `location_access_pattern` est la seule voisine). Le chantier affirmait le contraire — c'était faux.
+>
+> Conséquences mesurées sur `f10c3e58` avant correctif : `conditionByDate = 0`, `calendarByDate = 0`,
+> `clientCatchment = null`. Donc (a) répondre ne pouvait **jamais** éteindre la question, et (b) la
+> résolution météo/calendrier par date était morte **pour toutes les cartes** — c'est pourquoi les
+> cartes météo affichaient toutes « motif non séparable » au lieu d'un montant. `dayClassAggregateSql`
+> échouait carrément (« Name client_catchment not found inside c »), tuant le repli live.
+> Introduit par `4f86360`, **jamais parti en prod** (`main` n'a aucun de ces commits).
+>
+> **Correctif** : les deux requêtes lisent `dims.dim_client_location` en `LEFT JOIN`
+> (grain vérifié 32 lignes / 32 lieux — aucune démultiplication, zéro aller-retour ajouté puisque la
+> requête existait déjà). C'est aussi le **bon référentiel produit** : `set-catchment.ts` écrit la
+> dimension dans la seconde, donc la question disparaît au rechargement suivant **sans attendre un
+> run dbt**. Le « demain » de la confirmation ne porte plus que sur le MONTANT (cron 02:00).
+>
+> Vérifié par le comportement : `conditionByDate` 0 → **7**, `calendarByDate` 0 → **7** ;
+> `dayClassAggregateSql` repasse et rend `events_high` **identique** à l'avant-correctif
+> (`marginal n=6 avg=+20`) — la branche `ELSE 500 m` est donc inchangée. Aller-retour complet sur
+> `f10c3e58` : `null → needs_catchment=true`, `beyond → false`, `commune → false`, remis à `null`.
+
+### Rendu final (31/07/2026, arbitrages owner)
+
+| point | décision |
+|---|---|
+| Hiérarchie des boutons | affordance **primaire** `.agir-btn` (13 px, `#1D3BB3`, rayon 10) au lieu de 11 px / `#D1D5DB` — ils étaient plus discrets qu'un « Pas pour moi » |
+| Zone montant | **variante 1** : `? €/an` · « votre réponse le débloque », même bloc `.amt` que les autres cartes ; après réponse → `— €/an` · « calcul cette nuit » |
+| Menu Agir | **option B** : « M'engager » n'est PAS désactivé, il **intercale** l'étape 1/2 (la question) puis enchaîne sur le formulaire habituel ; sa description l'annonce et revient à la normale dès la réponse |
+| Où la question est posée | **UNIQUEMENT dans « M'engager »** (owner 31/07, après test à l'écran). Elle vivait aussi sur la carte : à l'écran c'était un **doublon** avec l'étape 1. Elle est donc posée une seule fois, là où elle a une conséquence immédiate. ⚠️ Ceci **révise** la décision du 30/07 « sur chaque carte concernée et indéfiniment » — le crochet permanent est désormais la zone montant `? €/an`. |
+| Motif d'absence gris | **jamais** sur une carte périmètre : il dirait « non séparable ou insuffisant » là où la zone montant dit « votre réponse le débloque ». D'où le `needs_catchment !== true` dans la condition de `buildMetricsStrip`. |
+| Repérage pour la place réservée | `[data-catchment-amt]` (la zone montant), **plus** `.ms-catchment-ask` qui n'existe plus sur la carte. Sans cette bascule la carte reperdait son rang 2 et retombait repliée. |
+| Roster « Responsable » | inchangé — l'étape 2 est le formulaire habituel, donc `fetchOwners` → `fetchTeamMembers`, repli self-fetch `/api/channels/team` : les personnes du Compte sont proposées comme partout |
+
+**Pourquoi option B et pas la désactivation** : le KPI d'un engagement ne vient pas de l'enjeu de la
+carte mais des ventes réelles du lieu (`api/commitments/index.ts` ~164, `baseline_daily`) —
+`creation_baseline_daily` transmis par la carte n'est qu'un repli. Ce qui manque n'est donc pas un
+KPI, c'est le **périmètre** auquel l'objectif sera comparé. On le demande, on ne bloque personne.
+
+**Ce qui n'est PAS livré** : les nombres de jours mesurables sous chaque bouton (« rend 10 jours
+mesurables ») — c'est le **temps 2**, qui suppose que le cron calcule et stocke les deux hypothèses.
+Les coder en dur serait exactement la faute corrigée le 31/07 sur les 7 cartes concurrent.
 
 ### Ce qui était prévu (conservé pour mémoire)
 

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Périmètre — hiérarchie des boutons + Agir conditionnel</title>
+<style>
+  /* ─── valeurs TIRÉES du système réel ─────────────────────────────────────────
+     design-tokens.css : --color-border rgba(0,0,0,.08) · --color-text-primary #111827
+     --color-text-secondary #6b7280 · --color-text-muted rgba(17,24,39,.45)
+     --color-pill-source-low-bg #F3F4F6 / -text #6b7280 · --color-pill-warn-bg #FDE8D8
+     pulse.astro <style is:inline> : .agir-btn .chip-n .disc-btn .ab-metrics-strip
+     .ab-metric .ab-agir-dropdown .ab-dd-item .ab-dd-icon(-comm/-send/-see) .amt
+     Bleu data #1D3BB3 (NON tokenisé — littéral, jamais --color-brand-blue).
+     ──────────────────────────────────────────────────────────────────────────── */
+  :root{
+    --color-border:rgba(0,0,0,0.08);
+    --color-text-primary:#111827;
+    --color-text-secondary:#6b7280;
+    --color-text-muted:rgba(17,24,39,0.45);
+    --color-pill-source-low-bg:#F3F4F6;
+    --color-pill-source-low-text:#6b7280;
+    --color-pill-warn-bg:#FDE8D8;
+    --color-pill-warn-text:#C2410C;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 60px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--color-text-primary);}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:17px;font-weight:600;margin:0 0 4px}
+  .lede{font-size:13px;color:var(--color-text-secondary);line-height:1.55;margin:0 0 26px}
+  h2{font-size:12px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--color-text-secondary);margin:34px 0 6px}
+  .note{font-size:12px;color:var(--color-text-secondary);line-height:1.55;margin:0 0 12px}
+  .note b{color:var(--color-text-primary);font-weight:600}
+
+  /* ── carte : valeurs réelles ── */
+  .ab-card{background:#fff;border:1px solid #F3F4F6;border-radius:12px;overflow:visible;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .ab-card-row{display:flex}
+  .ab-bar{width:3px;flex:none}
+  .ab-inner{flex:1;min-width:0}
+  .ab-summary{padding:14px 16px 10px}
+  .ab-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+  .chip-n{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 9px;border-radius:20px;background:var(--color-pill-source-low-bg);color:var(--color-pill-source-low-text);white-space:nowrap}
+  .ab-what{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:5px}
+  .ab-sowhat{font-size:12.5px;color:var(--color-text-secondary);line-height:1.5}
+  .ab-metrics-strip{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 12px;align-items:center}
+  .ab-metric{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:var(--color-pill-source-low-bg);font-size:12px;color:var(--color-pill-source-low-text);border:none}
+  .agir-btn{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit}
+  .agir-btn[disabled]{color:var(--color-text-muted);border-color:var(--color-border);cursor:not-allowed}
+  .disc-btn{font-size:12px;color:var(--color-text-secondary);background:transparent;border:1px solid var(--color-border);border-radius:10px;padding:4px 10px;cursor:pointer;font-family:inherit}
+  .ab-disc{width:17px;height:17px;flex:none;margin-top:2px}
+
+  /* ── menu Agir : valeurs réelles ── */
+  .ddwrap{position:relative;display:inline-block;margin-left:auto}
+  .ab-agir-dropdown{display:none;position:absolute;top:100%;right:0;min-width:250px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.08);z-index:9999;margin-top:6px;overflow:hidden}
+  .ab-agir-dropdown.open{display:block}
+  .ab-dd-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#111827;font-family:inherit;border-bottom:.5px solid #f3f4f6}
+  .ab-dd-item:last-child{border-bottom:none}
+  .ab-dd-item:hover{background:#f9fafb}
+  .ab-dd-item[disabled]{cursor:not-allowed;background:#fff}
+  .ab-dd-item[disabled] .ab-dd-label{color:var(--color-text-muted)}
+  .ab-dd-item[disabled] .ab-dd-desc{color:var(--color-text-muted)}
+  .ab-dd-item[disabled] .ab-dd-icon{opacity:.45}
+  .ab-dd-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px}
+  .ab-dd-icon-comm{background:#E6F1FB;color:#185FA5}
+  .ab-dd-icon-send{background:#EEEDFE;color:#534AB7}
+  .ab-dd-icon-see{background:#f3f4f6;color:#6B7280}
+  .ab-dd-label{font-weight:500}
+  .ab-dd-desc{font-size:11px;color:var(--color-text-secondary);margin-top:1px}
+
+  /* ── bloc question : ACTUEL (boutons secondaires) ── */
+  .ask-old{display:block;width:100%;background:transparent;border:0;padding:0;margin:2px 0 0;font-size:11px;color:#6B7280;line-height:1.5}
+  .ask-old .btns{display:block;margin:6px 0 4px}
+  .ask-old button{cursor:pointer;border:1px solid #D1D5DB;background:#fff;border-radius:6px;padding:4px 10px;font-size:11px;color:#111827;margin-right:6px;font-family:inherit}
+
+  /* ── bloc question : PROPOSÉ (boutons = affordance primaire du système) ── */
+  .ask{display:block;width:100%;margin:2px 0 0}
+  .ask-q{display:block;font-size:12.5px;font-weight:600;color:var(--color-text-primary);line-height:1.45}
+  .ask-why{display:block;font-size:11.5px;color:var(--color-text-secondary);line-height:1.5;margin-top:3px}
+  .ask-btns{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0 6px}
+  .ask-btns .agir-btn{font-size:13px}
+  .ask-gain{display:block;font-size:10.5px;color:var(--color-text-muted);margin-top:2px}
+  .ask-foot{display:block;font-size:11px;color:#9CA3AF;line-height:1.5}
+  .ask-done{display:block;font-size:12px;color:#059669;font-weight:500;line-height:1.5;margin:2px 0}
+
+  .flag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;margin-bottom:8px}
+  .flag-a{background:#EEF2FF;color:#1D3BB3}
+  .flag-b{background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text)}
+  .flag-old{background:var(--color-pill-source-low-bg);color:var(--color-pill-source-low-text)}
+  .hint{font-size:11px;color:var(--color-text-muted);margin:6px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Périmètre de clientèle — hiérarchie des boutons, et Agir conditionnel</h1>
+  <p class="lede">
+    Carte réelle <b>competition_proximity</b> du compte Muse Square, 31/07/2026. Les chiffres de
+    « jours mesurables » sont ceux <b>mesurés</b> ce jour-là en rejouant <code>dayClassAggregateSql</code>
+    à chaque rayon : <b>1&nbsp;km → 10 jours</b>, <b>20&nbsp;km → 3 jours</b>. Rien d'inventé.
+    Tous les styles sont repris littéralement de <code>pulse.astro</code> et de
+    <code>design-tokens.css</code>.
+  </p>
+
+  <!-- ══════════════════ RAPPEL — L'EXISTANT ══════════════════ -->
+  <h2>Aujourd'hui — ce que vous voyez</h2>
+  <p class="note">Les boutons existent mais portent l'affordance la plus faible de la page&nbsp;:
+    11&nbsp;px, bordure grise, rayon 6&nbsp;px — <b>plus discrets qu'un « Pas pour moi »</b>, alors
+    qu'ils sont la seule action que la carte demande.</p>
+  <div class="ab-card">
+    <div class="ab-card-row"><div class="ab-bar" style="background:#ef9f27"></div><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Concurrence</span><span class="chip-n">Cette semaine</span></div>
+        <div class="ab-what">Différenciez-vous de vos concurrents proches</div>
+        <div class="ab-sowhat">7 événements à moins de 500 m, 15 à 1 km. Concentration modérée autour de Muse Square.</div>
+      </div>
+      <div class="ab-metrics-strip">
+        <span style="display:inline-flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#9CA3AF">Action menée&nbsp;?</span>
+          <button class="disc-btn">Déjà fait</button><button class="disc-btn">Pas pour moi</button>
+        </span>
+        <span class="ask-old">
+          <span style="display:block">Pour chiffrer ce que cette concurrence vous coûte, une seule chose manque : la plupart de vos clients viennent-ils de votre commune, ou de plus loin ?</span>
+          <span class="btns"><button>De ma commune</button><button>De plus loin, ils se déplacent</button></span>
+          <span style="display:block;color:#9CA3AF">Votre réponse fixe le périmètre sur lequel on mesure — une seule fois, pour toutes vos cartes.</span>
+        </span>
+        <span class="ddwrap"><button class="agir-btn">Agir ▾</button></span>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ══════════════════ OPTION A ══════════════════ -->
+  <h2>Option A — « M'engager » désactivé, avec son motif</h2>
+  <p class="note">
+    Le menu reste ouvert et complet&nbsp;: <b>Consulter la source</b> et <b>Communiquer en interne</b>
+    fonctionnent. Seul <b>M'engager</b> est éteint, et <b>dit pourquoi</b> à sa place habituelle
+    (<code>.ab-dd-desc</code>) — la règle « une config manquante ne cache pas une fonctionnalité »
+    (26/07) est respectée&nbsp;: on ne masque rien, on explique.
+    <br>Coût&nbsp;: l'exploitant découvre le blocage <b>dans</b> le menu, un clic après la carte.
+  </p>
+  <div class="ab-card">
+    <div class="ab-card-row"><div class="ab-bar" style="background:#ef9f27"></div><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Concurrence</span><span class="chip-n">Cette semaine</span></div>
+        <div class="ab-what">Différenciez-vous de vos concurrents proches</div>
+        <div class="ab-sowhat">7 événements à moins de 500 m, 15 à 1 km. Concentration modérée autour de Muse Square.</div>
+      </div>
+      <div class="ab-metrics-strip" style="align-items:flex-start">
+        <span class="ask" id="askA">
+          <span class="ask-q">La plupart de vos clients viennent-ils de votre commune, ou de plus loin&nbsp;?</span>
+          <span class="ask-why">Sans cette réponse, impossible de chiffrer ce que cette concurrence vous coûte — ni de mesurer une action que vous engageriez dessus.</span>
+          <span class="ask-btns">
+            <span style="display:flex;flex-direction:column">
+              <button class="agir-btn" onclick="answer('A','communal')">De ma commune</button>
+              <span class="ask-gain">débloque 10 jours mesurables</span>
+            </span>
+            <span style="display:flex;flex-direction:column">
+              <button class="agir-btn" onclick="answer('A','régional')">De plus loin, ils se déplacent</button>
+              <span class="ask-gain">débloque 3 jours mesurables</span>
+            </span>
+          </span>
+          <span class="ask-foot">Une seule fois, pour toutes vos cartes.</span>
+        </span>
+        <span class="ddwrap">
+          <button class="agir-btn" onclick="tog('ddA')">Agir ▾</button>
+          <div class="ab-agir-dropdown" id="ddA">
+            <button class="ab-dd-item" disabled>
+              <div class="ab-dd-icon ab-dd-icon-send">🎯</div>
+              <div><div class="ab-dd-label">M’engager</div>
+              <div class="ab-dd-desc">Répondez d’abord à la question ci-contre — sans périmètre, aucun repère pour mesurer l’action</div></div>
+            </button>
+            <button class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-see">🔍</div>
+              <div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Vérifier les faits avant de s’engager</div></div></button>
+            <button class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-comm">✏️</div>
+              <div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l’équipe sur ce signal</div></div></button>
+          </div>
+        </span>
+      </div>
+      <div style="padding:0 16px 12px">
+        <span style="display:inline-flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#9CA3AF">Action menée&nbsp;?</span>
+          <button class="disc-btn">Déjà fait</button><button class="disc-btn">Pas pour moi</button>
+        </span>
+      </div>
+    </div></div>
+  </div>
+  <p class="hint">Cliquez « Agir ▾ » pour voir l'entrée éteinte, ou une réponse pour voir la bascule.</p>
+
+  <!-- ══════════════════ OPTION B ══════════════════ -->
+  <h2>Option B — « M'engager » ouvre d'abord la question, puis enchaîne</h2>
+  <p class="note">
+    Rien n'est désactivé&nbsp;: <b>M'engager reste cliquable</b>. Le clic intercale une étape —
+    la question, avec le formulaire d'engagement annoncé juste derrière. Répondre enchaîne
+    directement sur « Fixer une action, un objectif et un responsable ».
+    <br>Coût&nbsp;: une étape de plus pour qui voulait s'engager tout de suite ; en échange, personne
+    n'est arrêté et le lien question → mesure est <b>montré</b> plutôt qu'expliqué.
+  </p>
+  <div class="ab-card">
+    <div class="ab-card-row"><div class="ab-bar" style="background:#ef9f27"></div><div class="ab-inner">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="chip-n">Concurrence</span><span class="chip-n">Cette semaine</span></div>
+        <div class="ab-what">Différenciez-vous de vos concurrents proches</div>
+        <div class="ab-sowhat">7 événements à moins de 500 m, 15 à 1 km. Concentration modérée autour de Muse Square.</div>
+      </div>
+      <div class="ab-metrics-strip" style="align-items:flex-start">
+        <span class="ask" id="askB">
+          <span class="ask-q">La plupart de vos clients viennent-ils de votre commune, ou de plus loin&nbsp;?</span>
+          <span class="ask-why">Sans cette réponse, impossible de chiffrer ce que cette concurrence vous coûte — ni de mesurer une action que vous engageriez dessus.</span>
+          <span class="ask-btns">
+            <span style="display:flex;flex-direction:column">
+              <button class="agir-btn" onclick="answer('B','communal')">De ma commune</button>
+              <span class="ask-gain">débloque 10 jours mesurables</span>
+            </span>
+            <span style="display:flex;flex-direction:column">
+              <button class="agir-btn" onclick="answer('B','régional')">De plus loin, ils se déplacent</button>
+              <span class="ask-gain">débloque 3 jours mesurables</span>
+            </span>
+          </span>
+          <span class="ask-foot">Une seule fois, pour toutes vos cartes.</span>
+        </span>
+        <span class="ddwrap">
+          <button class="agir-btn" onclick="tog('ddB')">Agir ▾</button>
+          <div class="ab-agir-dropdown" id="ddB">
+            <button class="ab-dd-item" onclick="stepB()">
+              <div class="ab-dd-icon ab-dd-icon-send">🎯</div>
+              <div><div class="ab-dd-label">M’engager</div>
+              <div class="ab-dd-desc">Une question d’abord, puis action, objectif et responsable</div></div>
+            </button>
+            <button class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-see">🔍</div>
+              <div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Vérifier les faits avant de s’engager</div></div></button>
+            <button class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-comm">✏️</div>
+              <div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l’équipe sur ce signal</div></div></button>
+          </div>
+        </span>
+      </div>
+      <div id="wsB" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6">
+        <div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:12px 0 8px">Étape 1 sur 2 — votre périmètre</div>
+        <div class="ask-q" style="margin-bottom:4px">La plupart de vos clients viennent-ils de votre commune, ou de plus loin&nbsp;?</div>
+        <div class="ask-why">On mesurera votre engagement sur ce périmètre. Sans lui, l'objectif se compare à un repère qui ignore votre zone.</div>
+        <div class="ask-btns">
+          <span style="display:flex;flex-direction:column">
+            <button class="agir-btn" onclick="answer('B','communal')">De ma commune</button>
+            <span class="ask-gain">débloque 10 jours mesurables</span>
+          </span>
+          <span style="display:flex;flex-direction:column">
+            <button class="agir-btn" onclick="answer('B','régional')">De plus loin, ils se déplacent</button>
+            <span class="ask-gain">débloque 3 jours mesurables</span>
+          </span>
+        </div>
+        <div style="font-size:11px;color:var(--color-text-muted)">Étape 2 — action, objectif, responsable. Elle s'ouvre dès votre réponse.</div>
+      </div>
+      <div style="padding:0 16px 12px">
+        <span style="display:inline-flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#9CA3AF">Action menée&nbsp;?</span>
+          <button class="disc-btn">Déjà fait</button><button class="disc-btn">Pas pour moi</button>
+        </span>
+      </div>
+    </div></div>
+  </div>
+  <p class="hint">Cliquez « Agir ▾ » puis « M'engager » pour voir l'étape intercalée.</p>
+
+  <h2>Ce qui est commun aux deux</h2>
+  <p class="note">
+    Les deux boutons prennent l'affordance <b>primaire du système</b> — <code>.agir-btn</code>,
+    la même que « Agir » : 13&nbsp;px, bordure <code>#1D3BB3</code>, rayon 10&nbsp;px. La question
+    passe en 12,5&nbsp;px semi-gras, le « une seule fois, pour toutes vos cartes » descend en pied.
+    <b>Aucune nouvelle forme, aucune nouvelle couleur.</b> Le gain (« débloque N jours mesurables »)
+    est le temps 2, option A — un nombre mesuré, pas un euro que les portes refusent d'annualiser.
+  </p>
+</div>
+
+<script>
+  function tog(id){
+    var el=document.getElementById(id), was=el.classList.contains('open');
+    document.querySelectorAll('.ab-agir-dropdown').forEach(function(d){d.classList.remove('open')});
+    if(!was) el.classList.add('open');
+  }
+  function stepB(){
+    document.getElementById('ddB').classList.remove('open');
+    document.getElementById('wsB').style.display='block';
+  }
+  function answer(which, mot){
+    var box=document.getElementById('ask'+which);
+    box.innerHTML='<span class="ask-done">✓ Périmètre '+mot+' enregistré — le montant apparaîtra demain</span>';
+    if(which==='B'){
+      var ws=document.getElementById('wsB');
+      ws.innerHTML='<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:12px 0 8px">Étape 2 sur 2 — votre engagement</div>'
+        +'<div style="font-size:12.5px;color:#6b7280;line-height:1.5">Périmètre '+mot+' enregistré. Le formulaire habituel s’ouvre ici : action, objectif, responsable, fenêtre de mesure.</div>';
+      ws.style.display='block';
+    }
+    var dd=document.getElementById('dd'+which);
+    var first=dd.querySelector('.ab-dd-item');
+    first.removeAttribute('disabled');
+    first.querySelector('.ab-dd-desc').textContent='Fixer une action, un objectif et un responsable';
+  }
+</script>
+</body>
+</html>
