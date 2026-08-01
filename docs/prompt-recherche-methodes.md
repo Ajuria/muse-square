@@ -113,9 +113,12 @@ retirer quoi que ce soit** : une bonne fiche jetée par malentendu coûte plus c
 
 > ⚠ **AVERTISSEMENT 31/07/2026 — cette liste est fausse et n'a pas encore été refaite.**
 > Elle classe par volume de tirs, sans le verdict de l'audit de vérité du dépôt. Vérifié depuis :
-> **aucune des quatre n'est une carte jugée saine**. `foreign_tourism_signal`,
-> `audience_shift_opportunity` et `tourism_peak_window` sont DÉMISES — elles ne paraissent plus
-> aux « Actions du jour », donc leurs plans n'ont nulle part où aller ; `weekend_opportunity`
+> **aucune des quatre n'est une carte jugée saine** — mais le réexamen du 31/07
+> (`docs/card-truth-audit.md`) montre que « pas mesurable » ne vaut pas « à démettre » :
+> `foreign_tourism_signal` attend un CÂBLAGE (sa donnée existe, 27/32 lieux couverts),
+> `audience_shift_opportunity` attend une RÉÉCRITURE de sa copie (elle discrimine déjà les
+> lieux), `tourism_peak_window` attend simplement plus de jours. Aucune n'est un plan à écrire
+> aujourd'hui ; `weekend_opportunity`
 > annonce une opportunité sur des jours mesurés à −131 €/j. Les deux cartes à documenter en
 > premier sont `low_competition_window` (déjà couverte, mais 1 plan sur 3) et
 > `weekend_vacation_low_comp` (aucun plan). **Ne travaille pas cette liste avant qu'elle soit

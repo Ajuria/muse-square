@@ -281,3 +281,53 @@ matérialité sans dénominateur.
 Preuve par le comportement : `rowToImpact` extrait TEL QUEL du fichier, exécuté sur les 45 lignes
 réelles du store — **25 pills → 20**, et les 5 supprimées sont les 5 `discount_no_lift` du parc,
 une par site. Les +127 900 €/an des Olivades survivent.
+
+---
+
+# RÉEXAMEN DU 31/07/2026 — « pas mesurable » ne vaut pas « à démettre »
+
+> **Pourquoi ce réexamen.** Le 31/07, j'ai démis `foreign_tourism_signal` en citant le verdict
+> ci-dessus. L'owner a objecté, et il avait raison : nous venions de passer la journée à établir
+> l'inverse. Une carte dont la mesure manque est **mal paramétrée, pas fausse** — c'est la
+> doctrine posée le 30/07 sur `competition_proximity`, quand l'owner a refusé de la démettre et
+> a imposé la question du périmètre à la place. Démettre pour absence de mesure, c'est confondre
+> le défaut de la carte avec le défaut de notre branchement.
+>
+> Les verdicts ci-dessus restent exacts **sur l'état constaté le 28/07**. Ce qui suit les
+> reclasse par la NATURE de ce qui manque — la seule chose qui décide du geste.
+
+## La grille
+
+| classe | ce qui manque | geste |
+|---|---|---|
+| **A — déclaratif** | un paramètre que seul l'exploitant détient | **DEMANDER** (le motif du périmètre) |
+| **B — non branché** | une donnée que NOUS avons, non jointe | **CÂBLER** |
+| **C — copie** | la donnée existe et discrimine, le texte n'en dit rien | **RÉÉCRIRE** |
+| **D — règle** | seuil ou unité faux | **CORRIGER** |
+| **E — inexistant** | la mesure n'existe nulle part chez nous | **Fil légitime**, jusqu'à la source |
+| **F — trop mince** | la mesure existe, sous le plancher statistique | **pas « jamais », « pas encore »** — revoir à date |
+
+## Reclassement des neuf cartes
+
+| carte | verdict 28/07 | classe | verdict réexaminé |
+|---|---|---|---|
+| `competition_proximity` | Durcir ou démettre | **A** | Le périmètre déclaré est en place depuis le 31/07 mais **personne n'a encore répondu** (`client_catchment` NULL sur les 32 lieux). Le recouvrement de 33 % a été mesuré à un rayon qui n'est plus forcément le bon. **Non jugeable aujourd'hui** — re-mesurer après les premières réponses. |
+| `high_competition_density` | Brancher la copie + corriger l'unité | **C + D** | Inchangé, c'était déjà la bonne forme. |
+| `foreign_tourism_signal` | **Démettre au Fil** | **B** | **VERDICT ANNULÉ.** Les champs `countries_named`, `share_total_pct`, `n_countries` existent dans le payload et sont **NULL** : réservés, jamais remplis. La source existe — `mart.fct_region_foreign_country_profile`, 14 640 lignes, `country_share_of_nonresident` par région et par pays. **27 des 32 lieux sont couverts** (Occitanie 16, Île-de-France 11 ; PACA 4 non couverte). Démotion annulée le 31/07. Chantier : câbler. ⚠ `accommodation_type` diffère par région — l'Île-de-France ne publie que `hotels` : un filtre en dur vide 11 lieux (échec déjà commis le 28/07). ⚠ grain = profil daté 2025-04→09, jamais « combien d'étrangers aujourd'hui ». |
+| `audience_shift_opportunity` | Démettre **ou réécrire le libellé** | **C** | **DÉMISE À TORT** — la branche dure a été prise alors que la douce était la bonne. Mesuré : **94 payloads distincts sur 124 lignes / 31 lieux**, `pressure_ratio` 44 valeurs, `events_5km` 32, `delta_att_calendar_pct` 7. La carte **discrimine bien** les lieux ; c'est son texte qui n'affirme rien. À re-promouvoir AVEC la réécriture, pas avant. |
+| `low_competition_window` | GARDER TELLE QUELLE | — | Inchangé. Seul défaut : ne rend **1 plan sur 3**. |
+| `tourism_peak_window` | Fil tant qu'il n'y a pas de mesure | **F** | `tourism_high` **est** mesurée : 3 lieux, +171 €/j, mais **n ≈ 2**, sous le plancher n ≥ 5. Ce n'est pas « jamais », c'est « pas encore » — et la mesure s'accumule que la carte paraisse ou non. Démotion sans dommage, **mais à revoir à date**, pas un verdict définitif. |
+| `weekend_opportunity` | Durcir (alerte ≥ 2) | **D** | Inchangé, légitime. Second défaut à traiter en même temps : la copie appelle « météo acceptable » une alerte de niveau 3. |
+| `weekend_vacation_low_comp` | Garder — la plus saine | — | Inchangé. **Aucun plan** — c'est par elle qu'il faut commencer. |
+| `review_solicitation` | Fil, **ou brancher une source de note** | **E** | **Fil légitime, vérifié.** Recensement de tous les `google_rating` du dépôt : ils sont TOUS sur les concurrents (`int_competitor_*`). La seule note côté client, `besttime_rating`, est **100 % NULL** (0 non-null sur 21 lignes, 3 lieux) et sa table n'a même pas de colonne date. La boucle ne peut pas se fermer. À re-promouvoir quand un connecteur GBP arrive. |
+
+## Ce que ce réexamen change dans la méthode
+
+**Deux des quatre cartes démises le 28/07 l'ont été à tort** — l'une parce que la donnée existait
+sans être jointe, l'autre parce que la branche dure d'un verdict à deux branches a été retenue.
+Une seule (`review_solicitation`) résiste à la vérification.
+
+**Avant de démettre une carte, établir dans quelle classe tombe ce qui lui manque.** La question
+n'est jamais « est-ce mesuré ? » mais « pourquoi ça ne l'est pas ? ». Et « la mesure n'existe
+nulle part chez nous » se prouve en balayant `semantic` + `mart` + `intermediate` + `dims`
+(règle « Verify absence across the whole stack » de CLAUDE.md), jamais en lisant un payload.

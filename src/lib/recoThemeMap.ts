@@ -128,13 +128,6 @@ export const DEMOTED_TO_FEED = new Set([
   "audience_shift_opportunity",
   "tourism_peak_window",
   "review_solicitation",
-  // 31/07 — DÉCIDÉE le 28/07 par le même audit, jamais portée ici. docs/card-truth-audit.md,
-  // ligne 3 : « Payload = liste de 24 pays en vacances scolaires en août ⇒ "c'est l'été" ;
-  // aucune mesure de tourisme étranger sur le lieu » → verdict « Démettre au Fil ».
-  // Entre-temps elle a continué de tirer sur 32 sites sur 32, tous les jours (mesuré :
-  // 128 lignes sur 4 dates × 32 lieux) — la carte la plus ubiquitaire du parc, et l'ubiquité
-  // est ici le symptôme d'une règle qui ne discrimine pas, pas un signe d'importance.
-  "foreign_tourism_signal",
   // informationnelles (groupe I)
   "competitor_positioning_brief",
   "competitor_positioning_gap",

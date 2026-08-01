@@ -230,9 +230,14 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 // ║ ⚠ AVERTISSEMENT 31/07/2026 — L'ORDRE CI-DESSOUS EST CELUI DU VOLUME DE TIRS, ET IL EST    ║
 // ║ TROMPEUR. Il a été établi sans consulter docs/card-truth-audit.md, qui juge la VÉRITÉ des ║
 // ║ cartes. Vérifié depuis : sur les 4 premières, AUCUNE n'est jugée saine —                  ║
-// ║   foreign_tourism_signal      « Démettre au Fil »  (DÉMISE le 31/07)                      ║
-// ║   audience_shift_opportunity  « Démettre »          (déjà démise le 28/07)                ║
-// ║   tourism_peak_window         « Fil »               (déjà démise le 28/07)                ║
+// ║   foreign_tourism_signal      RÉEXAMEN 31/07 : démotion ANNULÉE — donnée non branchée,   ║
+// ║                               pas absente (fct_region_foreign_country_profile, 27/32     ║
+// ║                               lieux couverts). Chantier = CÂBLER. Plans prématurés.      ║
+// ║   audience_shift_opportunity  démise le 28/07 À TORT — la carte discrimine (94 payloads  ║
+// ║                               distincts / 31 lieux) ; c'est sa COPIE qui n'affirme rien. ║
+// ║                               À re-promouvoir AVEC la réécriture, pas avant.             ║
+// ║   tourism_peak_window         « pas encore », pas « jamais » : tourism_high mesurée sur   ║
+// ║                               3 lieux (+171 €/j) mais n≈2, sous le plancher n>=5.        ║
 // ║   weekend_opportunity         « Durcir » — annonce une opportunité un jour à −131 €/j     ║
 // ║ Une carte DÉMISE (DEMOTED_TO_FEED) ne paraît plus aux Actions du jour : elle n'a plus de  ║
 // ║ menu « M'engager », donc écrire ses plans est du travail perdu.                           ║
