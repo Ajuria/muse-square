@@ -610,10 +610,30 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 //   ],
 // };
 
-// ── weekend_vacation_low_comp ── 2 tirs · 1 lieux (90 j)
-//    Variables disponibles dans le payload :
-//      events_5km, is_vacation, is_weekend, pressure_ratio, score
+// ── weekend_vacation_low_comp ── PRIORITÉ 1 selon l'audit (« la plus saine du lot », 28/07,
+//    réexamen 31/07 inchangé) — brief de rédaction : docs/methodes-weekend-vacation-brief.md.
+//    Carte RARE par construction (week-end ET vacances ET pression basse) : au 01/08, 2 lignes
+//    sur 1 seul lieu (ni Muse Square ni Les Olivades ce jour-là) ; 35 tirs sur la fenêtre du
+//    28/07. pressure_ratio mesuré sur ses tirs : 0,02-0,79 (moy. 0,53).
+//    Variables du payload (relevé réel 01/08) :
+//      is_weekend (bool), is_vacation (bool), pressure_ratio (0-1, relatif à la normale DU
+//      lieu : 0,55 = 45 % sous votre normale), events_5km (entier), score (0-100)
+//    STRUCTURE : la carte porte la classe d'enjeu competition_low (dayClassRegistry.ts:598),
+//    la MÊME que low_competition_window — écrire enjeu_positif / enjeu_negatif / _default,
+//    comme low_competition_window ci-dessus, SANS dupliquer ses textes : ici le contexte est
+//    un week-end de vacances (l'équipe est déjà planifiée, la clientèle est de passage), pas
+//    une fenêtre datée en semaine.
 // window.MS_SALES_RECO_LIB.weekend_vacation_low_comp = {
+//   enjeu_positif: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
+//   enjeu_negatif: [
+//     { title: '', description: '', why: '', tag: '', steps: [] },
+//     { title: '', description: '', why: '', tag: '' },
+//     { title: '', description: '', why: '', tag: '' },
+//   ],
 //   _default: [
 //     { title: '', description: '', why: '', tag: '', steps: [] },
 //     { title: '', description: '', why: '', tag: '' },
