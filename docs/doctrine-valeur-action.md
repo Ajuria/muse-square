@@ -87,16 +87,44 @@ prise). La doctrine ne les rouvre pas.
 
 ---
 
-## DÉCISIONS OWNER avant code
+## DÉCISIONS OWNER — TRANCHÉES (01/08 soir, feedback proto v1)
 
-1. **« Annualisé » confirmé pour le coin ?** Recommandation : OUI — seule unité comparable entre
-   cartes, et l'infra (portes, tiers, médiane) existe. L'écart du jour reste dans la phrase.
-2. **Libellé du coin des cartes B** (ta voix) : proposition « ~X €/an · au rythme constaté ».
-3. **Valeur/jour des cartes C** : formule conversion (visiteurs × Δconv × panier — parlante,
-   mécanique) ou écart résiduel (cohérente avec B) ? Recommandation : écart résiduel pour la
-   cohérence inter-cartes, la formule conversion en phrase explicative.
-4. **Coin vide des cartes B jeunes** : « pas encore assez de récurrence pour chiffrer » —
-   formulation à valider (c'est la contrepartie assumée du refus d'annualiser un jour isolé).
+1. **Annualisé au coin : OUI** — avec l'exception de l'amendement 6, dont l'unité est dite en clair.
+2. **Libellé B : « au rythme constaté »** — retenu.
+3. **Valeur/jour C : l'écart résiduel** — tranché par la mesure : la formule conversion
+   prétendait ~32 500 €/an que le réalisé dément (±0 sur les 9 jours mesurés).
+4. **REMPLACÉE par l'amendement 6** (coût du jour au coin, bascule automatique à la récurrence).
+
+## AMENDEMENTS DU 01/08 SOIR (feedback owner sur le proto v1)
+
+1. **Le nombre n'apparaît qu'UNE fois — au coin.** Les titres structurels
+   (`structuralCardCopyFr`) embarquaient le montant (hérité de la ligne compacte, qui n'avait
+   pas de coin) : en carte pleine, titre = le SIGNAL, phrase = l'explication + le geste,
+   coin = le seul nombre.
+2. **La fenêtre de mesure passe en infobulle** (« Mesuré sur N j / M mois — estimé… ») — sur le
+   sous-libellé du coin, déjà en pointillé-survol. Provenance à un survol, jamais dans la ligne
+   d'explication.
+3. **Les titres affirment le fait mesuré** en langue d'exploitant — rejoint le verdict C de
+   l'audit sur `audience_shift_opportunity` (« la copie n'affirme rien ») : sa re-promotion se
+   fait AVEC cette réécriture.
+4. **Tourisme étranger : le € viendra de la MESURE, jamais de l'arithmétique** (43 % × taux de
+   captage supposé = % fabriqué, interdit). Chantier : classe de jours « fort chevauchement de
+   vacances étrangères » (les données quotidiennes existent), les portes décident. D'ici là,
+   absence honnête.
+5. **Scission de la porte de matérialité** (réconcilie le 29/07 « −274 €/an irrelevant » et le
+   01/08 « affiche, je décide ») : la matérialité continue de GOUVERNER les cartes structurelles
+   (un motif négligeable n'a pas à exister comme chantier) ; les coins des cartes
+   d'anomalie/conjonction affichent leur VRAI nombre, même petit, sans éditorialiser — la
+   petitesse EST l'information. Effet assumé : les petits montants (remises −186 €/an)
+   réapparaissent sur leurs cartes.
+6. **Coin des anomalies : le coût du JOUR tant que la récurrence n'existe pas.**
+   « −572 € · ce jour » (unité en toutes lettres, jamais déguisée en €/an), bascule automatique
+   sur « ~X €/an · au rythme constaté » dès n ≥ 5 occurrences. Supprime le coin vide-avec-raison,
+   respecte l'interdit d'annualiser un jour isolé ; au tri, une journée se classe naturellement
+   sous les motifs annuels.
+
+**Règle 5 du feed (dédup même-motif : la carte datée du jour porte le motif, la structurelle
+reste compacte ce jour-là) : TOUJOURS À VALIDER** — présente dans les deux protos.
 
 ## Implémentation (après arbitrage — ordre prévu)
 

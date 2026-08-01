@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Proto — doctrine valeur d'action (feed unifié)</title>
+<title>Proto v2 — doctrine valeur d'action (feed unifié)</title>
 <style>
   /* Valeurs RÉELLES tirées de src/styles/design-tokens.css + pulse.astro <style is:inline>.
      Aucune couleur inventée. */
@@ -43,18 +43,18 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Doctrine « valeur d'action » — le feed unifié, sur vos données réelles</h1>
-  <div class="note">Chiffres du 01/08 (store log+médiane reconstruit). Composants réels de Pulse — rien d'inventé.
-  Les 4 règles validées : tri unique « horizon puis |€/an| » · même anatomie pour un motif non traité ·
-  cycle de vie (traité → compact) · plafond 2 motifs pleins par site.</div>
-  <div class="rulebox"><strong>Règle nouvelle à valider (n° 5) :</strong> quand une carte datée du MÊME motif tire
-  le jour même (ex. carte météo un jour de pluie), la carte structurelle du motif reste en compact ce jour-là —
-  la carte datée EST l'instance du motif. Sans cette règle, le doublon de coin revient.</div>
+  <h1>Proto v2 — doctrine valeur d'action, amendée du 01/08 soir</h1>
+  <div class="note">Mêmes données réelles que v1 (store log+médiane du 01/08). Les 5 amendements appliqués :
+  le nombre n'apparaît qu'au coin (les titres portent le SIGNAL) · la fenêtre de mesure est en <span style="text-decoration:underline dotted;">infobulle du coin — survolez-les</span> ·
+  les titres affirment le fait mesuré · anomalies : coût du JOUR au coin puis €/an dès 5 occurrences ·
+  matérialité scindée (gouverne les structurelles, n'éteint plus les coins d'anomalie).</div>
+  <div class="rulebox"><strong>Règle 5 — toujours à valider :</strong> quand une carte datée du MÊME motif tire
+  le jour même, la carte structurelle du motif reste en compact ce jour-là — la carte datée EST l'instance du motif.</div>
 
   <!-- ================= MUSE SQUARE ================= -->
-  <div class="site-h">Muse Square <span class="sub">— Actions du jour · 4 motifs mesurés, 2 en carte pleine (plafond), 2 portés par les cartes datées du jour (règle 5)</span></div>
+  <div class="site-h">Muse Square <span class="sub">— Actions du jour · 4 motifs, 2 en carte pleine (plafond), 2 portés par les cartes datées (règle 5)</span></div>
 
-  <!-- 1. structurel pleine carte : followed_activity +7 208 -->
+  <!-- 1. structurel : followed_activity — titre = signal, nombre UNIQUEMENT au coin -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#059669;"></div>
     <div class="ab-inner">
@@ -66,10 +66,10 @@
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vos jours de forte activité de vos concurrents suivis vous rapportent ~7 208 €/an de plus</div>
-            <div class="ab-sowhat">Mesuré sur 28 jours / 4 mois — estimé, cause multifactorielle. Réévalué chaque mois par vos données.</div>
+            <div class="ab-what">L’activité de vos concurrents suivis vous profite</div>
+            <div class="ab-sowhat">Quand vos suivis animent la zone, vous encaissez plus que votre normale — leur public déborde chez vous. Un rendez-vous à prendre, pas un hasard à subir.</div>
           </div>
-          <div class="amt" title="Enjeu estimé. Estimation prudente : plusieurs facteurs se mêlent sur ces jours."><div class="amt-val" style="color:var(--color-pill-green-text);">+7 208 €/an</div><div class="amt-sub">à gagner · activité des suivis</div></div>
+          <div class="amt" title="Mesuré sur 28 jours / 4 mois — estimé, cause multifactorielle. Réévalué chaque mois par vos données. € encaissés en plus sur ces jours — à gagner en les amplifiant."><div class="amt-val" style="color:var(--color-pill-green-text);">+7 208 €/an</div><div class="amt-sub">à gagner · activité des suivis</div></div>
         </div>
         <div class="aline">Chantier : rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.</div>
       </div>
@@ -77,7 +77,7 @@
     </div>
   </div></div>
 
-  <!-- 2. daté du jour : weather_hazard_onset (porte le motif pluie — règle 5) -->
+  <!-- 2. daté : météo (porte le motif pluie — règle 5) -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#ef9f27;"></div>
     <div class="ab-inner">
@@ -88,9 +88,9 @@
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
             <div class="ab-what">Pluie marquée en approche</div>
-            <div class="ab-sowhat">Alerte pluie sur votre zone. Vos jours de pluie marquée sont mesurés sur 17 jours / 4 mois.</div>
+            <div class="ab-sowhat">Chez vous, la pluie fait vraiment baisser la journée — ce n’est pas une impression, c’est mesuré sur vos ventes.</div>
           </div>
-          <div class="amt" title="Enjeu estimé. € perdus sur ce motif — à réduire."><div class="amt-val" style="color:#B45309;">−7 512 €/an</div><div class="amt-sub">perdus · pluie marquée</div></div>
+          <div class="amt" title="Mesuré sur 17 jours de pluie / 4 mois — estimé, cause multifactorielle. € perdus sur ce motif — à réduire."><div class="amt-val" style="color:#B45309;">−7 512 €/an</div><div class="amt-sub">perdus · pluie marquée</div></div>
         </div>
         <div class="aline">À adapter : offre de repli et communication dès aujourd’hui.</div>
       </div>
@@ -98,7 +98,7 @@
     </div>
   </div></div>
 
-  <!-- 3. structurel pleine carte #2 : competition_low −3 717 -->
+  <!-- 3. structurel #2 : competition_low -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#B45309;"></div>
     <div class="ab-inner">
@@ -109,10 +109,10 @@
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vos jours à faible pression concurrentielle vous coûtent ~3 717 €/an</div>
-            <div class="ab-sowhat">Mesuré sur 13 jours / 4 mois — estimé, cause multifactorielle. Les jours calmes ne vous profitent pas : la fenêtre reste à prendre.</div>
+            <div class="ab-what">Les jours calmes ne vous profitent pas encore</div>
+            <div class="ab-sowhat">Quand la concurrence est sous votre normale, votre chiffre baisse au lieu d’en profiter : la fenêtre reste à prendre — personne ne dispute votre public ces jours-là.</div>
           </div>
-          <div class="amt" title="Enjeu estimé."><div class="amt-val" style="color:#B45309;">−3 717 €/an</div><div class="amt-sub">perdus · faible pression</div></div>
+          <div class="amt" title="Mesuré sur 13 jours / 4 mois — estimé, cause multifactorielle. € perdus sur ce motif — à réduire."><div class="amt-val" style="color:#B45309;">−3 717 €/an</div><div class="amt-sub">perdus · faible pression</div></div>
         </div>
         <div class="aline">Chantier : fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.</div>
       </div>
@@ -120,7 +120,7 @@
     </div>
   </div></div>
 
-  <!-- 4. daté : audience_shift porte school_holiday (règle 5) -->
+  <!-- 4. daté : calendrier — titre RÉÉCRIT (amendement 3, verdict C de l'audit) -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#ef9f27;"></div>
     <div class="ab-inner">
@@ -128,18 +128,19 @@
         <div class="ab-pills"><span class="chip-n">Aujourd’hui</span><span class="chip-n">Muse Square</span><span class="chip-n">Calendrier</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vacances scolaires — public du jour différent</div>
-            <div class="ab-sowhat">Vos jours de vacances scolaires sont mesurés sur 35 jours / 4 mois (contrôlé par mois et type de jour).</div>
+            <div class="ab-what">Les vacances scolaires vous font perdre du chiffre</div>
+            <div class="ab-sowhat">Aujourd’hui est un jour de vacances : sur les vôtres, vous encaissez moins que votre normale — votre public habituel part, et le public de remplacement ne le compense pas encore.</div>
           </div>
-          <div class="amt" title="Enjeu estimé, cause multifactorielle."><div class="amt-val" style="color:#B45309;">−2 758 €/an</div><div class="amt-sub">perdus · vacances scolaires</div></div>
+          <div class="amt" title="Mesuré sur 35 jours / 4 mois — estimé, cause multifactorielle. Contrôlé par mois et type de jour (l’effet vacances, pas la saison)."><div class="amt-val" style="color:#B45309;">−2 758 €/an</div><div class="amt-sub">perdus · vacances scolaires</div></div>
         </div>
+        <div class="aline">À adapter : offre et accueil calés sur le public réellement présent aujourd’hui.</div>
       </div>
       <div class="foot"><span class="prov">Motif « vacances scolaires » porté par cette carte datée (règle 5).</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
     </div>
   </div></div>
 
   <!-- ================= LES OLIVADES ================= -->
-  <div class="site-h">Les Olivades <span class="sub">— 1 motif mesuré, et c’est le plus lourd du parc ; les cartes du jour n’ont pas de coin (mesures sous les portes)</span></div>
+  <div class="site-h">Les Olivades <span class="sub">— le plus gros motif mesuré du parc, en tête de leur feed</span></div>
 
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#B45309;"></div>
@@ -148,10 +149,10 @@
         <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">Les Olivades</span><span class="chip-n">Météo</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vos jours de pluie marquée vous coûtent ~66 047 €/an</div>
-            <div class="ab-sowhat">Mesuré sur 33 jours / 11 mois — estimé, cause multifactorielle. Réévalué chaque mois par vos données.</div>
+            <div class="ab-what">La pluie est votre premier poste de pertes mesuré</div>
+            <div class="ab-sowhat">Les jours de pluie marquée, votre chiffre décroche nettement sous votre normale — c’est le motif qui pèse le plus lourd sur votre année, loin devant le reste.</div>
           </div>
-          <div class="amt" title="Enjeu estimé."><div class="amt-val" style="color:#B45309;">−66 047 €/an</div><div class="amt-sub">perdus · pluie marquée</div></div>
+          <div class="amt" title="Mesuré sur 33 jours de pluie / 11 mois — estimé, cause multifactorielle. Réévalué chaque mois par vos données."><div class="amt-val" style="color:#B45309;">−66 047 €/an</div><div class="amt-sub">perdus · pluie marquée</div></div>
         </div>
         <div class="aline">Chantier : plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.</div>
       </div>
@@ -159,7 +160,7 @@
     </div>
   </div></div>
 
-  <!-- daté sans coin -->
+  <!-- daté sans coin : absence honnête, chantier de mesure (amendement 4) -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#059669;"></div>
     <div class="ab-inner">
@@ -167,32 +168,32 @@
         <div class="ab-pills"><span class="chip-n">Aujourd’hui</span><span class="chip-n">Les Olivades</span><span class="chip-n">Opportunité</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Public étranger potentiel — Royaume-Uni 16%, Suisse 11%, Allemagne 11%, Pays-Bas 5% en vacances scolaires</div>
-            <div class="ab-sowhat">Poids dans les nuitées étrangères de votre région (INSEE 2025), 43 % cumulés. Ce n’est pas une mesure de votre fréquentation.</div>
+            <div class="ab-what">Public étranger potentiel — Royaume-Uni, Suisse, Allemagne, Pays-Bas en vacances</div>
+            <div class="ab-sowhat">Ces nationalités pèsent 43 % des nuitées étrangères de votre région (INSEE 2025) et entrent en vacances scolaires. Ce n’est pas une mesure de votre fréquentation : adaptez langues et accueil si vous captez du passage.</div>
           </div>
         </div>
       </div>
-      <div class="foot"><span class="prov">Pas de coin : le motif touristique de ce lieu est sous les portes de mesure — rien d’inventé.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+      <div class="foot"><span class="prov">Pas de coin : l’effet de ces jours sur VOS ventes n’est pas encore mesurable — il le deviendra par la mesure (classe en chantier), jamais par un taux de captage supposé.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
     </div>
   </div></div>
 
   <!-- lifecycle : motif traité -> compact -->
-  <div class="eb">Règle 3 — un motif ENGAGÉ redescend en compact (état PILOTER réel)</div>
+  <div class="eb">Règle 3 — un motif engagé redescend en compact (état PILOTER réel)</div>
   <div class="ab-card" style="border-left:3px solid #B45309;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">
       <span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>
-      <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">Vos jours de pluie marquée vous coûtent ~66 047 €/an
-        <span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">33 j / 11 mois · perdus · estimé, cause multifactorielle · météo · En amélioration → Nicolas</span>
+      <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">La pluie est votre premier poste de pertes mesuré
+        <span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">perdus · météo · En amélioration → Nicolas</span>
       </span>
-      <span style="font-size:13px;color:#B45309;flex:none;white-space:nowrap;">−66 047 €/an</span>
+      <span style="font-size:13px;color:#B45309;flex:none;white-space:nowrap;" title="Mesuré sur 33 jours / 11 mois — estimé, cause multifactorielle.">−66 047 €/an</span>
       <button class="agir-btn" style="white-space:nowrap;">Voir l’engagement</button>
     </div>
   </div>
 
   <!-- ================= MS OCCITANIE : familles B et C ================= -->
-  <div class="site-h">Muse Square Occitanie <span class="sub">— les cartes d’anomalie sous la doctrine (familles B et C)</span></div>
+  <div class="site-h">Muse Square Occitanie <span class="sub">— anomalies et conjonctions sous les amendements 5 et 6</span></div>
 
-  <!-- motif traffic_high en carte pleine : le +33 402 a désormais SA carte -->
+  <!-- motif traffic_high pleine carte -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#059669;"></div>
     <div class="ab-inner">
@@ -200,10 +201,10 @@
         <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">MS Occitanie</span><span class="chip-n">Affluence</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vos jours de forte affluence mesurée vous rapportent ~33 402 €/an de plus</div>
-            <div class="ab-sowhat">Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle. C’est le motif le plus lourd de ce lieu.</div>
+            <div class="ab-what">Vos jours de forte affluence sont vos meilleures journées</div>
+            <div class="ab-sowhat">Quand le passage est au plus haut, votre chiffre suit — c’est le motif le plus lourd de ce lieu, et il se prévoit (météo, vacances, week-ends).</div>
           </div>
-          <div class="amt"><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
+          <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle. € encaissés en plus sur ces jours — à gagner en les amplifiant."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
         </div>
         <div class="aline">Chantier : routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d’affluence.</div>
       </div>
@@ -211,7 +212,7 @@
     </div>
   </div></div>
 
-  <!-- famille C : la carte d'échec SANS le +33k au coin -->
+  <!-- famille C : vrai nombre au coin, même petit (amendement 5) -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#ef9f27;"></div>
     <div class="ab-inner">
@@ -219,18 +220,18 @@
         <div class="ab-pills"><span class="chip-n">Cette semaine</span><span class="chip-n">MS Occitanie</span><span class="chip-n">Intelligence</span><span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">À confirmer</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Trafic sans conversion</div>
-            <div class="ab-sowhat">Le public était là (1 240 visiteurs, +49 % vs habitude) mais peu d’achats : 20 % achètent, contre ~41 % d’ordinaire (−21 points). Vos jours de pointe valent +33 402 €/an — c’est ce que la conversion doit servir.</div>
+            <div class="ab-what">Du monde, mais peu d’acheteurs</div>
+            <div class="ab-sowhat">Le public était là (1 240 visiteurs, +49 % vs habitude) mais 20 % achètent contre ~41 % d’ordinaire (−21 points). Vos jours de pointe valent +33 402 €/an — c’est ce que la conversion doit servir.</div>
           </div>
-          <div class="amt"><div class="amt-val" style="color:#9CA3AF;font-size:13px;">—</div><div class="amt-sub" title="Sur les 9 jours où ce signal a tiré, le CA réalisé est resté dans l’attendu (médiane −10 €/j) : impact € négligeable au rythme constaté.">impact € négligeable au rythme constaté</div></div>
+          <div class="amt" title="Sur les 9 jours où ce signal a tiré (4 mois), le CA réalisé est resté dans l’attendu (médiane −10 €/jour). Le vrai nombre, sans arrondi de complaisance — à vous de juger s’il mérite votre attention."><div class="amt-val" style="color:#B45309;">−276 €/an</div><div class="amt-sub">au rythme constaté</div></div>
         </div>
         <div class="aline">À corriger : vérifiez l’accueil, la caisse et la mise en avant les jours de pointe — et documentez ce qui a fait venir la foule.</div>
       </div>
-      <div class="foot"><span class="prov">Le +33 402 €/an a quitté ce coin : il appartient au motif ci-dessus, pas à cette carte d’échec.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+      <div class="foot"><span class="prov">Amendement 5 : le vrai nombre s’affiche, même petit — la petitesse est l’information. Le +33 402 appartient au motif ci-dessus.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
     </div>
   </div></div>
 
-  <!-- famille B : anomalie, coin vide avec raison + motif du jour en contexte -->
+  <!-- famille B : coût du JOUR au coin, bascule à la récurrence (amendement 6) -->
   <div class="ab-card"><div class="ab-card-row">
     <div class="barpad" style="border-left-color:#ef9f27;"></div>
     <div class="ab-inner">
@@ -239,21 +240,23 @@
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
             <div class="ab-what">CA inférieur à vos jeudis</div>
-            <div class="ab-sowhat">CA 893 € — journée en retrait, sous vos jeudis : −572 € vs l’attendu du jour (1 465 €). Le recul vient de moins de trafic. Motif du jour : journées à 28 °C et plus (−4 925 €/an sur ce lieu — carte dédiée au motif).</div>
+            <div class="ab-sowhat">CA 893 € — journée en retrait, sous vos jeudis. Le recul vient de moins de trafic. Motif du jour : journées à 28 °C et plus (carte dédiée au motif).</div>
           </div>
-          <div class="amt"><div class="amt-val" style="color:#9CA3AF;font-size:13px;">—</div><div class="amt-sub" title="2 occurrences sur 4 mois : sous le plancher de 5. Le coin se remplira si le problème se répète — jamais extrapolé d’un jour isolé.">pas encore assez de récurrence pour chiffrer</div></div>
+          <div class="amt" title="Écart du 30/07 vs l’attendu du jour (1 465 €). 2 occurrences en 4 mois : ce coin passera en €/an « au rythme constaté » dès 5 occurrences — jamais extrapolé d’un jour isolé."><div class="amt-val" style="color:#B45309;">−572 €</div><div class="amt-sub">ce jour · passera en €/an dès récurrence</div></div>
         </div>
         <div class="aline">À surveiller : confirmez si c’est ponctuel ou récurrent (levier : le trafic) avant d’agir.</div>
       </div>
-      <div class="foot"><span class="prov">L’écart du jour vit dans la phrase ; le motif de fond en contexte ; le coin attend la récurrence. Trois référentiels, trois places.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
+      <div class="foot"><span class="prov">Amendement 6 : coût du jour au coin, unité en toutes lettres ; bascule automatique en €/an à 5 occurrences.</span><span style="margin-left:auto;"><button class="agir-btn">Agir ▾</button></span></div>
     </div>
   </div></div>
 
   <div class="eb">Provenance des chiffres</div>
   <div class="note">Store <code>analytics.day_class_impacts</code> reconstruit le 01/08 (log + médiane) : Muse Square
-  +7 208 / −7 512 / −3 717 / −2 758 €/an ; Les Olivades −66 047 €/an ; MS Occitanie +33 402 €/an. Populations
-  B/C mesurées le 01/08 : down_wow 2 tirs/119 j (sous plancher), traffic_not_conv 9 tirs, médiane résiduelle
-  −10 €/j → −276 €/an (immatériel, seuil 1 158 €). Libellés : CLASS_LABELS + structuralCardCopyFr réels.</div>
+  +7 208 / −7 512 / −3 717 / −2 758 €/an ; Les Olivades −66 047 €/an ; MS Occitanie +33 402 €/an.
+  Populations mesurées le 01/08 : traffic_not_conv 9 tirs / 119 j, médiane résiduelle −10 €/j → −276 €/an ;
+  down_wow 2 tirs (coin en « € ce jour » jusqu’à 5). Libellés des classes : CLASS_LABELS réels ; les
+  titres réécrits (amendements 1 et 3) sont des propositions à ta voix. Survolez chaque coin : la fenêtre
+  de mesure y vit désormais (amendement 2).</div>
 </div>
 </body>
 </html>
