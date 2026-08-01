@@ -50,7 +50,7 @@ function loadClient(): { ACTION_CARDS: Record<string, any>; MS_SALES_RECO_LIB: R
 
 const hasRecos = (AC: Record<string, any>, t: string) => typeof AC[t]?.recos === "function";
 
-// Les 7 types couverts au 31/07. Cette liste ne doit que GRANDIR.
+// Les types couverts (7 au 31/07, +weekend_vacation_low_comp le 01/08). Ne doit que GRANDIR.
 const COUVERTS_ACQUIS = [
   "footfall_vs_basket_decomposition",
   "low_competition_window",
@@ -59,6 +59,7 @@ const COUVERTS_ACQUIS = [
   "sales_revenue_down_wow",
   "sales_surge",
   "sales_traffic_not_converting",
+  "weekend_vacation_low_comp",
 ];
 
 // LA DETTE, nommée. 76 types de l'allowlist sans plans au 31/07 — dont 27 tirent réellement
@@ -139,7 +140,6 @@ const DETTE_SANS_PLANS = [
   "weather_window_after_bad",
   "weather_worsened",
   "weekend_opportunity",
-  "weekend_vacation_low_comp",
   "weekly_briefing",
 ];
 

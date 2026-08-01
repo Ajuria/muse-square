@@ -196,6 +196,92 @@ window.MS_SALES_RECO_LIB = {
     ]
   },
 
+  // Week-end de vacances, pression sous la normale du lieu — rédigé owner 01/08.
+  // Même classe d'enjeu que low_competition_window (competition_low, dayClassRegistry.ts:598),
+  // textes distincts : ici la fenêtre est un week-end de vacances, connue d'avance par le
+  // calendrier scolaire. Repos dominical : jamais « samedi + dimanche », toujours « vos jours
+  // d'ouverture du week-end ». Brief : docs/methodes-weekend-vacation-brief.md.
+  weekend_vacation_low_comp: {
+
+    // Le lieu gagne DÉJÀ plus ces jours-là (enjeu competition_low mesuré > 0).
+    enjeu_positif: [
+      { title: "Jouez le week-end en deux temps : le premier jour apprend, le suivant encaisse",
+        description: "De samedi à dimanche si vous ouvrez le dimanche ; sinon d'un samedi de vacances au suivant.",
+        why: "Ces journées vous rapportent déjà plus que la normale, et le public de vacances revient d'un jour ouvert à l'autre. Ce que le premier vous apprend, le suivant peut l'encaisser.",
+        tag: "Pilotage",
+        steps: ["À la fermeture du premier jour, notez ce qui est parti le mieux et à quelle heure.",
+                "À l'ouverture suivante, mettez-le en avant — première place, visible de l'entrée.",
+                "Confiez l'ajustement à l'équipe déjà en poste, rien d'autre ne change."] },
+      { title: "Sécurisez ce qui se vend le mieux avant samedi",
+        description: "Stock, consommables, capacité : le frein d'un bon week-end, c'est la rupture.",
+        why: "Un week-end favorable perdu sur une rupture ne se rattrape pas. Vos achats se décident à 2-3 jours — c'est le levier que vous maîtrisez encore.",
+        tag: "Achats",
+        steps: ["Vérifiez jeudi le stock de vos 3 meilleures ventes.",
+                "Recommandez vendredi si besoin.",
+                "Ne lancez rien de nouveau : servez ce qui marche."] },
+      { title: "Réservez les prochains week-ends de vacances sur votre calendrier",
+        description: "Ces fenêtres se connaissent des mois à l'avance — le calendrier scolaire est public.",
+        why: "Ce week-end favorable n'est pas un hasard isolé : chaque période de vacances en contient. Anticipé, vous préparez cette fois offre, communication et planning sans contrainte de délai.",
+        tag: "Anticipation",
+        steps: ["Listez les week-ends des prochaines vacances scolaires de votre zone.",
+                "Bloquez-les dans votre agenda comme temps forts.",
+                "Décidez pour chacun UNE chose à préparer en avance."] }
+    ],
+
+    // Le lieu gagne MOINS ces jours-là (enjeu mesuré < 0).
+    enjeu_negatif: [
+      { title: "Arrêtez d'accuser la concurrence ces jours-là",
+        description: "Vous gagnez moins ces week-ends alors qu'il y a MOINS d'événements que d'habitude autour de vous.",
+        why: "Si ces journées rapportent moins quand la concurrence est basse, le frein n'est pas la concurrence. Dépenser pour vous différencier ce week-end n'attaquerait pas la cause.",
+        tag: "Diagnostic",
+        steps: ["Ne mettez ni pub ni remise défensive sur ce week-end.",
+                "Pendant vos heures d'ouverture, notez ce que fait le public : entre-t-il ailleurs, passe-t-il sans s'arrêter ?",
+                "Changez UNE chose de votre côté (vitrine, entrée, offre visible) et comparez au prochain week-end de vacances."] },
+      { title: "Une offre valable ce week-end uniquement",
+        description: "Le public de vacances décide tard et se décide sur place.",
+        why: "Un week-end creux le reste si rien ne pousse à choisir vous. Une date limite courte fait bouger sans vous engager plus loin.",
+        tag: "Offre",
+        steps: ["Choisissez une offre simple à tenir sur vos jours d'ouverture du week-end.",
+                "Affichez « ce week-end uniquement » — pas de prolongation.",
+                "Annoncez jeudi ou vendredi.",
+                "Comptez les clients venus avec."] },
+      { title: "Ajustez les achats, pas le planning",
+        description: "Ce que vous maîtrisez à deux jours : ce que vous achetez et ce que fait l'équipe en poste.",
+        why: "Vos chiffres disent que ces week-ends rapportent moins. Le planning du week-end est déjà fixé (délai de prévenance) — la marge se défend sur les achats et l'emploi du temps de l'équipe.",
+        tag: "Achats",
+        steps: ["Réduisez ce que vous achetez pour ce week-end (frais, consommables).",
+                "N'appelez pas d'extra.",
+                "Donnez à l'équipe en poste une tâche de fond : inventaire, mise en place, formation.",
+                "Regardez si la marge du week-end s'améliore."] }
+    ],
+
+    // AUCUNE mesure sur ce lieu — gestes valables dans les deux sens.
+    _default: [
+      { title: "Comparez ce week-end à vos week-ends habituels",
+        description: "Un week-end suffit pour savoir si ces fenêtres vous réussissent.",
+        why: "Chez certains, un week-end de vacances peu concurrencé rapporte plus ; chez d'autres, la clientèle habituelle est partie et il rapporte moins. Personne ne peut le deviner à votre place.",
+        tag: "Test",
+        steps: ["Notez le chiffre de vos jours d'ouverture du week-end.",
+                "Comparez aux mêmes jours de vos 3 ou 4 week-ends précédents.",
+                "Ne changez rien d'autre pendant ce week-end.",
+                "Gardez le verdict pour le prochain week-end de vacances."] },
+      { title: "Mesurez une chose que vous ne mesurez jamais",
+        description: "Profitez d'un week-end moins disputé pour regarder votre public.",
+        why: "Vous ne saurez jamais mieux qu'un week-end de vacances qui passe devant chez vous sans entrer. Cette observation vaut pour tous les week-ends suivants.",
+        tag: "Observation",
+        steps: ["Choisissez UNE question : d'où viennent-ils, à quelle heure, que demandent-ils ?",
+                "Notez les réponses pendant vos heures d'ouverture du week-end, sans rien changer.",
+                "Décidez à la fermeture du week-end ce que ça change pour le prochain."] },
+      { title: "Préparez le prochain week-end de vacances dès maintenant",
+        description: "Le calendrier scolaire est public : ces fenêtres se voient venir.",
+        why: "Ce week-end arrive trop vite pour tout changer ; le prochain, non. Anticipé de plusieurs semaines, vous retrouvez tous vos leviers — y compris le planning.",
+        tag: "Anticipation",
+        steps: ["Repérez le prochain week-end de vacances de votre zone.",
+                "Choisissez UNE action à y tester, décidée à froid.",
+                "Mettez une date de préparation dans votre agenda."] }
+    ]
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [
@@ -610,36 +696,9 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 //   ],
 // };
 
-// ── weekend_vacation_low_comp ── PRIORITÉ 1 selon l'audit (« la plus saine du lot », 28/07,
-//    réexamen 31/07 inchangé) — brief de rédaction : docs/methodes-weekend-vacation-brief.md.
-//    Carte RARE par construction (week-end ET vacances ET pression basse) : au 01/08, 2 lignes
-//    sur 1 seul lieu (ni Muse Square ni Les Olivades ce jour-là) ; 35 tirs sur la fenêtre du
-//    28/07. pressure_ratio mesuré sur ses tirs : 0,02-0,79 (moy. 0,53).
-//    Variables du payload (relevé réel 01/08) :
-//      is_weekend (bool), is_vacation (bool), pressure_ratio (0-1, relatif à la normale DU
-//      lieu : 0,55 = 45 % sous votre normale), events_5km (entier), score (0-100)
-//    STRUCTURE : la carte porte la classe d'enjeu competition_low (dayClassRegistry.ts:598),
-//    la MÊME que low_competition_window — écrire enjeu_positif / enjeu_negatif / _default,
-//    comme low_competition_window ci-dessus, SANS dupliquer ses textes : ici le contexte est
-//    un week-end de vacances (l'équipe est déjà planifiée, la clientèle est de passage), pas
-//    une fenêtre datée en semaine.
-// window.MS_SALES_RECO_LIB.weekend_vacation_low_comp = {
-//   enjeu_positif: [
-//     { title: '', description: '', why: '', tag: '', steps: [] },
-//     { title: '', description: '', why: '', tag: '' },
-//     { title: '', description: '', why: '', tag: '' },
-//   ],
-//   enjeu_negatif: [
-//     { title: '', description: '', why: '', tag: '', steps: [] },
-//     { title: '', description: '', why: '', tag: '' },
-//     { title: '', description: '', why: '', tag: '' },
-//   ],
-//   _default: [
-//     { title: '', description: '', why: '', tag: '', steps: [] },
-//     { title: '', description: '', why: '', tag: '' },
-//     { title: '', description: '', why: '', tag: '' },
-//   ],
-// };
+// ── weekend_vacation_low_comp ── ✅ REMPLI le 01/08 (rédaction owner) — entrée vivante dans
+//    MS_SALES_RECO_LIB ci-dessus, à côté de low_competition_window. Sorti de la dette du
+//    garde-fou. Brief et décisions : docs/methodes-weekend-vacation-brief.md.
 
 // ── competition_pressure_spike ── 1 tirs · 1 lieux (90 j)
 //    Variables disponibles dans le payload :
