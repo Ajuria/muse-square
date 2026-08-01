@@ -58,7 +58,34 @@ plan unique (28/07, en tête de l'entrée) : sans mesure, aucun texte ne peut af
 ces jours rapportent plus ou moins — les 2 nouveaux gestes doivent rester valables dans
 les deux sens (ex. : des gestes d'observation, de préparation, ou réversibles à coût nul).
 
-## 3. Garde-fous de rédaction (rappel)
+## 3. Les trois distinctions demandées (owner, 01/08) — état réel, vérifié dans les modèles
+
+Question : pourquoi le brief ne distingue-t-il ni suivis/base secteur, ni
+cannibalise/entraîne, ni les types d'événements ? Réponse : **aucune des trois n'est dans le
+signal de cette carte aujourd'hui**, et l'écrire dans les méthodes affirmerait plus que ce que
+la donnée sait. Détail :
+
+| distinction | état | pourquoi elle n'entre pas dans les textes aujourd'hui |
+|---|---|---|
+| **suivis vs base secteur** | existe dans le produit, PAS dans ce signal | `pressure_ratio` vient de `competition_index_local` (`fct_location_context_features_daily`) : comptage pondéré de TOUS les événements par rayon (4×500m + 3×5km + 2×10km + 1×50km), aveugle aux suivis. Les suivis ont leur propre famille (cartes `competitor_*`, classe `followed_activity`). |
+| **cannibalise vs entraîne** | documentée (`docs/competition-split-spec.md`), branchée côté HAUTE densité seulement | la scission `pct_same_bucket_5km` est en prod sur `high_competition_density` (28/07). Côté basse pression, ni le payload ni — surtout — la MESURE ne la portent : le +88 €/j (`competition_low`) est mesuré sur le tercile bas de l'index aveugle au secteur. Un texte « vos concurrents directs sont calmes » outrepasserait la mesure. |
+| **types d'événements** (sortie produit/POS, culturel…) | hors signal | le seul typage du signal de densité est `industry_bucket` (même-secteur ou non). Les sorties produit/POS concurrentes = famille des cartes d'offre du crawl (`competitor_new_offering`…), démises au Fil le 28/07 (vigilance, amendement C2). |
+
+**Décision de rédaction qui en découle** : les 9 textes s'écrivent SANS ces distinctions.
+Ce que la carte affirme honnêtement — moins d'événements que VOTRE normale, un week-end de
+vacances où le public est présent — suffit : le geste « capter » est légitime quel que soit le
+mix sectoriel, précisément parce que le public est moins disputé.
+
+**Chantier séparé si les distinctions doivent entrer un jour**, dans cet ordre :
+1. exposer la scission même-secteur dans les payloads basse-pression (miroir des §3-4 de
+   `competition-split-spec.md` — payload et copie, JAMAIS la règle de tir : « GARDER TELLE
+   QUELLE ») ;
+2. scinder la mesure `competition_low` par part même-secteur — dépend de l'arbitrage de
+   `docs/residu-bruit-diagnostic.md` (le moteur de mesure d'abord, les textes ensuite) ;
+3. alors seulement, des branches de méthode par régime (le mécanisme de résolution
+   `_recosFor` devra porter une clé de plus).
+
+## 4. Garde-fous de rédaction (rappel)
 
 - Barème CLAUDE.md « Card Quality Bar » : spécifique, pilotable cette semaine, € pertinent,
   non-évident, vocabulaire du vertical.
