@@ -7,7 +7,25 @@
 
 ---
 
-## ÉTAT AU 01/08 — le correctif n'a JAMAIS été déployé, et il portait un bug
+## ✅ RÉSOLU — déployé et vérifié le 01/08/2026
+
+L'owner a appliqué les 3 étapes (+ l'ajout de `ftn.profile_reference_year` au `data_payload`,
+oublié de la spec initiale et rattrapé à la relecture du fichier complet) et lancé
+`dbt compile` puis `dbt build --select fct_location_daily_action_candidates+`.
+
+Vérification post-build (requête en fin de document) : **128 lignes ≥ aujourd'hui,
+108 avec pays / part / millésime** = 27 lieux × 4 dates, exactement l'attendu (tout sauf
+PACA et le lieu sans `region_id`) ; **`part_max` = 43** (≤ 100, le témoin du `distinct` passe).
+Contre-vérifié sur le compte de référence `f10c3e58` : les 4 dates portent
+« Royaume-Uni 14%, Allemagne 10%, Pays-Bas 5%, Suisse 4% », part 33 %, millésime 2025 —
+les valeurs mesurées avant déploiement, à l'identique.
+
+Reste ouvert (hors chantier) : la branche sans chiffre reprendra d'office d'octobre à mars
+(profil INSEE limité aux mois 4-9) et pour les 4 lieux de PACA.
+
+---
+
+## ÉTAT AU 01/08 (matin) — le correctif n'avait JAMAIS été déployé, et il portait un bug
 
 **1. Pourquoi le rebuild de 06:14 n'a rien changé : le correctif n'est nulle part.**
 Le SQL réellement exécuté a été lu dans le job BigQuery qui a écrit la table — job

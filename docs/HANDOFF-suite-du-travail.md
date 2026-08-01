@@ -104,7 +104,14 @@ perdu.** C'est ce qui est arrivé au chat annexe.
 
 ---
 
-## 4. LE CHANTIER EN COURS, NON TERMINÉ
+## 4. LE CHANTIER EN COURS ~~, NON TERMINÉ~~ — ✅ RÉSOLU LE 01/08
+
+> **Mise à jour 01/08 (session suivante)** : cause trouvée en lisant le SQL réellement
+> exécuté (job BigQuery `5bf9a650…`, lisible dans `JOBS_BY_PROJECT` de `ms-database-472505`) —
+> **le correctif n'avait jamais été déployé**, et il portait en outre un bug de grain
+> (jointure au mois sans dédup → ×31). Spec corrigée, appliquée par l'owner dans l'IDE,
+> buildée, vérifiée : 108/128 lignes remplies, `f10c3e58` porte « Royaume-Uni 14%… 33 % »,
+> millésime 2025. Détail complet : `docs/foreign-tourism-cablage.md`, § RÉSOLU.
 
 **`foreign_tourism_signal` — câblage du profil régional.** Spec complète et SQL byte-exact dans
 `docs/foreign-tourism-cablage.md`.
