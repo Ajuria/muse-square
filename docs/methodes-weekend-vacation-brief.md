@@ -90,7 +90,10 @@ mix sectoriel, précisément parce que le public est moins disputé.
 - Barème CLAUDE.md « Card Quality Bar » : spécifique, pilotable cette semaine, € pertinent,
   non-évident, vocabulaire du vertical.
 - Droit français : pas de modification d'horaires à 2 jours, pas de revente à perte, pas de
-  soldes hors dates.
+  soldes hors dates. **Et repos dominical** (rattrapé par l'owner, 01/08) : ne jamais supposer
+  le dimanche travaillé — écrire « vos jours d'ouverture du week-end », jamais
+  « samedi + dimanche ». Le dimanche ouvert est une dérogation (zones touristiques,
+  alimentaire jusqu'à 13 h), pas la règle.
 - Les chiffres ne s'écrivent pas à la main : les phrases peuvent nommer « ces jours », le
   pipeline fournit `pressure_ratio` et l'enjeu.
 - Après écriture : bump du cache-buster `?v=` sur les surfaces consommatrices
