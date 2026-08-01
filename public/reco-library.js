@@ -183,7 +183,10 @@ window.MS_SALES_RECO_LIB = {
                 "Reprogrammez-le sur un jour qui marche mieux."] }
     ],
 
-    // AUCUNE mesure sur ce lieu (20 sites sur 24) — un seul geste : trancher.
+    // AUCUNE mesure sur ce lieu (20 sites sur 24). Complété 1 -> 3 le 01/08 (directive owner).
+    // LIMITE DURE de cette branche : aucun plan ne doit supposer le SIGNE (bons ou mauvais
+    // jours) — tout geste opérationnel (stock, équipe, offre) suppose une direction et
+    // appartient aux branches mesurées, jamais à celle-ci.
     _default: [
       { title: "Vérifiez si ces jours sont bons ou mauvais chez vous",
         description: "Fixez-vous un objectif de chiffre d'affaires sur la période. À la fin, vous saurez.",
@@ -192,7 +195,23 @@ window.MS_SALES_RECO_LIB = {
         steps: ["Fixez un objectif de chiffre d'affaires sur ces jours.",
                 "Ne changez rien d'autre pendant la période.",
                 "Attendez le verdict à la fin.",
-                "Recommencez une fois pour confirmer."] }
+                "Recommencez une fois pour confirmer."] },
+      { title: "Placez votre prochaine annonce dans cette fenêtre",
+        description: "Ce que vous deviez annoncer ce mois-ci de toute façon — dites-le ces jours-là.",
+        why: "Ces jours-là, moins d'événements autour de vous se disputent votre public : votre message a le champ plus libre, quel que soit le chiffre de la journée. Une annonce se place, elle ne coûte pas plus cher au bon moment.",
+        tag: "Communication",
+        steps: ["Prenez l'annonce déjà prévue ce mois-ci : nouveauté, horaires d'été, événement à venir.",
+                "Publiez-la pendant la fenêtre plutôt qu'à une date au hasard.",
+                "Ne dépensez rien de plus — seul le moment change.",
+                "Notez si elle a fait mieux que vos annonces habituelles."] },
+      { title: "Testez UNE chose pendant que le signal est propre",
+        description: "Moins d'événements autour de vous : ce que vous observez ces jours-là vient de chez vous.",
+        why: "Un test lancé un jour agité ne se lit pas — impossible de savoir si le résultat vient de vous ou du contexte. Une fenêtre calme est le moment le plus lisible pour trancher une question que vous vous posez déjà.",
+        tag: "Test",
+        steps: ["Choisissez UNE question en attente : un emplacement, une formule, le prix d'un produit.",
+                "Changez cette seule chose pendant la fenêtre.",
+                "Comparez à vos jours normaux — le calme rend l'écart lisible.",
+                "Gardez ou annulez selon le résultat — et confirmez à la prochaine fenêtre avant d'en faire une habitude."] }
     ]
   },
 
@@ -373,7 +392,7 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 //     competition_pressure_spike · competitor_event_ending · competitor_event_launch ·
 //     event_new · weather_hazard_onset · weather_improved · weather_worsened
 //
-// À CORRIGER AUSSI : low_competition_window est couvert mais ne rend qu'UN plan, pas trois.
+// ✅ CORRIGÉ le 01/08 : le _default de low_competition_window rend désormais 3 plans.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 // ── foreign_tourism_signal ── 128 tirs · 32 lieux (90 j)
