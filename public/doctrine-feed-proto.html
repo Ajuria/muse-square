@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Proto v2 — doctrine valeur d'action (feed unifié)</title>
+<title>Proto v3 — doctrine valeur d'action (feed unifié)</title>
 <style>
   /* Valeurs RÉELLES tirées de src/styles/design-tokens.css + pulse.astro <style is:inline>.
      Aucune couleur inventée. */
@@ -43,11 +43,12 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Proto v2 — doctrine valeur d'action, amendée du 01/08 soir</h1>
-  <div class="note">Mêmes données réelles que v1 (store log+médiane du 01/08). Les 5 amendements appliqués :
-  le nombre n'apparaît qu'au coin (les titres portent le SIGNAL) · la fenêtre de mesure est en <span style="text-decoration:underline dotted;">infobulle du coin — survolez-les</span> ·
-  les titres affirment le fait mesuré · anomalies : coût du JOUR au coin puis €/an dès 5 occurrences ·
-  matérialité scindée (gouverne les structurelles, n'éteint plus les coins d'anomalie).</div>
+  <h1>Proto v3 — doctrine valeur d'action + registres (amendement 7)</h1>
+  <div class="note">Mêmes données réelles (store log+médiane du 01/08). v3 ajoute les DEUX REGISTRES :
+  <strong>correctif</strong> (levier connu → titre affirmatif, plan, « M'engager », la page profonde mesure) ·
+  <strong>identification</strong> (levier à découvrir → titre d'enquête, pré-réponse MESURÉE, « Explorer la cause »
+  route vers la page profonde en mode enquête → mécanisme trouvé → Documenter). Un seul cycle :
+  mécanisme → stratégie → mesure. Provenance au <span style="text-decoration:underline dotted;">survol des coins</span>.</div>
   <div class="rulebox"><strong>Règle 5 — toujours à valider :</strong> quand une carte datée du MÊME motif tire
   le jour même, la carte structurelle du motif reste en compact ce jour-là — la carte datée EST l'instance du motif.</div>
 
@@ -66,14 +67,14 @@
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">L’activité de vos concurrents suivis vous profite</div>
-            <div class="ab-sowhat">Quand vos suivis animent la zone, vous encaissez plus que votre normale — leur public déborde chez vous. Un rendez-vous à prendre, pas un hasard à subir.</div>
+            <div class="ab-what">L’activité de vos concurrents suivis vous profite — identifiez pourquoi</div>
+            <div class="ab-sowhat">Quand vos suivis animent la zone, vous encaissez plus que votre normale. Leur public déborde-t-il chez vous, ou sortez-vous le grand jeu ces jours-là ? La réponse est chez vous — et elle se déclenche.</div>
           </div>
           <div class="amt" title="Mesuré sur 28 jours / 4 mois — estimé, cause multifactorielle. Réévalué chaque mois par vos données. € encaissés en plus sur ces jours — à gagner en les amplifiant."><div class="amt-val" style="color:var(--color-pill-green-text);">+7 208 €/an</div><div class="amt-sub">à gagner · activité des suivis</div></div>
         </div>
-        <div class="aline">Chantier : rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.</div>
+        <div class="aline">Enquête : explorez ces 28 jours sur la page dédiée, trouvez le mécanisme, documentez-le.</div>
       </div>
-      <div class="foot"><span style="margin-left:auto;"><button class="agir-btn">M’engager</button></span></div>
+      <div class="foot"><span class="prov">Registre identification (amendement 7) : « Explorer » ouvre la page profonde en mode enquête ; le mécanisme documenté nourrit la base de connaissances et graduera en engagement.</span><span style="margin-left:auto;"><button class="agir-btn">Explorer la cause</button></span></div>
     </div>
   </div></div>
 
@@ -201,14 +202,14 @@
         <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">MS Occitanie</span><span class="chip-n">Affluence</span></div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="flex:1;min-width:0;">
-            <div class="ab-what">Vos jours de forte affluence sont vos meilleures journées</div>
-            <div class="ab-sowhat">Quand le passage est au plus haut, votre chiffre suit — c’est le motif le plus lourd de ce lieu, et il se prévoit (météo, vacances, week-ends).</div>
+            <div class="ab-what">Identifiez ce qui déclenche vos jours de pointe</div>
+            <div class="ab-sowhat">Sur vos 40 jours de pointe : 85 % sont des jours de chaleur, 55 % des vacances scolaires, 25 % des week-ends — et 2 sur 40 n’ont aucun de ces facteurs. La machine voit l’environnement ; le reste de l’histoire (offre du jour, animation, bouche-à-oreille) est chez vous.</div>
           </div>
-          <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle. € encaissés en plus sur ces jours — à gagner en les amplifiant."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
+          <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle. Recouvrements mesurés le 01/08 sur vos données (co-occurrences, pas des causes prouvées). € encaissés en plus sur ces jours — à gagner en les amplifiant."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
         </div>
-        <div class="aline">Chantier : routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d’affluence.</div>
+        <div class="aline">Enquête : qu’aviez-vous fait ces jours-là ? Trouvez le mécanisme, documentez-le — il deviendra déclenchable.</div>
       </div>
-      <div class="foot"><span style="margin-left:auto;"><button class="agir-btn">M’engager</button></span></div>
+      <div class="foot"><span class="prov">Registre identification : pré-réponse mesurée (co-occurrences du store), le mécanisme complet se trouve sur la page dédiée.</span><span style="margin-left:auto;"><button class="agir-btn">Explorer la cause</button></span></div>
     </div>
   </div></div>
 
@@ -254,9 +255,11 @@
   <div class="note">Store <code>analytics.day_class_impacts</code> reconstruit le 01/08 (log + médiane) : Muse Square
   +7 208 / −7 512 / −3 717 / −2 758 €/an ; Les Olivades −66 047 €/an ; MS Occitanie +33 402 €/an.
   Populations mesurées le 01/08 : traffic_not_conv 9 tirs / 119 j, médiane résiduelle −10 €/j → −276 €/an ;
-  down_wow 2 tirs (coin en « € ce jour » jusqu’à 5). Libellés des classes : CLASS_LABELS réels ; les
-  titres réécrits (amendements 1 et 3) sont des propositions à ta voix. Survolez chaque coin : la fenêtre
-  de mesure y vit désormais (amendement 2).</div>
+  down_wow 2 tirs (coin en « € ce jour » jusqu’à 5). Recouvrements des 40 jours de pointe (tercile haut
+  des visiteurs × flags du contexte quotidien, mesurés le 01/08) : 85 % chaleur, 55 % vacances, 25 %
+  week-end, 2/40 sans facteur — des CO-OCCURRENCES, pas des causes prouvées. Libellés : CLASS_LABELS
+  réels ; les titres réécrits (amendements 1, 3, 7) sont des propositions à ta voix. Survolez chaque
+  coin : la fenêtre de mesure y vit (amendement 2). Atelier d’enquête : docs/atelier-mecanismes-spec.md.</div>
 </div>
 </body>
 </html>

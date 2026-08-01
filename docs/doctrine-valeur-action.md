@@ -123,8 +123,25 @@ prise). La doctrine ne les rouvre pas.
    respecte l'interdit d'annualiser un jour isolé ; au tri, une journée se classe naturellement
    sous les motifs annuels.
 
+7. **Deux REGISTRES de carte, un seul CYCLE DE VIE** (owner, 01/08 soir — après rejet du titre
+   101 « Vos jours de forte affluence sont vos meilleures journées »). Le critère n'est pas
+   problème/performance mais **levier connu / levier à découvrir** :
+   - **Registre CORRECTIF** (levier connu — pluie, dispositif vacances, fenêtres calmes) :
+     titre affirmatif du fait qui coûte, plan connu, « M'engager » → objectif + stratégie, la
+     page profonde MESURE si ça marche (boucle commitments existante).
+   - **Registre IDENTIFICATION** (levier propre au lieu — affluence, suivis) : titre d'ENQUÊTE
+     (jamais une corrélation évidente), la carte pré-répond avec les facteurs MESURÉS
+     (recouvrements inter-classes du store — ex. réel MS Occitanie : 40 jours de pointe, 85 %
+     jours de chaleur, 55 % vacances, 2/40 sans facteur visible) et « Agir » route vers la
+     page profonde en mode ENQUÊTE : données + dialogue LLM → mécanisme trouvé → Documenter →
+     base de connaissances + contexte LLM + suggestions de cartes.
+   - **Le cycle unique : mécanisme → stratégie → mesure.** Les deux registres sont deux portes
+     d'entrée du même cycle ; un mécanisme documenté GRADUE en stratégie (le système propose
+     l'engagement correspondant). Spec dédiée de l'atelier d'enquête :
+     `docs/atelier-mecanismes-spec.md` — chantier SUIVANT, ne bloque pas le feed.
+
 **Règle 5 du feed (dédup même-motif : la carte datée du jour porte le motif, la structurelle
-reste compacte ce jour-là) : TOUJOURS À VALIDER** — présente dans les deux protos.
+reste compacte ce jour-là) : TOUJOURS À VALIDER** — présente dans les protos v1→v3.
 
 ## Implémentation (après arbitrage — ordre prévu)
 
