@@ -184,6 +184,35 @@ votre région n'est pas encore disponible. » **Ne pas inventer pour eux.**
 
 ---
 
+## Les commandes dbt Cloud, dans l'ordre
+
+Vérifié avant de les écrire : `fct_location_daily_action_candidates` est matérialisé en
+**`table`** (pas `incremental`), et l'aval est constitué de deux **vues**
+(`vw_insight_event_action_candidates`, `vw_insight_event_change_feed`) plus une table
+(`int_competitor_offering_changes`).
+
+**1. Compiler d'abord — attrape une faute de SQL sans toucher aux données.**
+
+```
+dbt compile --select fct_location_daily_action_candidates
+```
+
+**2. Construire le modèle ET son aval, avec les tests du `.yml`.**
+
+```
+dbt build --select fct_location_daily_action_candidates+
+```
+
+Le `+` final entraîne les deux vues sémantiques et l'intermédiaire qui en dépendent.
+`dbt build` exécute les tests en plus des modèles ; `dbt run` seul les sauterait.
+
+**PAS de `--full-refresh`.** La règle de `CLAUDE.md` (« les modèles incrémentaux ne prennent pas
+les nouvelles colonnes sans `--full-refresh` ») ne s'applique pas ici : ce modèle est
+`materialized = 'table'`, chaque run le reconstruit intégralement. Le drapeau serait sans effet.
+
+⚠ Dans l'IDE, **« Preview » n'écrit rien** — seul « Run » matérialise. Vérifier ensuite
+`creation_time` dans `INFORMATION_SCHEMA.TABLES` si un doute subsiste.
+
 ## Vérification après le run dbt
 
 ```sql
