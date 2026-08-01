@@ -201,6 +201,7 @@ type LocationRow = {
   company_activity_type: string;
   location_type: string;
   location_access_pattern: string;
+  client_catchment: string;
   primary_audience_1: string;
   primary_audience_2: string;
   origin_city_id_1: string;
@@ -241,6 +242,7 @@ try {
         company_activity_type,
         location_type,
         location_access_pattern,
+        client_catchment,
         primary_audience_1,
         primary_audience_2,
         origin_city_id_1, origin_city_id_2, origin_city_id_3,
@@ -277,6 +279,7 @@ try {
         company_activity_type: String(r.company_activity_type || ""),
         location_type: String(r.location_type || ""),
         location_access_pattern: String(r.location_access_pattern || ""),
+        client_catchment: String(r.client_catchment || ""),
         primary_audience_1: String(r.primary_audience_1 || ""),
         primary_audience_2: String(r.primary_audience_2 || ""),
         origin_city_id_1: String(r.origin_city_id_1 || ""),
@@ -998,6 +1001,24 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
                     <option value="bike" selected={loc.location_access_pattern === "bike"}>Vélo</option>
                   </select>
                 </div>
+              </div>
+              {/* Périmètre de clientèle — déclaratif, docs/perimetre-client-spec.md. Fixe le rayon sur
+                  lequel la concurrence est mesurée : commune -> 1 km, au-delà -> 20 km. Sans réponse,
+                  aucun rayon n'est appliqué (comportement actuel préservé). Enregistré à la sélection
+                  via /api/profile/set-catchment, PAS au bouton du formulaire : save.ts fait un MERGE de
+                  ~40 champs plus un géocodage, on ne le paie pas pour un mot. */}
+              <div class="field-group" style="margin-top:14px">
+                <label class="field-label">Périmètre de clientèle</label>
+                <div class="field-select-wrap">
+                  <select name="client_catchment" class="field-select ms-catchment-select" data-location-id={loc.location_id}>
+                    <option value="">Sélectionner…</option>
+                    <option value="commune" selected={loc.client_catchment === "commune"}>La plupart de mes clients viennent de ma commune</option>
+                    <option value="beyond" selected={loc.client_catchment === "beyond"}>Ils viennent de plus loin, ils se déplacent</option>
+                  </select>
+                </div>
+                <p class="ms-catchment-hint" style="margin:6px 0 0;font-size:12px;color:#6B7280;">
+                  Fixe le périmètre sur lequel votre concurrence est mesurée — une seule fois, pour toutes vos cartes.
+                </p>
               </div>
             </div>
 
@@ -3225,6 +3246,50 @@ window.toggleAutomationCard = function() {
     if (!b) return;
     show(b.getAttribute('data-tab-btn'));
     window.scrollTo({ top: 0 });
+  });
+})();
+</script>
+
+<script>
+// Périmètre de clientèle — enregistrement immédiat sur /api/profile/set-catchment.
+// Délégué sur document : les blocs de lieu peuvent être rendus pour plusieurs sites.
+(function () {
+  document.addEventListener('change', async function (e) {
+    if (!(e.target instanceof HTMLSelectElement)) return;
+    var sel = e.target;
+    if (!sel.classList.contains('ms-catchment-select')) return;
+    var locId = sel.getAttribute('data-location-id') || '';
+    var val = sel.value || '';
+    var group = sel.closest('.field-group');
+    var hintEl = group ? group.querySelector('.ms-catchment-hint') : null;
+    var hint = hintEl instanceof HTMLElement ? hintEl : null;
+    var baseTxt = 'Fixe le périmètre sur lequel votre concurrence est mesurée — une seule fois, pour toutes vos cartes.';
+    // Retour au libellé neutre : « Sélectionner… » n'est pas une valeur acceptable côté serveur,
+    // et on n'efface JAMAIS une réponse déjà donnée par un choix vide.
+    if (!val) { if (hint) { hint.textContent = baseTxt; hint.style.color = '#6B7280'; } return; }
+    if (hint) { hint.textContent = 'Enregistrement…'; hint.style.color = '#6B7280'; }
+    sel.disabled = true;
+    try {
+      var res = await fetch('/api/profile/set-catchment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location_id: locId, catchment: val }),
+      });
+      var j = await res.json().catch(function () { return {}; });
+      if (res.ok && j && j.ok) {
+        if (hint) {
+          hint.textContent = '✓ Périmètre ' + (val === 'commune' ? 'communal' : 'régional')
+            + ' enregistré — le montant apparaîtra demain';
+          hint.style.color = '#0b37e5';
+        }
+      } else {
+        if (hint) { hint.textContent = 'Enregistrement impossible. Réessayez.'; hint.style.color = '#B91C1C'; }
+      }
+    } catch (err) {
+      if (hint) { hint.textContent = 'Enregistrement impossible. Réessayez.'; hint.style.color = '#B91C1C'; }
+    } finally {
+      sel.disabled = false;
+    }
   });
 })();
 </script>

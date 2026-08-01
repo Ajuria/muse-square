@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
-import { renderPointsClesV1 } from "../../../lib/ai/points_cles/points_cles_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
@@ -652,10 +651,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // -----------------------------
     // Helpers (minimal, deterministic)
     // -----------------------------
-    function nonEmptyString(v: any): string | null {
-      const s = typeof v === "string" ? v.trim() : "";
-      return s ? s : null;
-    }
 
     function normalizeStringArray(v: any): string[] {
       if (!Array.isArray(v)) return [];
@@ -677,29 +672,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
       };
 
       return dict[v] ?? v;
-    }
-
-    function normalizeCommercialEvents(v: any): string[] {
-      // array<string>
-      if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
-        return Array.from(new Set(v.map((x) => x.trim()).filter(Boolean)));
-      }
-
-      // array<{event_name: string}>  (common dbt shape)
-      if (Array.isArray(v) && v.length && typeof v[0] === "object") {
-        const names = v
-          .map((x) => (x && typeof x.event_name === "string" ? x.event_name.trim() : ""))
-          .filter(Boolean);
-        return Array.from(new Set(names));
-      }
-
-      // string or other scalar
-      if (typeof v === "string") {
-        const s = v.trim();
-        return s ? [s] : [];
-      }
-
-      return [];
     }
 
     // -----------------------------
@@ -827,35 +799,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
 
     // 5) Special days extraction MUST also run on deduped days
-    const special_days = (() => {
-      const out: Array<{ date: string; labels: string[] }> = [];
-
-      for (const d of days_deduped) {
-        const date = typeof d?.date === "string" ? d.date.trim() : "";
-        if (!date) continue;
-
-        const labels: string[] = [];
-
-        const holiday = nonEmptyString(d?.holiday_name);
-        if (holiday) labels.push(holiday);
-
-        const vacation = nonEmptyString(d?.vacation_name);
-        if (vacation) labels.push(vacation);
-
-        // commercial_events could be:
-        // - array<string>
-        // - array<{event_name:string}>
-        // - string
-        const ce = normalizeCommercialEvents(d?.commercial_events);
-        if (ce.length) labels.push(...ce);
-
-        const uniq = Array.from(new Set(labels.map((x) => String(x).trim()).filter(Boolean)));
-        if (uniq.length) out.push({ date, labels: uniq });
-      }
-
-      out.sort((a, b) => a.date.localeCompare(b.date));
-      return out;
-    })();
 
     // 6) (Optional but recommended) Competition summary inputs
     const competition_summary = (() => {
@@ -938,133 +881,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // Computes the actual list the UI should display: radius + industry + distance
-    function computeTopCompetitionEvents(day: any, location_context: any): any[] {
-      const clientIndustry = location_context?.client_industry_code;
-
-      const buckets = ["top_events_500m", "top_events_1km", "top_events_5km", "top_events_10km", "top_events_50km"];
-
-      let pool: any[] = [];
-      for (const k of buckets) {
-        const arr = Array.isArray(day?.[k]) ? day[k] : [];
-        if (arr.length) { pool = arr; break; }
-      }
-      if (!pool.length) return [];
-
-      const sameIndustry = pool.filter((e) => e?.industry_code === clientIndustry);
-      const chosen = sameIndustry.length ? sameIndustry : pool;
-
-      const sorted = chosen.slice().sort(
-        (a, b) =>
-          Number(a?.distance_m ?? 1e18) - Number(b?.distance_m ?? 1e18) ||
-          String(a?.event_uid ?? "").localeCompare(String(b?.event_uid ?? ""))
-      );
-
-      // Return only fields you render + computed one-liner
-      return sorted.slice(0, 3).map((e) => ({
-        event_uid: e?.event_uid ?? null,
-        event_label: e?.event_label ?? null,
-        city_name: e?.city_name ?? null,
-        distance_m: (typeof e?.distance_m === "number" ? e.distance_m : null),
-        industry_code: e?.industry_code ?? null,
-        radius_bucket: e?.radius_bucket ?? null,
-        one_liner: eventOneLine(e),
-      }));
-    }
-
-    // Compute points_cles per day and embed inside each day row
-    const days_with_points_cles = days_deduped.map((day) => {
-      const day_special_labels =
-        special_days.find((x) => x.date === day.date)?.labels ?? [];
-
-      const text = renderPointsClesV1({
-        mode: "selected_day",
-        current_day: day,
-        selection_days: days_deduped,
-        current_special_labels: day_special_labels,
-        location_context,
-      });
-
-      // interpretation sentences based on attendance deltas
-      const eventsDelta = Number(day?.delta_att_events_pct ?? 0);
-      const weatherDelta = Number(day?.delta_att_weather_total_pct ?? 0);
-      const mobilityDelta = Number(day?.delta_att_mobility_pct ?? 0);
-      const calendarDelta = Number(day?.delta_att_calendar_pct ?? 0);
-
-      function interpretEvents(v:number){
-        if(v > 3) return "Forte concurrence d'événements à proximité.";
-        if(v > 1) return "Concurrence modérée d'événements.";
-        if(v > -1) return "Peu d'événements concurrents.";
-        return "Très peu de concurrence événementielle.";
-      }
-
-      function interpretWeather(_v:number){
-        const alertMax = Number(day?.alert_level_max ?? 0);
-        const lvlRain  = Number(day?.lvl_rain  ?? 0);
-        const lvlSnow  = Number(day?.lvl_snow  ?? 0);
-        const lvlWind  = Number(day?.lvl_wind  ?? 0);
-        const lvlHeat  = Number(day?.lvl_heat  ?? 0);
-        const lvlCold  = Number(day?.lvl_cold  ?? 0);
-        const locationType = location_context?.location_type ?? null;
-        const isIndoor = locationType === "indoor";
-        if (alertMax >= 3 || lvlSnow >= 2) return isIndoor ? "Accès au site potentiellement perturbé." : "Risque élevé sur la fréquentation et les installations.";
-        if (alertMax >= 1 || lvlRain >= 2 || lvlWind >= 2) return isIndoor ? "Légère friction à l'entrée, sans impact sur la venue globale." : "Surveiller l'impact sur la fréquentation et les installations extérieures.";
-        if (lvlRain === 1 || lvlWind === 1) return isIndoor ? "Aucun impact attendu sur la venue." : "Impact limité, surveiller les installations légères.";
-        if (lvlHeat >= 1) return isIndoor ? "Chaleur forte : prévoir climatisation." : "Chaleur forte : impact possible sur le confort et le temps de présence.";
-        if (lvlCold >= 1) return isIndoor ? "Froid intense : prévoir chauffage à l'entrée." : "Froid intense : impact possible sur la fréquentation.";
-        return "Aucun impact météo attendu sur la venue ou les installations.";
-      }
-
-      function interpretMobility(v:number){
-        if(v > 1) return "Accessibilité facilitée.";
-        if(v > -1) return "Conditions de transport normales.";
-        return "Risque de perturbations de transport.";
-      }
-
-      function interpretCalendar(v:number){
-        if(v > 1) return "Contexte calendrier favorable.";
-        if(v > -1) return "Contexte calendrier neutre.";
-        return "Contexte calendrier défavorable.";
-      }
-
-      return {
-        ...day,
-        points_cles: { text, location_context },
-        interpretation: {
-          regime: day?.opportunite_regime_fr ?? null,
-          events: interpretEvents(eventsDelta),
-          weather: interpretWeather(weatherDelta),
-          mobility: interpretMobility(mobilityDelta),
-          calendar: interpretCalendar(calendarDelta),
-        },
-        top_competition_events: computeTopCompetitionEvents(day, location_context),
-        competition_context: {
-          events_within_500m_same_bucket_count: day?.events_within_500m_same_bucket_count ?? null,
-          events_within_1km_same_bucket_count: day?.events_within_1km_same_bucket_count ?? null,
-          events_within_5km_same_bucket_count: day?.events_within_5km_same_bucket_count ?? null,
-          events_within_10km_same_bucket_count: day?.events_within_10km_same_bucket_count ?? null,
-          events_within_50km_same_bucket_count: day?.events_within_50km_same_bucket_count ?? null,
-          pct_same_bucket_5km: day?.pct_same_bucket_5km ?? null,
-          competition_pressure_ratio: day?.competition_pressure_ratio ?? null,
-          baseline_comp_avg: day?.baseline_comp_avg ?? null,
-          has_valid_baseline_flag: day?.has_valid_baseline_flag ?? null,
-          competition_index_local: day?.competition_index_local ?? null,
-        },
-      };
-    });
-
     return new Response(
       JSON.stringify({
         location_id,
         selected_dates,
-        days: days_with_points_cles,
+        days: days_deduped,
         alerts,
         action_candidates,
         competition_summary,
-        // keep global for backward compat (uses first date)
-        points_cles: {
-          location_context,
-          text: days_with_points_cles[0]?.points_cles?.text ?? null,
-        },
       }),
       {
         status: 200,

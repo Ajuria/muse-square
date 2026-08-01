@@ -211,6 +211,30 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     return (rows || [])[0] || {};
   };
 
+  // Décomposition Engine 1 × Engine 2 — AMORCÉE ICI (30/07/2026). Établi ligne par ligne : ses SEULES
+  // entrées sont featureRegistry (import statique ligne 12), PROJECT, loc et wantEngines/devSeed —
+  // aucune ne vient d'un await, et ses params sont {loc} seul (même pas la date). Elle partait pourtant
+  // après TROIS niveaux d'attente : mesuré au niveau 4, 407-462 ms d'aller-retour à elle seule.
+  // fitFactors/sel sont ici pour être partagés avec le bloc de consommation, jamais recalculés.
+  const fitFactors = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
+    .filter((f) => f.fittable && f.predicate && f.predicate !== 'FALSE');
+  const _pDecomp: Promise<any[]> = (wantEngines && !opts.devSeed && fitFactors.length)
+    ? bq.query({
+        query:
+          `WITH cw AS (SELECT ac.commitment_id, d FROM \`${PROJECT}.analytics.action_commitments\` ac, ` +
+          `UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
+          `WHERE ac.location_id=@loc AND ac.status='resolved' AND ac.action_done_status='fait'), ` +
+          `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
+          `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc), ` +
+          `rj AS (SELECT resid.*, resid.date IN (SELECT d FROM cw) AS is_action FROM resid) ` +
+          `SELECT ${fitFactors.map((f, i) =>
+            `AVG(IF((${f.predicate}) AND NOT is_action, residual_pct, NULL)) AS ctx_${i}, ` +
+            `AVG(IF((${f.predicate}) AND is_action, residual_pct, NULL)) AS net_${i}, ` +
+            `(SELECT COUNT(DISTINCT commitment_id) FROM cw JOIN resid rr ON cw.d=rr.date WHERE (${f.predicate})) AS nc_${i}`).join(', ')} FROM rj`,
+        params: { loc }, location: 'EU',
+      }).catch(() => [[{}]] as any[])
+    : Promise.resolve([[{}]] as any[]);
+
   const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows, changeRows, cardRows] = await Promise.all([
     // day_surface — the mart's own French facts + "what's driving today". This is the SAME view
     // monitor.ts builds its entire `day` object from. SELECT * so the brain is the single reader: its
@@ -330,20 +354,24 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   const offeringByCid: Record<string, string> = {};
   const trendByCid: Record<string, number> = {};
   if (cids.length && wantCompEnrich) {
-    const [off] = await bq.query({
+    // Les deux lectures prennent le MÊME paramètre (@cids, issu de _pComp) et remplissent deux
+    // dictionnaires disjoints : elles ne dépendent que de l'ordre du code, pas l'une de l'autre.
+    // Enchaînées, elles coûtaient deux niveaux séquentiels (mesuré 16/07 : +355 à +409 ms).
+    const _pOff = bq.query({
       query: `SELECT competitor_id AS cid, item, change_type, ROUND(price_pct_change,0) AS pct
         FROM \`${PROJECT}.intermediate.int_competitor_offering_changes\` WHERE competitor_id IN UNNEST(@cids)
         QUALIFY ROW_NUMBER() OVER (PARTITION BY competitor_id ORDER BY current_crawled_at DESC)=1`,
       params: { cids }, location: 'EU',
     }).catch(() => [[]]);
-    (off || []).forEach((r: any) => { offeringByCid[flatVal(r.cid)] = `${flatVal(r.item)} (${flatVal(r.change_type)})`; });
-    const [tr] = await bq.query({
+    const _pTr = bq.query({
       query: `SELECT competitor_id AS cid, delta_rating
         FROM \`${PROJECT}.intermediate.int_competitor_snapshot_deltas\`
         WHERE competitor_id IN UNNEST(@cids) AND delta_rating IS NOT NULL AND delta_rating != 0
         QUALIFY ROW_NUMBER() OVER (PARTITION BY competitor_id ORDER BY snapshot_date DESC)=1`,
       params: { cids }, location: 'EU',
     }).catch(() => [[]]);
+    const [[off], [tr]] = await Promise.all([_pOff, _pTr]);
+    (off || []).forEach((r: any) => { offeringByCid[flatVal(r.cid)] = `${flatVal(r.item)} (${flatVal(r.change_type)})`; });
     (tr || []).forEach((r: any) => { trendByCid[flatVal(r.cid)] = Number(flatVal(r.delta_rating)); });
   }
   const competitors: DayCompetitor[] = (compRows || []).map((c: any) => {
@@ -413,25 +441,10 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   // net − context_effect. Directional/préliminaire at current N; never a proven %.
   const decomposition: DecompositionRecord[] = [];
   if (wantEngines && !opts.devSeed) {
-    const fitFactors = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
-      .filter((f) => f.fittable && f.predicate && f.predicate !== 'FALSE');
     // n = INDEPENDENT engagements (distinct commitment windows overlapping factor-days), NOT the
     // autocorrelated day count. cw = commitment×date; ctx/net are daily means, nc is the independent unit.
-    const sel = fitFactors.map((f, i) =>
-      `AVG(IF((${f.predicate}) AND NOT is_action, residual_pct, NULL)) AS ctx_${i}, ` +
-      `AVG(IF((${f.predicate}) AND is_action, residual_pct, NULL)) AS net_${i}, ` +
-      `(SELECT COUNT(DISTINCT commitment_id) FROM cw JOIN resid rr ON cw.d=rr.date WHERE (${f.predicate})) AS nc_${i}`).join(', ');
-    const [drows] = await bq.query({
-      query:
-        `WITH cw AS (SELECT ac.commitment_id, d FROM \`${PROJECT}.analytics.action_commitments\` ac, ` +
-        `UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
-        `WHERE ac.location_id=@loc AND ac.status='resolved' AND ac.action_done_status='fait'), ` +
-        `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
-        `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc), ` +
-        `rj AS (SELECT resid.*, resid.date IN (SELECT d FROM cw) AS is_action FROM resid) ` +
-        `SELECT ${sel} FROM rj`,
-      params: { loc }, location: 'EU',
-    }).catch(() => [[{}]] as any[]);
+    // fitFactors et la requête sont définis en tête de fonction (amorçage) — ici on ATTEND seulement.
+    const [drows] = await _pDecomp;
     const dr = (drows || [])[0] || {};
     const DECOMP_MIN_ENGAGEMENTS = 2; // need >= 2 independent engagements to surface (honest-absence below).
     fitFactors.forEach((f, i) => {

@@ -1,0 +1,106 @@
+<!doctype html><meta charset="utf-8"><title>Prototype — la question sur la carte</title>
+<style>
+ :root{--color-bg-card:#fff;--color-border:#E5E7EB;--color-text-primary:#111827;--color-text-secondary:#6B7280;
+       --color-pill-source-low-bg:#F3F4F6;--color-pill-source-low-text:#6B7280;}
+ body{font-family:-apple-system,system-ui,"Segoe UI",sans-serif;background:#F9FAFB;margin:0;padding:14px;color:#111827}
+ .wrap{max-width:720px;margin:0 auto}
+ h2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#6B7280;font-weight:500;margin:14px 0 4px}
+ .ab-card{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:10px;margin-bottom:6px;
+          box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04)}
+ .ab-summary{padding:14px 16px}
+ .ab-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+ .ab-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+ .p-h{background:#EEF2FF;color:#3730A3}.p-s{background:#F3F4F6;color:#374151}.p-c{background:#FEF3C7;color:#92400E}
+ .ab-what{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:4px}
+ .ab-sowhat{font-size:12px;color:#6B7280;line-height:1.4}
+ .ab-metrics-strip{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 12px;align-items:center}
+ .ab-metric{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+            background:var(--color-pill-source-low-bg);font-size:12px;color:var(--color-pill-source-low-text)}
+ .reason{background:transparent;color:#9CA3AF;font-size:11px;padding-left:0}
+ .amt{text-align:right;flex:none;max-width:170px;cursor:help}
+ .amt-val{font-size:16px;font-weight:600;line-height:1.1;white-space:nowrap}
+ .amt-sub{font-size:10.5px;color:#9CA3AF;margin-top:2px;text-decoration:underline dotted rgba(156,163,175,.6);text-underline-offset:2px}
+ .head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+ /* --- LA QUESTION --- */
+ .ask{padding:0 16px 13px}
+ .ask-q{font-size:12px;color:#374151;line-height:1.4;margin-bottom:8px}
+ .ask-q b{font-weight:600;color:#111827}
+ .ask-row{display:flex;gap:7px;flex-wrap:wrap}
+ .ask-btn{font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #C7D2FE;
+          padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit;transition:.12s}
+ .ask-btn:hover{background:#EEF2FF;border-color:#1D3BB3}
+ .ask-why{font-size:10.5px;color:#9CA3AF;margin-top:7px;line-height:1.35}
+ .done{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#065F46;background:#ECFDF5;
+       border:1px solid #A7F3D0;padding:5px 11px;border-radius:20px}
+ .toggle{padding:0 16px 12px;font-size:12px;font-weight:700;color:#1D3BB3}
+ .note{font-size:11px;color:#6B7280;margin:0 0 8px;line-height:1.4}
+</style>
+<div class="wrap">
+
+<h2>Aujourd'hui — état actuel</h2>
+<p class="note">La carte ne peut pas se chiffrer : sa classe <code>events_high</code> n'existe pas, faute de rayon adapté. Elle s'excuse sur l'historique de l'exploitant.</p>
+<div class="ab-card"><div class="ab-summary">
+  <div class="ab-pills"><span class="ab-pill p-h">Cette semaine</span><span class="ab-pill p-s">Les Olivades</span><span class="ab-pill p-c">Concurrence</span></div>
+  <div class="head"><div style="flex:1">
+    <div class="ab-what">Tourisme élevé mais concurrence forte</div>
+    <div class="ab-sowhat">Tourisme élevé (75, saison haute) mais pression ×4,2. Les touristes ont le choix — démarquez-vous.</div>
+  </div></div></div>
+  <div class="ab-metrics-strip"><span class="ab-metric reason">Motif du jour non séparable ou insuffisant sur votre historique — mûrit avec les saisons.</span></div>
+  <div class="toggle">Action menée ?</div>
+</div>
+
+<h2>Proposition — la question remplace l'excuse</h2>
+<p class="note">Même carte, même place. Le motif d'absence cède la place à la seule question dont la réponse débloque la mesure.</p>
+<div class="ab-card"><div class="ab-summary">
+  <div class="ab-pills"><span class="ab-pill p-h">Cette semaine</span><span class="ab-pill p-s">Les Olivades</span><span class="ab-pill p-c">Concurrence</span></div>
+  <div class="head"><div style="flex:1">
+    <div class="ab-what">Tourisme élevé mais concurrence forte</div>
+    <div class="ab-sowhat">Tourisme élevé (75, saison haute) mais pression ×4,2. Les touristes ont le choix — démarquez-vous.</div>
+  </div></div></div>
+  <div class="ask">
+    <div class="ask-q">Pour chiffrer ce que cette concurrence vous coûte, une seule chose manque :<br><b>la plupart de vos clients viennent-ils de votre commune, ou de plus loin ?</b></div>
+    <div class="ask-row">
+      <button class="ask-btn" onclick="rep(this,'commune')">De ma commune</button>
+      <button class="ask-btn" onclick="rep(this,'loin')">De plus loin, ils se déplacent</button>
+    </div>
+    <div class="ask-why">Votre réponse fixe le périmètre sur lequel on mesure — une seule fois, pour toutes vos cartes.</div>
+  </div>
+  <div class="toggle">Action menée ?</div>
+</div>
+
+<h2>Après réponse</h2>
+<p class="note">Confirmation sobre, et ce que l'exploitant peut attendre. Le chiffre arrive au calcul de nuit.</p>
+<div class="ab-card"><div class="ab-summary">
+  <div class="ab-pills"><span class="ab-pill p-h">Cette semaine</span><span class="ab-pill p-s">Les Olivades</span><span class="ab-pill p-c">Concurrence</span></div>
+  <div class="head"><div style="flex:1">
+    <div class="ab-what">Tourisme élevé mais concurrence forte</div>
+    <div class="ab-sowhat">Tourisme élevé (75, saison haute) mais pression ×4,2. Les touristes ont le choix — démarquez-vous.</div>
+  </div></div></div>
+  <div class="ask"><span class="done">✓ Périmètre régional enregistré — le montant apparaîtra demain</span></div>
+  <div class="toggle">Action menée ?</div>
+</div>
+
+<h2>Et une fois chiffrée</h2>
+<p class="note">Ce que la même carte devient quand la classe existe enfin — comme la carte météo aujourd'hui.</p>
+<div class="ab-card"><div class="ab-summary">
+  <div class="ab-pills"><span class="ab-pill p-h">Cette semaine</span><span class="ab-pill p-s">Les Olivades</span><span class="ab-pill p-c">Concurrence</span></div>
+  <div class="head">
+    <div style="flex:1">
+      <div class="ab-what">Tourisme élevé mais concurrence forte</div>
+      <div class="ab-sowhat">Tourisme élevé (75, saison haute) mais pression ×4,2. Les touristes ont le choix — démarquez-vous.</div>
+    </div>
+    <div class="amt" title="Enjeu annualisé, estimé — cause multifactorielle">
+      <div class="amt-val" style="color:#B45309">−12 400 €/an</div>
+      <div class="amt-sub">perdus · jours à forte densité</div>
+    </div>
+  </div></div>
+  <div class="toggle">Action menée ?</div>
+</div>
+
+</div>
+<script>
+function rep(btn,val){
+  var ask=btn.closest('.ask');
+  ask.innerHTML='<span class="done">✓ '+(val==='commune'?'Périmètre communal':'Périmètre régional')+' enregistré — le montant apparaîtra demain</span>';
+}
+</script>

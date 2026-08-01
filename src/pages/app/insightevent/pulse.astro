@@ -349,10 +349,10 @@ if (!location_id) {
          <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/reco-library.js?v=6"></script>
+    <script is:inline src="/reco-library.js?v=9"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=36"></script>
+    <script is:inline src="/action-cards.js?v=38"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
   <PiloterBottomBar active="veille" />
@@ -1582,6 +1582,53 @@ if (!location_id) {
       _catCounts[_pk + "|performance"] = (_catCounts[_pk + "|performance"] || 0) + 1;
     }
 
+    // PÉRIMÈTRE PASS (étage 4, 31/07/2026) — UNE place réservée PAR SITE pour une carte qui attend
+    // la réponse de périmètre. Même motif que la performance pass ci-dessus, et pour la même raison :
+    // ces cartes n'ont PAS d'enjeu (c'est leur définition), elles tombent donc en fin du tri
+    // `b.score - a.score` et le plafond MAX_PER_CAT = 2 les coupe. Sans place réservée la question
+    // ne serait jamais posée, donc jamais répondue, donc la famille resterait muette pour toujours —
+    // exactement le raisonnement qui a fait rejeter le formulaire de profil comme unique entrée.
+    //
+    // Tri entre candidates d'un même site : priorité de la carte, puis nombre d'événements
+    // concurrents décroissant. CE N'EST PAS un montant € — ces cartes n'en ont pas, et en fabriquer
+    // un serait la faute corrigée le 31/07 sur les cartes concurrent. Le vrai critère en euros
+    // viendra du calcul des deux hypothèses (1 km / 20 km) au cron, chantier séparé (temps 2).
+    //
+    // La place disparaît d'elle-même dès que la réponse est donnée : needs_catchment repasse à
+    // false côté registre, et la carte rejoint le flux normal avec son montant.
+    var _catchCounts = {};
+    var _evCount = function (it) {
+      var pl = it && it.data_payload;
+      if (typeof pl === 'string') { try { pl = JSON.parse(pl); } catch (e) { pl = null; } }
+      if (!pl) return 0;
+      return Number(pl.events_catchment != null ? pl.events_catchment : (pl.events_500m || 0)) || 0;
+    };
+    var _catchCands = [];
+    for (var _qi = 0; _qi < candidates.length; _qi++) {
+      if (candidates[_qi].item && candidates[_qi].item.needs_catchment === true) _catchCands.push(candidates[_qi]);
+    }
+    _catchCands.sort(function (x, y) {
+      // alert_level = l'action_priority renommee par action-cards.js dans sa liste blanche.
+      var px = Number(x.item.alert_level) || 0, py = Number(y.item.alert_level) || 0;
+      if (py !== px) return py - px;
+      return _evCount(y.item) - _evCount(x.item);
+    });
+    for (var _qj = 0; _qj < _catchCands.length; _qj++) {
+      var _qc = _catchCands[_qj];
+      var _qk = _siteKey(_qc);
+      if ((_catchCounts[_qk] || 0) >= 1) continue;              // UNE seule par site
+      if (_topForSite(_qk) >= MAX_PER_SITE) continue;
+      var _qsub = String(_qc.item.change_subtype || _qc.item.action_type || "").toLowerCase();
+      var _qDedupSub = (_qsub === "high_competition_density" || _qsub === "competition_proximity") ? "competition_density" : _qsub;
+      var _qDedup = _qk + "|" + _qDedupSub + "|" + normalizeYmd(_qc.item.affected_date);
+      if (seen[_qDedup]) continue;
+      seen[_qDedup] = true;
+      top.push(_qc);
+      _catchCounts[_qk] = (_catchCounts[_qk] || 0) + 1;
+      _catCounts[_qk + "|" + String(_qc.item.action_category || "").toLowerCase()] =
+        (_catCounts[_qk + "|" + String(_qc.item.action_category || "").toLowerCase()] || 0) + 1;
+    }
+
     for (var j = 0; j < candidates.length; j++) {
       var c = candidates[j];
       var _ck = _siteKey(c);
@@ -1743,7 +1790,19 @@ if (!location_id) {
       }
       // Raison d'absence (triage 26/07) : quand la carte est ÉLIGIBLE mais sans mesure, la
       // raison s'affiche en micro-texte discret — l'absence est expliquée, jamais muette.
-      if (!enj && a && a.enjeu_reason_fr) {
+      // PÉRIMÈTRE DE CLIENTÈLE (étage 4, 30/07 — docs/perimetre-client-spec.md) : quand la mesure
+      // est impossible faute de rayon déclaré, la QUESTION REMPLACE le motif d'absence, au même
+      // emplacement. Décision owner : sur CHAQUE carte concernée et INDÉFINIMENT tant qu'aucune
+      // réponse n'est donnée. Une réponse les résout toutes — d'où la ligne sous les boutons.
+      // PÉRIMÈTRE — la question NE VIT PLUS SUR LA CARTE (owner 31/07, après test à l'écran) :
+      // elle faisait DOUBLON avec l'étape 1 de « M'engager », qui la pose déjà. Elle est donc
+      // posée UNE seule fois, dans le fil où elle a une conséquence immédiate. Ce qui reste sur
+      // la carte, c'est le crochet : la zone montant affiche « ? €/an · votre réponse le
+      // débloque » (bloc .amt, cf. cardsHtml), et l'entrée de menu annonce l'étape.
+      // Et surtout PAS le motif d'absence gris à la place : il dirait « non séparable ou
+      // insuffisant » là où la zone montant dit « votre réponse le débloque » — deux messages
+      // contradictoires sur la même carte. D'où le needs_catchment !== true dans la condition.
+      if (!enj && a && a.needs_catchment !== true && a.enjeu_reason_fr) {
         pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;">' + escapeHtml(String(a.enjeu_reason_fr)) + '</span>');
       }
       return pills.join('');
@@ -1792,10 +1851,19 @@ if (!location_id) {
       // Retour de test 26/07 soir : sur une carte positive, l'entr\u00e9e s'appelle \u00ab Enrichir vos
       // bonnes pratiques \u00bb (on documente ce qui a march\u00e9, on ne s'engage pas \u2014 le libell\u00e9 suit).
       var _agirPositive = t.barClass === 'ab-opportunity' ? ' data-agir-positive="1"' : '';
+      // PÉRIMÈTRE, option B (31/07/2026) : l'entrée reste ACTIVE — c'est tout le principe de
+      // l'option B — mais sa description doit ANNONCER l'étape intercalée, sinon l'exploitant
+      // clique en croyant ouvrir le formulaire. Reprise du prototype validé. Le libellé revient
+      // à sa valeur normale dès la réponse (window.__msCatchmentAnswer, via data-catchment-dd-desc).
+      var _needsCatch = entry.item.needs_catchment === true && !_agirPositive;
       var _commitEntry = '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
         + '<div class="ab-dd-icon ab-dd-icon-send">' + (_agirPositive ? '\ud83d\udca1' : '\ud83c\udfaf') + '</div>'
         + '<div><div class="ab-dd-label">' + (_agirPositive ? 'Enrichir vos bonnes pratiques' : 'M\u2019engager') + '</div>'
-          + '<div class="ab-dd-desc">' + (_agirPositive ? 'Garder ce qui a march\u00e9 \u2014 et le rejouer' : 'Fixer une action, un objectif et un responsable') + '</div></div>'
+          + '<div class="ab-dd-desc"' + (_needsCatch ? ' data-catchment-dd-desc="' + escapeHtml(String(entry.item.location_id || '')) + '"' : '') + '>'
+          + (_agirPositive
+              ? 'Garder ce qui a march\u00e9 \u2014 et le rejouer'
+              : (_needsCatch ? 'Une question d\u2019abord, puis action, objectif et responsable'
+                             : 'Fixer une action, un objectif et un responsable')) + '</div></div>'
       + '</button>';
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
         + _commitEntry
@@ -1890,6 +1958,19 @@ if (!location_id) {
         _amtHtml = '<div class="amt" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
+        + '</div>';
+      }
+      // PÉRIMÈTRE — la zone montant n'est plus vide (variante 1, validée owner 31/07/2026).
+      // Une carte qui attend le périmètre occupe la MÊME place que les autres dans la colonne des
+      // montants, avec le même bloc .amt : elle dit que le montant existe et que la réponse le
+      // débloque. On n'invente aucun chiffre — c'est exactement la faute corrigée le 31/07 sur les
+      // 7 cartes concurrent. Les nombres de jours mesurables (temps 2) viendront s'y substituer
+      // quand le cron stockera les deux hypothèses ; d'ici là, rien de faux n'est affiché.
+      else if (entry.item.needs_catchment === true) {
+        _amtHtml = '<div class="amt" data-catchment-amt="' + escapeHtml(String(entry.item.location_id || '')) + '"'
+          + ' title="Ce montant existe. Il n’est pas calculable tant que le périmètre de mesure n’est pas déclaré — nous ne devinons pas un rayon.">'
+          + '<div class="amt-val" style="color:#1D3BB3;">? €/an</div>'
+          + '<div class="amt-sub">votre réponse le débloque</div>'
         + '</div>';
       }
       // R3 : « Action menée ? » fusionnée dans la strip (2 rangées au lieu de 3) — mêmes
@@ -2196,6 +2277,56 @@ if (!location_id) {
         onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; }
       });
     }
+    // OPTION B (validée owner 31/07/2026) — « M'engager » sur une carte qui attend le périmètre
+    // n'est PAS désactivé : il INTERCALE une étape. Vérifié avant de coder : le KPI d'un engagement
+    // ne vient pas de l'enjeu de la carte mais des ventes réelles du lieu (api/commitments/index.ts
+    // ~164, baseline_daily) — creation_baseline_daily transmis par la carte n'est qu'un repli.
+    // Ce qui manque n'est donc pas un KPI, c'est le PÉRIMÈTRE auquel l'objectif sera comparé.
+    // On le demande, puis on enchaîne sur le formulaire habituel, sans rien retirer à personne.
+    function _openCatchmentStep(ws, card) {
+      var locId = String(card.location_id || '');
+      function _step(n, txt) {
+        var on = n === 1;
+        return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:' + (on ? '#1D3BB3' : '#9ca3af') + ';">'
+          + '<span style="width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:' + (on ? '#EEF2FF' : 'var(--color-pill-source-low-bg)') + ';color:' + (on ? '#1D3BB3' : 'var(--color-pill-source-low-text)') + ';">' + n + '</span>' + txt + '</span>';
+      }
+      ws.innerHTML = '<div style="padding:14px 16px 16px;">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+          + _step(1, 'Votre périmètre') + '<span style="flex:1;height:1px;background:#F3F4F6;"></span>' + _step(2, 'Votre engagement')
+        + '</div>'
+        // Classe .ms-catchment-step : c'est désormais le SEUL endroit où la question est posée.
+        // Les boutons sont câblés localement, juste en dessous, et passent par
+        // window.__msCatchmentAnswer — l'écriture reste au même endroit pour tout le monde.
+        + '<div class="ms-catchment-step">'
+          + '<div style="font-size:12.5px;font-weight:600;color:#111827;line-height:1.45;">La plupart de vos clients viennent-ils de votre commune, ou de plus loin ?</div>'
+          + '<div style="font-size:11.5px;color:#6B7280;line-height:1.5;margin-top:3px;">On mesurera votre engagement sur ce périmètre. Sans lui, votre objectif se compare à un repère qui ignore votre zone.</div>'
+          + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 6px;">'
+            + '<button type="button" data-step-catchment="commune" class="agir-btn">De ma commune</button>'
+            + '<button type="button" data-step-catchment="beyond" class="agir-btn">De plus loin, ils se déplacent</button>'
+          + '</div>'
+          + '<div style="font-size:11px;color:#9CA3AF;line-height:1.5;">Une seule fois, pour toutes vos cartes. L’étape 2 s’ouvre dès votre réponse.</div>'
+        + '</div>'
+      + '</div>';
+      ws.querySelectorAll('[data-step-catchment]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var val = b.getAttribute('data-step-catchment');
+          ws.querySelectorAll('[data-step-catchment]').forEach(function (x) { x.disabled = true; });
+          window.__msCatchmentAnswer(locId, val).then(function (ok) {
+            if (!ok) {
+              ws.querySelectorAll('[data-step-catchment]').forEach(function (x) { x.disabled = false; });
+              var st = ws.querySelector('.ms-catchment-step');
+              if (st) st.lastElementChild.innerHTML = '<span style="color:#B91C1C;">Enregistrement impossible. Réessayez.</span>';
+              return;
+            }
+            // Étape 2 : le formulaire d'engagement HABITUEL, inchangé — donc le roster
+            // « Responsable » (fetchOwners -> fetchTeamMembers, repli self-fetch sur
+            // /api/channels/team) propose les personnes du Compte comme partout ailleurs.
+            card.needs_catchment = false;
+            _openCommitForm(ws, card);
+          });
+        });
+      });
+    }
     root.querySelectorAll("[data-agir-commit]").forEach(function(btn){
       btn.addEventListener("click", function(e){
         e.stopPropagation();
@@ -2205,6 +2336,7 @@ if (!location_id) {
         var card = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || {};
         ws.style.display = "block";
         if (btn.getAttribute("data-agir-positive")) _openBpForm(ws, card);
+        else if (card.needs_catchment === true) _openCatchmentStep(ws, card);
         else _openCommitForm(ws, card);
       });
     });
@@ -4333,6 +4465,27 @@ if (!location_id) {
         var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
         return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
       });
+      // PÉRIMÈTRE — LA PLACE RÉSERVÉE DOIT SURVIVRE AU PLI (31/07/2026).
+      // La passe de sélection (renderDailyBrief, « PÉRIMÈTRE PASS ») réserve déjà une place par
+      // site à la carte qui pose la question du périmètre. Ce tri-ci la reperdait : cette carte
+      // n'a PAS d'enjeu — c'est sa définition — donc data-t-e=0 la renvoie en fin de son groupe
+      // d'horizon, et le pli à 3 lui pose display:none.
+      // Mesuré le 31/07 sur f10c3e58, en exécutant le vrai action-cards.js puis le vrai bloc de
+      // sélection : 8 cartes pour le site (l'en-tête « 8 actions » de l'owner), la carte
+      // competition_proximity au rang 3 — le PREMIER rang replié. Le bloc .ms-catchment-ask était
+      // bien produit par buildMetricsStrip, avec le bon location_id : il était caché, pas absent.
+      // On la remonte au dernier rang visible (2) : les deux cartes les plus urgentes gardent leur
+      // rang, et la question est atteignable sans déplier. La carte est reconnue par le bloc
+      // qu'elle porte, jamais par une liste de types recopiée.
+      // Marqueur : [data-catchment-amt], porté par la zone montant « ? €/an » — et non plus
+      // .ms-catchment-ask, retiré de la carte le 31/07 (la question ne vit plus que dans
+      // « M'engager »). Sans ce changement la carte reperdait sa place réservée et retombait au
+      // rang 3, donc repliée : exactement le défaut corrigé ce matin.
+      var _pIdx = -1;
+      for (var _pi = 0; _pi < siteCtx.length; _pi++) {
+        if (siteCtx[_pi].querySelector('[data-catchment-amt]')) { _pIdx = _pi; break; }
+      }
+      if (_pIdx > 2) siteCtx.splice(2, 0, siteCtx.splice(_pIdx, 1)[0]);
       siteCtx.forEach(function(c, i) {
         if (i >= 3) { c.setAttribute('data-t-folded', '1'); c.style.display = 'none'; }
         holder.appendChild(c);
@@ -5950,6 +6103,44 @@ if (!location_id) {
       console.error(e);
     }
   })();
+
+  // PÉRIMÈTRE DE CLIENTÈLE (étage 4) — un clic répond, POST vers set-catchment, puis la question
+  // est remplacée EN PLACE par la confirmation. Le délai est annoncé : le recalcul du MONTANT est
+  // nocturne (cron day-class-impacts, 02:00), le taire ferait croire à un bug. La QUESTION, elle,
+  // disparaît dès le rechargement suivant : depuis le 31/07 le registre lit le périmètre sur
+  // dims.dim_client_location, que set-catchment écrit dans la seconde — plus aucune attente de dbt.
+  // Une réponse résout TOUTES les cartes, donc on retire aussi les questions des autres cartes du
+  // même site, et on bascule leur zone montant, sans recharger la page.
+  //
+  // L'écriture est ISOLÉE dans window.__msCatchmentAnswer : l'étape intermédiaire de « M'engager »
+  // (option B, _openCatchmentStep) la réutilise au lieu de dupliquer le POST et la bascule.
+  if (!window.__msCatchmentAnswer) {
+    window.__msCatchmentAnswer = function (locId, val) {
+      if (!locId || (val !== 'commune' && val !== 'beyond')) return Promise.resolve(false);
+      return fetch('/api/profile/set-catchment', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location_id: locId, catchment: val })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          if (!(j && j.ok)) return false;
+          // La zone montant suit : « ? €/an » n'a plus de sens une fois la réponse donnée, et le
+          // chiffre n'arrivera qu'au cron de cette nuit — on le dit plutôt que de laisser un point
+          // d'interrogation qui semblerait ignoré.
+          document.querySelectorAll('[data-catchment-amt="' + locId + '"]').forEach(function (a) {
+            a.innerHTML = '<div class="amt-val" style="color:#9CA3AF;">— €/an</div>'
+              + '<div class="amt-sub">calcul cette nuit</div>';
+          });
+          // L'entrée « M'engager » n'annonce plus d'étape intercalée : il n'y en a plus.
+          document.querySelectorAll('[data-catchment-dd-desc="' + locId + '"]').forEach(function (d) {
+            d.textContent = 'Fixer une action, un objectif et un responsable';
+            d.removeAttribute('data-catchment-dd-desc');
+          });
+          return true;
+        })
+        .catch(function () { return false; });
+    };
+  }
 
 })();
 </script>

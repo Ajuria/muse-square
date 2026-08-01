@@ -4,11 +4,22 @@
 // and the substrate of the future structural pattern-finder cards. Full spec + decisions + backlog:
 // docs/enjeu-day-class-registry.md (read it before extending).
 //
-// WHAT IT COMPUTES (per location, per day-class):
-//   Enjeu €/an = AVG(daily_revenue − expected_revenue on class days) × (class days per year, real
-//   frequency from this venue's own history). expected_revenue = the dow+trend normale
-//   (mart.fct_client_day_residual) — weekday mix and trend are already controlled; what remains is
-//   a CONDITIONAL ASSOCIATION, never a causal claim (see the causation ladder in the doc).
+// WHAT IT COMPUTES (per location, per day-class) — RÉGIME LOG + MÉDIANE depuis le 01/08/2026 :
+//   Significativité testée sur le RÉSIDU LOG (ln(daily_revenue) − ln(expected_revenue)) — celui que
+//   le modèle minimise, centré sur 0 par construction. Le gap € linéaire porte un biais de
+//   retransformation log-normale (mesuré chez Les Olivades : +1 942 €/j sur TOUS les jours,
+//   exp(σ²/2)=1,975 vs 1,823 observé) qui fabriquait des faux positifs au-dessus de |t| ≥ 2 :
+//   les jours de semaine — DANS la baseline, effet nul par construction — sortaient à t=+2,0..+2,8
+//   en linéaire, à −0,03..+0,31 en log. Preuves : docs/residu-bruit-diagnostic.md.
+//   Enjeu €/an = MÉDIANE(gap € des jours de classe) × (jours de classe par an, fréquence réelle du
+//   lieu). La médiane est insensible au biais (gap médian Olivades : −81 € vs moyenne +1 942 €) ET
+//   aux factures extrêmes (une facture portait 76 % des € de competition_high). Garde de COHÉRENCE
+//   DE SIGNE : pas de pilule si sign(t_log) ≠ sign(médiane) (cas wind Olivades : t_log +1,68,
+//   médiane −114 €/j — le test et la monétisation se contredisent, absence honnête).
+//   expected_revenue = mart.fct_client_day_residual ; ce qui reste est une ASSOCIATION
+//   CONDITIONNELLE, jamais une causalité. discount_no_lift (classe COÛT, somme de remises) reste
+//   au régime linéaire par construction. Avant/après mesuré sur les 5 lieux : 19 pilules → 16,
+//   les 3 mortes sont les 3 fantômes des Olivades, rien ne meurt sur les 4 lieux propres.
 //   NEVER an extrapolation of one day's gap (owner decision, proto 24/07: « who acts over 110 € ? »).
 //
 // HONESTY GATES (tier = epistemic level, shown on the pill):
@@ -50,6 +61,7 @@ export type DayClassResult = {
   conditionByDate: Map<string, string>;   // 'YYYY-MM-DD' -> weather class_key (for date-resolved cards)
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
   immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
+  clientCatchment?: string | null;        // périmètre DÉCLARÉ du lieu ('commune'|'beyond'|null)
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -94,7 +106,10 @@ export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lv
 export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col: string; label_fr: string }> = [
   { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte pression concurrentielle" },
   { key: "tourism_high", family: "tourism", index_col: "tourism_index_region", label_fr: "jours à fort flux touristique" },
-  { key: "events_high", family: "events", index_col: "events_within_500m_count", label_fr: "jours à forte densité d'événements (500 m)" },
+  // index_col RETIRÉ : il n'était lu nulle part (seul label_fr sert, via CLASS_LABELS) et faisait
+  // croire à une autorité qu'il n'avait pas. Le rayon dépend désormais du périmètre déclaré par le
+  // lieu (1 km / 20 km / 500 m par défaut) : le libellé ne peut plus l'annoncer en dur.
+  { key: "events_high", family: "events", index_col: "", label_fr: "jours à forte densité d'événements" },
   // Classes BASSES (mapping B2/D2, ajoutées 26/07) : tercile bas — les fenêtres favorables
   // (basse pression, basse saison) ; écart positif attendu → pill verte « À capter ».
   { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible pression concurrentielle" },
@@ -198,6 +213,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         c.location_id,
         c.date,
         r.daily_revenue - r.expected_revenue AS gap_eur,
+        -- Résidu LOG (01/08) : le test de significativité se fait ici — centré par construction,
+        -- insensible au biais de retransformation qui rend le gap € moyen non nul (cf. en-tête).
+        CASE WHEN r.daily_revenue > 0 AND r.expected_revenue > 0
+             THEN LN(r.daily_revenue) - LN(r.expected_revenue) END AS gap_log,
         ${conditionCaseSql()} AS weather_class,
         c.is_school_holiday_flag AS school_flag,
         c.is_public_holiday_flag AS holiday_flag,
@@ -206,7 +225,22 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         f.competition_index_local,
         f.tourism_index_region,
         COALESCE(f.mobility_disruption_flag_event_window, FALSE) AS mobility_flag,
-        e.events_within_500m_count AS events_500m,
+        -- Périmètre de clientèle DÉCLARÉ (docs/perimetre-client-spec.md) : commune -> 1 km,
+        -- beyond -> 20 km. c.client_catchment vient de fct_location_context_daily, qui la porte
+        -- déjà (vérifié sur INFORMATION_SCHEMA le 30/07) — aucun join supplémentaire.
+        -- ELSE = 500 m, le comportement actuel. La spec écrivait « tant que la réponse est
+        -- absente, la classe n'existe pas » : c'est FAUX, events_high est mesurée pour 3 lieux
+        -- dans analytics.day_class_impacts. Un ELSE NULL aurait supprimé ces trois mesures.
+        -- L'alias est renommé : events_500m mentait sur son contenu dès que le rayon varie.
+        -- Lu sur la DIMENSION (dcl), pas sur c : fct_location_context_daily ne porte pas la
+        -- colonne. Même correction que dateResolutionQuery — ici l'échec était total : la requête
+        -- entière tombait (« Name client_catchment not found inside c »), donc le repli live
+        -- computeDayClassImpacts ne rendait plus rien pour un compte sans lignes au store.
+        CASE dcl.client_catchment
+          WHEN 'commune' THEN e.events_within_1km_count
+          WHEN 'beyond'  THEN e.events_within_20km_count
+          ELSE                e.events_within_500m_count
+        END AS events_radius,
         COALESCE(sv.active_ct, 0) AS suivis_ct,
         perf.daily_visitors AS visitors,
         COALESCE(sg.is_discount_without_lift, FALSE) AS discount_no_lift_flag,
@@ -228,6 +262,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         ON perf.location_id = c.location_id AND perf.transaction_date = c.date
       LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` sg
         ON sg.location_id = c.location_id AND sg.transaction_date = c.date
+      -- Périmètre déclaré, grain location_id (32 lignes / 32 lieux vérifié) : aucune
+      -- démultiplication des jours, donc aucun effet sur les agrégats existants.
+      LEFT JOIN \`${PROJECT}.dims.dim_client_location\` dcl
+        ON dcl.location_id = c.location_id
       WHERE c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND c.date <= CURRENT_DATE()
       ${singleLocation ? "AND c.location_id = @location_id" : ""}
     ),
@@ -240,8 +278,8 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(1)] AS tour_t1,
         APPROX_QUANTILES(tourism_index_region, 3)[OFFSET(2)] AS tour_t2,
         MIN(tourism_index_region) AS tour_min, MAX(tourism_index_region) AS tour_max,
-        APPROX_QUANTILES(events_500m, 3)[OFFSET(2)] AS ev_t2,
-        MIN(events_500m) AS ev_min, MAX(events_500m) AS ev_max,
+        APPROX_QUANTILES(events_radius, 3)[OFFSET(2)] AS ev_t2,
+        MIN(events_radius) AS ev_min, MAX(events_radius) AS ev_max,
         APPROX_QUANTILES(IF(suivis_ct > 0, suivis_ct, NULL), 3)[OFFSET(2)] AS sv_t2,
         COUNT(DISTINCT IF(suivis_ct > 0, suivis_ct, NULL)) AS sv_distinct,
         APPROX_QUANTILES(visitors, 3)[OFFSET(2)] AS vis_t2,
@@ -255,7 +293,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         (j.weather_class IS NOT NULL) AS in_weather,
         (j.competition_index_local IS NOT NULL AND t.comp_max > t.comp_min AND j.competition_index_local >= t.comp_t2) AS in_comp,
         (j.tourism_index_region IS NOT NULL AND t.tour_max > t.tour_min AND j.tourism_index_region >= t.tour_t2) AS in_tour,
-        (j.events_500m IS NOT NULL AND t.ev_max > t.ev_min AND j.events_500m >= t.ev_t2) AS in_events,
+        (j.events_radius IS NOT NULL AND t.ev_max > t.ev_min AND j.events_radius >= t.ev_t2) AS in_events,
         (j.mobility_flag IS TRUE) AS in_mobility,
         (j.suivis_ct > 0 AND t.sv_distinct > 1 AND j.suivis_ct >= t.sv_t2) AS in_suivis,
         (j.school_flag IS TRUE) AS in_school,
@@ -275,54 +313,55 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     ),
     -- Étape 2.5 : jours de classe (TOUTES appartenances, pureté en colonne) — une passe par classe.
     class_days AS (
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'weather' AS family, weather_class AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'weather' AS family, weather_class AS class_key
       FROM counted WHERE in_weather
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_high' AS class_key
       FROM counted WHERE in_comp
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_high' AS class_key
       FROM counted WHERE in_tour
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'events' AS family, 'events_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'events' AS family, 'events_high' AS class_key
       FROM counted WHERE in_events
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'mobility' AS family, 'mobility_disruption' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'mobility' AS family, 'mobility_disruption' AS class_key
       FROM counted WHERE in_mobility
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'suivis' AS family, 'followed_activity_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'suivis' AS family, 'followed_activity_high' AS class_key
       FROM counted WHERE in_suivis
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
       FROM counted WHERE in_traffic
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_low' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_low' AS class_key
       FROM counted WHERE in_comp_low
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_low' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_low' AS class_key
       FROM counted WHERE in_tour_low
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
       FROM counted WHERE in_school
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'public_holiday' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'public_holiday' AS class_key
       FROM counted WHERE in_holiday
     ),
     -- Contrôle marginal PAR CLASSE : les jours HORS classe X du même (mois × type de jour) du site.
     -- C'est le contraste marginal classique — le contrôle peut contenir d'autres classes, ce que
     -- l'étiquette « facteurs mêlés » assume ; >= 3 jours de contrôle requis par cellule.
     cell_stats AS (
-      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt
+      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt, SUM(gap_log) AS cell_sum_log, COUNTIF(gap_log IS NOT NULL) AS cell_cnt_log
       FROM counted GROUP BY location_id, month_num, weekend_flag
     ),
     cell_class AS (
-      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt
+      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
       FROM class_days GROUP BY location_id, month_num, weekend_flag, class_key
     ),
     adjusted AS (
       SELECT
         cd.*,
         SAFE_DIVIDE(cs.cell_sum - cc.x_sum, cs.cell_cnt - cc.x_cnt) AS ctrl_gap,
+        SAFE_DIVIDE(cs.cell_sum_log - cc.x_sum_log, cs.cell_cnt_log - cc.x_cnt_log) AS ctrl_gap_log,
         cs.cell_cnt - cc.x_cnt AS ctrl_n
       FROM class_days cd
       JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag
@@ -332,18 +371,18 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- calendrier, contrôlé hors-classe même cellule (leçon calendarFamily). 'marginal' = TOUS les
     -- jours de la classe, gap − contrôle hors-classe (mois × type de jour) — « facteurs mêlés ».
     classed AS (
-      SELECT location_id, date, gap_eur, family, class_key, 'pure' AS basis
+      SELECT location_id, date, gap_eur, gap_log, family, class_key, 'pure' AS basis
       FROM adjusted WHERE n_memberships = 1 AND family != 'calendar'
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, family, class_key, 'pure'
+      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
       FROM adjusted WHERE n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, family, class_key, 'marginal'
+      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
       FROM adjusted WHERE ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
       -- discount_no_lift : classe COÛT (€ remisés, stockés négatifs) — fait du jour, hors pureté,
       -- hors ajustement saison, base 'pure' par nature.
-      SELECT location_id, date, -discount_total, 'sales', 'discount_no_lift', 'pure'
+      SELECT location_id, date, -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
       FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
     ),
     span AS (
@@ -358,6 +397,11 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       COUNT(*) AS n_days,
       AVG(cl.gap_eur) AS avg_gap_eur,
       STDDEV_SAMP(cl.gap_eur) AS sd_gap_eur,
+      -- Régime log+médiane (01/08) : le t se calcule sur les stats _log, l'€ sur la médiane.
+      APPROX_QUANTILES(cl.gap_eur, 2)[OFFSET(1)] AS med_gap_eur,
+      COUNTIF(cl.gap_log IS NOT NULL) AS n_log,
+      AVG(cl.gap_log) AS avg_log,
+      STDDEV_SAMP(cl.gap_log) AS sd_log,
       s.span_days,
       CURRENT_TIMESTAMP() AS computed_at
     FROM classed cl
@@ -394,11 +438,37 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
   const sd = Number(row?.sd_gap_eur ?? NaN);
   const spanDays = Number(row?.span_days ?? 0);
   if (!key || !CLASS_LABELS[key] || !Number.isFinite(avg) || n < 5 || spanDays < 60) return null;
-  const t = Number.isFinite(sd) && sd > 0 ? Math.abs(avg) / (sd / Math.sqrt(n)) : 0;
-  // |t| >= 1 floor for ANY pill (incrément 1) : tercile classes pass n>=5 BY CONSTRUCTION, so
-  // without a signal floor pure noise gets annualized (proven live: t=0,08 → « ~352 €/an »).
-  if (t < 1) return null;
-  const eurYear = Math.round(avg * (n / (spanDays / 365.25)));
+  // RÉGIME LOG + MÉDIANE (01/08, GO owner — preuves docs/residu-bruit-diagnostic.md) :
+  // le t se calcule sur le résidu LOG (centré par construction ; le t linéaire fabriquait des
+  // faux positifs à +2,0..+2,8 sur des classes d'effet nul), l'€/j est la MÉDIANE des gaps
+  // (insensible au biais de retransformation et aux factures — une seule portait 76 % des €
+  // de competition_high chez Les Olivades). discount_no_lift (classe COÛT : somme de remises,
+  // pas un résidu) reste au régime linéaire. Repli legacy : une ligne sans stats _log (store
+  // d'avant le rebuild, ou historique) garde l'ancien calcul plutôt que de disparaître.
+  const nLog = Number(row?.n_log ?? 0);
+  const avgLog = Number(row?.avg_log ?? NaN);
+  const sdLog = Number(row?.sd_log ?? NaN);
+  const med = Number(row?.med_gap_eur ?? NaN);
+  const isCostClass = key === "discount_no_lift";
+  const hasLog = !isCostClass && nLog >= 5 && Number.isFinite(avgLog) && Number.isFinite(sdLog) && Number.isFinite(med);
+  let t: number;
+  let dailyEur: number;
+  if (hasLog) {
+    t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+    // |t| >= 1 floor for ANY pill (incrément 1) : tercile classes pass n>=5 BY CONSTRUCTION, so
+    // without a signal floor pure noise gets annualized (proven live: t=0,08 → « ~352 €/an »).
+    if (t < 1) return null;
+    // COHÉRENCE DE SIGNE : test log et médiane € doivent pointer dans le même sens, sinon la
+    // distribution est trop biscornue pour affirmer quoi que ce soit (cas mesuré : wind Olivades,
+    // t_log +1,68 mais médiane −114 €/j). Absence honnête, pas de pilule.
+    if (med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
+    dailyEur = med;
+  } else {
+    t = Number.isFinite(sd) && sd > 0 ? Math.abs(avg) / (sd / Math.sqrt(n)) : 0;
+    if (t < 1) return null;
+    dailyEur = avg;
+  }
+  const eurYear = Math.round(dailyEur * (n / (spanDays / 365.25)));
   if (
     annualRevenue != null && Number.isFinite(annualRevenue) && annualRevenue > 0 &&
     Math.abs(eurYear) < annualRevenue * MATERIALITY_PCT_OF_REVENUE
@@ -414,7 +484,8 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),
-    avg_gap_eur: Math.round(avg * 10) / 10,
+    // En régime log+médiane, le « €/j » exposé EST la médiane — cohérent avec eur_year.
+    avg_gap_eur: Math.round(dailyEur * 10) / 10,
     t_stat: Math.round(t * 100) / 100,
   };
 }
@@ -456,14 +527,27 @@ function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, 
   return rowsToImpactsWithImmaterial(rows, annualRevenue).impacts;
 }
 
-async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }> }> {
-  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>() };
+async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }>; clientCatchment: string | null }> {
+  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>(), clientCatchment: null as string | null };
   if (!dates.length) return empty;
   const rows = await bq.query({
     query: `
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
-             c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag
+             c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
+             dcl.client_catchment AS client_catchment
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+      -- Périmètre déclaré : lu sur la DIMENSION, pas sur le mart de contexte.
+      -- 31/07/2026 — la version précédente lisait c.client_catchment, colonne qui N'EXISTE PAS
+      -- dans fct_location_context_daily (49 colonnes, vérifié live). La requête échouait, son
+      -- catch avalait l'erreur, et TOUT ce qu'elle rend tombait à vide : clientCatchment bien sûr
+      -- (donc répondre à la question ne pouvait jamais l'éteindre), mais AUSSI conditionByDate et
+      -- calendarByDate — soit la résolution météo/calendrier par date de TOUTES les cartes.
+      -- Mesuré sur f10c3e58 : 0 / 0 / null. Introduit par 4f86360, jamais parti en prod.
+      -- La dimension est le bon référentiel : set-catchment.ts l'écrit dans la seconde, donc la
+      -- question disparaît au rechargement suivant sans attendre un run dbt. Grain vérifié :
+      -- 32 lignes pour 32 lieux, une par location_id — aucune démultiplication possible.
+      LEFT JOIN \`${PROJECT}.dims.dim_client_location\` dcl
+        ON dcl.location_id = c.location_id
       WHERE c.location_id = @location_id
         AND c.date IN UNNEST(ARRAY(SELECT PARSE_DATE('%Y-%m-%d', d) FROM UNNEST(@dates) AS d))
     `,
@@ -476,6 +560,8 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
     if (!row?.date) continue;
     if (row?.condition) out.conditionByDate.set(String(row.date), String(row.condition));
     out.calendarByDate.set(String(row.date), { school: row?.school_flag === true, holiday: row?.holiday_flag === true });
+    // Grain LIEU : identique sur toutes les lignes, on garde la première valeur non nulle.
+    if (out.clientCatchment == null && row?.client_catchment != null) out.clientCatchment = String(row.client_catchment);
   }
   return out;
 }
@@ -525,7 +611,7 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue] = await Promise.all([
     bq.query({
-      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
+      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
       params: { location_id },
       location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
@@ -569,14 +655,33 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   mobility_disruption: "mobility_disruption",
   mobility_disruption_planned: "mobility_disruption",
   ft_peak_mobility: "mobility_disruption",
-  competitor_event_launch: "followed_activity_high",
-  competitor_event_ending: "followed_activity_high",
-  competitor_audience_conflict: "followed_activity_high",
-  competitor_sold_out: "followed_activity_high",
-  competitor_content_spike: "followed_activity_high",
-  competitor_content_silent: "followed_activity_high",
-  competitor_threat_direct: "followed_activity_high",
+  // ── RETIRÉ le 31/07/2026 — les 7 cartes CONCURRENT ────────────────────────────────────────
+  // Elles étaient mappées sur followed_activity_high. Le fait annoncé est un ÉVÉNEMENT SINGULIER
+  // (« le Musée de l'Orangerie lance 1er dimanche gratuit ») ; la classe mesure une POPULATION DE
+  // JOURS (« les journées où l'activité des concurrents suivis est dans le tercile haut »). Deux
+  // référentiels différents : aucun geste sur le premier ne déplace le second. Le montant fabriquait
+  // donc une urgence, sans prise.
+  //
+  // Deux d'entre elles avaient le signe INVERSÉ : competitor_event_ending (une activité qui
+  // s'ARRÊTE) et competitor_content_silent (un concurrent qui se TAIT) affichaient le prix des
+  // jours de FORTE activité — elles chiffraient le contraire de ce qu'elles annonçaient.
+  //
+  // Le retrait ne repose sur AUCUNE statistique : le défaut est logique. La mesure tentée le 31/07
+  // était d'ailleurs invalide (3 lieux sur 4 sont des comptes de démonstration alimentés par un jeu
+  // Kaggle, et elle confondait cannibalisation et entraînement — cf docs/competition-split-spec.md).
+  //
+  // Ces cartes restent affichées, SANS pastille € : elles sont décidables par l'urgence, pas par
+  // l'argent. Rouvrir le sujet suppose (1) plusieurs comptes réels avec ventes + concurrents suivis,
+  // (2) une normalisation d'event_type (146 valeurs libres pour 496 lignes aujourd'hui),
+  // (3) la scission secteur/audience de competition-split-spec.md. Voir docs/card-truth-audit.md.
 };
+
+// Cartes dont le CONTENU dépend du périmètre de clientèle déclaré (client_catchment) — donc les
+// seules qui peuvent porter la question de l'étage 4. Recensement mécanique du 31/07 sur
+// fct_location_daily_action_candidates : ce sont les deux seuls action_type dont le texte et le
+// payload utilisent un rayon LOCAL (500 m / 1 km). Tout le reste du parc est à 5 / 10 / 50 km,
+// rayons que le périmètre ne remplace pas.
+const CATCHMENT_DEPENDENT_TYPES = new Set(["competition_proximity", "high_competition_density"]);
 
 // Cartes calendrier : classe résolue par la DATE affectée (vacances d'abord, férié sinon).
 const CALENDAR_TYPES = new Set(["calendar_audience_shift", "audience_shift_opportunity"]);
@@ -660,7 +765,7 @@ export const ABSENCE_REASON_FR = {
 } as const;
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean } {
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);
   if (enjeu) return { enjeu, reason_fr: null };
   // MATÉRIALITÉ (29/07) : la classe de cette carte a bien été MESURÉE, et elle est négligeable.
@@ -674,12 +779,35 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
     if (mappedKey && imm.has(mappedKey)) return { enjeu: null, reason_fr: null, immaterial: true };
   }
   const actionType = String(candidate?.action_type || "");
+  // ÉTAGE 4 — la question du périmètre de clientèle (docs/perimetre-client-spec.md).
+  //
+  // CORRIGÉ le 31/07. La première version dérivait « carte concernée » de
+  // CARD_TYPE_CLASS[type] === 'events_high'. C'ÉTAIT FAUX : ce mapping décrit la classe d'ENJEU,
+  // pas le CONTENU de la carte. Il attrapait same_bucket_saturation, dont le texte et le payload
+  // sont entièrement à 5 km (« Plus de 25% des evenements a 5km sont dans votre secteur »,
+  // { pct_same_sector, events_5km, pressure_ratio }) — un rayon que le périmètre déclaré ne change
+  // PAS, et qui est hors périmètre par décision owner (scission même-secteur,
+  // docs/competition-split-spec.md). On aurait posé la question sur une carte qu'elle ne débloque
+  // pas : la faute même corrigée le matin du 31/07 sur les 7 cartes concurrent.
+  //
+  // La liste est donc EXPLICITE, et issue d'un recensement mécanique du mart : sur les 54 blocs
+  // to_json_string de fct_location_daily_action_candidates, DEUX seulement utilisent un rayon local
+  // (500 m / 1 km) — les seuls que le périmètre remplace. Vérifié en base après reconstruction :
+  // competition_proximity 36/36 et high_competition_density 4/4 portent events_catchment,
+  // same_bucket_saturation 0/28.
+  //
+  // Une liste nommée est moins élégante qu'une dérivation, mais elle ne ment pas. Ajouter un type
+  // ici suppose de vérifier d'abord que SON CONTENU lit les colonnes events_within_catchment_*.
+  //
+  // Le drapeau n'accompagne QUE les retours sans enjeu : si le montant est déjà chiffré, la question
+  // n'a plus d'objet. Il ne sort pas non plus sur une carte écartée pour matérialité (carte masquée).
+  const needsCatchment = result?.clientCatchment == null && CATCHMENT_DEPENDENT_TYPES.has(actionType);
   if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
   if (!mapped) return { enjeu: null, reason_fr: null };
-  if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history };
-  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable };
+  if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history, needs_catchment: needsCatchment };
+  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable, needs_catchment: needsCatchment };
 }
 
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
