@@ -1762,8 +1762,11 @@
       var comp = a.events_5km != null ? Number(a.events_5km) : null;
       var driverFr = ({competition:'concurrence', major_realization_risk:'risque majeur', baseline_insufficient:'données insuffisantes'})[a.driver] || null;
 
+      // Écart € DU JOUR (01/08) : le référentiel de CE payload est la moyenne 30 j (pas
+      // d'expected_revenue ici) — l'€ s'affiche à côté du %, même référentiel, nommé.
+      var gap30 = (rev != null && avg != null) ? rev - avg : null;
       var line = (rev != null && avg != null)
-        ? 'CA ' + rev + ' € — ' + (pctBelow != null ? '-' + pctBelow + ' %' : 'en net retrait') + ' vs votre moyenne 30j (' + avg + ' €).'
+        ? 'CA ' + rev + ' € — ' + (gap30 != null ? (gap30 < 0 ? '-' : '+') + Math.abs(gap30) + ' €' + (pctBelow != null ? ' (-' + pctBelow + ' %)' : '') : (pctBelow != null ? '-' + pctBelow + ' %' : 'en net retrait')) + ' vs votre moyenne 30j (' + avg + ' €).'
         : 'CA en net retrait vs votre moyenne 30j.';
 
       if (pr != null && pr > 1.3) {
@@ -1814,7 +1817,10 @@
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
 
       var jours = window.msWeekdayFr(a.affected_date);
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours + '.';
+      // Écart € DU JOUR (01/08) : même règle que sales_revenue_down_wow — référentiel nommé.
+      var gapJ = (rev != null && exp != null) ? rev - exp : null;
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + exp + ' €).' : '.');
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
@@ -1942,7 +1948,12 @@
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
       var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours + '.';
+      // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
+      // nommé « l'attendu du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
+      var expD = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
+      var gapJ = (rev != null && expD != null) ? rev - expD : null;
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + expD + ' €).' : '.');
       if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {
