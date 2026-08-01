@@ -292,7 +292,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Enjeu (€/an) — day-class registry (lib/dayClassRegistry.ts, spec docs/enjeu-day-class-registry.md):
       // lecture du STORE nightly (analytics.day_class_impacts, incrément 1) + fallback live pour un
       // compte pas encore batché. Échec soft → pas de pill (absence honnête).
-      getDayClassImpacts(bq, location_id, selected_dates)
+      //
+      // FENÊTRE ÉLARGIE de 30 j en arrière (01/08). Les cartes performance portent une date
+      // d'INGESTION passée (piège documenté « Data Path » : le mart les émet sur
+      // transaction_date >= current_date - 30) : avec selected_dates seul, conditionByDate ne
+      // couvrait pas leur jour affecté → l'héritage « Motif de fond » (weather@date/calendar@date)
+      // tombait à vide et la carte affichait « Anomalie ponctuelle » à tort. Reproduit sur
+      // ff2aeb35 (sales_revenue_down_wow du 30/07 : null avec [aujourd'hui], heat_28_plus
+      // −4 925 €/an avec la fenêtre). MÊME unique requête (IN UNNEST), seulement plus de dates.
+      getDayClassImpacts(bq, location_id, (() => {
+        const wide = new Set<string>(selected_dates as string[]);
+        for (let i = 1; i <= 30; i++) {
+          const d = new Date();
+          d.setUTCDate(d.getUTCDate() - i);
+          wide.add(d.toISOString().slice(0, 10));
+        }
+        return [...wide];
+      })())
         .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
     ]);
 
