@@ -62,6 +62,9 @@ export type DayClassResult = {
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
   immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
   clientCatchment?: string | null;        // périmètre DÉCLARÉ du lieu ('commune'|'beyond'|null)
+  // Temps 2 du périmètre : jours mesurables que chaque réponse débloquerait (lu depuis
+  // CATCHMENT_HYP_STORE, null tant que le cron n'a pas tourné ou sans historique de ventes).
+  catchmentHypotheses?: { commune: number; beyond: number } | null;
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -144,6 +147,54 @@ const PROJECT = "muse-square-open-data";
 // POLICY (gates, tier, €/an, negative-only) lives HERE in rowsToImpacts and is applied at READ
 // time, so a gate change never requires a re-batch. Rebuilt nightly by api/cron/day-class-impacts.
 export const DAY_CLASS_STORE = "analytics.day_class_impacts";
+
+// Temps 2 du périmètre (01/08, variante honnête validée owner) : le nombre de jours mesurables que
+// CHAQUE réponse débloquerait, calculé et stocké par le cron — JAMAIS codé en dur (la faute des
+// 7 cartes concurrent). TABLE SÉPARÉE du store des pilules, à dessein : des lignes d'hypothèse
+// dans day_class_impacts seraient bucketées 'pure' par toute lecture antérieure à ce commit
+// (rowsToImpactsWithImmaterial traite tout non-'marginal' comme pure) — une pilule fabriquée
+// depuis une hypothèse. L'isolation rend l'accident impossible.
+export const CATCHMENT_HYP_STORE = "analytics.catchment_hypothesis_days";
+
+// Jours mesurables par HYPOTHÈSE de périmètre ('commune' -> 1 km, 'beyond' -> 20 km) : jours avec
+// ventes (JOIN résiduel, comme l'agrégat) dont la densité au rayon hypothétique tombe dans SON
+// tercile haut — la sémantique exacte de in_events (non-NULL, distribution non dégénérée, >= t2).
+export function catchmentHypothesisSql(singleLocation: boolean): string {
+  return `
+    WITH joined AS (
+      SELECT
+        c.location_id,
+        e.events_within_1km_count  AS ev1,
+        e.events_within_20km_count AS ev20
+      FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+      JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        ON r.location_id = c.location_id AND r.date = c.date
+      LEFT JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e
+        ON e.location_id = c.location_id AND e.date = c.date
+        AND e.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND e.date <= CURRENT_DATE()
+      WHERE c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND c.date <= CURRENT_DATE()
+      ${singleLocation ? "AND c.location_id = @location_id" : ""}
+    ),
+    th AS (
+      SELECT location_id,
+        APPROX_QUANTILES(ev1, 3)[OFFSET(2)]  AS ev1_t2,  MIN(ev1)  AS ev1_min,  MAX(ev1)  AS ev1_max,
+        APPROX_QUANTILES(ev20, 3)[OFFSET(2)] AS ev20_t2, MIN(ev20) AS ev20_min, MAX(ev20) AS ev20_max
+      FROM joined GROUP BY location_id
+    )
+    SELECT
+      j.location_id,
+      hypothesis,
+      COUNTIF(CASE WHEN hypothesis = 'commune'
+                   THEN j.ev1  IS NOT NULL AND t.ev1_max  > t.ev1_min  AND j.ev1  >= t.ev1_t2
+                   ELSE j.ev20 IS NOT NULL AND t.ev20_max > t.ev20_min AND j.ev20 >= t.ev20_t2 END) AS n_days_measurable,
+      COUNT(*) AS n_days_sales,
+      CURRENT_TIMESTAMP() AS computed_at
+    FROM joined j
+    JOIN th t USING (location_id)
+    CROSS JOIN UNNEST(['commune', 'beyond']) AS hypothesis
+    GROUP BY j.location_id, hypothesis
+  `;
+}
 
 // Seuil et départage des classes météo — FOYER UNIQUE (alimente le store ligne ~146 ET la
 // résolution carte→classe ligne ~372, donc les deux ne peuvent pas diverger).
@@ -609,7 +660,7 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 }
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
-  const [storeRows, dateRes, annualRevenue] = await Promise.all([
+  const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
     bq.query({
       query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
       params: { location_id },
@@ -617,13 +668,26 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
+    // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus
+    // lente), .catch [] tant que la table n'existe pas. Pas de repli live : un compte pas
+    // encore batché montre la question SANS nombres, c'est le comportement voulu.
+    bq.query({
+      query: `SELECT hypothesis, n_days_measurable FROM \`${PROJECT}.${CATCHMENT_HYP_STORE}\` WHERE location_id = @location_id`,
+      params: { location_id },
+      location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
   ]);
+  const hyp = (() => {
+    const m = new Map((hypRows as any[]).map((h: any) => [String(h?.hypothesis), Number(h?.n_days_measurable)]));
+    const commune = m.get("commune"); const beyond = m.get("beyond");
+    return Number.isFinite(commune) && Number.isFinite(beyond) ? { commune: commune as number, beyond: beyond as number } : null;
+  })();
   if ((storeRows as any[]).length > 0) {
     const { impacts, immaterial } = rowsToImpactsWithImmaterial(storeRows as any[], annualRevenue);
-    return { impacts, immaterial, ...dateRes };
+    return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
   }
   const live = await computeDayClassImpacts(bq, location_id, []);
-  return { impacts: live.impacts, ...dateRes };
+  return { impacts: live.impacts, ...dateRes, catchmentHypotheses: hyp };
 }
 
 // Weather action types that resolve their condition from the AFFECTED DATE (payload has none).

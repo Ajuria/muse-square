@@ -981,7 +981,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // — un aveu d'ignorance là où l'on sait, et où la réponse est « ça ne pèse rien ».
         .filter((r: any) => !enjeuWithReasonForCandidate(dayClassResult as any, r).immaterial)
         .map((r: any) => ({
-        ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
+        ...((er) => ({
+          enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
+          // Temps 2 périmètre : les jours mesurables par hypothèse, UNIQUEMENT sur les cartes qui
+          // posent la question (calculés par le cron, CATCHMENT_HYP_STORE — jamais en dur).
+          catchment_days: er.needs_catchment === true ? ((dayClassResult as any).catchmentHypotheses ?? null) : null,
+        }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
