@@ -226,6 +226,23 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 
 };
 
+// ╔═══════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠ AVERTISSEMENT 31/07/2026 — L'ORDRE CI-DESSOUS EST CELUI DU VOLUME DE TIRS, ET IL EST    ║
+// ║ TROMPEUR. Il a été établi sans consulter docs/card-truth-audit.md, qui juge la VÉRITÉ des ║
+// ║ cartes. Vérifié depuis : sur les 4 premières, AUCUNE n'est jugée saine —                  ║
+// ║   foreign_tourism_signal      « Démettre au Fil »  (DÉMISE le 31/07)                      ║
+// ║   audience_shift_opportunity  « Démettre »          (déjà démise le 28/07)                ║
+// ║   tourism_peak_window         « Fil »               (déjà démise le 28/07)                ║
+// ║   weekend_opportunity         « Durcir » — annonce une opportunité un jour à −131 €/j     ║
+// ║ Une carte DÉMISE (DEMOTED_TO_FEED) ne paraît plus aux Actions du jour : elle n'a plus de  ║
+// ║ menu « M'engager », donc écrire ses plans est du travail perdu.                           ║
+// ║ Les deux seules cartes que l'audit certifie : low_competition_window (« GARDER TELLE      ║
+// ║ QUELLE », +88 €/j t=2,4 — mais elle ne rend qu'1 plan sur 3) et weekend_vacation_low_comp ║
+// ║ (« la plus saine du lot » — aucun plan). COMMENCER PAR CELLES-LÀ.                          ║
+// ║ Et le volume de tirs n'est PAS un critère : 32 tirs/jour sur 32 sites sur 32 est le       ║
+// ║ symptôme d'une règle qui ne discrimine pas.                                               ║
+// ╚═══════════════════════════════════════════════════════════════════════════════════════════╝
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // ÉCHAFAUDAGE À REMPLIR — 27 types qui TIRENT et n'ont aucun plan (31/07/2026)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
