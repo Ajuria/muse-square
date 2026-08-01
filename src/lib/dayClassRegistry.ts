@@ -4,11 +4,22 @@
 // and the substrate of the future structural pattern-finder cards. Full spec + decisions + backlog:
 // docs/enjeu-day-class-registry.md (read it before extending).
 //
-// WHAT IT COMPUTES (per location, per day-class):
-//   Enjeu €/an = AVG(daily_revenue − expected_revenue on class days) × (class days per year, real
-//   frequency from this venue's own history). expected_revenue = the dow+trend normale
-//   (mart.fct_client_day_residual) — weekday mix and trend are already controlled; what remains is
-//   a CONDITIONAL ASSOCIATION, never a causal claim (see the causation ladder in the doc).
+// WHAT IT COMPUTES (per location, per day-class) — RÉGIME LOG + MÉDIANE depuis le 01/08/2026 :
+//   Significativité testée sur le RÉSIDU LOG (ln(daily_revenue) − ln(expected_revenue)) — celui que
+//   le modèle minimise, centré sur 0 par construction. Le gap € linéaire porte un biais de
+//   retransformation log-normale (mesuré chez Les Olivades : +1 942 €/j sur TOUS les jours,
+//   exp(σ²/2)=1,975 vs 1,823 observé) qui fabriquait des faux positifs au-dessus de |t| ≥ 2 :
+//   les jours de semaine — DANS la baseline, effet nul par construction — sortaient à t=+2,0..+2,8
+//   en linéaire, à −0,03..+0,31 en log. Preuves : docs/residu-bruit-diagnostic.md.
+//   Enjeu €/an = MÉDIANE(gap € des jours de classe) × (jours de classe par an, fréquence réelle du
+//   lieu). La médiane est insensible au biais (gap médian Olivades : −81 € vs moyenne +1 942 €) ET
+//   aux factures extrêmes (une facture portait 76 % des € de competition_high). Garde de COHÉRENCE
+//   DE SIGNE : pas de pilule si sign(t_log) ≠ sign(médiane) (cas wind Olivades : t_log +1,68,
+//   médiane −114 €/j — le test et la monétisation se contredisent, absence honnête).
+//   expected_revenue = mart.fct_client_day_residual ; ce qui reste est une ASSOCIATION
+//   CONDITIONNELLE, jamais une causalité. discount_no_lift (classe COÛT, somme de remises) reste
+//   au régime linéaire par construction. Avant/après mesuré sur les 5 lieux : 19 pilules → 16,
+//   les 3 mortes sont les 3 fantômes des Olivades, rien ne meurt sur les 4 lieux propres.
 //   NEVER an extrapolation of one day's gap (owner decision, proto 24/07: « who acts over 110 € ? »).
 //
 // HONESTY GATES (tier = epistemic level, shown on the pill):
@@ -202,6 +213,10 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         c.location_id,
         c.date,
         r.daily_revenue - r.expected_revenue AS gap_eur,
+        -- Résidu LOG (01/08) : le test de significativité se fait ici — centré par construction,
+        -- insensible au biais de retransformation qui rend le gap € moyen non nul (cf. en-tête).
+        CASE WHEN r.daily_revenue > 0 AND r.expected_revenue > 0
+             THEN LN(r.daily_revenue) - LN(r.expected_revenue) END AS gap_log,
         ${conditionCaseSql()} AS weather_class,
         c.is_school_holiday_flag AS school_flag,
         c.is_public_holiday_flag AS holiday_flag,
@@ -298,54 +313,55 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     ),
     -- Étape 2.5 : jours de classe (TOUTES appartenances, pureté en colonne) — une passe par classe.
     class_days AS (
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'weather' AS family, weather_class AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'weather' AS family, weather_class AS class_key
       FROM counted WHERE in_weather
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_high' AS class_key
       FROM counted WHERE in_comp
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_high' AS class_key
       FROM counted WHERE in_tour
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'events' AS family, 'events_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'events' AS family, 'events_high' AS class_key
       FROM counted WHERE in_events
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'mobility' AS family, 'mobility_disruption' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'mobility' AS family, 'mobility_disruption' AS class_key
       FROM counted WHERE in_mobility
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'suivis' AS family, 'followed_activity_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'suivis' AS family, 'followed_activity_high' AS class_key
       FROM counted WHERE in_suivis
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'traffic' AS family, 'traffic_high' AS class_key
       FROM counted WHERE in_traffic
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_low' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'competition' AS family, 'competition_low' AS class_key
       FROM counted WHERE in_comp_low
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_low' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'tourism' AS family, 'tourism_low' AS class_key
       FROM counted WHERE in_tour_low
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'school_holiday' AS class_key
       FROM counted WHERE in_school
       UNION ALL
-      SELECT location_id, date, gap_eur, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'public_holiday' AS class_key
+      SELECT location_id, date, gap_eur, gap_log, month_num, weekend_flag, n_memberships, 'calendar' AS family, 'public_holiday' AS class_key
       FROM counted WHERE in_holiday
     ),
     -- Contrôle marginal PAR CLASSE : les jours HORS classe X du même (mois × type de jour) du site.
     -- C'est le contraste marginal classique — le contrôle peut contenir d'autres classes, ce que
     -- l'étiquette « facteurs mêlés » assume ; >= 3 jours de contrôle requis par cellule.
     cell_stats AS (
-      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt
+      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt, SUM(gap_log) AS cell_sum_log, COUNTIF(gap_log IS NOT NULL) AS cell_cnt_log
       FROM counted GROUP BY location_id, month_num, weekend_flag
     ),
     cell_class AS (
-      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt
+      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
       FROM class_days GROUP BY location_id, month_num, weekend_flag, class_key
     ),
     adjusted AS (
       SELECT
         cd.*,
         SAFE_DIVIDE(cs.cell_sum - cc.x_sum, cs.cell_cnt - cc.x_cnt) AS ctrl_gap,
+        SAFE_DIVIDE(cs.cell_sum_log - cc.x_sum_log, cs.cell_cnt_log - cc.x_cnt_log) AS ctrl_gap_log,
         cs.cell_cnt - cc.x_cnt AS ctrl_n
       FROM class_days cd
       JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag
@@ -355,18 +371,18 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- calendrier, contrôlé hors-classe même cellule (leçon calendarFamily). 'marginal' = TOUS les
     -- jours de la classe, gap − contrôle hors-classe (mois × type de jour) — « facteurs mêlés ».
     classed AS (
-      SELECT location_id, date, gap_eur, family, class_key, 'pure' AS basis
+      SELECT location_id, date, gap_eur, gap_log, family, class_key, 'pure' AS basis
       FROM adjusted WHERE n_memberships = 1 AND family != 'calendar'
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, family, class_key, 'pure'
+      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
       FROM adjusted WHERE n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, family, class_key, 'marginal'
+      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
       FROM adjusted WHERE ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
       -- discount_no_lift : classe COÛT (€ remisés, stockés négatifs) — fait du jour, hors pureté,
       -- hors ajustement saison, base 'pure' par nature.
-      SELECT location_id, date, -discount_total, 'sales', 'discount_no_lift', 'pure'
+      SELECT location_id, date, -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
       FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
     ),
     span AS (
@@ -381,6 +397,11 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       COUNT(*) AS n_days,
       AVG(cl.gap_eur) AS avg_gap_eur,
       STDDEV_SAMP(cl.gap_eur) AS sd_gap_eur,
+      -- Régime log+médiane (01/08) : le t se calcule sur les stats _log, l'€ sur la médiane.
+      APPROX_QUANTILES(cl.gap_eur, 2)[OFFSET(1)] AS med_gap_eur,
+      COUNTIF(cl.gap_log IS NOT NULL) AS n_log,
+      AVG(cl.gap_log) AS avg_log,
+      STDDEV_SAMP(cl.gap_log) AS sd_log,
       s.span_days,
       CURRENT_TIMESTAMP() AS computed_at
     FROM classed cl
@@ -417,11 +438,37 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
   const sd = Number(row?.sd_gap_eur ?? NaN);
   const spanDays = Number(row?.span_days ?? 0);
   if (!key || !CLASS_LABELS[key] || !Number.isFinite(avg) || n < 5 || spanDays < 60) return null;
-  const t = Number.isFinite(sd) && sd > 0 ? Math.abs(avg) / (sd / Math.sqrt(n)) : 0;
-  // |t| >= 1 floor for ANY pill (incrément 1) : tercile classes pass n>=5 BY CONSTRUCTION, so
-  // without a signal floor pure noise gets annualized (proven live: t=0,08 → « ~352 €/an »).
-  if (t < 1) return null;
-  const eurYear = Math.round(avg * (n / (spanDays / 365.25)));
+  // RÉGIME LOG + MÉDIANE (01/08, GO owner — preuves docs/residu-bruit-diagnostic.md) :
+  // le t se calcule sur le résidu LOG (centré par construction ; le t linéaire fabriquait des
+  // faux positifs à +2,0..+2,8 sur des classes d'effet nul), l'€/j est la MÉDIANE des gaps
+  // (insensible au biais de retransformation et aux factures — une seule portait 76 % des €
+  // de competition_high chez Les Olivades). discount_no_lift (classe COÛT : somme de remises,
+  // pas un résidu) reste au régime linéaire. Repli legacy : une ligne sans stats _log (store
+  // d'avant le rebuild, ou historique) garde l'ancien calcul plutôt que de disparaître.
+  const nLog = Number(row?.n_log ?? 0);
+  const avgLog = Number(row?.avg_log ?? NaN);
+  const sdLog = Number(row?.sd_log ?? NaN);
+  const med = Number(row?.med_gap_eur ?? NaN);
+  const isCostClass = key === "discount_no_lift";
+  const hasLog = !isCostClass && nLog >= 5 && Number.isFinite(avgLog) && Number.isFinite(sdLog) && Number.isFinite(med);
+  let t: number;
+  let dailyEur: number;
+  if (hasLog) {
+    t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+    // |t| >= 1 floor for ANY pill (incrément 1) : tercile classes pass n>=5 BY CONSTRUCTION, so
+    // without a signal floor pure noise gets annualized (proven live: t=0,08 → « ~352 €/an »).
+    if (t < 1) return null;
+    // COHÉRENCE DE SIGNE : test log et médiane € doivent pointer dans le même sens, sinon la
+    // distribution est trop biscornue pour affirmer quoi que ce soit (cas mesuré : wind Olivades,
+    // t_log +1,68 mais médiane −114 €/j). Absence honnête, pas de pilule.
+    if (med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
+    dailyEur = med;
+  } else {
+    t = Number.isFinite(sd) && sd > 0 ? Math.abs(avg) / (sd / Math.sqrt(n)) : 0;
+    if (t < 1) return null;
+    dailyEur = avg;
+  }
+  const eurYear = Math.round(dailyEur * (n / (spanDays / 365.25)));
   if (
     annualRevenue != null && Number.isFinite(annualRevenue) && annualRevenue > 0 &&
     Math.abs(eurYear) < annualRevenue * MATERIALITY_PCT_OF_REVENUE
@@ -437,7 +484,8 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),
-    avg_gap_eur: Math.round(avg * 10) / 10,
+    // En régime log+médiane, le « €/j » exposé EST la médiane — cohérent avec eur_year.
+    avg_gap_eur: Math.round(dailyEur * 10) / 10,
     t_stat: Math.round(t * 100) / 100,
   };
 }
@@ -563,7 +611,7 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue] = await Promise.all([
     bq.query({
-      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
+      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
       params: { location_id },
       location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
