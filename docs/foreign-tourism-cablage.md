@@ -7,6 +7,38 @@
 
 ---
 
+## ÉTAT AU 01/08 — le correctif n'a JAMAIS été déployé, et il portait un bug
+
+**1. Pourquoi le rebuild de 06:14 n'a rien changé : le correctif n'est nulle part.**
+Le SQL réellement exécuté a été lu dans le job BigQuery qui a écrit la table — job
+`5bf9a650-bd50-46e4-b31f-3ba92c9c859d` (`CREATE_TABLE_AS_SELECT` →
+`mart.fct_location_daily_action_candidates`, 01/08 06:14:06 UTC, service account dbt Cloud ;
+requête : `INFORMATION_SCHEMA.JOBS_BY_PROJECT` de `ms-database-472505`, région EU — les jobs
+dbt sont facturés là, pas dans `muse-square-open-data`). Ce SQL contient encore
+`where p.date >= current_date()` et `on m.region_code = d.region_id`, et **zéro** occurrence
+de `profile_reference_year` ou `mart_region_code`. Le checkout local du dépôt dbt
+(`~/Documents/ms_database`, HEAD `c5cefa1`) ne les contient pas non plus. Le correctif
+n'existe que dans ce document : le build de 06:14 a reconstruit l'ancien modèle, d'où
+`avec_pays = 0` (mesuré 01/08 : 128 lignes ≥ aujourd'hui, 0/0/0 sur les trois champs).
+
+**2. Le correctif du 31/07 était FAUX tel qu'écrit : il manquait la déduplication.**
+Le mart projette le profil sur CHAQUE JOUR (grain date × région × pays) : un mois porte
+**31 lignes identiques par pays** (mesuré : 31 lignes, 1 seule part distincte, et aucun
+(région, mois, pays) ne porte deux parts distinctes — aucun mois ne chevauche deux saisons).
+La jointure au MOIS telle qu'écrite le 31/07 aurait donc multiplié chaque pays par ~31 :
+`share_total_pct` ≈ 990 % au lieu de 43 %, chaque pays répété 31 fois dans `countries_named`.
+Le SQL ci-dessous est corrigé (`select distinct`). **Le tableau « Ce que ça donnera » du 31/07
+était en outre incohérent** : il annonçait « Occitanie 32 % » avec un détail qui somme à 43.
+Les chiffres re-mesurés le 01/08 sont dans le tableau plus bas.
+
+**3. Limitation à connaître : le profil ne couvre que les mois d'avril à septembre.**
+Mesuré sur `reference_year = 2025` : mois 4 à 9 uniquement (2 400–2 480 lignes/mois), rien
+d'octobre à mars. Sur ces six mois-là, la jointure ne rendra rien et la carte gardera sa
+branche honnête (« pas encore disponible »). C'est le rythme de publication du Flash INSEE,
+pas un défaut du correctif.
+
+---
+
 ## Ce que je croyais, et ce qui est vrai
 
 J'ai annoncé ce matin « les champs sont réservés et jamais remplis, il faut câbler ». **Faux.**
@@ -77,7 +109,11 @@ region_foreign_mix as (
     --    FRE1) là où les lieux portent le NUTS-2016 (FRJ = Occitanie). Seule l'Île-de-France
     --    coïncidait. Aucune règle de préfixe ne tient — FRJ → FR81 la casse — d'où une
     --    correspondance EXPLICITE. Par la clé, jamais par le libellé.
-    select
+    -- 3. LE GRAIN (ajout 01/08). Le mart projette le profil sur CHAQUE JOUR (grain
+    --    date × région × pays) : un mois porte ~31 lignes identiques par pays. Joindre au MOIS
+    --    sans dédupliquer multiplierait share_total_pct par ~31. Mesuré : aucun
+    --    (région, mois, pays) ne porte deux parts distinctes, le DISTINCT est donc exact.
+    select distinct
         p.reference_year,
         extract(month from p.date)  as profile_month,
         r.region_id,
@@ -153,15 +189,21 @@ puisse afficher le millésime.
 
 ---
 
-## Ce que ça donnera — mesuré, pas espéré
+## Ce que ça donnera — re-mesuré le 01/08 (chaîne complète, avec la déduplication)
 
-Logique de jointure corrigée, exécutée sur les tables réelles, `date = CURRENT_DATE()` :
+Chaîne `region_acc_choice → region_foreign_mix (distinct) → foreign_tourism_named` exécutée
+telle quelle sur les tables réelles (mêmes CTE que le modèle, univers `ctx =
+fct_location_context_features_daily`), `date = CURRENT_DATE()` (01/08/2026) :
 
-| région | lieux | base | pays appariés | part cumulée | détail |
-|---|---|---|---|---|---|
-| **Occitanie** (`FRJ`) | **16** | `hotels` | 4 | **32 %** | Royaume-Uni 16 %, Allemagne 11 %, Suisse 11 %, Pays-Bas 5 % |
-| **Île-de-France** (`FR10`) | **11** | `hotels` | 4 | **33 %** | Royaume-Uni 14 %, Allemagne 10 %, Pays-Bas 5 %, Suisse 4 % |
-| **PACA** (`FRL`) | **4** | — | 0 | — | région absente du mart (documenté dans son en-tête) |
+| région | lieux couverts / actifs | pays appariés | part cumulée | détail (`countries_named` réel) |
+|---|---|---|---|---|
+| **Occitanie** (`FRJ`) | **16 / 16** | 4 | **43 %** | Royaume-Uni 16%, Suisse 11%, Allemagne 11%, Pays-Bas 5% |
+| **Île-de-France** (`FR10`) | **11 / 11** | 4 | **33 %** | Royaume-Uni 14%, Allemagne 10%, Pays-Bas 5%, Suisse 4% |
+| **PACA** (`FRL`) | 0 / 4 | 0 | — | région absente du mart (documenté dans son en-tête) |
+| *(sans région)* | 0 / 1 | 0 | — | `region_id` NULL sur ce lieu |
+
+⚠ Le « 32 % » d'Occitanie annoncé le 31/07 était faux (son propre détail sommait à 43).
+Suisse/Allemagne sont à égalité (11 %) : leur ordre dans `string_agg` n'est pas déterministe.
 
 **27 des 32 lieux** passent de « 24 pays sont en vacances scolaires » à « le Royaume-Uni, votre
 1er marché étranger à 16 % des nuitées non-résidentes de la région, entre en vacances ».
@@ -218,9 +260,13 @@ les nouvelles colonnes sans `--full-refresh` ») ne s'applique pas ici : ce mod�
 ```sql
 SELECT COUNT(*) AS lignes,
        COUNTIF(JSON_VALUE(data_payload,'$.countries_named') IS NOT NULL) AS avec_pays,
-       COUNTIF(JSON_VALUE(data_payload,'$.share_total_pct') IS NOT NULL) AS avec_part
+       COUNTIF(JSON_VALUE(data_payload,'$.share_total_pct') IS NOT NULL) AS avec_part,
+       COUNTIF(JSON_VALUE(data_payload,'$.profile_reference_year') IS NOT NULL) AS avec_millesime,
+       MAX(SAFE_CAST(JSON_VALUE(data_payload,'$.share_total_pct') AS FLOAT64)) AS part_max
 FROM `muse-square-open-data.semantic.vw_insight_event_action_candidates`
 WHERE action_type = 'foreign_tourism_signal' AND date >= CURRENT_DATE();
 ```
 
-Attendu : `avec_pays` et `avec_part` ≈ **27/32 des lignes** (tout sauf PACA). Aujourd'hui : **0**.
+Attendu : `avec_pays`, `avec_part` et `avec_millesime` ≈ **27/32 des lignes** (tout sauf PACA
+et le lieu sans `region_id`) ; **`part_max` ≤ 100** — c'est le témoin du bug de déduplication :
+s'il dépasse 100, le `distinct` du CTE n'est pas passé. Au 01/08 (avant correctif) : **0 partout**.
