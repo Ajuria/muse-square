@@ -1999,7 +1999,11 @@ if (!location_id) {
         + '<button type="button" data-ab-dispo-btn="card_already_done" class="disc-btn">Déjà fait</button>'
         + '<button type="button" data-ab-dispo-btn="card_not_done" class="disc-btn">Pas pour moi</button>'
       + '</span>') : '';
-      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '" style="border-left:3px solid ' + _barColor + ';">'
+      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '"'
+        // Règle 5 (01/08) : classe portée par la carte datée (enjeu direct, jamais hérité) —
+        // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
+        + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
+        + ' style="border-left:3px solid ' + _barColor + ';">'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
@@ -4374,8 +4378,87 @@ if (!location_id) {
     + '</div>';
   }
 
+  // Carte structurelle PLEINE (doctrine 01/08, règles validées) : même anatomie qu'une carte
+  // système (.ab-summary / .ab-what / .amt / .aline), coin = poids du motif, provenance en
+  // infobulle (amendement 2), CTA par registre (amendement 7) : identification -> « Reproduire
+  // le dispositif » (Documenter), correctif -> « M'engager ». data-t-h="0" : un motif non
+  // traité est actionnable aujourd'hui — le tri unique horizon puis |coin| fait le reste.
+  function _structFullCardHtml(imp, key) {
+    var pos = Number(imp.eur_year) > 0;
+    var bar = pos ? '#059669' : '#B45309';
+    var fg = pos ? 'var(--color-pill-green-text)' : '#B45309';
+    var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
+    var cause = imp.label_fr ? String(imp.label_fr).replace(/^jours (de |d’|à )?/, '') : '';
+    var lbl = (pos ? 'à gagner' : 'perdus') + (cause ? ' · ' + cause : '');
+    var tip = 'Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. '
+      + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
+    var ident = imp.register === 'identification';
+    var btn = ident
+      ? '<button type="button" data-struct-doc="' + key + '" class="agir-btn">Reproduire le dispositif</button>'
+      : '<button type="button" data-struct-commit="' + key + '" class="agir-btn">M’engager</button>';
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '" style="border-left:3px solid ' + bar + ';">'
+      + '<div class="ab-summary">'
+        + '<div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>'
+        + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
+        + '<span class="chip-n">' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + '</span></div>'
+        + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
+            + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
+          + '</div>'
+          + '<div class="amt" title="' + escapeHtml(tip) + '"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
+        + '</div>'
+        + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;">' + btn + '</span></div>'
+      + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
+    + '</div>';
+  }
+
   function _wireStructRows(scope) {
     var imps = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts : [];
+    // « Reproduire le dispositif » (registre identification) : le Documenter — la pratique
+    // capturée nourrit la base de connaissances (étape 2 du parcours ; l'étape 1, le mode
+    // enquête, arrive avec l'atelier — docs/atelier-mecanismes-spec.md). Repli : jamais un mur.
+    scope.querySelectorAll('[data-struct-doc]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var key = b.getAttribute('data-struct-doc');
+        var imp = imps[Number(key)];
+        var ws = scope.querySelector('[data-struct-ws="' + key + '"]');
+        if (!imp || !ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        var origin = {
+          origin_action_type: 'structural_' + imp.class_key,
+          origin_driver: null,
+          origin_suppression_key: 'structural:' + imp.class_key + ':' + imp.location_id,
+          origin_card_instance_id: null,
+          origin_affected_date: null,
+          creation_residual_pct: null,
+          creation_residual_z: null,
+          creation_confidence_tier: null,
+          creation_baseline_daily: null
+        };
+        if (!window.MSBpForm) {
+          if (!window.MSCommitForm) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+          ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^(Chantier|Enquête)\s*:\s*/, '')] });
+          window.MSCommitForm.wire(ws, { location_id: imp.location_id, origin: origin,
+            fetchOwners: function() { return fetchTeamMembers(imp.location_id).then(function(m) { return (m && m.length) ? m : teamMembersPool(imp.location_id); }); },
+            onDone: function(j) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>'; },
+            onCancel: function() { ws.style.display = 'none'; ws.innerHTML = ''; } });
+          return;
+        }
+        ws.innerHTML = window.MSBpForm.buildHtml({
+          anchorHtml: escapeHtml(String(imp.title_fr || '')),
+          pistes: ['Offre ou mise en avant spécifique ces jours-là', 'Organisation particulière de l’équipe sur ces journées', 'Communication publiée avant ces journées']
+        });
+        window.MSBpForm.wire(ws, {
+          location_id: imp.location_id,
+          origin: origin,
+          onSaved: function() { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Documenté — ajouté à vos bonnes pratiques. Le dispositif se précise avec chaque journée expliquée.</div>'; }
+        });
+      });
+    });
     scope.querySelectorAll('[data-struct-follow]').forEach(function(b) {
       b.addEventListener('click', function() {
         var eng = document.getElementById('pls-engagement-cards');
@@ -4425,7 +4508,8 @@ if (!location_id) {
     var filtering = fh !== 'tous' || fn !== 'tous';
     mount.querySelectorAll('.ab-card[data-t-site]').forEach(function(c) {
       var h = c.getAttribute('data-t-h') === '3' ? 'struct' : (c.getAttribute('data-t-h') === '0' ? 'today' : 'week');
-      var okH = fh === 'tous' || h === fh;
+      // Un motif PROMU (carte pleine, data-t-h=0) répond aux deux filtres : Aujourd'hui ET Structurel.
+      var okH = fh === 'tous' || h === fh || (fh === 'struct' && c.hasAttribute('data-struct-full'));
       var okN = fn === 'tous' || c.getAttribute('data-t-n') === fn;
       var folded = c.getAttribute('data-t-folded') === '1';
       c.style.display = (okH && okN && (!folded || filtering || _triageState.sortEnjeu)) ? '' : 'none';
@@ -4486,14 +4570,27 @@ if (!location_id) {
     order.forEach(function(site, si) {
       var siteCtx = ctxCards.filter(function(c) { return (c.getAttribute('data-t-site') || '') === site; });
       var siteImps = imps.map(function(imp, gi) { return { imp: imp, gi: gi }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
+      // PROMOTION (doctrine 01/08, règles validées) : les motifs les plus lourds NON TRAITÉS
+      // deviennent des cartes PLEINES dans le flux du site — plafond 2 (règle 4) ; un motif
+      // engagé reste compact (règle 3) ; un motif dont la classe est portée AUJOURD'HUI par une
+      // carte datée du site reste compact (règle 5 — la carte datée EST l'instance du motif).
+      // siteImps est déjà trié par |€/an| (tri global de imps).
+      var _siteCls = {};
+      siteCtx.forEach(function(c) { var k = c.getAttribute('data-t-class'); if (k) _siteCls[k] = 1; });
+      var _promoted = siteImps.filter(function(x) {
+        return !_structActiveCommit(x.imp) && !_siteCls[String(x.imp.class_key || '')];
+      }).slice(0, 2);
+      var _promotedGi = {};
+      _promoted.forEach(function(x) { _promotedGi[x.gi] = 1; });
+      var _compactImps = siteImps.filter(function(x) { return !_promotedGi[x.gi]; });
       html += '<div data-t-block="' + si + '" data-t-block-site="' + escapeHtml(site) + '">'
         + '<div style="display:flex;align-items:baseline;gap:10px;margin:20px 0 8px;">'
           + '<span style="font-size:14px;font-weight:600;color:#111827;">' + escapeHtml(site || 'Votre site') + '</span>'
           + '<span style="font-size:11px;color:#9CA3AF;">' + siteCtx.length + ' action' + (siteCtx.length > 1 ? 's' : '') + (siteImps.length ? ' · ' + siteImps.length + ' chantier' + (siteImps.length > 1 ? 's' : '') : '') + '</span>'
         + '</div>'
-        + '<div data-t-cards="' + si + '"></div>'
-        + (siteImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
-        + siteImps.map(function(x) { return _structRowHtml(x.imp, String(x.gi)); }).join('')
+        + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, String(x.gi)); }).join('') + '</div>'
+        + (_compactImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
+        + _compactImps.map(function(x) { return _structRowHtml(x.imp, String(x.gi)); }).join('')
         + '</div>';
     });
     mount.innerHTML = html;
@@ -4531,6 +4628,15 @@ if (!location_id) {
         if (i >= 3) { c.setAttribute('data-t-folded', '1'); c.style.display = 'none'; }
         holder.appendChild(c);
       });
+      // TRI UNIQUE (règle 1, doctrine 01/08) : motifs promus et cartes contextuelles CONFONDUS —
+      // horizon puis |coin €/an|. Les états déjà posés (pli, place réservée périmètre) suivent
+      // leurs éléments : seul l'ORDRE change, jamais la visibilité.
+      var _mix = [].slice.call(holder.querySelectorAll('.ab-card[data-t-site]'));
+      _mix.sort(function(a, b) {
+        var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
+        return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
+      });
+      _mix.forEach(function(el) { holder.appendChild(el); });
       if (siteCtx.length > 3) {
         var more = document.createElement('button');
         more.type = 'button';
