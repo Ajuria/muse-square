@@ -101,87 +101,59 @@ const classParam = Astro.url.searchParams.get("class") || "";
                   + '<div class="dp-amt-sub">' + (pos ? 'à gagner' : 'perdus') + ' · jours de pointe</div></div>' : '')
             + '</div></div>';
 
-          // ── Rail ──
-          html += '<div class="dp-rail">'
-            + '<span class="dp-step on"><span class="n">1</span>Identifier</span><span class="sep"></span>'
-            + '<span class="dp-step off"><span class="n">2</span>Documenter</span><span class="sep"></span>'
-            + '<span class="dp-step off"><span class="n">3</span>Rejouer</span></div>';
-
-          // ── Étape 1 : récit + survol (amendement idiot-proof) ──
-          var exLabel = ex.map(function (d) { return d.dow_fr + " " + frDate(d.date); }).join(" et ");
-          html += '<div class="dp-eb">Étape 1 · Identifier</div><div class="dp-card">'
-            + '<div style="font-size:13.5px;font-weight:600;line-height:1.5;">'
-              + '<span class="dp-hov" title="' + esc(nar.pct_heat + ' % de ces jours sont des jours de chaleur, ' + nar.pct_vacances + ' % des vacances scolaires, ' + nar.pct_weekend + ' % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées.') + '">'
-              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe tombent des jours de chaleur, de vacances ou de week-end.</span></div>'
-            + (ex.length ? '<div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">'
-              + (ex.length === 1 ? 'Le jour restant est inexpliqué : ' : 'Les ' + ex.length + ' restants sont inexpliqués : ') + esc(exLabel) + '.</div>'
-              : '<div class="dp-sub" style="margin-top:6px;">Aucune journée inexpliquée : tout votre tercile haut porte un facteur environnemental connu.</div>')
-            + '<details class="dp-days" style="margin-top:10px;"><summary>Voir vos ' + nar.n_days + ' jours</summary>'
-              + '<table class="dp-table" style="margin-top:8px;"><tr><th>jour</th><th>visiteurs</th><th>ca</th><th>contexte</th></tr>'
-              + (j.top_days || []).map(function (d) {
-                  var ctx = [d.heat ? "chaleur" : null, d.vacances ? "vacances" : null, d.weekend ? "week-end" : null].filter(Boolean).join(" · ") || "aucun facteur connu";
-                  return '<tr><td>' + esc(d.dow_fr + " " + frDate(d.date)) + '</td><td>' + frInt(d.visitors) + '</td><td>' + frInt(d.ca) + ' €</td><td>' + esc(ctx) + '</td></tr>';
-                }).join("")
-              + '<tr><td colspan="4" style="color:#9CA3AF;">… les ' + Math.max(0, nar.n_days - (j.top_days || []).length) + ' autres au même endroit</td></tr></table></details>'
-          + '</div>';
-
-          // ── Journées inexpliquées + vérifications internes DÉJÀ faites ──
-          if (ex.length) {
-            html += '<div class="dp-eb">Journées inexpliquées — vérifications déjà faites dans vos données</div><div class="dp-card">';
-            ex.forEach(function (d) {
-              var checks = [];
-              if (d.hour_min != null && d.hour_max != null) checks.push("journée complète (ventes de " + d.hour_min + " h à " + d.hour_max + " h, " + frInt(d.tickets) + " tickets) — pas d’effet horaire");
-              if (d.top_categories && d.top_categories.length) {
-                var mix = d.top_categories.map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ");
-                checks.push("mix produits du jour : " + mix + " — à comparer à votre habituel (" + (d.usual_top_categories || []).map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ") + ")");
-              }
-              html += '<div style="margin-bottom:10px;">'
-                + '<div style="font-size:12.5px;font-weight:600;">' + esc(d.dow_fr + " " + frDate(d.date)) + ' — ' + frInt(d.visitors) + ' visiteurs, ' + frInt(d.ca) + ' €</div>'
-                + (checks.length ? '<div class="dp-sub">' + checks.join(" · ") + '</div>' : '')
-                + '</div>';
-            });
-            html += '<div class="dp-src">Le dialogue d’enquête arrive (mode enquête, en construction) — en attendant, la question est à vous : que s’était-il passé ces jours-là ? Documentez-le ci-dessous.</div>'
-            + '</div>';
-          }
-
-          // ── Étape 2 : la fiche dispositif (POST réel) ──
+          // ── PAGE RESSERRÉE (owner 02/08 : « too many ideas — le job d'abord »). Trois blocs
+          // en langue d'exploitant : le fait, votre explication, testez-la. La MÉTHODE (tiers,
+          // co-occurrences, doctrine des €, retombées) vit en INFOBULLE, jamais en texte
+          // courant. Rail 1-2-3 et table des 40 jours retirés ; le champ « preuves » devient
+          // invisible (backend, pré-rempli — il part dans la fiche, il ne se lit pas ici).
+          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
+          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
           var defaultEvidence = ex.length
             ? ex.map(function (d) { return d.dow_fr + " " + frDate(d.date) + " — " + frInt(d.visitors) + " visiteurs sans chaleur, vacances ni week-end"; }).join(" ; ")
             : "";
-          // Échelle d'enjeu (owner 02/08) : chaque étape répond à « shall I care ? » avec SON
-          // référentiel — jamais le poids total du motif sur le test d'un dispositif.
-          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
-          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
-          html += '<div class="dp-eb">Étape 2 · Documenter le dispositif</div><div class="dp-card">'
-            + (medStr ? '<div class="dp-sub" style="margin-bottom:6px;">Ce que vaut une journée de ce type chez vous : <strong style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</strong> '
-              + '<span class="dp-hov" title="' + esc('Médiane de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr : '') + '). Documenter le dispositif, c’est rendre ces journées déclenchables.') + '">vs votre normale, médiane mesurée</span>.</div>' : '')
-            + '<div class="dp-sub" style="margin-bottom:8px;">Trois retombées : réutilisable (vos bonnes pratiques) · testable (engagement mesuré) · apprend au système.</div>'
-            + '<div class="dp-field"><label>Ce que vous aviez fait</label><textarea id="dp-fact" rows="2" placeholder="Ex. : stand extérieur les jours de marché des producteurs"></textarea></div>'
-            + '<div class="dp-field"><label>Les jours qui le montrent</label><textarea id="dp-evid" rows="2">' + esc(defaultEvidence) + '</textarea></div>'
+
+          // ── 1. Le fait ──
+          html += '<div class="dp-eb">Ce que vos données disent</div><div class="dp-card">'
+            + '<div style="font-size:13.5px;font-weight:600;line-height:1.5;">'
+              + '<span class="dp-hov" title="' + esc(nar.pct_heat + ' % de ces jours sont des jours de chaleur, ' + nar.pct_vacances + ' % des vacances scolaires, ' + nar.pct_weekend + ' % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées.') + '">'
+              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe suivent la chaleur, les vacances ou le week-end.</span></div>';
+          if (ex.length) {
+            html += '<div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">'
+              + (ex.length === 1 ? 'Une journée ne s’explique pas :' : ex.length + ' journées ne s’expliquent pas :') + '</div>';
+            ex.forEach(function (d) {
+              var tip = [];
+              if (d.hour_min != null && d.hour_max != null) tip.push('Ventes de ' + d.hour_min + ' h à ' + d.hour_max + ' h (' + frInt(d.tickets) + ' tickets) — pas de fermeture anticipée.');
+              if (d.top_categories && d.top_categories.length) tip.push('Produits dans les proportions habituelles (' + d.top_categories.map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ' — habituel : ' + (d.usual_top_categories || []).map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ').');
+              html += '<div style="margin-top:6px;font-size:12.5px;"><strong>' + esc(d.dow_fr + ' ' + frDate(d.date)) + '</strong> — ' + frInt(d.visitors) + ' visiteurs. '
+                + (tip.length ? '<span class="dp-hov" title="' + esc(tip.join(' ')) + '">Journée normale par ailleurs — la cause est ailleurs.</span>' : '') + '</div>';
+            });
+          } else {
+            html += '<div class="dp-sub" style="margin-top:6px;">Toutes vos journées de pointe suivent un facteur connu — rien à expliquer aujourd’hui.</div>';
+          }
+          html += '</div>';
+
+          // ── 2. Votre explication (la fiche — POST réel ; preuves invisibles, pré-remplies) ──
+          html += '<div class="dp-eb">Votre explication</div><div class="dp-card">'
+            + '<div class="dp-sub" style="margin-bottom:8px;">Que s’était-il passé ces jours-là ? C’est la pièce manquante — et '
+              + (medStr ? 'une journée comme ça vaut <strong style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</strong> <span class="dp-hov" title="' + esc('Médiane de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr : '') + '). Une explication documentée est réutilisable, testable, et enrichit vos bonnes pratiques.') + '">chez vous</span>.' : 'une explication documentée devient réutilisable.') + '</div>'
+            + '<div class="dp-field"><label>Ce que vous aviez fait ces jours-là</label><textarea id="dp-fact" rows="2" placeholder="Ex. : stand extérieur les jours de marché des producteurs"></textarea></div>'
             + '<div class="dp-field"><label>Comment on saura que ça marche</label><textarea id="dp-test" rows="2" placeholder="Ex. : les 3 prochains jours de marché avec stand sorti dépassent l’attendu du jour"></textarea></div>'
+            + '<textarea id="dp-evid" style="display:none;">' + esc(defaultEvidence) + '</textarea>'
             + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;">'
-              + '<span class="dp-chip">déclaré — prouvé par le rejeu, jamais avant</span>'
-              + '<span style="margin-left:auto;"><button type="button" id="dp-save" class="dp-btn">Enregistrer le dispositif</button></span>'
+              + '<span style="margin-left:auto;"><button type="button" id="dp-save" class="dp-btn">Enregistrer</button></span>'
             + '</div><div id="dp-save-msg" class="dp-src" style="display:none;"></div>'
           + '</div>';
 
-          // ── Étape 3 — l'enjeu de l'ACTION : la journée déclenchée (mesurée), le potentiel
-          // annuel = LA multiplication de l'exploitant (sa fréquence, son levier — jamais une
-          // promesse toute faite), le €/an propre du dispositif SEULEMENT au rejeu prouvé. ──
-          html += '<div class="dp-eb">Étape 3 · Rejouer</div><div class="dp-card">'
+          // ── 3. Testez-la ──
+          html += '<div class="dp-eb">Testez-la</div><div class="dp-card">'
             + '<div style="display:flex;align-items:flex-start;gap:12px;">'
               + '<div style="flex:1;min-width:0;">'
-                + '<div class="dp-sub">Un dispositif enregistré est proposé sur les signaux comparables (« Vos bonnes pratiques »), et le test se joue par un engagement mesuré sur vos ventes réelles — son issue fait passer le dispositif de « déclaré » à « prouvé ».</div>'
-                + (medStr ? '<div class="dp-sub" style="margin-top:6px;">Le potentiel annuel est <strong>votre</strong> calcul : le nombre de journées que vous visez × ' + medStr + '. Le €/an propre du dispositif n’existera qu’une fois le rejeu prouvé — au rythme constaté, jamais estimé.</div>' : '')
+                + '<div class="dp-sub">Engagez-vous sur le test : on mesure sur vos ventes réelles, le verdict tombe au bilan.</div>'
               + '</div>'
-              + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est PAS la promesse de ce dispositif : il n’en explique qu’une part — le test dira laquelle.') + '">'
+              + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le potentiel annuel est VOTRE calcul : le nombre de journées que vous visez × ' + medStr + '. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est pas la promesse de ce dispositif — il n’en explique qu’une part, le test dira laquelle. Son €/an propre n’existera qu’au test prouvé, au rythme constaté.') + '">'
                 + '<div class="dp-amt-val" style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</div>'
                 + '<div class="dp-amt-sub">par journée déclenchée</div></div>' : '')
             + '</div>'
-            // Graduation (pièce 2b) : l'engagement RÉEL sur le test — MSCommitForm (roster
-            // auto-alimenté), origine structural_<classe>, et la LIAISON au dispositif
-            // enregistré (PATCH replay_commitment_id) : son tier passera à « prouvée » quand
-            // l'engagement se résoudra 'met' — la mécanique existante, rien de parallèle.
             + '<div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button type="button" id="dp-commit" class="dp-btn">M’engager sur le test</button></span></div>'
             + '<div id="dp-commit-ws" style="display:none;margin-top:10px;border-top:1px solid #F3F4F6;padding-top:10px;"></div>'
           + '</div>';

@@ -98,6 +98,11 @@ mécanisme. Concrètement :
   sur votre historique — indissociables, et on ne prétendra pas le contraire ». L'intervention
   datée (le test de confirmation) est ce qui casse la structure de corrélation ; le moteur
   type B (VIF) refusera l'attribution confondue quand il sera branché.
+- **La page cache la méthode — le job d'abord** (owner 02/08, sur la page réelle) : trois blocs
+  en langue d'exploitant (« Ce que vos données disent » / « Votre explication » / « Testez-la »),
+  pas de rail d'étapes, pas de table de preuves, pas de discours sur les tiers ou les retombées —
+  tout ça vit en infobulle. Le champ « preuves » est INVISIBLE (backend, pré-rempli — il part
+  dans la fiche, il ne se lit pas). Une seule question visible : « que s'était-il passé ? ».
 - **L'étape 2 n'est pas un formulaire : c'est la fiche que la conversation vient d'écrire.**
   Chaque champ est SOURCÉ (votre phrase du chat / le jour cité du bloc preuves / le test
   proposé par l'assistant), l'utilisateur relit-corrige-enregistre. Champs en français
