@@ -69,6 +69,20 @@ mécanisme. Concrètement :
 - Le moteur type B, une fois branché, teste les facteurs candidats proprement (OLS + VIF) —
   jusque-là, les recouvrements sont des CO-OCCURRENCES, et la copie le dit.
 
+## Le CTA et la page (owner, 01/08 soir — dernier arbitrage)
+
+- **Bouton de la carte d'identification : « Reproduire le dispositif »** — le job-to-be-done,
+  pas le moyen (« Explorer la cause » rejeté). Le clic précoce n'est pas un problème : c'est
+  la PAGE qui porte le parcours.
+- **La page s'intitule « Reproduire le dispositif gagnant »** et se structure en 3 étapes :
+  1. l'identifier (données + dialogue — le mode enquête), 2. le documenter (l'objet mécanisme),
+  3. le rejouer (le rejeu bonnes pratiques existant).
+- **Garde-fous** : la page s'ouvre TOUJOURS sur l'étape 1 (jamais sur un rejeu vide — sinon
+  l'utilisateur cherche un dispositif écrit nulle part) ; le dispositif documenté naît au tier
+  « déclaré » et ne devient « prouvé » que par le rejeu. Nota : même quand l'enquête conclut
+  « c'était l'environnement » (85 % chaleur), la sortie EST un dispositif — une routine
+  d'anticipation déclenchée par la prévision.
+
 ## La graduation mécanisme → stratégie
 
 Quand un mécanisme est documenté avec un `confirmation_test` :
@@ -93,8 +107,9 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
 
 ## Décisions owner ouvertes
 
-1. Le nom utilisateur de l'objet (« mécanisme » est un mot d'ingénieur — « ce qui déclenche »,
-   « votre explication » ?).
+1. ~~Le nom utilisateur de l'objet~~ — **TRANCHÉ (01/08 soir) : « dispositif »** (« mécanisme »
+   reste le nom interne/technique de l'objet). CTA « Reproduire le dispositif », page
+   « Reproduire le dispositif gagnant ».
 2. La famille pilote du mode enquête (recommandation : affluence sur le compte café).
 3. Le seuil de graduation (proposer l'engagement dès la capture, ou seulement quand le
    `confirmation_test` est daté ?).
