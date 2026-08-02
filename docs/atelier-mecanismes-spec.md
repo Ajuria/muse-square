@@ -105,6 +105,51 @@ mécanisme. Concrètement :
   saura que ça marche ». Les trois retombées affichées sur la fiche : réutilisable (bonnes
   pratiques), testable (graduation), apprend au système (contexte LLM + candidat d'ingestion).
 
+## Interaction d'enquête (owner, 01/08 soir — « the default explanation may be wrong »)
+
+Le chat est le Consulter existant, incrusté dans la page, en conversation LIBRE — pas un
+script à trois messages. Discipline du mode enquête :
+
+1. **Jamais de convergence sur la première hypothèse.** L'assistant ouvre l'espace
+   (fermeture anticipée ? équipe réduite ? groupe ? animation ?) et pose la question qui
+   départage.
+2. **Vérification INTERNE systématique avant toute hypothèse externe.** Chaque hypothèse
+   testable dans nos données EST testée avant d'être proposée ou écartée :
+   - « journée écourtée » → la courbe horaire (`fct_client_hourly_sales` / lignes horaires) —
+     cas réel MS Occitanie 10/04 : ventes de 6 h à 19 h, 196 tickets → écartée ;
+   - « effet produit » → la répartition produits du jour vs habituelle (lignes
+     `raw.client_transactions`) — 10/04 : café 42 %, thé 26 %, mix normal → écartée ;
+   - « conversion » → les métriques du jour (signals mart).
+   L'assistant DIT ce qu'il a écarté et pourquoi, source citée — c'est ce qui l'autorise à
+   demander « que s'était-il passé ? ».
+3. **Rien de retenu sans test.** La fiche reste modifiable, « ce n'est pas ça » relance
+   l'enquête, plusieurs dispositifs candidats peuvent coexister — chacun au tier déclaré,
+   chacun avec son test.
+
+## Périmètre des signaux : les trois cercles (owner, 01/08 soir — le cas « documentaire avocat »)
+
+Cas déclencheur (beta-testeur POS) : « un mauvais documentaire télé sur les avocats fait
+chuter les ventes » — la cause est hors de notre portée, MAIS :
+
+1. **Cercle 1 — l'interne, déjà ingéré, sous-exploité : la moitié de la réponse.** « Les
+   ventes chutent » n'est pas le bon grain — QUELLES ventes ? Les lignes produit existent
+   (`item_code`/`item_category`/`quantity` dans `raw.client_transactions`, `revenue_share`
+   dans `fct_client_offering_profile`). Le jour dit, la donnée montre « chute concentrée sur
+   la famille avocats » : le QUOI est chez nous, seul le POURQUOI est dehors — et un
+   exploitant qui lit le quoi trouve le pourquoi en trente secondes. **Chantier concret :
+   les movers produits du jour dans le bloc de preuves de l'enquête** (données présentes,
+   non branchées). Sert aussi Les Olivades (séparation détail/grossiste, 6 297 lignes).
+2. **Cercle 2 — l'externe NOMMÉ : vérification à la demande, jamais surveillance.** Une
+   cause déclarée, datée (« un documentaire est passé mardi ») se VÉRIFIE par le crawl
+   agent-augmenté existant (enrich-context) — on vérifie une déclaration, on n'espionne pas
+   un flux. Le fait vérifié entre dans la fiche comme preuve externe citée.
+3. **Cercle 3 — l'externe OUVERT (monitoring TV/réseaux) : jamais par défaut.** Autre
+   métier, cher, bruyant, inattribuable — le promettre casserait la barre de vérité.
+   Graduation par récurrence (même doctrine que les marchés) : plusieurs fiches partageant
+   un TYPE de cause (« média national sur un produit ») → évaluation d'une source CIBLÉE
+   comme candidat d'ingestion, mesurée. Le périmètre grandit par besoin démontré, jamais
+   par crawling spéculatif.
+
 ## Détection des signaux hors base (owner, 01/08 soir)
 
 Le résidu EST le détecteur ; l'exploitant est le nommeur ; la graduation est l'ingesteur :
