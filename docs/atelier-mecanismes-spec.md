@@ -168,6 +168,23 @@ Le résidu EST le détecteur ; l'exploitant est le nommeur ; la graduation est l
 Chaque trou de données devient ainsi une source future — c'est la réponse structurelle à
 « comment détecter ce qu'on n'ingère pas encore ».
 
+## L'échelle d'enjeu — un référentiel par étape (owner, 02/08)
+
+« C'est comme ça qu'un manager arbitre son temps » : chaque étape répond à « shall I care ? » —
+mais JAMAIS avec le même nombre, et jamais le poids total du motif sur le test d'un dispositif
+(le dispositif n'explique qu'une PART du motif — promettre le tout serait le sur-vendu tué le
+01/08 sur la carte de conversion) :
+
+| étape | le nombre | référentiel |
+|---|---|---|
+| 1 · Identifier | le poids TOTAL du motif (ex. +33 402 €/an) | pourquoi cette page mérite du temps — en en-tête |
+| 2 · Documenter | la valeur d'UNE journée de ce type (la médiane mesurée, `impact.avg_gap_eur` — ex. +272 €) | documenter = la rendre déclenchable |
+| 3 · S'engager sur le test | la journée déclenchée (médiane) + **le potentiel annuel écrit comme LA multiplication de l'exploitant** : « vous visez N jours × +272 € » | la fréquence de déclenchement est SON choix et SON levier — un potentiel affiché tout fait serait une promesse ; le même nombre écrit comme sa multiplication est un outil de décision |
+
+Après rejeu PROUVÉ : le dispositif gagne son propre €/an — au rythme CONSTATÉ de
+déclenchement, jamais estimé. Le « prouvé au rejeu, jamais avant » ne disparaît pas : il
+devient l'étape d'après.
+
 ## La graduation mécanisme → stratégie
 
 Quand un mécanisme est documenté avec un `confirmation_test` :

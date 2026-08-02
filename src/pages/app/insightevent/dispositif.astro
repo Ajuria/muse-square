@@ -147,7 +147,13 @@ const classParam = Astro.url.searchParams.get("class") || "";
           var defaultEvidence = ex.length
             ? ex.map(function (d) { return d.dow_fr + " " + frDate(d.date) + " — " + frInt(d.visitors) + " visiteurs sans chaleur, vacances ni week-end"; }).join(" ; ")
             : "";
+          // Échelle d'enjeu (owner 02/08) : chaque étape répond à « shall I care ? » avec SON
+          // référentiel — jamais le poids total du motif sur le test d'un dispositif.
+          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
+          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
           html += '<div class="dp-eb">Étape 2 · Documenter le dispositif</div><div class="dp-card">'
+            + (medStr ? '<div class="dp-sub" style="margin-bottom:6px;">Ce que vaut une journée de ce type chez vous : <strong style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</strong> '
+              + '<span class="dp-hov" title="' + esc('Médiane de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr : '') + '). Documenter le dispositif, c’est rendre ces journées déclenchables.') + '">vs votre normale, médiane mesurée</span>.</div>' : '')
             + '<div class="dp-sub" style="margin-bottom:8px;">Trois retombées : réutilisable (vos bonnes pratiques) · testable (engagement mesuré) · apprend au système.</div>'
             + '<div class="dp-field"><label>Ce que vous aviez fait</label><textarea id="dp-fact" rows="2" placeholder="Ex. : stand extérieur les jours de marché des producteurs"></textarea></div>'
             + '<div class="dp-field"><label>Les jours qui le montrent</label><textarea id="dp-evid" rows="2">' + esc(defaultEvidence) + '</textarea></div>'
@@ -158,10 +164,19 @@ const classParam = Astro.url.searchParams.get("class") || "";
             + '</div><div id="dp-save-msg" class="dp-src" style="display:none;"></div>'
           + '</div>';
 
-          // ── Étape 3 ──
-          html += '<div class="dp-eb">Étape 3 · Rejouer</div><div class="dp-card"><div class="dp-sub">'
-            + 'Un dispositif enregistré est proposé sur les signaux comparables (« Vos bonnes pratiques »), et le test se joue par un engagement mesuré sur vos ventes réelles — son issue fait passer le dispositif de « déclaré » à « prouvé ».'
-          + '</div></div>';
+          // ── Étape 3 — l'enjeu de l'ACTION : la journée déclenchée (mesurée), le potentiel
+          // annuel = LA multiplication de l'exploitant (sa fréquence, son levier — jamais une
+          // promesse toute faite), le €/an propre du dispositif SEULEMENT au rejeu prouvé. ──
+          html += '<div class="dp-eb">Étape 3 · Rejouer</div><div class="dp-card">'
+            + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+              + '<div style="flex:1;min-width:0;">'
+                + '<div class="dp-sub">Un dispositif enregistré est proposé sur les signaux comparables (« Vos bonnes pratiques »), et le test se joue par un engagement mesuré sur vos ventes réelles — son issue fait passer le dispositif de « déclaré » à « prouvé ».</div>'
+                + (medStr ? '<div class="dp-sub" style="margin-top:6px;">Le potentiel annuel est <strong>votre</strong> calcul : le nombre de journées que vous visez × ' + medStr + '. Le €/an propre du dispositif n’existera qu’une fois le rejeu prouvé — au rythme constaté, jamais estimé.</div>' : '')
+              + '</div>'
+              + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est PAS la promesse de ce dispositif : il n’en explique qu’une part — le test dira laquelle.') + '">'
+                + '<div class="dp-amt-val" style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</div>'
+                + '<div class="dp-amt-sub">par journée déclenchée</div></div>' : '')
+            + '</div></div>';
 
           docEl.innerHTML = html;
           statusEl.style.display = "none";
