@@ -352,7 +352,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=9"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=40"></script>
+    <script is:inline src="/action-cards.js?v=41"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
   <PiloterBottomBar active="veille" />
@@ -1951,7 +1951,9 @@ if (!location_id) {
         var _aLbl = _aPos
           ? ('à gagner' + (_enj.inherited && _aCause ? ' · ' + _aCause : ''))
           : ('perdus' + (_aCause ? ' · ' + _aCause : ''));
-        var _aTip = ['Enjeu ' + String(_enj.tier || '') + '.'];
+        // Amendement 2 (01/08) : la provenance (fenêtre de mesure) vit ICI, dans l'infobulle du
+        // coin — plus jamais dans la ligne d'explication de la carte.
+        var _aTip = [(_enj.n_days ? 'Mesuré sur ' + _enj.n_days + ' j / ' + _enj.span_months + ' mois — ' : 'Enjeu ') + String(_enj.tier_label_fr || _enj.tier || '') + '.'];
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
         if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
@@ -1959,6 +1961,23 @@ if (!location_id) {
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
         + '</div>';
+      }
+      // Amendement 6 (01/08) : carte d'anomalie/conjonction SANS population passante -> le coin
+      // porte l'écart DU JOUR (référentiel du payload, unité en toutes lettres), et bascule en
+      // €/an « au rythme constaté » dès n >= 5 tirs (serveur). Jamais déguisé en €/an.
+      if (!_amtHtml && entry.item.corner_day_mode === true && entry.item.data_payload) {
+        var _dp0 = entry.item.data_payload;
+        var _dRev = _dp0.daily_revenue != null ? Number(_dp0.daily_revenue) : null;
+        var _dRefV = _dp0.expected_revenue != null ? Number(_dp0.expected_revenue) : (_dp0.avg_30d != null ? Number(_dp0.avg_30d) : (_dp0.revenue_yesterday != null ? Number(_dp0.revenue_yesterday) : null));
+        var _dRefLbl = _dp0.expected_revenue != null ? 'vs l’attendu du jour' : (_dp0.avg_30d != null ? 'vs votre moyenne 30 j' : 'vs hier');
+        if (_dRev != null && _dRefV != null && isFinite(_dRev) && isFinite(_dRefV)) {
+          var _dGap = Math.round(_dRev - _dRefV);
+          var _dFg = _dGap > 0 ? 'var(--color-pill-green-text)' : '#B45309';
+          _amtHtml = '<div class="amt" title="' + escapeHtml('Écart du jour ' + _dRefLbl + ' (' + Math.round(_dRefV).toLocaleString('fr-FR') + ' €). Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
+            + '<div class="amt-val" style="color:' + _dFg + ';">' + (_dGap >= 0 ? '+' : '−') + Math.abs(_dGap).toLocaleString('fr-FR') + ' €</div>'
+            + '<div class="amt-sub">ce jour · passera en €/an dès récurrence</div>'
+          + '</div>';
+        }
       }
       // PÉRIMÈTRE — la zone montant n'est plus vide (variante 1, validée owner 31/07/2026).
       // Une carte qui attend le périmètre occupe la MÊME place que les autres dans la colonne des
@@ -1998,7 +2017,17 @@ if (!location_id) {
                   + '<div style="display:flex;align-items:flex-start;gap:12px;">'
                     + '<div style="flex:1;min-width:0;">'
                       + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
-                      + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText) + '</div>'
+                      + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText)
+                        // Doctrine 01/08 : le motif du jour est du CONTEXTE — une phrase, jamais
+                        // le coin (l'ex-« Motif de fond » hérité). Servi par monitor
+                        // (context_motif) pour les seules cartes d'anomalie/conjonction.
+                        + (function () {
+                            var cm = entry.item.context_motif;
+                            if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
+                            var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
+                            return ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                          })()
+                      + '</div>'
                     + '</div>'
                     + _amtHtml
                   + '</div>'
