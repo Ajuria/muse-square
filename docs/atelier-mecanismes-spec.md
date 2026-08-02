@@ -83,6 +83,46 @@ mécanisme. Concrètement :
   « c'était l'environnement » (85 % chaleur), la sortie EST un dispositif — une routine
   d'anticipation déclenchée par la prévision.
 
+## Affichage « idiot-proof » (owner, 01/08 soir — proto v2)
+
+- **Le récit en français d'exploitant est le SEUL texte courant** ; pourcentages, méthode et
+  nuances (« co-occurrence ≠ cause ») vivent AU SURVOL (l'affordance pointillé des coins,
+  amendement 2 de la doctrine). Ex. : visible « 38 de vos 40 jours de pointe tombent des jours
+  de chaleur, de vacances ou de week-end » ; survol « 85 % / 55 % / 25 % — co-occurrences
+  mesurées, pas des causes prouvées ». Le verbe visible est FACTUEL (« tombent »), jamais
+  causal (« expliquent »).
+- Les tables de preuves sont repliées (« Voir vos 40 jours ») ; seules les journées à
+  expliquer restent visibles.
+- **Le multifactoriel se dit en une phrase honnête et se TRANCHE par le test daté** — jamais
+  par une statistique d'observation qu'on n'a pas : « chaleur et vacances arrivent ensemble
+  sur votre historique — indissociables, et on ne prétendra pas le contraire ». L'intervention
+  datée (le test de confirmation) est ce qui casse la structure de corrélation ; le moteur
+  type B (VIF) refusera l'attribution confondue quand il sera branché.
+- **L'étape 2 n'est pas un formulaire : c'est la fiche que la conversation vient d'écrire.**
+  Chaque champ est SOURCÉ (votre phrase du chat / le jour cité du bloc preuves / le test
+  proposé par l'assistant), l'utilisateur relit-corrige-enregistre. Champs en français
+  d'exploitant : « Ce que vous aviez fait » / « Les jours qui le montrent » / « Comment on
+  saura que ça marche ». Les trois retombées affichées sur la fiche : réutilisable (bonnes
+  pratiques), testable (graduation), apprend au système (contexte LLM + candidat d'ingestion).
+
+## Détection des signaux hors base (owner, 01/08 soir)
+
+Le résidu EST le détecteur ; l'exploitant est le nommeur ; la graduation est l'ingesteur :
+
+1. **Détection** — bloc permanent « journées inexpliquées » : les jours au gap notable
+   qu'AUCUNE classe connue ne couvre (ex. réel MS Occitanie : ven 10/04, 980 visiteurs, et
+   mer 20/05, 755 — ni chaleur, ni vacances, ni week-end). Régularités affichées quand n
+   suffit (même jour de semaine, même quinzaine) — jamais affirmées sur 2 points.
+2. **Nommage** — l'enquête fait dire la cause à celui qui la connaît (« le marché des
+   producteurs ») ; capturée au tier déclaré.
+3. **Ingestion** — un dispositif documenté, RÉCURRENT et DATÉ devient un candidat
+   d'ingestion (les calendriers de marchés sont publics ; le crawl agent-augmenté existant
+   sait chercher une source nommée). Jamais un signal inventé — déclaré, puis vérifié, puis
+   ingéré.
+
+Chaque trou de données devient ainsi une source future — c'est la réponse structurelle à
+« comment détecter ce qu'on n'ingère pas encore ».
+
 ## La graduation mécanisme → stratégie
 
 Quand un mécanisme est documenté avec un `confirmation_test` :
