@@ -4415,15 +4415,26 @@ if (!location_id) {
     + '</div>';
   }
 
+  // IDENTITÉ PAR LA CLÉ (01/08, bug trouvé en traçant le multi-sites) : les rangs structurels
+  // étaient keyés par l'INDEX DU TABLEAU TRIÉ (buildTriageLayout trie une copie) tandis que le
+  // câblage résolvait window._lastDayClassImpacts[index] — le tableau NON trié. Dès que l'ordre
+  // trié diffère, le clic ouvrait le formulaire d'un AUTRE motif. Clé stable désormais :
+  // location_id + '|' + class_key — jamais une position.
+  function _structImpKey(imp) { return String((imp && imp.location_id) || '') + '|' + String((imp && imp.class_key) || ''); }
+  function _impByKey(k) {
+    var arr = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts : [];
+    for (var i = 0; i < arr.length; i++) { if (_structImpKey(arr[i]) === k) return arr[i]; }
+    return null;
+  }
+
   function _wireStructRows(scope) {
-    var imps = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts : [];
     // « Reproduire le dispositif » (registre identification) : le Documenter — la pratique
     // capturée nourrit la base de connaissances (étape 2 du parcours ; l'étape 1, le mode
     // enquête, arrive avec l'atelier — docs/atelier-mecanismes-spec.md). Repli : jamais un mur.
     scope.querySelectorAll('[data-struct-doc]').forEach(function(b) {
       b.addEventListener('click', function() {
         var key = b.getAttribute('data-struct-doc');
-        var imp = imps[Number(key)];
+        var imp = _impByKey(key);
         var ws = scope.querySelector('[data-struct-ws="' + key + '"]');
         if (!imp || !ws) return;
         if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
@@ -4468,7 +4479,7 @@ if (!location_id) {
     scope.querySelectorAll('[data-struct-commit]').forEach(function(b) {
       b.addEventListener('click', function() {
         var key = b.getAttribute('data-struct-commit');
-        var imp = imps[Number(key)];
+        var imp = _impByKey(key);
         var ws = scope.querySelector('[data-struct-ws="' + key + '"]');
         if (!imp || !ws) return;
         if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
@@ -4547,6 +4558,24 @@ if (!location_id) {
     var root = mount.parentElement;
     var ctxCards = [].slice.call(root.querySelectorAll('.ab-card[data-ab-card-idx][data-t-site]'));
     var imps = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts.slice() : [];
+    // DÉDUP INSTRUMENTÉE (01/08, trace multi-sites) : le grain vrai est UNE ligne par
+    // (lieu, classe). Un doublon dans le tableau fusionné (symptôme vu par l'owner : les
+    // valeurs d'un site sous le bloc d'un autre + un motif en plein ET compact) est éliminé
+    // ET signalé — le warn EST la sonde du diagnostic, pas un tapis.
+    (function () {
+      var seen = {};
+      var dedup = [];
+      imps.forEach(function (i) {
+        var k = _structImpKey(i);
+        if (seen[k]) {
+          try { console.warn('[triage] doublon day_class_impacts éliminé', k, 'labels:', seen[k].location_label, '/', i.location_label); } catch (e) {}
+          return;
+        }
+        seen[k] = i;
+        dedup.push(i);
+      });
+      imps = dedup;
+    })();
     imps.sort(function(a, b) { return Math.abs(Number(b.eur_year) || 0) - Math.abs(Number(a.eur_year) || 0); });
     // Ordre des sites : apparition dans le feed, puis sites à chantiers seuls.
     var order = [];
@@ -4569,7 +4598,7 @@ if (!location_id) {
     var html = bar;
     order.forEach(function(site, si) {
       var siteCtx = ctxCards.filter(function(c) { return (c.getAttribute('data-t-site') || '') === site; });
-      var siteImps = imps.map(function(imp, gi) { return { imp: imp, gi: gi }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
+      var siteImps = imps.map(function(imp) { return { imp: imp, key: _structImpKey(imp) }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
       // PROMOTION (doctrine 01/08, règles validées) : les motifs les plus lourds NON TRAITÉS
       // deviennent des cartes PLEINES dans le flux du site — plafond 2 (règle 4) ; un motif
       // engagé reste compact (règle 3) ; un motif dont la classe est portée AUJOURD'HUI par une
@@ -4580,17 +4609,17 @@ if (!location_id) {
       var _promoted = siteImps.filter(function(x) {
         return !_structActiveCommit(x.imp) && !_siteCls[String(x.imp.class_key || '')];
       }).slice(0, 2);
-      var _promotedGi = {};
-      _promoted.forEach(function(x) { _promotedGi[x.gi] = 1; });
-      var _compactImps = siteImps.filter(function(x) { return !_promotedGi[x.gi]; });
+      var _promotedKeys = {};
+      _promoted.forEach(function(x) { _promotedKeys[x.key] = 1; });
+      var _compactImps = siteImps.filter(function(x) { return !_promotedKeys[x.key]; });
       html += '<div data-t-block="' + si + '" data-t-block-site="' + escapeHtml(site) + '">'
         + '<div style="display:flex;align-items:baseline;gap:10px;margin:20px 0 8px;">'
           + '<span style="font-size:14px;font-weight:600;color:#111827;">' + escapeHtml(site || 'Votre site') + '</span>'
           + '<span style="font-size:11px;color:#9CA3AF;">' + siteCtx.length + ' action' + (siteCtx.length > 1 ? 's' : '') + (siteImps.length ? ' · ' + siteImps.length + ' chantier' + (siteImps.length > 1 ? 's' : '') : '') + '</span>'
         + '</div>'
-        + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, String(x.gi)); }).join('') + '</div>'
+        + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
         + (_compactImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
-        + _compactImps.map(function(x) { return _structRowHtml(x.imp, String(x.gi)); }).join('')
+        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key); }).join('')
         + '</div>';
     });
     mount.innerHTML = html;
@@ -4705,9 +4734,8 @@ if (!location_id) {
   function renderStructuralSection() {
     var mount = document.getElementById('pls-triage');
     if (!mount) return;
-    var imps = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts : [];
     mount.querySelectorAll('[data-struct-key]').forEach(function(row) {
-      var imp = imps[Number(row.getAttribute('data-struct-key'))];
+      var imp = _impByKey(row.getAttribute('data-struct-key'));
       if (!imp) return;
       var fresh = document.createElement('div');
       fresh.innerHTML = _structRowHtml(imp, row.getAttribute('data-struct-key'));
