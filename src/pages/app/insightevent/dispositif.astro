@@ -58,6 +58,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
       details.dp-days summary { font-size: 12px; font-weight: 600; color: #1D3BB3; cursor: pointer; padding: 4px 0; }
     </style>
 
+    <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("dispo-root");
@@ -176,12 +177,20 @@ const classParam = Astro.url.searchParams.get("class") || "";
               + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est PAS la promesse de ce dispositif : il n’en explique qu’une part — le test dira laquelle.') + '">'
                 + '<div class="dp-amt-val" style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</div>'
                 + '<div class="dp-amt-sub">par journée déclenchée</div></div>' : '')
-            + '</div></div>';
+            + '</div>'
+            // Graduation (pièce 2b) : l'engagement RÉEL sur le test — MSCommitForm (roster
+            // auto-alimenté), origine structural_<classe>, et la LIAISON au dispositif
+            // enregistré (PATCH replay_commitment_id) : son tier passera à « prouvée » quand
+            // l'engagement se résoudra 'met' — la mécanique existante, rien de parallèle.
+            + '<div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button type="button" id="dp-commit" class="dp-btn">M’engager sur le test</button></span></div>'
+            + '<div id="dp-commit-ws" style="display:none;margin-top:10px;border-top:1px solid #F3F4F6;padding-top:10px;"></div>'
+          + '</div>';
 
           docEl.innerHTML = html;
           statusEl.style.display = "none";
           docEl.style.display = "block";
 
+          var savedPracticeId = null;
           var saveBtn = document.getElementById("dp-save");
           if (saveBtn) saveBtn.addEventListener("click", function () {
             var fact = String((document.getElementById("dp-fact") || {}).value || "").trim();
@@ -201,9 +210,54 @@ const classParam = Astro.url.searchParams.get("class") || "";
               }),
             }).then(function (r) { return r.json(); }).then(function (jj) {
               msg.style.display = "block";
-              if (jj && jj.ok) { msg.style.color = "#166534"; msg.textContent = "Dispositif enregistré — il sera proposé sur les signaux comparables, et le test le fera passer à « prouvé »."; }
+              if (jj && jj.ok) { savedPracticeId = jj.practice_id || null; msg.style.color = "#166534"; msg.textContent = "Dispositif enregistré — il sera proposé sur les signaux comparables, et le test le fera passer à « prouvé »."; }
               else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((jj && jj.error) || "réessayez") + "."; saveBtn.disabled = false; }
             }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau — réessayez."; saveBtn.disabled = false; });
+          });
+
+          // Graduation : M'engager sur le test — le formulaire d'engagement RÉEL (roster
+          // auto-alimenté par MSCommitForm), pré-rempli avec le test de la fiche, puis liaison
+          // au dispositif enregistré (PATCH replay_commitment_id -> tier « prouvée » au 'met').
+          var commitBtn = document.getElementById("dp-commit");
+          if (commitBtn) commitBtn.addEventListener("click", function () {
+            var ws = document.getElementById("dp-commit-ws");
+            if (!ws) return;
+            if (ws.style.display === "block") { ws.style.display = "none"; ws.innerHTML = ""; return; }
+            if (!window.MSCommitForm) { ws.style.display = "block"; ws.innerHTML = '<div class="dp-sub" style="color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+            var test = String((document.getElementById("dp-test") || {}).value || "").trim();
+            ws.style.display = "block";
+            ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: test ? [test] : [] });
+            window.MSCommitForm.wire(ws, {
+              location_id: loc,
+              origin: {
+                origin_action_type: "structural_" + cls,
+                origin_driver: null,
+                origin_suppression_key: "structural:" + cls + ":" + loc,
+                origin_card_instance_id: null,
+                origin_affected_date: null,
+                creation_residual_pct: null,
+                creation_residual_z: null,
+                creation_confidence_tier: null,
+                creation_baseline_daily: null
+              },
+              onDone: function (j) {
+                var okd = j && j.ok;
+                if (okd && j.commitment_id && savedPracticeId) {
+                  fetch("/api/best-practices", {
+                    method: "PATCH", headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ practice_id: savedPracticeId, location_id: loc, replay_commitment_id: j.commitment_id })
+                  }).catch(function () {});
+                }
+                ws.innerHTML = '<div class="dp-sub" style="color:' + (okd ? "#166534" : "#B91C1C") + ';">'
+                  + (okd
+                    ? (savedPracticeId
+                      ? "Engagement créé et lié au dispositif — il passera à « prouvé » si le test tient (verdict au bilan, mesuré sur vos ventes)."
+                      : "Engagement créé. Enregistrez aussi la fiche (étape 2) pour lier le dispositif au test.")
+                    : "Erreur : " + esc((j && j.error) || "réessayez") + ".")
+                  + "</div>";
+              },
+              onCancel: function () { ws.style.display = "none"; ws.innerHTML = ""; }
+            });
           });
         }
       })();
