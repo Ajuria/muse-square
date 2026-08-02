@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — page « Reproduire le dispositif gagnant »</title>
+<style>
+  /* Valeurs RÉELLES : design-tokens.css + pulse.astro (anatomie cartes, rail d'étapes de
+     _openCatchmentStep, agir-btn, chip-n). Aucune couleur inventée. */
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --color-pill-green-bg:#E6F6F0; --color-pill-green-text:#059669;
+    --color-pill-source-low-bg:#F3F4F6; --color-pill-source-low-text:#6b7280;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 16px 80px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .rulebox { background:#EEF2FF; border:1px solid rgba(29,59,179,0.18); border-radius:10px; padding:12px 14px; font-size:12px; color:#1D3BB3; line-height:1.55; margin:14px 0 22px; }
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-summary { padding:14px 16px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
+  .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:18px 0 8px; }
+  /* Rail d'étapes — motif RÉEL de _openCatchmentStep (pulse), étendu à 3. */
+  .step { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; }
+  .step .n { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; }
+  .step.on { color:#1D3BB3; } .step.on .n { background:#EEF2FF; color:#1D3BB3; }
+  .step.off { color:#9ca3af; } .step.off .n { background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); }
+  .steprail { display:flex; align-items:center; gap:8px; margin:14px 0 16px; }
+  .steprail .sep { flex:1; height:1px; background:#F3F4F6; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th { text-align:left; font-size:10.5px; letter-spacing:0.05em; text-transform:uppercase; color:#9CA3AF; font-weight:500; padding:6px 8px; border-bottom:1px solid var(--color-border); }
+  td { padding:6px 8px; border-bottom:1px solid #F3F4F6; color:#374151; }
+  .msg { border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin:8px 0; max-width:92%; }
+  .msg.ia { background:#F8FAFC; border:1px solid var(--color-border); color:#374151; }
+  .msg.moi { background:#EEF2FF; color:#1D3BB3; margin-left:auto; }
+  .src { font-size:10.5px; color:#9CA3AF; margin-top:4px; }
+  .field { margin:10px 0; }
+  .field label { display:block; font-size:11px; font-weight:600; color:#6B7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .field .val { font-size:12.5px; color:#111827; background:#fff; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px; line-height:1.45; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto — la page « Reproduire le dispositif gagnant »</h1>
+  <div class="note">Le livrable UI de l'atelier des mécanismes (spec : docs/atelier-mecanismes-spec.md), à valider
+  AVANT code. Données 100 % réelles (MS Occitanie, mesures du 01/08). Composants réels : anatomie de carte,
+  rail d'étapes (le motif de l'étape périmètre de Pulse, étendu à 3), boutons/chips existants. À l'implémentation :
+  le dialogue = le chat Consulter existant (groundé, lie-bait), les formulaires = MSBpForm / MSCommitForm réels.</div>
+  <div class="rulebox"><strong>Ce que cette page est :</strong> l'atterrissage du CTA « Reproduire le dispositif »
+  d'une carte d'identification. Elle s'ouvre TOUJOURS sur l'étape 1. Un seul objet la traverse : le dispositif —
+  identifié (1), documenté (2, tier déclaré), rejoué (3, prouvé par le rejeu).</div>
+
+  <!-- ===== En-tête de page : le motif, même anatomie que sa carte ===== -->
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">Muse Square Occitanie</span><span class="chip-n">Affluence</span></div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="ab-what">Reproduire le dispositif gagnant — vos jours de pointe</div>
+        <div class="ab-sowhat">40 jours de pointe sur 4 mois. Cette page mène de « pourquoi ces journées marchent » à « comment les déclencher ».</div>
+      </div>
+      <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
+    </div>
+  </div></div>
+
+  <div class="steprail">
+    <span class="step on"><span class="n">1</span>Identifier</span><span class="sep"></span>
+    <span class="step off"><span class="n">2</span>Documenter</span><span class="sep"></span>
+    <span class="step off"><span class="n">3</span>Rejouer</span>
+  </div>
+
+  <!-- ===== ÉTAPE 1 — ce que les données savent + l'enquête ===== -->
+  <div class="eb">Étape 1 · Ce que vos données savent déjà</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-sowhat" style="margin-bottom:10px;">Sur vos <strong>40 jours de pointe</strong> : <strong>85 %</strong> sont des jours de chaleur,
+    <strong>55 %</strong> des vacances scolaires, <strong>25 %</strong> des week-ends — des co-occurrences mesurées, pas des causes prouvées.
+    <strong>2 jours sur 40</strong> n'ont aucun de ces facteurs : c'est là que votre histoire commence.</div>
+    <table>
+      <tr><th>jour</th><th>visiteurs</th><th>CA</th><th>vs attendu</th><th>contexte</th></tr>
+      <tr><td>ven 10/07</td><td>1 650</td><td>1 431 €</td><td>−10 €</td><td>chaleur · vacances</td></tr>
+      <tr><td>dim 19/07</td><td>1 645</td><td>1 581 €</td><td>+78 €</td><td>chaleur · vacances · week-end</td></tr>
+      <tr><td>jeu 09/07</td><td>1 575</td><td>1 428 €</td><td>+26 €</td><td>chaleur · vacances</td></tr>
+      <tr><td style="color:#1D3BB3;font-weight:600;">ven 10/04</td><td>980</td><td>873 €</td><td>—</td><td style="color:#1D3BB3;font-weight:600;">aucun facteur connu</td></tr>
+      <tr><td style="color:#1D3BB3;font-weight:600;">mer 20/05</td><td>755</td><td>638 €</td><td>—</td><td style="color:#1D3BB3;font-weight:600;">aucun facteur connu</td></tr>
+    </table>
+    <div class="src">Tercile haut des visiteurs mesurés × contexte quotidien — vos données, relevé du 01/08. Table complète dépliable à l'implémentation.</div>
+  </div></div>
+
+  <div class="eb">L'enquête — le chat Consulter, dirigé vers un but</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="msg ia">Vos jours de pointe sont presque tous des jours chauds de vacances — l'environnement explique 38 de vos 40 journées.
+      Les deux qui restent sont à vous : <strong>vendredi 10/04</strong> (980 visiteurs) et <strong>mercredi 20/05</strong> (755), sans chaleur, sans vacances, sans week-end.
+      Que s'était-il passé ces jours-là — animation, offre, groupe, communication ?
+      <div class="src">Vérifié · vos données (40 jours, tercile haut des visiteurs)</div></div>
+    <div class="msg moi">Le 10/04 c'était le marché des producteurs sur la place, et on avait sorti le stand devant.</div>
+    <div class="msg ia">Le stand extérieur les jours de marché est un candidat sérieux : il est <strong>à vous</strong> (déclenchable), et il expliquerait un pic sans facteur météo ni calendrier.
+      Je ne peux pas le mesurer seul — 1 jour confirmé, c'est une hypothèse, pas une preuve. Deux chemins : le documenter comme dispositif (étape 2), et le tester —
+      les prochains jours de marché où vous sortez le stand devraient dépasser votre attendu. Le 20/05, même chose ?
+      <div class="src">Hypothèse déclarée par vous — sera affichée comme telle jusqu'au test</div></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="agir-btn">Documenter ce dispositif →</button>
+    </div>
+  </div></div>
+
+  <!-- ===== ÉTAPE 2 — aperçu : l'objet dispositif ===== -->
+  <div class="eb">Étape 2 · Documenter — l'objet « dispositif » (aperçu, formulaire MSBpForm réel à l'implémentation)</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="field"><label>Le dispositif</label><div class="val">Stand extérieur devant la boutique les jours de marché des producteurs.</div></div>
+    <div class="field"><label>Motif concerné</label><div class="val">Jours de pointe (affluence) — +33 402 €/an mesurés sur ce motif.</div></div>
+    <div class="field"><label>Preuves citées</label><div class="val">Vendredi 10/04 : 980 visiteurs (tercile haut) sans chaleur, vacances ni week-end — jour de marché, stand sorti. <span style="color:#9CA3AF;">(réf. bloc « vos données » ci-dessus — jamais du vide)</span></div></div>
+    <div class="field"><label>Ce qui le confirmerait</label><div class="val">Les 3 prochains jours de marché avec stand sorti dépassent l'attendu du jour.</div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <span class="chip-n">déclaré — en attente du test</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Enregistrer le dispositif</button></span>
+    </div>
+  </div></div>
+
+  <!-- ===== ÉTAPE 3 — aperçu : le rejeu ===== -->
+  <div class="eb">Étape 3 · Rejouer — la graduation en engagement (boucle commitments réelle)</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="ab-what">Stand extérieur les jours de marché</div>
+        <div class="ab-sowhat">Dispositif déclaré le 01/08 · test : 3 prochains jours de marché au-dessus de l'attendu · mesuré sur vos ventes réelles (residual), verdict au bilan.</div>
+      </div>
+      <div class="amt"><div class="amt-val" style="color:#9CA3AF;font-size:13px;">—</div><div class="amt-sub">prouvé au rejeu, jamais avant</div></div>
+    </div>
+    <div class="aline">S'engager sur le test : « sortir le stand les 3 prochains jours de marché » → l'issue met à jour le tier (déclaré → prouvé).</div>
+    <div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button class="agir-btn">M'engager sur le test</button></span></div>
+  </div></div>
+
+  <div class="eb">Décisions à valider sur ce proto</div>
+  <div class="note">1. La structure 1-2-3 et l'atterrissage systématique sur l'étape 1. · 2. Le chat d'enquête = Consulter
+  existant avec un prompt de session dédié (les messages ci-dessus montrent le TON et la discipline : facteurs cités avec
+  preuve, hypothèse utilisateur étiquetée « déclarée ») — famille pilote : affluence. · 3. L'objet dispositif à 4 champs
+  (dispositif / motif / preuves / test) comme extension de « Vos bonnes pratiques ». · 4. La graduation : proposer
+  l'engagement dès qu'un test est daté (recommandation), ou dès la capture. · 5. Le coin de l'étape 3 reste vide
+  jusqu'au rejeu prouvé — « prouvé au rejeu, jamais avant ».</div>
+</div>
+</body>
+</html>
