@@ -2185,6 +2185,10 @@
       feedItem.affected_date = ac.date;
       feedItem.alert_level = ac.action_priority;
       feedItem.action_category = ac.action_category;
+      // 01/08 — l'enjeu résolu DOIT atteindre les sowhats : extended_bad_weather_3d (arbitrage
+      // 28/07 « le coût réel ou on ne sait pas ») lisait a.enjeu, jamais copié ici -> la carte
+      // disait « on ne sait pas encore » SOUS une pilule -4 925 €/an (contradiction vue owner).
+      feedItem.enjeu = ac.enjeu || null;
       var mergedDay = {};
       for (var mk in currentDay) { if (currentDay.hasOwnProperty(mk)) mergedDay[mk] = currentDay[mk]; }
       if (mergedDay.opportunity_score != null && mergedDay.opportunity_score_final_local == null) mergedDay.opportunity_score_final_local = mergedDay.opportunity_score;
