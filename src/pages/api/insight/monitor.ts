@@ -999,6 +999,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         .map((r: any) => ({
         ...((er) => ({
           enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
+          // Doctrine 01/08 : motif du jour en CONTEXTE (ligne de texte) + mode « € ce jour »
+          // quand la population de la carte n'a pas encore la récurrence (amendement 6).
+          context_motif: er.context_motif ?? null,
+          corner_day_mode: er.corner_day_mode === true,
           // Temps 2 périmètre : les jours mesurables par hypothèse, UNIQUEMENT sur les cartes qui
           // posent la question (calculés par le cron, CATCHMENT_HYP_STORE — jamais en dur).
           catchment_days: er.needs_catchment === true ? ((dayClassResult as any).catchmentHypotheses ?? null) : null,
@@ -1027,6 +1031,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // gates, avec leur copy owner-éditable (contextCopy.structuralCardCopyFr). Grain motif × site,
       // sans date. Le client (pulse) rend la section + le lien lifecycle (engagements structural_*).
       day_class_impacts: [...((dayClassResult as any)?.impacts?.values?.() ?? [])]
+        // Doctrine 01/08 : les POPULATIONS DE CARTES (famille 'card') ne sont jamais des motifs
+        // structurels — elles ne vivent qu'au coin de leur carte.
+        .filter((i: any) => i?.family !== "card")
         .map((i: any) => ({ ...i, ...structuralCardCopyFr(i) }))
         .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year)),
     });
