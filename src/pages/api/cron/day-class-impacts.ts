@@ -11,7 +11,7 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { dayClassAggregateSql, DAY_CLASS_STORE } from "../../../lib/dayClassRegistry";
+import { dayClassAggregateSql, catchmentHypothesisSql, DAY_CLASS_STORE, CATCHMENT_HYP_STORE } from "../../../lib/dayClassRegistry";
 
 export const prerender = false;
 
@@ -32,6 +32,13 @@ export const GET: APIRoute = async ({ request }) => {
     const t0 = Date.now();
     await bq.query({
       query: `CREATE OR REPLACE TABLE \`${projectId}.${DAY_CLASS_STORE}\` AS ${dayClassAggregateSql(false)}`,
+      location: "EU",
+    });
+    // Temps 2 du périmètre (01/08) : jours mesurables par hypothèse ('commune' 1 km / 'beyond'
+    // 20 km), TABLE SÉPARÉE du store des pilules (voir CATCHMENT_HYP_STORE dans le lib pour le
+    // pourquoi). Affiché sous les deux boutons de l'étape 1 « M'engager » — jamais codé en dur.
+    await bq.query({
+      query: `CREATE OR REPLACE TABLE \`${projectId}.${CATCHMENT_HYP_STORE}\` AS ${catchmentHypothesisSql(false)}`,
       location: "EU",
     });
     // HISTORIQUE (préalable de l'état « Résolu », validé 26/07) : le store est un snapshot ÉCRASÉ

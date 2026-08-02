@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto v2 — page « Reproduire le dispositif gagnant »</title>
+<style>
+  /* Valeurs RÉELLES : design-tokens.css + pulse.astro (anatomie cartes, rail d'étapes,
+     agir-btn, chip-n, affordance pointillé-survol des coins). Aucune couleur inventée. */
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --color-pill-green-bg:#E6F6F0; --color-pill-green-text:#059669;
+    --color-pill-source-low-bg:#F3F4F6; --color-pill-source-low-text:#6b7280;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 16px 80px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .rulebox { background:#EEF2FF; border:1px solid rgba(29,59,179,0.18); border-radius:10px; padding:12px 14px; font-size:12px; color:#1D3BB3; line-height:1.55; margin:14px 0 22px; }
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-summary { padding:14px 16px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
+  .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:500; margin:18px 0 8px; }
+  .step { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; }
+  .step .n { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; }
+  .step.on { color:#1D3BB3; } .step.on .n { background:#EEF2FF; color:#1D3BB3; }
+  .step.off { color:#9ca3af; } .step.off .n { background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); }
+  .steprail { display:flex; align-items:center; gap:8px; margin:14px 0 16px; }
+  .steprail .sep { flex:1; height:1px; background:#F3F4F6; }
+  /* L'affordance RÉELLE « la donnée est au survol » (amt-sub / amendement 2). */
+  .hov { text-decoration:underline dotted rgba(156,163,175,0.8); text-underline-offset:2px; cursor:help; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th { text-align:left; font-size:10.5px; letter-spacing:0.05em; text-transform:uppercase; color:#9CA3AF; font-weight:500; padding:6px 8px; border-bottom:1px solid var(--color-border); }
+  td { padding:6px 8px; border-bottom:1px solid #F3F4F6; color:#374151; }
+  details summary { font-size:12px; font-weight:600; color:#1D3BB3; cursor:pointer; padding:4px 0; }
+  .msg { border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin:8px 0; max-width:92%; }
+  .msg.ia { background:#F8FAFC; border:1px solid var(--color-border); color:#374151; }
+  .msg.moi { background:#EEF2FF; color:#1D3BB3; margin-left:auto; }
+  .src { font-size:10.5px; color:#9CA3AF; margin-top:4px; }
+  .field { margin:10px 0; }
+  .field label { display:block; font-size:11px; font-weight:600; color:#6B7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .field .val { font-size:12.5px; color:#111827; background:#fff; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px; line-height:1.45; }
+  .payoff { display:flex; gap:8px; align-items:flex-start; font-size:12px; color:#374151; line-height:1.45; margin:6px 0; }
+  .payoff .dot { color:#1D3BB3; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto v2 — la page « Reproduire le dispositif gagnant »</h1>
+  <div class="note">v2 = les 4 réponses validées : récit visible + données au survol (survolez les
+  <span class="hov" title="Comme ici. La méthode et les chiffres vivent dans l'infobulle — le texte courant reste en français d'exploitant.">pointillés</span>) ·
+  multifactoriel dit honnêtement, tranché par le TEST · bloc « journées inexpliquées » = le détecteur de signaux hors base ·
+  étape 2 = la conclusion PRÉ-REMPLIE du dialogue, avec ses trois retombées. Données réelles MS Occitanie (01/08) ;
+  dialogue illustratif du ton ; à l'implémentation : chat Consulter réel, formulaires MSBpForm/MSCommitForm réels.</div>
+
+  <!-- ===== En-tête ===== -->
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">Muse Square Occitanie</span><span class="chip-n">Affluence</span></div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="ab-what">Reproduire le dispositif gagnant — vos jours de pointe</div>
+        <div class="ab-sowhat">De « pourquoi ces journées marchent » à « comment les déclencher ».</div>
+      </div>
+      <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
+    </div>
+  </div></div>
+
+  <div class="steprail">
+    <span class="step on"><span class="n">1</span>Identifier</span><span class="sep"></span>
+    <span class="step off"><span class="n">2</span>Documenter</span><span class="sep"></span>
+    <span class="step off"><span class="n">3</span>Rejouer</span>
+  </div>
+
+  <!-- ===== ÉTAPE 1 ===== -->
+  <div class="eb">Étape 1 · Identifier</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">
+      <span class="hov" title="85 % de ces 40 jours sont des jours de chaleur, 55 % des vacances scolaires, 25 % des week-ends — co-occurrences mesurées sur vos données (relevé du 01/08), pas des causes prouvées.">38 de vos 40 jours de pointe tombent des jours de chaleur, de vacances ou de week-end.</span>
+    </div>
+    <div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">Les 2 restants sont inexpliqués : vendredi 10/04 et mercredi 20/05.</div>
+    <div class="ab-sowhat" style="margin-top:8px;">
+      <span class="hov" title="Sur votre historique, les jours de chaleur et les jours de vacances arrivent presque toujours ensemble : aucune statistique d'observation ne peut dire lequel des deux agit. Seul un TEST daté (étape 3) peut les séparer.">Chaleur et vacances arrivent ensemble sur votre historique — indissociables, et on ne prétendra pas le contraire.</span>
+    </div>
+    <details style="margin-top:10px;">
+      <summary>Voir vos 40 jours</summary>
+      <table style="margin-top:8px;">
+        <tr><th>jour</th><th>visiteurs</th><th>CA</th><th>vs attendu</th><th>contexte</th></tr>
+        <tr><td>ven 10/07</td><td>1 650</td><td>1 431 €</td><td>−10 €</td><td>chaleur · vacances</td></tr>
+        <tr><td>dim 19/07</td><td>1 645</td><td>1 581 €</td><td>+78 €</td><td>chaleur · vacances · week-end</td></tr>
+        <tr><td>jeu 09/07</td><td>1 575</td><td>1 428 €</td><td>+26 €</td><td>chaleur · vacances</td></tr>
+        <tr><td>lun 20/07</td><td>1 545</td><td>1 449 €</td><td>+24 €</td><td>chaleur · vacances</td></tr>
+        <tr><td colspan="5" style="color:#9CA3AF;">… (36 autres jours à l'implémentation)</td></tr>
+      </table>
+    </details>
+  </div></div>
+
+  <!-- ===== Journées inexpliquées — LE DÉTECTEUR ===== -->
+  <div class="eb">Journées inexpliquées — le détecteur de signaux hors base</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-sowhat" style="margin-bottom:8px;">Ce que vos données <strong>ne savent pas</strong> expliquer — c'est ici que vivent les signaux
+    que nous n'ingérons pas encore. Nommez-les : documentés et récurrents, ils deviennent des
+    <span class="hov" title="Un dispositif documenté, récurrent et daté (ex. : les jours de marché — leurs calendriers sont publics) devient un candidat d'ingestion : le crawl existant sait chercher une source nommée. Jamais un signal inventé — toujours déclaré par vous, puis vérifié.">sources à ingérer</span>.</div>
+    <table>
+      <tr><th>jour</th><th>visiteurs</th><th>ca</th><th>aucun facteur connu</th></tr>
+      <tr><td style="font-weight:600;">ven 10/04</td><td>980</td><td>873 €</td><td>ni chaleur, ni vacances, ni week-end</td></tr>
+      <tr><td style="font-weight:600;">mer 20/05</td><td>755</td><td>638 €</td><td>ni chaleur, ni vacances, ni week-end</td></tr>
+    </table>
+    <div class="src">2 jours — trop peu pour une régularité ; le bloc s'enrichit à mesure que l'historique grandit.</div>
+  </div></div>
+
+  <!-- ===== L'enquête ===== -->
+  <div class="eb">L'enquête — le chat Consulter, dirigé vers un but</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-sowhat" style="margin-bottom:8px;">L'assistant <strong>vérifie ses hypothèses dans vos données</strong> (courbe horaire, répartition
+    produits, conversion) avant de vous poser une question — et n'en retient aucune sans test.</div>
+    <div class="msg ia">Vos jours de pointe sont presque tous des jours chauds de vacances. Les deux qui restent sont inexpliqués :
+      <strong>vendredi 10/04</strong> (980 visiteurs) et <strong>mercredi 20/05</strong> (755).
+      <div class="src">Vérifié · vos données (40 jours, tercile haut des visiteurs)</div></div>
+    <div class="msg ia">Pour le 10/04, j'ai déjà écarté deux explications dans vos données : la journée n'a pas été écourtée
+      (des ventes de 6 h à 19 h, 196 tickets — vos horaires habituels), et aucune famille de produits ne sort de
+      l'ordinaire (café 42 %, thé 26 % — votre répartition normale). Ni effet horaire, ni effet produit :
+      la cause est ailleurs. Que s'était-il passé ce jour-là — animation, offre, groupe, communication ?
+      <div class="src">Vérifié · vos ventes horaires et lignes produits du 10/04</div></div>
+    <div class="msg moi">Le 10/04 c'était le marché des producteurs sur la place, et on avait sorti le stand devant.</div>
+    <div class="msg ia">Le stand extérieur les jours de marché est un candidat sérieux : il est <strong>à vous</strong>, donc déclenchable.
+      Un jour confirmé, c'est une hypothèse, pas une preuve — et comme chaleur et vacances arrivent toujours ensemble chez vous,
+      seul un <strong>test daté</strong> départagera ce qui agit. Je vous prépare la fiche du dispositif : relisez-la, corrigez-la, enregistrez.
+      <div class="src">Hypothèse déclarée par vous — affichée comme telle jusqu'au test</div></div>
+  </div></div>
+
+  <!-- ===== ÉTAPE 2 — la conclusion PRÉ-REMPLIE du dialogue ===== -->
+  <div class="eb">Étape 2 · Documenter — la fiche que la conversation vient d'écrire</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div class="ab-sowhat" style="margin-bottom:8px;"><strong>Pré-remplie par votre conversation</strong> — rien à saisir de zéro : relisez, corrigez, enregistrez.</div>
+    <div class="field"><label>Ce que vous aviez fait</label><div class="val">Stand extérieur devant la boutique les jours de marché des producteurs. <span style="color:#9CA3AF;">(votre phrase du chat)</span></div></div>
+    <div class="field"><label>Les jours qui le montrent</label><div class="val">Vendredi 10/04 — 980 visiteurs, sans chaleur, vacances ni week-end. <span style="color:#9CA3AF;">(cité du bloc « journées inexpliquées »)</span></div></div>
+    <div class="field"><label>Comment on saura que ça marche</label><div class="val">Les 3 prochains jours de marché avec stand sorti dépassent l'attendu du jour. <span style="color:#9CA3AF;">(proposé par l'assistant — c'est le test qui sépare ce que l'historique ne peut pas séparer)</span></div></div>
+    <div style="margin-top:12px;">
+      <div class="payoff"><span class="dot">→</span><span><strong>Réutilisable</strong> — entre dans « Vos bonnes pratiques », proposée sur les signaux comparables.</span></div>
+      <div class="payoff"><span class="dot">→</span><span><strong>Testable</strong> — gradue en engagement mesuré sur vos ventes réelles (étape 3).</span></div>
+      <div class="payoff"><span class="dot">→</span><span><strong>Apprend au système</strong> — le chat la citera ; récurrente et datée, elle devient une source à ingérer (les calendriers de marchés sont publics).</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <span class="chip-n">déclaré — en attente du test</span>
+      <span style="margin-left:auto;"><button class="agir-btn">Enregistrer le dispositif</button></span>
+    </div>
+  </div></div>
+
+  <!-- ===== ÉTAPE 3 ===== -->
+  <div class="eb">Étape 3 · Rejouer — la graduation en engagement (boucle commitments réelle)</div>
+  <div class="ab-card"><div class="ab-summary">
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="ab-what">Stand extérieur les jours de marché</div>
+        <div class="ab-sowhat">Dispositif déclaré le 01/08 · test : 3 prochains jours de marché au-dessus de l'attendu · verdict au bilan, mesuré sur vos ventes réelles.</div>
+      </div>
+      <div class="amt" title="Le test daté est ce qui sépare les facteurs que l'historique ne peut pas séparer (chaleur/vacances toujours ensemble). Le montant n'existe qu'une fois le rejeu prouvé."><div class="amt-val" style="color:#9CA3AF;font-size:13px;">—</div><div class="amt-sub">prouvé au rejeu, jamais avant</div></div>
+    </div>
+    <div class="aline">S'engager sur le test : « sortir le stand les 3 prochains jours de marché » → l'issue met à jour le tier (déclaré → prouvé).</div>
+    <div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button class="agir-btn">M'engager sur le test</button></span></div>
+  </div></div>
+
+  <div class="eb">Ce que la v2 change (vs v1)</div>
+  <div class="note">Étape 1 : le récit en français d'exploitant est le SEUL texte courant — pourcentages, méthode et
+  nuance « co-occurrence ≠ cause » vivent au survol ; la table des 40 jours est repliée ; les 2 journées à expliquer
+  ont leur bloc dédié, qui est aussi LE détecteur des signaux hors base (nommage → bonnes pratiques → candidat
+  d'ingestion). Le multifactoriel est dit en une phrase honnête et TRANCHÉ par le test daté — pas par une statistique
+  qu'on n'a pas. L'étape 2 n'est plus un formulaire : c'est la fiche que la conversation vient d'écrire, chaque champ
+  sourcé (votre phrase / le jour cité / le test proposé), avec ses trois retombées affichées.</div>
+</div>
+</body>
+</html>

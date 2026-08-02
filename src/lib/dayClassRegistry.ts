@@ -42,6 +42,7 @@
 
 export type DayClassImpact = {
   class_key: string;      // registry key, e.g. 'heat'
+  family?: string;        // famille de la classe ; 'card' = population de carte (jamais structurel)
   label_fr: string;       // French label for future card copy, e.g. 'jours de forte chaleur'
   eur_year: number;       // annualized € weight (negative = loss vs normale)
   tier: "estimé" | "mesuré";
@@ -62,6 +63,9 @@ export type DayClassResult = {
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
   immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
   clientCatchment?: string | null;        // périmètre DÉCLARÉ du lieu ('commune'|'beyond'|null)
+  // Temps 2 du périmètre : jours mesurables que chaque réponse débloquerait (lu depuis
+  // CATCHMENT_HYP_STORE, null tant que le cron n'a pas tourné ou sans historique de ventes).
+  catchmentHypotheses?: { commune: number; beyond: number } | null;
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -133,10 +137,25 @@ export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: s
   { key: "discount_no_lift", family: "sales", label_fr: "jours de remise sans effet mesuré" },
 ];
 
+// Populations de cartes (doctrine valeur d'action, 01/08) — famille 'card' : le coin PROPRE des
+// cartes d'anomalie/conjonction (« ce problème pèse ~X €/an au rythme constaté »). Elles ne sont
+// JAMAIS des motifs structurels (filtre family !== 'card' côté monitor) et sont DISPENSÉES de la
+// porte de matérialité (amendement 5 : le vrai nombre s'affiche, même petit — la petitesse est
+// l'information). Les autres portes (n >= 5, span, t_log, cohérence de signe) s'appliquent.
+export const CARD_POP_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
+  { key: "pop_revenue_down", family: "card", label_fr: "journées anormalement basses" },
+  { key: "pop_revenue_surge", family: "card", label_fr: "journées anormalement hautes" },
+  { key: "pop_underperformance", family: "card", label_fr: "journées nettement sous votre moyenne 30 j" },
+  // Apostrophe TYPOGRAPHIQUE exigée : le strip du préfixe côté client (« ^jours (de |d’|à )? »)
+  // ne connaît qu'elle — l'ASCII donnait « perdus · d'affluence sans conversion » (vu owner 01/08).
+  { key: "pop_traffic_not_conv", family: "card", label_fr: "jours d’affluence sans conversion" },
+];
+
 const CLASS_LABELS: Record<string, string> = Object.fromEntries([
   ...WEATHER_DAY_CLASSES.map((c) => [c.key, c.label_fr]),
   ...TERCILE_DAY_CLASSES.map((c) => [c.key, c.label_fr]),
   ...OTHER_DAY_CLASSES.map((c) => [c.key, c.label_fr]),
+  ...CARD_POP_CLASSES.map((c) => [c.key, c.label_fr]),
 ]);
 
 const PROJECT = "muse-square-open-data";
@@ -144,6 +163,54 @@ const PROJECT = "muse-square-open-data";
 // POLICY (gates, tier, €/an, negative-only) lives HERE in rowsToImpacts and is applied at READ
 // time, so a gate change never requires a re-batch. Rebuilt nightly by api/cron/day-class-impacts.
 export const DAY_CLASS_STORE = "analytics.day_class_impacts";
+
+// Temps 2 du périmètre (01/08, variante honnête validée owner) : le nombre de jours mesurables que
+// CHAQUE réponse débloquerait, calculé et stocké par le cron — JAMAIS codé en dur (la faute des
+// 7 cartes concurrent). TABLE SÉPARÉE du store des pilules, à dessein : des lignes d'hypothèse
+// dans day_class_impacts seraient bucketées 'pure' par toute lecture antérieure à ce commit
+// (rowsToImpactsWithImmaterial traite tout non-'marginal' comme pure) — une pilule fabriquée
+// depuis une hypothèse. L'isolation rend l'accident impossible.
+export const CATCHMENT_HYP_STORE = "analytics.catchment_hypothesis_days";
+
+// Jours mesurables par HYPOTHÈSE de périmètre ('commune' -> 1 km, 'beyond' -> 20 km) : jours avec
+// ventes (JOIN résiduel, comme l'agrégat) dont la densité au rayon hypothétique tombe dans SON
+// tercile haut — la sémantique exacte de in_events (non-NULL, distribution non dégénérée, >= t2).
+export function catchmentHypothesisSql(singleLocation: boolean): string {
+  return `
+    WITH joined AS (
+      SELECT
+        c.location_id,
+        e.events_within_1km_count  AS ev1,
+        e.events_within_20km_count AS ev20
+      FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+      JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        ON r.location_id = c.location_id AND r.date = c.date
+      LEFT JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e
+        ON e.location_id = c.location_id AND e.date = c.date
+        AND e.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND e.date <= CURRENT_DATE()
+      WHERE c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND c.date <= CURRENT_DATE()
+      ${singleLocation ? "AND c.location_id = @location_id" : ""}
+    ),
+    th AS (
+      SELECT location_id,
+        APPROX_QUANTILES(ev1, 3)[OFFSET(2)]  AS ev1_t2,  MIN(ev1)  AS ev1_min,  MAX(ev1)  AS ev1_max,
+        APPROX_QUANTILES(ev20, 3)[OFFSET(2)] AS ev20_t2, MIN(ev20) AS ev20_min, MAX(ev20) AS ev20_max
+      FROM joined GROUP BY location_id
+    )
+    SELECT
+      j.location_id,
+      hypothesis,
+      COUNTIF(CASE WHEN hypothesis = 'commune'
+                   THEN j.ev1  IS NOT NULL AND t.ev1_max  > t.ev1_min  AND j.ev1  >= t.ev1_t2
+                   ELSE j.ev20 IS NOT NULL AND t.ev20_max > t.ev20_min AND j.ev20 >= t.ev20_t2 END) AS n_days_measurable,
+      COUNT(*) AS n_days_sales,
+      CURRENT_TIMESTAMP() AS computed_at
+    FROM joined j
+    JOIN th t USING (location_id)
+    CROSS JOIN UNNEST(['commune', 'beyond']) AS hypothesis
+    GROUP BY j.location_id, hypothesis
+  `;
+}
 
 // Seuil et départage des classes météo — FOYER UNIQUE (alimente le store ligne ~146 ET la
 // résolution carte→classe ligne ~372, donc les deux ne peuvent pas diverger).
@@ -244,7 +311,15 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         COALESCE(sv.active_ct, 0) AS suivis_ct,
         perf.daily_visitors AS visitors,
         COALESCE(sg.is_discount_without_lift, FALSE) AS discount_no_lift_flag,
-        sg.daily_discount_total AS discount_total
+        sg.daily_discount_total AS discount_total,
+        -- Populations de cartes (doctrine 01/08, famille 'card') : les jours où CHAQUE carte
+        -- d'anomalie/conjonction tire — son coin = SA récurrence, jamais le poids d'une classe
+        -- environnementale. Flags des marts ventes, mêmes référentiels que les cartes.
+        COALESCE(r.is_revenue_down_residual, FALSE) AS pop_down_flag,
+        COALESCE(r.is_revenue_surge_residual, FALSE) AS pop_surge_flag,
+        (sg.daily_revenue IS NOT NULL AND sg.revenue_30d_avg IS NOT NULL AND sg.revenue_30d_avg > 0
+         AND sg.daily_revenue < sg.revenue_30d_avg * 0.7) AS pop_underperf_flag,
+        COALESCE(sg.is_traffic_not_converting, FALSE) AS pop_traffic_nc_flag
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
       JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
         ON r.location_id = c.location_id AND r.date = c.date
@@ -384,6 +459,22 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       -- hors ajustement saison, base 'pure' par nature.
       SELECT location_id, date, -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
       FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
+      UNION ALL
+      -- Populations de cartes (doctrine 01/08) : base 'pure' par nature (le tir EST
+      -- l'appartenance — pas de pureté ni d'ajustement saison : le gap brut vs normale est le
+      -- référentiel que la carte affiche). Lecteurs antérieurs : class_key inconnu de
+      -- CLASS_LABELS -> ligne ignorée (sûr au déploiement).
+      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_down', 'pure'
+      FROM counted WHERE pop_down_flag
+      UNION ALL
+      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
+      FROM counted WHERE pop_surge_flag
+      UNION ALL
+      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
+      FROM counted WHERE pop_underperf_flag
+      UNION ALL
+      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
+      FROM counted WHERE pop_traffic_nc_flag
     ),
     span AS (
       SELECT location_id, DATE_DIFF(MAX(date), MIN(date), DAY) + 1 AS span_days
@@ -469,7 +560,11 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     dailyEur = avg;
   }
   const eurYear = Math.round(dailyEur * (n / (spanDays / 365.25)));
+  // Amendement 5 (01/08) : la matérialité GOUVERNE les motifs structurels ; les populations de
+  // cartes (famille 'card') affichent leur vrai nombre, même petit — jamais éteintes ici.
+  const rowFamily = String(row?.family ?? "");
   if (
+    rowFamily !== "card" &&
     annualRevenue != null && Number.isFinite(annualRevenue) && annualRevenue > 0 &&
     Math.abs(eurYear) < annualRevenue * MATERIALITY_PCT_OF_REVENUE
   ) return null;
@@ -478,6 +573,8 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
   return {
     class_key: key,
     label_fr: CLASS_LABELS[key],
+    // family exposé pour que monitor exclue la famille 'card' des motifs structurels.
+    family: rowFamily || undefined,
     eur_year: eurYear,
     tier,
     tier_label_fr: entangled ? "estimé, cause multifactorielle" : tier,
@@ -609,7 +706,7 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 }
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
-  const [storeRows, dateRes, annualRevenue] = await Promise.all([
+  const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
     bq.query({
       query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
       params: { location_id },
@@ -617,13 +714,26 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
+    // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus
+    // lente), .catch [] tant que la table n'existe pas. Pas de repli live : un compte pas
+    // encore batché montre la question SANS nombres, c'est le comportement voulu.
+    bq.query({
+      query: `SELECT hypothesis, n_days_measurable FROM \`${PROJECT}.${CATCHMENT_HYP_STORE}\` WHERE location_id = @location_id`,
+      params: { location_id },
+      location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
   ]);
+  const hyp = (() => {
+    const m = new Map((hypRows as any[]).map((h: any) => [String(h?.hypothesis), Number(h?.n_days_measurable)]));
+    const commune = m.get("commune"); const beyond = m.get("beyond");
+    return Number.isFinite(commune) && Number.isFinite(beyond) ? { commune: commune as number, beyond: beyond as number } : null;
+  })();
   if ((storeRows as any[]).length > 0) {
     const { impacts, immaterial } = rowsToImpactsWithImmaterial(storeRows as any[], annualRevenue);
-    return { impacts, immaterial, ...dateRes };
+    return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
   }
   const live = await computeDayClassImpacts(bq, location_id, []);
-  return { impacts: live.impacts, ...dateRes };
+  return { impacts: live.impacts, ...dateRes, catchmentHypotheses: hyp };
 }
 
 // Weather action types that resolve their condition from the AFFECTED DATE (payload has none).
@@ -638,9 +748,12 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
 // D'ÉVÉNEMENTS dans leur payload — leur variable réelle est la densité événementielle, pas l'indice
 // de pression ambiante ; elles mappent donc events_high (vérité de la variable, pas du nom).
 const CARD_TYPE_CLASS: Record<string, string> = {
-  sales_traffic_not_converting: "traffic_high",
+  // Doctrine 01/08 : sales_traffic_not_converting et sales_competition_cannibalization RETIRÉES
+  // d'ici — un poids de classe environnementale au coin d'une carte d'anomalie était le défaut
+  // déclencheur (+33 402 « à gagner » sur une carte d'échec ; +73 674 porté par une facture).
+  // Leur coin vient de CARD_POPULATION (ou mode « € ce jour ») ; la classe citée passe en
+  // CONTEXTE (CARD_CONTEXT_CLASS -> motifContextForCandidate).
   sales_discount_no_lift: "discount_no_lift",
-  sales_competition_cannibalization: "competition_high",
   competition_pressure_spike: "competition_high",
   low_competition_window: "competition_low",
   weekend_vacation_low_comp: "competition_low",
@@ -738,19 +851,14 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
     return best;
   } else if (CARD_TYPE_CLASS[actionType]) {
     cond = CARD_TYPE_CLASS[actionType];
-  } else if (SALES_INHERIT_TYPES.has(actionType)) {
-    // « Motif de fond » (validé 26/07) : une carte d'ANOMALIE ventes n'annualise jamais son écart
-    // (circularité) mais HÉRITE de la classe de son jour — la plus lourde en |€/an| parmi la
-    // condition météo et le calendrier de la date affectée. Ex. réel : « CA supérieur à vos
-    // jeudis » un jour de vacances → « Motif de fond ~12 016 €/an · vacances scolaires » — le bon
-    // jour est l'exception du motif, et c'est l'insight.
-    let best: DayClassImpact | null = null;
-    for (const token of ["weather@date", "calendar@date"]) {
-      const key = resolveClassToken(token, result, iso);
-      const imp = key ? (result.impacts.get(key) ?? null) : null;
-      if (imp && (!best || Math.abs(imp.eur_year) > Math.abs(best.eur_year))) best = imp;
-    }
-    return best ? { ...best, inherited: true } : null;
+  } else if (CARD_VALUE_TYPES.has(actionType)) {
+    // Doctrine 01/08 (remplace l'héritage « Motif de fond » du 26/07 COMME ENJEU) : le coin
+    // d'une carte d'anomalie/conjonction = SA population de tirs, jamais une classe
+    // environnementale. L'héritage du motif du jour vit désormais dans
+    // motifContextForCandidate (ligne de contexte). Pas de population passant les portes ->
+    // null, et le client rend le mode « € ce jour » (amendement 6).
+    const pop = CARD_POPULATION[actionType];
+    return pop ? (result.impacts.get(pop) ?? null) : null;
   }
   if (!cond) return null;
   return result.impacts.get(cond) ?? null;
@@ -765,9 +873,13 @@ export const ABSENCE_REASON_FR = {
 } as const;
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean } {
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);
-  if (enjeu) return { enjeu, reason_fr: null };
+  // Doctrine 01/08 : le motif du jour est du CONTEXTE (ligne de texte), servi À CÔTÉ de
+  // l'enjeu propre — jamais à sa place.
+  const atV = String(candidate?.action_type || "");
+  const contextMotif = CARD_VALUE_TYPES.has(atV) ? motifContextForCandidate(result, candidate) : null;
+  if (enjeu) return { enjeu, reason_fr: null, context_motif: contextMotif };
   // MATÉRIALITÉ (29/07) : la classe de cette carte a bien été MESURÉE, et elle est négligeable.
   // Ce n'est pas « on ne sait pas » — c'est « on sait, et ça ne pèse rien ». La carte ne doit donc
   // pas s'afficher du tout (décision owner : « ni carte ni chantier »), et surtout pas avec le
@@ -802,7 +914,9 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
   // Le drapeau n'accompagne QUE les retours sans enjeu : si le montant est déjà chiffré, la question
   // n'a plus d'objet. Il ne sort pas non plus sur une carte écartée pour matérialité (carte masquée).
   const needsCatchment = result?.clientCatchment == null && CATCHMENT_DEPENDENT_TYPES.has(actionType);
-  if (SALES_INHERIT_TYPES.has(actionType)) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.anomaly };
+  // Amendement 6 (01/08) : plus de raison « anomalie ponctuelle » — le coin passe en mode
+  // « € ce jour » (écart du payload, unité en toutes lettres), bascule €/an à n >= 5 tirs.
+  if (CARD_VALUE_TYPES.has(actionType)) return { enjeu: null, reason_fr: null, context_motif: contextMotif, corner_day_mode: true };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
   if (!mapped) return { enjeu: null, reason_fr: null };
@@ -817,3 +931,51 @@ const SALES_INHERIT_TYPES = new Set([
   "sales_underperformance",
   "sales_missed_opportunity",
 ]);
+
+// Doctrine valeur d'action (01/08, GO owner) : le coin d'une carte d'anomalie/conjonction = SA
+// population de tirs (famille 'card' du store), JAMAIS une classe environnementale. Le motif
+// hérité (weather@date/calendar@date) devient du CONTEXTE (context_motif, ligne de texte).
+// sales_missed_opportunity n'a pas encore sa population (sa condition inclut le score — TODO
+// documenté) : coin en mode « € ce jour » en attendant.
+const CARD_POPULATION: Record<string, string> = {
+  sales_revenue_down_wow: "pop_revenue_down",
+  sales_surge: "pop_revenue_surge",
+  // sales_underperformance : population CALCULÉE au store (pop_underperformance) mais NON
+  // branchée — arbitrage owner OUVERT. Mesuré 01/08 chez Les Olivades : 124 tirs/334 j,
+  // −119 500 €/an, t_log −11,3 — béton statistiquement et TROMPEUR : sa règle à seuil fixe
+  // (CA < 70 % de la moyenne 30 j) compare les jours boutique à une moyenne gonflée par les
+  // factures grossiste. À brancher quand la règle est re-basée sur le résiduel OU quand les
+  // canaux sont séparés (réponse Sage 100 en attente). D'ici là : mode « € ce jour ».
+  sales_traffic_not_converting: "pop_traffic_not_conv",
+};
+
+// Contexte environnemental cité par la carte (ligne de texte, jamais le coin).
+const CARD_CONTEXT_CLASS: Record<string, string> = {
+  sales_traffic_not_converting: "traffic_high",
+  sales_competition_cannibalization: "competition_high",
+};
+
+// Types dont le coin est régi par la doctrine population/jour (B + C).
+const CARD_VALUE_TYPES = new Set([
+  ...SALES_INHERIT_TYPES,
+  "sales_traffic_not_converting",
+  "sales_competition_cannibalization",
+]);
+
+/** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais
+ *  une ligne de texte : la classe la plus lourde parmi météo/calendrier de la date affectée,
+ *  ou la classe environnementale citée par la carte (CARD_CONTEXT_CLASS). Jamais le coin. */
+export function motifContextForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): DayClassImpact | null {
+  const actionType = String(candidate?.action_type || "");
+  const ctxKey = CARD_CONTEXT_CLASS[actionType];
+  if (ctxKey) return result.impacts.get(ctxKey) ?? null;
+  if (!SALES_INHERIT_TYPES.has(actionType)) return null;
+  const iso = String(candidate?.date?.value ?? candidate?.date ?? "").slice(0, 10);
+  let best: DayClassImpact | null = null;
+  for (const token of ["weather@date", "calendar@date"]) {
+    const key = resolveClassToken(token, result, iso);
+    const imp = key ? (result.impacts.get(key) ?? null) : null;
+    if (imp && (!best || Math.abs(imp.eur_year) > Math.abs(best.eur_year))) best = imp;
+  }
+  return best ? { ...best, inherited: true } : null;
+}

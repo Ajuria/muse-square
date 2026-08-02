@@ -47,6 +47,12 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["practice_text", "STRING"],
   ["replay_commitment_id", "STRING"],
   ["status", "STRING"],
+  // Objet « dispositif » (atelier des mécanismes, 01/08 — docs/atelier-mecanismes-spec.md) :
+  // extension de la pratique, JAMAIS un système parallèle. Une pratique avec confirmation_test
+  // est un dispositif : tier déclaré à la capture, « prouvée » par le rejeu (mécanique existante).
+  ["mechanism_factors", "STRING"],   // facteur(s) supposé(s) — vocabulaire existant quand connu (clés de classes), texte libre sinon
+  ["evidence_refs", "STRING"],       // les preuves citées (jours, chiffres affichés) — jamais du vide
+  ["confirmation_test", "STRING"],   // ce qui le confirmerait — la graine de la graduation en engagement
 ];
 
 export interface BestPracticeRow {
@@ -66,6 +72,10 @@ export interface BestPracticeRow {
   practice_text: string;
   replay_commitment_id: string | null;
   status: "active" | "archivee";
+  // Objet dispositif (01/08) — nullables : une pratique simple reste valide sans eux.
+  mechanism_factors?: string | null;
+  evidence_refs?: string | null;
+  confirmation_test?: string | null;
 }
 
 // A practice as SERVED to the UI (tier computed at read; proven commitments unioned in).
@@ -76,6 +86,9 @@ export interface ServedPractice {
   origin_affected_date: string | null;
   tier: "declaree" | "prouvee";
   source: "declared" | "commitment";
+  // Objet dispositif (01/08) — null sur les pratiques simples et les engagements prouvés.
+  mechanism_factors?: string | null;
+  confirmation_test?: string | null;
 }
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -85,6 +98,16 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
 export async function ensureBestPracticesTable(bq: any): Promise<void> {
   const cols = COLUMN_SPEC.map(([n, t]) => `${n} ${t}`).join(", ");
   await bq.query({ query: `CREATE TABLE IF NOT EXISTS \`${TABLE_FQN}\` (${cols})`, location: "EU" });
+  // Extension dispositif (01/08) : la table préexiste en prod et CREATE IF NOT EXISTS ne
+  // modifie JAMAIS un schéma existant — ALTER idempotent (même leçon que l'historique
+  // day-class). Les lecteurs antérieurs sélectionnent leurs colonnes explicitement : sûrs.
+  await bq.query({
+    query: `ALTER TABLE \`${TABLE_FQN}\`
+      ADD COLUMN IF NOT EXISTS mechanism_factors STRING,
+      ADD COLUMN IF NOT EXISTS evidence_refs STRING,
+      ADD COLUMN IF NOT EXISTS confirmation_test STRING`,
+    location: "EU",
+  });
 }
 
 export async function insertBestPractice(bq: any, row: BestPracticeRow): Promise<void> {
@@ -123,7 +146,8 @@ export async function listMatchedPractices(
           SELECT bp.practice_id, bp.practice_text, bp.author_person_name,
                  CAST(bp.origin_affected_date AS STRING) AS origin_affected_date,
                  IF(c.verdict = 'met', 'prouvee', 'declaree') AS tier,
-                 'declared' AS source, bp.created_at AS ts
+                 'declared' AS source, bp.created_at AS ts,
+                 bp.mechanism_factors, bp.confirmation_test
           FROM \`${TABLE_FQN}\` bp
           LEFT JOIN (
             SELECT commitment_id, verdict, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
@@ -139,7 +163,8 @@ export async function listMatchedPractices(
                  COALESCE(NULLIF(TRIM(retro_worked), ''), committed_action_text) AS practice_text,
                  owner_person_name AS author_person_name,
                  CAST(origin_affected_date AS STRING) AS origin_affected_date,
-                 'prouvee' AS tier, 'commitment' AS source, updated_at AS ts
+                 'prouvee' AS tier, 'commitment' AS source, updated_at AS ts,
+                 CAST(NULL AS STRING) AS mechanism_factors, CAST(NULL AS STRING) AS confirmation_test
           FROM (
             SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
             FROM \`${COMMITMENTS_FQN}\`
@@ -153,7 +178,8 @@ export async function listMatchedPractices(
             AND COALESCE(measured_metric, 'revenue_residual') = @kpi
             AND commitment_id NOT IN (SELECT IFNULL(replay_commitment_id, '') FROM \`${TABLE_FQN}\` WHERE location_id = @location_id)
         )
-        SELECT practice_id, practice_text, author_person_name, origin_affected_date, tier, source
+        SELECT practice_id, practice_text, author_person_name, origin_affected_date, tier, source,
+               mechanism_factors, confirmation_test
         FROM (SELECT * FROM declared UNION ALL SELECT * FROM proven_commitments)
         ORDER BY IF(tier = 'prouvee', 0, 1), ts DESC
         LIMIT ${limit}
@@ -177,6 +203,8 @@ export async function listMatchedPractices(
     origin_affected_date: flat(r.origin_affected_date) != null ? String(flat(r.origin_affected_date)) : null,
     tier: flat(r.tier) === "prouvee" ? "prouvee" : "declaree",
     source: flat(r.source) === "commitment" ? "commitment" : "declared",
+    mechanism_factors: flat(r.mechanism_factors) != null ? String(flat(r.mechanism_factors)) : null,
+    confirmation_test: flat(r.confirmation_test) != null ? String(flat(r.confirmation_test)) : null,
   }));
 }
 

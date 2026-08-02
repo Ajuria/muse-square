@@ -1,0 +1,212 @@
+---
+// « Reproduire le dispositif gagnant » — l'atterrissage du CTA d'identification des cartes
+// structurelles (doctrine 01/08, amendement 7 ; spec docs/atelier-mecanismes-spec.md ; proto
+// approuvé public/atelier-dispositif-proto.html). Étape 1 servie par le provider partagé
+// (api/insight/dispositif) ; étape 2 POSTe l'objet dispositif réel (/api/best-practices,
+// pièce 1) ; le mode enquête LLM est la pièce suivante — la page montre déjà les vérifications
+// internes DÉTERMINISTES (amplitude horaire, mix produits) calculées par le provider.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const locParam = Astro.url.searchParams.get("location_id") || "";
+const classParam = Astro.url.searchParams.get("class") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Reproduire le dispositif gagnant — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="dispo-root" data-loc={locParam} data-class={classParam}>
+      <div id="dispo-toolbar"><a href="/app/insightevent/pulse" id="dispo-back">← Retour à Pulse</a></div>
+      <div id="dispo-status">Chargement de vos données…</div>
+      <div id="dispo-doc" style="display:none;"></div>
+    </div>
+
+    <style is:global>
+      #dispo-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #dispo-toolbar { margin-bottom: 14px; }
+      #dispo-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #dispo-status { padding: 60px 0; text-align: center; color: #9ca3af; font-size: 14px; }
+      .dp-card { background: var(--color-bg-card, #fff); border: 1px solid var(--color-border, rgba(0,0,0,0.08)); border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(16,24,40,0.06); padding: 14px 16px; }
+      .dp-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+      .dp-chip { display: inline-flex; align-items: center; font-size: 12px; padding: 3px 9px; border-radius: 20px; background: #F3F4F6; color: #6b7280; white-space: nowrap; }
+      .dp-what { font-size: 14px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+      .dp-sub { font-size: 12px; color: #6B7280; line-height: 1.45; }
+      .dp-amt { text-align: right; cursor: help; }
+      .dp-amt-val { font-size: 16px; font-weight: 600; white-space: nowrap; }
+      .dp-amt-sub { font-size: 10.5px; color: #9CA3AF; margin-top: 2px; text-decoration: underline dotted rgba(156,163,175,0.6); text-underline-offset: 2px; }
+      .dp-eb { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(17,24,39,0.45); font-weight: 500; margin: 18px 0 8px; }
+      .dp-hov { text-decoration: underline dotted rgba(156,163,175,0.8); text-underline-offset: 2px; cursor: help; }
+      .dp-step { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+      .dp-step .n { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+      .dp-step.on { color: #1D3BB3; } .dp-step.on .n { background: #EEF2FF; color: #1D3BB3; }
+      .dp-step.off { color: #9ca3af; } .dp-step.off .n { background: #F3F4F6; color: #6b7280; }
+      .dp-rail { display: flex; align-items: center; gap: 8px; margin: 14px 0 16px; }
+      .dp-rail .sep { flex: 1; height: 1px; background: #F3F4F6; }
+      .dp-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+      .dp-table th { text-align: left; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: #9CA3AF; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+      .dp-table td { padding: 6px 8px; border-bottom: 1px solid #F3F4F6; color: #374151; }
+      .dp-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: #1D3BB3; border: 1px solid #1D3BB3; border-radius: 10px; padding: 6px 12px; background: transparent; cursor: pointer; font-family: inherit; }
+      .dp-field { margin: 10px 0; }
+      .dp-field label { display: block; font-size: 11px; font-weight: 600; color: #6B7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+      .dp-field textarea, .dp-field input { width: 100%; box-sizing: border-box; font-size: 12.5px; color: #111827; background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 8px 10px; line-height: 1.45; font-family: inherit; }
+      .dp-src { font-size: 10.5px; color: #9CA3AF; margin-top: 4px; }
+      details.dp-days summary { font-size: 12px; font-weight: 600; color: #1D3BB3; cursor: pointer; padding: 4px 0; }
+    </style>
+
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("dispo-root");
+        var statusEl = document.getElementById("dispo-status");
+        var docEl = document.getElementById("dispo-doc");
+        var loc = root.getAttribute("data-loc") || "";
+        var cls = root.getAttribute("data-class") || "traffic_high";
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
+        function frDate(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+
+        if (!loc) { statusEl.textContent = "Lieu manquant — ouvrez cette page depuis une carte."; return; }
+
+        fetch("/api/insight/dispositif?location_id=" + encodeURIComponent(loc) + "&class=" + encodeURIComponent(cls), { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (!j || !j.ok) { statusEl.textContent = "Erreur : " + esc((j && j.error) || "réessayez."); return; }
+            if (!j.found) { statusEl.textContent = esc(j.reason || "Pas encore disponible pour ce motif."); return; }
+            render(j);
+          })
+          .catch(function () { statusEl.textContent = "Erreur de chargement — réessayez."; });
+
+        function render(j) {
+          var nar = j.narrative || {};
+          var imp = j.impact || null;
+          var ex = j.unexplained_days || [];
+          var pos = imp && Number(imp.eur_year) > 0;
+          var html = "";
+
+          // ── En-tête motif ──
+          html += '<div class="dp-card">'
+            + '<div class="dp-pills"><span class="dp-chip" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="dp-chip">Affluence</span></div>'
+            + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+              + '<div style="flex:1;min-width:0;">'
+                + '<div class="dp-what">Reproduire le dispositif gagnant — vos jours de pointe</div>'
+                + '<div class="dp-sub">De « pourquoi ces journées marchent » à « comment les déclencher ».</div>'
+              + '</div>'
+              + (imp ? '<div class="dp-amt" title="' + esc('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + (imp.tier_label_fr || '')) + '">'
+                  + '<div class="dp-amt-val" style="color:' + (pos ? '#059669' : '#B45309') + ';">' + (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an</div>'
+                  + '<div class="dp-amt-sub">' + (pos ? 'à gagner' : 'perdus') + ' · jours de pointe</div></div>' : '')
+            + '</div></div>';
+
+          // ── Rail ──
+          html += '<div class="dp-rail">'
+            + '<span class="dp-step on"><span class="n">1</span>Identifier</span><span class="sep"></span>'
+            + '<span class="dp-step off"><span class="n">2</span>Documenter</span><span class="sep"></span>'
+            + '<span class="dp-step off"><span class="n">3</span>Rejouer</span></div>';
+
+          // ── Étape 1 : récit + survol (amendement idiot-proof) ──
+          var exLabel = ex.map(function (d) { return d.dow_fr + " " + frDate(d.date); }).join(" et ");
+          html += '<div class="dp-eb">Étape 1 · Identifier</div><div class="dp-card">'
+            + '<div style="font-size:13.5px;font-weight:600;line-height:1.5;">'
+              + '<span class="dp-hov" title="' + esc(nar.pct_heat + ' % de ces jours sont des jours de chaleur, ' + nar.pct_vacances + ' % des vacances scolaires, ' + nar.pct_weekend + ' % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées.') + '">'
+              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe tombent des jours de chaleur, de vacances ou de week-end.</span></div>'
+            + (ex.length ? '<div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">'
+              + (ex.length === 1 ? 'Le jour restant est inexpliqué : ' : 'Les ' + ex.length + ' restants sont inexpliqués : ') + esc(exLabel) + '.</div>'
+              : '<div class="dp-sub" style="margin-top:6px;">Aucune journée inexpliquée : tout votre tercile haut porte un facteur environnemental connu.</div>')
+            + '<details class="dp-days" style="margin-top:10px;"><summary>Voir vos ' + nar.n_days + ' jours</summary>'
+              + '<table class="dp-table" style="margin-top:8px;"><tr><th>jour</th><th>visiteurs</th><th>ca</th><th>contexte</th></tr>'
+              + (j.top_days || []).map(function (d) {
+                  var ctx = [d.heat ? "chaleur" : null, d.vacances ? "vacances" : null, d.weekend ? "week-end" : null].filter(Boolean).join(" · ") || "aucun facteur connu";
+                  return '<tr><td>' + esc(d.dow_fr + " " + frDate(d.date)) + '</td><td>' + frInt(d.visitors) + '</td><td>' + frInt(d.ca) + ' €</td><td>' + esc(ctx) + '</td></tr>';
+                }).join("")
+              + '<tr><td colspan="4" style="color:#9CA3AF;">… les ' + Math.max(0, nar.n_days - (j.top_days || []).length) + ' autres au même endroit</td></tr></table></details>'
+          + '</div>';
+
+          // ── Journées inexpliquées + vérifications internes DÉJÀ faites ──
+          if (ex.length) {
+            html += '<div class="dp-eb">Journées inexpliquées — vérifications déjà faites dans vos données</div><div class="dp-card">';
+            ex.forEach(function (d) {
+              var checks = [];
+              if (d.hour_min != null && d.hour_max != null) checks.push("journée complète (ventes de " + d.hour_min + " h à " + d.hour_max + " h, " + frInt(d.tickets) + " tickets) — pas d’effet horaire");
+              if (d.top_categories && d.top_categories.length) {
+                var mix = d.top_categories.map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ");
+                checks.push("mix produits du jour : " + mix + " — à comparer à votre habituel (" + (d.usual_top_categories || []).map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ") + ")");
+              }
+              html += '<div style="margin-bottom:10px;">'
+                + '<div style="font-size:12.5px;font-weight:600;">' + esc(d.dow_fr + " " + frDate(d.date)) + ' — ' + frInt(d.visitors) + ' visiteurs, ' + frInt(d.ca) + ' €</div>'
+                + (checks.length ? '<div class="dp-sub">' + checks.join(" · ") + '</div>' : '')
+                + '</div>';
+            });
+            html += '<div class="dp-src">Le dialogue d’enquête arrive (mode enquête, en construction) — en attendant, la question est à vous : que s’était-il passé ces jours-là ? Documentez-le ci-dessous.</div>'
+            + '</div>';
+          }
+
+          // ── Étape 2 : la fiche dispositif (POST réel) ──
+          var defaultEvidence = ex.length
+            ? ex.map(function (d) { return d.dow_fr + " " + frDate(d.date) + " — " + frInt(d.visitors) + " visiteurs sans chaleur, vacances ni week-end"; }).join(" ; ")
+            : "";
+          // Échelle d'enjeu (owner 02/08) : chaque étape répond à « shall I care ? » avec SON
+          // référentiel — jamais le poids total du motif sur le test d'un dispositif.
+          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
+          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
+          html += '<div class="dp-eb">Étape 2 · Documenter le dispositif</div><div class="dp-card">'
+            + (medStr ? '<div class="dp-sub" style="margin-bottom:6px;">Ce que vaut une journée de ce type chez vous : <strong style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</strong> '
+              + '<span class="dp-hov" title="' + esc('Médiane de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr : '') + '). Documenter le dispositif, c’est rendre ces journées déclenchables.') + '">vs votre normale, médiane mesurée</span>.</div>' : '')
+            + '<div class="dp-sub" style="margin-bottom:8px;">Trois retombées : réutilisable (vos bonnes pratiques) · testable (engagement mesuré) · apprend au système.</div>'
+            + '<div class="dp-field"><label>Ce que vous aviez fait</label><textarea id="dp-fact" rows="2" placeholder="Ex. : stand extérieur les jours de marché des producteurs"></textarea></div>'
+            + '<div class="dp-field"><label>Les jours qui le montrent</label><textarea id="dp-evid" rows="2">' + esc(defaultEvidence) + '</textarea></div>'
+            + '<div class="dp-field"><label>Comment on saura que ça marche</label><textarea id="dp-test" rows="2" placeholder="Ex. : les 3 prochains jours de marché avec stand sorti dépassent l’attendu du jour"></textarea></div>'
+            + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;">'
+              + '<span class="dp-chip">déclaré — prouvé par le rejeu, jamais avant</span>'
+              + '<span style="margin-left:auto;"><button type="button" id="dp-save" class="dp-btn">Enregistrer le dispositif</button></span>'
+            + '</div><div id="dp-save-msg" class="dp-src" style="display:none;"></div>'
+          + '</div>';
+
+          // ── Étape 3 — l'enjeu de l'ACTION : la journée déclenchée (mesurée), le potentiel
+          // annuel = LA multiplication de l'exploitant (sa fréquence, son levier — jamais une
+          // promesse toute faite), le €/an propre du dispositif SEULEMENT au rejeu prouvé. ──
+          html += '<div class="dp-eb">Étape 3 · Rejouer</div><div class="dp-card">'
+            + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+              + '<div style="flex:1;min-width:0;">'
+                + '<div class="dp-sub">Un dispositif enregistré est proposé sur les signaux comparables (« Vos bonnes pratiques »), et le test se joue par un engagement mesuré sur vos ventes réelles — son issue fait passer le dispositif de « déclaré » à « prouvé ».</div>'
+                + (medStr ? '<div class="dp-sub" style="margin-top:6px;">Le potentiel annuel est <strong>votre</strong> calcul : le nombre de journées que vous visez × ' + medStr + '. Le €/an propre du dispositif n’existera qu’une fois le rejeu prouvé — au rythme constaté, jamais estimé.</div>' : '')
+              + '</div>'
+              + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est PAS la promesse de ce dispositif : il n’en explique qu’une part — le test dira laquelle.') + '">'
+                + '<div class="dp-amt-val" style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</div>'
+                + '<div class="dp-amt-sub">par journée déclenchée</div></div>' : '')
+            + '</div></div>';
+
+          docEl.innerHTML = html;
+          statusEl.style.display = "none";
+          docEl.style.display = "block";
+
+          var saveBtn = document.getElementById("dp-save");
+          if (saveBtn) saveBtn.addEventListener("click", function () {
+            var fact = String((document.getElementById("dp-fact") || {}).value || "").trim();
+            var evid = String((document.getElementById("dp-evid") || {}).value || "").trim();
+            var test = String((document.getElementById("dp-test") || {}).value || "").trim();
+            var msg = document.getElementById("dp-save-msg");
+            if (!fact) { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Décrivez d’abord ce que vous aviez fait."; return; }
+            saveBtn.disabled = true;
+            fetch("/api/best-practices", {
+              method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                location_id: loc,
+                practice_text: fact,
+                evidence_refs: evid || null,
+                confirmation_test: test || null,
+                origin: { origin_action_type: "structural_" + cls, day_class_key: cls },
+              }),
+            }).then(function (r) { return r.json(); }).then(function (jj) {
+              msg.style.display = "block";
+              if (jj && jj.ok) { msg.style.color = "#166534"; msg.textContent = "Dispositif enregistré — il sera proposé sur les signaux comparables, et le test le fera passer à « prouvé »."; }
+              else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((jj && jj.error) || "réessayez") + "."; saveBtn.disabled = false; }
+            }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau — réessayez."; saveBtn.disabled = false; });
+          });
+        }
+      })();
+    </script>
+  </BaseLayout>
+</Show>

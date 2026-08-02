@@ -292,7 +292,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Enjeu (€/an) — day-class registry (lib/dayClassRegistry.ts, spec docs/enjeu-day-class-registry.md):
       // lecture du STORE nightly (analytics.day_class_impacts, incrément 1) + fallback live pour un
       // compte pas encore batché. Échec soft → pas de pill (absence honnête).
-      getDayClassImpacts(bq, location_id, selected_dates)
+      //
+      // FENÊTRE ÉLARGIE de 30 j en arrière (01/08). Les cartes performance portent une date
+      // d'INGESTION passée (piège documenté « Data Path » : le mart les émet sur
+      // transaction_date >= current_date - 30) : avec selected_dates seul, conditionByDate ne
+      // couvrait pas leur jour affecté → l'héritage « Motif de fond » (weather@date/calendar@date)
+      // tombait à vide et la carte affichait « Anomalie ponctuelle » à tort. Reproduit sur
+      // ff2aeb35 (sales_revenue_down_wow du 30/07 : null avec [aujourd'hui], heat_28_plus
+      // −4 925 €/an avec la fenêtre). MÊME unique requête (IN UNNEST), seulement plus de dates.
+      getDayClassImpacts(bq, location_id, (() => {
+        const wide = new Set<string>(selected_dates as string[]);
+        for (let i = 1; i <= 30; i++) {
+          const d = new Date();
+          d.setUTCDate(d.getUTCDate() - i);
+          wide.add(d.toISOString().slice(0, 10));
+        }
+        return [...wide];
+      })())
         .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
     ]);
 
@@ -981,7 +997,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // — un aveu d'ignorance là où l'on sait, et où la réponse est « ça ne pèse rien ».
         .filter((r: any) => !enjeuWithReasonForCandidate(dayClassResult as any, r).immaterial)
         .map((r: any) => ({
-        ...((er) => ({ enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
+        ...((er) => ({
+          enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
+          // Doctrine 01/08 : motif du jour en CONTEXTE (ligne de texte) + mode « € ce jour »
+          // quand la population de la carte n'a pas encore la récurrence (amendement 6).
+          context_motif: er.context_motif ?? null,
+          corner_day_mode: er.corner_day_mode === true,
+          // Temps 2 périmètre : les jours mesurables par hypothèse, UNIQUEMENT sur les cartes qui
+          // posent la question (calculés par le cron, CATCHMENT_HYP_STORE — jamais en dur).
+          catchment_days: er.needs_catchment === true ? ((dayClassResult as any).catchmentHypotheses ?? null) : null,
+        }))(enjeuWithReasonForCandidate(dayClassResult as any, r)),
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
@@ -1006,6 +1031,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // gates, avec leur copy owner-éditable (contextCopy.structuralCardCopyFr). Grain motif × site,
       // sans date. Le client (pulse) rend la section + le lien lifecycle (engagements structural_*).
       day_class_impacts: [...((dayClassResult as any)?.impacts?.values?.() ?? [])]
+        // Doctrine 01/08 : les POPULATIONS DE CARTES (famille 'card') ne sont jamais des motifs
+        // structurels — elles ne vivent qu'au coin de leur carte.
+        .filter((i: any) => i?.family !== "card")
         .map((i: any) => ({ ...i, ...structuralCardCopyFr(i) }))
         .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year)),
     });

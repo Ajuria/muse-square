@@ -315,25 +315,43 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
 export function structuralCardCopyFr(i: {
   class_key: string; label_fr: string; eur_year: number; tier_label_fr: string;
   n_days: number; span_months: number; entangled: boolean;
-}): { title_fr: string; sowhat_fr: string; chantier_fr: string } {
-  const abs = Math.abs(Math.round(i.eur_year)).toLocaleString("fr-FR");
+}): { title_fr: string; sowhat_fr: string; chantier_fr: string; register: "correctif" | "identification" } {
   const pos = i.eur_year > 0;
+  // Doctrine 01/08, amendement 7 : deux REGISTRES. Identification = le levier est propre au
+  // lieu (affluence, suivis, jours calmes qui RÉUSSISSENT) -> titre d'enquête, CTA « Reproduire
+  // le dispositif » (côté client). Correctif = levier connu -> titre affirmatif + plan.
+  const IDENTIFICATION_POSITIVE = new Set(["traffic_high", "followed_activity_high", "competition_low"]);
+  const register: "correctif" | "identification" =
+    pos && IDENTIFICATION_POSITIVE.has(i.class_key) ? "identification" : "correctif";
+  // Amendement 1 : le NOMBRE n'apparaît qu'au coin — les titres portent le signal.
+  // Amendement 2 : la provenance (« Mesuré sur N j / M mois ») vit dans l'infobulle du coin
+  // (le client la construit depuis n_days/span_months/tier_label_fr), plus dans la ligne.
   let title: string;
   if (i.class_key === "discount_no_lift") {
-    title = `~${abs} €/an de remises accordées sans effet mesuré sur le CA`;
+    title = "Des remises accordées sans effet mesuré sur le CA";
   } else if (i.class_key === "events_high" && pos) {
-    title = `Les jours d'événements proches, vous sur-performez : ~${abs} €/an`;
+    title = "Les jours d'événements proches, vous sur-performez";
+  } else if (register === "identification") {
+    title = i.class_key === "traffic_high"
+      ? "Identifiez ce qui déclenche vos jours de pointe"
+      : i.class_key === "followed_activity_high"
+        ? "L'activité de vos concurrents suivis vous profite — identifiez pourquoi"
+        : "Les jours calmes vous réussissent — identifiez pourquoi";
+  } else if (i.class_key === "competition_low") {
+    title = "Les jours calmes ne vous profitent pas encore";
   } else {
     title = pos
-      ? `Vos ${i.label_fr} vous rapportent ~${abs} €/an de plus`
-      : `Vos ${i.label_fr} vous coûtent ~${abs} €/an`;
+      ? `Vos ${i.label_fr} vous rapportent plus que la normale`
+      : `Vos ${i.label_fr} vous font perdre du chiffre`;
   }
-  const isCalendar = i.class_key === "school_holiday" || i.class_key === "public_holiday";
-  const sowhat = `Mesuré sur ${i.n_days} jours / ${i.span_months} mois — ${i.tier_label_fr}.`
-    + (isCalendar ? " Contrôlé par mois et type de jour (l'effet vacances, pas la saison)." : "")
-    + (i.entangled ? " Facteurs encore indissociables sur votre historique — se précisera avec plus de saisons." : "")
-    + " Réévalué chaque mois par vos données.";
-  const chantier = STRUCTURAL_CHANTIER_FR[i.class_key]
-    || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.";
-  return { title_fr: title, sowhat_fr: sowhat, chantier_fr: "Chantier : " + chantier };
+  const sowhat = register === "identification"
+    ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
+    : (pos
+      ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle."
+      : "Sur ces journées, votre chiffre passe sous votre normale — de façon récurrente, pas accidentelle.");
+  const chantier = register === "identification"
+    ? "Enquête : trouvez le mécanisme sur la page dédiée, documentez-le — il deviendra déclenchable."
+    : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]
+      || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.");
+  return { title_fr: title, sowhat_fr: sowhat, chantier_fr: chantier, register };
 }
