@@ -62,6 +62,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 };
 
 // ── POST /api/best-practices — body: { location_id, practice_text, means_lever?, author_person_name?,
+//    mechanism_factors?, evidence_refs?, confirmation_test?,   ← objet dispositif (atelier, 01/08)
 //    origin: { origin_action_type, origin_driver?, origin_card_instance_id?, origin_affected_date?, day_class_key? } } ──
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -95,6 +96,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       practice_text: text.slice(0, 2000),
       replay_commitment_id: null,
       status: "active",
+      // Objet dispositif (01/08) — optionnels : une pratique simple reste valide sans eux.
+      mechanism_factors: String(body?.mechanism_factors || "").trim().slice(0, 1000) || null,
+      evidence_refs: String(body?.evidence_refs || "").trim().slice(0, 2000) || null,
+      confirmation_test: String(body?.confirmation_test || "").trim().slice(0, 1000) || null,
     };
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     await insertBestPractice(bq, row);
