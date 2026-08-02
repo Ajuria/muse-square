@@ -146,7 +146,9 @@ export const CARD_POP_CLASSES: Array<{ key: string; family: string; label_fr: st
   { key: "pop_revenue_down", family: "card", label_fr: "journées anormalement basses" },
   { key: "pop_revenue_surge", family: "card", label_fr: "journées anormalement hautes" },
   { key: "pop_underperformance", family: "card", label_fr: "journées nettement sous votre moyenne 30 j" },
-  { key: "pop_traffic_not_conv", family: "card", label_fr: "jours d'affluence sans conversion" },
+  // Apostrophe TYPOGRAPHIQUE exigée : le strip du préfixe côté client (« ^jours (de |d’|à )? »)
+  // ne connaît qu'elle — l'ASCII donnait « perdus · d'affluence sans conversion » (vu owner 01/08).
+  { key: "pop_traffic_not_conv", family: "card", label_fr: "jours d’affluence sans conversion" },
 ];
 
 const CLASS_LABELS: Record<string, string> = Object.fromEntries([
