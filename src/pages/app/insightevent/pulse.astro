@@ -4393,8 +4393,11 @@ if (!location_id) {
     var tip = 'Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. '
       + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
     var ident = imp.register === 'identification';
+    // CTA identification (01/08 soir) : la PAGE « Reproduire le dispositif gagnant » existe
+    // (dispositif.astro, provider partagé) — le bouton y navigue. data-struct-doc (Documenter
+    // en workspace) reste câblé pour les usages futurs, plus émis ici.
     var btn = ident
-      ? '<button type="button" data-struct-doc="' + key + '" class="agir-btn">Reproduire le dispositif</button>'
+      ? '<button type="button" data-struct-page="' + key + '" class="agir-btn">Reproduire le dispositif</button>'
       : '<button type="button" data-struct-commit="' + key + '" class="agir-btn">M’engager</button>';
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '" style="border-left:3px solid ' + bar + ';">'
       + '<div class="ab-summary">'
@@ -4428,6 +4431,14 @@ if (!location_id) {
   }
 
   function _wireStructRows(scope) {
+    // Navigation vers la page « Reproduire le dispositif gagnant » (CTA identification).
+    scope.querySelectorAll('[data-struct-page]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var imp = _impByKey(b.getAttribute('data-struct-page'));
+        if (!imp || !imp.location_id) return;
+        window.location.href = '/app/insightevent/dispositif?location_id=' + encodeURIComponent(imp.location_id) + '&class=' + encodeURIComponent(imp.class_key || '');
+      });
+    });
     // « Reproduire le dispositif » (registre identification) : le Documenter — la pratique
     // capturée nourrit la base de connaissances (étape 2 du parcours ; l'étape 1, le mode
     // enquête, arrive avec l'atelier — docs/atelier-mecanismes-spec.md). Repli : jamais un mur.
