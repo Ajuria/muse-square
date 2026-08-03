@@ -253,7 +253,11 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
 2. Pièce 1 (objet mécanisme, extension best_practices) — petite, indépendante.
 3. Pièce 2 (mode enquête) — dépend du drill-down par carte (rollout en cours : sales/weather/
    engagement faits) ; commencer par UNE famille (affluence/`traffic_high`, la plus riche en
-   matériau).
+   matériau). **SHIPPED v1 (03/08, dev)** : mode `body.dispositif` dans `prompt.ts` (early-return,
+   discipline en system, porte chiffrée `validateEnqueteOutput` + lie-bait même commit),
+   provider émet `facts`, page `dispositif.astro` réécrite chat-first (ouverture déterministe +
+   note de marge, fiche en tour de chat → POST best-practices, M'engager → MSCommitForm + PATCH).
+   E2E 2 tours prouvé sur le lieu à visiteurs mesurés (fiche au tour 2, tous chiffres fondés).
 4. Pièce 3 en continu (lie-bait à chaque relaxation).
 5. Type B branché en dernier (il a sa propre feuille de route).
 
