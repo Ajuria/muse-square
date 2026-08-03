@@ -159,11 +159,15 @@ soft) ; `status_label`/`capacity`/`stage='planifier'` = code mort, non repris.
 Portes standing : lie-bait à toute modification de grounding ; localisation FR partout
 (JJ/MM/AAAA, frInt) ; droit français dans toute copy d'action.
 
-## Décisions owner encore ouvertes
+## Décisions owner — TRANCHÉES (03/08, « validées telles que proposées »)
 
-- Plafond d'occurrences générées (proposé : 52) et comportement à l'échéance de série
-  (proposer prolongation ?).
-- Graduation série → dispositif « prouvé » : mêmes portes que l'atelier (n≥5 verdicts tenus) —
-  à confirmer.
-- Sort du bilan déclaratif existant (event_outcomes) : conservé en complément du mesuré
-  (proposé : oui, 3 questions au lieu de 5).
+- Plafond d'occurrences générées : **52** ; à l'échéance de série, **proposer la prolongation**.
+- Graduation série → dispositif « prouvé » : **mêmes portes que l'atelier (n≥5 verdicts tenus)**.
+- Bilan déclaratif (event_outcomes) : **conservé en complément du mesuré, 3 questions**.
+
+## Avancement
+
+- **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
+  `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
+  EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
+  historiques préservées, `eventTypesFor(industryCode)` + `eventTypeLabelFr(value)`).
