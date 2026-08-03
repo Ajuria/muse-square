@@ -27,6 +27,10 @@ import { buildLookupIRV1FromRow } from "../../../components/ai/ir/lookup_ir_v1";
 import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/assertions_v1"; 
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
+import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
+import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
 
@@ -2246,6 +2250,109 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         window_aggregates_v3: null,
         ui_packaging_v3: null,
       }), { status: 200, headers: { "content-type": "application/json" } });
+
+    // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
+    // de l'enquête). Early-return complet, comme isUnknownIntent : la page dispositif.astro
+    // poste { dispositif: { class_key, location_id } } — rien du routage jour/mois ne s'applique.
+    // La matière vient du provider partagé (dispositifFamily — la même que la page et le rapport,
+    // jamais une autre source) ; la porte chiffrée (validateEnqueteOutput, lie-bait dans le même
+    // commit) rejette tout nombre absent des FAITS et des mots de l'exploitant — une relance avec
+    // feedback, puis repli déterministe. Le calcul d'engagement (« N pics × X € ») reste côté
+    // page, DÉTERMINISTE : le modèle a interdiction d'arithmétique (règle 4 du system).
+    const _dispo = body?.dispositif;
+    if (_dispo && typeof _dispo === "object" && typeof _dispo.class_key === "string" && _dispo.class_key.trim()) {
+      const dispo_cls = _dispo.class_key.trim();
+      const dispo_loc = typeof _dispo.location_id === "string" && _dispo.location_id.trim() ? _dispo.location_id.trim() : location_id;
+      if (dispo_loc !== location_id && !bypass) requireLocationOwnership(locals, dispo_loc);
+      const enqueteResponse = (say_fr: string, fiche: EnqueteOutput["fiche"], producer: string) =>
+        new Response(JSON.stringify({
+          ok: true,
+          enquete: { say_fr, fiche: fiche ?? null },
+          meta: { producer, register: producer === "enquete_claude" ? "model" : "vetted", class_key: dispo_cls, location_id: dispo_loc },
+        }), { status: 200, headers: { "content-type": "application/json" } });
+
+      const _dispoBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const fam = await dispositifFamily(_dispoBq, dispo_loc, dispo_cls);
+      if (!fam.data.found) return enqueteResponse(fam.data.reason || "Pas encore disponible pour ce motif.", null, "enquete_not_found");
+
+      const factsText = fam.facts.map((f, i) => `f${i}. ${f.fact_fr}`).join("\n");
+      const userText = [...conversation_history.filter((m) => m.role === "user").map((m) => m.content), qRaw].join("\n");
+      const enqueteSystem = `Tu es l'assistant d'enquête « Reproduire le dispositif gagnant » de Muse Square, au service d'un exploitant de commerce en France. Tu VOUVOIES l'exploitant. Le motif ouvert : ses jours de pointe (affluence).
+
+FAITS (la seule source de nombres autorisée — chaque nombre que tu écris doit venir d'ici ou des mots de l'exploitant) :
+${factsText}
+
+TON JOB : aider l'exploitant à mettre des mots sur ce qui fait RÉUSSIR ses jours de pointe (sa routine, ses gestes, son offre) et le formaliser en dispositif testable — une fiche { ce qu'il fait, les jours qui le montrent, comment on saura que ça marche }.
+
+RÈGLES DURES :
+1. CE QUI MARCHE D'ABORD. La question de fond : « qu'est-ce que vous faites ces jours-là qui les fait réussir, et est-ce écrit pour que l'équipe le rejoue à chaque pic annoncé ? » Ne fabrique jamais un mystère des journées inexpliquées.
+2. EXCEPTIONS = NOTES DE MARGE. Les journées sans facteur connu ont un poids faible (voir FAITS : leur écart au CA attendu) : possiblement la variation ordinaire — dis-le. Si l'exploitant les évoque, accueille en une phrase, note, reviens au job. Jamais de pression à les expliquer.
+3. HUMILITÉ STATISTIQUE. Chaleur/vacances/week-end sont des co-occurrences mesurées, jamais des causes prouvées — ne les présente jamais comme causes. Jamais un écart résiduel sans l'explication nulle à côté.
+4. CHIFFRES. Uniquement ceux des FAITS ou ceux que l'exploitant a écrits, tels quels. AUCUNE arithmétique nouvelle : pas de multiplication, pas de total, pas de pourcentage dérivé, pas de moyenne. Si un chiffre utile manque, dis qu'on ne l'a pas.
+5. UNE QUESTION À LA FOIS, jamais de convergence sur la première hypothèse : ouvre l'espace (équipe, offre, mise en place, horaires, extérieur, communication) et pose la question qui départage. Les vérifications internes déjà faites (heures, tickets, mix produits — voir FAITS) se CITENT, jamais se refont ni se contredisent.
+6. LA FICHE. Quand l'explication de l'exploitant est claire, actionnable et À LUI (déclenchable par lui), propose la fiche : fact_fr = SES mots reformulés fidèlement, sans embellissement ; evidence_fr = les jours/faits des FAITS qui la montrent ; test_fr = un test daté observable (modèle : « sur les 3 prochains pics annoncés, dispositif déclenché la veille → CA au-dessus de l'attendu du jour »). Sinon fiche = null et continue l'enquête.
+7. CAUSES EXTERNES nommées et datées (marché, événement, média) : note-les comme déclarées par l'exploitant — tu ne peux pas les vérifier ici ; ne confirme jamais un fait externe de toi-même. Récurrente et datée, une telle cause pourra devenir un dispositif à part entière — dis-le sans promettre.
+8. TON : français d'exploitant, direct, 70 mots maximum par message, pas de jargon (jamais « tercile », « résiduel », « co-occurrence » sans mot simple à côté), pas de markdown.
+
+SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": string, "evidence_fr": string, "test_fr": string } } — rien d'autre.`;
+
+      const ENQUETE_SCHEMA = {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          say_fr: { type: "string" },
+          fiche: {
+            anyOf: [
+              { type: "null" },
+              {
+                type: "object",
+                additionalProperties: false,
+                properties: { fact_fr: { type: "string" }, evidence_fr: { type: "string" }, test_fr: { type: "string" } },
+                required: ["fact_fr", "evidence_fr", "test_fr"],
+              },
+            ],
+          },
+        },
+        required: ["say_fr", "fiche"],
+      };
+
+      const enqueteCall = async (feedback?: string[]): Promise<EnqueteOutput | null> => {
+        const res = await callClaudeMessagesAPI({
+          system: enqueteSystem,
+          userText: feedback?.length
+            ? `${qRaw}\n\n[CORRECTION VALIDATEUR — ta réponse précédente contenait des nombres non fondés (${feedback.join(" ; ")}). Reformule sans ces nombres, ou en citant uniquement les FAITS et les mots de l'exploitant.]`
+            : qRaw,
+          conversationHistory: conversation_history,
+          maxTokens: 700,
+          timeoutMs: 30_000,
+          outputSchema: ENQUETE_SCHEMA,
+        });
+        if (!res.ok || !res.rawText) return null;
+        const parsed = parseJsonObjectStrict(res.rawText);
+        if (!parsed.ok || typeof parsed.value?.say_fr !== "string" || !parsed.value.say_fr.trim()) return null;
+        const fiche = parsed.value.fiche;
+        const ficheOk = fiche == null
+          || (typeof fiche === "object" && typeof fiche.fact_fr === "string" && typeof fiche.evidence_fr === "string" && typeof fiche.test_fr === "string");
+        return ficheOk ? { say_fr: parsed.value.say_fr.trim(), fiche: fiche ?? null } : { say_fr: parsed.value.say_fr.trim(), fiche: null };
+      };
+
+      let enq = await enqueteCall();
+      if (enq) {
+        const gate = validateEnqueteOutput(enq, factsText, userText);
+        if (!gate.ok) {
+          const retry = await enqueteCall(gate.errors);
+          enq = retry && validateEnqueteOutput(retry, factsText, userText).ok ? retry : null;
+        }
+      }
+      if (!enq) {
+        return enqueteResponse(
+          "Reprenons simplement : dites-moi, avec vos mots, ce que vous faites ces jours-là — je ne retiendrai que ce qui est fondé sur vos données ou sur ce que vous m'écrivez.",
+          null,
+          "enquete_fallback_deterministic",
+        );
+      }
+      return enqueteResponse(enq.say_fr, enq.fiche, "enquete_claude");
+    }
 
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
     // or « ma marge moyenne est de 62 % » would itself trigger the elicit). The registry
