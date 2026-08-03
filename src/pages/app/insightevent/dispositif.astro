@@ -116,7 +116,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
           html += '<div class="dp-eb">Ce que vos données disent</div><div class="dp-card">'
             + '<div style="font-size:13.5px;font-weight:600;line-height:1.5;">'
               + '<span class="dp-hov" title="' + esc(nar.pct_heat + ' % de ces jours sont des jours de chaleur, ' + nar.pct_vacances + ' % des vacances scolaires, ' + nar.pct_weekend + ' % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées.') + '">'
-              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe suivent la chaleur, les vacances ou le week-end.</span></div>';
+              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe arrivent avec la chaleur, les vacances ou le week-end.</span></div>';
           if (ex.length) {
             html += '<div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">'
               + (ex.length === 1 ? 'Une journée ne s’explique pas :' : ex.length + ' journées ne s’expliquent pas :') + '</div>';
@@ -128,7 +128,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
                 + (tip.length ? '<span class="dp-hov" title="' + esc(tip.join(' ')) + '">Journée normale par ailleurs — la cause est ailleurs.</span>' : '') + '</div>';
             });
           } else {
-            html += '<div class="dp-sub" style="margin-top:6px;">Toutes vos journées de pointe suivent un facteur connu — rien à expliquer aujourd’hui.</div>';
+            html += '<div class="dp-sub" style="margin-top:6px;">Toutes vos journées de pointe arrivent avec un facteur connu — rien à expliquer aujourd’hui.</div>';
           }
           html += '</div>';
 
