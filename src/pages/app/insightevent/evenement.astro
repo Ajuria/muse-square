@@ -31,7 +31,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
     </style>
 
-    <script is:inline src="/event-form.js?v=1"></script>
+    <script is:inline src="/event-form.js?v=2"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
@@ -47,7 +47,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           return;
         }
         if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
-        window.MSEventForm.open(body, { location_id: loc });
+        // Pré-remplissage depuis la planification : ?dates=Y-m-d,Y-m-d,… (le futur câblage du
+        // bouton « Enregistrer ces jours » de days.astro — bascule finale).
+        var pre = String(new URLSearchParams(window.location.search).get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+        window.MSEventForm.open(body, { location_id: loc, dates: pre });
       })();
     </script>
   </BaseLayout>

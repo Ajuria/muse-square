@@ -86,8 +86,18 @@
       + '<div><label style="' + lbl + '">Au</label><input data-ef="rend" type="date" style="' + inp + 'width:150px;"></div></div>'
       + '<div data-ef-dowref style="font-size:11.5px;color:#6B7280;margin-top:6px;"></div></div>'
       + '<div data-ef-oneblock style="margin-top:10px;">'
-      + '<label style="' + lbl + '">Options de dates — comparées, puis choisies (1 à 3 ici ; jusqu’à 7 par la planification)</label>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;"><input data-ef="d1" type="date" style="' + inp + 'width:150px;"><input data-ef="d2" type="date" style="' + inp + 'width:150px;"><input data-ef="d3" type="date" style="' + inp + 'width:150px;"></div>'
+      + '<label style="' + lbl + '">Options de dates — comparées, puis choisies (jusqu’à 7 ; pré-remplies depuis le calendrier)</label>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      // Pré-remplissage depuis la planification (?dates=Y-m-d,...) — la pièce qui rendra la
+      // bascule du bouton « Enregistrer ces jours » triviale. Minimum 3 champs, maximum 7.
+      + (function () {
+          var pre = Array.isArray(opts.dates) ? opts.dates.filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); }).slice(0, 7) : [];
+          var n = Math.max(3, pre.length);
+          var out = "";
+          for (var i = 0; i < n; i++) out += '<input data-ef-date type="date" value="' + esc(pre[i] || "") + '" style="' + inp + 'width:150px;">';
+          return out;
+        })()
+      + '</div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
       + '<div data-ef-ddlwrap style="display:none;margin-top:6px;max-width:170px;"><label style="' + lbl + '">Date limite</label><input data-ef="ddl" type="date" style="' + inp + '"></div></div>'
       + '<div data-ef-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
@@ -102,9 +112,14 @@
       for (var i = 0; i < baseline.length; i++) if (baseline[i].dow === dow) return baseline[i];
       return null;
     }
+    function candidateDates() {
+      var out = [];
+      mount.querySelectorAll("[data-ef-date]").forEach(function (el) { var v = String(el.value || "").trim(); if (v) out.push(v); });
+      return out.slice(0, 7);
+    }
     function refDow() {
       if (state.recurrence !== "none") return Number(val("dow"));
-      var d1 = val("d1");
+      var d1 = candidateDates()[0];
       if (d1) { var d = new Date(d1 + "T00:00:00Z"); if (!isNaN(d.getTime())) return d.getUTCDay(); }
       return 6;
     }
@@ -167,9 +182,10 @@
         refreshCible();
       });
     });
-    ["kpi", "family", "target", "dow", "d1"].forEach(function (n) {
+    ["kpi", "family", "target", "dow"].forEach(function (n) {
       var el = q('[data-ef="' + n + '"]'); if (el) { el.addEventListener("change", refreshCible); el.addEventListener("input", refreshCible); }
     });
+    mount.querySelectorAll("[data-ef-date]").forEach(function (el) { el.addEventListener("change", refreshCible); });
     var ddl = q('[data-ef="ddlcheck"]');
     if (ddl) ddl.addEventListener("change", function (e) { q("[data-ef-ddlwrap]").style.display = e.target.checked ? "block" : "none"; });
     refreshCible();
@@ -197,7 +213,7 @@
         body.recurrence_dow = state.recurrence === "weekly" ? Number(val("dow")) : null;
         body.recurrence_start = val("rstart"); body.recurrence_end = val("rend");
       } else {
-        var ds = [val("d1"), val("d2"), val("d3")].filter(Boolean);
+        var ds = candidateDates();
         if (!ds.length) return fail("Au moins une date candidate.");
         body.dates = ds;
         if (ddl && ddl.checked && val("ddl")) body.decision_date = val("ddl");
