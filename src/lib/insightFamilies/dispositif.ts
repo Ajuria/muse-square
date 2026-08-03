@@ -379,7 +379,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     const checks: string[] = [];
     if (d.hour_min != null && d.hour_max != null) checks.push(`ventes de ${d.hour_min} h à ${d.hour_max} h (${fi(d.tickets)} tickets — pas de fermeture anticipée)`);
     if (d.top_categories.length) checks.push(`mix produits du jour ${d.top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")} vs habituel ${d.usual_top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")}`);
-    if (d.followed_events.length) checks.push(`${d.followed_events_total} événements actifs chez vos suivis ce jour-là, les plus courts : ${d.followed_events.map((e) => `« ${e.label} » (${e.entity}, du ${fd(e.from)} au ${fd(e.to)})`).join(", ")}`);
+    if (d.followed_events.length) checks.push(`${d.followed_events_total} événements actifs chez vos suivis ce jour-là (co-occurrence, pas une cause établie), les plus courts : ${d.followed_events.map((e) => `« ${e.label} » (${e.entity}, du ${fd(e.from)} au ${fd(e.to)})`).join(", ")}`);
     facts.push({
       fact_fr: `Journée du motif sans facteur connu : ${d.dow_fr} ${fd(d.date)} — ${d.visitors != null ? `${fi(d.visitors)} visiteurs, ` : ""}${fi(d.ca)} € de CA, écart au CA attendu du jour ${Number(d.gap_eur ?? 0) >= 0 ? "+" : "-"}${fi(d.gap_eur)} € (poids faible si proche de 0 : possiblement la variation ordinaire). Vérifications internes déjà faites : ${checks.join(" ; ") || "aucune donnée transactionnelle ce jour-là"}.`,
       claim_type: "measured",

@@ -266,9 +266,13 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
    **Incrément suivis (03/08 soir)** : les jours « sans facteur connu » de la classe suivis NOMMENT
    les événements suivis actifs ce jour-là (tri par durée croissante — le court est discriminant,
    l'expo permanente ne l'est pas ; identité par la clé lieu+plage, pas le libellé ; 3 max + total).
-   Cas réel prouvé : les 5 jours inexpliqués de Muse Square (29/06→03/07) = la semaine d'ouverture
-   de « Raoul Dufy » au Centre Pompidou (27/06). La note de marge cesse de dire « variation
-   ordinaire » quand des événements sont nommés ; les faits les portent → l'enquête peut les citer.
+   Cas réel : sur les 5 jours inexpliqués de Muse Square (29/06→03/07), l'heuristique fait remonter
+   « Raoul Dufy » (ouvert le 27/06 au Centre Pompidou) — une CO-OCCURRENCE mise sous la main de
+   l'enquête, JAMAIS une cause (owner 03/08 : l'attribution a posteriori sans reproduction ni
+   séparation des causes — y compris celles hors base — est un bris de confiance ; seul l'historique
+   de profils comparables ou un test futur mesuré peut l'établir). Le fait porte son registre
+   (« co-occurrence, pas une cause établie ») ; la note de marge dit « portaient des événements »,
+   pas « expliqués par ».
 4. Pièce 3 en continu (lie-bait à chaque relaxation).
 5. Type B branché en dernier (il a sa propre feuille de route).
 
