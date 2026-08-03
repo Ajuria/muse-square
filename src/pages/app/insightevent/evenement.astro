@@ -1,0 +1,54 @@
+---
+// « /evenement » — le dossier d'événement-dispositif (spec docs/evenement-dossier-spec.md).
+// Incrément 2b : mode CRÉATION (sans saved_item_id) — héberge MSEventForm (module partagé
+// public/event-form.js). Le dossier à 3 états (Décider/Avant/Après, provider evenementFamily)
+// arrive à l'incrément 3. days.astro et monitor.astro restent legacy jusqu'à la bascule.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const locParam = Astro.url.searchParams.get("location_id") || "";
+const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Événement — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="evt-root" data-loc={locParam} data-item={itemParam}>
+      <div id="evt-toolbar" style="margin-bottom:14px;"><a href="/app/insightevent/pulse" style="font-size:14px;color:#6b7280;text-decoration:none;">← Retour à Pulse</a></div>
+      <div id="evt-head" style="margin-bottom:12px;">
+        <div style="font-size:15px;font-weight:600;color:#111827;">Nouvel événement</div>
+        <div style="font-size:12px;color:#6b7280;line-height:1.5;">Un événement porte son dispositif, son objectif (le KPI que le verdict jugera) et, s’il se répète, sa série — la mesure se crée avec lui.</div>
+      </div>
+      <div id="evt-body" style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,0.06);padding:14px 16px;">Chargement…</div>
+    </div>
+
+    <style is:global>
+      #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+    </style>
+
+    <script is:inline src="/event-form.js?v=1"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("evt-root");
+        var body = document.getElementById("evt-body");
+        var loc = root.getAttribute("data-loc") || "";
+        var item = root.getAttribute("data-item") || "";
+        if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
+        if (item) {
+          fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { body.textContent = (j && j.reason) || "Dossier à venir."; })
+            .catch(function () { body.textContent = "Erreur de chargement."; });
+          return;
+        }
+        if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
+        window.MSEventForm.open(body, { location_id: loc });
+      })();
+    </script>
+  </BaseLayout>
+</Show>
