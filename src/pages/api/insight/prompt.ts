@@ -13,6 +13,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
+import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
@@ -27,6 +28,11 @@ import { buildLookupIRV1FromRow } from "../../../components/ai/ir/lookup_ir_v1";
 import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/assertions_v1"; 
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
+import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
+import { listClassDispositifs } from "../../../lib/bestPractices";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
+import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
 
@@ -2246,6 +2252,137 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         window_aggregates_v3: null,
         ui_packaging_v3: null,
       }), { status: 200, headers: { "content-type": "application/json" } });
+
+    // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
+    // de l'enquête). Early-return complet, comme isUnknownIntent : la page dispositif.astro
+    // poste { dispositif: { class_key, location_id } } — rien du routage jour/mois ne s'applique.
+    // La matière vient du provider partagé (dispositifFamily — la même que la page et le rapport,
+    // jamais une autre source) ; la porte chiffrée (validateEnqueteOutput, lie-bait dans le même
+    // commit) rejette tout nombre absent des FAITS et des mots de l'exploitant — une relance avec
+    // feedback, puis repli déterministe. Le calcul d'engagement (« N pics × X € ») reste côté
+    // page, DÉTERMINISTE : le modèle a interdiction d'arithmétique (règle 4 du system).
+    const _dispo = body?.dispositif;
+    if (_dispo && typeof _dispo === "object" && typeof _dispo.class_key === "string" && _dispo.class_key.trim()) {
+      const dispo_cls = _dispo.class_key.trim();
+      const dispo_loc = typeof _dispo.location_id === "string" && _dispo.location_id.trim() ? _dispo.location_id.trim() : location_id;
+      if (dispo_loc !== location_id && !bypass) requireLocationOwnership(locals, dispo_loc);
+      const enqueteResponse = (say_fr: string, fiche: EnqueteOutput["fiche"], producer: string) =>
+        new Response(JSON.stringify({
+          ok: true,
+          enquete: { say_fr, fiche: fiche ?? null },
+          meta: { producer, register: producer === "enquete_claude" ? "model" : "vetted", class_key: dispo_cls, location_id: dispo_loc },
+        }), { status: 200, headers: { "content-type": "application/json" } });
+
+      const _dispoBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const fam = await dispositifFamily(_dispoBq, dispo_loc, dispo_cls);
+      if (!fam.data.found) return enqueteResponse(fam.data.reason || "Pas encore disponible pour ce motif.", null, "enquete_not_found");
+
+      const factsText = fam.facts.map((f, i) => `f${i}. ${f.fact_fr}`).join("\n");
+      const userText = [...conversation_history.filter((m) => m.role === "user").map((m) => m.content), qRaw].join("\n");
+      const enqueteSystem = `Tu es l'assistant d'enquête « Reproduire le dispositif gagnant » de Muse Square, au service d'un exploitant de commerce en France. Tu VOUVOIES l'exploitant. Le motif ouvert : ses jours de pointe (affluence).
+
+FAITS (la seule source de nombres autorisée — chaque nombre que tu écris doit venir d'ici ou des mots de l'exploitant) :
+${factsText}
+
+TON JOB : aider l'exploitant à mettre des mots sur ce qui fait RÉUSSIR ses jours de pointe (sa routine, ses gestes, son offre) et le formaliser en dispositif testable — une fiche { ce qu'il fait, les jours qui le montrent, comment on saura que ça marche }.
+
+RÈGLES DURES :
+1. CE QUI MARCHE D'ABORD. La question de fond : « qu'est-ce que vous faites ces jours-là qui les fait réussir, et est-ce écrit pour que l'équipe le rejoue à chaque pic annoncé ? » Ne fabrique jamais un mystère des journées inexpliquées.
+2. EXCEPTIONS = NOTES DE MARGE. Les journées sans facteur connu ont un poids faible (voir FAITS : leur écart au CA attendu) : possiblement la variation ordinaire — dis-le. Si l'exploitant les évoque, accueille en une phrase, note, reviens au job. Jamais de pression à les expliquer.
+3. HUMILITÉ STATISTIQUE. Chaleur/vacances/week-end sont des co-occurrences mesurées, jamais des causes prouvées — ne les présente jamais comme causes. Jamais un écart résiduel sans l'explication nulle à côté.
+4. CHIFFRES. Uniquement ceux des FAITS ou ceux que l'exploitant a écrits, tels quels. AUCUNE arithmétique nouvelle : pas de multiplication, pas de total, pas de pourcentage dérivé, pas de moyenne. Ne rattache jamais un pourcentage ou un compte à un autre référentiel que celui du FAIT qui le porte (un % du total ne devient pas un % d'un sous-ensemble). Si un chiffre utile manque, dis qu'on ne l'a pas.
+5. UNE QUESTION À LA FOIS, jamais de convergence sur la première hypothèse : ouvre l'espace (équipe, offre, mise en place, horaires, extérieur, communication) et pose la question qui départage. Les vérifications internes déjà faites (heures, tickets, mix produits — voir FAITS) se CITENT, jamais se refont ni se contredisent.
+6. LA FICHE. Quand l'explication de l'exploitant est claire, actionnable et À LUI (déclenchable par lui), propose la fiche : fact_fr = SES mots reformulés fidèlement, sans embellissement ; evidence_fr = les jours/faits des FAITS qui la montrent ; test_fr = un test daté observable (modèle : « sur les 3 prochains pics annoncés, dispositif déclenché la veille → CA au-dessus de l'attendu du jour »). Sinon fiche = null et continue l'enquête.
+7. CAUSES EXTERNES nommées et datées (marché, événement, média) : note-les comme déclarées par l'exploitant — tu ne peux pas les vérifier ici ; ne confirme jamais un fait externe de toi-même. Récurrente et datée, une telle cause pourra devenir un dispositif à part entière — dis-le sans promettre.
+8. TON : français d'exploitant, direct, 70 mots maximum par message, pas de jargon (jamais « tercile », « résiduel », « co-occurrence » sans mot simple à côté), pas de markdown.
+9. DISPOSITIFS EXISTANTS. Si les FAITS listent un dispositif déjà documenté, l'enquête CONTINUE à partir de lui : ne le re-documente jamais, ne repose pas les questions auxquelles il répond déjà. S'il est en test, dis-le (le suivi vit sur Pulse) et propose : poursuivre le test, l'ajuster, ou documenter un AUTRE dispositif. Une fiche ne se propose que pour un dispositif NOUVEAU, distinct de l'existant.
+
+SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": string, "evidence_fr": string, "test_fr": string } } — rien d'autre.`;
+
+      const ENQUETE_SCHEMA = {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          say_fr: { type: "string" },
+          fiche: {
+            anyOf: [
+              { type: "null" },
+              {
+                type: "object",
+                additionalProperties: false,
+                properties: { fact_fr: { type: "string" }, evidence_fr: { type: "string" }, test_fr: { type: "string" } },
+                required: ["fact_fr", "evidence_fr", "test_fr"],
+              },
+            ],
+          },
+        },
+        required: ["say_fr", "fiche"],
+      };
+
+      const enqueteCall = async (feedback?: string[]): Promise<EnqueteOutput | null> => {
+        const res = await callClaudeMessagesAPI({
+          system: enqueteSystem,
+          userText: feedback?.length
+            ? `${qRaw}\n\n[CORRECTION VALIDATEUR — ta réponse précédente contenait des nombres non fondés (${feedback.join(" ; ")}). Reformule sans ces nombres, ou en citant uniquement les FAITS et les mots de l'exploitant.]`
+            : qRaw,
+          conversationHistory: conversation_history,
+          maxTokens: 700,
+          timeoutMs: 30_000,
+          outputSchema: ENQUETE_SCHEMA,
+        });
+        if (!res.ok || !res.rawText) return null;
+        const parsed = parseJsonObjectStrict(res.rawText);
+        if (!parsed.ok || typeof parsed.value?.say_fr !== "string" || !parsed.value.say_fr.trim()) return null;
+        const fiche = parsed.value.fiche;
+        const ficheOk = fiche == null
+          || (typeof fiche === "object" && typeof fiche.fact_fr === "string" && typeof fiche.evidence_fr === "string" && typeof fiche.test_fr === "string");
+        return ficheOk ? { say_fr: parsed.value.say_fr.trim(), fiche: fiche ?? null } : { say_fr: parsed.value.say_fr.trim(), fiche: null };
+      };
+
+      let enq = await enqueteCall();
+      if (enq) {
+        const gate = validateEnqueteOutput(enq, factsText, userText);
+        if (!gate.ok) {
+          const retry = await enqueteCall(gate.errors);
+          enq = retry && validateEnqueteOutput(retry, factsText, userText).ok ? retry : null;
+        }
+      }
+      if (!enq) {
+        return enqueteResponse(
+          "Reprenons simplement : dites-moi, avec vos mots, ce que vous faites ces jours-là — je ne retiendrai que ce qui est fondé sur vos données ou sur ce que vous m'écrivez.",
+          null,
+          "enquete_fallback_deterministic",
+        );
+      }
+      return enqueteResponse(enq.say_fr, enq.fiche, "enquete_claude");
+    }
+
+    // ── VOS DISPOSITIFS (incrément 2, 03/08) — une question qui NOMME les dispositifs / bonnes
+    // pratiques répond DÉTERMINISTE depuis la base (même patron que les métriques déclarées) :
+    // le routage jour/mois n'a pas de raison de porter cette question (mesuré 03/08 : elle
+    // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
+    // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
+    // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
+    if (/\b(dispositifs?|bonnes?\s+pratiques?)\b/i.test(qRaw)
+        && /\b(quels?|quelles?|qu[’']\s?est|liste|montre|rappelle|voir|mes|mon|documentés?|prévus?|enregistrés?)\b/i.test(qRaw)) {
+      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
+      const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
+      if (_dispoRows.length) {
+        const _lines = _dispoRows.map((p) =>
+          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+        return sysDialogueResponse(
+          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
+          _lines.join("\n\n"),
+          "deterministic_dispositifs_v1",
+        );
+      }
+      return sysDialogueResponse(
+        "Aucun dispositif documenté",
+        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
+        "deterministic_dispositifs_v1",
+      );
+    }
 
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
     // or « ma marge moyenne est de 62 % » would itself trigger the elicit). The registry
@@ -4574,6 +4711,14 @@ Règles :
           console.warn("[grounded] day-perf facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // Incrément 2 (03/08) — la couche DÉCLARATIVE : les dispositifs documentés (fiche + état du
+        // test lié) entrent dans la liste blanche, en PARALLÈLE comme les autres builders. Les deux
+        // branches (family-led et non) les reçoivent — « qu'est-ce que j'avais prévu pour les jours
+        // chauds ? » doit pouvoir se répondre quel que soit le routage.
+        const _practicesP = buildPracticeFacts(location_id).catch((e) => {
+          console.warn("[grounded] practice facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         try {
           // Family resolution: the question's own keywords first; on an inherited continuation with no
           // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
@@ -4584,6 +4729,7 @@ Règles :
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
+        const _practices = await _practicesP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
@@ -4613,11 +4759,11 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
+              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts] },
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical

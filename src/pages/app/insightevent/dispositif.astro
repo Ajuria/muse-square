@@ -1,10 +1,12 @@
 ---
 // « Reproduire le dispositif gagnant » — l'atterrissage du CTA d'identification des cartes
-// structurelles (doctrine 01/08, amendement 7 ; spec docs/atelier-mecanismes-spec.md ; proto
-// approuvé public/atelier-dispositif-proto.html). Étape 1 servie par le provider partagé
-// (api/insight/dispositif) ; étape 2 POSTe l'objet dispositif réel (/api/best-practices,
-// pièce 1) ; le mode enquête LLM est la pièce suivante — la page montre déjà les vérifications
-// internes DÉTERMINISTES (amplitude horaire, mix produits) calculées par le provider.
+// structurelles. CHAT-FIRST (verdict owner 03/08, proto v3 validé) : la page n'a que deux
+// éléments — l'en-tête du motif (le poids total, référentiel 1 de l'échelle d'enjeu) et la
+// conversation. L'ouverture est DÉTERMINISTE (provider partagé api/insight/dispositif) ; les
+// tours passent par le mode enquête de /api/insight/prompt (body.dispositif — discipline +
+// porte chiffrée côté serveur) ; la fiche arrive en tour de chat et sauve par les chemins
+// réels (/api/best-practices origin structural_<classe>, MSCommitForm, PATCH replay).
+// Le calcul d'engagement (« 4 pics × X € ») est DÉTERMINISTE ici — jamais par le modèle.
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -39,25 +41,26 @@ const classParam = Astro.url.searchParams.get("class") || "";
       .dp-amt { text-align: right; cursor: help; }
       .dp-amt-val { font-size: 16px; font-weight: 600; white-space: nowrap; }
       .dp-amt-sub { font-size: 10.5px; color: #9CA3AF; margin-top: 2px; text-decoration: underline dotted rgba(156,163,175,0.6); text-underline-offset: 2px; }
-      .dp-eb { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(17,24,39,0.45); font-weight: 500; margin: 18px 0 8px; }
       .dp-hov { text-decoration: underline dotted rgba(156,163,175,0.8); text-underline-offset: 2px; cursor: help; }
-      .dp-step { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
-      .dp-step .n { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-      .dp-step.on { color: #1D3BB3; } .dp-step.on .n { background: #EEF2FF; color: #1D3BB3; }
-      .dp-step.off { color: #9ca3af; } .dp-step.off .n { background: #F3F4F6; color: #6b7280; }
-      .dp-rail { display: flex; align-items: center; gap: 8px; margin: 14px 0 16px; }
-      .dp-rail .sep { flex: 1; height: 1px; background: #F3F4F6; }
-      .dp-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-      .dp-table th { text-align: left; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: #9CA3AF; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid rgba(0,0,0,0.08); }
-      .dp-table td { padding: 6px 8px; border-bottom: 1px solid #F3F4F6; color: #374151; }
       .dp-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: #1D3BB3; border: 1px solid #1D3BB3; border-radius: 10px; padding: 6px 12px; background: transparent; cursor: pointer; font-family: inherit; }
-      .dp-field { margin: 10px 0; }
-      .dp-field label { display: block; font-size: 11px; font-weight: 600; color: #6B7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-      .dp-field textarea, .dp-field input { width: 100%; box-sizing: border-box; font-size: 12.5px; color: #111827; background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 8px 10px; line-height: 1.45; font-family: inherit; }
-      .dp-src { font-size: 10.5px; color: #9CA3AF; margin-top: 4px; }
-      details.dp-days summary { font-size: 12px; font-weight: 600; color: #1D3BB3; cursor: pointer; padding: 4px 0; }
+      .dp-btn[disabled] { opacity: 0.5; cursor: default; }
+      .dp-field { margin: 8px 0; }
+      .dp-field label { display: block; font-size: 10.5px; font-weight: 600; color: #6B7280; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+      .dp-field textarea { width: 100%; box-sizing: border-box; font-size: 12.5px; color: #111827; background: #fff; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 8px 10px; line-height: 1.45; font-family: inherit; }
+      .dp-src { font-size: 10.5px; color: #9CA3AF; margin-top: 6px; }
+      .dp-msg { border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.55; margin: 10px 0; max-width: 92%; }
+      .dp-msg.ia { background: #F8FAFC; border: 1px solid rgba(0,0,0,0.08); color: #374151; }
+      .dp-msg.moi { background: #EEF2FF; color: #1D3BB3; margin-left: auto; }
+      .dp-aside { font-size: 12px; color: #9CA3AF; line-height: 1.5; margin: 4px 0 10px 4px; max-width: 88%; }
+      .dp-aside a { color: #6B7280; text-decoration: underline dotted; cursor: pointer; }
+      .dp-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 6px; }
+      .dp-chips button { font-size: 12.5px; color: #1D3BB3; background: #fff; border: 1px dashed rgba(29,59,179,0.45); border-radius: 18px; padding: 7px 13px; cursor: pointer; font-family: inherit; text-align: left; line-height: 1.4; }
+      .dp-inputbar { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 8px 10px; margin-top: 12px; }
+      .dp-inputbar input { flex: 1; border: none; outline: none; font-size: 13px; font-family: inherit; color: #111827; background: transparent; }
+      .dp-fiche { border: 1px solid rgba(29,59,179,0.25); border-radius: 10px; padding: 10px 12px; margin-top: 10px; background: #fff; }
     </style>
 
+    <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("dispo-root");
@@ -85,9 +88,11 @@ const classParam = Astro.url.searchParams.get("class") || "";
           var imp = j.impact || null;
           var ex = j.unexplained_days || [];
           var pos = imp && Number(imp.eur_year) > 0;
+          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
+          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
           var html = "";
 
-          // ── En-tête motif ──
+          // ── En-tête motif (référentiel 1 : le poids TOTAL) ──
           html += '<div class="dp-card">'
             + '<div class="dp-pills"><span class="dp-chip" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="dp-chip">Affluence</span></div>'
             + '<div style="display:flex;align-items:flex-start;gap:12px;">'
@@ -100,111 +105,232 @@ const classParam = Astro.url.searchParams.get("class") || "";
                   + '<div class="dp-amt-sub">' + (pos ? 'à gagner' : 'perdus') + ' · jours de pointe</div></div>' : '')
             + '</div></div>';
 
-          // ── Rail ──
-          html += '<div class="dp-rail">'
-            + '<span class="dp-step on"><span class="n">1</span>Identifier</span><span class="sep"></span>'
-            + '<span class="dp-step off"><span class="n">2</span>Documenter</span><span class="sep"></span>'
-            + '<span class="dp-step off"><span class="n">3</span>Rejouer</span></div>';
-
-          // ── Étape 1 : récit + survol (amendement idiot-proof) ──
-          var exLabel = ex.map(function (d) { return d.dow_fr + " " + frDate(d.date); }).join(" et ");
-          html += '<div class="dp-eb">Étape 1 · Identifier</div><div class="dp-card">'
-            + '<div style="font-size:13.5px;font-weight:600;line-height:1.5;">'
-              + '<span class="dp-hov" title="' + esc(nar.pct_heat + ' % de ces jours sont des jours de chaleur, ' + nar.pct_vacances + ' % des vacances scolaires, ' + nar.pct_weekend + ' % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées.') + '">'
-              + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe tombent des jours de chaleur, de vacances ou de week-end.</span></div>'
-            + (ex.length ? '<div style="font-size:13.5px;font-weight:600;color:#1D3BB3;line-height:1.5;margin-top:6px;">'
-              + (ex.length === 1 ? 'Le jour restant est inexpliqué : ' : 'Les ' + ex.length + ' restants sont inexpliqués : ') + esc(exLabel) + '.</div>'
-              : '<div class="dp-sub" style="margin-top:6px;">Aucune journée inexpliquée : tout votre tercile haut porte un facteur environnemental connu.</div>')
-            + '<details class="dp-days" style="margin-top:10px;"><summary>Voir vos ' + nar.n_days + ' jours</summary>'
-              + '<table class="dp-table" style="margin-top:8px;"><tr><th>jour</th><th>visiteurs</th><th>ca</th><th>contexte</th></tr>'
-              + (j.top_days || []).map(function (d) {
-                  var ctx = [d.heat ? "chaleur" : null, d.vacances ? "vacances" : null, d.weekend ? "week-end" : null].filter(Boolean).join(" · ") || "aucun facteur connu";
-                  return '<tr><td>' + esc(d.dow_fr + " " + frDate(d.date)) + '</td><td>' + frInt(d.visitors) + '</td><td>' + frInt(d.ca) + ' €</td><td>' + esc(ctx) + '</td></tr>';
-                }).join("")
-              + '<tr><td colspan="4" style="color:#9CA3AF;">… les ' + Math.max(0, nar.n_days - (j.top_days || []).length) + ' autres au même endroit</td></tr></table></details>'
-          + '</div>';
-
-          // ── Journées inexpliquées + vérifications internes DÉJÀ faites ──
-          if (ex.length) {
-            html += '<div class="dp-eb">Journées inexpliquées — vérifications déjà faites dans vos données</div><div class="dp-card">';
-            ex.forEach(function (d) {
-              var checks = [];
-              if (d.hour_min != null && d.hour_max != null) checks.push("journée complète (ventes de " + d.hour_min + " h à " + d.hour_max + " h, " + frInt(d.tickets) + " tickets) — pas d’effet horaire");
-              if (d.top_categories && d.top_categories.length) {
-                var mix = d.top_categories.map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ");
-                checks.push("mix produits du jour : " + mix + " — à comparer à votre habituel (" + (d.usual_top_categories || []).map(function (c) { return esc(c.category) + " " + c.pct + " %"; }).join(", ") + ")");
-              }
-              html += '<div style="margin-bottom:10px;">'
-                + '<div style="font-size:12.5px;font-weight:600;">' + esc(d.dow_fr + " " + frDate(d.date)) + ' — ' + frInt(d.visitors) + ' visiteurs, ' + frInt(d.ca) + ' €</div>'
-                + (checks.length ? '<div class="dp-sub">' + checks.join(" · ") + '</div>' : '')
-                + '</div>';
-            });
-            html += '<div class="dp-src">Le dialogue d’enquête arrive (mode enquête, en construction) — en attendant, la question est à vous : que s’était-il passé ces jours-là ? Documentez-le ci-dessous.</div>'
-            + '</div>';
-          }
-
-          // ── Étape 2 : la fiche dispositif (POST réel) ──
-          var defaultEvidence = ex.length
-            ? ex.map(function (d) { return d.dow_fr + " " + frDate(d.date) + " — " + frInt(d.visitors) + " visiteurs sans chaleur, vacances ni week-end"; }).join(" ; ")
-            : "";
-          // Échelle d'enjeu (owner 02/08) : chaque étape répond à « shall I care ? » avec SON
-          // référentiel — jamais le poids total du motif sur le test d'un dispositif.
-          var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
-          var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
-          html += '<div class="dp-eb">Étape 2 · Documenter le dispositif</div><div class="dp-card">'
-            + (medStr ? '<div class="dp-sub" style="margin-bottom:6px;">Ce que vaut une journée de ce type chez vous : <strong style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</strong> '
-              + '<span class="dp-hov" title="' + esc('Médiane de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr : '') + '). Documenter le dispositif, c’est rendre ces journées déclenchables.') + '">vs votre normale, médiane mesurée</span>.</div>' : '')
-            + '<div class="dp-sub" style="margin-bottom:8px;">Trois retombées : réutilisable (vos bonnes pratiques) · testable (engagement mesuré) · apprend au système.</div>'
-            + '<div class="dp-field"><label>Ce que vous aviez fait</label><textarea id="dp-fact" rows="2" placeholder="Ex. : stand extérieur les jours de marché des producteurs"></textarea></div>'
-            + '<div class="dp-field"><label>Les jours qui le montrent</label><textarea id="dp-evid" rows="2">' + esc(defaultEvidence) + '</textarea></div>'
-            + '<div class="dp-field"><label>Comment on saura que ça marche</label><textarea id="dp-test" rows="2" placeholder="Ex. : les 3 prochains jours de marché avec stand sorti dépassent l’attendu du jour"></textarea></div>'
-            + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;">'
-              + '<span class="dp-chip">déclaré — prouvé par le rejeu, jamais avant</span>'
-              + '<span style="margin-left:auto;"><button type="button" id="dp-save" class="dp-btn">Enregistrer le dispositif</button></span>'
-            + '</div><div id="dp-save-msg" class="dp-src" style="display:none;"></div>'
-          + '</div>';
-
-          // ── Étape 3 — l'enjeu de l'ACTION : la journée déclenchée (mesurée), le potentiel
-          // annuel = LA multiplication de l'exploitant (sa fréquence, son levier — jamais une
-          // promesse toute faite), le €/an propre du dispositif SEULEMENT au rejeu prouvé. ──
-          html += '<div class="dp-eb">Étape 3 · Rejouer</div><div class="dp-card">'
-            + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-              + '<div style="flex:1;min-width:0;">'
-                + '<div class="dp-sub">Un dispositif enregistré est proposé sur les signaux comparables (« Vos bonnes pratiques »), et le test se joue par un engagement mesuré sur vos ventes réelles — son issue fait passer le dispositif de « déclaré » à « prouvé ».</div>'
-                + (medStr ? '<div class="dp-sub" style="margin-top:6px;">Le potentiel annuel est <strong>votre</strong> calcul : le nombre de journées que vous visez × ' + medStr + '. Le €/an propre du dispositif n’existera qu’une fois le rejeu prouvé — au rythme constaté, jamais estimé.</div>' : '')
-              + '</div>'
-              + (medStr ? '<div class="dp-amt" title="' + esc('Médiane mesurée de vos jours de pointe vs votre normale. Le poids total du motif (' + (imp ? (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an' : '') + ') n’est PAS la promesse de ce dispositif : il n’en explique qu’une part — le test dira laquelle.') + '">'
-                + '<div class="dp-amt-val" style="color:' + (medDay >= 0 ? '#059669' : '#B45309') + ';">' + medStr + '</div>'
-                + '<div class="dp-amt-sub">par journée déclenchée</div></div>' : '')
-            + '</div></div>';
+          // ── La conversation (verdict 03/08 : elle EST l'interface) ──
+          html += '<div class="dp-card"><div id="dp-chat"></div>'
+            + '<div class="dp-chips" id="dp-chips">'
+              + '<button type="button" data-chip="1">« Voici ce qu’on fait ces jours-là… »</button>'
+              + '<button type="button" data-chip="2">Rien de particulier — on subit plus qu’on ne prépare.</button>'
+            + '</div>'
+            + '<div class="dp-inputbar"><input id="dp-input" placeholder="Écrivez votre réponse…" autocomplete="off">'
+            + '<button type="button" id="dp-send" class="dp-btn">Envoyer</button></div></div>';
 
           docEl.innerHTML = html;
           statusEl.style.display = "none";
           docEl.style.display = "block";
 
-          var saveBtn = document.getElementById("dp-save");
-          if (saveBtn) saveBtn.addEventListener("click", function () {
-            var fact = String((document.getElementById("dp-fact") || {}).value || "").trim();
-            var evid = String((document.getElementById("dp-evid") || {}).value || "").trim();
-            var test = String((document.getElementById("dp-test") || {}).value || "").trim();
-            var msg = document.getElementById("dp-save-msg");
-            if (!fact) { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Décrivez d’abord ce que vous aviez fait."; return; }
-            saveBtn.disabled = true;
-            fetch("/api/best-practices", {
+          var chat = document.getElementById("dp-chat");
+          var input = document.getElementById("dp-input");
+          var sendBtn = document.getElementById("dp-send");
+          var chips = document.getElementById("dp-chips");
+          var hist = [];
+          var pending = false;
+          var savedPracticeId = null;
+          var ficheN = 0;
+
+          function addEl(cssClass, innerHtml) {
+            var d = document.createElement("div");
+            d.className = cssClass;
+            d.innerHTML = innerHtml;
+            chat.appendChild(d);
+            d.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            return d;
+          }
+
+          // ── Ouverture DÉTERMINISTE (message de référence validé 03/08 — spec atelier
+          // § Hiérarchie de l'enquête). Le survol porte la méthode ; le texte, le job. ──
+          var hovPred = 'Chaleur ' + nar.pct_heat + ' %, vacances ' + nar.pct_vacances + ' %, week-end ' + nar.pct_weekend + ' % de ces jours — co-occurrences mesurées sur vos données, pas des causes prouvées.';
+          var openHtml = (imp ? 'Vos jours de pointe valent <strong>' + (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an</strong>, et ' : '')
+            + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe sont <span class="dp-hov" title="' + esc(hovPred) + '">prévisibles</span> — ils arrivent avec la chaleur, les vacances ou le week-end.<br><br>'
+            + 'La question qui compte : <strong>qu’est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l’équipe le rejoue à chaque pic annoncé ?</strong><br>'
+            + 'Si c’est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif.'
+            + '<div class="dp-src">Vérifié · vos ' + nar.n_days + ' jours de pointe mesurés</div>';
+          var openPlain = (imp ? 'Vos jours de pointe valent ' + (pos ? '+' : '-') + frInt(imp.eur_year) + ' €/an, et ' : '')
+            + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe sont prévisibles — ils arrivent avec la chaleur, les vacances ou le week-end. '
+            + 'La question qui compte : qu’est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l’équipe le rejoue à chaque pic annoncé ? '
+            + 'Si c’est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif.';
+          addEl("dp-msg ia", openHtml);
+          hist.push({ role: "assistant", content: openPlain });
+
+          // ── Continuité : un dispositif déjà documenté sur ce motif s'affiche en ouverture —
+          // l'enquête repart de lui (règle 9 côté serveur), jamais de re-documentation. ──
+          var exd = j.existing_dispositifs || [];
+          if (exd.length) {
+            var d0 = exd[0];
+            var exLine = 'Déjà documenté chez vous : « ' + d0.practice_text + ' » — '
+              + (d0.in_test ? 'test en cours, suivi sur Pulse.' : (d0.tier === 'prouvee' ? 'prouvé au rejeu.' : 'déclaré, pas encore testé.'))
+              + (exd.length > 1 ? ' (+' + (exd.length - 1) + ' autre' + (exd.length > 2 ? 's' : '') + ')' : '');
+            addEl("dp-msg ia", esc(exLine));
+            hist.push({ role: "assistant", content: exLine });
+          }
+
+          // ── Note de marge (porte de matérialité : poids faible → note, pas question) ──
+          if (ex.length) {
+            var exBits = ex.map(function (d) {
+              var tip = [];
+              if (d.hour_min != null && d.hour_max != null) tip.push('Ventes de ' + d.hour_min + ' h à ' + d.hour_max + ' h (' + frInt(d.tickets) + ' tickets) — pas de fermeture anticipée.');
+              if (d.top_categories && d.top_categories.length) tip.push('Mix produits habituel (' + d.top_categories.map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ').');
+              return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
+            }).join(", ");
+            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de pointe' : ex.length + ' journées de pointe') + ' sans facteur connu — ' + exBits
+              + '. Poids faible, possiblement la variation ordinaire. Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
+            var noteLink = document.getElementById("dp-note");
+            if (noteLink) noteLink.addEventListener("click", function () {
+              input.value = "Le " + frDate(ex[0].date) + ", ";
+              input.focus();
+            });
+          }
+
+          // ── Envoi d'un tour vers le mode enquête ──
+          function send(text) {
+            var q = String(text == null ? input.value : text).trim();
+            if (!q || pending) return;
+            pending = true;
+            input.value = "";
+            input.disabled = true;
+            sendBtn.disabled = true;
+            if (chips) chips.style.display = "none";
+            addEl("dp-msg moi", esc(q));
+            var typing = addEl("dp-msg ia", '<span style="color:#9CA3AF;">…</span>');
+            var histBefore = hist.slice(-12);
+            hist.push({ role: "user", content: q });
+            fetch("/api/insight/prompt", {
               method: "POST", headers: { "content-type": "application/json" },
               body: JSON.stringify({
-                location_id: loc,
-                practice_text: fact,
-                evidence_refs: evid || null,
-                confirmation_test: test || null,
-                origin: { origin_action_type: "structural_" + cls, day_class_key: cls },
+                q: q,
+                stream: false,
+                dispositif: { class_key: cls, location_id: loc },
+                conversation_history: histBefore,
+                thread_context: { location_id: loc },
               }),
-            }).then(function (r) { return r.json(); }).then(function (jj) {
-              msg.style.display = "block";
-              if (jj && jj.ok) { msg.style.color = "#166534"; msg.textContent = "Dispositif enregistré — il sera proposé sur les signaux comparables, et le test le fera passer à « prouvé »."; }
-              else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((jj && jj.error) || "réessayez") + "."; saveBtn.disabled = false; }
-            }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau — réessayez."; saveBtn.disabled = false; });
+            }).then(function (r) { return r.json(); }).then(function (j2) {
+              typing.remove();
+              if (!j2 || !j2.ok || !j2.enquete || !j2.enquete.say_fr) {
+                hist.pop();
+                addEl("dp-msg ia", 'Erreur : ' + esc((j2 && j2.error) || 'réessayez') + '.');
+                return;
+              }
+              var say = String(j2.enquete.say_fr);
+              addEl("dp-msg ia", esc(say).replace(/\n/g, "<br>"));
+              var f = j2.enquete.fiche || null;
+              hist.push({ role: "assistant", content: say + (f ? "\n[Fiche proposée] " + f.fact_fr + " — Preuves : " + f.evidence_fr + " — Test : " + f.test_fr : "") });
+              if (f) renderFiche(f);
+            }).catch(function () {
+              typing.remove();
+              hist.pop();
+              addEl("dp-msg ia", "Erreur réseau — réessayez.");
+            }).finally(function () {
+              pending = false;
+              input.disabled = false;
+              sendBtn.disabled = false;
+              input.focus();
+            });
+          }
+          sendBtn.addEventListener("click", function () { send(); });
+          input.addEventListener("keydown", function (e) { if (e.key === "Enter") send(); });
+          if (chips) chips.addEventListener("click", function (e) {
+            var b = e.target && e.target.closest ? e.target.closest("button[data-chip]") : null;
+            if (!b) return;
+            if (b.getAttribute("data-chip") === "1") { input.value = "Voici ce qu’on fait ces jours-là : "; input.focus(); }
+            else send("Rien de particulier — on subit plus qu’on ne prépare.");
           });
+
+          // ── La fiche : un tour de chat. Champs éditables en place, Enregistrer = le POST réel. ──
+          function renderFiche(f) {
+            ficheN += 1;
+            var n = ficheN;
+            var fh = '<div class="dp-fiche">'
+              + '<div class="dp-field"><label>Ce que vous faites</label><textarea id="dp-fact-' + n + '" rows="2">' + esc(f.fact_fr) + '</textarea></div>'
+              + '<div class="dp-field"><label>Les jours qui le montrent</label><textarea id="dp-evid-' + n + '" rows="2">' + esc(f.evidence_fr) + '</textarea></div>'
+              + '<div class="dp-field"><label>Comment on saura que ça marche</label><textarea id="dp-test-' + n + '" rows="2">' + esc(f.test_fr) + '</textarea></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">'
+                + '<span class="dp-src" style="margin-top:0;">Modifiez directement, puis enregistrez.</span>'
+                + '<span style="margin-left:auto;"><button type="button" id="dp-save-' + n + '" class="dp-btn">On l’enregistre</button></span>'
+              + '</div><div id="dp-save-msg-' + n + '" class="dp-src" style="display:none;"></div>'
+              + '</div>';
+            addEl("dp-msg ia", 'Je résume — relisez, corrigez :' + fh);
+            var saveBtn = document.getElementById("dp-save-" + n);
+            saveBtn.addEventListener("click", function () {
+              var fact = String((document.getElementById("dp-fact-" + n) || {}).value || "").trim();
+              var evid = String((document.getElementById("dp-evid-" + n) || {}).value || "").trim();
+              var test = String((document.getElementById("dp-test-" + n) || {}).value || "").trim();
+              var msg = document.getElementById("dp-save-msg-" + n);
+              if (!fact) { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Décrivez d’abord ce que vous faites."; return; }
+              saveBtn.disabled = true;
+              fetch("/api/best-practices", {
+                method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  location_id: loc,
+                  practice_text: fact,
+                  evidence_refs: evid || null,
+                  confirmation_test: test || null,
+                  origin: { origin_action_type: "structural_" + cls, day_class_key: cls },
+                }),
+              }).then(function (r) { return r.json(); }).then(function (jj) {
+                msg.style.display = "block";
+                if (jj && jj.ok) {
+                  savedPracticeId = jj.practice_id || null;
+                  msg.style.color = "#166534";
+                  msg.textContent = "Enregistré dans vos bonnes pratiques — au tier déclaré.";
+                  renderCommitTurn(test);
+                } else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((jj && jj.error) || "réessayez") + "."; saveBtn.disabled = false; }
+              }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau — réessayez."; saveBtn.disabled = false; });
+            });
+          }
+
+          // ── Après enregistrement : référentiels 2 et 3 de l'échelle d'enjeu (déterministes —
+          // la multiplication est celle de l'exploitant, jamais une promesse) + M'engager réel. ──
+          function renderCommitTurn(testText) {
+            var n = ficheN;
+            var enj = medStr
+              ? 'Une journée déclenchée vaut <strong>' + medStr + '</strong> <span class="dp-hov" title="' + esc('Médiane mesurée de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr || '' : '') + '). Le poids total du motif n’est pas la promesse de ce dispositif — il n’en explique qu’une part, le test dira laquelle.') + '">(médiane mesurée)</span>. '
+                + 'Le rythme est votre levier : 4 pics déclenchés dans le mois ≈ <strong>' + (medDay >= 0 ? '+' : '−') + frInt(4 * medDay) + ' €</strong> — c’est votre multiplication, pas une promesse.<br><br>'
+              : '';
+            var el = addEl("dp-msg ia", enj + 'Prêt à l’engager sur le test ?'
+              + '<div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button type="button" id="dp-commit-' + n + '" class="dp-btn">M’engager sur le test</button></span></div>'
+              + '<div id="dp-commit-ws-' + n + '" style="display:none;margin-top:10px;border-top:1px solid #F3F4F6;padding-top:10px;"></div>');
+            var commitBtn = document.getElementById("dp-commit-" + n);
+            commitBtn.addEventListener("click", function () {
+              var ws = document.getElementById("dp-commit-ws-" + n);
+              if (!ws) return;
+              if (ws.style.display === "block") { ws.style.display = "none"; ws.innerHTML = ""; return; }
+              if (!window.MSCommitForm) { ws.style.display = "block"; ws.innerHTML = '<div class="dp-sub" style="color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+              ws.style.display = "block";
+              ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: testText ? [testText] : [] });
+              window.MSCommitForm.wire(ws, {
+                location_id: loc,
+                origin: {
+                  origin_action_type: "structural_" + cls,
+                  origin_driver: null,
+                  origin_suppression_key: "structural:" + cls + ":" + loc,
+                  origin_card_instance_id: null,
+                  origin_affected_date: null,
+                  creation_residual_pct: null,
+                  creation_residual_z: null,
+                  creation_confidence_tier: null,
+                  creation_baseline_daily: null
+                },
+                onDone: function (jd) {
+                  var okd = jd && jd.ok;
+                  if (okd && jd.commitment_id && savedPracticeId) {
+                    fetch("/api/best-practices", {
+                      method: "PATCH", headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ practice_id: savedPracticeId, location_id: loc, replay_commitment_id: jd.commitment_id })
+                    }).catch(function () {});
+                  }
+                  ws.innerHTML = '<div class="dp-sub" style="color:' + (okd ? "#166534" : "#B91C1C") + ';">'
+                    + (okd
+                      ? "Engagement créé et lié au dispositif — il passera à « prouvé » si le test tient (verdict au bilan, mesuré sur vos ventes réelles). Direction Pulse, où votre test est suivi…"
+                      : "Erreur : " + esc((jd && jd.error) || "réessayez") + ".")
+                    + "</div>";
+                  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  if (okd) setTimeout(function () { window.location.href = "/app/insightevent/pulse"; }, 2000);
+                },
+                onCancel: function () { ws.style.display = "none"; ws.innerHTML = ""; }
+              });
+            });
+          }
+
+          input.focus();
         }
       })();
     </script>

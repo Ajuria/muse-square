@@ -18,6 +18,8 @@
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
 import { getDayClassImpacts, type DayClassImpact } from "../dayClassRegistry";
+import { listClassDispositifs, type ClassDispositif } from "../bestPractices";
+import type { FamilyFact } from "./types";
 
 const PROJECT = "muse-square-open-data";
 const PILOT_CLASSES = new Set(["traffic_high"]);
@@ -46,6 +48,10 @@ export interface UnexplainedDay extends DispositifDay {
 }
 
 export interface DispositifFamilyResult {
+  // La liste blanche chiffrée du mode enquête (pièce 2b) : chaque nombre que l'assistant a le
+  // droit d'écrire vit ici, verbatim — la porte validateEnqueteOutput rejette tout le reste.
+  // Mêmes valeurs que `data` (une seule source), sérialisées en français d'exploitant.
+  facts: FamilyFact[];
   data: {
     found: boolean;
     reason?: string;
@@ -58,13 +64,22 @@ export interface DispositifFamilyResult {
     impact?: DayClassImpact | null;
     top_days?: DispositifDay[];
     unexplained_days?: UnexplainedDay[];
+    // Continuité (03/08) : les dispositifs déjà documentés sur CE motif — la page les affiche
+    // en ouverture, l'enquête repart d'eux au lieu de re-documenter.
+    existing_dispositifs?: Array<{
+      practice_text: string;
+      confirmation_test: string | null;
+      tier: "prouvee" | "declaree";
+      in_test: boolean;
+      created_date: string;
+    }>;
     sources?: string[];
   };
 }
 
 export async function dispositifFamily(bq: any, location_id: string, class_key: string): Promise<DispositifFamilyResult> {
   if (!PILOT_CLASSES.has(class_key)) {
-    return { data: { found: false, reason: "Famille pilote : affluence (traffic_high). Les autres motifs arrivent." } };
+    return { facts: [], data: { found: false, reason: "Famille pilote : affluence (traffic_high). Les autres motifs arrivent." } };
   }
 
   // Q1 — les jours de la classe (tercile haut des visiteurs, la sémantique exacte de in_traffic
@@ -105,7 +120,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     vacances: flat(r.sch) === true,
     weekend: flat(r.we) === true,
   }));
-  if (!days.length) return { data: { found: false, reason: "Pas assez d'historique de fréquentation mesurée sur ce lieu." } };
+  if (!days.length) return { facts: [], data: { found: false, reason: "Pas assez d'historique de fréquentation mesurée sur ce lieu." } };
 
   const unexplained = days.filter((d) => !d.heat && !d.vacances && !d.weekend);
   const n = days.length;
@@ -172,11 +187,63 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     };
   });
 
-  // La pilule du motif, par LE chemin de politique réel — jamais une réimplémentation.
-  const impacts = await getDayClassImpacts(bq, location_id, []);
+  // La pilule du motif (LE chemin de politique réel — jamais une réimplémentation) + les
+  // dispositifs déjà documentés du motif, en PARALLÈLE (deux lectures indépendantes).
+  const [impacts, existing] = await Promise.all([
+    getDayClassImpacts(bq, location_id, []),
+    listClassDispositifs(bq, location_id, class_key),
+  ]);
   const impact = (impacts as any).impacts?.get?.(class_key) ?? null;
+  const existingDispositifs = (existing as ClassDispositif[]).map((p) => ({
+    practice_text: p.practice_text,
+    confirmation_test: p.confirmation_test,
+    tier: p.tier,
+    in_test: p.commitment_status === "open",
+    created_date: p.created_date,
+  }));
+
+  // ── FAITS de l'enquête (pièce 2b) — la liste blanche chiffrée du chat. Chaque nombre que
+  // l'assistant peut légitimement écrire doit figurer ici verbatim ; formatage fr-FR (les
+  // espaces de milliers sont normalisées par extractNumbers des deux côtés de la porte).
+  const fi = (v: number | null | undefined) => (v == null || !isFinite(Number(v)) ? "?" : Math.abs(Math.round(Number(v))).toLocaleString("fr-FR"));
+  const fd = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+  const facts: FamilyFact[] = [];
+  facts.push({
+    fact_fr: `Motif affluence : ${n} jours de pointe mesurés sur votre historique, dont ${narrative.n_env} arrivés avec la chaleur, les vacances ou le week-end (chaleur ${narrative.pct_heat} %, vacances ${narrative.pct_vacances} %, week-end ${narrative.pct_weekend} % — co-occurrences mesurées, pas des causes).`,
+    claim_type: "measured",
+  });
+  if (impact && (impact as any).eur_year != null) {
+    const imp: any = impact;
+    facts.push({
+      fact_fr: `Poids du motif : ${Number(imp.eur_year) >= 0 ? "+" : "-"}${fi(imp.eur_year)} €/an (annualisé, mesuré sur ${fi(imp.n_days)} jours / ${fi(imp.span_months)} mois). Une journée de ce type vaut ${Number(imp.avg_gap_eur) >= 0 ? "+" : "-"}${fi(imp.avg_gap_eur)} € vs votre normale (médiane mesurée).`,
+      claim_type: "measured",
+      tier: imp.tier,
+    });
+  }
+  for (const d of days.slice(0, 3)) {
+    facts.push({
+      fact_fr: `Jour de pointe ${d.dow_fr} ${fd(d.date)} : ${fi(d.visitors)} visiteurs, ${fi(d.ca)} € de CA${d.gap_eur != null ? `, écart au CA attendu du jour ${Number(d.gap_eur) >= 0 ? "+" : "-"}${fi(d.gap_eur)} €` : ""} (${[d.heat ? "chaleur" : "", d.vacances ? "vacances" : "", d.weekend ? "week-end" : ""].filter(Boolean).join(" + ") || "aucun facteur connu"}).`,
+      claim_type: "measured",
+    });
+  }
+  for (const p of existingDispositifs) {
+    facts.push({
+      fact_fr: `Dispositif déjà documenté chez vous le ${fd(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.in_test ? " ; engagement de test EN COURS (suivi sur Pulse)" : ""}.`,
+      claim_type: "observed",
+    });
+  }
+  for (const d of unexplainedDays) {
+    const checks: string[] = [];
+    if (d.hour_min != null && d.hour_max != null) checks.push(`ventes de ${d.hour_min} h à ${d.hour_max} h (${fi(d.tickets)} tickets — pas de fermeture anticipée)`);
+    if (d.top_categories.length) checks.push(`mix produits du jour ${d.top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")} vs habituel ${d.usual_top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")}`);
+    facts.push({
+      fact_fr: `Journée de pointe sans facteur connu : ${d.dow_fr} ${fd(d.date)} — ${fi(d.visitors)} visiteurs, ${fi(d.ca)} € de CA, écart au CA attendu du jour ${Number(d.gap_eur ?? 0) >= 0 ? "+" : "-"}${fi(d.gap_eur)} € (poids faible si proche de 0 : possiblement la variation ordinaire). Vérifications internes déjà faites : ${checks.join(" ; ") || "aucune donnée transactionnelle ce jour-là"}.`,
+      claim_type: "measured",
+    });
+  }
 
   return {
+    facts,
     data: {
       found: true,
       class_key,
@@ -184,10 +251,12 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
       impact,
       top_days: days.slice(0, 6),
       unexplained_days: unexplainedDays,
+      existing_dispositifs: existingDispositifs,
       sources: [
         "mart.fct_location_context_daily × mart.fct_client_day_residual × mart.fct_client_daily_performance (tercile haut des visiteurs, 730 j)",
         "raw.client_transactions (amplitude horaire + mix produits des jours inexpliqués)",
         "analytics.day_class_impacts (pilule du motif, politique rowToImpact)",
+        "analytics.best_practices × analytics.action_commitments (dispositifs déjà documentés du motif, tier à la lecture)",
       ],
     },
   };
