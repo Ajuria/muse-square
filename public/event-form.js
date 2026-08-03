@@ -234,6 +234,7 @@
               method: "POST", headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 location_id: loc, origin_action_type: "event_" + val("type"), saved_item_id: j.saved_item_id,
+                event_kpi: kpi, kpi_family: kpi === "family_revenue" ? val("family") : null,
                 window_kind: "day_of", window_start_date: j.occurrences[0],
                 threshold_basis: "pct", threshold_pct: pct,
                 committed_action_text: title + " — " + dispositif,

@@ -1,8 +1,10 @@
 ---
 // « /evenement » — le dossier d'événement-dispositif (spec docs/evenement-dossier-spec.md).
-// Incrément 2b : mode CRÉATION (sans saved_item_id) — héberge MSEventForm (module partagé
-// public/event-form.js). Le dossier à 3 états (Décider/Avant/Après, provider evenementFamily)
-// arrive à l'incrément 3. days.astro et monitor.astro restent legacy jusqu'à la bascule.
+// Mode CRÉATION (sans saved_item_id) : MSEventForm (public/event-form.js, ?dates= pré-remplies).
+// Mode DOSSIER (?saved_item_id=) : les 3 états Décider/Avant/Après sur provider evenementFamily ;
+// la CIBLE du KPI dominant est jugée en DÉTERMINISTE (target_met — un fait), le verdict
+// STATISTIQUE reste celui de l'engagement K1 (bande de bruit + gardes — décision étape 3),
+// les deux affichés, jamais confondus. days.astro et monitor.astro legacy jusqu'à la bascule.
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -31,7 +33,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
     </style>
 
-    <script is:inline src="/event-form.js?v=2"></script>
+    <script is:inline src="/event-form.js?v=3"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
@@ -135,7 +137,16 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             if (last) {
               var domBox = it.kpi === "family_revenue" && last.family_rev != null
                 ? box("Famille " + esc(it.kpi_family || "") + " — objectif", frInt(last.family_rev) + " €", last.family_avg != null ? "vs " + frInt(last.family_avg) + " € sa moyenne journalière" : "") : "";
-              panel = '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date) + (last.verdict ? " · verdict de l’engagement : " + esc(last.verdict) : " · verdict au bilan de l’engagement") + '</div>'
+              var chip = "";
+              if (last.target_met != null) {
+                var okT = last.target_met;
+                var detail = it.kpi === "family_revenue" && last.family_rev != null
+                  ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
+                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs attendu (cible +" + frInt(it.kpi_target_pct) + " %)"
+                  : "";
+                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span></div>';
+              }
+              panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date) + (last.verdict ? " · verdict statistique de l’engagement : " + esc(last.verdict) : " · verdict statistique au bilan de l’engagement") + '</div>'
                 + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + domBox
                 + box("CA total", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € attendu (" + signEur(last.gap_eur) + ")")
                 + (last.tickets != null ? box("Tickets", frInt(last.tickets), "vs " + frInt(last.tickets_base) + " habituel" + (last.tickets_delta_pct != null ? " (" + (last.tickets_delta_pct >= 0 ? "+" : "") + last.tickets_delta_pct + " %)" : "")) : "")
@@ -187,6 +198,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   if (!u || !u.ok) throw new Error((u && u.error) || "Erreur");
                   return fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
                     location_id: loc, origin_action_type: "event_" + (it.event_type || "autre"), saved_item_id: item,
+                    event_kpi: it.kpi || null, kpi_family: it.kpi_family || null,
                     window_kind: "day_of", window_start_date: date, threshold_basis: "pct", threshold_pct: pct,
                     committed_action_text: it.title + (it.dispositif ? " — " + it.dispositif : ""),
                     owner_person_name: it.author_person_name || "—",

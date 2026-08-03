@@ -224,7 +224,19 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,
       commitment_status: co && flat(co.status) != null ? String(flat(co.status)) : null,
     };
-  });
+  }).map((r) => ({
+    ...r,
+    // Cible ATTEINTE/MANQUÉE — un FAIT déterministe sur le KPI dominant déclaré (incrément 4).
+    // Distinct du verdict statistique de l'engagement (K1, bande de bruit + gardes — décision
+    // étape 3 : le verdict par KPI attend ses variances). Les deux s'affichent, jamais confondus.
+    target_met: (() => {
+      if (item.kpi === "family_revenue") return r.family_rev != null && item.kpi_target_eur != null ? r.family_rev >= item.kpi_target_eur : null;
+      if (item.kpi === "revenue_residual") return r.residual_pct != null && item.kpi_target_pct != null ? r.residual_pct >= item.kpi_target_pct : null;
+      if (item.kpi === "tickets") return r.tickets_delta_pct != null && item.kpi_target_pct != null ? r.tickets_delta_pct >= item.kpi_target_pct : null;
+      if (item.kpi === "basket") return r.basket_delta_pct != null && item.kpi_target_pct != null ? r.basket_delta_pct >= item.kpi_target_pct : null;
+      return null;
+    })(),
+  }));
   const measured = apresRows.filter((r) => r.gap_eur != null);
   const gaps = measured.map((r) => r.gap_eur as number).sort((a, b) => a - b);
   const serie = isRecurring ? {

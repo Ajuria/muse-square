@@ -6,7 +6,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, measureKpiBaseline } from "../../../lib/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
@@ -277,11 +277,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
       // window/delta à la résolution).
-      measured_metric: kpiKeyForOrigin(
-        originActionType,
-        DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
-          ? String(body.origin_driver).trim().toLowerCase() : null,
-      ),
+      // Événements (03/08) : le KPI DÉCLARÉ sur l'événement prime — mapping registre (foyer
+      // unique kpiKeyForEventKpi) ; hors événement, la dérivation carte+driver inchangée.
+      measured_metric: (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
+        || kpiKeyForOrigin(
+          originActionType,
+          DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
+            ? String(body.origin_driver).trim().toLowerCase() : null,
+        ),
       window_kind: windowKind,
       window_start: ymd(start),
       window_end: ymd(end),
@@ -320,7 +323,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
     // Non bloquant : échec/absence de données → null (jamais un chiffre inventé, jamais un 500).
-    if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
+    if (patch.measured_metric === "family_revenue") {
+      // K8 : baseline famille (30 j pré-fenêtre) — la famille arrive du client à la création
+      // (body.kpi_family) ; la résolution la relira sur l'événement ancré. Échec soft → null.
+      try {
+        const _fam = String(body.kpi_family || "").trim();
+        patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
+      } catch { patch.kpi_baseline = null; }
+    } else if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
       try {
         patch.kpi_baseline = await measureKpiBaseline(bq, String(patch.location_id), patch.measured_metric as any, String(patch.window_start));
       } catch { patch.kpi_baseline = null; }

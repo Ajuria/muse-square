@@ -186,6 +186,15 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
 
 ## Avancement
 
+- **Incréments 2a/2b/3/4 FAITS (03/08)** : capacités API (ancrage + fenêtre datée + occurrences) ;
+  formulaire MSEventForm + page /evenement (?dates= pré-remplies) ; provider evenementFamily +
+  dossier 3 états (harnais réel 3,5 s, colonne piège opportunity_score_final_local attrapée) ;
+  **K8 family_revenue** au registre KPI (mesure paramétrée par famille, baseline 30 j, résolution
+  rejointe par saved_item_id) + cible du KPI dominant jugée en DÉTERMINISTE au dossier
+  (`target_met`) — le verdict STATISTIQUE reste K1 (décision étape 3 respectée : bande de bruit
+  par KPI en attente de variances). Fix au passage : crash jour-0 de renderEvolution (card-kit
+  v=43 partout). Restent : 5 (cartes cycle de vie, monitor.ts ADDITIF + E2E pulse), 6 (chat),
+  7 (bascule des liens).
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
   EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
