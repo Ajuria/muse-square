@@ -18,6 +18,7 @@
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
 import { getDayClassImpacts, type DayClassImpact } from "../dayClassRegistry";
+import type { FamilyFact } from "./types";
 
 const PROJECT = "muse-square-open-data";
 const PILOT_CLASSES = new Set(["traffic_high"]);
@@ -46,6 +47,10 @@ export interface UnexplainedDay extends DispositifDay {
 }
 
 export interface DispositifFamilyResult {
+  // La liste blanche chiffrée du mode enquête (pièce 2b) : chaque nombre que l'assistant a le
+  // droit d'écrire vit ici, verbatim — la porte validateEnqueteOutput rejette tout le reste.
+  // Mêmes valeurs que `data` (une seule source), sérialisées en français d'exploitant.
+  facts: FamilyFact[];
   data: {
     found: boolean;
     reason?: string;
@@ -64,7 +69,7 @@ export interface DispositifFamilyResult {
 
 export async function dispositifFamily(bq: any, location_id: string, class_key: string): Promise<DispositifFamilyResult> {
   if (!PILOT_CLASSES.has(class_key)) {
-    return { data: { found: false, reason: "Famille pilote : affluence (traffic_high). Les autres motifs arrivent." } };
+    return { facts: [], data: { found: false, reason: "Famille pilote : affluence (traffic_high). Les autres motifs arrivent." } };
   }
 
   // Q1 — les jours de la classe (tercile haut des visiteurs, la sémantique exacte de in_traffic
@@ -105,7 +110,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     vacances: flat(r.sch) === true,
     weekend: flat(r.we) === true,
   }));
-  if (!days.length) return { data: { found: false, reason: "Pas assez d'historique de fréquentation mesurée sur ce lieu." } };
+  if (!days.length) return { facts: [], data: { found: false, reason: "Pas assez d'historique de fréquentation mesurée sur ce lieu." } };
 
   const unexplained = days.filter((d) => !d.heat && !d.vacances && !d.weekend);
   const n = days.length;
@@ -176,7 +181,42 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   const impacts = await getDayClassImpacts(bq, location_id, []);
   const impact = (impacts as any).impacts?.get?.(class_key) ?? null;
 
+  // ── FAITS de l'enquête (pièce 2b) — la liste blanche chiffrée du chat. Chaque nombre que
+  // l'assistant peut légitimement écrire doit figurer ici verbatim ; formatage fr-FR (les
+  // espaces de milliers sont normalisées par extractNumbers des deux côtés de la porte).
+  const fi = (v: number | null | undefined) => (v == null || !isFinite(Number(v)) ? "?" : Math.abs(Math.round(Number(v))).toLocaleString("fr-FR"));
+  const fd = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+  const facts: FamilyFact[] = [];
+  facts.push({
+    fact_fr: `Motif affluence : ${n} jours de pointe mesurés sur votre historique, dont ${narrative.n_env} arrivés avec la chaleur, les vacances ou le week-end (chaleur ${narrative.pct_heat} %, vacances ${narrative.pct_vacances} %, week-end ${narrative.pct_weekend} % — co-occurrences mesurées, pas des causes).`,
+    claim_type: "measured",
+  });
+  if (impact && (impact as any).eur_year != null) {
+    const imp: any = impact;
+    facts.push({
+      fact_fr: `Poids du motif : ${Number(imp.eur_year) >= 0 ? "+" : "-"}${fi(imp.eur_year)} €/an (annualisé, mesuré sur ${fi(imp.n_days)} jours / ${fi(imp.span_months)} mois). Une journée de ce type vaut ${Number(imp.avg_gap_eur) >= 0 ? "+" : "-"}${fi(imp.avg_gap_eur)} € vs votre normale (médiane mesurée).`,
+      claim_type: "measured",
+      tier: imp.tier,
+    });
+  }
+  for (const d of days.slice(0, 3)) {
+    facts.push({
+      fact_fr: `Jour de pointe ${d.dow_fr} ${fd(d.date)} : ${fi(d.visitors)} visiteurs, ${fi(d.ca)} € de CA${d.gap_eur != null ? `, écart au CA attendu du jour ${Number(d.gap_eur) >= 0 ? "+" : "-"}${fi(d.gap_eur)} €` : ""} (${[d.heat ? "chaleur" : "", d.vacances ? "vacances" : "", d.weekend ? "week-end" : ""].filter(Boolean).join(" + ") || "aucun facteur connu"}).`,
+      claim_type: "measured",
+    });
+  }
+  for (const d of unexplainedDays) {
+    const checks: string[] = [];
+    if (d.hour_min != null && d.hour_max != null) checks.push(`ventes de ${d.hour_min} h à ${d.hour_max} h (${fi(d.tickets)} tickets — pas de fermeture anticipée)`);
+    if (d.top_categories.length) checks.push(`mix produits du jour ${d.top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")} vs habituel ${d.usual_top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")}`);
+    facts.push({
+      fact_fr: `Journée de pointe sans facteur connu : ${d.dow_fr} ${fd(d.date)} — ${fi(d.visitors)} visiteurs, ${fi(d.ca)} € de CA, écart au CA attendu du jour ${Number(d.gap_eur ?? 0) >= 0 ? "+" : "-"}${fi(d.gap_eur)} € (poids faible si proche de 0 : possiblement la variation ordinaire). Vérifications internes déjà faites : ${checks.join(" ; ") || "aucune donnée transactionnelle ce jour-là"}.`,
+      claim_type: "measured",
+    });
+  }
+
   return {
+    facts,
     data: {
       found: true,
       class_key,
