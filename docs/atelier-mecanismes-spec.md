@@ -258,6 +258,11 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
    provider émet `facts`, page `dispositif.astro` réécrite chat-first (ouverture déterministe +
    note de marge, fiche en tour de chat → POST best-practices, M'engager → MSCommitForm + PATCH).
    E2E 2 tours prouvé sur le lieu à visiteurs mesurés (fiche au tour 2, tous chiffres fondés).
+   **Extension 03/08 : les 3 motifs d'identification couverts** (traffic_high / followed_activity_high /
+   competition_low — appartenance-jour copiée du moteur, `class_meta` par classe : libellés + question
+   de fond ; « prévisibles » revendiqué seulement si co-occurrence env ≥ 60 %). Vérifié sur données
+   réelles : traffic_high byte-identique avant/après ; café competition_low +9 964 €/an ;
+   muse followed_activity_high +7 208 €/an (visiteurs absents omis des faits) ; refus honnêtes ailleurs.
 4. Pièce 3 en continu (lie-bait à chaque relaxation).
 5. Type B branché en dernier (il a sa propre feuille de route).
 

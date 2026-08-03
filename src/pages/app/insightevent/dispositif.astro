@@ -87,6 +87,12 @@ const classParam = Astro.url.searchParams.get("class") || "";
           var nar = j.narrative || {};
           var imp = j.impact || null;
           var ex = j.unexplained_days || [];
+          // Libellés + question de fond du motif — servis par le provider (class_meta), la page
+          // ne code plus « affluence » en dur ; repli sur la copie affluence approuvée.
+          var meta = j.class_meta || {
+            chip_fr: "Affluence", noun_fr: "jours de pointe", corner_label_fr: "jours de pointe",
+            job_question_fr: "qu’est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l’équipe le rejoue à chaque pic annoncé ?"
+          };
           var pos = imp && Number(imp.eur_year) > 0;
           var medDay = imp && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? Math.round(Number(imp.avg_gap_eur)) : null;
           var medStr = medDay != null ? ((medDay >= 0 ? "+" : "−") + frInt(medDay) + " €") : null;
@@ -94,15 +100,15 @@ const classParam = Astro.url.searchParams.get("class") || "";
 
           // ── En-tête motif (référentiel 1 : le poids TOTAL) ──
           html += '<div class="dp-card">'
-            + '<div class="dp-pills"><span class="dp-chip" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="dp-chip">Affluence</span></div>'
+            + '<div class="dp-pills"><span class="dp-chip" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="dp-chip">' + esc(meta.chip_fr) + '</span></div>'
             + '<div style="display:flex;align-items:flex-start;gap:12px;">'
               + '<div style="flex:1;min-width:0;">'
-                + '<div class="dp-what">Reproduire le dispositif gagnant — vos jours de pointe</div>'
+                + '<div class="dp-what">Reproduire le dispositif gagnant — vos ' + esc(meta.noun_fr) + '</div>'
                 + '<div class="dp-sub">De « pourquoi ces journées marchent » à « comment les déclencher ».</div>'
               + '</div>'
               + (imp ? '<div class="dp-amt" title="' + esc('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + (imp.tier_label_fr || '')) + '">'
                   + '<div class="dp-amt-val" style="color:' + (pos ? '#059669' : '#B45309') + ';">' + (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an</div>'
-                  + '<div class="dp-amt-sub">' + (pos ? 'à gagner' : 'perdus') + ' · jours de pointe</div></div>' : '')
+                  + '<div class="dp-amt-sub">' + (pos ? 'à gagner' : 'perdus') + ' · ' + esc(meta.corner_label_fr) + '</div></div>' : '')
             + '</div></div>';
 
           // ── La conversation (verdict 03/08 : elle EST l'interface) ──
@@ -139,14 +145,23 @@ const classParam = Astro.url.searchParams.get("class") || "";
           // ── Ouverture DÉTERMINISTE (message de référence validé 03/08 — spec atelier
           // § Hiérarchie de l'enquête). Le survol porte la méthode ; le texte, le job. ──
           var hovPred = 'Chaleur ' + nar.pct_heat + ' %, vacances ' + nar.pct_vacances + ' %, week-end ' + nar.pct_weekend + ' % de ces jours — co-occurrences mesurées sur vos données, pas des causes prouvées.';
-          var openHtml = (imp ? 'Vos jours de pointe valent <strong>' + (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an</strong>, et ' : '')
-            + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe sont <span class="dp-hov" title="' + esc(hovPred) + '">prévisibles</span> — ils arrivent avec la chaleur, les vacances ou le week-end.<br><br>'
-            + 'La question qui compte : <strong>qu’est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l’équipe le rejoue à chaque pic annoncé ?</strong><br>'
+          // « Prévisibles » ne se revendique que si la co-occurrence environnementale porte la
+          // majorité des jours (>= 60 %) — sinon la phrase reste purement factuelle.
+          var predictable = nar.n_days > 0 && (nar.n_env / nar.n_days) >= 0.6;
+          var envHtml = predictable
+            ? 'sont <span class="dp-hov" title="' + esc(hovPred) + '">prévisibles</span> — ils arrivent avec la chaleur, les vacances ou le week-end.'
+            : '<span class="dp-hov" title="' + esc(hovPred) + '">arrivent avec</span> la chaleur, les vacances ou le week-end.';
+          var envPlain = predictable
+            ? 'sont prévisibles — ils arrivent avec la chaleur, les vacances ou le week-end.'
+            : 'arrivent avec la chaleur, les vacances ou le week-end.';
+          var openHtml = (imp ? 'Vos ' + esc(meta.noun_fr) + ' valent <strong>' + (pos ? '+' : '−') + frInt(imp.eur_year) + ' €/an</strong>, et ' : '')
+            + nar.n_env + ' de vos ' + nar.n_days + ' ' + esc(meta.noun_fr) + ' ' + envHtml + '<br><br>'
+            + 'La question qui compte : <strong>' + esc(meta.job_question_fr) + '</strong><br>'
             + 'Si c’est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif.'
-            + '<div class="dp-src">Vérifié · vos ' + nar.n_days + ' jours de pointe mesurés</div>';
-          var openPlain = (imp ? 'Vos jours de pointe valent ' + (pos ? '+' : '-') + frInt(imp.eur_year) + ' €/an, et ' : '')
-            + nar.n_env + ' de vos ' + nar.n_days + ' jours de pointe sont prévisibles — ils arrivent avec la chaleur, les vacances ou le week-end. '
-            + 'La question qui compte : qu’est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l’équipe le rejoue à chaque pic annoncé ? '
+            + '<div class="dp-src">Vérifié · vos ' + nar.n_days + ' ' + esc(meta.noun_fr) + ' mesurés</div>';
+          var openPlain = (imp ? 'Vos ' + meta.noun_fr + ' valent ' + (pos ? '+' : '-') + frInt(imp.eur_year) + ' €/an, et ' : '')
+            + nar.n_env + ' de vos ' + nar.n_days + ' ' + meta.noun_fr + ' ' + envPlain + ' '
+            + 'La question qui compte : ' + meta.job_question_fr + ' '
             + 'Si c’est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif.';
           addEl("dp-msg ia", openHtml);
           hist.push({ role: "assistant", content: openPlain });
@@ -171,7 +186,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
               if (d.top_categories && d.top_categories.length) tip.push('Mix produits habituel (' + d.top_categories.map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ').');
               return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
             }).join(", ");
-            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de pointe' : ex.length + ' journées de pointe') + ' sans facteur connu — ' + exBits
+            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans facteur connu — ' + exBits
               + '. Poids faible, possiblement la variation ordinaire. Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
             var noteLink = document.getElementById("dp-note");
             if (noteLink) noteLink.addEventListener("click", function () {
@@ -282,7 +297,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
           function renderCommitTurn(testText) {
             var n = ficheN;
             var enj = medStr
-              ? 'Une journée déclenchée vaut <strong>' + medStr + '</strong> <span class="dp-hov" title="' + esc('Médiane mesurée de vos ' + (imp ? imp.n_days : '') + ' jours de pointe vs votre normale (' + (imp ? imp.tier_label_fr || '' : '') + '). Le poids total du motif n’est pas la promesse de ce dispositif — il n’en explique qu’une part, le test dira laquelle.') + '">(médiane mesurée)</span>. '
+              ? 'Une journée déclenchée vaut <strong>' + medStr + '</strong> <span class="dp-hov" title="' + esc('Médiane mesurée de vos ' + (imp ? imp.n_days : '') + ' ' + meta.noun_fr + ' vs votre normale (' + (imp ? imp.tier_label_fr || '' : '') + '). Le poids total du motif n’est pas la promesse de ce dispositif — il n’en explique qu’une part, le test dira laquelle.') + '">(médiane mesurée)</span>. '
                 + 'Le rythme est votre levier : 4 pics déclenchés dans le mois ≈ <strong>' + (medDay >= 0 ? '+' : '−') + frInt(4 * medDay) + ' €</strong> — c’est votre multiplication, pas une promesse.<br><br>'
               : '';
             var el = addEl("dp-msg ia", enj + 'Prêt à l’engager sur le test ?'
