@@ -109,6 +109,16 @@ mécanisme. Concrètement :
   d'exploitant : « Ce que vous aviez fait » / « Les jours qui le montrent » / « Comment on
   saura que ça marche ». Les trois retombées affichées sur la fiche : réutilisable (bonnes
   pratiques), testable (graduation), apprend au système (contexte LLM + candidat d'ingestion).
+- **VERDICT UX (owner, 03/08, sur la page resserrée réelle) : la page-formulaire ne peut pas
+  porter ce job — la conversation EST l'interface.** Le processus en blocs statiques est
+  cognitivement lourd ; les libellés d'étapes (« Ce que vos données disent / Votre
+  explication / Testez-la ») tombent avec lui. La page cible : UN message d'ouverture de
+  l'assistant (nourri par le provider `dispositifFamily`, se terminant sur UNE question) +
+  une zone de réponse ; la fiche est PROPOSÉE en tour de chat (« Je résume : […]. On
+  l'enregistre ? ») et l'engagement est un CTA en chat — la mécanique décision→engagement
+  du 16/07 existe. La page statique actuelle est un échafaudage : on n'itère plus dessus,
+  on construit le mode chat (pièce 2b, chirurgie `prompt.ts` en session fraîche).
+  Micro-correctif de mots en attendant : « suivent » → « arrivent avec ».
 
 ## Interaction d'enquête (owner, 01/08 soir — « the default explanation may be wrong »)
 
@@ -130,6 +140,41 @@ script à trois messages. Discipline du mode enquête :
 3. **Rien de retenu sans test.** La fiche reste modifiable, « ce n'est pas ça » relance
    l'enquête, plusieurs dispositifs candidats peuvent coexister — chacun au tier déclaré,
    chacun avec son test.
+
+## Hiérarchie de l'enquête (owner, 03/08 — « focus on what works ; side notes, not action cards »)
+
+Correction du dernier sur-cadrage : le premier message proposé « faisait un mystère » des
+journées inexpliquées. Trois règles, désormais dures :
+
+1. **Le job de l'enquête, c'est ce qui MARCHE — pas les micro-mystères.** La question qui
+   vaut de l'argent sur un motif d'identification : « vos jours de pointe sont prévisibles
+   (38/40 arrivent avec chaleur/vacances/week-end) et valent +33 402 €/an — qu'est-ce que
+   vous FAITES ces jours-là qui les fait réussir, et est-ce écrit pour que l'équipe le
+   rejoue à chaque pic prévu ? » Le dispositif à documenter est la routine de réussite des
+   jours MATÉRIELS, reproductible sur prévision — pas l'anecdote des exceptions.
+2. **Porte de matérialité étendue à l'enquête : une exception ne devient un sujet que si
+   son impact mesuré est matériel.** Le provider porte le gap € de chaque journée — la
+   règle est mécanique. En dessous du seuil : **note annexe**, ton bas, ignorable sans
+   coût (« deux journées du tercile haut sans facteur connu — poids faible, possiblement
+   la variation ordinaire ; un souvenir ? notez-le, sinon laissez »). Un clic pour annoter
+   la base de connaissances — un type de capture LÉGER (annotation), jamais une fiche
+   complète ni une carte d'action. Cas mesuré MS Occitanie : les 2 jours hors motif ont
+   un CA quasi normal (gaps ≈ 0) → notes annexes, pas questions.
+3. **Humilité statistique en règle de voix : jamais un résidu sans l'explication nulle à
+   côté.** Les jours diffèrent par nature, les motifs ne sont jamais parfaits (effets
+   combinés de petites variables, saison) — l'assistant le DIT (« peut n'être que la
+   variation ordinaire »). C'est le pendant conversationnel de « co-occurrence ≠ cause » :
+   présenter du bruit comme une énigme qui exige une explication est un sur-vendu.
+
+Message d'ouverture de référence (re-problématisé, validé 03/08) : « Vos jours de pointe
+valent +33 402 €/an, et 38 sur 40 sont prévisibles — ils arrivent avec la chaleur, les
+vacances ou le week-end. La question qui compte : qu'est-ce qui fait réussir une journée
+de pointe chez vous — et est-ce écrit, pour que l'équipe le rejoue à chaque pic annoncé ?
+Si c'est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif. (En
+marge : deux journées du tercile haut n'ont aucun facteur connu — 10/04, 20/05 — poids
+faible, possiblement la variation ordinaire ; un souvenir ? notez-le, sinon laissez.) »
+
+Ces trois règles entrent telles quelles dans le system prompt du mode enquête (pièce 2b).
 
 ## Périmètre des signaux : les trois cercles (owner, 01/08 soir — le cas « documentaire avocat »)
 
