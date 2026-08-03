@@ -13,6 +13,7 @@ import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
+import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
@@ -28,6 +29,7 @@ import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/asse
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
+import { listClassDispositifs } from "../../../lib/bestPractices";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -2293,6 +2295,7 @@ RÈGLES DURES :
 6. LA FICHE. Quand l'explication de l'exploitant est claire, actionnable et À LUI (déclenchable par lui), propose la fiche : fact_fr = SES mots reformulés fidèlement, sans embellissement ; evidence_fr = les jours/faits des FAITS qui la montrent ; test_fr = un test daté observable (modèle : « sur les 3 prochains pics annoncés, dispositif déclenché la veille → CA au-dessus de l'attendu du jour »). Sinon fiche = null et continue l'enquête.
 7. CAUSES EXTERNES nommées et datées (marché, événement, média) : note-les comme déclarées par l'exploitant — tu ne peux pas les vérifier ici ; ne confirme jamais un fait externe de toi-même. Récurrente et datée, une telle cause pourra devenir un dispositif à part entière — dis-le sans promettre.
 8. TON : français d'exploitant, direct, 70 mots maximum par message, pas de jargon (jamais « tercile », « résiduel », « co-occurrence » sans mot simple à côté), pas de markdown.
+9. DISPOSITIFS EXISTANTS. Si les FAITS listent un dispositif déjà documenté, l'enquête CONTINUE à partir de lui : ne le re-documente jamais, ne repose pas les questions auxquelles il répond déjà. S'il est en test, dis-le (le suivi vit sur Pulse) et propose : poursuivre le test, l'ajuster, ou documenter un AUTRE dispositif. Une fiche ne se propose que pour un dispositif NOUVEAU, distinct de l'existant.
 
 SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": string, "evidence_fr": string, "test_fr": string } } — rien d'autre.`;
 
@@ -2352,6 +2355,33 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         );
       }
       return enqueteResponse(enq.say_fr, enq.fiche, "enquete_claude");
+    }
+
+    // ── VOS DISPOSITIFS (incrément 2, 03/08) — une question qui NOMME les dispositifs / bonnes
+    // pratiques répond DÉTERMINISTE depuis la base (même patron que les métriques déclarées) :
+    // le routage jour/mois n'a pas de raison de porter cette question (mesuré 03/08 : elle
+    // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
+    // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
+    // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
+    if (/\b(dispositifs?|bonnes?\s+pratiques?)\b/i.test(qRaw)
+        && /\b(quels?|quelles?|qu[’']\s?est|liste|montre|rappelle|voir|mes|mon|documentés?|prévus?|enregistrés?)\b/i.test(qRaw)) {
+      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
+      const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
+      if (_dispoRows.length) {
+        const _lines = _dispoRows.map((p) =>
+          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+        return sysDialogueResponse(
+          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
+          _lines.join("\n\n"),
+          "deterministic_dispositifs_v1",
+        );
+      }
+      return sysDialogueResponse(
+        "Aucun dispositif documenté",
+        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
+        "deterministic_dispositifs_v1",
+      );
     }
 
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
@@ -4681,6 +4711,14 @@ Règles :
           console.warn("[grounded] day-perf facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // Incrément 2 (03/08) — la couche DÉCLARATIVE : les dispositifs documentés (fiche + état du
+        // test lié) entrent dans la liste blanche, en PARALLÈLE comme les autres builders. Les deux
+        // branches (family-led et non) les reçoivent — « qu'est-ce que j'avais prévu pour les jours
+        // chauds ? » doit pouvoir se répondre quel que soit le routage.
+        const _practicesP = buildPracticeFacts(location_id).catch((e) => {
+          console.warn("[grounded] practice facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         try {
           // Family resolution: the question's own keywords first; on an inherited continuation with no
           // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
@@ -4691,6 +4729,7 @@ Règles :
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
+        const _practices = await _practicesP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
@@ -4720,11 +4759,11 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts] },
+              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts] },
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
