@@ -24,10 +24,26 @@ Protos validés : `public/evenement-dossier-proto.html` (v1) et `-v2.html` (v2.1
    raccourcis, responsable roster) + champs propres : nom, type PAR MÉTIER du lieu, nature
    (extérieur/intérieur/les deux + plage horaire), description du dispositif (versée aux bonnes
    pratiques avec son auteur), échéance de choix en CASE À COCHER (jamais par défaut).
-5. **Dossier à deux états** — avant : les 5 questions sourcées (clients cibles / mobilité
-   clients ET fournisseurs / événements voisins synergie-conflit / météo × nature /
-   concurrence) + score du jour ; après : verdict sur l'objectif, panneau complet, agir
-   (menu standard 3 entrées), série. La page appartient à la famille cartes + pages insight.
+5. **Dossier à TROIS états pour un ponctuel, deux pour un récurrent** (v3 validée sur le
+   chaînon manquant, owner 03/08) :
+   - **Décider** (ponctuel seulement) : la table candidats CÔTE À CÔTE du legacy (« CHOIX »
+     de days.astro:2940, jusqu'à 7 colonnes) recadrée par l'événement — lignes = les 5
+     questions + l'objectif PAR candidat (l'attendu varie par jour de semaine → total visé
+     par candidat ; l'apport visé est le même) ; recommandation conservée et ARGUMENTÉE par
+     l'événement (nature, clients, fournisseurs — plus jamais un score sec) ; « hors horizon
+     de prévision » DIT honnêtement (revérifié par la carte J-1) ; « Choisir » = engagement
+     ancré (`window_start_date`) + passage à l'état Avant. Même calcul provider que l'état
+     Avant, par date — zéro moteur nouveau.
+   - **Avant** : les 5 questions sourcées (clients cibles / mobilité clients ET fournisseurs /
+     événements voisins synergie-conflit / météo × nature / concurrence) + score du jour ;
+   - **Après** : verdict sur l'objectif, panneau complet, agir (menu standard 3 entrées), série.
+   La page appartient à la famille cartes + pages insight. Proto : `-v3.html` (Décider).
+   **Récurrent — le choix du JOUR de série** (formulaire) : mini-comparateur à deux registres
+   jamais mélangés — le MESURÉ par jour de semaine (CA habituel, fréquentation — référentiel
+   dow existant) + les menaces des SEULES premières occurrences dans l'horizon de prévision
+   (on ne prédit pas 52 samedis ; la carte J-1 revérifie chaque occurrence) ; le dimanche
+   n'apparaît que si les jours d'ouverture le portent (repos dominical). Le choix fixe
+   `recurrence_dow` + départ.
 6. **Cartes de cycle de vie** (famille événement, feed Pulse) : Menace pré-événement
    (signal × nature), Échéance de décision (seulement si case cochée), J-1 Préparer,
    J+1 Mesurer-documenter.
@@ -140,6 +156,9 @@ Suppression par clé existante (`suppression_key event_<id>:<date>`). Menu Agir 
    (`daily.ts`, `bilan.ts`, `alerts.ts`), PiloterBottomBar, liste d'événements.
 3. `monitor.astro` = legacy (intouché, accessible par URL directe) ; suppression sur GO owner
    explicite, jamais avant ; `events.astro` (orpheline, zéro lien entrant) supprimée au même GO.
+   **`days.astro` aussi = legacy** pour sa fonction événement (l'onglet « CHOIX » est remplacé
+   par l'état Décider du dossier) — la page reste vivante comme surface de planification
+   générale (month → days, Nav Planifier) ; on n'opère pas dedans.
 4. `api/insight/monitor.ts` : jamais modifié autrement qu'additivement (pulse en dépend) ;
    E2E pulse obligatoire à chaque ajout.
 Divergences documentées à corriger au passage : delete.ts est un HARD delete (la doc disait
