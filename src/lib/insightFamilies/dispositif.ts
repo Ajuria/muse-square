@@ -160,6 +160,12 @@ export interface UnexplainedDay extends DispositifDay {
   // CROISSANTE (un accrochage court est discriminant, une expo permanente ne l'est pas), 3 max.
   followed_events: Array<{ entity: string; label: string; from: string; to: string }>;
   followed_events_total: number;
+  // Cercle 1 (03/08) — les MOVERS produits du jour : écart € par famille vs SA moyenne
+  // journalière sur l'historique du lieu (référentiel dit dans la phrase — tous jours
+  // confondus, v1), les deux sens, familles à zéro incluses, top 3 par |écart|. Le « QUOI est
+  // chez nous » du cas documentaire-avocat : une famille qui porte l'écart du jour donne à
+  // l'enquête une question précise au lieu d'une question ouverte.
+  movers: Array<{ category: string; rev: number; usual: number; gap_eur: number }>;
 }
 
 export interface DispositifFamilyResult {
@@ -238,6 +244,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   let mixRows: any[] = [];
   let usualRows: any[] = [];
   let evRows: any[] = [];
+  let moversRows: any[] = [];
   if (exDates.length) {
     // Classe suivis : nommer les événements suivis actifs sur les jours inexpliqués, tri par
     // durée CROISSANTE (le court est discriminant), dédoublonné par event_name (crawl le plus
@@ -267,7 +274,40 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
           params: { location_id, dates: exDates }, types: { dates: ["STRING"] }, location: "EU",
         })
       : Promise.resolve([[] as any[]]);
-    [[hoursRows], [mixRows], [usualRows], [evRows]] = await Promise.all([
+    // Movers produits (cercle 1) : CA de chaque famille le jour dit vs SA moyenne journalière
+    // (CA total de la famille / nombre de jours de vente du lieu — tous jours confondus, v1).
+    // CROSS JOIN dates × familles pour que l'absence totale d'une famille compte comme mover.
+    const moversP = bq.query({
+      query: `WITH trading_days AS (
+                SELECT COUNT(DISTINCT transaction_date) AS n
+                FROM \`${PROJECT}.raw.client_transactions\`
+                WHERE location_id = @location_id
+              ),
+              base AS (
+                SELECT item_category, SUM(revenue) / (SELECT n FROM trading_days) AS avg_day_rev
+                FROM \`${PROJECT}.raw.client_transactions\`
+                WHERE location_id = @location_id AND item_category IS NOT NULL
+                GROUP BY 1
+              ),
+              day_cat AS (
+                SELECT FORMAT_DATE('%Y-%m-%d', transaction_date) AS date, item_category, SUM(revenue) AS rev
+                FROM \`${PROJECT}.raw.client_transactions\`
+                WHERE location_id = @location_id AND item_category IS NOT NULL
+                  AND transaction_date IN UNNEST(ARRAY(SELECT PARSE_DATE('%Y-%m-%d', x) FROM UNNEST(@dates) AS x))
+                GROUP BY 1, 2
+              )
+              SELECT d AS date, b.item_category,
+                     ROUND(COALESCE(dc.rev, 0), 0) AS rev,
+                     ROUND(b.avg_day_rev, 0) AS usual,
+                     ROUND(COALESCE(dc.rev, 0) - b.avg_day_rev, 0) AS gap
+              FROM UNNEST(@dates) AS d
+              CROSS JOIN base b
+              LEFT JOIN day_cat dc ON dc.date = d AND dc.item_category = b.item_category
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY d ORDER BY ABS(COALESCE(dc.rev, 0) - b.avg_day_rev) DESC) <= 3
+              ORDER BY date, ABS(gap) DESC`,
+      params: { location_id, dates: exDates }, types: { dates: ["STRING"] }, location: "EU",
+    });
+    [[hoursRows], [mixRows], [usualRows], [evRows], [moversRows]] = await Promise.all([
       bq.query({
         query: `SELECT FORMAT_DATE('%Y-%m-%d', transaction_date) AS date,
                        MIN(transaction_hour) AS hmin, MAX(transaction_hour) AS hmax, COUNT(*) AS n
@@ -298,6 +338,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
         params: { location_id }, location: "EU",
       }),
       evP,
+      moversP,
     ]);
   }
   const hoursByDate = new Map((hoursRows as any[]).map((h) => [String(flat(h.date)), h]));
@@ -327,6 +368,14 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
         to: String(flat(e.eto) ?? ""),
       })),
       followed_events_total: evs.length,
+      movers: (moversRows as any[])
+        .filter((m) => String(flat(m.date)) === d.date)
+        .map((m) => ({
+          category: String(flat(m.item_category) ?? ""),
+          rev: Number(flat(m.rev) ?? 0),
+          usual: Number(flat(m.usual) ?? 0),
+          gap_eur: Number(flat(m.gap) ?? 0),
+        })),
     };
   });
 
@@ -380,6 +429,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     if (d.hour_min != null && d.hour_max != null) checks.push(`ventes de ${d.hour_min} h à ${d.hour_max} h (${fi(d.tickets)} tickets — pas de fermeture anticipée)`);
     if (d.top_categories.length) checks.push(`mix produits du jour ${d.top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")} vs habituel ${d.usual_top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")}`);
     if (d.followed_events.length) checks.push(`${d.followed_events_total} événements actifs chez vos suivis ce jour-là (co-occurrence, pas une cause établie), les plus courts : ${d.followed_events.map((e) => `« ${e.label} » (${e.entity}, du ${fd(e.from)} au ${fd(e.to)})`).join(", ")}`);
+    if (d.movers.length) checks.push(`mouvements produits du jour, chaque famille vs SA moyenne journalière sur votre historique (tous jours confondus) : ${d.movers.map((m) => `${m.category} ${m.gap_eur >= 0 ? "+" : "-"}${fi(m.gap_eur)} € (${fi(m.rev)} € contre ${fi(m.usual)} € en moyenne)`).join(", ")}`);
     facts.push({
       fact_fr: `Journée du motif sans facteur connu : ${d.dow_fr} ${fd(d.date)} — ${d.visitors != null ? `${fi(d.visitors)} visiteurs, ` : ""}${fi(d.ca)} € de CA, écart au CA attendu du jour ${Number(d.gap_eur ?? 0) >= 0 ? "+" : "-"}${fi(d.gap_eur)} € (poids faible si proche de 0 : possiblement la variation ordinaire). Vérifications internes déjà faites : ${checks.join(" ; ") || "aucune donnée transactionnelle ce jour-là"}.`,
       claim_type: "measured",

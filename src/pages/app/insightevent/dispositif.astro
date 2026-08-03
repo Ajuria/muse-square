@@ -187,6 +187,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
               if (d.top_categories && d.top_categories.length) tip.push('Mix produits habituel (' + d.top_categories.map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ').');
               if (d.followed_events && d.followed_events.length) tip.push('Chez vos suivis ce jour-là : ' + d.followed_events.map(function (e) { return '« ' + e.label + ' » (' + e.entity + ')'; }).join(', ')
                 + (d.followed_events_total > d.followed_events.length ? ' +' + (d.followed_events_total - d.followed_events.length) + ' autres' : '') + '.');
+              if (d.movers && d.movers.length) tip.push('Mouvements produits : ' + d.movers.map(function (m) { return m.category + ' ' + (m.gap_eur >= 0 ? '+' : '−') + frInt(m.gap_eur) + ' €'; }).join(', ') + ' — chaque famille vs sa moyenne journalière du lieu.');
               return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
             }).join(", ");
             addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans facteur météo ni calendrier — ' + exBits + '. '

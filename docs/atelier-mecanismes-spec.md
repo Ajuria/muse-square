@@ -181,7 +181,11 @@ Ces trois règles entrent telles quelles dans le system prompt du mode enquête 
 Cas déclencheur (beta-testeur POS) : « un mauvais documentaire télé sur les avocats fait
 chuter les ventes » — la cause est hors de notre portée, MAIS :
 
-1. **Cercle 1 — l'interne, déjà ingéré, sous-exploité : la moitié de la réponse.** « Les
+1. **Cercle 1 — l'interne, déjà ingéré, sous-exploité : la moitié de la réponse.** **[SHIPPED
+   03/08 : movers produits du jour sur les jours inexpliqués du provider dispositif — écart €
+   par famille vs SA moyenne journalière du lieu (référentiel DIT dans le fait : tous jours
+   confondus, v1), deux sens, familles à zéro incluses (l'absence est un signal), top 3 par
+   |écart| ; dans les faits de l'enquête + l'infobulle de marge. Prouvé sur les 2 lieux.]** « Les
    ventes chutent » n'est pas le bon grain — QUELLES ventes ? Les lignes produit existent
    (`item_code`/`item_category`/`quantity` dans `raw.client_transactions`, `revenue_share`
    dans `fct_client_offering_profile`). Le jour dit, la donnée montre « chute concentrée sur
