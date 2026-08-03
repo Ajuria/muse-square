@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto v1 — Événement : création, dossier, série, cartes</title>
+<style>
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --green:#059669; --amber:#B45309; --blue:#1D3BB3;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 16px 90px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:600; margin:26px 0 8px; }
+  .card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06); padding:14px 16px; }
+  .chip { display:inline-flex; align-items:center; font-size:12px; padding:3px 9px; border-radius:20px; background:#F3F4F6; color:#6b7280; white-space:nowrap; }
+  .chip.blue { background:#EEF2FF; color:var(--blue); }
+  .chip.green { background:#E6F6F0; color:var(--green); }
+  .what { font-size:14px; font-weight:600; line-height:1.35; margin-bottom:4px; }
+  .sub { font-size:12px; color:#6B7280; line-height:1.45; }
+  .amt { text-align:right; cursor:help; }
+  .amt-val { font-size:16px; font-weight:600; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  .hov { text-decoration:underline dotted rgba(156,163,175,0.8); text-underline-offset:2px; cursor:help; }
+  .btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:var(--blue); border:1px solid var(--blue); border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .btn.ghost { border-color:var(--color-border); color:#6B7280; }
+  .field { margin:10px 0; }
+  .field label { display:block; font-size:10.5px; font-weight:600; color:#6B7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .field input, .field select, .field textarea { width:100%; box-sizing:border-box; font-size:12.5px; color:#111827; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; padding:8px 10px; font-family:inherit; }
+  .row2 { display:flex; gap:12px; } .row2 > .field { flex:1; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  th { text-align:left; font-size:10.5px; letter-spacing:0.05em; text-transform:uppercase; color:#9CA3AF; font-weight:500; padding:6px 8px; border-bottom:1px solid var(--color-border); }
+  td { padding:6px 8px; border-bottom:1px solid #F3F4F6; color:#374151; }
+  .kpirow { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .kpibox { flex:1; min-width:130px; border:1px solid var(--color-border); border-radius:8px; padding:10px 12px; }
+  .kpibox.dom { border-color:rgba(29,59,179,0.4); background:#FAFBFF; }
+  .kpibox .k { font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:#9CA3AF; font-weight:600; }
+  .kpibox .v { font-size:15px; font-weight:600; margin-top:3px; }
+  .kpibox .b { font-size:10.5px; color:#9CA3AF; margin-top:2px; }
+  .verdict { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--green); background:#E6F6F0; border-radius:20px; padding:4px 11px; }
+  .pill { display:inline-flex; font-size:11px; font-weight:600; border-radius:20px; padding:3px 9px; }
+  .pill.g { color:var(--green); background:#E6F6F0; } .pill.a { color:var(--amber); background:#FEF3E2; }
+  .aline { color:var(--blue); font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .occ { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #F3F4F6; font-size:12.5px; }
+  .occ .d { width:110px; font-weight:600; }
+  .hidden { display:none; }
+  .seg { display:inline-flex; border:1px solid var(--blue); border-radius:8px; overflow:hidden; }
+  .seg button { font-size:12px; font-family:inherit; border:none; padding:6px 12px; cursor:pointer; background:#fff; color:var(--blue); }
+  .seg button.on { background:var(--blue); color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto v1 — l'événement, du formulaire au dossier</h1>
+  <div class="note">Les 4 décisions owner encodées : <strong>KPI dominant choisi, panneau complet mesuré</strong> (chaque KPI
+  porte son référentiel — le CA a un vrai attendu, le reste une base ; « profit » = estimation via marge déclarée) ·
+  <strong>champ Répéter</strong> façon G&nbsp;Calendar (récurrent = pas d'étape de choix) · cartes de cycle de vie (le proto tranche) ·
+  <strong>nouvelle page dossier</strong>, monitor devient legacy. Chiffres du dossier = le jour réellement mesuré du café (10/04) ;
+  la série « samedis producteurs » est <em>illustrative</em> (le beta n'a pas commencé).</div>
+
+  <!-- ============ ① CRÉATION ============ -->
+  <div class="eb">① Création — l'objectif et la répétition entrent dans le formulaire</div>
+  <div class="card">
+    <div class="field"><label>Nom de l'événement</label><input value="Lancement produits — producteurs locaux"></div>
+    <div class="row2">
+      <div class="field"><label>Type</label><select><option>Lancement produit</option><option>Animation en boutique</option><option>Ouverture</option><option>Exposition</option></select></div>
+      <div class="field"><label>Objectif — le KPI que le verdict jugera</label>
+        <select id="kpi-sel">
+          <option value="ca">CA vs attendu du jour — mesuré, verdict fort (défaut)</option>
+          <option value="fam" selected>CA de la famille « Producteurs locaux » vs sa moyenne — mesuré</option>
+          <option value="panier">Panier moyen vs habituel (base 30 j) — mesuré, verdict plus faible</option>
+          <option value="tickets">Tickets vs habituel (base 30 j) — mesuré, verdict plus faible</option>
+          <option value="profit" disabled>Profit estimé — indisponible : marge non déclarée</option>
+        </select>
+      </div>
+    </div>
+    <div class="sub" style="margin-top:2px;">Le verdict ne porte que sur l'objectif. <span class="hov" title="CA, tickets, panier moyen, familles produits — mesurés sur vos ventes réelles quoi qu'il arrive ; le dossier montre tout.">Tout le panneau reste mesuré</span>.</div>
+
+    <div class="field" style="margin-top:14px;"><label>Répéter</label>
+      <div class="seg" id="rep-seg">
+        <button type="button" data-rep="none">Aucune</button>
+        <button type="button" data-rep="weekly" class="on">Toutes les semaines — samedi</button>
+        <button type="button" data-rep="monthly">Tous les mois</button>
+      </div>
+    </div>
+
+    <!-- Ponctuel : candidats + date limite -->
+    <div id="blk-ponctuel" class="hidden">
+      <div class="row2">
+        <div class="field"><label>Options de dates (comparées, puis choisies)</label><input value="ven 14/08 · sam 15/08 · sam 22/08"></div>
+        <div class="field"><label>Date limite de choix — enfin utilisée : elle devient une carte d'échéance</label><input value="10/08/2026"></div>
+      </div>
+    </div>
+    <!-- Récurrent : occurrences générées, pas d'étape de choix -->
+    <div id="blk-recurrent">
+      <div class="row2">
+        <div class="field"><label>Jusqu'au</label><input value="26/09/2026"></div>
+        <div class="field"><label>Prochaines occurrences (générées)</label><input readonly value="sam 08/08 · sam 15/08 · sam 22/08 · sam 29/08 · …" style="background:#FAFAFA;color:#6b7280;"></div>
+      </div>
+      <div class="sub">Récurrent = pas d'étape de choix de jour — chaque occurrence est mesurée, la série cumule son track record.</div>
+    </div>
+    <div style="display:flex;margin-top:10px;"><span style="margin-left:auto;"><button class="btn">Créer l'événement</button></span></div>
+  </div>
+
+  <!-- ============ ② DOSSIER ============ -->
+  <div class="eb">② Le dossier d'événement — la nouvelle page (/evenement)</div>
+  <div class="card">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+      <span class="chip blue">Événement</span><span class="chip">Boutique — Muse Square Occitanie</span><span class="chip">Lancement produit</span><span class="chip green">Objectif : CA famille Producteurs</span>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="what">Lancement produits — producteurs locaux · ven 10/04</div>
+        <div class="sub">Occurrence 1 · série « toutes les semaines, samedi » (6 prévues, jusqu'au 26/09)</div>
+      </div>
+      <div class="amt" title="Le verdict porte sur l'objectif déclaré (CA famille) ; le CA total et le reste du panneau sont mesurés quoi qu'il arrive.">
+        <div class="amt-val" style="color:var(--green);">+139 €</div>
+        <div class="amt-sub">CA vs attendu du jour</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eb" style="margin:0 0 8px;">Avant — l'attendu, gelé au moment du choix</div>
+    <div class="sub">Attendu du jour <strong>734 €</strong> (votre normale du vendredi) · score du jour prévu <strong>7,2/10</strong> ·
+      <span class="hov" title="Snapshot réel : niveaux météo, régime, pression concurrentielle, comptes d'événements — gelés à la décision (raw.saved_item_snapshots).">contexte gelé</span> : pas d'alerte météo, concurrence calme.</div>
+    <div class="sub" style="margin-top:6px;color:#9CA3AF;">Événement ponctuel : ce bloc porte aussi la comparaison des jours candidats et le bouton « Choisir » — inchangés, repris de l'existant.</div>
+  </div>
+
+  <div class="card">
+    <div class="eb" style="margin:0 0 8px;">Après — le panneau complet, verdict sur l'objectif</div>
+    <div style="margin-bottom:10px;"><span class="verdict">✓ Objectif atteint — famille Producteurs +116 € vs sa moyenne</span></div>
+    <div class="kpirow">
+      <div class="kpibox dom"><div class="k">CA famille Producteurs — objectif</div><div class="v" style="color:var(--green);">212 €</div><div class="b">vs 96 € sa moyenne journalière</div></div>
+      <div class="kpibox"><div class="k">CA total</div><div class="v" style="color:var(--green);">873 €</div><div class="b">vs 734 € attendu du jour (+19 %)</div></div>
+      <div class="kpibox"><div class="k">Tickets</div><div class="v">196</div><div class="b">vs 178 habituel (+10 %)</div></div>
+      <div class="kpibox"><div class="k">Panier moyen</div><div class="v">4,45 €</div><div class="b">vs 4,12 € habituel (+8 %)</div></div>
+    </div>
+    <div class="sub" style="margin-top:10px;"><span class="hov" title="Le CA a un modèle d'attendu (jour de semaine + tendance, gardes de confusion — la boucle d'engagement existante). Tickets/panier n'ont qu'une base « habituel » : mesurés et montrés, verdict plus faible si choisis comme objectif.">Chaque chiffre porte son référentiel</span> ·
+      confondants vérifiés : <span class="hov" title="Gardes de la boucle commitments : vacances scolaires, météo, événements voisins — un verdict n'est jamais rendu sur un jour confondu sans le dire.">aucun ce jour-là</span>.</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn" id="btn-doc">Documenter en dispositif</button>
+      <button class="btn ghost">Bilan déclaratif (3 questions)</button>
+      <span style="margin-left:auto;"><button class="btn ghost">Communiquer en interne</button></span>
+    </div>
+    <div id="doc-done" class="hidden" style="margin-top:10px;font-size:12px;color:#166534;">Fiche pré-remplie depuis l'événement (« Venue de producteurs le samedi — stand + dégustation ») → vos bonnes pratiques, tier déclaré ; le rejeu, c'est la prochaine occurrence — mesure automatique.</div>
+  </div>
+
+  <!-- ============ ③ SÉRIE ============ -->
+  <div class="eb">③ La série — track record cumulé <span style="color:#B45309;">(illustratif — le beta n'a pas commencé)</span></div>
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;">
+      <div style="flex:1;min-width:0;">
+        <div class="what">Samedis producteurs — série de 6</div>
+        <div class="sub">5 occurrences mesurées au-dessus de l'attendu · médiane <strong>+212 €</strong> par occurrence</div>
+      </div>
+      <div class="amt" title="Somme des écarts mesurés des occurrences passées — jamais extrapolée au-delà de ce qui est mesuré."><div class="amt-val" style="color:var(--green);">+1 043 €</div><div class="amt-sub">mesuré · 5 occurrences</div></div>
+    </div>
+    <div class="occ"><span class="d">sam 08/08</span><span class="pill g">+241 € vs attendu</span><span class="sub">famille Producteurs 236 €</span></div>
+    <div class="occ"><span class="d">sam 15/08</span><span class="pill g">+212 € vs attendu</span><span class="sub">famille Producteurs 198 €</span></div>
+    <div class="occ"><span class="d">sam 22/08</span><span class="pill a">−48 € vs attendu</span><span class="sub">pluie marquée ce jour-là — confondant signalé</span></div>
+    <div class="occ"><span class="d">sam 29/08</span><span class="pill g">+308 € vs attendu</span><span class="sub">famille Producteurs 285 €</span></div>
+    <div class="occ" style="border-bottom:none;"><span class="d">sam 05/09</span><span class="chip">à venir — carte « Préparer » J-1</span></div>
+    <div class="aline" style="margin-top:10px;">5 mesures au-dessus de l'attendu → le dispositif « Samedis producteurs » peut passer à « prouvé » — et son €/an propre s'écrit au rythme CONSTATÉ, jamais estimé.</div>
+  </div>
+
+  <!-- ============ ④ CARTES DE CYCLE DE VIE ============ -->
+  <div class="eb">④ Les cartes de cycle de vie — dans le feed Pulse existant (menu Agir : 3 entrées, inchangé)</div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">Échéance</span></div>
+    <div class="what">Choisissez le jour de votre lancement — décision avant le 10/08</div>
+    <div class="sub">Votre comparaison des 3 jours candidats est prête. Sans choix, l'événement reste sans mesure. <em>(enfin un usage de la date limite que vous saisissez déjà)</em></div>
+    <div class="aline">À faire : ouvrir la comparaison et choisir le jour.</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">J-1</span></div>
+    <div class="what">Demain : samedi producteurs — préparez le déclenchement</div>
+    <div class="sub">Dispositif documenté : stand + dégustation dès 10 h. Météo demain : ensoleillé, 24 °C — pas de confondant annoncé.</div>
+    <div class="aline">À faire : briefer l'équipe ce soir (Communiquer en interne pré-rempli).</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">J+1</span></div>
+    <div class="what">Résultat de samedi : +241 € vs attendu — documentez ce qui a marché</div>
+    <div class="sub">Famille Producteurs : 236 € (vs 96 € en moyenne). 2e occurrence au-dessus de l'attendu.</div>
+    <div class="aline">À faire : noter ce que vous referez (la fiche se pré-remplit de l'événement) — 30 secondes.</div>
+  </div>
+
+  <div class="note" style="margin-top:18px;"><strong>Ce que le proto tranche</strong> — ① l'objectif (KPI dominant) et Répéter au
+  formulaire ; ② le dossier avant/après avec panneau complet et verdict sur l'objectif seul, chaque chiffre portant son
+  référentiel et ses confondants ; ③ la série et sa graduation en dispositif prouvé ; ④ trois cartes de cycle de vie.
+  Hors proto (spec) : colonne d'ancrage `saved_item_id` sur les engagements, champ de récurrence en base, provider
+  `eventItemFamily` (page + chat + rapport), bascule des liens et mise en legacy de monitor.</div>
+</div>
+<script>
+  (function () {
+    var seg = document.getElementById('rep-seg');
+    seg.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-rep]');
+      if (!b) return;
+      seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      var rec = b.getAttribute('data-rep') !== 'none';
+      document.getElementById('blk-ponctuel').classList.toggle('hidden', rec);
+      document.getElementById('blk-recurrent').classList.toggle('hidden', !rec);
+    });
+    document.getElementById('btn-doc').addEventListener('click', function () {
+      document.getElementById('doc-done').classList.remove('hidden');
+    });
+  })();
+</script>
+</body>
+</html>
