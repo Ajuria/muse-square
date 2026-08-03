@@ -38,6 +38,10 @@ interface ClassMeta {
   noun_fr: string;           // « jours de pointe » — s'insère après « vos »
   corner_label_fr: string;   // sous la pilule €/an
   job_question_fr: string;   // la question de fond (page + system enquête)
+  // Classe définie par l'activité des suivis : les jours « sans facteur connu » NOMMENT les
+  // événements suivis actifs ce jour-là (vérifié 03/08 : les 5 jours inexpliqués de Muse Square
+  // étaient une semaine de chevauchement d'expositions — « variation ordinaire » aurait menti).
+  followed_events?: boolean;
 }
 
 const DAY_SELECT = `SELECT FORMAT_DATE('%Y-%m-%d', j.date) AS date, j.v, ROUND(j.ca, 0) AS ca, ROUND(j.gap, 0) AS gap, j.sch, j.we, j.heat`;
@@ -77,6 +81,7 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     noun_fr: "jours d'activité forte chez vos suivis",
     corner_label_fr: "activité des suivis",
     job_question_fr: "qu'est-ce que vous faites ces jours-là pour capter ce public — et est-ce écrit, pour le rejouer à chaque événement annoncé chez vos suivis ?",
+    followed_events: true,
     days_sql: `
       WITH sv AS (
         SELECT d AS date, COUNT(*) AS active_ct
@@ -151,6 +156,10 @@ export interface UnexplainedDay extends DispositifDay {
   tickets: number | null;
   top_categories: Array<{ category: string; pct: number }>;
   usual_top_categories: Array<{ category: string; pct: number }>;
+  // Classe suivis uniquement : les événements suivis actifs ce jour-là, tri par durée
+  // CROISSANTE (un accrochage court est discriminant, une expo permanente ne l'est pas), 3 max.
+  followed_events: Array<{ entity: string; label: string; from: string; to: string }>;
+  followed_events_total: number;
 }
 
 export interface DispositifFamilyResult {
@@ -228,8 +237,37 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   let hoursRows: any[] = [];
   let mixRows: any[] = [];
   let usualRows: any[] = [];
+  let evRows: any[] = [];
   if (exDates.length) {
-    [[hoursRows], [mixRows], [usualRows]] = await Promise.all([
+    // Classe suivis : nommer les événements suivis actifs sur les jours inexpliqués, tri par
+    // durée CROISSANTE (le court est discriminant), dédoublonné par event_name (crawl le plus
+    // récent). Colonnes vérifiées le 03/08 : competitor_name, event_name, event_date(_end).
+    const evP = cfg.followed_events
+      ? bq.query({
+          query: `SELECT date, competitor_name, event_name, efrom, eto FROM (
+                    SELECT FORMAT_DATE('%Y-%m-%d', d) AS date, s.competitor_name, s.event_name,
+                           FORMAT_DATE('%Y-%m-%d', s.event_date) AS efrom,
+                           FORMAT_DATE('%Y-%m-%d', COALESCE(s.event_date_end, s.event_date)) AS eto,
+                           DATE_DIFF(COALESCE(s.event_date_end, s.event_date), s.event_date, DAY) AS span
+                    FROM \`${PROJECT}.semantic.vw_insight_event_competitor_signals\` s,
+                      UNNEST(GENERATE_DATE_ARRAY(
+                        s.event_date,
+                        LEAST(COALESCE(s.event_date_end, s.event_date), DATE_ADD(s.event_date, INTERVAL 366 DAY))
+                      )) AS d
+                    WHERE s.entity_is_followed = TRUE AND s.event_date IS NOT NULL AND s.location_id = @location_id
+                      AND d IN UNNEST(ARRAY(SELECT PARSE_DATE('%Y-%m-%d', x) FROM UNNEST(@dates) AS x))
+                    -- Identité par la CLÉ (lieu, plage de dates) — pas le libellé : la même expo
+                    -- existe sous 3 titres proches ; le nom le plus court est gardé.
+                    QUALIFY ROW_NUMBER() OVER (
+                      PARTITION BY d, s.competitor_name, s.event_date, COALESCE(s.event_date_end, s.event_date)
+                      ORDER BY LENGTH(s.event_name) ASC, s.crawled_at DESC
+                    ) = 1
+                  )
+                  ORDER BY date, span ASC`,
+          params: { location_id, dates: exDates }, types: { dates: ["STRING"] }, location: "EU",
+        })
+      : Promise.resolve([[] as any[]]);
+    [[hoursRows], [mixRows], [usualRows], [evRows]] = await Promise.all([
       bq.query({
         query: `SELECT FORMAT_DATE('%Y-%m-%d', transaction_date) AS date,
                        MIN(transaction_hour) AS hmin, MAX(transaction_hour) AS hmax, COUNT(*) AS n
@@ -259,12 +297,20 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
                 GROUP BY 1 ORDER BY pct DESC LIMIT 3`,
         params: { location_id }, location: "EU",
       }),
+      evP,
     ]);
   }
   const hoursByDate = new Map((hoursRows as any[]).map((h) => [String(flat(h.date)), h]));
+  const evByDate = new Map<string, any[]>();
+  for (const r of evRows as any[]) {
+    const k = String(flat(r.date));
+    if (!evByDate.has(k)) evByDate.set(k, []);
+    evByDate.get(k)!.push(r);
+  }
   const usualTop = (usualRows as any[]).map((u) => ({ category: String(flat(u.item_category)), pct: Number(flat(u.pct)) }));
   const unexplainedDays: UnexplainedDay[] = unexplained.slice(0, 5).map((d) => {
     const h = hoursByDate.get(d.date);
+    const evs = evByDate.get(d.date) || [];
     return {
       ...d,
       hour_min: h ? Number(flat(h.hmin)) : null,
@@ -274,6 +320,13 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
         .filter((m) => String(flat(m.date)) === d.date)
         .map((m) => ({ category: String(flat(m.item_category)), pct: Number(flat(m.pct)) })),
       usual_top_categories: usualTop,
+      followed_events: evs.slice(0, 3).map((e) => ({
+        entity: String(flat(e.competitor_name) ?? ""),
+        label: String(flat(e.event_name) ?? ""),
+        from: String(flat(e.efrom) ?? ""),
+        to: String(flat(e.eto) ?? ""),
+      })),
+      followed_events_total: evs.length,
     };
   });
 
@@ -326,6 +379,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     const checks: string[] = [];
     if (d.hour_min != null && d.hour_max != null) checks.push(`ventes de ${d.hour_min} h à ${d.hour_max} h (${fi(d.tickets)} tickets — pas de fermeture anticipée)`);
     if (d.top_categories.length) checks.push(`mix produits du jour ${d.top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")} vs habituel ${d.usual_top_categories.map((c) => `${c.category} ${c.pct} %`).join(", ")}`);
+    if (d.followed_events.length) checks.push(`${d.followed_events_total} événements actifs chez vos suivis ce jour-là, les plus courts : ${d.followed_events.map((e) => `« ${e.label} » (${e.entity}, du ${fd(e.from)} au ${fd(e.to)})`).join(", ")}`);
     facts.push({
       fact_fr: `Journée du motif sans facteur connu : ${d.dow_fr} ${fd(d.date)} — ${d.visitors != null ? `${fi(d.visitors)} visiteurs, ` : ""}${fi(d.ca)} € de CA, écart au CA attendu du jour ${Number(d.gap_eur ?? 0) >= 0 ? "+" : "-"}${fi(d.gap_eur)} € (poids faible si proche de 0 : possiblement la variation ordinaire). Vérifications internes déjà faites : ${checks.join(" ; ") || "aucune donnée transactionnelle ce jour-là"}.`,
       claim_type: "measured",
@@ -348,6 +402,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
         "raw.client_transactions (amplitude horaire + mix produits des jours inexpliqués)",
         "analytics.day_class_impacts (pilule du motif, politique rowToImpact)",
         "analytics.best_practices × analytics.action_commitments (dispositifs déjà documentés du motif, tier à la lecture)",
+        ...(cfg.followed_events ? ["semantic.vw_insight_event_competitor_signals (appartenance suivis + événements actifs des jours inexpliqués)"] : []),
       ],
     },
   };

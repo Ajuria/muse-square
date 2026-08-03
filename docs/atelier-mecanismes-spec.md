@@ -263,6 +263,12 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
    de fond ; « prévisibles » revendiqué seulement si co-occurrence env ≥ 60 %). Vérifié sur données
    réelles : traffic_high byte-identique avant/après ; café competition_low +9 964 €/an ;
    muse followed_activity_high +7 208 €/an (visiteurs absents omis des faits) ; refus honnêtes ailleurs.
+   **Incrément suivis (03/08 soir)** : les jours « sans facteur connu » de la classe suivis NOMMENT
+   les événements suivis actifs ce jour-là (tri par durée croissante — le court est discriminant,
+   l'expo permanente ne l'est pas ; identité par la clé lieu+plage, pas le libellé ; 3 max + total).
+   Cas réel prouvé : les 5 jours inexpliqués de Muse Square (29/06→03/07) = la semaine d'ouverture
+   de « Raoul Dufy » au Centre Pompidou (27/06). La note de marge cesse de dire « variation
+   ordinaire » quand des événements sont nommés ; les faits les portent → l'enquête peut les citer.
 4. Pièce 3 en continu (lie-bait à chaque relaxation).
 5. Type B branché en dernier (il a sa propre feuille de route).
 

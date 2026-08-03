@@ -180,14 +180,18 @@ const classParam = Astro.url.searchParams.get("class") || "";
 
           // ── Note de marge (porte de matérialité : poids faible → note, pas question) ──
           if (ex.length) {
+            var hasEv = ex.some(function (d) { return d.followed_events && d.followed_events.length; });
             var exBits = ex.map(function (d) {
               var tip = [];
               if (d.hour_min != null && d.hour_max != null) tip.push('Ventes de ' + d.hour_min + ' h à ' + d.hour_max + ' h (' + frInt(d.tickets) + ' tickets) — pas de fermeture anticipée.');
               if (d.top_categories && d.top_categories.length) tip.push('Mix produits habituel (' + d.top_categories.map(function (c) { return c.category + ' ' + c.pct + ' %'; }).join(', ') + ').');
+              if (d.followed_events && d.followed_events.length) tip.push('Chez vos suivis ce jour-là : ' + d.followed_events.map(function (e) { return '« ' + e.label + ' » (' + e.entity + ')'; }).join(', ')
+                + (d.followed_events_total > d.followed_events.length ? ' +' + (d.followed_events_total - d.followed_events.length) + ' autres' : '') + '.');
               return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
             }).join(", ");
-            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans facteur connu — ' + exBits
-              + '. Poids faible, possiblement la variation ordinaire. Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
+            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans facteur météo ni calendrier — ' + exBits + '. '
+              + (hasEv ? 'Poids faible — mais ces journées portaient des événements chez vos suivis (détail au survol).' : 'Poids faible, possiblement la variation ordinaire.')
+              + ' Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
             var noteLink = document.getElementById("dp-note");
             if (noteLink) noteLink.addEventListener("click", function () {
               input.value = "Le " + frDate(ex[0].date) + ", ";
