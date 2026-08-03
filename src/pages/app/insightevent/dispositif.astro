@@ -151,6 +151,18 @@ const classParam = Astro.url.searchParams.get("class") || "";
           addEl("dp-msg ia", openHtml);
           hist.push({ role: "assistant", content: openPlain });
 
+          // ── Continuité : un dispositif déjà documenté sur ce motif s'affiche en ouverture —
+          // l'enquête repart de lui (règle 9 côté serveur), jamais de re-documentation. ──
+          var exd = j.existing_dispositifs || [];
+          if (exd.length) {
+            var d0 = exd[0];
+            var exLine = 'Déjà documenté chez vous : « ' + d0.practice_text + ' » — '
+              + (d0.in_test ? 'test en cours, suivi sur Pulse.' : (d0.tier === 'prouvee' ? 'prouvé au rejeu.' : 'déclaré, pas encore testé.'))
+              + (exd.length > 1 ? ' (+' + (exd.length - 1) + ' autre' + (exd.length > 2 ? 's' : '') + ')' : '');
+            addEl("dp-msg ia", esc(exLine));
+            hist.push({ role: "assistant", content: exLine });
+          }
+
           // ── Note de marge (porte de matérialité : poids faible → note, pas question) ──
           if (ex.length) {
             var exBits = ex.map(function (d) {

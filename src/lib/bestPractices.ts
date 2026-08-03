@@ -211,6 +211,67 @@ export async function listMatchedPractices(
 // Chain « Ajouter + m'engager à la rejouer » : the replication commitment is created by the
 // EXISTING /api/commitments POST; this just links it back so tier reads "prouvée" when it
 // resolves 'met'. Update-once, no merge machinery needed at this grain.
+// Lecture scopée « dispositifs » (pièce 2b, continuité — 03/08) : les fiches ACTIVES du lieu,
+// filtrées par motif (day_class_key) ou toutes (day_class_key = null), avec le tier calculé À LA
+// LECTURE (même règle que listMatchedPractices) et l'état de l'engagement de test lié. Sert le
+// provider dispositif (l'enquête repart de l'existant au lieu de re-documenter) et
+// buildPracticeFacts (le Consulter sait citer ce que l'exploitant a documenté).
+// Résiliente : table absente → [].
+export interface ClassDispositif {
+  practice_id: string;
+  practice_text: string;
+  confirmation_test: string | null;
+  day_class_key: string | null;
+  tier: "prouvee" | "declaree";
+  commitment_status: string | null;   // 'open' = test en cours
+  commitment_verdict: string | null;
+  created_date: string;               // ISO Y-m-d (interne — l'affichage se fait en JJ/MM côté surface)
+}
+
+export async function listClassDispositifs(
+  bq: any,
+  location_id: string,
+  day_class_key: string | null,
+  limit = 3,
+): Promise<ClassDispositif[]> {
+  try {
+    const [rows] = await bq.query({
+      query: `
+        SELECT bp.practice_id, bp.practice_text, bp.confirmation_test, bp.day_class_key,
+               IF(c.verdict = 'met', 'prouvee', 'declaree') AS tier,
+               c.status AS commitment_status, c.verdict AS commitment_verdict,
+               FORMAT_TIMESTAMP('%Y-%m-%d', bp.created_at) AS created_date
+        FROM \`${TABLE_FQN}\` bp
+        LEFT JOIN (
+          SELECT commitment_id, status, verdict,
+                 ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+          FROM \`${COMMITMENTS_FQN}\`
+        ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+        WHERE bp.location_id = @location_id AND bp.status = 'active'
+          AND (@day_class_key IS NULL OR bp.day_class_key = @day_class_key)
+        ORDER BY IF(c.status = 'open', 0, 1), bp.created_at DESC
+        LIMIT ${Math.max(1, Math.min(limit, 6))}
+      `,
+      params: { location_id, day_class_key },
+      types: { day_class_key: "STRING" },
+      location: "EU",
+    });
+    return (rows as any[]).map((r) => ({
+      practice_id: String(r.practice_id),
+      practice_text: String(r.practice_text ?? ""),
+      confirmation_test: r.confirmation_test != null ? String(r.confirmation_test) : null,
+      day_class_key: r.day_class_key != null ? String(r.day_class_key) : null,
+      tier: r.tier === "prouvee" ? "prouvee" : "declaree",
+      commitment_status: r.commitment_status != null ? String(r.commitment_status) : null,
+      commitment_verdict: r.commitment_verdict != null ? String(r.commitment_verdict) : null,
+      created_date: String(r.created_date ?? ""),
+    }));
+  } catch (e) {
+    console.warn("[bestPractices] listClassDispositifs skipped:", e);
+    return [];
+  }
+}
+
 export async function linkReplayCommitment(
   bq: any,
   practice_id: string,
