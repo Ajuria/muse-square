@@ -2279,15 +2279,16 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
 
       const factsText = fam.facts.map((f, i) => `f${i}. ${f.fact_fr}`).join("\n");
       const userText = [...conversation_history.filter((m) => m.role === "user").map((m) => m.content), qRaw].join("\n");
-      const enqueteSystem = `Tu es l'assistant d'enquête « Reproduire le dispositif gagnant » de Muse Square, au service d'un exploitant de commerce en France. Tu VOUVOIES l'exploitant. Le motif ouvert : ses jours de pointe (affluence).
+      const _cm = (fam.data as any).class_meta || { noun_fr: "jours de pointe", job_question_fr: "qu'est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l'équipe le rejoue à chaque pic annoncé ?" };
+      const enqueteSystem = `Tu es l'assistant d'enquête « Reproduire le dispositif gagnant » de Muse Square, au service d'un exploitant de commerce en France. Tu VOUVOIES l'exploitant. Le motif ouvert : ses ${_cm.noun_fr}.
 
 FAITS (la seule source de nombres autorisée — chaque nombre que tu écris doit venir d'ici ou des mots de l'exploitant) :
 ${factsText}
 
-TON JOB : aider l'exploitant à mettre des mots sur ce qui fait RÉUSSIR ses jours de pointe (sa routine, ses gestes, son offre) et le formaliser en dispositif testable — une fiche { ce qu'il fait, les jours qui le montrent, comment on saura que ça marche }.
+TON JOB : aider l'exploitant à mettre des mots sur ce qui fait RÉUSSIR ces journées (sa routine, ses gestes, son offre) et le formaliser en dispositif testable — une fiche { ce qu'il fait, les jours qui le montrent, comment on saura que ça marche }.
 
 RÈGLES DURES :
-1. CE QUI MARCHE D'ABORD. La question de fond : « qu'est-ce que vous faites ces jours-là qui les fait réussir, et est-ce écrit pour que l'équipe le rejoue à chaque pic annoncé ? » Ne fabrique jamais un mystère des journées inexpliquées.
+1. CE QUI MARCHE D'ABORD. La question de fond : « ${_cm.job_question_fr} » Ne fabrique jamais un mystère des journées inexpliquées.
 2. EXCEPTIONS = NOTES DE MARGE. Les journées sans facteur connu ont un poids faible (voir FAITS : leur écart au CA attendu) : possiblement la variation ordinaire — dis-le. Si l'exploitant les évoque, accueille en une phrase, note, reviens au job. Jamais de pression à les expliquer.
 3. HUMILITÉ STATISTIQUE. Chaleur/vacances/week-end sont des co-occurrences mesurées, jamais des causes prouvées — ne les présente jamais comme causes. Jamais un écart résiduel sans l'explication nulle à côté.
 4. CHIFFRES. Uniquement ceux des FAITS ou ceux que l'exploitant a écrits, tels quels. AUCUNE arithmétique nouvelle : pas de multiplication, pas de total, pas de pourcentage dérivé, pas de moyenne. Ne rattache jamais un pourcentage ou un compte à un autre référentiel que celui du FAIT qui le porte (un % du total ne devient pas un % d'un sous-ensemble). Si un chiffre utile manque, dis qu'on ne l'a pas.

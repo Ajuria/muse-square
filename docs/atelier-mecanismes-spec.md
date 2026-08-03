@@ -181,7 +181,11 @@ Ces trois règles entrent telles quelles dans le system prompt du mode enquête 
 Cas déclencheur (beta-testeur POS) : « un mauvais documentaire télé sur les avocats fait
 chuter les ventes » — la cause est hors de notre portée, MAIS :
 
-1. **Cercle 1 — l'interne, déjà ingéré, sous-exploité : la moitié de la réponse.** « Les
+1. **Cercle 1 — l'interne, déjà ingéré, sous-exploité : la moitié de la réponse.** **[SHIPPED
+   03/08 : movers produits du jour sur les jours inexpliqués du provider dispositif — écart €
+   par famille vs SA moyenne journalière du lieu (référentiel DIT dans le fait : tous jours
+   confondus, v1), deux sens, familles à zéro incluses (l'absence est un signal), top 3 par
+   |écart| ; dans les faits de l'enquête + l'infobulle de marge. Prouvé sur les 2 lieux.]** « Les
    ventes chutent » n'est pas le bon grain — QUELLES ventes ? Les lignes produit existent
    (`item_code`/`item_category`/`quantity` dans `raw.client_transactions`, `revenue_share`
    dans `fct_client_offering_profile`). Le jour dit, la donnée montre « chute concentrée sur
@@ -258,6 +262,21 @@ Quand un mécanisme est documenté avec un `confirmation_test` :
    provider émet `facts`, page `dispositif.astro` réécrite chat-first (ouverture déterministe +
    note de marge, fiche en tour de chat → POST best-practices, M'engager → MSCommitForm + PATCH).
    E2E 2 tours prouvé sur le lieu à visiteurs mesurés (fiche au tour 2, tous chiffres fondés).
+   **Extension 03/08 : les 3 motifs d'identification couverts** (traffic_high / followed_activity_high /
+   competition_low — appartenance-jour copiée du moteur, `class_meta` par classe : libellés + question
+   de fond ; « prévisibles » revendiqué seulement si co-occurrence env ≥ 60 %). Vérifié sur données
+   réelles : traffic_high byte-identique avant/après ; café competition_low +9 964 €/an ;
+   muse followed_activity_high +7 208 €/an (visiteurs absents omis des faits) ; refus honnêtes ailleurs.
+   **Incrément suivis (03/08 soir)** : les jours « sans facteur connu » de la classe suivis NOMMENT
+   les événements suivis actifs ce jour-là (tri par durée croissante — le court est discriminant,
+   l'expo permanente ne l'est pas ; identité par la clé lieu+plage, pas le libellé ; 3 max + total).
+   Cas réel : sur les 5 jours inexpliqués de Muse Square (29/06→03/07), l'heuristique fait remonter
+   « Raoul Dufy » (ouvert le 27/06 au Centre Pompidou) — une CO-OCCURRENCE mise sous la main de
+   l'enquête, JAMAIS une cause (owner 03/08 : l'attribution a posteriori sans reproduction ni
+   séparation des causes — y compris celles hors base — est un bris de confiance ; seul l'historique
+   de profils comparables ou un test futur mesuré peut l'établir). Le fait porte son registre
+   (« co-occurrence, pas une cause établie ») ; la note de marge dit « portaient des événements »,
+   pas « expliqués par ».
 4. Pièce 3 en continu (lie-bait à chaque relaxation).
 5. Type B branché en dernier (il a sa propre feuille de route).
 
