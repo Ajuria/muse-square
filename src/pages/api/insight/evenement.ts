@@ -7,6 +7,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor } from "../../../lib/eventTypes";
+import { evenementFamily } from "../../../lib/insightFamilies/evenement";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -64,7 +65,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       });
     }
 
-    return json(200, { ok: true, found: false, reason: "Dossier d'événement : incrément 3 (provider evenementFamily) — à venir." });
+    const saved_item_id = String(url.searchParams.get("saved_item_id") || "").trim();
+    if (!saved_item_id) return json(400, { ok: false, error: "saved_item_id ou create_context requis" });
+    const result = await evenementFamily(bq, location_id, saved_item_id);
+    return json(200, { ok: true, ...result.data });
   } catch (err: any) {
     const forbidden = /FORBIDDEN/.test(String(err?.message || ""));
     return json(forbidden ? 403 : 500, { ok: false, error: err?.message || "Erreur" });
