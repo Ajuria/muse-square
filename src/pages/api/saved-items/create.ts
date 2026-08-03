@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
+import { generateOccurrences } from "../../../lib/eventOccurrences";
 
 export const prerender = false;
 
@@ -93,18 +94,50 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const event_type = typeof body?.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
     const launch_hour = typeof body?.launch_hour === "number" ? body.launch_hour : (body?.launch_hour != null && body.launch_hour !== "" ? parseInt(body.launch_hour, 10) : null);
 
-    const rawDates = Array.isArray(body?.dates) ? body.dates : null;
-    if (!rawDates || rawDates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
-    if (rawDates.length > 7) throw new HttpError(400, "Too many dates (max 7)");
+    // ---- Champs événement-dispositif (03/08, spec docs/evenement-dossier-spec.md § 1.1) ----
+    // Tous ADDITIFS et nuls par défaut : un client existant qui ne les envoie pas crée
+    // exactement le même événement qu'avant.
+    const author_person_name = typeof body?.author_person_name === "string" && body.author_person_name.trim()
+      ? body.author_person_name.trim().slice(0, 120) : null;
+    const event_nature = ["outdoor", "indoor", "both"].includes(String(body?.event_nature)) ? String(body.event_nature) : null;
+    const asHour = (v: any): number | null => {
+      const n = typeof v === "number" ? v : (v != null && v !== "" ? parseInt(v, 10) : NaN);
+      return Number.isInteger(n) && n >= 0 && n <= 23 ? n : null;
+    };
+    const hour_start = asHour(body?.hour_start);
+    const hour_end = asHour(body?.hour_end);
+    const KPI_SET = ["revenue_residual", "family_revenue", "tickets", "basket", "visitors", "profit_estimated"];
+    const kpi = KPI_SET.includes(String(body?.kpi)) ? String(body.kpi) : null;
+    const kpi_family = kpi === "family_revenue" && typeof body?.kpi_family === "string" && body.kpi_family.trim()
+      ? body.kpi_family.trim().slice(0, 120) : null;
+    const asNum = (v: any): number | null => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
+    const kpi_target_pct = asNum(body?.kpi_target_pct);
+    const kpi_target_eur = asNum(body?.kpi_target_eur);
+    const recurrence: "none" | "weekly" | "monthly" =
+      body?.recurrence === "weekly" ? "weekly" : body?.recurrence === "monthly" ? "monthly" : "none";
+    const recurrence_dow = Number.isInteger(Number(body?.recurrence_dow)) && Number(body.recurrence_dow) >= 0 && Number(body.recurrence_dow) <= 6
+      ? Number(body.recurrence_dow) : null;
+    const recurrence_start = normalizeDateOptional(body?.recurrence_start, "recurrence_start");
+    const recurrence_end = normalizeDateOptional(body?.recurrence_end, "recurrence_end");
 
-    const dates = dedupe(
-      rawDates
-        .map((d: any) => (typeof d === "string" ? normalizeDateYMD(d) : ""))
-        .filter((d: string) => d.length > 0)
-    );
-
-    if (dates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
-    if (dates.length > 7) throw new HttpError(400, "Too many dates (max 7)");
+    // ---- Dates : candidats (ponctuel, 1-7) OU occurrences générées (récurrent, plafond 52) ----
+    let dates: string[];
+    if (recurrence !== "none") {
+      if (!recurrence_start || !recurrence_end) throw new HttpError(400, "Récurrence sans « Du X au Y »");
+      dates = generateOccurrences({ recurrence, dow: recurrence_dow, start: recurrence_start, end: recurrence_end });
+      if (dates.length < 1) throw new HttpError(400, "Récurrence sans aucune occurrence dans la période");
+    } else {
+      const rawDates = Array.isArray(body?.dates) ? body.dates : null;
+      if (!rawDates || rawDates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
+      if (rawDates.length > 7) throw new HttpError(400, "Too many dates (max 7)");
+      dates = dedupe(
+        rawDates
+          .map((d: any) => (typeof d === "string" ? normalizeDateYMD(d) : ""))
+          .filter((d: string) => d.length > 0)
+      );
+      if (dates.length < 1) throw new HttpError(400, "Missing or invalid field: dates");
+      if (dates.length > 7) throw new HttpError(400, "Too many dates (max 7)");
+    }
 
     const number_of_dates = dates.length;
 
@@ -137,6 +170,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         event_end_date,
         event_type,
         launch_hour,
+        author_person_name,
+        event_nature,
+        hour_start,
+        hour_end,
+        kpi,
+        kpi_family,
+        kpi_target_pct,
+        kpi_target_eur,
+        recurrence,
+        recurrence_dow,
+        recurrence_start,
+        recurrence_end,
         created_at,
         updated_at
     )
@@ -152,6 +197,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         IF(@event_end_date = '', NULL, PARSE_DATE('%F', @event_end_date)),
         @event_type,
         @launch_hour,
+        @author_person_name,
+        @event_nature,
+        @hour_start,
+        @hour_end,
+        @kpi,
+        @kpi_family,
+        @kpi_target_pct,
+        @kpi_target_eur,
+        @recurrence,
+        @recurrence_dow,
+        IF(@recurrence_start = '', NULL, PARSE_DATE('%F', @recurrence_start)),
+        IF(@recurrence_end = '', NULL, PARSE_DATE('%F', @recurrence_end)),
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -188,6 +245,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     event_end_date: event_end_date ?? "",
     event_type: event_type ?? null,
     launch_hour: launch_hour ?? null,
+    author_person_name,
+    event_nature,
+    hour_start,
+    hour_end,
+    kpi,
+    kpi_family,
+    kpi_target_pct,
+    kpi_target_eur,
+    recurrence,
+    recurrence_dow,
+    recurrence_start: recurrence_start ?? "",
+    recurrence_end: recurrence_end ?? "",
     dates,
 },
 types: {
@@ -201,6 +270,18 @@ types: {
     event_end_date: "STRING",
     event_type: "STRING",
     launch_hour: "INT64",
+    author_person_name: "STRING",
+    event_nature: "STRING",
+    hour_start: "INT64",
+    hour_end: "INT64",
+    kpi: "STRING",
+    kpi_family: "STRING",
+    kpi_target_pct: "FLOAT64",
+    kpi_target_eur: "FLOAT64",
+    recurrence: "STRING",
+    recurrence_dow: "INT64",
+    recurrence_start: "STRING",
+    recurrence_end: "STRING",
     dates: ["STRING"],
 },
     });
@@ -213,6 +294,8 @@ types: {
         number_of_dates,
         decision_date,
         event_end_date,
+        recurrence,
+        occurrences: recurrence !== "none" ? dates : undefined,
       }),
       { status: 200, headers: { "content-type": "application/json" } }
     );

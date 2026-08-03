@@ -237,7 +237,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     requireLocationOwnership(locals, body.location_id);
 
     const days = WINDOW_DAYS[windowKind];
-    const start = new Date();
+    // Fenêtre ancrée (03/08, spec evenement-dossier § 1.3) : un engagement d'ÉVÉNEMENT mesure la
+    // ou les dates de l'occurrence, pas « à partir d'aujourd'hui ». `window_start_date` (Y-m-d,
+    // futur ou aujourd'hui) ancre la fenêtre ; absent → comportement historique inchangé.
+    let start = new Date();
+    if (body.window_start_date != null) {
+      const ws = String(body.window_start_date).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ws) || Number.isNaN(Date.parse(ws + "T00:00:00Z"))) {
+        return json({ ok: false, error: "window_start_date invalide (YYYY-MM-DD) : " + ws }, 400);
+      }
+      start = new Date(ws + "T00:00:00Z");
+    }
     const end = new Date(start.getTime());
     end.setUTCDate(end.getUTCDate() + (days - 1));
 
@@ -262,6 +272,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
+      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : null,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
