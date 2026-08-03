@@ -1865,48 +1865,33 @@ if (!location_id) {
               : (_needsCatch ? 'Une question d\u2019abord, puis action, objectif et responsable'
                              : 'Fixer une action, un objectif et un responsable')) + '</div></div>'
       + '</button>';
+      // MENU UNIQUE (owner 03/08) : 3 entrées partout — [geste principal du registre] ·
+      // Consulter la source · Communiquer en interne. « Proposer une offre » et « Créer une
+      // notification » ne sont plus des entrées de menu : ce sont des SOUS-MODES du workspace
+      // Communiquer (barre de modes — wsModeBar). Les décisions du 26/07 se conservent À
+      // L'INTÉRIEUR : offre toujours accessible sur opportunité, config manquante → invite de
+      // complétion de profil ; notification = message automatisé, types performance éligibles.
+      var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
+      var _offerAttr = t.barClass === 'ab-opportunity' ? ' data-agir-offer-channel="' + escapeHtml(pubChannel) + '"' : '';
+      var _notifyAttr = _isInternalAlert ? ' data-agir-notify-el="1"' : '';
+      var _commAlert = _isInternalAlert && commChannels.length === 0;
+      var _commEntry2 = _commAlert
+        ? '<button type="button" data-agir-alert="' + cardIdx + '"' + _offerAttr + _notifyAttr + ' class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
+          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019équipe maintenant</div></div>'
+        + '</button>'
+        : '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal"' + _offerAttr + _notifyAttr + ' class="ab-dd-item">'
+          + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
+          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
+        + '</button>';
       var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
         + _commitEntry
         + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
           + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
           + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">V\u00e9rifier les faits avant de s\u2019engager</div></div>'
         + '</button>'
-        + '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
-        + '</button>'
-        // Offre sur carte opportunit\u00e9 : TOUJOURS visible (d\u00e9cision owner 26/07 \u2014 une config
-        // manquante ne cache pas une fonctionnalit\u00e9, elle d\u00e9clenche la compl\u00e9tion de profil).
-        + (t.barClass === 'ab-opportunity' ? (pubChannel
-          ? '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(pubChannel) + '" data-agir-mode="offer" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
-            + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">R\u00e9diger une offre commerciale</div></div>'
-          + '</button>'
-          : '<button type="button" data-agir-offer-config="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-comm">\ud83c\udff7\ufe0f</div>'
-            + '<div><div class="ab-dd-label">Proposer une offre</div><div class="ab-dd-desc">Configurez d\u2019abord un canal de publication</div></div>'
-          + '</button>') : '')
+        + _commEntry2
       + '</div>';
-
-      // RULE performance cards (Communiquer en interne): swap the comms menu for the internal-alert menu.
-      var _isInternalAlert = t._card_type === 'action' && Array.isArray(window.MS_INTERNAL_ALERT_TYPES) && window.MS_INTERNAL_ALERT_TYPES.indexOf(String(t._spec_action_type || '')) >= 0;
-      if (_isInternalAlert && commChannels.length === 0) {
-        menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-          + _commitEntry
-          + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-            + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">Vérifier les faits avant de s’engager</div></div>'
-          + '</button>'
-          + '<button type="button" data-agir-alert="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
-            + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019\u00e9quipe maintenant</div></div>'
-          + '</button>'
-          + '<button type="button" data-agir-notify="' + cardIdx + '" class="ab-dd-item">'
-            + '<div class="ab-dd-icon ab-dd-icon-send">\u23f0</div>'
-            + '<div><div class="ab-dd-label">Cr\u00e9er une notification</div><div class="ab-dd-desc">Alerte auto quand ce signal revient</div></div>'
-          + '</button>'
-        + '</div>';
-      }
 
       var _sw = t.sowhat;
       var _swText = '';
@@ -2387,6 +2372,35 @@ if (!location_id) {
     });
 
     // Communiquer — open workspace with draft
+    // Barre de SOUS-MODES du workspace Communiquer (owner 03/08) : « Proposer une offre » et
+    // « Cr\u00e9er une notification » ont quitt\u00e9 le menu Agir — elles vivent ici. Rend la barre dans
+    // le workspace, retourne le conteneur interne o\u00f9 le panneau du mode actif se rend.
+    function wsModeBar(workspace, modes, activeKey) {
+      var html = '<div style="display:flex;gap:0;padding:10px 16px 0;border-top:1px solid var(--color-border);background:var(--color-bg-recessed);">'
+        + '<div style="display:inline-flex;border:1px solid #1D3BB3;">';
+      for (var i = 0; i < modes.length; i++) {
+        html += '<button type="button" data-ws-mode="' + modes[i].key + '" style="' + segStyle(modes[i].key === activeKey, i > 0) + '">' + modes[i].label + '</button>';
+      }
+      html += '</div></div><div data-ws-modeinner></div>';
+      workspace.style.display = 'block';
+      workspace.innerHTML = html;
+      modes.forEach(function(m) {
+        var b = workspace.querySelector('[data-ws-mode="' + m.key + '"]');
+        if (b) b.addEventListener('click', function() { if (m.key !== activeKey) m.open(); });
+      });
+      return workspace.querySelector('[data-ws-modeinner]');
+    }
+
+    // Invite de compl\u00e9tion de profil (d\u00e9cision owner 26/07, conserv\u00e9e en sous-mode) :
+    // proposer une offre sans canal de publication configur\u00e9 ouvre la configuration.
+    function offerConfigHtml() {
+      return '<div style="margin-top:10px;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;">'
+        + '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Aucun canal de publication configur\u00e9</div>'
+        + '<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Pour proposer une offre depuis cette carte, connectez un canal (Google Business Profile, Instagram, Facebook ou site web) dans votre compte.</div>'
+        + '<a href="/profile?tab=comm" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;text-decoration:none;">Configurer mes canaux</a>'
+      + '</div>';
+    }
+
     root.querySelectorAll("[data-agir-comm]").forEach(function(btn) {
       btn.addEventListener("click", function(e) {
         e.stopPropagation();
@@ -2429,16 +2443,31 @@ if (!location_id) {
         var _sub = parent ? (parent.getAttribute("data-ab-draft-sub") || "") : "";
         var _aff = parent ? (parent.getAttribute("data-ab-draft-affected") || "") : "";
         var _wsLocId = cardLocId(cardIdx) || locationId;
-        window.MSDraftWorkspace.open(workspace, {
+        // SOUS-MODES (owner 03/08) : Message (d\u00e9faut) / Proposer une offre (opportunit\u00e9) /
+        // Notification auto (types performance \u00e9ligibles). Sans sous-mode, comportement inchang\u00e9.
+        var offerCh = btn.hasAttribute('data-agir-offer-channel') ? (btn.getAttribute('data-agir-offer-channel') || '') : null;
+        var notifyEl = btn.getAttribute('data-agir-notify-el') === '1';
+        var hasModes = (offerCh !== null) || notifyEl;
+        function openMode(modeKey) {
+          var container = workspace;
+          if (hasModes) {
+            var modes = [{ key: 'post', label: 'Message', open: function() { openMode('post'); } }];
+            if (offerCh !== null) modes.push({ key: 'offer', label: 'Proposer une offre', open: function() { openMode('offer'); } });
+            if (notifyEl) modes.push({ key: 'notify', label: 'Notification auto', open: function() { openMode('notify'); } });
+            container = wsModeBar(workspace, modes, modeKey);
+          }
+          if (modeKey === 'notify') { openAlertPanelCore(cardIdx, btn, 'notify', container); return; }
+          if (modeKey === 'offer' && !offerCh) { container.innerHTML = offerConfigHtml(); return; }
+        window.MSDraftWorkspace.open(container, {
           location_id: _wsLocId,
           signal_type: _sub,
           affected_date: _aff,
           card_what: parent ? (parent.getAttribute("data-ab-draft-what") || "") : "",
           card_sowhat: parent ? (parent.getAttribute("data-ab-draft-sowhat") || "") : "",
           signal: _sig,
-          artifact_mode: artifactMode,
+          artifact_mode: modeKey === 'offer' ? 'offer' : artifactMode,
           severity: (function() { var c = btn.closest('.ab-card'); var pl = c ? c.querySelector('.ab-pill') : null; return pl ? pl.textContent : ''; })(),
-          channel: channel,
+          channel: modeKey === 'offer' ? offerCh : channel,
           prof: data.profile || {},
           day: currentDay || {},
           detail_url: window.location.origin + '/app/insightevent/insight?type=' + encodeURIComponent(_sub) + '&date=' + encodeURIComponent(_aff) + '&location_id=' + encodeURIComponent(_wsLocId),
@@ -2453,6 +2482,8 @@ if (!location_id) {
           },
           onAutomationCreated: function() { delete _automationByLoc[locationId]; }
         });
+        }
+        openMode('post');
       });
     });
 
@@ -2653,16 +2684,29 @@ if (!location_id) {
       });
     }
 
-    async function openAlertPanel(btn, panelMode) {
-      var cardIdx = btn.getAttribute("data-agir-alert") || btn.getAttribute("data-agir-notify");
+    async function openAlertPanelCore(cardIdx, btn, panelMode, container) {
       var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
       if (menu) menu.style.display = "none";
       var workspace = document.getElementById("ab-card-" + cardIdx + "-workspace");
       if (!workspace) return;
-      root.querySelectorAll(".ab-workspace").forEach(function(ws) {
-        if (ws.id !== "ab-card-" + cardIdx + "-workspace") { ws.style.display = "none"; ws.innerHTML = ""; }
-      });
-      var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
+      if (!container) {
+        root.querySelectorAll(".ab-workspace").forEach(function(ws) {
+          if (ws.id !== "ab-card-" + cardIdx + "-workspace") { ws.style.display = "none"; ws.innerHTML = ""; }
+        });
+        // Sous-modes aussi sur l'entr\u00e9e alerte (cartes performance sans canal configur\u00e9) :
+        // Pr\u00e9venir maintenant / Notification auto (owner 03/08 — plus d'entr\u00e9e de menu d\u00e9di\u00e9e).
+        if (btn && btn.getAttribute('data-agir-notify-el') === '1') {
+          var mk = function(key) { return function() { openAlertPanelCore(cardIdx, btn, key, null); }; };
+          container = wsModeBar(workspace, [
+            { key: 'send', label: 'Pr\u00e9venir maintenant', open: mk('send') },
+            { key: 'notify', label: 'Notification auto', open: mk('notify') }
+          ], panelMode === 'notify' ? 'notify' : 'send');
+        } else {
+          workspace.style.display = "block";
+          container = workspace;
+        }
+      }
+      var parent = btn ? (btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card")) : null;
       var _alCard = null;
       try { _alCard = (window.__msCardByIdx && window.__msCardByIdx[cardIdx]) || null; } catch(ex) {}
       var ctx = {
@@ -2676,21 +2720,17 @@ if (!location_id) {
         prof: (typeof data !== "undefined" && data && data.profile) ? data.profile : {},
         day: (typeof currentDay !== "undefined" && currentDay) ? currentDay : {}
       };
-      workspace.style.display = "block";
-      workspace.innerHTML = '<div style="padding:16px;"><div class="pls-sk" style="height:12px;width:60%;margin-bottom:8px;"></div><div class="pls-sk" style="height:10px;width:40%;"></div></div>';
+      container.innerHTML = '<div style="padding:16px;"><div class="pls-sk" style="height:12px;width:60%;margin-bottom:8px;"></div><div class="pls-sk" style="height:10px;width:40%;"></div></div>';
       try { await fetchTeamMembers(ctx.locationId); } catch (ex) {}
       try { await fetchSavedDrafts(ctx.locationId); } catch (ex) {}
       try { await fetchAlertRules(ctx.locationId); } catch (ex) {}
       ctx.existingRule = (panelMode === 'notify') ? alertRuleForType(ctx.actionType, ctx.locationId) : null;
-      workspace.innerHTML = buildAlertPanelHtml(cardIdx, ctx);
+      container.innerHTML = buildAlertPanelHtml(cardIdx, ctx);
       wireAlertPanel(cardIdx, ctx);
     }
 
     root.querySelectorAll("[data-agir-alert]").forEach(function(btn) {
-      btn.addEventListener("click", function(e) { e.stopPropagation(); openAlertPanel(btn, 'send'); });
-    });
-    root.querySelectorAll("[data-agir-notify]").forEach(function(btn) {
-      btn.addEventListener("click", function(e) { e.stopPropagation(); openAlertPanel(btn, 'notify'); });
+      btn.addEventListener("click", function(e) { e.stopPropagation(); openAlertPanelCore(btn.getAttribute("data-agir-alert"), btn, 'send', null); });
     });
 
     // Consulter — shared navigation, fully sourced from the tapped card object
@@ -2722,27 +2762,6 @@ if (!location_id) {
       });
     });
 
-    // Proposer une offre SANS canal de publication — la config manquante est un déclencheur
-    // de complétion de profil (décision owner 26/07), jamais une fonctionnalité cachée :
-    // invite dans le workspace de la carte, lien vers l'onglet Communication du compte.
-    root.querySelectorAll("[data-agir-offer-config]").forEach(function(btn) {
-      btn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var cardIdx = btn.getAttribute("data-agir-offer-config");
-        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
-        if (menu) menu.style.display = "none";
-        var ws = document.getElementById("ab-card-" + cardIdx + "-workspace");
-        if (!ws) return;
-        if (ws.style.display === "block" && ws.getAttribute("data-ws-kind") === "offer-config") { ws.style.display = "none"; ws.innerHTML = ""; ws.removeAttribute("data-ws-kind"); return; }
-        ws.setAttribute("data-ws-kind", "offer-config");
-        ws.style.display = "block";
-        ws.innerHTML = '<div style="margin-top:10px;padding:14px 16px;border-radius:8px;background:#F5F7FF;border:1px solid #DBEAFE;">'
-          + '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">Aucun canal de publication configuré</div>'
-          + '<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">Pour proposer une offre depuis cette carte, connectez un canal (Google Business Profile, Instagram, Facebook ou site web) dans votre compte.</div>'
-          + '<a href="/profile?tab=comm" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;text-decoration:none;">Configurer mes canaux</a>'
-        + '</div>';
-      });
-    });
 
     // Consulter — click on card title / text
     root.querySelectorAll("[data-consult-open]").forEach(function(el) {
