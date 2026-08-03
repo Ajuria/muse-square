@@ -307,10 +307,11 @@ const classParam = Astro.url.searchParams.get("class") || "";
                   }
                   ws.innerHTML = '<div class="dp-sub" style="color:' + (okd ? "#166534" : "#B91C1C") + ';">'
                     + (okd
-                      ? "Engagement créé et lié au dispositif — il passera à « prouvé » si le test tient (verdict au bilan, mesuré sur vos ventes réelles)."
+                      ? "Engagement créé et lié au dispositif — il passera à « prouvé » si le test tient (verdict au bilan, mesuré sur vos ventes réelles). Direction Pulse, où votre test est suivi…"
                       : "Erreur : " + esc((jd && jd.error) || "réessayez") + ".")
                     + "</div>";
                   el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  if (okd) setTimeout(function () { window.location.href = "/app/insightevent/pulse"; }, 2000);
                 },
                 onCancel: function () { ws.style.display = "none"; ws.innerHTML = ""; }
               });
