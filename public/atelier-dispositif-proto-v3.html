@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto v3 — « Reproduire le dispositif gagnant », la conversation EST l'interface</title>
+<style>
+  /* Valeurs RÉELLES : design-tokens.css + pulse.astro. Aucune couleur inventée. */
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --color-pill-green-bg:#E6F6F0; --color-pill-green-text:#059669;
+    --color-pill-source-low-bg:#F3F4F6; --color-pill-source-low-text:#6b7280;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 16px 120px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-summary { padding:14px 16px; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
+  .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .agir-btn.ghost { border-color:var(--color-border); color:#6B7280; }
+  .hov { text-decoration:underline dotted rgba(156,163,175,0.8); text-underline-offset:2px; cursor:help; }
+  .msg { border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.55; margin:10px 0; max-width:92%; }
+  .msg.ia { background:#F8FAFC; border:1px solid var(--color-border); color:#374151; }
+  .msg.moi { background:#EEF2FF; color:#1D3BB3; margin-left:auto; }
+  .src { font-size:10.5px; color:#9CA3AF; margin-top:6px; }
+  .aside { font-size:12px; color:#9CA3AF; line-height:1.5; margin:4px 0 10px 4px; max-width:88%; }
+  .aside a { color:#6B7280; text-decoration:underline dotted; cursor:pointer; }
+  .field { margin:8px 0; }
+  .field label { display:block; font-size:10.5px; font-weight:600; color:#6B7280; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.05em; }
+  .field .val { font-size:12.5px; color:#111827; background:#fff; border:1px solid var(--color-border); border-radius:8px; padding:8px 10px; line-height:1.45; }
+  .fiche { border:1px solid rgba(29,59,179,0.25); border-radius:10px; padding:10px 12px; margin-top:10px; background:#fff; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px; }
+  .chips button { font-size:12.5px; color:#1D3BB3; background:#fff; border:1px dashed rgba(29,59,179,0.45); border-radius:18px; padding:7px 13px; cursor:pointer; font-family:inherit; text-align:left; line-height:1.4; }
+  .inputbar { display:flex; gap:8px; align-items:center; background:#fff; border:1px solid var(--color-border); border-radius:12px; padding:10px 12px; margin-top:14px; }
+  .inputbar input { flex:1; border:none; outline:none; font-size:13px; font-family:inherit; color:#111827; background:transparent; }
+  .noteform { display:flex; gap:8px; margin:8px 0 10px 4px; max-width:88%; }
+  .noteform input { flex:1; font-size:12.5px; font-family:inherit; border:1px solid var(--color-border); border-radius:8px; padding:7px 10px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto v3 — la conversation EST l'interface</h1>
+  <div class="note">Verdict owner 03/08 appliqué : plus de blocs, plus de libellés d'étapes, plus de formulaire —
+  UN message d'ouverture problématisé (le job : ce qui MARCHE), les journées inexpliquées reléguées en
+  <strong>note de marge</strong> (porte de matérialité : gaps ≈ 0 → note, pas question), la fiche et l'engagement
+  arrivent comme des <strong>tours de conversation</strong>. Cliquez les réponses proposées pour dérouler.
+  Données réelles MS Occitanie ; à l'implémentation : chat Consulter réel (mode <code>type=dispositif</code>),
+  MSCommitForm réel, mécanique décision→engagement existante.</div>
+
+  <!-- ===== En-tête (échelle d'enjeu, référentiel 1 : le poids TOTAL du motif) ===== -->
+  <div class="ab-card" style="margin-top:16px;"><div class="ab-summary">
+    <div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span><span class="chip-n">Muse Square Occitanie</span><span class="chip-n">Affluence</span></div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="ab-what">Reproduire le dispositif gagnant — vos jours de pointe</div>
+        <div class="ab-sowhat">De « pourquoi ces journées marchent » à « comment les déclencher ».</div>
+      </div>
+      <div class="amt" title="Mesuré sur 40 jours / 4 mois — estimé, cause multifactorielle."><div class="amt-val" style="color:var(--color-pill-green-text);">+33 402 €/an</div><div class="amt-sub">à gagner · jours de pointe</div></div>
+    </div>
+  </div></div>
+
+  <!-- ===== La conversation ===== -->
+  <div class="ab-card"><div class="ab-summary">
+
+    <!-- Ouverture (message de référence validé 03/08) -->
+    <div class="msg ia">Vos jours de pointe valent <strong>+33 402 €/an</strong>, et 38 sur 40 sont
+      <span class="hov" title="85 % de ces 40 jours sont des jours de chaleur, 55 % des vacances scolaires, 25 % des week-ends — co-occurrences mesurées sur vos données, pas des causes prouvées. Chaleur et vacances arrivent presque toujours ensemble chez vous : indissociables sans test daté.">prévisibles</span>
+      — ils arrivent avec la chaleur, les vacances ou le week-end.<br><br>
+      La question qui compte : <strong>qu'est-ce qui fait réussir une journée de pointe chez vous — et
+      est-ce écrit, pour que l'équipe le rejoue à chaque pic annoncé ?</strong><br>
+      Si c'est dans votre tête, ça dépend de vous ; documenté, ça devient un dispositif.
+      <div class="src">Vérifié · vos 40 jours de pointe sur 4 mois</div>
+    </div>
+
+    <!-- Note de marge (porte de matérialité : gaps ≈ 0 → note annexe, pas question) -->
+    <div class="aside" id="aside-note">En marge : deux journées du tercile haut sans facteur connu —
+      ven 10/04, mer 20/05. Poids faible (CA quasi normal ces jours-là), possiblement la variation
+      ordinaire. Un souvenir ? <a id="note-open">Notez-le</a> · sinon, laissez.</div>
+    <div class="noteform hidden" id="note-form">
+      <input id="note-input" placeholder="Une phrase suffit — ex. : le 10/04, marché des producteurs sur la place.">
+      <button class="agir-btn" id="note-save">Noter</button>
+    </div>
+    <div class="aside hidden" id="note-done">Noté dans votre base de connaissances. Un marché est daté et
+      récurrent : si ça revient, on pourra en faire un dispositif à part entière — pour l'instant, c'est une note.</div>
+
+    <!-- Réponses proposées -->
+    <div class="chips" id="chips">
+      <button id="chip-a">« Les jours chauds annoncés, on double l'équipe du matin et on sort toute la terrasse dès 9 h — mais ce n'est écrit nulle part. »</button>
+      <button id="chip-b">« Rien de particulier — on subit plus qu'on ne prépare. »</button>
+    </div>
+
+    <!-- Branche A -->
+    <div class="msg moi hidden" id="u-a">Les jours chauds annoncés, on double l'équipe du matin et on sort toute la terrasse dès 9 h — mais ce n'est écrit nulle part.</div>
+    <div class="msg ia hidden" id="ia-a">Deux gestes, tous les deux à vous — donc déclenchables sur prévision.
+      Vos données ne voient ni le planning ni la terrasse : je le note comme <strong>déclaré</strong>, et c'est
+      le test qui le prouvera. Je résume — relisez, corrigez :
+      <div class="fiche">
+        <div class="field"><label>Ce que vous faites</label><div class="val">Équipe du matin doublée + terrasse complète dès 9 h, déclenché la veille sur prévision de chaleur. <span style="color:#9CA3AF;">(votre phrase)</span></div></div>
+        <div class="field"><label>Les jours qui le montrent</label><div class="val">Vos 38 jours de pointe arrivés avec chaleur, vacances ou week-end — <span class="hov" title="Médiane mesurée des écarts au CA attendu sur ces journées (registre day_class_impacts).">+272 € la journée</span>. <span style="color:#9CA3AF;">(vos données)</span></div></div>
+        <div class="field"><label>Comment on saura que ça marche</label><div class="val">Sur les 3 prochains pics annoncés, dispositif déclenché la veille → CA au-dessus de l'attendu du jour. <span style="color:#9CA3AF;">(proposé — modifiable)</span></div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <span style="margin-left:auto;display:flex;gap:8px;">
+          <button class="agir-btn ghost" id="btn-fix">Corriger</button>
+          <button class="agir-btn" id="btn-save">On l'enregistre</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- Branche B (la conversation continue — proto) -->
+    <div class="msg moi hidden" id="u-b">Rien de particulier — on subit plus qu'on ne prépare.</div>
+    <div class="msg ia hidden" id="ia-b">Alors le dispositif est à construire — et vous partez avec un avantage :
+      vos pics sont <strong>annoncés</strong> (la prévision de chaleur suffit à les voir venir). La veille d'un pic
+      annoncé, qu'est-ce que vous feriez différemment si vous saviez que la journée vaut ~272 € de plus —
+      achats, équipe déjà planifiée, mise en place ?
+      <div class="src">(proto : la conversation continue ici — hypothèses ouvertes, jamais de convergence sur la première)</div>
+    </div>
+
+    <!-- Après enregistrement (échelle d'enjeu, référentiels 2 et 3) -->
+    <div class="msg ia hidden" id="ia-saved">Enregistré dans vos bonnes pratiques — au tier
+      <span class="hov" title="Déclaré = documenté par vous, pas encore prouvé par un rejeu mesuré. Le tier passera « prouvé » sur le résultat du test, jamais avant.">déclaré</span>.<br><br>
+      Une journée déclenchée vaut <strong>+272 €</strong> (médiane de vos 40 jours). Le rythme est votre
+      levier : 4 pics déclenchés dans le mois ≈ <strong>+1 088 €</strong> — c'est votre multiplication,
+      pas une promesse.<br><br>
+      Prêt à l'engager sur le test ?
+      <div style="display:flex;gap:8px;margin-top:10px;"><span style="margin-left:auto;"><button class="agir-btn" id="btn-commit">M'engager sur le test</button></span></div>
+    </div>
+
+    <!-- Après engagement -->
+    <div class="msg ia hidden" id="ia-committed">Engagement créé — « déclencher le dispositif sur les 3 prochains
+      pics annoncés ». Mesuré sur vos ventes réelles, verdict au bilan ; le dispositif passera
+      « déclaré → prouvé » sur le résultat, jamais avant.
+      <div class="src">(à l'implémentation : MSCommitForm réel, origine structural_traffic_high, liaison replay_commitment_id)</div>
+    </div>
+
+    <!-- Barre de saisie (décorative dans le proto) -->
+    <div class="inputbar"><input placeholder="Écrivez votre réponse… (proto : utilisez les réponses proposées ci-dessus)" disabled><button class="agir-btn ghost" disabled>Envoyer</button></div>
+  </div></div>
+
+  <div class="note" style="margin-top:18px;"><strong>Ce que la v3 change (vs v2)</strong> — La page n'a plus que
+  deux éléments : l'en-tête (le poids total du motif, référentiel 1 de l'échelle d'enjeu) et la conversation.
+  L'ouverture est problématisée sur ce qui MARCHE (« qu'est-ce qui fait réussir vos jours de pointe, et est-ce
+  écrit ? ») — plus de mystère fabriqué. Les 2 journées inexpliquées sont une note de marge, ton bas, ignorable
+  (porte de matérialité : leurs gaps ≈ 0), avec l'explication nulle dite (« possiblement la variation ordinaire »)
+  et une capture légère en un clic — annotation, pas fiche. La fiche est un tour de chat (« Je résume… On
+  l'enregistre ? »), l'engagement aussi (référentiels 2 et 3 : +272 €/journée, puis LA multiplication de
+  l'exploitant « 4 pics ≈ +1 088 € »). Le multifactoriel et la méthode vivent au survol des pointillés.</div>
+</div>
+
+<script>
+  (function () {
+    function show(id) { var el = document.getElementById(id); el.classList.remove('hidden'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+    document.getElementById('chip-a').addEventListener('click', function () { hide('chips'); show('u-a'); show('ia-a'); });
+    document.getElementById('chip-b').addEventListener('click', function () { hide('chips'); show('u-b'); show('ia-b'); });
+    document.getElementById('btn-save').addEventListener('click', function () { show('ia-saved'); });
+    document.getElementById('btn-fix').addEventListener('click', function () { alert('Proto : à l’implémentation, chaque champ de la fiche redevient éditable en place.'); });
+    document.getElementById('btn-commit').addEventListener('click', function () { show('ia-committed'); });
+    document.getElementById('note-open').addEventListener('click', function () { show('note-form'); document.getElementById('note-input').focus(); });
+    document.getElementById('note-save').addEventListener('click', function () { hide('note-form'); show('note-done'); });
+  })();
+</script>
+</body>
+</html>
