@@ -83,6 +83,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const event_end_date = normalizeDateOptional(body?.event_end_date, "event_end_date");
     const event_type = typeof body?.event_type === "string" && body.event_type.trim() ? body.event_type.trim() : null;
     const launch_hour = typeof body?.launch_hour === "number" ? body.launch_hour : (body?.launch_hour != null && body.launch_hour !== "" ? parseInt(body.launch_hour, 10) : null);
+    // Champs événement-dispositif (03/08, spec § 1.1) — mêmes sémantiques optionnelles.
+    // La RÈGLE de récurrence n'est PAS éditable ici (v1) : la changer regénérerait les
+    // occurrences — chantier séparé, jamais un effet de bord d'un update de champ.
+    const author_person_name = typeof body?.author_person_name === "string" && body.author_person_name.trim()
+      ? body.author_person_name.trim().slice(0, 120) : null;
+    const event_nature = ["outdoor", "indoor", "both"].includes(String(body?.event_nature)) ? String(body.event_nature) : null;
+    const asHour = (v: any): number | null => {
+      const n = typeof v === "number" ? v : (v != null && v !== "" ? parseInt(v, 10) : NaN);
+      return Number.isInteger(n) && n >= 0 && n <= 23 ? n : null;
+    };
+    const hour_start = asHour(body?.hour_start);
+    const hour_end = asHour(body?.hour_end);
+    const KPI_SET = ["revenue_residual", "family_revenue", "tickets", "basket", "visitors", "profit_estimated"];
+    const kpi = KPI_SET.includes(String(body?.kpi)) ? String(body.kpi) : null;
+    const kpi_family = typeof body?.kpi_family === "string" && body.kpi_family.trim() ? body.kpi_family.trim().slice(0, 120) : null;
+    const kpi_target_pct = body?.kpi_target_pct != null && Number.isFinite(Number(body.kpi_target_pct)) ? Number(body.kpi_target_pct) : null;
+    const kpi_target_eur = body?.kpi_target_eur != null && Number.isFinite(Number(body.kpi_target_eur)) ? Number(body.kpi_target_eur) : null;
 
     // dates: if provided, replaces the full set in saved_item_dates
     const rawDates = body?.dates;
@@ -95,7 +112,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // At least one field must be provided
-    if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === null && event_type === null && launch_hour === null) {
+    if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === null && event_type === null && launch_hour === null
+        && author_person_name === null && event_nature === null && hour_start === null && hour_end === null
+        && kpi === null && kpi_family === null && kpi_target_pct === null && kpi_target_eur === null) {
       throw new HttpError(400, "No fields to update");
     }
 
@@ -165,6 +184,46 @@ export const POST: APIRoute = async ({ request, locals }) => {
       setClauses.push("launch_hour = @launch_hour");
       updateParams.launch_hour = launch_hour;
       updateTypes.launch_hour = "INT64";
+    }
+    if (author_person_name !== null) {
+      setClauses.push("author_person_name = @author_person_name");
+      updateParams.author_person_name = author_person_name;
+      updateTypes.author_person_name = "STRING";
+    }
+    if (event_nature !== null) {
+      setClauses.push("event_nature = @event_nature");
+      updateParams.event_nature = event_nature;
+      updateTypes.event_nature = "STRING";
+    }
+    if (hour_start !== null) {
+      setClauses.push("hour_start = @hour_start");
+      updateParams.hour_start = hour_start;
+      updateTypes.hour_start = "INT64";
+    }
+    if (hour_end !== null) {
+      setClauses.push("hour_end = @hour_end");
+      updateParams.hour_end = hour_end;
+      updateTypes.hour_end = "INT64";
+    }
+    if (kpi !== null) {
+      setClauses.push("kpi = @kpi");
+      updateParams.kpi = kpi;
+      updateTypes.kpi = "STRING";
+    }
+    if (kpi_family !== null) {
+      setClauses.push("kpi_family = @kpi_family");
+      updateParams.kpi_family = kpi_family;
+      updateTypes.kpi_family = "STRING";
+    }
+    if (kpi_target_pct !== null) {
+      setClauses.push("kpi_target_pct = @kpi_target_pct");
+      updateParams.kpi_target_pct = kpi_target_pct;
+      updateTypes.kpi_target_pct = "FLOAT64";
+    }
+    if (kpi_target_eur !== null) {
+      setClauses.push("kpi_target_eur = @kpi_target_eur");
+      updateParams.kpi_target_eur = kpi_target_eur;
+      updateTypes.kpi_target_eur = "FLOAT64";
     }
     if (selected_date !== undefined) {
       if (selected_date === "NULL") {

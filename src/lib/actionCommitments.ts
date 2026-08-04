@@ -44,6 +44,9 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["origin_suppression_key", "STRING"],
   ["origin_card_instance_id", "STRING"],
   ["origin_affected_date", "DATE"],
+  // Ancrage événement (03/08, spec evenement-dossier) : l'engagement de mesure d'une occurrence
+  // d'événement porte son saved_item_id — la série lit ses verdicts par cette clé.
+  ["saved_item_id", "STRING"],
   ["measured_metric", "STRING"],
   ["window_kind", "STRING"],
   ["window_start", "DATE"],
@@ -127,6 +130,7 @@ export interface CommitmentRow {
   origin_suppression_key: string | null;
   origin_card_instance_id: string | null;
   origin_affected_date: string | null;   // 'YYYY-MM-DD'
+  saved_item_id: string | null;          // ancrage événement (occurrence mesurée) — 03/08
   measured_metric: string | null;
   window_kind: string | null;
   window_start: string | null;            // 'YYYY-MM-DD'

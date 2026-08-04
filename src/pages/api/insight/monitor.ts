@@ -7,6 +7,7 @@ import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
 import { getDayClassImpacts, enjeuWithReasonForCandidate } from "../../../lib/dayClassRegistry";
+import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -155,7 +156,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -310,6 +311,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         return [...wide];
       })())
         .catch(() => ({ impacts: new Map(), conditionByDate: new Map() })),
+      // Cartes de cycle de vie des événements (03/08, spec evenement-dossier § 5) — générateur
+      // ADDITIF (lib/eventLifecycleCards, échec soft → []) ; « aujourd'hui » = le jour demandé
+      // (selected_dates[0]) pour rester testable. Les lignes rejoignent les candidates plus bas.
+      buildEventLifecycleCards(bq, location_id, clerk_user_id, String(selected_dates[0] ?? "")),
     ]);
 
     const _t2 = Date.now();
@@ -989,7 +994,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         : null,
       // Enjeu policy (tiers, négatif-only, résolution de condition) vit dans lib/dayClassRegistry —
       // monitor est un simple lecteur : enjeu = {eur_year, tier, label_fr, n_days, span_months} | null.
-      action_candidates: filterDisabledThemes(actionCandidateRows, disabledThemes)
+      action_candidates: filterDisabledThemes([...actionCandidateRows, ...(eventLifecycleRows as any[])], disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         // MATÉRIALITÉ (29/07) : une carte dont la classe est MESURÉE et négligeable ne sort pas.
         // Décision owner : « ni carte ni chantier ». Le garde-fou retirait la pastille mais

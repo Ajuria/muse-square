@@ -6,7 +6,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, measureKpiBaseline } from "../../../lib/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
@@ -237,7 +237,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     requireLocationOwnership(locals, body.location_id);
 
     const days = WINDOW_DAYS[windowKind];
-    const start = new Date();
+    // Fenêtre ancrée (03/08, spec evenement-dossier § 1.3) : un engagement d'ÉVÉNEMENT mesure la
+    // ou les dates de l'occurrence, pas « à partir d'aujourd'hui ». `window_start_date` (Y-m-d,
+    // futur ou aujourd'hui) ancre la fenêtre ; absent → comportement historique inchangé.
+    let start = new Date();
+    if (body.window_start_date != null) {
+      const ws = String(body.window_start_date).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ws) || Number.isNaN(Date.parse(ws + "T00:00:00Z"))) {
+        return json({ ok: false, error: "window_start_date invalide (YYYY-MM-DD) : " + ws }, 400);
+      }
+      start = new Date(ws + "T00:00:00Z");
+    }
     const end = new Date(start.getTime());
     end.setUTCDate(end.getUTCDate() + (days - 1));
 
@@ -262,15 +272,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
+      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : null,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
       // window/delta à la résolution).
-      measured_metric: kpiKeyForOrigin(
-        originActionType,
-        DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
-          ? String(body.origin_driver).trim().toLowerCase() : null,
-      ),
+      // Événements (03/08) : le KPI DÉCLARÉ sur l'événement prime — mapping registre (foyer
+      // unique kpiKeyForEventKpi) ; hors événement, la dérivation carte+driver inchangée.
+      measured_metric: (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
+        || kpiKeyForOrigin(
+          originActionType,
+          DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
+            ? String(body.origin_driver).trim().toLowerCase() : null,
+        ),
       window_kind: windowKind,
       window_start: ymd(start),
       window_end: ymd(end),
@@ -309,7 +323,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
     // Non bloquant : échec/absence de données → null (jamais un chiffre inventé, jamais un 500).
-    if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
+    if (patch.measured_metric === "family_revenue") {
+      // K8 : baseline famille (30 j pré-fenêtre) — la famille arrive du client à la création
+      // (body.kpi_family) ; la résolution la relira sur l'événement ancré. Échec soft → null.
+      try {
+        const _fam = String(body.kpi_family || "").trim();
+        patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
+      } catch { patch.kpi_baseline = null; }
+    } else if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
       try {
         patch.kpi_baseline = await measureKpiBaseline(bq, String(patch.location_id), patch.measured_metric as any, String(patch.window_start));
       } catch { patch.kpi_baseline = null; }

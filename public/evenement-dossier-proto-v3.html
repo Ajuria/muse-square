@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto v3 — Événement : l'état « Décider » (candidats côte à côte) + le jour de la série</title>
+<style>
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --green:#059669; --amber:#B45309; --red:#e24b4a; --blue:#1D3BB3;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:860px; margin:0 auto; padding:28px 16px 90px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:600; margin:26px 0 8px; }
+  .card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06); padding:14px 16px; }
+  .chip { display:inline-flex; align-items:center; font-size:12px; padding:3px 9px; border-radius:20px; background:#F3F4F6; color:#6b7280; white-space:nowrap; }
+  .chip.blue { background:#EEF2FF; color:var(--blue); }
+  .what { font-size:14px; font-weight:600; line-height:1.35; margin-bottom:4px; }
+  .sub { font-size:12px; color:#6B7280; line-height:1.45; }
+  .hov { text-decoration:underline dotted rgba(156,163,175,0.8); text-underline-offset:2px; cursor:help; }
+  .btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:var(--blue); border:1px solid var(--blue); border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .aline { color:var(--blue); font-size:13px; font-weight:600; line-height:1.5; }
+  .cmp { border-collapse:collapse; width:100%; font-size:12px; table-layout:fixed; }
+  .cmp th, .cmp td { padding:9px 10px; border-bottom:1px solid #F3F4F6; vertical-align:top; text-align:left; line-height:1.45; }
+  .cmp th:first-child, .cmp td:first-child { width:170px; color:#6B7280; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+  .cmp thead th { font-size:12.5px; color:#111827; border-bottom:1px solid var(--color-border); }
+  .cmp .day-h { font-weight:700; }
+  .cmp col.win { background:#FAFBFF; }
+  .ok { color:var(--green); font-weight:600; }
+  .warn { color:var(--amber); font-weight:600; }
+  .bad { color:var(--red); font-weight:600; }
+  .dim { color:#9CA3AF; }
+  .chosen { outline:2px solid var(--blue); outline-offset:-2px; border-radius:6px; }
+  .seg { display:inline-flex; border:1px solid var(--blue); border-radius:8px; overflow:hidden; }
+  .seg button { font-size:12px; font-family:inherit; border:none; padding:6px 12px; cursor:pointer; background:#fff; color:var(--blue); }
+  .seg button.on { background:var(--blue); color:#fff; }
+  .hidden { display:none; }
+  .dowrow { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #F3F4F6; font-size:12.5px; }
+  .dowrow .d { width:86px; font-weight:600; }
+  .dowrow .bar { height:8px; background:#EEF2FF; border-radius:4px; }
+  .dowrow .bar > span { display:block; height:8px; background:var(--blue); border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto v3 — l'état « Décider » + le jour de la série</h1>
+  <div class="note">Le chaînon manquant (owner 03/08) : jusqu'à la décision, l'utilisateur vit dans la vue
+  <strong>candidats côte à côte</strong> (le legacy « CHOIX » de days.astro, jusqu'à 7 colonnes). Ici sa version
+  ÉVÉNEMENT : lignes = les 5 questions recadrées + l'objectif PAR candidat (l'attendu varie par jour de semaine) ;
+  la recommandation est conservée mais argumentée par l'événement ; « hors horizon de prévision » se dit —
+  jamais prédit. En ②, le mini-comparateur du JOUR de récurrence (mesuré par jour de semaine + menaces des
+  seules premières occurrences). Cliquez « Choisir » et le jour de série pour dérouler.</div>
+
+  <!-- ============ ① ÉTAT DÉCIDER ============ -->
+  <div class="eb">① Dossier · état Décider — « Lancement produits producteurs » · 3 candidats (jusqu'à 7)</div>
+  <div class="card" style="overflow-x:auto;">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">Extérieur · 10 h – 13 h</span><span class="chip">Objectif : Producteurs 210 € (apport +114 €)</span>
+      <span class="chip" style="margin-left:auto;">Échéance de choix : 10/08 (J-2)</span>
+    </div>
+    <table class="cmp">
+      <colgroup><col><col><col class="win"><col></colgroup>
+      <thead>
+        <tr><th></th>
+          <th><span class="day-h">ven 14/08</span><br><span class="sub">score prévu 6,8/10</span></th>
+          <th><span class="day-h">sam 15/08</span> <span class="chip blue" style="font-size:10px;padding:1px 7px;">recommandé</span><br><span class="sub">score prévu 7,4/10</span></th>
+          <th><span class="day-h">sam 22/08</span><br><span class="sub">score prévu 7,1/10</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Objectif — <span class="hov" title="L'apport visé de l'événement (+114 €) est le MÊME quel que soit le jour ; l'attendu du jour varie par jour de semaine (vos ventes réelles) — donc le total de journée visé varie.">total visé</span></td>
+          <td>attendu ≈ 890 €<br><strong>total ≈ 1 004 €</strong></td>
+          <td>attendu ≈ 1 099 €<br><strong>total ≈ 1 213 €</strong></td>
+          <td>attendu ≈ 1 099 €<br><strong>total ≈ 1 213 €</strong></td></tr>
+        <tr><td>👥 Vos clients cibles</td>
+          <td><span class="warn">Actifs présents, familles moins</span> — jour de semaine</td>
+          <td><span class="ok">Familles présentes</span> — samedi de vacances</td>
+          <td><span class="ok">Familles présentes</span> — samedi de vacances</td></tr>
+        <tr><td>🚚 Accès — clients / fournisseurs</td>
+          <td><span class="ok">RAS</span> / <span class="ok">RAS</span></td>
+          <td><span class="ok">RAS</span> / <span class="ok">RAS</span></td>
+          <td><span class="ok">RAS</span> / <span class="bad">travaux quai des Arts</span> — producteurs : accès rue Sud</td></tr>
+        <tr><td>📅 Événements voisins</td>
+          <td><span class="dim">aucun</span></td>
+          <td><span class="ok">marché de la place — synergie probable</span> <span class="hov" title="Même audience, créneau compatible — flux partageable (score de conflit/synergie des signaux concurrents).">ⓘ</span></td>
+          <td><span class="dim">aucun connu à ce jour</span></td></tr>
+        <tr><td>⚠️ Météo × extérieur</td>
+          <td><span class="warn">chaleur niveau 2 (33 °C)</span> — hydratation stand</td>
+          <td><span class="ok">ensoleillé, 26 °C</span></td>
+          <td><span class="dim">hors horizon de prévision (J+19)</span> — <span class="hov" title="On ne prédit pas au-delà de l'horizon météo. Si ce jour est choisi, la carte « J-1 Préparer » revérifie automatiquement.">revérifié à J-1</span></td></tr>
+        <tr><td>🟢 Concurrence</td>
+          <td><span class="ok">pression faible</span></td>
+          <td>pression normale</td>
+          <td><span class="ok">pression faible</span></td></tr>
+        <tr><td></td>
+          <td><button class="btn" data-choose="ven 14/08">Choisir</button></td>
+          <td><button class="btn" data-choose="sam 15/08">Choisir</button></td>
+          <td><button class="btn" data-choose="sam 22/08">Choisir</button></td></tr>
+      </tbody>
+    </table>
+    <div class="aline" style="margin-top:10px;">Recommandé : <strong>sam 15/08</strong> — meilleur score, vos familles présentes, marché voisin en synergie ; le 22/08 impose l'accès rue Sud à vos producteurs et sa météo est hors horizon.</div>
+    <div class="sub" style="margin-top:4px;">La recommandation est argumentée par VOTRE événement (nature, clients, fournisseurs) — plus jamais un score sec. Chaque cellule = le même calcul que l'état Avant, par date.</div>
+    <div id="chosen-msg" class="hidden" style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;"></div>
+  </div>
+
+  <!-- ============ ② JOUR DE LA SÉRIE ============ -->
+  <div class="eb">② Formulaire · récurrent — « Toutes les semaines… mais quel jour ? »</div>
+  <div class="card">
+    <div class="sub" style="margin-bottom:8px;">Deux registres, jamais mélangés : le <strong>mesuré</strong> par jour de semaine
+    (vos ventes réelles) ; les <strong>menaces</strong> des seules premières occurrences dans l'horizon de prévision —
+    on ne prédit pas 52 samedis, la carte « J-1 Préparer » revérifie chaque occurrence.</div>
+    <div class="dowrow"><span class="d"><button class="btn" data-dow="mardi" style="padding:3px 10px;font-size:12px;">mardi</button></span>
+      <span class="bar" style="width:180px;"><span style="width:60%;"></span></span>
+      <span class="sub">CA habituel ≈ 730 € · fréquentation modérée</span></div>
+    <div class="dowrow"><span class="d"><button class="btn" data-dow="vendredi" style="padding:3px 10px;font-size:12px;">vendredi</button></span>
+      <span class="bar" style="width:180px;"><span style="width:74%;"></span></span>
+      <span class="sub">CA habituel ≈ 890 € · fréquentation soutenue</span></div>
+    <div class="dowrow" style="border-bottom:none;"><span class="d"><button class="btn" data-dow="samedi" style="padding:3px 10px;font-size:12px;">samedi</button></span>
+      <span class="bar" style="width:180px;"><span style="width:100%;"></span></span>
+      <span class="sub">CA habituel ≈ 1 099 € · votre meilleur jour <span class="hov" title="Mesuré sur vos ventes réelles (référentiel jour-de-semaine existant). Le dimanche n'est pas proposé : repos dominical — il n'apparaît que si vos jours d'ouverture le portent.">ⓘ</span></span></div>
+    <div id="dow-line" class="aline" style="margin-top:10px;">Série : toutes les semaines — <strong>samedi</strong>, du 08/08 au 26/09 → sam 08/08 · 15/08 · 22/08 · 29/08 · …</div>
+    <div id="dow-threat" class="sub" style="margin-top:4px;">Premières occurrences dans l'horizon : sam 08/08 — <span class="warn">alerte vent niveau 4</span> (votre stand est extérieur) ; sam 15/08 — RAS.</div>
+  </div>
+
+  <div class="note" style="margin-top:18px;"><strong>Ce que la v3 ajoute (vs v2.1)</strong> — L'état « Décider » : la table
+  côte à côte du legacy (jusqu'à 7 candidats) recadrée par l'événement — lignes = les 5 questions + l'objectif par
+  candidat (attendu par jour de semaine → total visé), recommandation conservée et ARGUMENTÉE, « hors horizon »
+  dit honnêtement (revérifié par la carte J-1), « Choisir » = engagement ancré (window_start_date) + passage à
+  l'état Avant. Le mini-comparateur du jour de récurrence : mesuré par jour de semaine + menaces des premières
+  occurrences seulement ; le dimanche n'apparaît que si les jours d'ouverture le portent (repos dominical).
+  days.astro reste legacy (surface de planification générale) — bascule des liens à la fin, comme monitor.</div>
+</div>
+<script>
+  (function () {
+    document.querySelectorAll('[data-choose]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('[data-choose]').forEach(function (x) { x.classList.remove('chosen'); });
+        b.classList.add('chosen');
+        var m = document.getElementById('chosen-msg');
+        m.classList.remove('hidden');
+        m.textContent = b.getAttribute('data-choose') + ' choisi — engagement de mesure créé (fenêtre ancrée sur ce jour), le dossier passe à l’état Avant.';
+      });
+    });
+    var THREATS = {
+      mardi: 'Premières occurrences dans l’horizon : mar 11/08 — RAS ; mar 18/08 — RAS.',
+      vendredi: 'Premières occurrences dans l’horizon : ven 07/08 — RAS ; ven 14/08 — chaleur niveau 2 (33 °C).',
+      samedi: 'Premières occurrences dans l’horizon : sam 08/08 — alerte vent niveau 4 (votre stand est extérieur) ; sam 15/08 — RAS.'
+    };
+    var OCC = {
+      mardi: 'mar 11/08 · 18/08 · 25/08 · 01/09 · …',
+      vendredi: 'ven 07/08 · 14/08 · 21/08 · 28/08 · …',
+      samedi: 'sam 08/08 · 15/08 · 22/08 · 29/08 · …'
+    };
+    document.querySelectorAll('[data-dow]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var d = b.getAttribute('data-dow');
+        document.getElementById('dow-line').innerHTML = 'Série : toutes les semaines — <strong>' + d + '</strong>, du 08/08 au 26/09 → ' + OCC[d];
+        document.getElementById('dow-threat').innerHTML = THREATS[d].replace('alerte vent niveau 4', '<span class="warn">alerte vent niveau 4</span>').replace('chaleur niveau 2 (33 °C)', '<span class="warn">chaleur niveau 2 (33 °C)</span>');
+      });
+    });
+  })();
+</script>
+</body>
+</html>

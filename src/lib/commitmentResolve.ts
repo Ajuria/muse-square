@@ -18,7 +18,7 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
-import { isKpiMeasurable, measureKpiWindow, kpiDeltaPct as kpiDeltaPctFn } from "./kpiRegistry";
+import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, kpiDeltaPct as kpiDeltaPctFn } from "./kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "./sensitivityFeatures.json";
 
@@ -208,7 +208,22 @@ export async function resolveCommitment(
   let kpiWindowValue: number | null = null;
   let kpiDeltaPct: number | null = null;
   const kpiKey = String(snap.measured_metric || "revenue_residual") as any;
-  if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
+  if (kpiKey === "family_revenue") {
+    // K8 (événements, 03/08) : la famille vit sur l'ÉVÉNEMENT ancré (saved_items.kpi_family,
+    // rejoint par saved_item_id) — jamais une colonne dupliquée sur le commitment. Échec soft.
+    try {
+      const [famRows] = snap.saved_item_id ? await bq.query({
+        query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+        params: { sid: String(snap.saved_item_id) }, location: "EU",
+      }) : [[]];
+      const famName = famRows?.[0]?.kpi_family != null ? String(famRows[0].kpi_family) : null;
+      if (famName) {
+        const win = await measureFamilyRevenueMean(bq, String(snap.location_id), famName, String(snap.window_start), String(snap.window_end));
+        kpiWindowValue = win ? win.value : null;
+        kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+      }
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; }
+  } else if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
     try {
       kpiWindowValue = await measureKpiWindow(bq, String(snap.location_id), kpiKey, String(snap.window_start), String(snap.window_end));
       kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);

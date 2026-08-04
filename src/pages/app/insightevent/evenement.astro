@@ -1,0 +1,245 @@
+---
+// « /evenement » — le dossier d'événement-dispositif (spec docs/evenement-dossier-spec.md).
+// Mode CRÉATION (sans saved_item_id) : MSEventForm (public/event-form.js, ?dates= pré-remplies).
+// Mode DOSSIER (?saved_item_id=) : les 3 états Décider/Avant/Après sur provider evenementFamily ;
+// la CIBLE du KPI dominant est jugée en DÉTERMINISTE (target_met — un fait), le verdict
+// STATISTIQUE reste celui de l'engagement K1 (bande de bruit + gardes — décision étape 3),
+// les deux affichés, jamais confondus. days.astro et monitor.astro legacy jusqu'à la bascule.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const locParam = Astro.url.searchParams.get("location_id") || "";
+const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Événement — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="evt-root" data-loc={locParam} data-item={itemParam}>
+      <div id="evt-toolbar" style="margin-bottom:14px;"><a href="/app/insightevent/pulse" style="font-size:14px;color:#6b7280;text-decoration:none;">← Retour à Pulse</a></div>
+      <div id="evt-head" style="margin-bottom:12px;">
+        <div style="font-size:15px;font-weight:600;color:#111827;">Nouvel événement</div>
+        <div style="font-size:12px;color:#6b7280;line-height:1.5;">Un événement porte son dispositif, son objectif (le KPI que le verdict jugera) et, s’il se répète, sa série — la mesure se crée avec lui.</div>
+      </div>
+      <div id="evt-body" style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,0.06);padding:14px 16px;">Chargement…</div>
+    </div>
+
+    <style is:global>
+      #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+    </style>
+
+    <script is:inline src="/event-form.js?v=4"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("evt-root");
+        var body = document.getElementById("evt-body");
+        var loc = root.getAttribute("data-loc") || "";
+        var item = root.getAttribute("data-item") || "";
+        if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
+        if (item) {
+          fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
+              if (!j.found) { body.textContent = j.reason || "Événement introuvable."; return; }
+              renderDossier(j);
+            })
+            .catch(function () { body.textContent = "Erreur de chargement."; });
+          return;
+        }
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
+        function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+        function signEur(n) { return (Number(n) >= 0 ? "+" : "−") + frInt(n) + " €"; }
+        var TONE = { ok: "#059669", warn: "#B45309", bad: "#e24b4a", info: "#6B7280" };
+        function dot(t) { return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (TONE[t] || TONE.info) + ';margin-right:7px;flex:none;margin-top:5px;"></span>'; }
+        function qLine(qu) {
+          return '<div style="display:flex;align-items:flex-start;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;line-height:1.5;">' + dot(qu.tone)
+            + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '') + '</span></div>';
+        }
+
+        // ── Le dossier à 3 états (protos v2.1/v3 validés) — la même matière provider,
+        //    densité différente : Décider (colonnes candidats), Avant (les 5 questions),
+        //    Après (KPI + série). Tout affichage en JJ/MM, montants frInt. ──
+        function renderDossier(j) {
+          var it = j.item; var stage = j.stage;
+          var states = [];
+          if (stage === "decider") states.push(["decider", "Décider"]);
+          if (j.avant_date) states.push(["avant", "Avant"]);
+          if (j.apres && j.apres.rows.length) states.push(["apres", "Après"]);
+          var current = stage === "decider" ? "decider" : (stage === "apres" ? "apres" : "avant");
+
+          var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
+            + '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr || "") + '</span>'
+            + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
+          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : it.kpi;
+          var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
+            + '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? " +" + frInt(it.kpi_target_pct) + " %" : "") + '</span></div>'
+            + '<div style="font-size:14px;font-weight:600;">' + esc(it.title) + '</div>'
+            + '<div style="font-size:12px;color:#6B7280;line-height:1.5;">' + (it.recurrence !== "none" ? "Série · " + it.dates.length + " occurrences" : "Dates : " + it.dates.map(frD).join(" · ")) + (it.author_person_name ? " · créé par " + esc(it.author_person_name) : "") + (it.dispositif ? "<br>Dispositif : " + esc(it.dispositif) : "") + '</div>';
+
+          var segHtml = states.length > 1
+            ? '<div style="margin:12px 0;"><span style="display:inline-flex;border:1px solid #1D3BB3;border-radius:8px;overflow:hidden;">'
+              + states.map(function (s) { return '<button type="button" data-ev-st="' + s[0] + '" style="font-size:12px;font-family:inherit;border:none;padding:6px 12px;cursor:pointer;background:' + (s[0] === current ? "#1D3BB3" : "#fff") + ';color:' + (s[0] === current ? "#fff" : "#1D3BB3") + ';">' + s[1] + '</button>'; }).join("")
+              + '</span></div>' : '<div style="margin:12px 0;"></div>';
+
+          // État Décider — colonnes candidats (les 5 questions + objectif par candidat).
+          var deciderHtml = "";
+          if (stage === "decider") {
+            var best = null;
+            j.days.forEach(function (d) { if (d.present && d.score != null && (!best || d.score > best.score)) best = d; });
+            deciderHtml = '<div data-ev-panel="decider"><div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:12px;min-width:520px;">'
+              + '<thead><tr><th style="text-align:left;width:120px;"></th>' + j.days.map(function (d) {
+                  return '<th style="text-align:left;padding:8px;border-bottom:1px solid rgba(0,0,0,0.08);"><strong>' + d.dow_fr.slice(0, 3) + " " + frD(d.date) + '</strong>' + (best && d.date === best.date ? ' <span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">recommandé</span>' : "") + '<br><span style="color:#9CA3AF;font-weight:400;">' + (d.score != null ? "score " + d.score + "/10" : "hors horizon") + '</span></th>';
+                }).join("") + '</tr></thead><tbody>'
+              + '<tr><td style="color:#6B7280;font-size:11px;text-transform:uppercase;padding:8px;">Objectif</td>' + j.days.map(function (d) {
+                  var o = d.objectif || {};
+                  return '<td style="padding:8px;border-bottom:1px solid #F3F4F6;">' + (o.expected_eur != null ? "attendu ≈ " + frInt(o.expected_eur) + " €" + (o.total_eur != null ? "<br><strong>total ≈ " + frInt(o.total_eur) + " €</strong>" : "") : "—") + '</td>';
+                }).join("") + '</tr>'
+              + '<tr><td style="color:#6B7280;font-size:11px;text-transform:uppercase;padding:8px;vertical-align:top;">Le jour</td>' + j.days.map(function (d) {
+                  return '<td style="padding:8px;border-bottom:1px solid #F3F4F6;vertical-align:top;">' + d.questions.map(qLine).join("") + '</td>';
+                }).join("") + '</tr>'
+              + '<tr><td></td>' + j.days.map(function (d) {
+                  return '<td style="padding:8px;">' + (d.date >= new Date().toISOString().slice(0, 10) ? '<button type="button" data-ev-choose="' + esc(d.date) + '" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Choisir</button>' : "") + '</td>';
+                }).join("") + '</tr></tbody></table></div>'
+              + (best ? '<div style="color:#1D3BB3;font-size:13px;font-weight:600;margin-top:8px;">Recommandé : ' + best.dow_fr + " " + frD(best.date) + ' — meilleur score du jour ; vérifiez ses lignes ci-dessus avant de choisir.</div>' : "")
+              + '<div data-ev-choose-msg style="display:none;margin-top:8px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;"></div></div>';
+          }
+
+          // État Avant — les 5 questions du jour visé.
+          var avantHtml = "";
+          if (j.avant_date) {
+            var day = null;
+            j.days.forEach(function (d) { if (d.date === j.avant_date) day = d; });
+            if (day) {
+              var o2 = day.objectif || {};
+              avantHtml = '<div data-ev-panel="avant"' + (current !== "avant" ? ' style="display:none;"' : "") + '>'
+                + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Le ' + day.dow_fr + " " + frD(day.date) + ' pour votre événement</div>'
+                + (day.score != null ? '<span style="font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">Score prévu : ' + day.score + '/10</span>' : "") + '</div>'
+                + day.questions.map(qLine).join("")
+                + (o2.expected_eur != null ? '<div style="font-size:12px;color:#6B7280;margin-top:8px;">Objectif : ' + esc(kpiLbl) + (o2.apport_eur != null ? " — apport visé " + signEur(o2.apport_eur) : "") + " · attendu du jour ≈ " + frInt(o2.expected_eur) + " €" + (o2.total_eur != null ? " → total visé ≈ " + frInt(o2.total_eur) + " €" : "") + '</div>' : "") + '</div>';
+            }
+          }
+
+          // État Après — mesuré par occurrence + série + Documenter.
+          var apresHtml = "";
+          if (j.apres && j.apres.rows.length) {
+            var last = null;
+            j.apres.rows.forEach(function (r) { if (r.gap_eur != null) last = r; });
+            var box = function (k, v, b) { return '<div style="flex:1;min-width:120px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:#9CA3AF;font-weight:600;">' + k + '</div><div style="font-size:15px;font-weight:600;margin-top:3px;">' + v + '</div><div style="font-size:10.5px;color:#9CA3AF;margin-top:2px;">' + b + '</div></div>'; };
+            var panel = "";
+            if (last) {
+              var domBox = it.kpi === "family_revenue" && last.family_rev != null
+                ? box("Famille " + esc(it.kpi_family || "") + " — objectif", frInt(last.family_rev) + " €", last.family_avg != null ? "vs " + frInt(last.family_avg) + " € sa moyenne journalière" : "") : "";
+              var chip = "";
+              if (last.target_met != null) {
+                var okT = last.target_met;
+                var detail = it.kpi === "family_revenue" && last.family_rev != null
+                  ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
+                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs attendu (cible +" + frInt(it.kpi_target_pct) + " %)"
+                  : "";
+                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span></div>';
+              }
+              panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date) + (last.verdict ? " · verdict statistique de l’engagement : " + esc(last.verdict) : " · verdict statistique au bilan de l’engagement") + '</div>'
+                + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + domBox
+                + box("CA total", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € attendu (" + signEur(last.gap_eur) + ")")
+                + (last.tickets != null ? box("Tickets", frInt(last.tickets), "vs " + frInt(last.tickets_base) + " habituel" + (last.tickets_delta_pct != null ? " (" + (last.tickets_delta_pct >= 0 ? "+" : "") + last.tickets_delta_pct + " %)" : "")) : "")
+                + (last.basket != null ? box("Panier moyen", String(last.basket).replace(".", ",") + " €", "vs " + String(last.basket_base).replace(".", ",") + " € habituel") : "") + '</div>';
+            }
+            var serieHtml = "";
+            if (j.apres.serie) {
+              var se = j.apres.serie;
+              serieHtml = '<div style="margin-top:12px;border-top:1px solid #F3F4F6;padding-top:10px;">'
+                + '<div style="display:flex;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:600;flex:1;">Série — ' + se.n_above + "/" + se.n_measured + ' occurrence(s) mesurée(s) au-dessus de l’attendu</div>'
+                + (se.sum_gap_eur != null ? '<div style="text-align:right;"><div style="font-size:15px;font-weight:600;color:' + (se.sum_gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + signEur(se.sum_gap_eur) + '</div><div style="font-size:10.5px;color:#9CA3AF;">mesuré · ' + se.n_measured + ' occ. — jamais extrapolé</div></div>' : "") + '</div>'
+                + j.apres.rows.map(function (r) {
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;"><span style="width:100px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
+                      + (r.gap_eur != null ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (r.gap_eur >= 0 ? "#059669" : "#B45309") + ';background:' + (r.gap_eur >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + signEur(r.gap_eur) + ' vs attendu</span>' : '<span style="font-size:11px;color:#9CA3AF;">pas de mesure</span>')
+                      + (r.family_rev != null ? '<span style="font-size:11.5px;color:#6B7280;">' + esc(it.kpi_family || "famille") + " " + frInt(r.family_rev) + " €</span>" : "")
+                      + (r.verdict ? '<span style="font-size:11px;color:#6B7280;">verdict : ' + esc(r.verdict) + '</span>' : "") + '</div>';
+                  }).join("")
+                + (se.next_date ? '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Prochaine occurrence : ' + frD(se.next_date) + ' — préparation en carte J-1.</div>' : "") + '</div>';
+            }
+            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + panel + serieHtml
+              + '<div style="display:flex;gap:8px;margin-top:12px;"><button type="button" data-ev-doc style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Documenter en dispositif</button><div data-ev-doc-msg style="display:none;font-size:12px;align-self:center;"></div></div></div>';
+          }
+
+          if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
+          body.innerHTML = head + segHtml + deciderHtml + avantHtml + apresHtml;
+          document.querySelector("#evt-head div").textContent = "Dossier d’événement";
+
+          body.querySelectorAll("[data-ev-st]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var k = b.getAttribute("data-ev-st");
+              body.querySelectorAll("[data-ev-st]").forEach(function (x) { var on = x === b; x.style.background = on ? "#1D3BB3" : "#fff"; x.style.color = on ? "#fff" : "#1D3BB3"; });
+              body.querySelectorAll("[data-ev-panel]").forEach(function (p) { p.style.display = p.getAttribute("data-ev-panel") === k ? "block" : "none"; });
+            });
+          });
+
+          // Choisir (état Décider) : selected_date + engagement ancré sur le jour (interim
+          // incrément 4 : seuil % dérivé de l'apport visé vs l'attendu du jour choisi).
+          body.querySelectorAll("[data-ev-choose]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var date = b.getAttribute("data-ev-choose");
+              var day2 = null; j.days.forEach(function (d) { if (d.date === date) day2 = d; });
+              var o3 = (day2 && day2.objectif) || {};
+              var pct = it.kpi_target_pct != null ? Math.round(it.kpi_target_pct)
+                : (o3.apport_eur != null && o3.expected_eur ? Math.max(1, Math.min(100, Math.round(100 * o3.apport_eur / o3.expected_eur))) : 10);
+              b.disabled = true; b.textContent = "Choix…";
+              fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, selected_date: date }) })
+                .then(function (r) { return r.json(); })
+                .then(function (u) {
+                  if (!u || !u.ok) throw new Error((u && u.error) || "Erreur");
+                  return fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+                    location_id: loc, origin_action_type: "event_" + (it.event_type || "autre"), saved_item_id: item,
+                    event_kpi: it.kpi || null, kpi_family: it.kpi_family || null,
+                    window_kind: "day_of", window_start_date: date, threshold_basis: "pct", threshold_pct: pct,
+                    committed_action_text: it.title + (it.dispositif ? " — " + it.dispositif : ""),
+                    owner_person_name: it.author_person_name || "—",
+                  }) }).then(function (r) { return r.json(); });
+                })
+                .then(function (c) {
+                  var m = body.querySelector("[data-ev-choose-msg]");
+                  m.style.display = "block";
+                  m.textContent = frD(date) + " choisi — " + (c && c.ok ? "engagement de mesure créé (fenêtre ancrée sur ce jour). Rechargement…" : "événement mis à jour, mais engagement non créé (" + ((c && c.error) || "erreur") + ").");
+                  if (c && c.ok) setTimeout(function () { window.location.reload(); }, 1200);
+                })
+                .catch(function (e) { b.disabled = false; b.textContent = "Choisir"; alert("Erreur : " + (e && e.message ? e.message : "réessayez")); });
+            });
+          });
+
+          // Documenter en dispositif (Après) : la fiche pré-remplie de l'événement.
+          var docBtn = body.querySelector("[data-ev-doc]");
+          if (docBtn) docBtn.addEventListener("click", function () {
+            var msg = body.querySelector("[data-ev-doc-msg]");
+            var evid = j.apres.rows.filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs attendu"; }).join(" ; ");
+            docBtn.disabled = true;
+            fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              location_id: loc,
+              practice_text: (it.dispositif || it.title) + " (événement « " + it.title + " »)",
+              evidence_refs: evid || null,
+              confirmation_test: "La prochaine occurrence dépasse l’attendu du jour",
+              origin: { origin_action_type: "event_" + (it.event_type || "autre") },
+            }) }).then(function (r) { return r.json(); }).then(function (p) {
+              msg.style.display = "block";
+              msg.style.color = p && p.ok ? "#166534" : "#B91C1C";
+              msg.textContent = p && p.ok ? "Versé à vos bonnes pratiques — tier déclaré ; le rejeu, c’est la prochaine occurrence." : "Erreur : " + ((p && p.error) || "réessayez");
+              if (!(p && p.ok)) docBtn.disabled = false;
+            }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; docBtn.disabled = false; });
+          });
+        }
+        if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
+        // Pré-remplissage depuis la planification : ?dates=Y-m-d,Y-m-d,… (le futur câblage du
+        // bouton « Enregistrer ces jours » de days.astro — bascule finale).
+        var pre = String(new URLSearchParams(window.location.search).get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+        window.MSEventForm.open(body, { location_id: loc, dates: pre });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

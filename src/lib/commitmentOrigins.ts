@@ -142,5 +142,9 @@ export function isCommitmentOrigin(actionType: unknown): boolean {
   // location × motif, sans date). Préfixe plutôt que liste : le registre des classes est
   // LA source de vérité, on ne la duplique pas ici.
   if (t.startsWith("structural_")) return true;
+  // Événements utilisateur (03/08, spec docs/evenement-dossier-spec.md § 1.3) : un événement
+  // crée son engagement de mesure avec origin_action_type = `event_<event_type>` (types de
+  // lib/eventTypes — même logique de préfixe : le registre des types est LA source de vérité).
+  if (t.startsWith("event_")) return true;
   return COMMITMENT_ORIGIN_ACTION_TYPES.has(t);
 }

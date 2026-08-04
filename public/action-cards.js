@@ -1795,6 +1795,59 @@
     }
   );
 
+  // ═══ CARTES DE CYCLE DE VIE DES ÉVÉNEMENTS (03/08, spec evenement-dossier § 5) ═══
+  // Payload serveur (lib/eventLifecycleCards) : occurrence_date, saved_item_id, event_title,
+  // dispositif, event_nature, hour_start/end, kpi(_family), weather_label_fr/lvl_*, revenue/
+  // expected/gap_eur. « Consulter la source » route vers le DOSSIER (/evenement) — branche
+  // saved_item_id dans pulse.openConsultForCard.
+  function msEvFrD(iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) : ''; }
+  function msEvHours(a) { return (a.hour_start != null && a.hour_end != null) ? ' (' + a.hour_start + ' h \u2013 ' + a.hour_end + ' h)' : ''; }
+
+  reg('event_threat', 'Votre \u00e9v\u00e9nement est expos\u00e9 \u2014 m\u00e9t\u00e9o', '\u00c9V\u00c9NEMENT', '\u26a0\ufe0f', '#D32F2F', 'action', 'pulse#day-detail',
+    function(a) {
+      var w = a.weather_label_fr ? String(a.weather_label_fr) : 'm\u00e9t\u00e9o d\u00e9grad\u00e9e';
+      return {
+        context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb le ' + msEvFrD(a.occurrence_date) + msEvHours(a) + ' : ' + w + ' (niveau ' + (a.lvl_max != null ? a.lvl_max : '?') + ') annonc\u00e9e \u2014 votre dispositif est ' + (a.event_nature === 'both' ? 'en partie ext\u00e9rieur' : 'EXT\u00c9RIEUR') + ', directement expos\u00e9.',
+        action: '\u00c0 adapter : repli int\u00e9rieur ou dispositif abrit\u00e9 \u2014 d\u00e9cision la veille.'
+      };
+    },
+    { note_interne: function(a, p) { return 'Note interne ' + siteName(p) + '. \u00c9v\u00e9nement \u00ab ' + (a.event_title || '') + ' \u00bb du ' + msEvFrD(a.occurrence_date) + ' : alerte ' + (a.weather_label_fr || 'm\u00e9t\u00e9o') + ' \u2014 pr\u00e9parons le repli int\u00e9rieur ou l\u2019abri du dispositif, d\u00e9cision la veille.'; } }
+  );
+
+  reg('event_decision_due', 'Choisissez le jour de votre \u00e9v\u00e9nement', '\u00c9V\u00c9NEMENT', '\u23f3', '#B45309', 'action', 'pulse#day-detail',
+    function(a) {
+      return {
+        context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb : d\u00e9cision avant le ' + msEvFrD(a.decision_date) + ' \u2014 la comparaison de vos jours candidats est pr\u00eate. Sans choix, pas de mesure.',
+        action: '\u00c0 faire : ouvrir la comparaison et choisir le jour.'
+      };
+    }
+  );
+
+  reg('event_prepare', 'Demain : pr\u00e9parez le d\u00e9clenchement', '\u00c9V\u00c9NEMENT', '\ud83d\udcc5', '#1565C0', 'action', 'pulse#day-detail',
+    function(a) {
+      var met = a.weather_label_fr ? ('M\u00e9t\u00e9o demain : ' + a.weather_label_fr + (Number(a.lvl_heat || 0) >= 2 ? ' \u2014 chaleur marqu\u00e9e' : '') + '.') : 'M\u00e9t\u00e9o demain : hors donn\u00e9es \u00e0 cette heure.';
+      return {
+        context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb demain ' + msEvFrD(a.occurrence_date) + msEvHours(a) + '. ' + (a.dispositif ? 'Dispositif : ' + a.dispositif + ' ' : '') + met,
+        action: '\u00c0 faire : briefer l\u2019\u00e9quipe ce soir \u2014 Communiquer pr\u00e9-rempli.'
+      };
+    },
+    { note_interne: function(a, p) { return 'Note interne ' + siteName(p) + '. Demain ' + msEvFrD(a.occurrence_date) + ' : \u00ab ' + (a.event_title || '') + ' \u00bb' + msEvHours(a) + '. ' + (a.dispositif ? 'Le dispositif : ' + a.dispositif + ' ' : '') + 'Chacun conna\u00eet son r\u00f4le \u2014 questions ce soir.'; } }
+  );
+
+  reg('event_measure', 'R\u00e9sultat d\u2019hier \u2014 documentez ce qui a march\u00e9', '\u00c9V\u00c9NEMENT', '\ud83d\udcca', '#1565C0', 'action', 'pulse#day-detail',
+    function(a) {
+      var line = '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb hier ' + msEvFrD(a.occurrence_date) + ' : ';
+      if (a.revenue != null && a.expected != null) {
+        var g = Number(a.gap_eur || 0);
+        line += 'CA ' + Math.round(Number(a.revenue)) + ' \u20ac contre ' + Math.round(Number(a.expected)) + ' \u20ac attendu du jour (' + (g >= 0 ? '+' : '\u2212') + Math.abs(Math.round(g)) + ' \u20ac).';
+      } else {
+        line += 'ventes pas encore ing\u00e9r\u00e9es \u2014 le mesur\u00e9 arrive avec l\u2019import.';
+      }
+      if (a.kpi === 'family_revenue' && a.kpi_family) line += ' Cible famille ' + a.kpi_family + ' : verdict au dossier.';
+      return { context: line, action: '\u00c0 faire : documenter ce qui a march\u00e9 \u2014 la fiche se pr\u00e9-remplit depuis le dossier (30 secondes).' };
+    }
+  );
+
   // Weekday named explicitly from a card's date — "vos samedis", never "vos jours comparables".
   var MS_DOW_FR_PLURAL = ['dimanches', 'lundis', 'mardis', 'mercredis', 'jeudis', 'vendredis', 'samedis'];
   window.msWeekdayFr = function (dateStr) {

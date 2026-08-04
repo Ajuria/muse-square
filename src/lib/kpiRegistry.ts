@@ -38,7 +38,10 @@ export type KpiKey =
   | "basket"             // K4 — daily_avg_basket
   | "transactions"       // K5 — daily_transactions
   | "discount"           // K6 — daily_discount_total
-  | "reputation";        // K7 — no own-venue source yet: key exists, measurement stays NULL
+  | "reputation"         // K7 — no own-venue source yet: key exists, measurement stays NULL
+  | "family_revenue";    // K8 — CA journalier d'UNE famille produit (événements, 03/08) : PARAMÉTRÉ
+                         //      (nom de famille via saved_items.kpi_family, rejoint par saved_item_id)
+                         //      → mesuré par measureFamilyRevenueMean, PAS par KPI_EXPR.
 
 // SQL expression per measurable KPI (daily mean over the period). NULL-safe: AVG ignores NULLs.
 const KPI_EXPR: Partial<Record<KpiKey, string>> = {
@@ -57,7 +60,53 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
   transactions: "tickets/jour",
   discount: "€ remisés/jour",
   reputation: "note Google",
+  family_revenue: "CA famille/jour",
 };
+
+// ── Événements (03/08, spec evenement-dossier § 1.3) — le KPI déclaré sur l'événement
+// (saved_items.kpi) → la clé de mesure du registre. Foyer UNIQUE du mapping : les clients
+// envoient event_kpi brut, le POST commitments traduit ici.
+const EVENT_KPI: Record<string, KpiKey> = {
+  revenue_residual: "revenue_residual",
+  family_revenue: "family_revenue",
+  tickets: "transactions",
+  basket: "basket",
+  visitors: "footfall",
+};
+export function kpiKeyForEventKpi(eventKpi: string | null | undefined): KpiKey | null {
+  const k = String(eventKpi || "").trim();
+  return (k && EVENT_KPI[k]) || null;
+}
+
+// K8 — CA journalier moyen d'une famille produit sur une période (même référentiel que les
+// movers : lignes raw.client_transactions). NULL-safe ; < 1 jour de ventes → null.
+export async function measureFamilyRevenueMean(bq: any, location_id: string, family: string, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
+  const rows = await bq.query({
+    query: `
+      SELECT SUM(revenue) / COUNT(DISTINCT transaction_date) AS v, COUNT(DISTINCT transaction_date) AS n
+      FROM \`${PROJECT}.raw.client_transactions\`
+      WHERE location_id = @location_id AND item_category = @family
+        AND transaction_date BETWEEN @start AND @end
+    `,
+    params: { location_id, family, start: bq.date(start), end: bq.date(end) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const row = (rows as any[])[0];
+  const v = Number(row?.v ?? NaN);
+  const n = Number(row?.n ?? 0);
+  if (!Number.isFinite(v) || n < 1) return null;
+  return { value: Math.round(v * 1000) / 1000, n_days: n };
+}
+
+/** Baseline famille = 30 j glissants AVANT la fenêtre (même convention que measureKpiBaseline). */
+export async function measureFamilyBaseline(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+  const end = new Date(window_start + "T00:00:00Z");
+  end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 29);
+  const res = await measureFamilyRevenueMean(bq, location_id, family, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10));
+  return res && res.n_days >= 5 ? res.value : null;
+}
 
 // kpi = f(type de carte, driver). Drivers = DRIVER_SET de /api/commitments (conversion, basket,
 // footfall, transactions). Cartes à KPI propre d'abord ; sinon le driver décide ; sinon K1.

@@ -14,6 +14,8 @@ import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/gr
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
 import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
+import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
+import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
@@ -2385,6 +2387,31 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       );
     }
 
+    // ── VOS ÉVÉNEMENTS (incrément 6, 04/08) — une question POSSESSIVE sur les événements de
+    // l'utilisateur répond DÉTERMINISTE depuis la base (même patron que « vos dispositifs »).
+    // Précision d'abord : « événement » est un mot chargé (paysage concurrent, calendrier) —
+    // la branche ne s'arme QUE sur le possessif (mes/mon/nos événements, mon lancement) ;
+    // « les événements demain » reste la famille events existante.
+    if (/\b(m(es|on)|nos|notre)\s+(événements?|évènements?|evenements?|lancements?)\b/i.test(qRaw)) {
+      const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _evRows = await listUserEvenements(_bqe, location_id, clerk_user_id || "", 6);
+      const _frDe = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
+      if (_evRows.length) {
+        const _lines = _evRows.map((e) =>
+          `« ${e.title} » — ${e.type_label_fr || "type non renseigné"}${e.recurring ? ` (récurrent, ${e.n_occurrences} occurrences)` : ""}${e.next_date ? ` ; prochaine occurrence le ${_frDe(e.next_date)}` : " ; aucune occurrence à venir"}${e.last_measured ? ` ; dernière mesure (${_frDe(e.last_measured.date)}) : CA ${e.last_measured.revenue} € contre ${e.last_measured.expected} € attendu (${e.last_measured.gap_eur >= 0 ? "+" : "-"}${Math.abs(e.last_measured.gap_eur)} €)` : ""}.`);
+        return sysDialogueResponse(
+          _evRows.length === 1 ? "Votre événement" : "Vos événements",
+          _lines.join("\n\n") + "\n\nLe détail (5 questions du jour, cible, série) vit dans le dossier de chaque événement.",
+          "deterministic_evenements_v1",
+        );
+      }
+      return sysDialogueResponse(
+        "Aucun événement",
+        "Vous n'avez pas encore d'événement. Créez-en un depuis Mes dates (« Nouvel événement ») : dispositif, objectif chiffré, récurrence — la mesure se crée avec lui.",
+        "deterministic_evenements_v1",
+      );
+    }
+
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
     // or « ma marge moyenne est de 62 % » would itself trigger the elicit). The registry
     // (declaredMetrics.ts) owns the parsers/bounds; the declaration is persisted to the corrections
@@ -4720,6 +4747,12 @@ Règles :
           console.warn("[grounded] practice facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // Incrément 6 (04/08) — vos ÉVÉNEMENTS entrent aussi dans la liste blanche des réponses
+        // jour (fiche + prochaine occurrence + dernière mesure), même patron parallèle.
+        const _eventsP = buildEventFacts(location_id, clerk_user_id).catch((e) => {
+          console.warn("[grounded] event facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         try {
           // Family resolution: the question's own keywords first; on an inherited continuation with no
           // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
@@ -4731,6 +4764,7 @@ Règles :
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
         const _practices = await _practicesP;
+        const _events = await _eventsP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
@@ -4760,11 +4794,11 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts] },
+              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts, ..._events.facts] },
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts, ..._events.facts] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical

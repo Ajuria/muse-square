@@ -688,7 +688,9 @@
         + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';
     }
     var holidayNote = '';
-    if (windowHoliday && hn && hn.pct != null) {
+    // Jour 0 (03/08) : fenêtre ouverte SANS aucun jour mesuré → pas de note de partage vacances
+    // (elle lirait received[-1] — le crash « Consulter l'évolution » du jour de création).
+    if (windowHoliday && hn && hn.pct != null && (received.length || !open)) {
       var _sitPct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
       holidayNote = '<div style="margin-top:10px;font-size:12.5px;color:#92610a;background:#FFF8EC;border:1px solid #FBE8C3;border-radius:8px;padding:9px 12px;">'
         + esc(t('q1_split_inputs', { sit: (_sitPct >= 0 ? '+' : '') + fr(_sitPct), hol: (hn.pct >= 0 ? '+' : '') + fr(hn.pct) }));

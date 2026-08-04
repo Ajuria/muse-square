@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto v2 — Événement : formulaire fusionné M'engager + dossier à deux états</title>
+<style>
+  :root {
+    --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45);
+    --green:#059669; --amber:#B45309; --red:#e24b4a; --blue:#1D3BB3;
+  }
+  body { margin:0; background:var(--color-bg-page); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 16px 90px; }
+  h1 { font-size:17px; margin:0 0 6px; }
+  .note { font-size:12px; color:var(--color-text-secondary); line-height:1.55; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-text-muted); font-weight:600; margin:26px 0 8px; }
+  .card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06); padding:14px 16px; }
+  .chip { display:inline-flex; align-items:center; font-size:12px; padding:3px 9px; border-radius:20px; background:#F3F4F6; color:#6b7280; white-space:nowrap; }
+  .chip.blue { background:#EEF2FF; color:var(--blue); }
+  .chip.green { background:#E6F6F0; color:var(--green); }
+  .chip.red { background:#FDECEC; color:var(--red); }
+  .what { font-size:14px; font-weight:600; line-height:1.35; margin-bottom:4px; }
+  .sub { font-size:12px; color:#6B7280; line-height:1.45; }
+  .amt { text-align:right; cursor:help; }
+  .amt-val { font-size:16px; font-weight:600; white-space:nowrap; }
+  .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+  .hov { text-decoration:underline dotted rgba(156,163,175,0.8); text-underline-offset:2px; cursor:help; }
+  .btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:var(--blue); border:1px solid var(--blue); border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+  .btn.ghost { border-color:var(--color-border); color:#6B7280; }
+  .field { margin:10px 0; }
+  .field label { display:block; font-size:10.5px; font-weight:600; color:#6B7280; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .field input, .field select, .field textarea { width:100%; box-sizing:border-box; font-size:12.5px; color:#111827; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; padding:8px 10px; font-family:inherit; }
+  .row2 { display:flex; gap:12px; } .row2 > .field { flex:1; }
+  .kpirow { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+  .kpibox { flex:1; min-width:130px; border:1px solid var(--color-border); border-radius:8px; padding:10px 12px; }
+  .kpibox.dom { border-color:rgba(29,59,179,0.4); background:#FAFBFF; }
+  .kpibox .k { font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:#9CA3AF; font-weight:600; }
+  .kpibox .v { font-size:15px; font-weight:600; margin-top:3px; }
+  .kpibox .b { font-size:10.5px; color:#9CA3AF; margin-top:2px; }
+  .verdict { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--green); background:#E6F6F0; border-radius:20px; padding:4px 11px; }
+  .pill { display:inline-flex; font-size:11px; font-weight:600; border-radius:20px; padding:3px 9px; }
+  .pill.g { color:var(--green); background:#E6F6F0; } .pill.a { color:var(--amber); background:#FEF3E2; }
+  .aline { color:var(--blue); font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .occ { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #F3F4F6; font-size:12.5px; }
+  .occ .d { width:110px; font-weight:600; }
+  .hidden { display:none; }
+  .seg { display:inline-flex; border:1px solid var(--blue); border-radius:8px; overflow:hidden; }
+  .seg button { font-size:12px; font-family:inherit; border:none; padding:6px 12px; cursor:pointer; background:#fff; color:var(--blue); }
+  .seg button.on { background:var(--blue); color:#fff; }
+  .objbox { border:1px solid rgba(29,59,179,0.25); border-radius:8px; padding:10px 12px; background:#FAFBFF; margin-top:6px; }
+  .to { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid #F3F4F6; font-size:12.5px; line-height:1.5; }
+  .to:last-child { border-bottom:none; }
+  .to .ic { flex:none; width:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proto v2 — l'événement, formulaire fusionné M'engager + dossier à deux états</h1>
+  <div class="note">Remarques owner intégrées : types pilotés par le métier du lieu · description = le DISPOSITIF, avec son
+  créateur · cible façon M'engager (attendu affiché, %⇄€, plancher de bruit, raccourcis) · « Du X au Y » · échéance de
+  choix en case à cocher, jamais par défaut · nature intérieur/extérieur + horaires (elle conditionne les menaces) ·
+  dossier en DEUX états (avant : menaces &amp; opportunités de la date × nature ; après : KPI + agir) · le tout dans la
+  famille cartes + pages insight. Basculez le dossier avec « Avant / Après ».</div>
+
+  <!-- ============ ① CRÉATION ============ -->
+  <div class="eb">① Création — les champs de M'engager + les champs propres à l'événement</div>
+  <div class="card">
+    <div class="row2">
+      <div class="field"><label>Site</label><input readonly value="Boutique — Muse Square Occitanie · commerce de bouche" style="background:#FAFAFA;color:#6b7280;"></div>
+      <div class="field"><label>Nom de l'événement</label><input value="Samedis producteurs locaux"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Type — <span class="hov" title="Liste servie selon le métier du lieu (location_type/industrie). Un musée verrait : vernissage, nocturne, atelier… ; liste générique en repli.">selon votre métier</span></label>
+        <select><option>Venue de producteurs / fournisseurs</option><option>Lancement produit</option><option>Dégustation</option><option>Animation en boutique</option><option>Menu / offre spéciale</option><option>Marché / stand extérieur</option><option>Portes ouvertes</option><option>Autre…</option></select></div>
+      <div class="field"><label>Nature — conditionne les menaces</label>
+        <div class="seg" id="nat-seg"><button type="button" class="on">Extérieur</button><button type="button">Intérieur</button><button type="button">Les deux</button></div>
+        <span style="display:inline-block;margin-left:10px;font-size:12.5px;color:#374151;">de <input value="10" style="width:34px;padding:4px 6px;border:1px solid rgba(0,0,0,0.12);border-radius:6px;font-size:12px;text-align:center;"> h à <input value="13" style="width:34px;padding:4px 6px;border:1px solid rgba(0,0,0,0.12);border-radius:6px;font-size:12px;text-align:center;"> h</span>
+      </div>
+    </div>
+    <div class="field"><label>Le dispositif — ce que vous allez faire (comparé au mesuré, versé à vos bonnes pratiques)</label>
+      <textarea rows="2">Stand des producteurs devant la boutique, dégustation, mise en avant de leurs produits en caisse.</textarea></div>
+    <div class="row2">
+      <div class="field"><label>Créateur / responsable</label><select><option>Julen de Ajuriaguerra · CEO</option><option>Poeiti Barnier · Data Analyst</option></select></div>
+      <div class="field"><label>Objectif — le KPI que le verdict jugera</label>
+        <select><option>CA de la famille « Producteurs locaux » vs sa moyenne — mesuré</option><option>CA vs attendu du jour — mesuré, verdict fort</option><option>Panier moyen vs habituel (base 30 j)</option><option>Tickets vs habituel (base 30 j)</option><option disabled>Profit estimé — indisponible : marge non déclarée</option></select></div>
+    </div>
+    <!-- Cible façon M'engager -->
+    <div class="objbox">
+      <div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Cible — l'objectif porte sur l'ÉVÉNEMENT ; le total du jour en est la conséquence</div>
+      <div class="sub" style="font-size:12.5px;color:#111827;"><strong>L'événement</strong> : famille Producteurs — 96 € un samedi ordinaire → vous visez <strong id="obj-evt" style="color:var(--blue);">210 €</strong> <span class="hov" title="L'apport PROPRE du dispositif — c'est LUI que le verdict jugera. Même doctrine que le coin des cartes : jamais deux objets avec le même impact.">(l'apport propre : +114 €)</span></div>
+      <div class="sub" style="margin-top:4px;"><strong>Au total</strong> : samedi habituel ≈ 1 099 € <span class="hov" title="Calculé sur vos ventes réelles — le même attendu que M'engager. Affiché pour que vous voyiez l'événement + la journée entière ; le verdict ne juge que la ligne du dessus.">(vos ventes réelles)</span> + l'apport visé → <strong id="obj-tot">≈ 1 215 €</strong> de journée</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <span class="sub" style="color:#9CA3AF;">Pour un récurrent, la cible vaut pour chaque occurrence.</span>
+        <span style="margin-left:auto;display:flex;gap:6px;">
+          <button type="button" class="btn ghost" data-obj-evt="210 €" data-obj-plus="+114 €" data-obj-tot="≈ 1 215 €">Modeste — 210 €</button>
+          <button type="button" class="btn ghost" data-obj-evt="240 €" data-obj-plus="+144 €" data-obj-tot="≈ 1 245 €">Net — 240 €</button>
+        </span>
+      </div>
+      <div class="aline" id="obj-line">Objectif : 210 € de famille Producteurs par occurrence — verdict après chaque occurrence.</div>
+    </div>
+
+    <div class="field" style="margin-top:14px;"><label>Répéter</label>
+      <div class="seg" id="rep-seg">
+        <button type="button" data-rep="none">Aucune</button>
+        <button type="button" data-rep="weekly" class="on">Toutes les semaines — samedi</button>
+        <button type="button" data-rep="monthly">Tous les mois</button>
+      </div>
+    </div>
+    <div id="blk-recurrent">
+      <div class="row2">
+        <div class="field"><label>Du</label><input value="08/08/2026"></div>
+        <div class="field"><label>Au</label><input value="26/09/2026"></div>
+        <div class="field" style="flex:2;"><label>Occurrences (générées)</label><input readonly value="sam 08/08 · 15/08 · 22/08 · 29/08 · 05/09 · …" style="background:#FAFAFA;color:#6b7280;"></div>
+      </div>
+      <div class="sub">Récurrent = pas d'étape de choix — un engagement de mesure par occurrence, la série cumule les verdicts.</div>
+    </div>
+    <div id="blk-ponctuel" class="hidden">
+      <div class="field"><label>Options de dates (comparées, puis choisies)</label><input value="ven 14/08 · sam 15/08 · sam 22/08"></div>
+      <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin:6px 0;">
+        <input type="checkbox" id="ddl-check" style="width:auto;"> Fixer une date limite de choix
+      </label>
+      <div id="ddl-field" class="field hidden" style="max-width:220px;"><label>Date limite</label><input value="10/08/2026"></div>
+    </div>
+    <div style="display:flex;margin-top:10px;"><span style="margin-left:auto;"><button class="btn">Créer l'événement — l'engagement de mesure se crée avec</button></span></div>
+  </div>
+
+  <!-- ============ ② DOSSIER — DEUX ÉTATS ============ -->
+  <div class="eb">② Le dossier (/evenement) — une page de la famille insight, deux états</div>
+  <div style="margin-bottom:10px;"><span class="seg" id="st-seg"><button type="button" data-st="avant" class="on">Avant l'événement</button><button type="button" data-st="apres">Après le début</button></span></div>
+
+  <!-- En-tête commun -->
+  <div class="card">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">
+      <span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">Venue de producteurs</span><span class="chip">Extérieur · 10 h – 13 h</span><span class="chip green">Objectif : Producteurs 210 € (apport +114 €)</span>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div class="what">Samedis producteurs locaux — sam 08/08</div>
+        <div class="sub">Occurrence 1/8 · créé par Julen de Ajuriaguerra · dispositif : stand + dégustation + mise en avant caisse.</div>
+      </div>
+      <div class="amt" id="hd-amt" title="Avant : la cible (apport propre visé). Après : l'apport propre mesuré — le verdict porte sur lui."><div class="amt-val" style="color:var(--blue);">+114 €</div><div class="amt-sub">votre objectif · apport propre</div></div>
+    </div>
+  </div>
+
+  <!-- État AVANT — les 5 questions de l'exploitant, chacune répondue par les données du legacy,
+       conditionnées par la nature de l'événement, finissant sur un geste. -->
+  <div id="st-avant">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div class="eb" style="margin:0;flex:1;">Le sam 08/08 pour votre événement — 5 questions, réponses sourcées</div>
+        <span class="chip">Score du jour prévu : <strong>&nbsp;7,2/10</strong></span>
+      </div>
+      <div class="to"><span class="ic">👥</span><span><strong>Vos clients cibles seront-ils là ?</strong> Samedi de vacances scolaires : vos <span class="hov" title="Audiences 1 & 2 du profil du lieu, croisées avec le profil du jour (vacances, affluence attendue delta_att) — données du legacy monitor.">familles locales (audience 1)</span> sont là ; vos actifs de bureau (audience 2) moins. L'audience visée par l'événement est servie.</span></div>
+      <div class="to"><span class="ic">🚚</span><span><strong>Peut-on venir chez vous — clients ET fournisseurs ?</strong><br>
+        <strong>Route</strong> : travaux quai des Arts samedi matin — vos PRODUCTEURS arrivent par la route avec la marchandise. <span class="aline" style="display:inline;">Prévenez-les cette semaine ; accès livraison par la rue Sud.</span><br>
+        <strong>Métro / tram</strong> : service normal — vos CLIENTS ne sont pas affectés <span class="hov" title="Perturbations mobilité existantes en base (catégorie, statut régional) — servies en DEUX populations : l'événement a des fournisseurs ET des clients, ils ne viennent pas par le même chemin.">(vérifié)</span>.</span></div>
+      <div class="to"><span class="ic">📅</span><span><strong>Qui d'autre joue ce jour-là ?</strong> Marché de la place (600 m, 8 h – 13 h) — même audience, flux <span class="hov" title="Score de conflit des signaux concurrents (dates × industrie × audience), lu au rayon de VOTRE périmètre client. Un événement voisin de même audience peut nourrir votre flux plutôt que le voler — le conflit direct sur votre créneau est vérifié séparément.">partageable : synergie probable</span>. Aucun conflit direct sur votre créneau 10 h – 13 h.</span></div>
+      <div class="to"><span class="ic">⚠️</span><span><strong>La météo menace-t-elle le dispositif ?</strong> Alerte vent niveau 4 annoncée — votre dispositif est EXTÉRIEUR : le stand est directement exposé. <span class="aline" style="display:inline;">Prévoir le repli intérieur ou lester/abriter — décision la veille.</span></span></div>
+      <div class="to"><span class="ic">🟢</span><span><strong>Et la concurrence ?</strong> Fenêtre calme — l'activité autour de vous sera inférieure de 81 % à votre moyenne : vos jours calmes vous réussissent (+9 964 €/an mesuré sur ce motif).</span></div>
+      <div class="sub" style="margin-top:8px;">Objectif : famille Producteurs <strong>210 €</strong> (apport visé +114 €) — attendu du samedi ≈ 1 099 €, contexte gelé au jour J <span class="hov" title="Le snapshot existant (score, météo, concurrence) — l'attendu du verdict est celui du modèle, pas une promesse.">(snapshot)</span>.</div>
+    </div>
+    <div class="sub" style="margin:0 0 12px 4px;color:#9CA3AF;">Chaque ligne = un fait du legacy monitor (score, delta_att, mobilité, événements 500 m/5 km, pression) recadré « et pour votre événement ? » + le geste. Événement ponctuel : ce même état porte la comparaison des candidats + « Choisir » ; les cartes « Échéance » et « J-1 » sortent d'ici.</div>
+  </div>
+
+  <!-- État APRÈS -->
+  <div id="st-apres" class="hidden">
+    <div class="card">
+      <div class="eb" style="margin:0 0 8px;">Suivre le KPI — verdict sur l'objectif, panneau complet mesuré</div>
+      <div style="margin-bottom:10px;"><span class="verdict">✓ Objectif atteint — famille Producteurs 212 € (cible 210 €), apport propre +116 €</span></div>
+      <div class="kpirow">
+        <div class="kpibox dom"><div class="k">Famille Producteurs — objectif</div><div class="v" style="color:var(--green);">212 €</div><div class="b">vs 96 € sa moyenne journalière</div></div>
+        <div class="kpibox"><div class="k">CA total</div><div class="v" style="color:var(--green);">873 €</div><div class="b">vs 734 € attendu du jour (+19 %)</div></div>
+        <div class="kpibox"><div class="k">Tickets</div><div class="v">196</div><div class="b">vs 178 habituel (+10 %)</div></div>
+        <div class="kpibox"><div class="k">Panier moyen</div><div class="v">4,45 €</div><div class="b">vs 4,12 € habituel (+8 %)</div></div>
+      </div>
+      <div class="sub" style="margin-top:10px;"><span class="hov" title="Le CA a un modèle d'attendu (jour de semaine + tendance, gardes de confusion — la boucle d'engagement). Tickets/panier n'ont qu'une base « habituel ».">Chaque chiffre porte son référentiel</span> · confondants : <span class="hov" title="Vacances scolaires, météo, événements voisins — le verdict n'est jamais rendu sur un jour confondu sans le dire.">aucun ce jour-là</span>.</div>
+    </div>
+    <div class="card">
+      <div class="eb" style="margin:0 0 8px;">Agir — comme toute page insight de la famille</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="btn-doc">Documenter en dispositif</button>
+        <button class="btn ghost">Bilan déclaratif (3 questions)</button>
+        <button class="btn ghost">Communiquer en interne</button>
+      </div>
+      <div id="doc-done" class="hidden" style="margin-top:10px;font-size:12px;color:#166534;">Fiche pré-remplie depuis l'événement (dispositif + auteur + jours mesurés) → vos bonnes pratiques, tier déclaré ; le rejeu = la prochaine occurrence, mesure automatique.</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;">
+        <div style="flex:1;min-width:0;">
+          <div class="what">Série — track record <span style="color:#B45309;font-weight:500;font-size:12px;">(illustratif)</span></div>
+          <div class="sub">5 occurrences mesurées au-dessus de l'attendu · médiane <strong>+212 €</strong></div>
+        </div>
+        <div class="amt" title="Somme des écarts mesurés — jamais extrapolée."><div class="amt-val" style="color:var(--green);">+1 043 €</div><div class="amt-sub">mesuré · 5 occurrences</div></div>
+      </div>
+      <div class="occ"><span class="d">sam 08/08</span><span class="pill g">+241 € vs attendu</span><span class="sub">Producteurs 236 €</span></div>
+      <div class="occ"><span class="d">sam 15/08</span><span class="pill g">+212 € vs attendu</span><span class="sub">Producteurs 198 €</span></div>
+      <div class="occ"><span class="d">sam 22/08</span><span class="pill a">−48 € vs attendu</span><span class="sub">pluie marquée — confondant signalé</span></div>
+      <div class="occ" style="border-bottom:none;"><span class="d">sam 29/08</span><span class="chip">à venir — carte « J-1 Préparer »</span></div>
+      <div class="aline" style="margin-top:10px;">5 mesures au-dessus → le dispositif « Samedis producteurs » peut passer à « prouvé » — €/an au rythme CONSTATÉ, jamais estimé.</div>
+    </div>
+  </div>
+
+  <!-- ============ ③ CARTES DE LA FAMILLE ============ -->
+  <div class="eb">③ Les cartes de la famille événement — feed Pulse, menu Agir standard (3 entrées)</div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip red">Menace</span></div>
+    <div class="what">Vent niveau 4 annoncé samedi — votre stand producteurs est extérieur</div>
+    <div class="sub">L'alerte tombe sur l'occurrence du 08/08 (10 h – 13 h). Site exposé, dispositif dehors.</div>
+    <div class="aline">À adapter : repli intérieur ou stand abrité — décision vendredi soir.</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">Échéance</span></div>
+    <div class="what">Choisissez le jour de votre lancement — décision avant le 10/08</div>
+    <div class="sub">Comparaison des 3 jours candidats prête. Sans choix, pas de mesure. <em>(uniquement si la case « date limite » a été cochée)</em></div>
+    <div class="aline">À faire : ouvrir la comparaison et choisir.</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">J-1</span></div>
+    <div class="what">Demain : samedi producteurs — préparez le déclenchement</div>
+    <div class="sub">Dispositif : stand + dégustation dès 10 h. Météo demain : vent niveau 4 — voir la carte menace.</div>
+    <div class="aline">À faire : briefer l'équipe ce soir (Communiquer pré-rempli).</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;gap:5px;margin-bottom:6px;"><span class="chip blue">Événement</span><span class="chip">Boutique</span><span class="chip">J+1</span></div>
+    <div class="what">Résultat de samedi : +241 € vs attendu — documentez ce qui a marché</div>
+    <div class="sub">Famille Producteurs : 236 € (vs 96 € en moyenne). 2e occurrence au-dessus de l'attendu.</div>
+    <div class="aline">À faire : noter ce que vous referez — la fiche se pré-remplit de l'événement (30 secondes).</div>
+  </div>
+
+  <div class="note" style="margin-top:18px;"><strong>Ce que la v2 change (vs v1)</strong> — Formulaire : mêmes briques que
+  M'engager (attendu affiché, %⇄€, plancher de bruit, raccourcis, responsable) + champs propres (nom, type par métier,
+  nature extérieur/intérieur + horaires, dispositif décrit avec auteur, Répéter du X au Y, échéance en case à cocher).
+  Dossier : DEUX états — avant (menaces &amp; opportunités de la date × nature du dispositif + rappel d'objectif),
+  après (KPI + agir, série). Cartes : la famille gagne la carte MENACE pré-événement, l'échéance devient conditionnelle
+  à la case cochée. Hors proto (spec) : ancrage `saved_item_id` sur les engagements, récurrence en base, provider
+  `evenementFamily` (page + chat + rapport + cartes), types par métier, plan legacy monitor.</div>
+</div>
+<script>
+  (function () {
+    var repSeg = document.getElementById('rep-seg');
+    repSeg.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-rep]');
+      if (!b) return;
+      repSeg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      var rec = b.getAttribute('data-rep') !== 'none';
+      document.getElementById('blk-ponctuel').classList.toggle('hidden', rec);
+      document.getElementById('blk-recurrent').classList.toggle('hidden', !rec);
+    });
+    var natSeg = document.getElementById('nat-seg');
+    natSeg.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      natSeg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+    document.getElementById('ddl-check').addEventListener('change', function (e) {
+      document.getElementById('ddl-field').classList.toggle('hidden', !e.target.checked);
+    });
+    document.querySelectorAll('[data-obj-evt]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.getElementById('obj-evt').textContent = b.getAttribute('data-obj-evt');
+        document.getElementById('obj-tot').textContent = b.getAttribute('data-obj-tot');
+        var evtSpan = document.getElementById('obj-evt').nextElementSibling;
+        if (evtSpan) evtSpan.textContent = "(l'apport propre : " + b.getAttribute('data-obj-plus') + ')';
+        document.getElementById('obj-line').textContent = 'Objectif : ' + b.getAttribute('data-obj-evt') + ' de famille Producteurs par occurrence — verdict après chaque occurrence.';
+      });
+    });
+    var stSeg = document.getElementById('st-seg');
+    stSeg.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-st]');
+      if (!b) return;
+      stSeg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      var apres = b.getAttribute('data-st') === 'apres';
+      document.getElementById('st-avant').classList.toggle('hidden', apres);
+      document.getElementById('st-apres').classList.toggle('hidden', !apres);
+      var amt = document.getElementById('hd-amt');
+      amt.innerHTML = apres
+        ? '<div class="amt-val" style="color:var(--green);">+116 €</div><div class="amt-sub">mesuré · apport propre (objectif atteint)</div>'
+        : '<div class="amt-val" style="color:var(--blue);">+114 €</div><div class="amt-sub">votre objectif · apport propre</div>';
+    });
+    document.getElementById('btn-doc').addEventListener('click', function () {
+      document.getElementById('doc-done').classList.remove('hidden');
+    });
+  })();
+</script>
+</body>
+</html>
