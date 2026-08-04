@@ -138,7 +138,8 @@ function buildDailyEmail(row: any, daysUntil: number, isMandatory: boolean, day:
   const title = esc(row.title);
   const selectedDate = fmtDate(row.selected_date);
   const countdownLabel = daysUntil === 0 ? "Aujourd'hui" : `J-${daysUntil}`;
-  const monitorUrl = `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(String(row.saved_item_id))}&date=${encodeURIComponent(String(row.selected_date?.value ?? row.selected_date ?? ""))}`;
+  // BASCULE (incrément 7, 04/08) : le CTA email ouvre le DOSSIER d'événement, plus monitor legacy.
+  const monitorUrl = `${baseUrl}/app/insightevent/evenement?location_id=${encodeURIComponent(String(row.location_id))}&saved_item_id=${encodeURIComponent(String(row.saved_item_id))}`;
 
   const bodyText = daysUntil === 0
     ? `Bonjour ${esc(firstName)}, c'est le jour J — voici ce que vous devez savoir avant de vous lancer.`

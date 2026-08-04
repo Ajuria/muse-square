@@ -1745,6 +1745,13 @@ const show_actions = has_selected_dates;
         }
 
         function openSaveModal() {
+          // BASCULE (incrément 7, 04/08 — spec evenement-dossier § 6) : une CRÉATION part sur le
+          // nouveau formulaire (/evenement, dates pré-remplies). Le modal legacy ne sert plus
+          // qu'à l'ÉDITION des événements existants.
+          if (!MS.editingId) {
+            window.location.assign("/app/insightevent/evenement?location_id=" + encodeURIComponent(location_id) + "&dates=" + encodeURIComponent((Array.isArray(selectedDates) ? selectedDates : []).join(",")));
+            return;
+          }
           ensureSelectedDaysStyles();
           if (!modalBackdrop) return;
 
@@ -3220,7 +3227,8 @@ const show_actions = has_selected_dates;
                     cache: "no-store",
                   });
                 } catch(_) {}
-                window.location.assign("/app/insightevent/monitor?saved_item_id=" + encodeURIComponent(savedItemId) + "&date=" + encodeURIComponent(d));
+                // BASCULE (incrément 7) : le jour choisi ouvre le DOSSIER, plus le monitor legacy.
+                window.location.assign("/app/insightevent/evenement?location_id=" + encodeURIComponent(location_id) + "&saved_item_id=" + encodeURIComponent(savedItemId));
                 return;
               }
               MS._pendingMonitorDate = d;

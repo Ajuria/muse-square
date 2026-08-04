@@ -309,7 +309,8 @@ function buildAlertEmail(row: any, baseUrl: string, narrative: string): string {
     : "Changement";
 
   const monitorUrl = row.selected_date
-    ? `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(String(row.saved_item_id))}&date=${encodeURIComponent(String(row.selected_date?.value ?? row.selected_date ?? ""))}`
+    // BASCULE (incrément 7, 04/08) : dossier d'événement, plus monitor legacy.
+    ? `${baseUrl}/app/insightevent/evenement?location_id=${encodeURIComponent(String(row.location_id))}&saved_item_id=${encodeURIComponent(String(row.saved_item_id))}`
     : `${baseUrl}/app/insightevent/days`;
 
   return `<!DOCTYPE html>

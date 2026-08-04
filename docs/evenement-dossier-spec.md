@@ -197,7 +197,15 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   échec soft) + 4 specs client action-cards (v=43 sur les 4 surfaces) + Consulter des cartes
   event_* route vers le dossier. Non-régression PROUVÉE par diff harnais : muse byte-identique,
   café +2 cartes / 0 retrait ; menace absente = prévision réelle retombée (niveau 1) — la branche
-  se validera sur la première vraie alerte. Restent : 6 (chat), 7 (bascule des liens).
+  se validera sur la première vraie alerte. Incréments 6 et 7 FAITS (04/08) : chat — branche
+  déterministe POSSESSIVE « mes/mon événements » (deterministic_evenements_v1, liste via
+  listUserEvenements avec dernière mesure residual — prouvé sur les 5 événements réels owner,
+  legacy inclus) + buildEventFacts dans la liste blanche jour ; bascule — création (openSaveModal
+  non-édition) → formulaire /evenement ?dates= pré-remplies, « Choisir » de days → dossier,
+  CTAs crons daily/alerts → dossier. BASCULE PARTIELLE ASSUMÉE : bilan.ts reste sur monitor
+  (le bilan déclaratif 5→3 questions n'est pas encore reconstruit), PiloterBottomBar/Nav/liste
+  monitor restent legacy (pas de nouvelle page LISTE — chantier suivant si souhaité). Le CHANTIER
+  EST LIVRÉ ; suppression de monitor/events.astro + harness-evt-0001 sur GO owner explicite.
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
   EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
