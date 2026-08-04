@@ -215,6 +215,19 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   monitor.astro + events.astro SUPPRIMÉES (zéro lien entrant vérifié ; l'API insight/monitor.ts
   reste, pulse en dépend). harness-evt-0001 purgé des 4 tables (12 lignes, GO owner).
   Cron J-7 event-occurrences LIVRÉ le même jour (voir module-index).
+- **Grille de dates au formulaire + durée multi-jours + dépose days/month (04/08, protos v1→v4
+  validés)** : le shopping de dates vit DANS MSEventForm (grille mensuelle ‹ › sur
+  /api/insight/month — teinte = CA attendu par dow, pastilles météo, ★ férié, souligné vacances,
+  ligne vacances/périodes commerciales, infobulles, chips factuelles — jamais un classement sur
+  score plat ; candidates ≤ 7 conservées entre mois) ; « Durée : N jours » → `duration_days`
+  (ALTER additif) et, au Choisir, fenêtre de mesure [lancement, lancement+durée−1] via
+  `window_days` (additif sur /api/commitments) + `event_end_date` écrit (les crons bilan/J-7 le
+  lisent déjà). Dépose : days perd « Mes dates » (→ liste /evenement) et l'onglet CHOIX (→
+  dossier Décider), son résolveur ?saved_item_id= redirige au dossier ; month sort du flux de
+  création (« Créer l'événement avec ces jours → » → formulaire ?dates=) et reste une surface
+  d'exploration. days reste la surface de détail jour par jour. Vérifs : vm 10/10 sur le vrai
+  event-form avec payloads réels, tsc + node --check sur les 4 scripts inline, validation
+  window_days 400 prouvée.
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
   EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs

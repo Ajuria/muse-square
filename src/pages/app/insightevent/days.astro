@@ -1646,7 +1646,10 @@ const show_actions = has_selected_dates;
 
         const selectedDatesRaw = params.get("selected_dates") || "";
         let selectedDateRaw = (params.get("selected_date") || "").trim();
-        let selectedDate = selectedDateRaw === "__comparison__" ? "__comparison__" : normalizeYmd(selectedDateRaw);
+        // Bascule 04/08 : l'onglet CHOIX (comparaison) est démis — la comparaison vit au
+        // dossier Décider de /evenement. Les vieux liens ?selected_date=__comparison__
+        // retombent sur le premier jour sélectionné.
+        let selectedDate = normalizeYmd(selectedDateRaw === "__comparison__" ? "" : selectedDateRaw);
 
         function normalizeYmd(v) {
           const s = String(v ?? "").trim();
@@ -1665,7 +1668,7 @@ const show_actions = has_selected_dates;
 
         // Canonicalize selected_date if missing but we do have selected_dates
         if (!selectedDate && selectedDates.length > 0) {
-          selectedDate = "__comparison__";
+          selectedDate = selectedDates[0];
           params.set("selected_date", selectedDate);
           window.history.replaceState({}, "", "?" + params.toString());
         }
@@ -1974,12 +1977,12 @@ const show_actions = has_selected_dates;
               const next = new URL(window.location.origin + "/app/insightevent/days");
               next.searchParams.set("saved_item_id", newId);
               next.searchParams.set("selected_dates", selectedDates.join(","));
-              next.searchParams.set("selected_date", "__comparison__");
+              next.searchParams.set("selected_date", selectedDates[0] || "");
               window.location.assign(next.toString());
               return;
             }
-            // Fallback: refresh list
-            await loadSavedItems();
+            // Fallback (bascule 04/08) : la liste vit sur /evenement.
+            window.location.assign("/app/insightevent/evenement" + (LOCATION_ID ? "?location_id=" + encodeURIComponent(LOCATION_ID) : ""));
 
           } catch (e) {
             showSaveError(e?.message || "Erreur.");
@@ -2106,424 +2109,6 @@ const show_actions = has_selected_dates;
           const isWeekend = (d.getUTCDay() === 0) || (d.getUTCDay() === 6);
 
           return { monthYear, weekLabel, dow3, dayNum2, isWeekend };
-        }
-
-        function renderSavedPanel(items) {
-          const savedPanel = getSavedPanel();
-          if (!savedPanel) return;
-
-          const rows = Array.isArray(items) ? items : [];
-
-          // Title block (template-like)
-          const head = `
-            <div class="ms-saved-wrap">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div class="ms-saved-hero">Mes dates</div>
-                <div style="display:flex;gap:8px;">
-                <button onclick="window.location.href='/app/insightevent/evenement?location_id=${encodeURIComponent(location_id)}&new=1'" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#1D3BB3;border:0.5px solid #1D3BB3;border-radius:6px;font-size:13px;font-weight:500;color:#fff;cursor:pointer;font-family:inherit;letter-spacing:0.01em;">
-                  Nouvel événement
-                </button>
-                <button onclick="window.location.href='/app/insightevent/month'" onmouseover="this.style.color='#1D3BB3';this.style.borderColor='#1D3BB3';" onmouseout="this.style.color='#111827';this.style.borderColor='rgba(17,24,39,0.12)';" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(17,24,39,0.06);border:0.5px solid rgba(17,24,39,0.12);border-radius:6px;font-size:13px;font-weight:500;color:#111827;cursor:pointer;font-family:inherit;letter-spacing:0.01em;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v3M17 2v3"/><path d="M4 7h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/><path d="M4 11h16"/></svg>
-                  Calendrier
-                </button>
-                </div>
-              </div>
-            </div>
-          `;
-
-          if (rows.length === 0) {
-            savedPanel.innerHTML =
-              head +
-              `<div class="ms-saved-wrap"><div class="ms-saved-empty">Sélectionnez vos dates dans le Calendrier, ou dans Explorer laissez l'IA « Trouver une date pour un événement ».</div></div>`;
-            return;
-          }
-
-          // Helpers (local to saved list)
-          function fmtShortFr(ymd) {
-            // ymd is "YYYY-MM-DD"
-            const d = parseYmdToDate(ymd);
-            if (!d) return ymd;
-            const day = String(d.getUTCDate()).padStart(2, "0");
-            const month = new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(d);
-            const m = month ? (month.charAt(0).toUpperCase() + month.slice(1)) : "";
-            return `${m} ${day}`; // ex: "Jan 21"
-          }
-
-          function datesSummary(datesArr) {
-            const dates = Array.isArray(datesArr) ? datesArr : [];
-            const shown = dates.slice(0, 3).map(fmtShortFr);
-            const rest = Math.max(0, dates.length - shown.length);
-            return {
-              text: shown.join(" · ") + (rest > 0 ? ` · +${rest}` : ""),
-              first: dates[0] ? fmtShortFr(dates[0]) : "",
-            };
-          }
-
-          // Group by location
-          const locationGroups = [];
-          const locationOrder = [];
-          const locationMap = new Map();
-          rows.forEach(it => {
-            const key = it.location_id || "unknown";
-            if (!locationMap.has(key)) {
-              locationMap.set(key, []);
-              locationOrder.push({ key, label: it.location_label || it.location_id, is_primary: it.is_primary });
-            }
-            locationMap.get(key).push(it);
-          });
-
-          function isItemPast(it) {
-            const dates = extractDatesFromSavedItem(it);
-            if (!dates.length) return false;
-            const earliest = dates.sort()[0];
-            const d = parseYmdToDate(earliest);
-            if (!d) return false;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return d.getTime() < today.getTime();
-          }
-
-          const groupsHtml = locationOrder.map(({ key, label, is_primary }) => {
-            const groupItems = locationMap.get(key);
-            const upcomingItems = groupItems.filter(it => !isItemPast(it));
-            const pastItems = groupItems.filter(it => isItemPast(it));
-            const pastId = 'past-' + key.replace(/[^a-zA-Z0-9]/g, '_');
-            return `
-              <div style="background:#fff;border:1px solid #E8EDF5;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(17,24,39,0.06);margin-bottom:16px;" data-location-label="${escapeHtml(label)}">
-                <div style="padding:14px 20px;border-bottom:0.5px solid #E5E7EB;display:flex;align-items:center;gap:8px;">
-                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#6B7280;">${escapeHtml(label)}</span>
-                  ${is_primary ? `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6B7280;border:0.5px solid #E5E7EB;">Principal</span>` : ""}
-                  <span style="flex:1;"></span>
-                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:64px;text-align:right;">Date décision</span>
-                  <span style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;min-width:64px;text-align:right;">Début</span>
-                  <span style="min-width:64px;text-align:right;"></span>
-                </div>
-                ${upcomingItems.length === 0 ? `<div style="padding:14px 20px;font-size:13px;color:#9CA3AF;">Aucun événement à venir</div>` : ''}
-                <div>
-                  ${upcomingItems.map((it) => {
-                    const id = it?.saved_item_id ? String(it.saved_item_id) : "";
-                    const title = it?.title ? String(it.title) : "Sans titre";
-                    const desc = it?.description ? String(it.description) : "";
-
-                    function short10Words(s) {
-                      const words = String(s || "").trim().split(/\s+/).filter(Boolean);
-                      if (words.length <= 10) return words.join(" ");
-                      return words.slice(0, 10).join(" ") + "…";
-                    }
-
-                    function extractDates(it) {
-                      return extractDatesFromSavedItem(it);
-                    }
-
-                    const dates = extractDates(it);
-                    const datesCsv = dates.join(",");
-                    const ds = datesSummary(dates);
-                    const hint = desc ? short10Words(desc) : "";
-                    const hintSafe = hint ? escapeHtml(hint) : "";
-
-                    function smartLabel(ymd) {
-                      if (!ymd) return "—";
-                      const raw = normalizeYmd(String(ymd?.value ?? ymd ?? ""));
-                      if (!raw) return "—";
-                      const d = parseYmdToDate(raw);
-                      if (!d) return "—";
-                      const diff = Math.round((d - new Date().setHours(0,0,0,0)) / 86400000);
-                      if (diff === 0) return "Aujourd'hui";
-                      if (diff < 0)  return fmtShortFr(raw);
-                      if (diff <= 7) return `J-${diff}`;
-                      return fmtShortFr(raw);
-                    }
-                    function smartColor(ymd) {
-                      if (!ymd) return "#6b7280";
-                      const raw = normalizeYmd(String(ymd?.value ?? ymd ?? ""));
-                      if (!raw) return "#6b7280";
-                      const d = parseYmdToDate(raw);
-                      if (!d) return "#6b7280";
-                      const diff = Math.round((d - new Date().setHours(0,0,0,0)) / 86400000);
-                      if (diff === 0) return "#059669";
-                      if (diff < 0)  return "#9CA3AF";
-                      if (diff <= 7) return "#d97706";
-                      return "#6b7280";
-                    }
-                    const decVal = smartLabel(it?.decision_date);
-                    const decColor = smartColor(it?.decision_date);
-                    const evtVal = smartLabel(it?.event_end_date);
-                    const evtColor = smartColor(it?.event_end_date);
-
-                    return `
-                      <div class="ms-saved-tr"
-                        style="padding:14px 20px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #F3F4F6;cursor:pointer;transition:background 120ms;"
-                        onmouseover="this.style.background='#F9FAFB';this.querySelector('.ms-saved-title2').style.color='#1D3BB3';"
-                        onmouseout="this.style.background='';this.querySelector('.ms-saved-title2').style.color='#111827';"
-                        data-id="${escapeHtml(id)}"
-                        data-dates="${escapeHtml(datesCsv)}"
-                        data-title="${escapeHtml(title)}"
-                        data-decision-date="${escapeHtml(String(it?.decision_date || ""))}"
-                        data-event-end-date="${escapeHtml(String(it?.event_end_date || ""))}"
-                        data-desc="${escapeHtml(desc)}"
-                        data-selected-date="${escapeHtml(String(it?.selected_date || ""))}"
-                        data-event-type="${escapeHtml(String(it?.event_type || ""))}"
-                        data-launch-hour="${escapeHtml(String(it?.launch_hour ?? ""))}">
-                        <div class="ms-saved-left" style="flex:1;min-width:0;">
-                          <div class="ms-saved-title2" style="cursor:pointer;font-size:15px;font-weight:400;color:#111827;margin-bottom:3px;" data-action="consult">${escapeHtml(title)}</div>
-                          <div class="ms-saved-subline">
-                            ${(() => {
-                              const selDate = normalizeYmd(String(it?.selected_date?.value ?? it?.selected_date ?? ""));
-                              if (selDate) {
-                                const d = parseYmdToDate(selDate);
-                                const label = d ? new Intl.DateTimeFormat("fr-FR", { day:"numeric", month:"long" }).format(d) : selDate;
-                                return `<span style="font-style:italic;color:#9CA3AF;font-size:12px;">Date validée le ${escapeHtml(label)}</span>`;
-                              }
-                              const count = dates.length;
-                              return `<span style="font-style:italic;color:#9CA3AF;font-size:12px;">${count} date${count > 1 ? "s" : ""} en cours de sélection</span>`;
-                            })()}
-                          </div>
-                        </div>
-                        <div style="font-size:14px;font-weight:500;color:${decColor};min-width:64px;text-align:right;flex-shrink:0;">${escapeHtml(decVal)}</div>
-                        <div style="font-size:14px;font-weight:500;color:${evtColor};min-width:64px;text-align:right;flex-shrink:0;">${escapeHtml(evtVal)}</div>
-                        <div style="min-width:64px;text-align:right;flex-shrink:0;">
-                          <button type="button" class="ms-btn-row ms-edit" style="font-size:13px;font-weight:500;color:#6b7280;transition:color 120ms;" onmouseover="this.style.color='#1D3BB3';" onmouseout="this.style.color='#6b7280';">Modifier</button>
-                        </div>
-                      </div>
-                    `;
-                  }).join("")}
-                </div>
-                ${pastItems.length > 0 ? `
-                  <div style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;border-top:0.5px solid #E5E7EB;" onclick="(function(e){var el=document.getElementById('${pastId}');var chev=document.getElementById('chev-${pastId}');if(!el)return;var open=el.style.display!=='none';el.style.display=open?'none':'block';if(chev)chev.style.transform=open?'rotate(0deg)':'rotate(180deg)';})(event)">
-                    <div style="display:flex;align-items:center;">
-                      <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;">Passées</span>
-                      <span style="font-size:10px;font-weight:500;background:#F3F4F6;color:#9CA3AF;padding:1px 7px;border-radius:20px;margin-left:6px;">${pastItems.length}</span>
-                    </div>
-                    <svg id="chev-${pastId}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="transition:transform 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <div id="${pastId}" style="display:none;border-top:0.5px solid #F3F4F6;padding:0 20px;">
-                    ${pastItems.map((it) => {
-                      const title = it?.title ? String(it.title) : "Sans titre";
-                      const dates = extractDatesFromSavedItem(it);
-                      const earliest = dates.sort()[0] || "";
-                      const d = parseYmdToDate(earliest);
-                      const dateFr = d ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(d) : earliest;
-                      const medal = it?.medal || it?.opportunity_medal || null;
-                      const score = it?.opportunity_score_final_local ?? it?.score ?? null;
-                      const medalClass = medal ? (String(medal).toUpperCase().startsWith("A") ? "md-medal-a" : String(medal).toUpperCase().startsWith("B") ? "md-medal-b" : "md-medal-c") : "";
-                      const medalBg = String(medal || "").toUpperCase().startsWith("A") ? "#E1F5EE" : String(medal || "").toUpperCase().startsWith("B") ? "#FAEEDA" : "#FCEBEB";
-                      const medalColor = String(medal || "").toUpperCase().startsWith("A") ? "#0F6E56" : String(medal || "").toUpperCase().startsWith("B") ? "#854F0B" : "#A32D2D";
-                      return `
-                        <div style="padding:12px 0;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #F3F4F6;opacity:0.5;">
-                          <div style="flex:1;min-width:0;">
-                            <div style="font-size:14px;font-weight:400;color:#6B7280;">${escapeHtml(title)}</div>
-                            <div style="font-size:12px;color:#9CA3AF;margin-top:2px;">${escapeHtml(dateFr)}</div>
-                          </div>
-                          ${medal ? `<span style="font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;background:${medalBg};color:${medalColor};">${escapeHtml(String(medal))}</span>` : ""}
-                          ${score != null ? `<span style="font-size:11px;color:#9CA3AF;margin-left:8px;">Score ${Math.round(Number(score))}</span>` : ""}
-                        </div>
-                      `;
-                    }).join("")}
-                  </div>
-                ` : `
-                  <div style="padding:10px 20px;display:flex;align-items:center;border-top:0.5px solid #E5E7EB;">
-                    <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;">Passées</span>
-                    <span style="font-size:10px;font-weight:500;background:#F3F4F6;color:#9CA3AF;padding:1px 7px;border-radius:20px;margin-left:6px;">0</span>
-                  </div>
-                `}
-              </div>
-            `;
-          }).join("");
-
-          savedPanel.innerHTML = head + `<div class="ms-saved-wrap">${groupsHtml}</div>`;
-
-          // Wire buttons (unchanged)
-          savedPanel.querySelectorAll(".ms-saved-tr").forEach((rowEl) => {
-            const titleEl = rowEl.querySelector(".ms-saved-title2");
-            if (titleEl) {
-              titleEl.addEventListener("click", () => {
-                const id = (rowEl.getAttribute("data-id") || "").trim();
-                const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
-                const nextDates = rawDates.split(",").map(s => normalizeYmd(s)).filter(Boolean).slice(0, 7);
-                if (!nextDates.length) return;
-                const next = new URLSearchParams();
-                next.set("selected_dates", nextDates.join(","));
-                next.set("saved_item_id", id);
-                next.set("selected_date", "__comparison__");
-                window.location.href = "/app/insightevent/days?" + next.toString();
-              });
-            }
-            const editBtn = rowEl.querySelector(".ms-edit");
-            const id = (rowEl.getAttribute("data-id") || "").trim();
-            const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
-            const consultBtn = rowEl.querySelector(".ms-consult");
-
-            if (editBtn) {
-              editBtn.addEventListener("click", () => {
-                const id = (rowEl.getAttribute("data-id") || "").trim();
-                const title = rowEl.getAttribute("data-title") || "";
-                const stageRaw = (rowEl.getAttribute("data-stage") || "").trim(); // expects option/exploration/prevalidation/retenue
-                const desc = rowEl.getAttribute("data-desc") || "";
-                const rawDates = (rowEl.getAttribute("data-dates") || "").trim();
-
-                // Pre-fill modal fields
-                if (modalTitle) modalTitle.value = title;
-                if (modalDesc) modalDesc.value = desc;
-
-                const locationLabelEl = document.getElementById("ms-save-location-label");
-                if (locationLabelEl) {
-                  const groupEl = rowEl.closest("[data-location-label]");
-                  locationLabelEl.textContent = groupEl ? groupEl.getAttribute("data-location-label") : "";
-                }
-
-                // Initialize flatpickr first, then set dates via API
-                if (window.__msFlatpickrDecision) window.__msFlatpickrDecision.destroy();
-                if (window.__msFlatpickrEnd) window.__msFlatpickrEnd.destroy();
-
-                window.__msFlatpickrDecision = flatpickr(modalDecisionDate, {
-                  locale: flatpickr.l10ns.fr,
-                  firstDayOfWeek: 1,
-                  dateFormat: "d/m/Y",
-                  disableMobile: true,
-                });
-                window.__msFlatpickrEnd = flatpickr(modalEventDate, {
-                  locale: flatpickr.l10ns.fr,
-                  firstDayOfWeek: 1,
-                  dateFormat: "d/m/Y",
-                  disableMobile: true,
-                });
-
-                const decisionRaw = rowEl.getAttribute("data-decision-date") || "";
-                const eventEndRaw = rowEl.getAttribute("data-event-end-date") || "";
-                if (decisionRaw) window.__msFlatpickrDecision.setDate(decisionRaw, true, "Y-m-d");
-                if (eventEndRaw) window.__msFlatpickrEnd.setDate(eventEndRaw, true, "Y-m-d");
-                if (modalEventType) modalEventType.value = rowEl.getAttribute("data-event-type") || "";
-                if (modalLaunchHour) modalLaunchHour.value = rowEl.getAttribute("data-launch-hour") || "";
-
-                // Store which saved_item_id we are editing (must happen before rendering)
-                MS.editingId = id;
-                MS.editingDates = (rawDates || "")
-                  .split(",")
-                  .map(normalizeYmd)
-                  .filter(Boolean);
-
-                // Render date chips (edit mode = removable)
-                renderModalDateChipsEdit();
-
-                // Switch modal wording to edit mode ---
-                const modalHeading = document.getElementById("ms-save-title");
-                if (modalHeading) modalHeading.textContent = "Modifier cette liste";
-                if (modalSubmit) modalSubmit.textContent = "Mettre à jour";
-
-                // Open modal
-                if (modalError) { modalError.style.display = "none"; modalError.textContent = ""; }
-                modalBackdrop.hidden = false;
-                modalBackdrop.setAttribute("aria-hidden", "false");
-              });
-            }
-
-            const deleteBtn = rowEl.querySelector(".ms-delete");
-
-            if (consultBtn) {
-              consultBtn.addEventListener("click", () => {
-                const nextDates = rawDates
-                  .split(",")
-                  .map((s) => normalizeYmd(s))
-                  .filter(Boolean)
-                  .slice(0, 7);
-
-                if (!nextDates.length) {
-                  alert("Impossible de consulter : cet enregistrement ne contient pas ses dates (API /saved-items/list).");
-                  return;
-                }
-
-                const next = new URLSearchParams();
-                next.set("selected_dates", nextDates.join(","));
-                next.set("saved_item_id", id);
-                const rawSelectedDate = (rowEl.getAttribute("data-selected-date") || "").trim();
-                if (rawSelectedDate) {
-                  next.set("selected_date", "__comparison__");
-                  next.set("date", rawSelectedDate);
-                } else {
-                  next.set("selected_date", "__comparison__");
-                }
-                window.location.href = "/app/insightevent/days?" + next.toString();
-              });
-            }
-
-            if (deleteBtn) {
-              deleteBtn.addEventListener("click", async () => {
-                if (!id) return;
-                deleteBtn.disabled = true;
-
-                try {
-                  const res = await fetch("/api/saved-items/delete", {
-                    method: "POST",
-                    headers: { "content-type": "application/json", "accept": "application/json" },
-                    body: JSON.stringify({ saved_item_id: id }),
-                  });
-
-                  const ct = (res.headers.get("content-type") || "").toLowerCase();
-                  const json = ct.includes("application/json") ? await res.json().catch(() => null) : null;
-
-                  if (!res.ok || !json?.ok) {
-                    throw new Error(json?.error || `Erreur API (${res.status})`);
-                  }
-
-                  await loadSavedItems();
-                } catch (e) {
-                  alert(e?.message || "Erreur.");
-                } finally {
-                  deleteBtn.disabled = false;
-                }
-              });
-            }
-          });
-        }
-
-        // Modal wiring
-        if (modalClose) modalClose.addEventListener("click", closeSaveModal);
-        if (modalCancel) modalCancel.addEventListener("click", closeSaveModal);
-        if (modalBackdrop) {
-          modalBackdrop.addEventListener("click", (e) => {
-            if (e.target === modalBackdrop) closeSaveModal();
-          });
-          document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape" && !modalBackdrop.hidden) closeSaveModal();
-          });
-        }
-        if (modalSubmit) modalSubmit.addEventListener("click", saveCurrentSelection);
-
-        const modalDelete = document.getElementById("ms-save-delete");
-        if (modalDelete) {
-          modalDelete.addEventListener("click", async () => {
-            const id = String(MS.editingId || "").trim();
-            if (!id) return;
-            const ok = window.confirm("Supprimer cette liste définitivement ?");
-            if (!ok) return;
-            modalDelete.disabled = true;
-            try {
-              const res = await fetch("/api/saved-items/delete", {
-                method: "POST",
-                headers: { "content-type": "application/json", accept: "application/json" },
-                body: JSON.stringify({ saved_item_id: id }),
-              });
-              const json = await res.json().catch(() => null);
-              if (!res.ok || !json?.ok) throw new Error(json?.error || `Erreur API (${res.status})`);
-              closeSaveModal();
-              await loadSavedItems();
-            } catch(e) {
-              showSaveError(e?.message || "Erreur.");
-            } finally {
-              modalDelete.disabled = false;
-            }
-          });
-        }
-
-        // ✅ INSERT THIS BLOCK RIGHT HERE (immediately after the line above)
-        if (modalDates) {
-          modalDates.addEventListener("click", (e) => {
-            const chip = e?.target?.closest?.(".ms-chip-date.removable[data-date]");
-            if (!chip) return;
-            const d = chip.getAttribute("data-date") || "";
-            removeDraftDate(d);
-          });
         }
 
         function escapeHtml(v) {
@@ -2948,300 +2533,6 @@ const show_actions = has_selected_dates;
         // ================================================================
         // V4 — renderComparisonTable (CHOIX tab)
         // Winner badge + comparison grid with section rows
-        // ================================================================
-        function renderComparisonTable(dayRowsByDate) {
-          if (!container) return;
-
-          // --- Gather data per date ---
-          var dateRows = selectedDates.map(function(d) {
-            var r = dayRowsByDate.get(d);
-            if (!r) return null;
-            var meta = buildMetaForDate(d);
-            var score = r.opportunity_score;
-            var regime = String(r.opportunity_regime || "B").toUpperCase();
-            var delta = Number(r.delta_att_events_pct || 0);
-            var count500 = Number(r.events_within_500m_count || 0);
-            var count5km = Number(r.events_within_5km_count || 0);
-            var alertMax = Number(r.alert_level_max || 0);
-            var deltaMob = Number(r.delta_att_mobility_pct || 0);
-
-            var trend = delta > 3 ? "up" : delta < -3 ? "down" : "stable";
-            var pression = delta > 3 ? "\u00c9lev\u00e9e" : delta < -3 ? "Faible" : "Normale";
-
-            var isWE = meta.isWeekend === true;
-            var hasVac = Boolean(r.vacation_name);
-            var hasHol = Boolean(r.holiday_name);
-            var residents = (isWE || hasVac || hasHol) ? "Disponible" : "Peu disponible";
-            var pros = (!isWE) ? "Disponible" : "Peu disponible";
-            var access = deltaMob >= 0 ? "Fluide" : deltaMob >= -4 ? "Perturb\u00e9" : "Fortement perturb\u00e9";
-            var weatherLabel = r.weather_label_fr || "\u2014";
-
-            return {
-              date: d, meta: meta, score: score, regime: regime, trend: trend,
-              count500: count500, count5km: count5km, pression: pression,
-              residents: residents, pros: pros, access: access,
-              weatherLabel: weatherLabel, weatherCode: r.weather_code,
-              alertMax: alertMax, raw: r
-            };
-          }).filter(Boolean);
-
-          if (!dateRows.length) {
-            container.innerHTML = '<div class="ms-days-wrap"><div style="padding:24px;color:#9CA3AF;">Aucune donn\u00e9e disponible.</div></div>';
-            return;
-          }
-
-          // --- Winner logic ---
-          var winner = dateRows.slice().sort(function(a, b) {
-            var scoreDiff = (b.score || 0) - (a.score || 0);
-            if (scoreDiff !== 0) return scoreDiff;
-            return (a.count5km || 0) - (b.count5km || 0);
-          })[0];
-
-          var winnerDate = parseYmdToDate(winner.date);
-          var winnerLabel = winnerDate
-            ? new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(winnerDate)
-            : winner.date;
-          winnerLabel = winnerLabel.charAt(0).toUpperCase() + winnerLabel.slice(1);
-
-          var winnerReason = "";
-          if (dateRows.length === 1) {
-            winnerReason = "Seule date s\u00e9lectionn\u00e9e";
-          } else {
-            var allSameScore = dateRows.every(function(r) { return r.score === winner.score; });
-            if (allSameScore) {
-              winnerReason = "score identique \u2014 moins de concurrence \u00e0 5 km";
-            } else {
-              winnerReason = "score le plus \u00e9lev\u00e9";
-            }
-          }
-
-          // --- Helpers ---
-          var anyWeatherAlert = dateRows.some(function(r) { return r.alertMax > 0; });
-
-          function statusPill(label) {
-            var positives = ["Disponible", "Fluide", "Faible", "Normale"];
-            var negatives = ["\u00c9lev\u00e9e", "Fortement perturb\u00e9", "Peu disponible"];
-            var neutrals = ["Perturb\u00e9", "Semaine"];
-            if (positives.indexOf(label) >= 0) return pill(label, GREEN);
-            if (negatives.indexOf(label) >= 0) return pill(label, RED);
-            if (neutrals.indexOf(label) >= 0) return pill(label, YELLOW);
-            return pill(label, "background:#f3f4f6;color:#374151;");
-          }
-
-          function regimeBadge(regime) {
-            if (regime === "A") return pill("Favorable", "background:#dcfce7;color:#166534;");
-            if (regime === "C") return pill("D\u00e9favorable", "background:#fee2e2;color:#991b1b;");
-            return pill("Normale", "background:#f3f4f6;color:#374151;");
-          }
-
-          function trendHtml(trend) {
-            if (trend === "up") return '<span style="color:#dc2626;font-weight:600;">\u2197</span>';
-            if (trend === "down") return '<span style="color:#059669;font-weight:600;">\u2198</span>';
-            return '<span style="color:#6b7280;font-weight:600;">\u2192</span>';
-          }
-
-          function scoreColor(s) {
-            if (s == null) return "#8A909A";
-            if (s >= 7.5) return "#067647";
-            if (s >= 5.5) return "#B54708";
-            return "#B42318";
-          }
-
-          // --- Best value detection ---
-          var maxScore = Math.max.apply(null, dateRows.map(function(r) { return r.score || 0; }));
-          var minCount500 = Math.min.apply(null, dateRows.map(function(r) { return r.count500; }));
-          var minCount5km = Math.min.apply(null, dateRows.map(function(r) { return r.count5km; }));
-
-          // --- Build comparison rows ---
-          var sections = [
-            { label: "OPPORTUNIT\u00c9", accent: true, rows: [
-              { label: "Score", cells: dateRows.map(function(r) {
-                return { html: '<span style="font-size:18px;font-weight:800;color:' + scoreColor(r.score) + ';">' + (r.score != null ? String(r.score) : "\u2014") + '</span>', best: r.score === maxScore };
-              })},
-              { label: "R\u00e9gime", cells: dateRows.map(function(r) {
-                return { html: regimeBadge(r.regime), best: r.regime === "A" };
-              })},
-              { label: "Tendance", cells: dateRows.map(function(r) {
-                return { html: trendHtml(r.trend), best: false };
-              })},
-            ]},
-            { label: "CONCURRENCE", accent: false, rows: [
-              { label: "< 500 m", cells: dateRows.map(function(r) {
-                return { html: '<span style="font-size:14px;font-weight:600;">' + r.count500 + '</span>', best: r.count500 === minCount500 };
-              })},
-              { label: "< 5 km", cells: dateRows.map(function(r) {
-                return { html: '<span style="font-size:14px;font-weight:600;">' + r.count5km + '</span>', best: r.count5km === minCount5km };
-              })},
-              { label: "Pression", cells: dateRows.map(function(r) {
-                return { html: statusPill(r.pression), best: false };
-              })},
-            ]},
-            { label: "CONTEXTE", accent: false, rows: [
-              { label: "Jour", cells: dateRows.map(function(r) {
-                return { html: pill(r.meta.isWeekend ? "Week-end" : "Semaine", "background:#eff6ff;color:#1e40af;"), best: false };
-              })},
-              { label: "R\u00e9sidents", cells: dateRows.map(function(r) {
-                return { html: statusPill(r.residents), best: r.residents === "Disponible" };
-              })},
-              { label: "Professionnels", cells: dateRows.map(function(r) {
-                return { html: statusPill(r.pros), best: r.pros === "Disponible" };
-              })},
-            ]},
-            { label: "CONDITIONS", accent: false, rows: [
-              { label: "M\u00e9t\u00e9o", cells: dateRows.map(function(r) {
-                var icon = weatherIconSrc(r.weatherCode);
-                var iconHtml = icon ? '<img src="' + escapeHtml(icon) + '" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;">' : '';
-                return { html: '<span style="font-size:13px;">' + iconHtml + escapeHtml(r.weatherLabel) + '</span>', best: r.alertMax === 0 };
-              })},
-            ]}
-          ];
-
-          if (anyWeatherAlert) {
-            sections[sections.length - 1].rows.push({
-              label: "Impact", cells: dateRows.map(function(r) {
-                if (r.alertMax === 0) return { html: statusPill("Aucune alerte"), best: true };
-                return { html: pill("Alerte niv. " + r.alertMax, r.alertMax >= 2 ? RED : YELLOW), best: false };
-              })
-            });
-          }
-
-          sections[sections.length - 1].rows.push({
-            label: "Acc\u00e8s", cells: dateRows.map(function(r) {
-              return { html: statusPill(r.access), best: r.access === "Fluide" };
-            })
-          });
-
-          // --- Column width ---
-          var colCount = dateRows.length + 1;
-          var colW = (100 / colCount).toFixed(2) + "%";
-
-          // --- Column headers with ★ MEILLEUR on winner ---
-          var headerCells = dateRows.map(function(r) {
-            var isWinner = r.date === winner.date && dateRows.length > 1;
-            var d = parseYmdToDate(r.date);
-            var monthLabel = d ? new Intl.DateTimeFormat("fr-FR", { month: "long" }).format(d) : "";
-            monthLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-            return '<div style="width:' + colW + ';padding:12px 10px;text-align:center;border-left:1px solid #f3f4f6;">' +
-              (isWinner ? '<div style="font-size:9px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">\u2605 MEILLEUR</div>' : '') +
-              '<div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;">' + escapeHtml(r.meta.dow3 || "") + '</div>' +
-              '<div style="font-size:15px;font-weight:700;color:#111827;">' + escapeHtml(r.meta.dayNum2 || "") + ' ' + escapeHtml(monthLabel) + '</div>' +
-            '</div>';
-          }).join("");
-
-          // --- Build table HTML ---
-          var sectionsHtml = sections.map(function(section, si) {
-            var sectionHeaderCols = dateRows.map(function() {
-              return '<div style="width:' + colW + ';border-left:1px solid #f3f4f6;"></div>';
-            }).join("");
-
-            var rowsHtml = section.rows.map(function(row) {
-              var cellsHtml = row.cells.map(function(cell) {
-                var bg = cell.best ? "#f0fdf4" : "transparent";
-                return '<div style="width:' + colW + ';padding:6px 10px;text-align:center;border-left:1px solid #f3f4f6;background:' + bg + ';">' + cell.html + '</div>';
-              }).join("");
-              return '<div style="display:flex;align-items:center;min-height:40px;">' +
-                '<div style="width:' + colW + ';padding:6px 14px;font-size:12px;color:#6b7280;">' + escapeHtml(row.label) + '</div>' +
-                cellsHtml +
-              '</div>';
-            }).join("");
-
-            return '<div>' +
-              '<div style="display:flex;' + (si > 0 ? 'border-top:1px solid #e5e7eb;' : '') + '">' +
-                '<div style="width:' + colW + ';padding:8px 14px 4px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:' + (section.accent ? '#1e40af' : '#6b7280') + ';">' + escapeHtml(section.label) + '</div>' +
-                sectionHeaderCols +
-              '</div>' +
-              rowsHtml +
-            '</div>';
-          }).join("");
-
-          var chooseCells = dateRows.map(function(r){
-            var isWinner = r.date === winner.date && dateRows.length > 1;
-            return '<div style="width:' + colW + ';padding:12px 8px;border-left:1px solid #f3f4f6;">'
-              + '<button type="button" class="ms-choose-day-btn" data-date="' + escapeHtml(r.date) + '" style="width:100%;padding:9px 6px;border:1px solid #1D3BB3;border-radius:6px;background:' + (isWinner ? '#1D3BB3' : '#fff') + ';color:' + (isWinner ? '#fff' : '#1D3BB3') + ';font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Choisir</button>'
-              + '</div>';
-          }).join("");
-          var chooseRow = '<div style="display:flex;border-top:1px solid #e5e7eb;">'
-            + '<div style="width:' + colW + ';padding:12px 14px;"></div>'
-            + chooseCells
-            + '</div>';
-
-          var tableHtml = '<div style="background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">' +
-            '<div style="display:flex;border-bottom:2px solid #e5e7eb;">' +
-              '<div style="width:' + colW + ';padding:12px 14px;"></div>' +
-              headerCells +
-            '</div>' +
-            sectionsHtml +
-            chooseRow +
-          '</div>';
-
-          // --- Recommendation BELOW table ---
-          var recommendationHtml = dateRows.length > 1
-            ? '<div style="margin-top:16px;padding:14px 16px;background:#f0fdf4;border-radius:10px;border:1px solid #bbf7d0;">' +
-                '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#166534;margin-bottom:6px;">Recommandation</div>' +
-                '<div style="font-size:13.5px;color:#1f2937;line-height:1.5;">' +
-                  '<strong>' + escapeHtml(winnerLabel) + '</strong> \u2014 ' + escapeHtml(winnerReason) + '.' +
-                '</div>' +
-              '</div>'
-            : '';
-
-          // --- Page header ---
-          var dateCount = selectedDates.length;
-          var pageHeaderHtml = '<div style="background:#fff;border-bottom:1px solid #e5e7eb;padding:14px 24px;margin:-20px -20px 16px -20px;">' +
-            '<div style="max-width:720px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;">' +
-              '<div>' +
-                '<div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#6b7280;">Planifier</div>' +
-                '<div style="font-size:18px;font-weight:700;color:#111827;">Dates s\u00e9lectionn\u00e9es</div>' +
-              '</div>' +
-              '<div style="font-size:12px;color:#6b7280;">' + dateCount + ' dates</div>' +
-            '</div>' +
-          '</div>';
-
-          // --- Criteria block ---
-          var criteriaHtml = renderCriteriaBlock(dayRowsByDate);
-
-          // --- Assemble: header → criteria → tabs → table → recommendation → buttons ---
-          container.innerHTML = pageHeaderHtml +
-            '<div class="ms-days-wrap" style="padding-top:0;">' +
-              criteriaHtml +
-              '<div id="ms-day-tabs" style="margin-bottom:16px;"></div>' +
-              tableHtml +
-              recommendationHtml +
-            '</div>';
-
-          // Wire criteria toggle
-          wireCriteriaToggle();
-
-          // --- Wire "Choisir" buttons (one per date) ---
-          container.querySelectorAll(".ms-choose-day-btn").forEach(function(btn){
-            btn.addEventListener("click", async function(){
-              var d = btn.getAttribute("data-date");
-              if (!d) return;
-              if (savedItemId) {
-                btn.disabled = true;
-                btn.textContent = "\u2026";
-                try {
-                  await fetch("/api/saved-items/update", {
-                    method: "POST",
-                    headers: { "content-type": "application/json", accept: "application/json" },
-                    body: JSON.stringify({ saved_item_id: savedItemId, selected_date: d }),
-                    cache: "no-store",
-                  });
-                } catch(_) {}
-                // BASCULE (incrément 7) : le jour choisi ouvre le DOSSIER, plus le monitor legacy.
-                window.location.assign("/app/insightevent/evenement?location_id=" + encodeURIComponent(location_id) + "&saved_item_id=" + encodeURIComponent(savedItemId));
-                return;
-              }
-              MS._pendingMonitorDate = d;
-              openSaveModal();
-            });
-          });
-        }
-
-        // ================================================================
-        // V4 — renderDayDetail (day detail tab, ANALYSIS mode)
-        // Everything expanded, no radar strips, no collapsing.
-        // Wrapped in mon-card / mon-head / mon-kicker structure.
-        // NO feed section — feed is PILOTER only.
         // ================================================================
         function renderDayDetail(dayRowsByDate) {
         if (!container) return;
@@ -3717,14 +3008,12 @@ const show_actions = has_selected_dates;
 
           pillsContainer.innerHTML = `
             <div class="ms-tabs" role="tablist" aria-label="Jours sélectionnés">
-              ${["__comparison__", ...selectedDates].map((d0) => {
-                  const d = d0 === "__comparison__" ? "__comparison__" : normalizeYmd(d0);
+              ${selectedDates.map((d0) => {
+                  const d = normalizeYmd(d0);
                   const isActive = d === selectedDate;
-                  const hasData = d === "__comparison__" || (dayRowsByDate && dayRowsByDate.has(d));
+                  const hasData = dayRowsByDate && dayRowsByDate.has(d);
                   const meta = buildMetaForDate(d);
-                  const label = d === "__comparison__"
-                    ? "CHOIX"
-                    : (meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d);
+                  const label = meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d;
 
                   return `
                     <button type="button"
@@ -3749,10 +3038,7 @@ const show_actions = has_selected_dates;
               params.set("selected_date", d);
               window.history.replaceState({}, "", "?" + params.toString());
 
-              if (selectedDate === "__comparison__") {
-                renderComparisonTable(dayRowsByDate);
-                renderPills(dayRowsByDate);
-              } else {
+              {
                 const _clickedDate = selectedDate;
                 MS._pendingTabDate = _clickedDate;
                 fetchCompetitorSignals(_clickedDate).then(res => {
@@ -3877,14 +3163,6 @@ const show_actions = has_selected_dates;
           return Array.isArray(json.items) ? json.items : [];
         }
 
-        async function loadSavedItems() {
-          const savedPanel = getSavedPanel();
-          if (!savedPanel) return;
-          savedPanel.innerHTML = (window.MSLoader ? MSLoader.html("days") : "");
-          const items = await fetchSavedItems().catch(() => []);
-          renderSavedPanel(items);
-        }
-
         async function fetchSavedItemById(saved_item_id) {
           const res = await fetch("/api/saved-items/get", {
             method: "POST",
@@ -3905,56 +3183,10 @@ const show_actions = has_selected_dates;
         }
 
         function maybeResolveSavedItemId() {
-          // Only run if we have a saved_item_id in the URL
           if (!savedItemId) return false;
-
-          // If you already have selected_dates, no need to resolve/redirect.
           if (Array.isArray(selectedDates) && selectedDates.length > 0) return false;
-
-          // Kick off async resolver; return true to stop the rest of the page from running.
-          (async () => {
-            try {
-              // Render a minimal loading state (no new UI, just reuse existing)
-              setLayoutMode("detail");
-              if (container) {
-                container.style.display = "";
-                container.innerHTML = (window.MSLoader ? MSLoader.html("days") : "")
-              }
-
-              const item = await fetchSavedItemById(savedItemId);
-
-              const dates = extractDatesFromSavedItem(item)
-                .map(normalizeYmd)
-                .filter(Boolean)
-                .slice(0, 7);
-
-              if (!dates.length) {
-                throw new Error("Cet enregistrement ne contient aucune date.");
-              }
-
-              // Canonical redirect to selection mode (keeps UX stable + uses your existing flow)
-              const next = new URLSearchParams(params);
-            // Keep saved_item_id — needed for Choisir ce jour → monitor redirect
-            next.set("selected_dates", dates.join(","));
-            next.set("selected_date", "__comparison__");
-            window.location.replace("/app/insightevent/days?" + next.toString());
-              
-            } catch (e) {
-              // If get fails, fall back to list mode + show list (and optionally error)
-              console.error(e);
-
-              setLayoutMode("list");
-              await loadSavedItems().catch(() => {});
-
-              if (container) {
-                container.style.display = "";
-                container.innerHTML =
-                  `<div class="text-sm text-red-600">Impossible d’ouvrir cet enregistrement.</div>` +
-                  `<div class="mt-2 text-xs text-gray-500 break-words">${escapeHtml(e?.message || "Erreur.")}</div>`;
-              }
-            }
-          })();
-
+          // Bascule 04/08 : un lien days?saved_item_id= (emails legacy) ouvre le DOSSIER.
+          window.location.replace("/app/insightevent/evenement?location_id=" + encodeURIComponent(LOCATION_ID) + "&saved_item_id=" + encodeURIComponent(savedItemId));
           return true;
         }
 
@@ -3964,34 +3196,11 @@ const show_actions = has_selected_dates;
         if (maybeResolveSavedItemId()) return;
 
         // --------------------
-        // LIST MODE (no selection)
+        // Sans sélection : la LISTE vit sur /evenement (bascule 04/08) — days reste la
+        // surface de détail jour par jour.
         // --------------------
         if (!Array.isArray(selectedDates) || selectedDates.length === 0) {
-          setLayoutMode("list");
-
-          // Do NOT render empty state yet. Decide after we know if saved items exist.
-          (async () => {
-            const savedPanel = getSavedPanel();
-            if (savedPanel) savedPanel.innerHTML = (window.MSLoader ? MSLoader.html("days") : "");
-
-            const items = await fetchSavedItems().catch(() => []);
-            renderSavedPanel(items);
-
-            // Main column behavior depends on whether items exist
-            if (Array.isArray(items) && items.length > 0) {
-              const pills = getPillsContainer();
-              if (pills) pills.innerHTML = "";
-
-              if (container) {
-                container.innerHTML = "";
-                container.style.display = "none";
-              }
-            } else {
-              if (container) container.style.display = ""; // restore if previously hidden
-              renderEmptyState();
-            }
-          })();
-
+          window.location.replace("/app/insightevent/evenement" + (LOCATION_ID ? "?location_id=" + encodeURIComponent(LOCATION_ID) : ""));
           return;
         }
 
@@ -4005,9 +3214,7 @@ const show_actions = has_selected_dates;
             const [data, allSavedItems, _csInitial] = await Promise.all([
               fetchDays(),
               fetchSavedItems().catch(() => []),
-              fetchCompetitorSignals(
-                selectedDate !== "__comparison__" ? selectedDate : (selectedDates[0] || "")
-              ),
+              fetchCompetitorSignals(selectedDate || selectedDates[0] || ""),
             ]);
             window.__MS_DAYS__._allSavedItems = allSavedItems;
             if (!savedItemId && Array.isArray(allSavedItems) && allSavedItems.length > 0) {
@@ -4028,7 +3235,6 @@ const show_actions = has_selected_dates;
               : null;
             if (storedSelectedDate) {
               MS._chosenDate = storedSelectedDate;
-              params.set("selected_date", "__comparison__");
               params.set("date", storedSelectedDate);
               window.history.replaceState({}, "", "?" + params.toString());
             }
@@ -4066,7 +3272,7 @@ const show_actions = has_selected_dates;
             MS.competitorFollowedCount = _csInitial.followed_count;
             MS.topThreats = _csInitial.top_threats;
 
-            if ((!selectedDate || (selectedDate !== "__comparison__" && !byDate.has(selectedDate))) && selectedDates.length > 0) {
+            if ((!selectedDate || !byDate.has(selectedDate)) && selectedDates.length > 0) {
               const firstFound = selectedDates.find((d) => byDate.has(d));
               if (firstFound) {
                 selectedDate = firstFound;
@@ -4075,11 +3281,7 @@ const show_actions = has_selected_dates;
               }
             }
 
-            if (selectedDate === "__comparison__") {
-              renderComparisonTable(byDate);
-            } else {
-              renderDayDetail(byDate);
-            }
+            renderDayDetail(byDate);
 
             renderPills(byDate);
           
