@@ -193,8 +193,11 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   rejointe par saved_item_id) + cible du KPI dominant jugée en DÉTERMINISTE au dossier
   (`target_met`) — le verdict STATISTIQUE reste K1 (décision étape 3 respectée : bande de bruit
   par KPI en attente de variances). Fix au passage : crash jour-0 de renderEvolution (card-kit
-  v=43 partout). Restent : 5 (cartes cycle de vie, monitor.ts ADDITIF + E2E pulse), 6 (chat),
-  7 (bascule des liens).
+  v=43 partout). Incrément 5 FAIT (04/08) : lib/eventLifecycleCards (4 types, additif,
+  échec soft) + 4 specs client action-cards (v=43 sur les 4 surfaces) + Consulter des cartes
+  event_* route vers le dossier. Non-régression PROUVÉE par diff harnais : muse byte-identique,
+  café +2 cartes / 0 retrait ; menace absente = prévision réelle retombée (niveau 1) — la branche
+  se validera sur la première vraie alerte. Restent : 6 (chat), 7 (bascule des liens).
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
   EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
