@@ -41,7 +41,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
     </style>
 
-    <script is:inline src="/event-form.js?v=4"></script>
+    <script is:inline src="/event-form.js?v=5"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
@@ -356,14 +356,23 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               var pct = it.kpi_target_pct != null ? Math.round(it.kpi_target_pct)
                 : (o3.apport_eur != null && o3.expected_eur ? Math.max(1, Math.min(100, Math.round(100 * o3.apport_eur / o3.expected_eur))) : 10);
               b.disabled = true; b.textContent = "Choix…";
-              fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, selected_date: date }) })
+              // Durée multi-jours (04/08) : la fenêtre de mesure couvre [lancement, lancement+durée−1]
+              // et event_end_date (colonne historique, lue par les crons bilan/J-7) se cale dessus.
+              var dur = Number(it.duration_days) >= 1 ? Math.min(31, Math.round(Number(it.duration_days))) : 1;
+              var updBody = { saved_item_id: item, selected_date: date };
+              if (dur > 1) {
+                var ed = new Date(date + "T00:00:00Z"); ed.setUTCDate(ed.getUTCDate() + dur - 1);
+                updBody.event_end_date = ed.toISOString().slice(0, 10);
+              }
+              fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(updBody) })
                 .then(function (r) { return r.json(); })
                 .then(function (u) {
                   if (!u || !u.ok) throw new Error((u && u.error) || "Erreur");
                   return fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
                     location_id: loc, origin_action_type: "event_" + (it.event_type || "autre"), saved_item_id: item,
                     event_kpi: it.kpi || null, kpi_family: it.kpi_family || null,
-                    window_kind: "day_of", window_start_date: date, threshold_basis: "pct", threshold_pct: pct,
+                    window_kind: "day_of", window_start_date: date, window_days: dur > 1 ? dur : null,
+                    threshold_basis: "pct", threshold_pct: pct,
                     committed_action_text: it.title + (it.dispositif ? " — " + it.dispositif : ""),
                     owner_person_name: it.author_person_name || "—",
                   }) }).then(function (r) { return r.json(); });

@@ -102,7 +102,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 1. L'événement + ses dates (2 lectures, une passe) ──
   const [[itemRows], [dateRows]] = await Promise.all([
     bq.query({
-      query: `SELECT saved_item_id, title, description, event_type, event_nature, hour_start, hour_end,
+      query: `SELECT saved_item_id, title, description, event_type, event_nature, hour_start, hour_end, duration_days,
                      author_person_name, kpi, kpi_family, kpi_target_pct, kpi_target_eur,
                      recurrence, recurrence_dow, CAST(decision_date AS STRING) AS decision_date,
                      CAST(selected_date AS STRING) AS selected_date, CAST(event_end_date AS STRING) AS event_end_date
@@ -124,6 +124,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     event_type_label_fr: eventTypeLabelFr(flat(r0.event_type) as any),
     event_nature: flat(r0.event_nature) != null ? String(flat(r0.event_nature)) : null,
     hour_start: flat(r0.hour_start) != null ? Number(flat(r0.hour_start)) : null,
+    duration_days: flat(r0.duration_days) != null ? Number(flat(r0.duration_days)) : null,
     hour_end: flat(r0.hour_end) != null ? Number(flat(r0.hour_end)) : null,
     author_person_name: flat(r0.author_person_name) != null ? String(flat(r0.author_person_name)) : null,
     kpi: flat(r0.kpi) != null ? String(flat(r0.kpi)) : "revenue_residual",

@@ -236,7 +236,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     requireLocationOwnership(locals, body.location_id);
 
-    const days = WINDOW_DAYS[windowKind];
+    // Durée d'événement multi-jours (04/08, proto v4 validé) : `window_days` (1–31) surcharge
+    // la durée nominale du kind — la fenêtre de mesure couvre [lancement, lancement+durée−1].
+    // Absent → comportement historique inchangé. La résolution lit window_start/window_end/
+    // window_days_expected en colonnes, jamais le kind : aucune autre pièce à toucher.
+    let days = WINDOW_DAYS[windowKind];
+    if (body.window_days != null) {
+      const wd = Number(body.window_days);
+      if (!Number.isInteger(wd) || wd < 1 || wd > 31) {
+        return json({ ok: false, error: "window_days invalide (1–31) : " + body.window_days }, 400);
+      }
+      days = wd;
+    }
     // Fenêtre ancrée (03/08, spec evenement-dossier § 1.3) : un engagement d'ÉVÉNEMENT mesure la
     // ou les dates de l'occurrence, pas « à partir d'aujourd'hui ». `window_start_date` (Y-m-d,
     // futur ou aujourd'hui) ancre la fenêtre ; absent → comportement historique inchangé.

@@ -23,15 +23,38 @@
     var loc = String(opts.location_id || "");
     if (!mount || !loc) return;
     mount.innerHTML = '<div style="padding:20px;color:#9CA3AF;font-size:13px;">Chargement du formulaire…</div>';
+    var today = new Date().toISOString().slice(0, 10);
     Promise.all([
       fetchJson("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&create_context=1"),
       fetchJson("/api/channels/team?location_id=" + encodeURIComponent(loc)),
+      // La grille de dates lit la MÊME surface que le Calendrier (proto v4 validé 04/08) —
+      // en parallèle du contexte : coût wall-clock nul. Mois suivants chargés au ‹ › (cache).
+      fetchJson("/api/insight/month?location_id=" + encodeURIComponent(loc) + "&window_start_date=" + encodeURIComponent(today)),
     ]).then(function (rs) {
       var ctx = rs[0];
       if (!ctx || !ctx.ok) { mount.innerHTML = '<div style="padding:20px;color:#B91C1C;font-size:13px;">Erreur de chargement — rechargez la page.</div>'; return; }
       var team = (rs[1] && rs[1].ok && Array.isArray(rs[1].items)) ? rs[1].items : [];
+      ctx._month0 = rs[2] && rs[2].ok ? rs[2] : null;
       render(mount, loc, ctx, team, opts);
     });
+  }
+
+  // ── Grille de dates (proto v4) : jours normalisés depuis /api/insight/month ──
+  function normalizeMonthDays(payload) {
+    var out = {};
+    var days = payload && Array.isArray(payload.days) ? payload.days : [];
+    days.forEach(function (d) {
+      var flat = function (v) { return v && typeof v === "object" && "value" in v ? v.value : v; };
+      var iso = String(flat(d.date) || "").slice(0, 10);
+      if (!iso) return;
+      out[iso] = {
+        ferie: !!flat(d.is_public_holiday_fr_flag), ferie_name: flat(d.public_holiday_name_fr) || null,
+        vac: !!flat(d.is_school_holiday_flag), vac_name: flat(d.school_holiday_name) || null,
+        com: Array.isArray(flat(d.commercial_event_names_region)) ? flat(d.commercial_event_names_region) : [],
+        lvl: Math.max(Number(flat(d.lvl_rain)) || 0, Number(flat(d.lvl_heat)) || 0, Number(flat(d.lvl_wind)) || 0, Number(flat(d.lvl_snow)) || 0, Number(flat(d.lvl_cold)) || 0),
+      };
+    });
+    return out;
   }
 
   function render(mount, loc, ctx, team, opts) {
@@ -86,18 +109,22 @@
       + '<div><label style="' + lbl + '">Au</label><input data-ef="rend" type="date" style="' + inp + 'width:150px;"></div></div>'
       + '<div data-ef-dowref style="font-size:11.5px;color:#6B7280;margin-top:6px;"></div></div>'
       + '<div data-ef-oneblock style="margin-top:10px;">'
-      + '<label style="' + lbl + '">Options de dates — comparées, puis choisies (jusqu’à 7 ; pré-remplies depuis le calendrier)</label>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-      // Pré-remplissage depuis la planification (?dates=Y-m-d,...) — la pièce qui rendra la
-      // bascule du bouton « Enregistrer ces jours » triviale. Minimum 3 champs, maximum 7.
-      + (function () {
-          var pre = Array.isArray(opts.dates) ? opts.dates.filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); }).slice(0, 7) : [];
-          var n = Math.max(3, pre.length);
-          var out = "";
-          for (var i = 0; i < n; i++) out += '<input data-ef-date type="date" value="' + esc(pre[i] || "") + '" style="' + inp + 'width:150px;">';
-          return out;
-        })()
-      + '</div>'
+      // ── Le shopping de dates DANS le formulaire (proto v4 validé 04/08) : la grille remplace
+      //    le détour Calendrier → comparaison. Jours de LANCEMENT candidats ; « Durée » couvre
+      //    les événements multi-jours (fenêtre de mesure calée au Choisir). ──
+      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">'
+      + '<label style="' + lbl + 'margin-bottom:0;max-width:440px;">Options de dates — cliquez les jours de lancement candidats (jusqu’à 7) ; le dossier les comparera et vous en choisirez un</label>'
+      + '<span style="font-size:12.5px;color:#374151;white-space:nowrap;">Durée : <input data-ef="duree" value="1" style="' + inp + 'width:52px;display:inline-block;text-align:center;padding:6px;"> jour(s)</span></div>'
+      + '<div data-ef-chips style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
+      + '<button type="button" data-ef-mprev style="font-size:13px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#1D3BB3;padding:3px 10px;cursor:pointer;">‹</button>'
+      + '<span data-ef-mois style="font-size:12.5px;font-weight:600;color:#111827;min-width:130px;text-align:center;"></span>'
+      + '<button type="button" data-ef-mnext style="font-size:13px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#1D3BB3;padding:3px 10px;cursor:pointer;">›</button></div>'
+      + '<div data-ef-mctx style="font-size:11px;color:#6B7280;margin-bottom:6px;"></div>'
+      + '<div data-ef-grid style="min-height:60px;"></div>'
+      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA attendu selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · souligné gris = vacances scolaires. Survolez un jour pour son contexte.</div>'
+      + '<div style="margin-top:8px;"><label style="' + lbl + '">Vos candidates <span data-ef-count style="color:#1D3BB3;"></span> <span style="font-weight:400;color:#9CA3AF;text-transform:none;letter-spacing:0;">— conservées d’un mois à l’autre</span></label>'
+      + '<div data-ef-picked style="display:flex;gap:8px;flex-wrap:wrap;min-height:26px;"></div></div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
       + '<div data-ef-ddlwrap style="display:none;margin-top:6px;max-width:170px;"><label style="' + lbl + '">Date limite</label><input data-ef="ddl" type="date" style="' + inp + '"></div></div>'
       + '<div data-ef-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
@@ -106,17 +133,166 @@
     mount.innerHTML = html;
     var q = function (sel) { return mount.querySelector(sel); };
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || "").trim() : ""; };
-    var state = { nature: "outdoor", recurrence: "none" };
+    var todayIso = new Date().toISOString().slice(0, 10);
+    var state = {
+      nature: "outdoor", recurrence: "none",
+      picked: (Array.isArray(opts.dates) ? opts.dates.filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= todayIso; }).slice(0, 7) : []),
+      months: {}, curY: 0, curM: 0,
+    };
+    if (ctx._month0) state.months[todayIso.slice(0, 7)] = normalizeMonthDays(ctx._month0);
+    state.curY = Number(todayIso.slice(0, 4)); state.curM = Number(todayIso.slice(5, 7)) - 1;
 
     function baselineFor(dow) {
       for (var i = 0; i < baseline.length; i++) if (baseline[i].dow === dow) return baseline[i];
       return null;
     }
     function candidateDates() {
-      var out = [];
-      mount.querySelectorAll("[data-ef-date]").forEach(function (el) { var v = String(el.value || "").trim(); if (v) out.push(v); });
-      return out.slice(0, 7);
+      return state.picked.slice().sort().slice(0, 7);
     }
+    function dureeVal() {
+      var n = parseInt(val("duree"), 10);
+      return Number.isInteger(n) && n >= 1 && n <= 31 ? n : 1;
+    }
+    function frD(iso) { return iso.slice(8, 10) + "/" + iso.slice(5, 7); }
+    var DOW3 = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+    var MONTHS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    function dowOf(iso) { return new Date(iso + "T00:00:00Z").getUTCDay(); }
+    function tintFor(iso) {
+      var b = baselineFor(dowOf(iso));
+      var vals = baseline.map(function (x) { return x.expected_eur; }).filter(function (x) { return x > 0; });
+      if (!b || !vals.length) return "rgba(29,59,179,0.08)";
+      var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+      var a = max > min ? 0.06 + 0.30 * (b.expected_eur - min) / (max - min) : 0.12;
+      return "rgba(29,59,179," + a.toFixed(2) + ")";
+    }
+    function monthKey(y, m) { return y + "-" + String(m + 1).padStart(2, "0"); }
+    function ensureMonth(y, m, then) {
+      var k = monthKey(y, m);
+      if (state.months[k]) { then(); return; }
+      var startIso = k === todayIso.slice(0, 7) ? todayIso : k + "-01";
+      var grid = q("[data-ef-grid]");
+      if (grid) grid.innerHTML = '<div style="font-size:12px;color:#9CA3AF;padding:12px 0;">Chargement du mois…</div>';
+      fetchJson("/api/insight/month?location_id=" + encodeURIComponent(loc) + "&window_start_date=" + encodeURIComponent(startIso)).then(function (p) {
+        state.months[k] = p && p.ok ? normalizeMonthDays(p) : {};
+        then();
+      });
+    }
+    function renderChips() {
+      var el = q("[data-ef-chips]"); if (!el) return;
+      var k = monthKey(state.curY, state.curM);
+      var mdays = state.months[k] || {};
+      var chips = [];
+      // Meilleur jour de CA (fait, depuis la baseline — jamais un score plat re-classé).
+      var best = null;
+      baseline.forEach(function (b) { if (b.n_days > 0 && (!best || b.expected_eur > best.expected_eur)) best = b; });
+      if (best) {
+        var bestDates = Object.keys(mdays).filter(function (iso) { return dowOf(iso) === best.dow && iso >= todayIso; }).sort();
+        chips.push({ label: best.label_fr.charAt(0).toUpperCase() + best.label_fr.slice(1) + "s — votre meilleur attendu (≈ " + frInt(best.expected_eur) + " €/j)", c: "#1D3BB3", bg: "#EEF2FF", dates: bestDates });
+      }
+      Object.keys(mdays).sort().forEach(function (iso) {
+        var d = mdays[iso];
+        if (d.ferie && iso >= todayIso) chips.push({ label: DOW3[dowOf(iso)] + " " + frD(iso) + " — férié" + (d.ferie_name ? " (" + d.ferie_name + ")" : ""), c: "#1D3BB3", bg: "#EEF2FF", dates: [iso] });
+      });
+      // Risques météo niv ≥ 3, groupés par niveau (information, pas cliquable).
+      [4, 3].forEach(function (lv) {
+        var ds = Object.keys(mdays).filter(function (iso) { return mdays[iso].lvl === lv && iso >= todayIso; }).sort();
+        if (ds.length) chips.push({ label: "Risque météo niv. " + lv + " : " + ds.map(frD).join(", "), c: lv >= 4 ? "#e24b4a" : "#B45309", bg: lv >= 4 ? "#FEF2F2" : "#FEF3E2", dates: [] });
+      });
+      el.innerHTML = chips.map(function (ch, i) {
+        return '<span data-ef-chip="' + i + '" style="display:inline-flex;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;color:' + ch.c + ';background:' + ch.bg + ';cursor:' + (ch.dates.length ? "pointer" : "default") + ';">' + esc(ch.label) + (ch.dates.length ? " +" : "") + "</span>";
+      }).join("");
+      el.querySelectorAll("[data-ef-chip]").forEach(function (c, i) {
+        c.addEventListener("click", function () {
+          chips[i].dates.forEach(function (d) { if (state.picked.indexOf(d) < 0 && state.picked.length < 7) state.picked.push(d); });
+          renderDatesUI();
+        });
+      });
+    }
+    function renderGrid() {
+      var el = q("[data-ef-grid]"); if (!el) return;
+      var k = monthKey(state.curY, state.curM);
+      var mdays = state.months[k] || {};
+      q("[data-ef-mois]").textContent = MONTHS_FR[state.curM].charAt(0).toUpperCase() + MONTHS_FR[state.curM].slice(1) + " " + state.curY;
+      var first = k + "-01";
+      var last = new Date(Date.UTC(state.curY, state.curM + 1, 0)).toISOString().slice(0, 10);
+      // Ligne de contexte du mois (vacances nommées + périodes commerciales régionales).
+      var inM = Object.keys(mdays).filter(function (iso) { return iso >= first && iso <= last; }).sort();
+      var vacs = inM.filter(function (iso) { return mdays[iso].vac; });
+      var coms = {};
+      inM.forEach(function (iso) { (mdays[iso].com || []).forEach(function (n) { (coms[n] = coms[n] || []).push(iso); }); });
+      var parts = [];
+      if (vacs.length) parts.push((mdays[vacs[0]].vac_name || "Vacances scolaires") + " du " + frD(vacs[0]) + " au " + frD(vacs[vacs.length - 1]));
+      Object.keys(coms).forEach(function (n) { var ds = coms[n]; parts.push("Période « " + n + " » du " + frD(ds[0]) + " au " + frD(ds[ds.length - 1])); });
+      q("[data-ef-mctx]").textContent = inM.length ? (parts.length ? parts.join(" · ") : "Ni vacances ni période commerciale sur ce mois.") : "";
+      var start = new Date(first + "T00:00:00Z");
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+      var out = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;max-width:430px;">';
+      ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"].forEach(function (h) {
+        out += '<div style="font-size:9.5px;font-weight:600;color:#9CA3AF;text-transform:uppercase;text-align:center;padding:2px 0;">' + h + "</div>";
+      });
+      var cur = new Date(start);
+      while (cur.toISOString().slice(0, 10) <= last) {
+        var iso = cur.toISOString().slice(0, 10);
+        if (iso < first) { out += '<div style="height:40px;"></div>'; }
+        else {
+          var d = mdays[iso];
+          if (iso < todayIso || !d) {
+            out += '<div style="height:40px;border-radius:7px;background:#F3F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#C4C8CE;"><span style="font-size:12.5px;font-weight:600;">' + Number(iso.slice(8, 10)) + '</span><span style="font-size:8.5px;">' + (iso < todayIso ? "passé" : "—") + "</span></div>";
+          } else {
+            var sel = state.picked.indexOf(iso) >= 0;
+            var dotc = d.lvl >= 4 ? "#e24b4a" : d.lvl >= 2 ? "#B45309" : null;
+            var b2 = baselineFor(dowOf(iso));
+            var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — attendu ≈ " + frInt(b2.expected_eur) + " €" : "");
+            if (d.ferie) tip += " · Férié" + (d.ferie_name ? " (" + d.ferie_name + ")" : "");
+            if (d.vac) tip += " · " + (d.vac_name || "Vacances scolaires");
+            (d.com || []).forEach(function (n) { tip += " · " + n; });
+            if (d.lvl >= 2) tip += " · risque météo niv. " + d.lvl;
+            out += '<div data-ef-day="' + iso + '" title="' + esc(tip) + '" style="position:relative;height:40px;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;'
+              + "background:" + (sel ? "#1D3BB3" : tintFor(iso)) + ";" + (sel ? "color:#fff;" : "color:#111827;")
+              + (d.ferie ? "outline:1.5px solid #1D3BB3;outline-offset:-1.5px;" : "")
+              + (d.vac ? "box-shadow:inset 0 -3px 0 rgba(107,114,128,0.45);" : "") + '">'
+              + '<span style="font-size:12.5px;font-weight:600;">' + Number(iso.slice(8, 10)) + (d.ferie ? " ★" : "") + "</span>"
+              + '<span style="font-size:8.5px;' + (sel ? "color:rgba(255,255,255,0.8);" : "color:#6B7280;") + '">' + DOW3[dowOf(iso)] + "</span>"
+              + (dotc ? '<span style="position:absolute;top:3px;right:4px;width:7px;height:7px;border-radius:50%;background:' + dotc + ';"></span>' : "")
+              + "</div>";
+          }
+        }
+        cur.setUTCDate(cur.getUTCDate() + 1);
+      }
+      out += "</div>";
+      el.innerHTML = out;
+      el.querySelectorAll("[data-ef-day]").forEach(function (c) {
+        c.addEventListener("click", function () {
+          var iso = c.getAttribute("data-ef-day");
+          var i = state.picked.indexOf(iso);
+          if (i >= 0) state.picked.splice(i, 1);
+          else if (state.picked.length < 7) state.picked.push(iso);
+          renderDatesUI();
+        });
+      });
+    }
+    function renderPicked() {
+      var el = q("[data-ef-picked]"); if (!el) return;
+      var cnt = q("[data-ef-count]"); if (cnt) cnt.textContent = state.picked.length ? "(" + state.picked.length + "/7)" : "";
+      if (!state.picked.length) { el.innerHTML = '<span style="font-size:12px;color:#9CA3AF;">Cliquez des jours dans la grille.</span>'; return; }
+      var dur = dureeVal();
+      el.innerHTML = candidateDates().map(function (iso) {
+        var b = baselineFor(dowOf(iso));
+        var endTxt = "";
+        if (dur > 1) {
+          var ed = new Date(iso + "T00:00:00Z"); ed.setUTCDate(ed.getUTCDate() + dur - 1);
+          endTxt = " → " + frD(ed.toISOString().slice(0, 10));
+        }
+        return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #1D3BB3;color:#1D3BB3;border-radius:8px;padding:5px 10px;background:#fff;">'
+          + DOW3[dowOf(iso)] + " " + frD(iso) + endTxt
+          + (b ? ' <span style="color:#6B7280;">≈ ' + frInt(b.expected_eur) + " € attendu" + (dur > 1 ? " /j · mesure sur " + dur + " j" : "") + "</span>" : "")
+          + ' <span data-ef-rm="' + iso + '" style="cursor:pointer;font-weight:700;">×</span></span>';
+      }).join("");
+      el.querySelectorAll("[data-ef-rm]").forEach(function (x) {
+        x.addEventListener("click", function () { state.picked.splice(state.picked.indexOf(x.getAttribute("data-ef-rm")), 1); renderDatesUI(); });
+      });
+    }
+    function renderDatesUI() { renderChips(); renderGrid(); renderPicked(); refreshCible(); }
     function refDow() {
       if (state.recurrence !== "none") return Number(val("dow"));
       var d1 = candidateDates()[0];
@@ -185,10 +361,22 @@
     ["kpi", "family", "target", "dow"].forEach(function (n) {
       var el = q('[data-ef="' + n + '"]'); if (el) { el.addEventListener("change", refreshCible); el.addEventListener("input", refreshCible); }
     });
-    mount.querySelectorAll("[data-ef-date]").forEach(function (el) { el.addEventListener("change", refreshCible); });
+    var dureeEl = q('[data-ef="duree"]');
+    if (dureeEl) dureeEl.addEventListener("input", renderPicked);
+    q("[data-ef-mprev]").addEventListener("click", function () {
+      var y = state.curY, m = state.curM - 1; if (m < 0) { m = 11; y--; }
+      if (monthKey(y, m) < todayIso.slice(0, 7)) return;
+      state.curY = y; state.curM = m;
+      ensureMonth(y, m, renderDatesUI);
+    });
+    q("[data-ef-mnext]").addEventListener("click", function () {
+      var y = state.curY, m = state.curM + 1; if (m > 11) { m = 0; y++; }
+      state.curY = y; state.curM = m;
+      ensureMonth(y, m, renderDatesUI);
+    });
     var ddl = q('[data-ef="ddlcheck"]');
     if (ddl) ddl.addEventListener("change", function (e) { q("[data-ef-ddlwrap]").style.display = e.target.checked ? "block" : "none"; });
-    refreshCible();
+    renderDatesUI();
 
     q("[data-ef-submit]").addEventListener("click", function () {
       var errEl = q("[data-ef-err]");
@@ -207,6 +395,8 @@
         kpi_target_pct: kpi === "family_revenue" ? null : t,
         kpi_target_eur: kpi === "family_revenue" ? t : null,
         recurrence: state.recurrence,
+        // Durée multi-jours (v1 : ponctuel seulement — les occurrences d'une série restent au jour).
+        duration_days: state.recurrence === "none" && dureeVal() > 1 ? dureeVal() : null,
       };
       if (state.recurrence !== "none") {
         if (!val("rstart") || !val("rend")) return fail("Récurrence : renseignez « Du » et « Au ».");

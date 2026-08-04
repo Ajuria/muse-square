@@ -113,6 +113,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const asNum = (v: any): number | null => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
     const kpi_target_pct = asNum(body?.kpi_target_pct);
     const kpi_target_eur = asNum(body?.kpi_target_eur);
+    // Durée en jours (04/08, proto v4) : l'événement peut durer N jours consécutifs — les
+    // candidates restent des jours de LANCEMENT ; au Choisir, la fenêtre de mesure et
+    // event_end_date se calent sur [lancement, lancement+durée−1]. NULL = 1 jour (historique).
+    const duration_days = Number.isInteger(Number(body?.duration_days)) && Number(body.duration_days) >= 1 && Number(body.duration_days) <= 31
+      ? Number(body.duration_days) : null;
     const recurrence: "none" | "weekly" | "monthly" =
       body?.recurrence === "weekly" ? "weekly" : body?.recurrence === "monthly" ? "monthly" : "none";
     const recurrence_dow = Number.isInteger(Number(body?.recurrence_dow)) && Number(body.recurrence_dow) >= 0 && Number(body.recurrence_dow) <= 6
@@ -182,6 +187,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         recurrence_dow,
         recurrence_start,
         recurrence_end,
+        duration_days,
         created_at,
         updated_at
     )
@@ -209,6 +215,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @recurrence_dow,
         IF(@recurrence_start = '', NULL, PARSE_DATE('%F', @recurrence_start)),
         IF(@recurrence_end = '', NULL, PARSE_DATE('%F', @recurrence_end)),
+        @duration_days,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -257,6 +264,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     recurrence_dow,
     recurrence_start: recurrence_start ?? "",
     recurrence_end: recurrence_end ?? "",
+    duration_days,
     dates,
 },
 types: {
@@ -280,6 +288,7 @@ types: {
     kpi_target_eur: "FLOAT64",
     recurrence: "STRING",
     recurrence_dow: "INT64",
+    duration_days: "INT64",
     recurrence_start: "STRING",
     recurrence_end: "STRING",
     dates: ["STRING"],
