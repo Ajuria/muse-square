@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           @clerk_user_id                    AS clerk_user_id,
           PARSE_DATE('%F', @selected_date)  AS selected_date,
           CURRENT_TIMESTAMP()               AS snapshotted_at,
-          opportunity_score_final_local     AS opportunity_score,
+          SAFE_CAST(opportunity_score_final_local AS FLOAT64) AS opportunity_score,  -- la vue re-type le score en STRING (2e dérive attrapée 04/08)
           opportunity_regime                AS opportunity_regime,
           lvl_rain,
           lvl_wind,
@@ -42,13 +42,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
           lvl_cold,
           alert_level_max,
           delta_att_events_pct,
-          delta_att_mobility_car_pct,
+          -- Fix 04/08 : la vue a renommé la mesure (delta_ops_mobility_car_pct) ; la colonne
+          -- snapshot garde son nom historique. Ce SELECT échouait en silence (fire-and-forget
+          -- depuis update.ts) depuis le renommage — attrapé par le cron event-occurrences.
+          delta_ops_mobility_car_pct,
           is_forced_regime_c_flag,
           primary_score_driver_label,
           weather_label_fr,
           competition_presence_flag,
           events_within_5km_count,
-          mobility_status_region
+          CAST(NULL AS STRING)  -- mobility_status_region : colonne disparue de la vue (04/08) — NULL honnête, jamais un substitut
         FROM \`${projectId}.semantic.vw_insight_event_day_surface\`
         WHERE location_id = @location_id
           AND date = PARSE_DATE('%F', @selected_date)

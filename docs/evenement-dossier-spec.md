@@ -210,3 +210,36 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
   EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
   historiques préservées, `eventTypesFor(industryCode)` + `eventTypeLabelFr(value)`).
+
+
+## Annexe — vue sémantique `vw_insight_event_user_events` (PRÊTE, volontairement NON créée)
+
+Décision 04/08 : ne pas créer de modèle sans consommateur (la leçon d'`int_client_commitment_latest`,
+né orphelin le 13/07). Cette vue se crée AVEC son premier consommateur (page LISTE d'événements,
+rapport, ou BI). SQL prêt à coller dans l'IDE dbt Cloud (`semantic/insight_event/`) :
+
+```sql
+{{ config( materialized = 'view', schema = 'semantic' ) }}
+
+with events as ( select * from {{ ref('stg_saved_items') }} ),
+dates as (
+    select saved_item_id, location_id, count(*) as n_occurrences,
+           min(date) as first_date, max(date) as last_date
+    from {{ ref('stg_saved_item_dates') }} group by 1, 2
+),
+outcomes as (
+    select saved_item_id, count(*) as n_resolved, countif(beat) as n_beat,
+           countif(is_confounded) as n_confounded,
+           avg(effect_residual_pct) as avg_effect_residual_pct,
+           sum(window_actual_revenue - window_expected_revenue) as sum_gap_eur,
+           avg(kpi_delta_pct) as avg_kpi_delta_pct
+    from {{ ref('fct_client_commitment_outcomes') }}
+    where saved_item_id is not null group by 1
+)
+select e.*, d.n_occurrences, d.first_date, d.last_date,
+       o.n_resolved, o.n_beat, o.n_confounded, o.avg_effect_residual_pct,
+       o.sum_gap_eur, o.avg_kpi_delta_pct
+from events e
+left join dates d using (saved_item_id, location_id)
+left join outcomes o using (saved_item_id)
+```
