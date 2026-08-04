@@ -20,37 +20,13 @@ const isActive = (href: string) => {
 };
 
 const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
-let dbSavedItemId = "";
-let dbDate = "";
-
-if (isApp) {
-  try {
-    const origin = Astro.url.origin;
-    const res = await fetch(`${origin}/api/saved-items/list`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie: Astro.request.headers.get("cookie") ?? "",
-      },
-      body: JSON.stringify({ limit: 1, offset: 0 }),
-    });
-    const json = await res.json().catch(() => null);
-    const first = json?.items?.[0];
-    if (first?.saved_item_id) {
-      dbSavedItemId = String(first.saved_item_id);
-      if (first.selected_date) dbDate = String(first.selected_date);
-    }
-  } catch (_) {}
-}
-// RÈGLE (03/08, owner : « I was in Piloter, I stay in Piloter ») — PLANIFIER est une liste
-// FERMÉE de surfaces de planification ; TOUTE autre page /app/insightevent est une vue de
-// détail du feed Piloter et surligne PILOTER. L'ancienne logique était inversée (PLANIFIER
-// était le fourre-tout) : chaque nouvelle page de détail retombait sur PLANIFIER à sa
-// création — insight, puis engagement, puis competitor/dispositif/rapport. Une nouvelle page
-// de planification s'ajoute ICI ; une page de détail n'a rien à déclarer.
-const PLANIFIER_PREFIXES = ["/app/insightevent/prompt", "/app/insightevent/days", "/app/insightevent/month", "/app/insightevent/map"];
-const isInsightEvent = PLANIFIER_PREFIXES.some((p) => currentPath.startsWith(p));
-const isPiloter = currentPath.startsWith("/app/insightevent") && !isInsightEvent && !currentPath.startsWith("/app/insightevent/suivis");
+// RÈGLE (03/08, owner : « I was in Piloter, I stay in Piloter » ; refonte 3 onglets 04/08) —
+// chaque onglet est une liste FERMÉE ; toute autre page /app/insightevent est une vue de
+// détail du hub du jour et surligne AGIR (month/days/map comprises : démises du menu, elles
+// restent des surfaces de détail). Une nouvelle page ne déclare rien : elle retombe sur Agir.
+const isDemander = currentPath.startsWith("/app/insightevent/prompt");
+const isPiloterTab = currentPath.startsWith("/app/insightevent/evenement");
+const isAgir = currentPath.startsWith("/app/insightevent") && !isDemander && !isPiloterTab && !currentPath.startsWith("/app/insightevent/suivis");
 const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");
 const isSignUp = currentPath === "/sign-up" || currentPath.startsWith("/sign-up/");
@@ -108,16 +84,20 @@ const isAppShell = isApp;
             <>
               <li>
                 <a
-                  href={Astro.url.searchParams.get("saved_item_id") ? `/app/insightevent/days?saved_item_id=${encodeURIComponent(Astro.url.searchParams.get("saved_item_id")!)}&selected_date=__comparison__` : "/app/insightevent/prompt"}
-                  aria-current={isInsightEvent ? "page" : undefined}
-                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+                  href="/app/insightevent/prompt"
+                  aria-current={isDemander ? "page" : undefined}
+                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
                 >
-                  Planifier
+                  Demander
                 </a>
               </li>
-              
+
               <li>
-                <a href="/app/insightevent/pulse" class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isPiloter ? "after:bg-primary" : "after:bg-transparent"}`}>PILOTER</a>
+                <a href="/app/insightevent/pulse" aria-current={isAgir ? "page" : undefined} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isAgir ? "after:bg-primary" : "after:bg-transparent"}`}>Agir</a>
+              </li>
+
+              <li>
+                <a href="/app/insightevent/evenement" aria-current={isPiloterTab ? "page" : undefined} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isPiloterTab ? "after:bg-primary" : "after:bg-transparent"}`}>Piloter</a>
               </li>
 
               <li class="relative" id="compte-nav-item">
@@ -190,33 +170,21 @@ const isAppShell = isApp;
           <li>
             <a
               href="/app/insightevent/prompt"
-              aria-current={isInsightEvent ? "page" : undefined}
+              aria-current={isDemander ? "page" : undefined}
               class={`font-heading relative inline-block pb-2 transition-opacity
                 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
                 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                ${isInsightEvent ? "after:bg-primary" : "after:bg-transparent"}`}
+                ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
             >
-              Planifier
+              Demander
             </a>
           </li>
 
           <li>
-            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Veille</a>
+            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Agir</a>
           </li>
           <li>
-            {(() => {
-              const savedItemId = Astro.url.searchParams.get("saved_item_id") || dbSavedItemId;
-              const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
-              const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || dbDate;
-              const monitorHref = savedItemId
-                ? `/app/insightevent/evenement?saved_item_id=${encodeURIComponent(savedItemId)}`
-                : "/app/insightevent/evenement";
-              void focusedDate;
-
-              return (
-                <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Événements</a>
-              );
-            })()}
+            <a href="/app/insightevent/evenement" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
           </li>
 
           <li>
