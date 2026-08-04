@@ -22,23 +22,31 @@ export const GET: APIRoute = async ({ request }) => {
     const baseUrl = process.env.APP_BASE_URL || "https://dev.musesquare.com";
 
     // Find events that ended exactly 7 days ago, no bilan submitted yet,
-    // and primary account holder has an email
+    // and primary account holder has an email. « Terminé » = event_end_date (legacy)
+    // OU la DERNIÈRE occurrence de saved_item_dates (modèle événement-dispositif : les
+    // récurrents n'ont pas d'event_end_date — sans ce COALESCE ils n'auraient jamais de bilan).
     const [rows] = await bigquery.query({
       query: `
+        WITH last_occ AS (
+          SELECT saved_item_id, location_id, MAX(date) AS last_date
+          FROM \`${projectId}.raw.saved_item_dates\`
+          GROUP BY 1, 2
+        )
         SELECT
           s.saved_item_id,
+          s.location_id,
           s.clerk_user_id,
           s.title,
-          s.selected_date,
-          s.event_end_date,
+          COALESCE(s.selected_date, lo.last_date) AS selected_date,
           p.email,
           p.first_name
         FROM \`${projectId}.raw.saved_items\` s
         JOIN \`${projectId}.raw.insight_event_user_location_profile\` p
           ON s.clerk_user_id = p.clerk_user_id
           AND p.is_primary = TRUE
-        WHERE s.event_end_date = DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-          AND s.selected_date IS NOT NULL
+        LEFT JOIN last_occ lo
+          ON lo.saved_item_id = s.saved_item_id AND lo.location_id = s.location_id
+        WHERE COALESCE(s.event_end_date, lo.last_date) = DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
           AND p.email IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM \`${projectId}.raw.event_outcomes\` o
@@ -60,8 +68,8 @@ export const GET: APIRoute = async ({ request }) => {
 
     for (const row of rows) {
       try {
-        const selDate = row.selected_date?.value ?? row.selected_date ?? "";
-        const bilanUrl = `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(row.saved_item_id)}&date=${encodeURIComponent(selDate)}&mode=bilan`;
+        // Le bilan vit au DOSSIER (/evenement, bloc 3 questions) — monitor.astro est démis.
+        const bilanUrl = `${baseUrl}/app/insightevent/evenement?location_id=${encodeURIComponent(row.location_id)}&saved_item_id=${encodeURIComponent(row.saved_item_id)}&mode=bilan`;
 
         await resend.emails.send({
           from: "Insight <insight@musesquare.com>",
