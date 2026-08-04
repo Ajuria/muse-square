@@ -1,12 +1,13 @@
 // GET /api/insight/evenement — la page dossier d'événement (spec docs/evenement-dossier-spec.md).
 // Incrément 2b : `?create_context=1` sert le FORMULAIRE de création (types par MÉTIER du lieu,
 // attendu par jour de semaine — le référentiel de la cible à deux lignes —, familles produits
-// pour le KPI famille). Le dossier (`?saved_item_id=`) arrive à l'incrément 3 (provider
-// evenementFamily) — d'ici là : found:false honnête.
+// pour le KPI famille). `?list=1` : la LISTE des événements du lieu — premier consommateur de
+// `semantic.vw_insight_event_user_events` (annexe de la spec : la vue naît avec lui).
+// Le dossier (`?saved_item_id=`) : provider evenementFamily.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { eventTypesFor } from "../../../lib/eventTypes";
+import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
 
 const PROJECT = "muse-square-open-data";
@@ -65,8 +66,49 @@ export const GET: APIRoute = async ({ url, locals }) => {
       });
     }
 
+    if (url.searchParams.get("list")) {
+      // La liste du lieu — la vue (grain saved_item) + la prochaine occurrence à venir.
+      const [rows] = await bq.query({
+        query: `SELECT v.saved_item_id, v.title, v.event_type, v.recurrence, v.n_occurrences,
+                       CAST(v.first_date AS STRING) AS first_date, CAST(v.last_date AS STRING) AS last_date,
+                       CAST(v.selected_date AS STRING) AS selected_date,
+                       v.kpi, v.kpi_family, v.author_person_name,
+                       v.n_resolved, v.n_beat, v.sum_gap_eur,
+                       CAST(nx.next_date AS STRING) AS next_date
+                FROM \`${PROJECT}.semantic.vw_insight_event_user_events\` v
+                LEFT JOIN (
+                  SELECT saved_item_id, MIN(date) AS next_date
+                  FROM \`${PROJECT}.raw.saved_item_dates\`
+                  WHERE date >= CURRENT_DATE() GROUP BY 1
+                ) nx ON nx.saved_item_id = v.saved_item_id
+                WHERE v.location_id = @location_id
+                ORDER BY (nx.next_date IS NULL), nx.next_date, v.last_date DESC
+                LIMIT 100`,
+        params: { location_id }, location: "EU",
+      });
+      const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+      const num = (v: any): number | null => (flat(v) == null ? null : Number(flat(v)));
+      return json(200, {
+        ok: true,
+        events: (rows as any[]).map((r) => ({
+          saved_item_id: String(flat(r.saved_item_id)),
+          title: String(flat(r.title) ?? ""),
+          event_type: flat(r.event_type) != null ? String(flat(r.event_type)) : null,
+          type_label_fr: flat(r.event_type) != null ? eventTypeLabelFr(String(flat(r.event_type))) : null,
+          recurring: flat(r.recurrence) != null && String(flat(r.recurrence)) !== "none",
+          n_occurrences: num(r.n_occurrences),
+          first_date: flat(r.first_date), last_date: flat(r.last_date),
+          selected_date: flat(r.selected_date), next_date: flat(r.next_date),
+          kpi: flat(r.kpi) != null ? String(flat(r.kpi)) : null,
+          kpi_family: flat(r.kpi_family) != null ? String(flat(r.kpi_family)) : null,
+          author_person_name: flat(r.author_person_name) != null ? String(flat(r.author_person_name)) : null,
+          n_resolved: num(r.n_resolved), n_beat: num(r.n_beat), sum_gap_eur: num(r.sum_gap_eur),
+        })),
+      });
+    }
+
     const saved_item_id = String(url.searchParams.get("saved_item_id") || "").trim();
-    if (!saved_item_id) return json(400, { ok: false, error: "saved_item_id ou create_context requis" });
+    if (!saved_item_id) return json(400, { ok: false, error: "saved_item_id, list ou create_context requis" });
     const result = await evenementFamily(bq, location_id, saved_item_id);
     return json(200, { ok: true, ...result.data });
   } catch (err: any) {

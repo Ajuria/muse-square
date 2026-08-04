@@ -209,13 +209,12 @@ const isAppShell = isApp;
               const rawDate = Astro.url.searchParams.get("date") ?? Astro.url.searchParams.get("selected_date") ?? "";
               const focusedDate = (rawDate && rawDate !== "__comparison__" ? rawDate : "") || dbDate;
               const monitorHref = savedItemId
-                ? `/app/insightevent/monitor?saved_item_id=${encodeURIComponent(savedItemId)}${focusedDate && focusedDate !== "__comparison__" ? `&date=${encodeURIComponent(focusedDate)}` : ""}`
-                : null;
+                ? `/app/insightevent/evenement?saved_item_id=${encodeURIComponent(savedItemId)}`
+                : "/app/insightevent/evenement";
+              void focusedDate;
 
-              return monitorHref ? (
+              return (
                 <a href={monitorHref} class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter — Événements</a>
-              ) : (
-                <span class="font-heading inline-block pb-2 text-gray-300 cursor-not-allowed select-none" aria-disabled="true">Piloter — Événements</span>
               );
             })()}
           </li>
