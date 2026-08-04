@@ -35,6 +35,69 @@ export interface EvenementFamilyResult {
   data: Record<string, unknown>;
 }
 
+// ── Liste des événements de l'utilisateur (incrément 6 — le chat) : titre, type, prochaine
+// occurrence, dernière occurrence MESURÉE (écart € residual — jamais recalculé), n occurrences.
+// Sert la branche déterministe « mes événements » de prompt.ts et buildEventFacts (liste blanche
+// des réponses jour). Résiliente : échec → [].
+export interface UserEvenementRow {
+  saved_item_id: string; title: string; type_label_fr: string; recurring: boolean;
+  n_occurrences: number; next_date: string | null;
+  last_measured: { date: string; revenue: number; expected: number; gap_eur: number } | null;
+}
+export async function listUserEvenements(bq: any, location_id: string, clerk_user_id: string, limit = 6): Promise<UserEvenementRow[]> {
+  try {
+    const today = ymdToday();
+    const [rows] = await bq.query({
+      query: `SELECT si.saved_item_id, si.title, si.event_type, si.recurrence,
+                     ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date) AS dates
+              FROM \`${PROJECT}.raw.saved_items\` si
+              JOIN \`${PROJECT}.raw.saved_item_dates\` d
+                ON d.saved_item_id = si.saved_item_id AND d.location_id = si.location_id
+              WHERE si.location_id = @location_id AND si.clerk_user_id = @clerk_user_id
+              GROUP BY 1, 2, 3, 4
+              LIMIT ${Math.max(1, Math.min(limit, 12))}`,
+      params: { location_id, clerk_user_id }, location: "EU",
+    });
+    if (!rows?.length) return [];
+    const evs = (rows as any[]).map((r) => ({
+      saved_item_id: String(flat(r.saved_item_id)),
+      title: String(flat(r.title) ?? ""),
+      type_label_fr: eventTypeLabelFr(flat(r.event_type) as any),
+      recurring: String(flat(r.recurrence) ?? "none") !== "none",
+      dates: ((r.dates ?? []) as any[]).map((d) => String(flat(d))),
+    }));
+    // Dernière occurrence PASSÉE de chaque événement → une lecture residual, jointure en JS
+    // (le motif éprouvé du provider — jamais de sous-requête corrélée fragile).
+    const pastDates = [...new Set(evs.flatMap((e) => e.dates.filter((d) => d < today)))];
+    let resBy = new Map<string, any>();
+    if (pastDates.length) {
+      const [resRows] = await bq.query({
+        query: `SELECT CAST(date AS STRING) AS d, ROUND(daily_revenue, 0) AS rev, ROUND(expected_revenue, 0) AS exp
+                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                WHERE location_id = @location_id AND date IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))`,
+        params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
+      });
+      resBy = new Map((resRows as any[]).map((r) => [String(flat(r.d)), r]));
+    }
+    return evs.map((e) => {
+      const lastMeasuredDate = [...e.dates].reverse().find((d) => d < today && resBy.has(d)) ?? null;
+      const re: any = lastMeasuredDate ? resBy.get(lastMeasuredDate) : null;
+      return {
+        saved_item_id: e.saved_item_id,
+        title: e.title,
+        type_label_fr: e.type_label_fr,
+        recurring: e.recurring,
+        n_occurrences: e.dates.length,
+        next_date: e.dates.find((d) => d >= today) ?? null,
+        last_measured: re ? { date: lastMeasuredDate as string, revenue: Number(flat(re.rev)), expected: Number(flat(re.exp)), gap_eur: Number(flat(re.rev)) - Number(flat(re.exp)) } : null,
+      };
+    });
+  } catch (e) {
+    console.warn("[evenement] listUserEvenements skipped:", e);
+    return [];
+  }
+}
+
 export async function evenementFamily(bq: any, location_id: string, saved_item_id: string): Promise<EvenementFamilyResult> {
   // ── 1. L'événement + ses dates (2 lectures, une passe) ──
   const [[itemRows], [dateRows]] = await Promise.all([
