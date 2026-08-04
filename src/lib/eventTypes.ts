@@ -67,8 +67,11 @@ const ACCUEIL_LOISIRS: EventTypeOption[] = [
   T("evenement_corporate"), T("happening_exterieur"), T("lancement_saison"), T("autre"),
 ];
 const PRO_EVENEMENTIEL: EventTypeOption[] = [
-  T("salon_exposition"), T("conference_de_presse"), T("evenement_corporate"), T("soiree_de_lancement"),
-  T("inauguration"), T("journee_portes_ouvertes"), T("autre"),
+  // « Venue de producteurs » ajoutée le 04/08 : cas réel owner (corner de vente producteur sur un
+  // lieu événementiel → obligé de prendre « Autre »). Le registre s'étend en une ligne — jamais
+  // de texte libre sur le TYPE (grain d'origin_action_type / suppression / apprentissage).
+  T("salon_exposition"), T("venue_producteurs"), T("conference_de_presse"), T("evenement_corporate"),
+  T("soiree_de_lancement"), T("inauguration"), T("journee_portes_ouvertes"), T("autre"),
 ];
 
 const BY_INDUSTRY: Record<string, EventTypeOption[]> = {

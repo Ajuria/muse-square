@@ -247,15 +247,17 @@
         .then(function (res) {
           var j = res.created;
           var okC = res.commitment && res.commitment.ok;
+          var dossierUrl = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(j.saved_item_id);
           var html2 = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Événement créé.';
           if (state.recurrence !== "none") {
             html2 += " " + j.occurrences.length + " occurrences générées (" + j.occurrences.slice(0, 4).map(function (d) { return d.slice(8, 10) + "/" + d.slice(5, 7); }).join(" · ") + (j.occurrences.length > 4 ? " …" : "") + ").";
             html2 += okC ? " Engagement de mesure de la 1re occurrence créé — fenêtre ancrée sur son jour." : " <span style=\"color:#B45309;\">Engagement non créé (" + esc((res.commitment && res.commitment.error) || "erreur") + ") — re-tentez depuis le dossier.</span>";
-          } else {
-            html2 += ' <a href="/app/insightevent/days?saved_item_id=' + encodeURIComponent(j.saved_item_id) + '&selected_dates=' + encodeURIComponent((body.dates || []).join(",")) + '&selected_date=__comparison__" style="color:#1D3BB3;font-weight:600;">Comparer les jours candidats →</a> <span style="color:#6b7280;">(vue legacy — l’état Décider du dossier arrive à l’incrément 3)</span>';
           }
-          html2 += "</div>";
+          html2 += ' <a href="' + dossierUrl + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le dossier →</a><br><span style="color:#6b7280;">Ouverture automatique…</span></div>';
           mount.innerHTML = html2;
+          // Redirection vers le DOSSIER (remarque owner 04/08 : le bandeau était un cul-de-sac) —
+          // récurrent → états Avant/Après ; ponctuel → état Décider (les candidats côte à côte).
+          setTimeout(function () { window.location.href = dossierUrl; }, 1400);
           if (opts && typeof opts.onDone === "function") opts.onDone(res);
         })
         .catch(function (e) { btn.disabled = false; btn.textContent = "Créer l’événement — l’engagement de mesure se crée avec"; fail(e && e.message ? e.message : "Erreur, réessayez."); });
