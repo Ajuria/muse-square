@@ -23,7 +23,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
 <Show when="signed-in" client:load>
   <BaseLayout title="Reproduire le dispositif gagnant — Muse Square" hideSurveyCta={true} hideFooter={true}>
     <div id="dispo-root" data-loc={locParam} data-class={classParam}>
-      <div id="dispo-toolbar"><a href="/app/insightevent/pulse" id="dispo-back">← Retour à Pulse</a></div>
+      <div id="dispo-toolbar"><a href="/app/insightevent/pulse" id="dispo-back">← Retour</a></div>
       <div id="dispo-status">Chargement de vos données…</div>
       <div id="dispo-doc" style="display:none;"></div>
     </div>
@@ -63,6 +63,10 @@ const classParam = Astro.url.searchParams.get("class") || "";
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline>
       (function () {
+        var _db = document.getElementById("dispo-back");
+        if (_db) _db.addEventListener("click", function (ev) {
+          if (window.history.length > 1 && document.referrer && document.referrer.indexOf(window.location.origin) === 0) { ev.preventDefault(); window.history.back(); }
+        });
         var root = document.getElementById("dispo-root");
         var statusEl = document.getElementById("dispo-status");
         var docEl = document.getElementById("dispo-doc");

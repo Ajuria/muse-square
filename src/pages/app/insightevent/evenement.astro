@@ -27,7 +27,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 <Show when="signed-in" client:load>
   <BaseLayout title="Événement — Muse Square" hideSurveyCta={true} hideFooter={true}>
     <div id="evt-root" data-loc={locParam} data-item={itemParam}>
-      <div id="evt-toolbar" style="margin-bottom:14px;"><a href="/app/insightevent/pulse" style="font-size:14px;color:#6b7280;text-decoration:none;">← Retour à Pulse</a></div>
+      <div id="evt-toolbar" style="margin-bottom:14px;"><a href="/app/insightevent/tableau" id="evt-back" style="font-size:14px;color:#6b7280;text-decoration:none;">← Retour</a></div>
       <div id="evt-head" style="margin-bottom:12px;">
         <div style="font-size:15px;font-weight:600;color:#111827;">Nouvel événement</div>
         <div style="font-size:12px;color:#6b7280;line-height:1.5;">Un événement porte son dispositif, son objectif (le KPI que le verdict jugera) et, s’il se répète, sa série — la mesure se crée avec lui.</div>
@@ -46,6 +46,12 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       (function () {
         var root = document.getElementById("evt-root");
         var body = document.getElementById("evt-body");
+        // « Retour » = le point de DÉPART (owner 05/08) : history.back() quand on vient d'une
+        // page de l'app ; repli tableau pour les arrivées directes (email, lien partagé).
+        var backEl = document.getElementById("evt-back");
+        if (backEl) backEl.addEventListener("click", function (ev) {
+          if (window.history.length > 1 && document.referrer && document.referrer.indexOf(window.location.origin) === 0) { ev.preventDefault(); window.history.back(); }
+        });
         var loc = root.getAttribute("data-loc") || "";
         var item = root.getAttribute("data-item") || "";
         var qs = new URLSearchParams(window.location.search);

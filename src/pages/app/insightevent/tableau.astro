@@ -110,6 +110,27 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               href: "#tb-disp", open_volet: "di",
             });
           }
+          if (db.team_empty) goals.push({
+            kind: "equipe",
+            aline: "→ Ajouter votre équipe — vos engagements pourront être assignés et notifiés",
+            sub: "Compte → Communication · 2 min",
+            goal_fr: "Faire vivre l’Équipe", link_fr: "Ajouter vos destinataires",
+            href: "/profile?tab=comm",
+          });
+          if (db.channels_missing) goals.push({
+            kind: "canaux",
+            aline: "→ Brancher un canal (email ou Slack) — vos alertes et notifications partiront",
+            sub: "Compte → Communication · 2 min",
+            goal_fr: "Recevoir alertes et notifications", link_fr: "Brancher un canal",
+            href: "/profile?tab=comm",
+          });
+          if (db.alerts_prefs_missing) goals.push({
+            kind: "alertes",
+            aline: "→ Choisir ce qui mérite un email — alertes critiques, point du jour, digest",
+            sub: "vos préférences d’alertes n’ont jamais été posées",
+            goal_fr: "Choisir ce qui mérite un email", link_fr: "Régler vos alertes",
+            href: "/notifications",
+          });
           if (!db.margin_declared) goals.push({
             kind: "marge",
             aline: "→ Déclarer votre marge — débloque le KPI profit",
@@ -127,6 +148,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (nb) parts.push("vos prévisions (" + nb + " bilan" + (nb > 1 ? "s" : "") + ")");
           if (db.to_document && !rest.some(function (g) { return g.kind === "documenter"; })) {} // couvert par la ligne visible
           else if (db.to_document) parts.push("vos dispositifs (1 à documenter)");
+          if (rest.some(function (g) { return g.kind === "equipe" || g.kind === "canaux"; })) parts.push("votre équipe et vos canaux");
+          else if (rest.some(function (g) { return g.kind === "alertes"; })) parts.push("vos alertes");
           if (!db.margin_declared) parts.push("le KPI profit");
           return parts.join(" · ");
         }
