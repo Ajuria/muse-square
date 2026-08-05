@@ -132,6 +132,10 @@
 
     mount.innerHTML = html;
     var q = function (sel) { return mount.querySelector(sel); };
+    // Préremplissage depuis une fiche dispositif (CTA « Automatiser » du tableau, 05/08) :
+    // titre + dispositif posés, l'utilisateur choisit sa récurrence et ses dates.
+    if (opts.titre) { var _t = q('[data-ef="title"]'); if (_t && !_t.value) _t.value = String(opts.titre).slice(0, 120); }
+    if (opts.dispositif) { var _d = q('[data-ef="dispositif"]'); if (_d && !_d.value) _d.value = String(opts.dispositif).slice(0, 240); }
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || "").trim() : ""; };
     var todayIso = new Date().toISOString().slice(0, 10);
     var state = {

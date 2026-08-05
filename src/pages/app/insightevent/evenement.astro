@@ -41,7 +41,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
     </style>
 
-    <script is:inline src="/event-form.js?v=5"></script>
+    <script is:inline src="/event-form.js?v=6"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
@@ -412,7 +412,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         if (!item && wantForm) {
           if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
           if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
-          window.MSEventForm.open(body, { location_id: loc, dates: preDates });
+          window.MSEventForm.open(body, { location_id: loc, dates: preDates, titre: qs.get("titre") || "", dispositif: qs.get("dispositif") || "" });
         }
       })();
     </script>
