@@ -1,13 +1,19 @@
 ---
 // « /evenement » — le dossier d'événement-dispositif (spec docs/evenement-dossier-spec.md).
-// Mode CRÉATION (sans saved_item_id) : MSEventForm (public/event-form.js, ?dates= pré-remplies).
+// Mode LISTE (par défaut, sans saved_item_id) : les événements du lieu via ?list=1 — premier
+// consommateur de vw_insight_event_user_events ; lieu résolu via /api/profile/locations
+// (primaire d'abord) quand l'URL n'en porte pas (lien BottomBar).
+// Mode CRÉATION (?new=1 ou ?dates=) : MSEventForm (public/event-form.js, ?dates= pré-remplies).
 // Mode DOSSIER (?saved_item_id=) : les 3 états Décider/Avant/Après sur provider evenementFamily ;
 // la CIBLE du KPI dominant est jugée en DÉTERMINISTE (target_met — un fait), le verdict
 // STATISTIQUE reste celui de l'engagement K1 (bande de bruit + gardes — décision étape 3),
-// les deux affichés, jamais confondus. days.astro et monitor.astro legacy jusqu'à la bascule.
+// les deux affichés, jamais confondus ; lieu résolu via saved-items/get quand absent (lien Nav).
+// Bilan déclaratif 3 questions (complément du mesuré — décision owner 03/08) : bloc du dossier
+// quand une occurrence est passée et qu'aucun bilan n'est soumis ; ?mode=bilan y défile (email J+7).
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 import { Show } from "@clerk/astro/components";
 
 const locParam = Astro.url.searchParams.get("location_id") || "";
@@ -29,19 +35,24 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       <div id="evt-body" style="background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,0.06);padding:14px 16px;">Chargement…</div>
     </div>
 
+    <PiloterBottomBar active="piloter" />
+
     <style is:global>
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
     </style>
 
-    <script is:inline src="/event-form.js?v=4"></script>
+    <script is:inline src="/event-form.js?v=6"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
         var body = document.getElementById("evt-body");
         var loc = root.getAttribute("data-loc") || "";
         var item = root.getAttribute("data-item") || "";
-        if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
-        if (item) {
+        var qs = new URLSearchParams(window.location.search);
+        var preDates = String(qs.get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+        var wantForm = qs.get("new") === "1" || preDates.length > 0;
+
+        function openDossier() {
           fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
             .then(function (r) { return r.json(); })
             .then(function (j) {
@@ -50,9 +61,49 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               renderDossier(j);
             })
             .catch(function () { body.textContent = "Erreur de chargement."; });
-          return;
         }
 
+        function openList() {
+          fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&list=1", { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
+              renderList(j.events || []);
+            })
+            .catch(function () { body.textContent = "Erreur de chargement."; });
+        }
+
+        if (item) {
+          // Dossier — lieu résolu par l'événement lui-même quand le lien n'en porte pas (Nav, emails).
+          if (loc) { openDossier(); }
+          else {
+            fetch("/api/saved-items/get", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item }) })
+              .then(function (r) { return r.json(); })
+              .then(function (g) {
+                if (!g || !g.ok || !g.item || !g.item.location_id) { body.textContent = "Événement introuvable."; return; }
+                loc = String(g.item.location_id);
+                openDossier();
+              })
+              .catch(function () { body.textContent = "Erreur de chargement."; });
+          }
+          // (renderDossier et ses aides sont déclarés plus bas — hoisting.)
+        } else if (!wantForm) {
+          // LISTE par défaut — lieu primaire quand l'URL n'en porte pas (lien BottomBar).
+          document.querySelector("#evt-head div").textContent = "Mes événements";
+          document.querySelector("#evt-head div + div").textContent = "Tous les événements du lieu — dossier, série et mesure. Le dossier juge la cible ; le verdict statistique reste celui de l’engagement.";
+          if (loc) { openList(); }
+          else {
+            fetch("/api/profile/locations", { cache: "no-store" })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                var l0 = p && p.ok && Array.isArray(p.locations) && p.locations[0];
+                if (!l0 || !l0.location_id) { body.textContent = "Aucun lieu configuré."; return; }
+                loc = String(l0.location_id);
+                openList();
+              })
+              .catch(function () { body.textContent = "Erreur de chargement."; });
+          }
+        }
         function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
         function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
@@ -62,6 +113,118 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         function qLine(qu) {
           return '<div style="display:flex;align-items:flex-start;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;line-height:1.5;">' + dot(qu.tone)
             + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '') + '</span></div>';
+        }
+
+        // ── La LISTE (mode par défaut) — la vue user_events : quand, série, track record. ──
+        function renderList(events) {
+          var newHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
+          if (!events.length) {
+            body.innerHTML = '<div style="font-size:13px;color:#6B7280;">Aucun événement pour ce lieu. <a href="' + newHref + '" style="color:#1D3BB3;font-weight:600;">Créer le premier</a>.</div>';
+            return;
+          }
+          var head2 = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><a href="' + newHref + '" style="display:inline-flex;align-items:center;padding:8px 14px;background:#1D3BB3;border-radius:6px;font-size:13px;font-weight:500;color:#fff;text-decoration:none;">Nouvel événement</a></div>';
+          body.innerHTML = head2 + events.map(function (e) {
+            var when = e.recurring
+              ? "Série · " + (e.n_occurrences || 0) + " occurrence(s)" + (e.next_date ? " · prochaine le " + frD(e.next_date) : e.last_date ? " · terminée le " + frD(e.last_date) : "")
+              : e.next_date ? "Prochaine date : " + frD(e.next_date)
+              : e.selected_date ? "Date : " + frD(e.selected_date)
+              : e.last_date ? "Terminé le " + frD(e.last_date) : "Dates à choisir";
+            var track = e.n_resolved
+              ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (Number(e.sum_gap_eur) >= 0 ? "#059669" : "#B45309") + ';background:' + (Number(e.sum_gap_eur) >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + (e.sum_gap_eur != null ? signEur(e.sum_gap_eur) + " vs attendu · " : "") + (e.n_beat || 0) + "/" + e.n_resolved + " tenue(s)</span>"
+              : '<span style="font-size:11px;color:#9CA3AF;">pas encore de mesure résolue</span>';
+            return '<a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(e.saved_item_id) + '" style="display:block;text-decoration:none;color:inherit;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">'
+              + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">'
+              + '<span style="font-size:13.5px;font-weight:600;">' + esc(e.title) + '</span>'
+              + (e.type_label_fr ? '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(e.type_label_fr) + '</span>' : "")
+              + '</div>'
+              + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#6B7280;">'
+              + '<span>' + esc(when) + '</span>' + track
+              + (e.author_person_name ? '<span>créé par ' + esc(e.author_person_name) + '</span>' : "")
+              + '</div></a>';
+          }).join("");
+        }
+
+        // ── Bilan déclaratif — 3 questions (décision owner 03/08 : « conservé en complément du
+        //    mesuré, 3 questions »). Complément du MESURÉ : météo vécue (calibre les classes),
+        //    accessibilité vécue (clients vs fournisseurs, non mesurable), fréquentation vs
+        //    attentes (non mesurée pour la plupart des lieux). La concurrence saute : seule
+        //    dimension déjà entièrement mesurée par le pipeline. Écrit dans raw.event_outcomes
+        //    via /api/saved-items/bilan (endpoint inchangé, competition_felt absent → NULL). ──
+        function maybeRenderBilan(j) {
+          var it = j.item || {};
+          var today = new Date().toISOString().slice(0, 10);
+          var past = (it.dates || []).map(String).filter(function (d) { return d && d.slice(0, 10) <= today; });
+          if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
+          if (!past.length) return;
+          var bilanDate = past[past.length - 1].slice(0, 10);
+          fetch("/api/saved-items/snapshot?saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (sj) {
+              if (!sj || !sj.ok || sj.bilan_submitted) return;
+              renderBilanBlock(bilanDate);
+            })
+            .catch(function () {});
+        }
+
+        function renderBilanBlock(bilanDate) {
+          var chosen = {};
+          function group(key, opts) {
+            return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
+              return '<button type="button" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
+            }).join("") + '</div>';
+          }
+          var wrap = document.createElement("div");
+          wrap.id = "evt-bilan";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+          wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
+            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">3 questions — ce que la mesure ne voit pas. Le CA, lui, est déjà mesuré ci-dessus.</div>'
+            + '<div style="font-size:13px;font-weight:500;">Les conditions météo correspondaient-elles à nos prévisions ?</div>'
+            + group("weather_accuracy", [["conforme", "Oui, conforme"], ["mieux", "Meilleures que prévu"], ["pire", "Pires que prévu"]])
+            + '<div style="font-size:13px;font-weight:500;">L’accès à votre site était-il fluide pour vos visiteurs ?</div>'
+            + group("mobility_felt", [["fluide", "Fluide"], ["difficile", "Quelques difficultés"], ["perturbe", "Fortement perturbé"]])
+            + '<div style="font-size:13px;font-weight:500;">La fréquentation, par rapport à vos attentes ?</div>'
+            + group("attendance_vs_expect", [["beyond", "Bien au-delà"], ["conforme", "Conforme"], ["endeca", "En deçà"]])
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">'
+            + '<div><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Nb de visiteurs (optionnel)</div><input id="evt-bilan-att" type="number" placeholder="ex. 340" style="width:120px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"></div>'
+            + '<div style="flex:1;min-width:200px;"><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Commentaire (optionnel)</div><textarea id="evt-bilan-com" placeholder="Observation, retour terrain…" style="width:100%;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;"></textarea></div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;"><button type="button" id="evt-bilan-send" style="font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Envoyer mon bilan</button><span id="evt-bilan-msg" style="font-size:12px;color:#6B7280;"></span></div>';
+          body.appendChild(wrap);
+          wrap.querySelectorAll("[data-bl-g]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var g = b.getAttribute("data-bl-g");
+              chosen[g] = b.getAttribute("data-bl-v");
+              wrap.querySelectorAll('[data-bl-g="' + g + '"]').forEach(function (x) {
+                var on = x === b;
+                x.style.background = on ? "#EEF2FF" : "#fff";
+                x.style.borderColor = on ? "#1D3BB3" : "#E5E7EB";
+                x.style.color = on ? "#1D3BB3" : "#374151";
+                x.style.fontWeight = on ? "600" : "400";
+              });
+            });
+          });
+          wrap.querySelector("#evt-bilan-send").addEventListener("click", function () {
+            var msg = wrap.querySelector("#evt-bilan-msg");
+            if (!chosen.weather_accuracy || !chosen.mobility_felt || !chosen.attendance_vs_expect) { msg.style.color = "#B91C1C"; msg.textContent = "Répondez aux 3 questions."; return; }
+            var att = parseInt(wrap.querySelector("#evt-bilan-att").value || "", 10);
+            var btn = wrap.querySelector("#evt-bilan-send");
+            btn.disabled = true;
+            fetch("/api/saved-items/bilan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              saved_item_id: item, selected_date: bilanDate,
+              weather_accuracy: chosen.weather_accuracy, mobility_felt: chosen.mobility_felt,
+              attendance_vs_expect: chosen.attendance_vs_expect,
+              attendance_approx: isNaN(att) ? null : att,
+              free_comment: wrap.querySelector("#evt-bilan-com").value.trim() || null,
+              collection_channel: "in_app",
+            }) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                if (p && p.ok) { wrap.innerHTML = '<div style="font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Bilan enregistré — il complète la mesure pour calibrer vos prochaines recommandations.</div>'; }
+                else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez."); btn.disabled = false; }
+              })
+              .catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; btn.disabled = false; });
+          });
+          if (qs.get("mode") === "bilan" && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
         // ── Le dossier à 3 états (protos v2.1/v3 validés) — la même matière provider,
@@ -173,6 +336,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
           body.innerHTML = head + segHtml + deciderHtml + avantHtml + apresHtml;
           document.querySelector("#evt-head div").textContent = "Dossier d’événement";
+          maybeRenderBilan(j);
 
           body.querySelectorAll("[data-ev-st]").forEach(function (b) {
             b.addEventListener("click", function () {
@@ -192,14 +356,23 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               var pct = it.kpi_target_pct != null ? Math.round(it.kpi_target_pct)
                 : (o3.apport_eur != null && o3.expected_eur ? Math.max(1, Math.min(100, Math.round(100 * o3.apport_eur / o3.expected_eur))) : 10);
               b.disabled = true; b.textContent = "Choix…";
-              fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, selected_date: date }) })
+              // Durée multi-jours (04/08) : la fenêtre de mesure couvre [lancement, lancement+durée−1]
+              // et event_end_date (colonne historique, lue par les crons bilan/J-7) se cale dessus.
+              var dur = Number(it.duration_days) >= 1 ? Math.min(31, Math.round(Number(it.duration_days))) : 1;
+              var updBody = { saved_item_id: item, selected_date: date };
+              if (dur > 1) {
+                var ed = new Date(date + "T00:00:00Z"); ed.setUTCDate(ed.getUTCDate() + dur - 1);
+                updBody.event_end_date = ed.toISOString().slice(0, 10);
+              }
+              fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(updBody) })
                 .then(function (r) { return r.json(); })
                 .then(function (u) {
                   if (!u || !u.ok) throw new Error((u && u.error) || "Erreur");
                   return fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
                     location_id: loc, origin_action_type: "event_" + (it.event_type || "autre"), saved_item_id: item,
                     event_kpi: it.kpi || null, kpi_family: it.kpi_family || null,
-                    window_kind: "day_of", window_start_date: date, threshold_basis: "pct", threshold_pct: pct,
+                    window_kind: "day_of", window_start_date: date, window_days: dur > 1 ? dur : null,
+                    threshold_basis: "pct", threshold_pct: pct,
                     committed_action_text: it.title + (it.dispositif ? " — " + it.dispositif : ""),
                     owner_person_name: it.author_person_name || "—",
                   }) }).then(function (r) { return r.json(); });
@@ -234,11 +407,13 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; docBtn.disabled = false; });
           });
         }
-        if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
-        // Pré-remplissage depuis la planification : ?dates=Y-m-d,Y-m-d,… (le futur câblage du
-        // bouton « Enregistrer ces jours » de days.astro — bascule finale).
-        var pre = String(new URLSearchParams(window.location.search).get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
-        window.MSEventForm.open(body, { location_id: loc, dates: pre });
+        // Mode CRÉATION (?new=1 ou ?dates= pré-remplies depuis la planification) — les autres
+        // modes (dossier, liste) ont déjà lancé leur fetch ci-dessus.
+        if (!item && wantForm) {
+          if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
+          if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
+          window.MSEventForm.open(body, { location_id: loc, dates: preDates, titre: qs.get("titre") || "", dispositif: qs.get("dispositif") || "" });
+        }
       })();
     </script>
   </BaseLayout>

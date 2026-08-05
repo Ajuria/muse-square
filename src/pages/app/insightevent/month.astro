@@ -600,7 +600,7 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
             </div>
           </div>
       
-          <button id="ie-30d-view-details" data-role="ie-30d-view-details" type="button">Voir →</button>
+          <button id="ie-30d-view-details" data-role="ie-30d-view-details" type="button">Créer l’événement avec ces jours →</button>
         </div>
       </div>
     </div> <!-- closes #ie-30d-root -->
@@ -2797,9 +2797,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
     function goDaysFromSelection(){
       if(!Array.isArray(selected) || selected.length === 0) return;
 
-      const u = new URL(window.location.origin + "/app/insightevent/days");
-      u.searchParams.set("selected_dates", selected.join(","));
-      u.searchParams.set("selected_date", "__comparison__");
+      // Bascule 04/08 (proto v4 validé) : la sélection alimente directement le FORMULAIRE
+      // d'événement (?dates= pré-remplies) — la comparaison vit au dossier Décider, plus
+      // dans days (onglet CHOIX démis).
+      const u = new URL(window.location.origin + "/app/insightevent/evenement");
+      u.searchParams.set("dates", selected.join(","));
 
       const locId = new URL(window.location.href).searchParams.get("location_id");
       if (locId) u.searchParams.set("location_id", locId);

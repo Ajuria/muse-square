@@ -575,7 +575,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       query: `SELECT DISTINCT origin_suppression_key AS k
               FROM (
                 SELECT origin_suppression_key, status,
-                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                 FROM \`muse-square-open-data.analytics.action_commitments\`
                 WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
               )

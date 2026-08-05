@@ -399,7 +399,7 @@ export function buildBriefingHtml(d: BriefingData): string {
     const labelColor = isPlanifier ? "#854F0B" : isUrgent ? "#0b37e5" : "#9ca3af";
     const bgColor = isPlanifier ? "#FFFBF5" : isUrgent ? "#f8f9ff" : "#f9fafb";
     const borderColor = isPlanifier ? "#BA7517" : isUrgent ? "#0b37e5" : "#d1d5db";
-    const monitorUrl = `${baseUrl}/app/insightevent/monitor?saved_item_id=${encodeURIComponent(evt.saved_item_id)}&date=${encodeURIComponent(evt.selected_date)}`;
+    const monitorUrl = `${baseUrl}/app/insightevent/evenement?location_id=${encodeURIComponent(user.location_id)}&saved_item_id=${encodeURIComponent(evt.saved_item_id)}`;
     return `
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:6px;">
         <tr>
