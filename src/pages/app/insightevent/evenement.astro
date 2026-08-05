@@ -39,6 +39,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
     <style is:global>
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      /* Bilan : les puces se lisent comme des CHOIX (retour owner 05/08) */
+      .evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }
     </style>
 
     <script is:inline src="/event-form.js?v=7"></script>
@@ -180,21 +182,28 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
         function renderBilanBlock(bilanDate) {
           var chosen = {};
+          // Numérotation + surlignage des manquantes (retour owner 05/08 — « validation
+          // bruyante », même patron que le formulaire d'engagement du 26/07).
+          var BL_NUM = { weather_accuracy: 1, mobility_felt: 2, attendance_vs_expect: 3 };
+          var BL_NAME = { weather_accuracy: "la météo", mobility_felt: "l’accès", attendance_vs_expect: "la fréquentation" };
           function group(key, opts) {
-            return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
-              return '<button type="button" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
+            return '<div data-bl-grp="' + key + '" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
+              return '<button type="button" class="evt-bl-chip" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
             }).join("") + '</div>';
+          }
+          function qhead(key, text) {
+            return '<div data-bl-q="' + key + '" style="font-size:13px;font-weight:500;">' + BL_NUM[key] + '/3 — ' + text + '</div>';
           }
           var wrap = document.createElement("div");
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
             + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">3 questions — ce que la mesure ne voit pas. Le CA, lui, est déjà mesuré ci-dessus.</div>'
-            + '<div style="font-size:13px;font-weight:500;">Les conditions météo correspondaient-elles à nos prévisions ?</div>'
+            + qhead("weather_accuracy", 'Les conditions météo correspondaient-elles à nos prévisions ?')
             + group("weather_accuracy", [["conforme", "Oui, conforme"], ["mieux", "Meilleures que prévu"], ["pire", "Pires que prévu"]])
-            + '<div style="font-size:13px;font-weight:500;">L’accès à votre site était-il fluide pour vos visiteurs ?</div>'
+            + qhead("mobility_felt", 'L’accès à votre site était-il fluide pour vos visiteurs ?')
             + group("mobility_felt", [["fluide", "Fluide"], ["difficile", "Quelques difficultés"], ["perturbe", "Fortement perturbé"]])
-            + '<div style="font-size:13px;font-weight:500;">La fréquentation, par rapport à vos attentes ?</div>'
+            + qhead("attendance_vs_expect", 'La fréquentation, par rapport à vos attentes ?')
             + group("attendance_vs_expect", [["beyond", "Bien au-delà"], ["conforme", "Conforme"], ["endeca", "En deçà"]])
             + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">'
             + '<div><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Nb de visiteurs (optionnel)</div><input id="evt-bilan-att" type="number" placeholder="ex. 340" style="width:120px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"></div>'
@@ -206,6 +215,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             b.addEventListener("click", function () {
               var g = b.getAttribute("data-bl-g");
               chosen[g] = b.getAttribute("data-bl-v");
+              var qh = wrap.querySelector('[data-bl-q="' + g + '"]');
+              if (qh) qh.style.color = "";
               wrap.querySelectorAll('[data-bl-g="' + g + '"]').forEach(function (x) {
                 var on = x === b;
                 x.style.background = on ? "#EEF2FF" : "#fff";
@@ -217,7 +228,22 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           });
           wrap.querySelector("#evt-bilan-send").addEventListener("click", function () {
             var msg = wrap.querySelector("#evt-bilan-msg");
-            if (!chosen.weather_accuracy || !chosen.mobility_felt || !chosen.attendance_vs_expect) { msg.style.color = "#B91C1C"; msg.textContent = "Répondez aux 3 questions."; return; }
+            var missing = ["weather_accuracy", "mobility_felt", "attendance_vs_expect"].filter(function (k) { return !chosen[k]; });
+            if (missing.length) {
+              missing.forEach(function (k) {
+                var h = wrap.querySelector('[data-bl-q="' + k + '"]');
+                if (h) h.style.color = "#B45309";
+                wrap.querySelectorAll('[data-bl-g="' + k + '"]').forEach(function (x) { x.style.borderColor = "#B45309"; });
+              });
+              msg.style.color = "#B45309";
+              var mParts = missing.map(function (k) { return BL_NUM[k] + " (" + BL_NAME[k] + ")"; });
+              msg.textContent = missing.length === 1
+                ? "Il manque la question " + BL_NUM[missing[0]] + " — " + BL_NAME[missing[0]] + "."
+                : "Il manque les questions " + mParts.slice(0, -1).join(", ") + " et " + mParts[mParts.length - 1] + ".";
+              var h0 = wrap.querySelector('[data-bl-q="' + missing[0] + '"]');
+              if (h0 && h0.scrollIntoView) h0.scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
             var att = parseInt(wrap.querySelector("#evt-bilan-att").value || "", 10);
             var btn = wrap.querySelector("#evt-bilan-send");
             btn.disabled = true;
