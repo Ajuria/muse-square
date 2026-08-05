@@ -92,6 +92,26 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               href: "/app/insightevent/evenement?location_id=" + encodeURIComponent(b.location_id || "") + "&saved_item_id=" + encodeURIComponent(b.saved_item_id || "") + "&mode=bilan",
             });
           });
+          // Fraîcheur des ventes (onboarding P1) — juste après les bilans : sans données
+          // fraîches, ni cartes du jour ni verdicts. Chaque chiffre = le MAX réel en base.
+          if (db.sales_stale) goals.push({
+            kind: "fraicheur",
+            aline: "→ Importer vos ventes récentes — elles s’arrêtent au " + frD(db.sales_stale.last_sale_date)
+              + (j.multi_site && db.sales_stale.site_label ? " (" + db.sales_stale.site_label + ")" : "")
+              + " · " + db.sales_stale.stale_days + " jours sans données",
+            sub: "sans ventes fraîches, ni cartes du jour ni verdicts mesurés",
+            goal_fr: "Réveiller vos cartes du jour", link_fr: "Importer vos ventes récentes",
+            href: "/app/insightevent/prompt",
+          });
+          (db.sales_missing || []).slice(0, 1).forEach(function (m) {
+            goals.push({
+              kind: "ventes",
+              aline: "→ Importer les ventes" + (m.site_label ? " de " + m.site_label : "") + " — aucune donnée : le site est aveugle",
+              sub: "un export CSV de votre caisse suffit, dans Explorer",
+              goal_fr: "Mesurer ce site", link_fr: "Importer les premières ventes",
+              href: "/app/insightevent/prompt",
+            });
+          });
           if (db.to_document) goals.push({
             kind: "documenter",
             aline: "→ Documenter votre verdict tenu — il devient un dispositif déclaré",
@@ -148,6 +168,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (nb) parts.push("vos prévisions (" + nb + " bilan" + (nb > 1 ? "s" : "") + ")");
           if (db.to_document && !rest.some(function (g) { return g.kind === "documenter"; })) {} // couvert par la ligne visible
           else if (db.to_document) parts.push("vos dispositifs (1 à documenter)");
+          if (rest.some(function (g) { return g.kind === "fraicheur" || g.kind === "ventes"; })) parts.push("vos ventes à jour");
           if (rest.some(function (g) { return g.kind === "equipe" || g.kind === "canaux"; })) parts.push("votre équipe et vos canaux");
           else if (rest.some(function (g) { return g.kind === "alertes"; })) parts.push("vos alertes");
           if (!db.margin_declared) parts.push("le KPI profit");

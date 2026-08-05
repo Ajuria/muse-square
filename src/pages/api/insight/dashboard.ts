@@ -34,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [consigneRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -161,6 +161,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
                        MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot
                 FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: P, location: "EU",
+      }),
+      // Fraîcheur des ventes (onboarding P1) : dernier jour importé par site — le carburant de
+      // toute mesure. Un site sans ligne = aveugle ; un site figé = cartes du jour muettes.
+      bq.query({
+        query: `SELECT location_id, CAST(MAX(transaction_date) AS STRING) AS last_sale
+                FROM \`${PROJECT}.raw.client_transactions\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
         params: P, location: "EU",
       }),
@@ -330,6 +338,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
         competitor_alerts_7d: alerts,
       },
       debloquer: {
+        // Fraîcheur des ventes (P1) : sales_stale = le PIRE site figé (données présentes mais
+        // arrêtées ≥ 7 j — un max futur, ex. seed, n'est pas figé) ; sales_missing = sites
+        // sans AUCUNE ligne. Chaque valeur affichée vient du MAX réel en base.
+        ...(() => {
+          const todayYmd = new Date().toISOString().slice(0, 10);
+          const lastBySite: Record<string, string> = {};
+          for (const r of freshRows as any[]) lastBySite[String(str(r.location_id))] = String(str(r.last_sale));
+          const staleList = locs
+            .filter((l) => lastBySite[l] && lastBySite[l] < todayYmd)
+            .map((l) => ({
+              location_id: l, site_label: siteLabel[l] || null, last_sale_date: lastBySite[l],
+              stale_days: Math.round((Date.parse(todayYmd + "T12:00:00Z") - Date.parse(lastBySite[l] + "T12:00:00Z")) / 86_400_000),
+            }))
+            .filter((s) => s.stale_days >= 7)
+            .sort((a, b) => b.stale_days - a.stale_days);
+          const missing = locs.filter((l) => !lastBySite[l]).map((l) => ({ location_id: l, site_label: siteLabel[l] || null }));
+          return { sales_stale: staleList[0] || null, sales_missing: missing };
+        })(),
         team_empty: Number(num((setupRows as any[])[0]?.team_n) ?? 0) === 0,
         channels_missing: Number(num((setupRows as any[])[0]?.chan_n) ?? 0) === 0,
         alerts_prefs_missing: Number(num((setupRows as any[])[0]?.pref_n) ?? 0) === 0,
