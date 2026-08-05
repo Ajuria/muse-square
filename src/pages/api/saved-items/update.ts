@@ -313,13 +313,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
         AND location_id = '${lid}'
     `;
 
-    const script = `
+    // 05/08 (audit owner) : la TRANSACTION ne sert que quand on remplace les dates (deux
+    // tables à tenir cohérentes). L'envelopper autour d'un UPDATE seul faisait avorter deux
+    // écritures rapprochées (« Transaction is aborted due to concurrent update ») — un clic
+    // de chip pendant une sauvegarde en vol. UPDATE simple = pas de transaction.
+    const script = dates !== null
+      ? `
       BEGIN TRANSACTION;
       ${updateQuery};
       ${deleteDatesClause}
       ${insertDatesClause}
       COMMIT TRANSACTION;
-    `;
+    `
+      : updateQuery;
 
     await bigquery.query({
       query: script,

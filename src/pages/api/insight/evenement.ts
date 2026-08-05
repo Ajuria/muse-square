@@ -21,6 +21,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
     requireLocationOwnership(locals, location_id);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
 
+    // « Reprendre la consigne d'un autre événement » (automatisation inc. 7) : les consignes
+    // déjà écrites sur ce lieu — réutiliser plutôt que réécrire.
+    if (url.searchParams.get("consignes")) {
+      const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+      const [rows] = await bq.query({
+        query: `SELECT saved_item_id, title, consigne_store_info, consigne_arrival
+                FROM \`${PROJECT}.raw.saved_items\`
+                WHERE location_id = @location_id AND consigne_store_info IS NOT NULL
+                ORDER BY updated_at DESC LIMIT 10`,
+        params: { location_id }, location: "EU",
+      });
+      return json(200, { ok: true, consignes: (rows as any[]).map((r: any) => ({
+        saved_item_id: String(flat(r.saved_item_id)), title: String(flat(r.title) ?? ""),
+        consigne_store_info: String(flat(r.consigne_store_info) ?? ""),
+        consigne_arrival: flat(r.consigne_arrival) != null ? String(flat(r.consigne_arrival)) : null,
+      })) });
+    }
+
     if (url.searchParams.get("create_context")) {
       // Trois lectures indépendantes — un seul lot parallèle (budget perf).
       const [[profRows], [dowRows], [famRows]] = await Promise.all([

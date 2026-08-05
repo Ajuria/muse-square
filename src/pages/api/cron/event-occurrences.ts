@@ -34,17 +34,18 @@ function buildConsigneBody(r: any, occ: string, ownerName: string): { subject: s
   const title = String(flat(r.title) || "Événement");
   const parts: string[] = [];
   parts.push(`Consigne d'opération — ${title}`);
+  // Lexique métier (owner 05/08) : « opération », jamais « occurrence » dans ce qui se lit.
   const hs = flat(r.hour_start), he = flat(r.hour_end);
-  parts.push(`Occurrence : ${dowFr(occ)} ${frD(occ)}` + (hs != null && he != null ? ` · ouverture au public ${hs} h – ${he} h` : ""));
+  parts.push(`Opération : ${dowFr(occ)} ${frD(occ)}` + (hs != null && he != null ? ` · ouverture au public ${hs} h – ${he} h` : ""));
   if (flat(r.consigne_arrival) != null) parts.push(`Arrivée des participants : ${String(flat(r.consigne_arrival))}`);
-  if (flat(r.consigne_deroule) != null) parts.push(`Déroulé de l'occurrence :\n${String(flat(r.consigne_deroule))}`);
+  if (flat(r.consigne_deroule) != null) parts.push(`Déroulé :\n${String(flat(r.consigne_deroule))}`);
   const tgtEur = flat(r.kpi_target_eur), tgtPct = flat(r.kpi_target_pct);
   const kpiLbl = String(flat(r.kpi) || "") === "family_revenue" ? `famille ${String(flat(r.kpi_family) || "")}` : "CA vs attendu";
   if (tgtEur != null || tgtPct != null) {
-    parts.push(`Objectif de l'occurrence : ${kpiLbl} ${tgtEur != null ? Math.round(Number(tgtEur)) + " €" : "+" + Math.round(Number(tgtPct)) + " %"} — mesuré automatiquement, verdict au fil de la série.`);
+    parts.push(`Objectif de l'opération : ${kpiLbl} ${tgtEur != null ? Math.round(Number(tgtEur)) + " €" : "+" + Math.round(Number(tgtPct)) + " %"} — mesuré automatiquement.`);
   }
   if (flat(r.description) != null) parts.push(`Le dispositif :\n${String(flat(r.description))}`);
-  if (flat(r.consigne_store_info) != null) parts.push(`À savoir sur la boutique :\n${String(flat(r.consigne_store_info))}`);
+  if (flat(r.consigne_store_info) != null) parts.push(`Consigne :\n${String(flat(r.consigne_store_info))}`);
   if (flat(r.consigne_interactions) != null) parts.push(`Interactions clients :\n${String(flat(r.consigne_interactions))}`);
   parts.push(`Responsable : ${ownerName}`);
   parts.push(`— Envoyée automatiquement par Muse Square. Une question : répondez au responsable.`);
