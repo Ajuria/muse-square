@@ -369,7 +369,12 @@
    "day_class_key",
    "practice_text",
    "replay_commitment_id",
-   "status"
+   "status",
+   "arm_enabled",
+   "arm_recipient_name",
+   "arm_recipient_contact",
+   "arm_channel",
+   "arm_cooldown_days"
   ],
   "analytics.channel_configs": [
    "config_id",
@@ -8886,6 +8891,18 @@
    "recipients",
    "n_recipients",
    "sent_at"
+  ],
+  "analytics.dispositif_triggers": [
+   "trigger_id",
+   "practice_id",
+   "location_id",
+   "user_id",
+   "signal_key",
+   "target_date",
+   "sent_at",
+   "recipients",
+   "n_recipients",
+   "commitment_id"
   ]
  }
 }

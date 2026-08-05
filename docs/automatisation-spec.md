@@ -11,13 +11,26 @@ gens** (équipe, participants), pas le routage de signaux. Maquette validée :
 - **Cas 2 (EN COURS — GO 05/08)** : déclencheur = l'occurrence. À J-offset de chaque
   occurrence, la consigne part seule aux participants de CETTE occurrence + au responsable.
   Greffée sur le passage quotidien du cron `event-occurrences` (fenêtre [J, J+7]).
-- **Cas 1 (APRÈS cas 2)** : déclencheur = le signal d'origine du dispositif
-  (`origin_action_type`). « Armer sur signal » sur la fiche dispositif. Chaque déclenchement
-  envoie la consigne + arme un engagement mesuré (réglages du rejeu) → les verdicts cumulent
-  vers « prouvé » (n≥5). Le détecteur « début d'épisode » (ex. chaleur niveau ≥ 3, premier
-  jour) est LE seul moteur neuf. Garde-fous : 1 déclenchement max / 7 j (sans la limite, le
-  signal chaleur aurait tiré 18×/mois sur le café) ; la consigne ne convoque personne
-  (délai de prévenance) — achats et équipe déjà planifiée seulement.
+- **Cas 1 (EN COURS — GO owner 05/08 après livraison cas 2)** : déclencheur = le signal
+  d'origine du dispositif (`origin_action_type`). « Armer sur signal » sur la fiche dispositif.
+  Chaque déclenchement envoie la consigne + arme un engagement mesuré (réglages du rejeu) →
+  les verdicts cumulent vers « prouvé » (n≥5). Garde-fous : cooldown 1 déclenchement max / 7 j ;
+  la consigne ne convoque personne (délai de prévenance) — achats et équipe déjà planifiée.
+  **Détecteur v1 (RÉVISÉ 05/08 sur données réelles)** : « chaleur annoncée DEMAIN (lvl_heat
+  ≥ 3) » + cooldown — PAS « début d'épisode » : le café montre 10 jours ≥ 3 sur les 10
+  prochains (été continu) → un détecteur de début d'épisode ne tirerait quasi jamais, alors
+  que le texte du dispositif dit « la veille d'une journée où la chaleur est annoncée ».
+  Veille + cooldown ≈ 1 tir hebdo l'été (18 j chauds/30 mesurés). Origines couvertes v1 :
+  `structural_traffic_high` + sous-types météo chaleur ; les autres origines affichent
+  honnêtement « signal non détectable automatiquement (v1) ».
+  **Modèle (DDL exécuté 05/08)** : `analytics.best_practices` + `arm_enabled BOOL,
+  arm_recipient_name, arm_recipient_contact, arm_channel ('email' v1), arm_cooldown_days
+  (défaut 7)` (état SUR la pratique — définition sur l'objet ; table DML → UPDATE sûr) ;
+  `analytics.dispositif_triggers` (trigger_id, practice_id, location_id, user_id, signal_key,
+  target_date, sent_at, recipients, n_recipients, commitment_id) — trace append-only en DML,
+  idempotence par (practice_id, target_date) + cooldown par MAX(sent_at). L'engagement créé
+  porte `origin_suppression_key = 'armed:<practice_id>:<target_date>'` (la série de verdicts
+  du dispositif armé se lit par ce préfixe).
 
 ## Décisions owner (05/08, via maquette)
 
