@@ -97,7 +97,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div style="font-size:11px;color:#6B7280;">' + im.eur_windows + ' fenêtre(s) comptée(s) · ' + im.windows_judged + ' jugée(s) sur ' + j.period_days + ' j' + (im.next_judgment ? " · prochaine : " + dowFr(im.next_judgment) + " " + frD(im.next_judgment) : "") + '</div>'
             + '<div style="font-size:10.5px;color:#9CA3AF;">€ comptés sauf actions déclarées « pas menée »' + (im.confounded ? ' · ' + im.confounded + ' fenêtre(s) non mesurable(s) (vacances) hors €' : '') + ' · jamais extrapolé</div></div>'
             + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Cibles atteintes</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.targets_met + '<span style="font-size:12px;color:#9CA3AF;font-weight:500;">/' + im.windows_judged + ' jugée(s)</span></div></div>'
-            + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Dispositifs prouvés</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.practices_proven + '</div></div>'
+            + (function () {
+                var declared = (j.practices || []).filter(function (p) { return p.status !== "proven"; }).length;
+                var reps = (j.debloquer && j.debloquer.replays_running) || [];
+                var pipe = [];
+                if (reps.length) pipe.push(reps.length + " en rejeu (verdict " + dowFr(reps[0].end) + ")");
+                if (declared) pipe.push(declared + " déclaré(s)");
+                return '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Dispositifs prouvés</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.practices_proven + '</div>'
+                  + (pipe.length ? '<div style="font-size:10.5px;color:#9CA3AF;">' + pipe.join(" · ") + '</div>' : '') + '</div>';
+              })()
             + '</div></div>';
 
           // ── Débloquer ──

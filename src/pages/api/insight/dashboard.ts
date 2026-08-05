@@ -176,7 +176,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const open = coms.filter((c) => c.status === "open");
     // DEUX registres (owner 05/08) : « jugées » = TOUS les verdicts rendus (journal) ;
     // « € » = le mart seulement (contrat : non déclarée pas-menée — fait par défaut).
-    const judged = coms.filter((c) => c.status === "resolved" && c.verdict && c.in_period);
+    // « Jugées » = verdicts MESURABLES (met/missed) — un confounded n'est ni tenu ni manqué,
+    // il est compté à part (owner 05/08 : non-mesurable ≠ manqué, ni en tuile ni en tenue).
+    const judged = coms.filter((c) => c.status === "resolved" && c.verdict && c.verdict !== "confounded" && c.in_period);
     const ownerByCommitment: Record<string, string> = {};
     for (const c of coms) if (c.commitment_id) ownerByCommitment[c.commitment_id] = c.owner || "—";
     // Un verdict « confounded » est NON MESURABLE (guardrail 3 du mart) : jamais dans les €,
@@ -194,7 +196,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       equipe[k] = equipe[k] || { label: String(c.owner || "—"), open: [], kept: 0, judged: 0, gap: null };
       if (String(c.owner || "").length > equipe[k].label.length) equipe[k].label = String(c.owner);
       if (c.status === "open") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
-      else if (c.verdict && c.in_period) { equipe[k].judged += 1; if (/met|tenu|beat/i.test(String(c.verdict))) equipe[k].kept += 1; }
+      else if (c.verdict && c.verdict !== "confounded" && c.in_period) { equipe[k].judged += 1; if (/met|tenu|beat/i.test(String(c.verdict))) equipe[k].kept += 1; }
     }
     for (const r of martRows) {
       const k = personKey(ownerByCommitment[r.commitment_id] || null);
