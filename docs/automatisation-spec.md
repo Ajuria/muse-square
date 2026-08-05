@@ -83,6 +83,21 @@ gens** (équipe, participants), pas le routage de signaux. Maquette validée :
 Jalon réel : série Corner (56f47021…, hebdo samedi 9 h–13 h, 8 occurrences 08/08→26/09) —
 première fenêtre d'envoi réelle : occurrence du 15/08, envoi J-2 jeudi 13/08.
 
+## Avancement (05/08 soir)
+
+- **Cas 2 LIVRÉ** (incréments 1–6, dev) : consigne d'opération au dossier de série, participants
+  série+occurrence, chips roster, effacement de champ, aline Activer, envoi J-x greffé au cron
+  event-occurrences (E2E réel : email Corner parti, trace, rejeu 0), supervision au tableau.
+- **Cas 1 LIVRÉ** (incréments 1–4, dev) : armement sur la pratique (PATCH arm), détecteur v1
+  « chaleur annoncée demain » dans cron daily-dispatch (E2E réel coupon : email + engagement
+  conversion +20 % baseline 0,43 + trace, rejeu 0, nettoyage test), UI fiche (panneau chiffres
+  réels + garde-fous) + volet Automatisation. Fix latent au passage : action_log sans
+  metadata/signal_type 500-ait daily-dispatch (reason porte le rule_id désormais).
+- **RESTE owner** : E2E écran des deux cas ; armer le coupon depuis la fiche ; ajouter
+  `/api/cron/daily-dispatch` ET `/api/cron/bilan` à cron-job.org (NB : daily-dispatch réveille
+  aussi 2 règles legacy concurrence → Slack + email owner) ; merge prod sur GO ; « affiner
+  les 2 » (retours d'usage) ensuite.
+
 ## Périmètre connexe acté (05/08)
 
 - P0a : brancher `/api/cron/bilan` dans cron-job.org (côté owner, après vérification par tir).

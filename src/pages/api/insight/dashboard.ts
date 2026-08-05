@@ -34,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [consigneRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [consigneRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -89,6 +89,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }),
       bq.query({
         query: `SELECT practice_id, location_id, practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
+                       arm_enabled, arm_recipient_name, arm_recipient_contact, COALESCE(arm_cooldown_days, 7) AS arm_cooldown,
                        CAST(DATE(created_at) AS STRING) AS d
                 FROM \`${PROJECT}.analytics.best_practices\`
                 WHERE location_id IN UNNEST(@locs)
@@ -144,6 +145,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   (SELECT LOGICAL_OR(COALESCE(alerts_critical, FALSE)) FROM \`${PROJECT}.raw.notification_preferences\` WHERE clerk_user_id = @uid) AS alerts_on,
                   (SELECT COUNTIF(signal_routing IS NOT NULL AND TRIM(signal_routing) != '') FROM \`${PROJECT}.analytics.team_members\` WHERE user_id = @uid) AS routed_n`,
         params: { uid }, location: "EU",
+      }),
+      // Armement sur signal (cas 1) : dernier déclenchement par pratique + contexte du signal
+      // chaleur par site (fréquence 30 j RÉELLE + prochain jour chaud annoncé) — le panneau
+      // « Armer » montre ce qu'on branche, jamais une promesse.
+      bq.query({
+        query: `SELECT practice_id, CAST(DATE(MAX(sent_at)) AS STRING) AS last_fired,
+                       COUNT(*) AS n_triggers
+                FROM \`${PROJECT}.analytics.dispositif_triggers\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: P, location: "EU",
+      }),
+      bq.query({
+        query: `SELECT location_id,
+                       COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
+                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot
+                FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: P, location: "EU",
       }),
       // Consignes d'opération ACTIVES (automatisation inc. 5) : prochaine occurrence + dernière
       // trace d'envoi réelle — le volet Automatisation ne liste que ce qui tourne, zéro dummy.
@@ -235,7 +254,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const bilans = (bilanRows as any[]).map((r) => ({ title: str(r.title), saved_item_id: str(r.saved_item_id), location_id: str(r.location_id), fin: str(r.fin) })).filter((b) => b.title);
     const corrections = (corrRows as any[]).map((r) => str(r.correction_type)).filter(Boolean);
-    const practices = (bpRows as any[]).map((r) => ({ practice_id: str(r.practice_id), location_id: str(r.location_id), text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d), replay_commitment_id: str(r.replay_commitment_id), origin_action_type: str(r.origin_action_type) }));
+    // Armement (cas 1) : dernier tir par pratique + détectabilité v1 (vérité serveur — miroir
+    // de HEAT_DETECTABLE du dispatch) ; le client n'invente pas ce qui est branchable.
+    const trigByPractice: Record<string, { last_fired: string | null; n: number }> = {};
+    for (const r of trigRows as any[]) trigByPractice[String(str(r.practice_id))] = { last_fired: str(r.last_fired), n: Number(num(r.n_triggers) ?? 0) };
+    const heatBySite: Record<string, { n_hot_30: number; next_hot: string | null }> = {};
+    for (const r of heatRows as any[]) heatBySite[String(str(r.location_id))] = { n_hot_30: Number(num(r.n_hot_30) ?? 0), next_hot: str(r.next_hot) };
+    const ARMABLE_V1 = new Set(["structural_traffic_high"]);
+    const practices = (bpRows as any[]).map((r) => {
+      const pid = String(str(r.practice_id));
+      const locId = String(str(r.location_id));
+      const trig = trigByPractice[pid] || { last_fired: null, n: 0 };
+      return {
+        practice_id: str(r.practice_id), location_id: str(r.location_id), text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d), replay_commitment_id: str(r.replay_commitment_id), origin_action_type: str(r.origin_action_type),
+        armable: ARMABLE_V1.has(String(str(r.origin_action_type) || "")),
+        arm_enabled: flat(r.arm_enabled) === true,
+        arm_recipient_name: str(r.arm_recipient_name), arm_recipient_contact: str(r.arm_recipient_contact),
+        arm_cooldown: Number(num(r.arm_cooldown) ?? 7),
+        arm_last_fired: trig.last_fired, arm_n_triggers: trig.n,
+        arm_signal_ctx: heatBySite[locId] || null,
+      };
+    });
     // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
     // avancer ») : verdicts tenus sans dispositif du même type documenté ; déclarés sans rejeu ;
     // rejeux en cours (ceux-là avancent seuls).
@@ -266,6 +305,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       equipe: Object.values(equipe).map((e) => ({ who: e.label, open: e.open, judged: e.judged, kept: e.kept, gap_eur: e.gap })),
       practices,
       automated: {
+        armed_dispositifs: practices.filter((p) => p.arm_enabled).map((p) => ({
+          practice_id: p.practice_id, location_id: p.location_id,
+          site_label: siteLabel[String(p.location_id)] || null,
+          text: p.text, last_fired: p.arm_last_fired, n_triggers: p.arm_n_triggers,
+        })),
         consignes: (consigneRows as any[]).map((r) => {
           const off = num(r.consigne_send_offset) != null ? Number(num(r.consigne_send_offset)) : 2;
           const nextOcc = String(str(r.next_occ) || "");
