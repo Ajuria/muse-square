@@ -39,6 +39,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
     <style is:global>
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      /* Bilan : les puces se lisent comme des CHOIX (retour owner 05/08) */
+      .evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }
     </style>
 
     <script is:inline src="/event-form.js?v=7"></script>
@@ -57,6 +59,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         var qs = new URLSearchParams(window.location.search);
         var preDates = String(qs.get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
         var wantForm = qs.get("new") === "1" || preDates.length > 0;
+        // inc. 6 : après un geste du bloc consigne, le dossier se re-rend depuis la base et
+        // revient sur le bloc (feedback = la vérité relue, pas un message).
+        var consigneScrollPending = false;
 
         function openDossier() {
           fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
@@ -113,12 +118,15 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
         function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+        var DOW_FR_PAGE = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        function dowFr(iso) { var d = String(iso || "").slice(0, 10); return d ? (DOW_FR_PAGE[new Date(d + "T12:00:00Z").getUTCDay()] || "") : ""; }
         function signEur(n) { return (Number(n) >= 0 ? "+" : "−") + frInt(n) + " €"; }
         var TONE = { ok: "#059669", warn: "#B45309", bad: "#e24b4a", info: "#6B7280" };
         function dot(t) { return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (TONE[t] || TONE.info) + ';margin-right:7px;flex:none;margin-top:5px;"></span>'; }
         function qLine(qu) {
           return '<div style="display:flex;align-items:flex-start;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;line-height:1.5;">' + dot(qu.tone)
-            + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '') + '</span></div>';
+            + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '')
+            + (qu.href ? ' <a href="' + esc(qu.href) + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;white-space:nowrap;">' + esc(qu.link_fr || 'Voir →') + '</a>' : '') + '</span></div>';
         }
 
         // ── La LISTE (mode par défaut) — la vue user_events : quand, série, track record. ──
@@ -174,21 +182,28 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
         function renderBilanBlock(bilanDate) {
           var chosen = {};
+          // Numérotation + surlignage des manquantes (retour owner 05/08 — « validation
+          // bruyante », même patron que le formulaire d'engagement du 26/07).
+          var BL_NUM = { weather_accuracy: 1, mobility_felt: 2, attendance_vs_expect: 3 };
+          var BL_NAME = { weather_accuracy: "la météo", mobility_felt: "l’accès", attendance_vs_expect: "la fréquentation" };
           function group(key, opts) {
-            return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
-              return '<button type="button" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
+            return '<div data-bl-grp="' + key + '" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
+              return '<button type="button" class="evt-bl-chip" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
             }).join("") + '</div>';
+          }
+          function qhead(key, text) {
+            return '<div data-bl-q="' + key + '" style="font-size:13px;font-weight:500;">' + BL_NUM[key] + '/3 — ' + text + '</div>';
           }
           var wrap = document.createElement("div");
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
             + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">3 questions — ce que la mesure ne voit pas. Le CA, lui, est déjà mesuré ci-dessus.</div>'
-            + '<div style="font-size:13px;font-weight:500;">Les conditions météo correspondaient-elles à nos prévisions ?</div>'
+            + qhead("weather_accuracy", 'Les conditions météo correspondaient-elles à nos prévisions ?')
             + group("weather_accuracy", [["conforme", "Oui, conforme"], ["mieux", "Meilleures que prévu"], ["pire", "Pires que prévu"]])
-            + '<div style="font-size:13px;font-weight:500;">L’accès à votre site était-il fluide pour vos visiteurs ?</div>'
+            + qhead("mobility_felt", 'L’accès à votre site était-il fluide pour vos visiteurs ?')
             + group("mobility_felt", [["fluide", "Fluide"], ["difficile", "Quelques difficultés"], ["perturbe", "Fortement perturbé"]])
-            + '<div style="font-size:13px;font-weight:500;">La fréquentation, par rapport à vos attentes ?</div>'
+            + qhead("attendance_vs_expect", 'La fréquentation, par rapport à vos attentes ?')
             + group("attendance_vs_expect", [["beyond", "Bien au-delà"], ["conforme", "Conforme"], ["endeca", "En deçà"]])
             + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">'
             + '<div><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Nb de visiteurs (optionnel)</div><input id="evt-bilan-att" type="number" placeholder="ex. 340" style="width:120px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"></div>'
@@ -200,6 +215,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             b.addEventListener("click", function () {
               var g = b.getAttribute("data-bl-g");
               chosen[g] = b.getAttribute("data-bl-v");
+              var qh = wrap.querySelector('[data-bl-q="' + g + '"]');
+              if (qh) qh.style.color = "";
               wrap.querySelectorAll('[data-bl-g="' + g + '"]').forEach(function (x) {
                 var on = x === b;
                 x.style.background = on ? "#EEF2FF" : "#fff";
@@ -211,7 +228,22 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           });
           wrap.querySelector("#evt-bilan-send").addEventListener("click", function () {
             var msg = wrap.querySelector("#evt-bilan-msg");
-            if (!chosen.weather_accuracy || !chosen.mobility_felt || !chosen.attendance_vs_expect) { msg.style.color = "#B91C1C"; msg.textContent = "Répondez aux 3 questions."; return; }
+            var missing = ["weather_accuracy", "mobility_felt", "attendance_vs_expect"].filter(function (k) { return !chosen[k]; });
+            if (missing.length) {
+              missing.forEach(function (k) {
+                var h = wrap.querySelector('[data-bl-q="' + k + '"]');
+                if (h) h.style.color = "#B45309";
+                wrap.querySelectorAll('[data-bl-g="' + k + '"]').forEach(function (x) { x.style.borderColor = "#B45309"; });
+              });
+              msg.style.color = "#B45309";
+              var mParts = missing.map(function (k) { return BL_NUM[k] + " (" + BL_NAME[k] + ")"; });
+              msg.textContent = missing.length === 1
+                ? "Il manque la question " + BL_NUM[missing[0]] + " — " + BL_NAME[missing[0]] + "."
+                : "Il manque les questions " + mParts.slice(0, -1).join(", ") + " et " + mParts[mParts.length - 1] + ".";
+              var h0 = wrap.querySelector('[data-bl-q="' + missing[0] + '"]');
+              if (h0 && h0.scrollIntoView) h0.scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
             var att = parseInt(wrap.querySelector("#evt-bilan-att").value || "", 10);
             var btn = wrap.querySelector("#evt-bilan-send");
             btn.disabled = true;
@@ -231,6 +263,306 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               .catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; btn.disabled = false; });
           });
           if (qs.get("mode") === "bilan" && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // ── Consigne d'opération (inc. 7, audit owner 05/08) — SÉRIES seulement. DEUX modes :
+        //    LECTURE = l'aperçu exact de l'email qui partira (zéro écart écran/envoi) ;
+        //    ÉDITION = deux saisies seulement (votre consigne + l'arrivée) — tout ce que
+        //    l'app sait déjà (horaires, objectif, dispositif) est injecté, jamais resaisi.
+        //    UN seul Enregistrer (offset inclus) : plus d'écriture par chip (le fix de la
+        //    transaction avortée vit côté update.ts). Lexique métier : « opération »,
+        //    jamais « occurrence » ni « horaires de série » à l'écran. ──
+        var consigneEditOverride = false;
+        function renderConsigne(j) {
+          var it = j.item || {};
+          if (!it.recurrence || it.recurrence === "none") return;
+          var today = new Date().toISOString().slice(0, 10);
+          var future = (it.dates || []).map(String).filter(function (d) { return d.slice(0, 10) >= today; });
+          if (!future.length) return;
+          var off = it.consigne_send_offset != null ? it.consigne_send_offset : 2;
+          var enabled = it.consigne_enabled === true;
+          var sends = j.consigne_sends || [];
+          var SERIE = "__serie__";
+          var selOcc = SERIE;
+          var nextOcc = future[0].slice(0, 10);
+          // Champ unique : les 3 anciens champs fusionnés (migrés en un au premier Enregistrer).
+          var consigneText = [it.consigne_store_info, it.consigne_interactions, it.consigne_deroule]
+            .filter(Boolean).join("\n\n");
+          var hasConsigne = consigneText.trim().length > 0;
+          var mode = (hasConsigne || enabled) && !consigneEditOverride ? "read" : "edit";
+
+          function offMinus(dateIso, n) {
+            var t = new Date(dateIso + "T12:00:00");
+            t.setDate(t.getDate() - n);
+            return t.toISOString().slice(0, 10);
+          }
+          function postUpdate(fields, btn, done) {
+            if (btn) btn.disabled = true;
+            var body2 = { saved_item_id: item };
+            Object.keys(fields).forEach(function (k) { body2[k] = fields[k]; });
+            fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body2) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) { done(p && p.ok, p && p.error); })
+              .catch(function () { done(false, "réseau"); });
+          }
+          function rerender(mode2) {
+            consigneEditOverride = mode2 === "edit";
+            wrap.remove();
+            renderConsigne(j);
+          }
+
+          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : (it.kpi || "");
+          var targetTxt = it.kpi_target_eur != null ? frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? "+" + frInt(it.kpi_target_pct) + " %" : "";
+          var hoursTxt = it.hour_start != null && it.hour_end != null ? "ouverture au public " + it.hour_start + " h – " + it.hour_end + " h" : null;
+          var sendDate = offMinus(nextOcc, off);
+          var sendWhen = sendDate <= today ? "aujourd\u2019hui" : "le " + dowFr(sendDate) + " " + frD(sendDate);
+
+          var wrap = document.createElement("div");
+          wrap.id = "evt-consigne";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+
+          // ── Tête commune : titre + état + geste ──
+          var head2 = "";
+          if (!enabled && mode === "read") {
+            head2 += '<a data-cs-toggle-aline style="display:block;color:#1D3BB3;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer;margin-bottom:8px;">Activer l\u2019envoi automatique : la consigne partira seule ' + sendWhen + ' (J-' + off + ') pour l\u2019op\u00e9ration du ' + frD(nextOcc) + ' \u2192</a>';
+          }
+          head2 += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
+            + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Consigne d\u2019op\u00e9ration</div>'
+            + '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:' + (enabled ? "#E6F6F0" : "#F3F4F6") + ';color:' + (enabled ? "#059669" : "#6b7280") + ';">Envoi automatique : ' + (enabled ? "actif" : "d\u00e9sactiv\u00e9") + '</span>'
+            + (mode === "read" ? '<a data-cs-edit style="color:#1D3BB3;font-weight:600;font-size:12.5px;cursor:pointer;">Modifier</a>' : "")
+            + (enabled ? '<a data-cs-toggle style="color:#1D3BB3;font-weight:600;font-size:11.5px;cursor:pointer;">D\u00e9sactiver</a>' : "") + '</div>';
+
+          var bodyHtml = "";
+          if (mode === "read") {
+            // ── LECTURE : l'email tel qu'il partira, assembl\u00e9 des m\u00eames pi\u00e8ces que le serveur ──
+            var lines = [];
+            lines.push("Op\u00e9ration : " + dowFr(nextOcc) + " " + frD(nextOcc) + (hoursTxt ? " \u00b7 " + hoursTxt : ""));
+            if (it.consigne_arrival) lines.push("Arriv\u00e9e des participants : " + it.consigne_arrival);
+            if (targetTxt) lines.push("Objectif de l\u2019op\u00e9ration : " + kpiLbl2 + " " + targetTxt + " \u2014 mesur\u00e9 automatiquement.");
+            if (it.dispositif) lines.push("Le dispositif :\n" + it.dispositif);
+            if (hasConsigne) lines.push("Consigne :\n" + consigneText);
+            if (it.author_person_name) lines.push("Responsable : " + it.author_person_name);
+            bodyHtml += '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">'
+              + (enabled ? 'Part seule ' + sendWhen + ' (J-' + off + ') \u2014 op\u00e9ration du ' + frD(nextOcc) + ', aux participants + au responsable.' : 'Aper\u00e7u de l\u2019email \u2014 l\u2019envoi automatique est d\u00e9sactiv\u00e9.') + '</div>'
+              + '<div style="font-size:12.5px;color:#374151;background:#F8FAFC;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;line-height:1.6;white-space:pre-line;">' + esc(lines.join("\n\n")) + '</div>';
+            if (sends.length) {
+              bodyHtml += '<div style="margin-top:8px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Derni\u00e8re consigne envoy\u00e9e le ' + frD(sends[0].sent_on) + ' \u00e0 ' + sends[0].n_recipients + ' destinataire(s) \u2014 op\u00e9ration du ' + frD(sends[0].occurrence_date) + '.</div>';
+            }
+          } else {
+            // ── \u00c9DITION : deux saisies, un Enregistrer ──
+            bodyHtml += '<div style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:10px;">Deux champs \u2014 le reste (horaires, objectif, dispositif) est d\u00e9j\u00e0 connu et partira dans l\u2019email. Envoi <span data-cs-offwrap>'
+              + [1, 2, 3].map(function (n) {
+                  return '<button type="button" data-cs-off="' + n + '" style="font-size:11px;font-family:inherit;padding:2px 9px;border:1px solid ' + (n === off ? "#1D3BB3" : "#E5E7EB") + ';border-radius:20px;background:' + (n === off ? "#EEF2FF" : "#fff") + ';color:' + (n === off ? "#1D3BB3" : "#374151") + ';font-weight:' + (n === off ? "600" : "400") + ';cursor:pointer;">J-' + n + '</button>';
+                }).join(" ")
+              + '</span> avant chaque op\u00e9ration.</div>'
+              + '<div style="margin:8px 0;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;">Votre consigne</div>'
+              + '<textarea id="evt-cs-text" rows="6" placeholder="Ce que chaque participant doit savoir \u2014 mise en place, d\u00e9roul\u00e9, interactions clients\u2026" style="width:100%;box-sizing:border-box;font-size:12.5px;color:#111827;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;line-height:1.5;font-family:inherit;resize:vertical;">' + esc(consigneText) + '</textarea>'
+              + '<a data-cs-reuse style="font-size:11.5px;color:#1D3BB3;font-weight:600;cursor:pointer;">Reprendre la consigne d\u2019un autre \u00e9v\u00e9nement</a><span data-cs-reuse-list style="display:block;"></span></div>'
+              + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Arriv\u00e9e des participants</div>'
+              + '<input id="evt-cs-arrival" value="' + esc(it.consigne_arrival || "") + '" placeholder="optionnel \u2014 ex. 8 h 30" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:200px;">'
+              + (hoursTxt ? '<span style="font-size:11px;color:#9CA3AF;">' + hoursTxt + ' (horaires de l\u2019op\u00e9ration)</span>' : "") + '</div>'
+              + '<div style="display:flex;align-items:center;gap:10px;"><button type="button" data-cs-save style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Enregistrer la consigne</button>'
+              + (hasConsigne ? '<a data-cs-cancel style="font-size:12px;color:#6B7280;cursor:pointer;">Annuler</a>' : "")
+              + '<span data-cs-save-msg style="font-size:12px;color:#6B7280;"></span></div>';
+          }
+
+          // ── Participants (les deux modes) ──
+          bodyHtml += '<div style="margin:12px 0 8px;">'
+            + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Participants</div>'
+            + '<button type="button" data-cs-occ="' + SERIE + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid #1D3BB3;border-radius:20px;background:#EEF2FF;color:#1D3BB3;font-weight:600;cursor:pointer;">Toute la s\u00e9rie</button>'
+            + future.slice(0, 8).map(function (d) {
+                d = d.slice(0, 10);
+                return '<button type="button" data-cs-occ="' + d + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;font-weight:400;cursor:pointer;">' + frD(d) + '</button>';
+              }).join(" ")
+            + (future.length > 8 ? '<span style="font-size:11px;color:#9CA3AF;">\u2026 ' + future.length + ' op\u00e9rations \u00e0 venir</span>' : "") + '</div>'
+            + '<div data-cs-plist style="font-size:12.5px;color:#6B7280;margin:8px 0 6px;">Chargement\u2026</div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+            + '<input id="evt-cs-pname" placeholder="Nom (ex. le producteur)" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:180px;">'
+            + '<input id="evt-cs-pcontact" placeholder="Email" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;">'
+            + '<button type="button" data-cs-padd style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Ajouter</button>'
+            + '<span data-cs-padd-msg style="font-size:12px;color:#B91C1C;"></span></div>'
+            + '<div data-cs-roster style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;"></div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">'
+            + (it.author_person_name ? 'Le responsable (' + esc(String(it.author_person_name).split("\u00b7")[0].trim()) + ') re\u00e7oit d\u00e9j\u00e0 chaque envoi \u2014 inutile de l\u2019ajouter en participant. ' : "")
+            + 'Contacts conserv\u00e9s pour l\u2019envoi des consignes uniquement \u2014 supprimables \u00e0 tout moment.</div>'
+            + '</div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">La mesure, elle, est d\u00e9j\u00e0 automatique : un engagement s\u2019arme seul \u00e0 J-7 de chaque op\u00e9ration \u2014 verdicts cumul\u00e9s au fil de la s\u00e9rie.</div>';
+
+          wrap.innerHTML = head2 + bodyHtml;
+          body.appendChild(wrap);
+
+          // ── C\u00e2blage commun ──
+          function toggleConsigne() {
+            postUpdate({ consigne_enabled: !enabled }, null, function (ok, err) {
+              if (ok) { consigneScrollPending = true; consigneEditOverride = false; openDossier(); }
+              else { alert("Erreur : " + (err || "r\u00e9essayez.")); }
+            });
+          }
+          var tgl = wrap.querySelector("[data-cs-toggle]");
+          if (tgl) tgl.addEventListener("click", toggleConsigne);
+          var tglA = wrap.querySelector("[data-cs-toggle-aline]");
+          if (tglA) tglA.addEventListener("click", toggleConsigne);
+          var editLink = wrap.querySelector("[data-cs-edit]");
+          if (editLink) editLink.addEventListener("click", function () { rerender("edit"); });
+          var cancelLink = wrap.querySelector("[data-cs-cancel]");
+          if (cancelLink) cancelLink.addEventListener("click", function () { rerender("read"); });
+
+          // ── \u00c9dition : offset local (aucune \u00e9criture avant Enregistrer) + reprise + save ──
+          if (mode === "edit") {
+            var selOff = off;
+            wrap.querySelectorAll("[data-cs-off]").forEach(function (b) {
+              b.addEventListener("click", function () {
+                selOff = parseInt(b.getAttribute("data-cs-off"), 10);
+                wrap.querySelectorAll("[data-cs-off]").forEach(function (x) {
+                  var on = x === b;
+                  x.style.borderColor = on ? "#1D3BB3" : "#E5E7EB";
+                  x.style.background = on ? "#EEF2FF" : "#fff";
+                  x.style.color = on ? "#1D3BB3" : "#374151";
+                  x.style.fontWeight = on ? "600" : "400";
+                });
+              });
+            });
+            var reuse = wrap.querySelector("[data-cs-reuse]");
+            if (reuse) reuse.addEventListener("click", function () {
+              var host = wrap.querySelector("[data-cs-reuse-list]");
+              if (host.innerHTML) { host.innerHTML = ""; return; }
+              host.innerHTML = '<span style="font-size:11.5px;color:#9CA3AF;">Chargement\u2026</span>';
+              fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&consignes=1", { cache: "no-store" })
+                .then(function (r) { return r.json(); })
+                .then(function (p) {
+                  var others = ((p && p.consignes) || []).filter(function (c) { return c.saved_item_id !== item; });
+                  if (!others.length) { host.innerHTML = '<span style="font-size:11.5px;color:#9CA3AF;">Aucune autre consigne \u00e9crite sur ce lieu.</span>'; return; }
+                  host.innerHTML = others.map(function (c, ci) {
+                    return '<button type="button" data-cs-reuse-pick="' + ci + '" style="display:block;text-align:left;font-size:11.5px;font-family:inherit;color:#1D3BB3;background:none;border:1px dashed rgba(29,59,179,0.45);border-radius:8px;padding:5px 9px;margin-top:4px;cursor:pointer;max-width:100%;">' + esc(c.title) + ' \u2014 \u00ab ' + esc(String(c.consigne_store_info).slice(0, 70)) + '\u2026 \u00bb</button>';
+                  }).join("");
+                  host.querySelectorAll("[data-cs-reuse-pick]").forEach(function (b) {
+                    b.addEventListener("click", function () {
+                      var c = others[Number(b.getAttribute("data-cs-reuse-pick"))];
+                      document.getElementById("evt-cs-text").value = c.consigne_store_info || "";
+                      if (c.consigne_arrival && !document.getElementById("evt-cs-arrival").value) document.getElementById("evt-cs-arrival").value = c.consigne_arrival;
+                      host.innerHTML = "";
+                    });
+                  });
+                })
+                .catch(function () { host.innerHTML = '<span style="font-size:11.5px;color:#B91C1C;">Erreur de chargement.</span>'; });
+            });
+            var saveBtn = wrap.querySelector("[data-cs-save]");
+            saveBtn.addEventListener("click", function () {
+              var msg = wrap.querySelector("[data-cs-save-msg]");
+              msg.style.color = "#6B7280";
+              msg.textContent = "Enregistrement\u2026";
+              // UNE \u00e9criture : texte fusionn\u00e9 dans consigne_store_info, les 2 anciens champs
+              // vid\u00e9s ("" = SET NULL), arriv\u00e9e, offset — plus jamais d'\u00e9criture par chip.
+              postUpdate({
+                consigne_store_info: (document.getElementById("evt-cs-text").value || "").trim(),
+                consigne_interactions: "",
+                consigne_deroule: "",
+                consigne_arrival: (document.getElementById("evt-cs-arrival").value || "").trim(),
+                consigne_send_offset: selOff,
+              }, saveBtn, function (ok, err) {
+                saveBtn.disabled = false;
+                if (ok) { consigneScrollPending = true; consigneEditOverride = false; openDossier(); }
+                else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + (err || "r\u00e9essayez."); }
+              });
+            });
+          }
+
+          // ── Participants (inchang\u00e9 sur le fond, lexique r\u00e9vis\u00e9) ──
+          function loadParticipants(d) {
+            var list = wrap.querySelector("[data-cs-plist]");
+            list.textContent = "Chargement\u2026";
+            var qs2 = d === SERIE ? "" : "&date=" + encodeURIComponent(d);
+            fetch("/api/saved-items/participants?saved_item_id=" + encodeURIComponent(item) + qs2, { cache: "no-store" })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                if (!p || !p.ok) { list.textContent = "Erreur de chargement des participants."; return; }
+                var rows = p.participants || [];
+                if (d === SERIE) rows = rows.filter(function (x) { return x.serie === true; });
+                if (!rows.length) {
+                  list.innerHTML = d === SERIE
+                    ? 'Aucun participant de s\u00e9rie \u2014 ajoutez ici ceux qui re\u00e7oivent CHAQUE op\u00e9ration (le producteur, l\u2019\u00e9quipe du samedi\u2026).'
+                    : 'Aucun participant propre \u00e0 l\u2019op\u00e9ration du ' + frD(d) + ' \u2014 les participants de s\u00e9rie et le responsable recevront la consigne.';
+                  return;
+                }
+                list.innerHTML = rows.map(function (x) {
+                  return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #E5E7EB;border-radius:20px;padding:4px 10px;margin:0 6px 6px 0;background:#fff;color:#374151;">' + esc(x.participant_name)
+                    + (x.serie === true && d !== SERIE ? ' <span style="color:#1D3BB3;font-size:11px;">toute la s\u00e9rie</span>' : '')
+                    + (x.contact ? ' <span style="color:#9CA3AF;">' + esc(x.contact) + '</span>' : ' <span style="color:#B45309;">sans email \u2014 ne recevra rien</span>')
+                    + ' <a data-cs-pdel="' + esc(x.participant_id) + '" style="color:#9CA3AF;cursor:pointer;font-weight:600;">\u00d7</a></span>';
+                }).join("");
+                list.querySelectorAll("[data-cs-pdel]").forEach(function (a) {
+                  a.addEventListener("click", function () {
+                    fetch("/api/saved-items/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, participant_id: a.getAttribute("data-cs-pdel") }) })
+                      .then(function (r) { return r.json(); })
+                      .then(function () { loadParticipants(selOcc); });
+                  });
+                });
+              })
+              .catch(function () { list.textContent = "Erreur de chargement des participants."; });
+          }
+          loadParticipants(selOcc);
+
+          fetch("/api/channels/team?location_id=" + encodeURIComponent(loc), { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (t) {
+              var host = wrap.querySelector("[data-cs-roster]");
+              var items2 = (t && t.ok && t.items) || [];
+              if (!host || !items2.length) return;
+              host.innerHTML = '<span style="font-size:11px;color:#9CA3AF;">Votre \u00e9quipe :</span>' + items2.map(function (m, i) {
+                var nm = ((m.first_name || "") + " " + (m.last_name || "")).trim();
+                var em = (m.channels_contact && m.channels_contact.email) || "";
+                return '<button type="button" data-cs-rpick="' + i + '" data-n="' + esc(nm) + '" data-e="' + esc(em) + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px dashed rgba(29,59,179,0.45);border-radius:20px;background:#fff;color:#1D3BB3;cursor:pointer;">' + esc(nm) + (m.role ? ' \u00b7 ' + esc(m.role) : '') + (em ? '' : ' (sans email)') + '</button>';
+              }).join(" ");
+              host.querySelectorAll("[data-cs-rpick]").forEach(function (b) {
+                b.addEventListener("click", function () {
+                  document.getElementById("evt-cs-pname").value = b.getAttribute("data-n") || "";
+                  document.getElementById("evt-cs-pcontact").value = b.getAttribute("data-e") || "";
+                  document.getElementById("evt-cs-pcontact").focus();
+                });
+              });
+            })
+            .catch(function () {});
+
+          wrap.querySelectorAll("[data-cs-occ]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              selOcc = b.getAttribute("data-cs-occ");
+              wrap.querySelectorAll("[data-cs-occ]").forEach(function (x) {
+                var on = x === b;
+                x.style.borderColor = on ? "#1D3BB3" : "#E5E7EB";
+                x.style.background = on ? "#EEF2FF" : "#fff";
+                x.style.color = on ? "#1D3BB3" : "#374151";
+                x.style.fontWeight = on ? "600" : "400";
+              });
+              loadParticipants(selOcc);
+            });
+          });
+
+          var padd = wrap.querySelector("[data-cs-padd]");
+          padd.addEventListener("click", function () {
+            var name = (document.getElementById("evt-cs-pname").value || "").trim();
+            var contact = (document.getElementById("evt-cs-pcontact").value || "").trim();
+            var msg = wrap.querySelector("[data-cs-padd-msg]");
+            if (!name) { msg.textContent = "Le nom est requis."; return; }
+            msg.textContent = "";
+            padd.disabled = true;
+            var pbody = { saved_item_id: item, participant_name: name, contact: contact };
+            if (selOcc === SERIE) pbody.serie = true; else pbody.date = selOcc;
+            fetch("/api/saved-items/participants", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(pbody) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                padd.disabled = false;
+                if (!p || !p.ok) { msg.textContent = "Erreur : " + ((p && p.error) || "r\u00e9essayez."); return; }
+                document.getElementById("evt-cs-pname").value = "";
+                document.getElementById("evt-cs-pcontact").value = "";
+                loadParticipants(selOcc);
+              })
+              .catch(function () { padd.disabled = false; msg.textContent = "Erreur r\u00e9seau."; });
+          });
+
+          if (consigneScrollPending) {
+            consigneScrollPending = false;
+            wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         }
 
         // ── Le dossier à 3 états (protos v2.1/v3 validés) — la même matière provider,
@@ -342,6 +674,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
           body.innerHTML = head + segHtml + deciderHtml + avantHtml + apresHtml;
           document.querySelector("#evt-head div").textContent = "Dossier d’événement";
+          renderConsigne(j);
           maybeRenderBilan(j);
 
           body.querySelectorAll("[data-ev-st]").forEach(function (b) {

@@ -1,10 +1,152 @@
 import type { APIRoute } from "astro";
+import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
+import { sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
+import { readMergeWrite, type CommitmentRow } from "../../../lib/actionCommitments";
+import { measureKpiBaseline, isKpiMeasurable } from "../../../lib/kpiRegistry";
 
 export const prerender = false;
 
 const BQ_PROJECT = "muse-square-open-data";
 const CRON_SECRET = process.env.CRON_SECRET || "";
+const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const DOW_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const frDfull = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
+const dowFr = (iso: string) => DOW_FR[new Date(iso + "T12:00:00Z").getUTCDay()];
+
+// ── Dispositifs ARMÉS sur signal (automatisation cas 1, docs/automatisation-spec.md) ──
+// Détecteur v1 : « chaleur annoncée DEMAIN (lvl_heat >= 3) » — décision documentée (été
+// continu : un début d'épisode ne tirerait quasi jamais ; le texte du dispositif réel dit
+// « la veille »). Origines couvertes v1 : structural_traffic_high. Garde-fous : idempotence
+// par (practice_id, target_date), cooldown arm_cooldown_days (défaut 7), échec soft.
+const HEAT_DETECTABLE = new Set(["structural_traffic_high"]);
+
+async function runArmedDispositifs(bq: any): Promise<{ scanned: number; triggered: number; details: string[] }> {
+  const details: string[] = [];
+  let triggered = 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const target = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10); // demain
+
+  const [armed] = await bq.query({
+    query: `SELECT practice_id, user_id, location_id, practice_text, origin_action_type,
+                   arm_recipient_name, arm_recipient_contact, arm_channel,
+                   COALESCE(arm_cooldown_days, 7) AS cooldown, replay_commitment_id
+            FROM \`${BQ_PROJECT}.analytics.best_practices\`
+            WHERE arm_enabled = TRUE AND status = 'active'`,
+    location: "EU",
+  });
+
+  for (const p of (armed as any[]) || []) {
+    const pid = String(flat(p.practice_id));
+    const loc = String(flat(p.location_id));
+    try {
+      const origin = String(flat(p.origin_action_type) || "");
+      if (!HEAT_DETECTABLE.has(origin)) {
+        details.push(`armed ${pid.slice(0, 8)}: origine ${origin} non détectable (v1) — rien envoyé`);
+        continue;
+      }
+      // Détection : demain est-il un jour chaud annoncé (niveau >= 3) sur CE lieu ?
+      const [[surf]] = await bq.query({
+        query: `SELECT lvl_heat FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_surface\`
+                WHERE location_id = @loc AND date = PARSE_DATE('%F', @d) LIMIT 1`,
+        params: { loc, d: target }, location: "EU",
+      }).then(([r]: any) => [r]);
+      if (!surf || Number(flat(surf.lvl_heat) ?? 0) < 3) continue;
+
+      // Idempotence (un tir par jour visé) + cooldown (1 tir max par N jours).
+      const [[guard]] = await bq.query({
+        query: `SELECT COUNTIF(target_date = PARSE_DATE('%F', @d)) AS n_same,
+                       COUNTIF(sent_at > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @cd DAY)) AS n_recent
+                FROM \`${BQ_PROJECT}.analytics.dispositif_triggers\` WHERE practice_id = @pid`,
+        params: { pid, d: target, cd: Number(flat(p.cooldown)) }, location: "EU",
+      }).then(([r]: any) => [r]);
+      if (Number(flat(guard?.n_same) ?? 0) > 0) continue;
+      if (Number(flat(guard?.n_recent) ?? 0) > 0) { details.push(`armed ${pid.slice(0, 8)}: cooldown ${flat(p.cooldown)} j — pas de tir`); continue; }
+
+      const contact = String(flat(p.arm_recipient_contact) || "");
+      if (!contact.includes("@")) { details.push(`armed ${pid.slice(0, 8)}: destinataire sans email — rien envoyé`); continue; }
+
+      // Réglages du rejeu (dernier état, tiebreak canonique) — repli honnête sinon.
+      let metric = "revenue_residual", thrBasis = "pct", thrValue = 10, ownerName = String(flat(p.arm_recipient_name) || "—");
+      const rcid = flat(p.replay_commitment_id) != null ? String(flat(p.replay_commitment_id)) : null;
+      if (rcid) {
+        const [[rc]] = await bq.query({
+          query: `SELECT measured_metric, threshold_basis, threshold_value, owner_person_name
+                  FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, IF(status IN ('resolved','cancelled'),1,0) DESC, IF(verdict IS NOT NULL,1,0) DESC, created_at DESC) rn
+                        FROM \`${BQ_PROJECT}.analytics.action_commitments\` WHERE commitment_id = @cid)
+                  WHERE rn = 1`,
+          params: { cid: rcid }, location: "EU",
+        }).then(([r]: any) => [r]);
+        if (rc) {
+          if (flat(rc.measured_metric) != null) metric = String(flat(rc.measured_metric));
+          if (flat(rc.threshold_basis) != null) thrBasis = String(flat(rc.threshold_basis));
+          if (flat(rc.threshold_value) != null) thrValue = Number(flat(rc.threshold_value));
+          if (flat(rc.owner_person_name) != null) ownerName = String(flat(rc.owner_person_name));
+        }
+      }
+
+      // L'email : consigne AUTO-SUFFISANTE, gestes à main courte seulement (délai de prévenance).
+      const subject = `Consigne — dispositif armé · demain ${dowFr(target)} ${frDfull(target).slice(0, 5)}`;
+      const body = [
+        `Consigne d'opération — déclenchée par votre signal : chaleur annoncée demain (niveau >= 3).`,
+        `Jour visé : ${dowFr(target)} ${frDfull(target)}.`,
+        `Le dispositif :\n${String(flat(p.practice_text) || "")}`,
+        `Rappel : gestes à votre main d'ici demain — achats et travail de l'équipe déjà planifiée ; on ne convoque personne.`,
+        `La mesure s'arme seule : verdict automatique après le ${frDfull(target).slice(0, 5)} (${metric}, cible ${thrBasis === "pct" ? "+" + Math.round(thrValue) + " %" : Math.round(thrValue)}).`,
+        `— Envoyée automatiquement par Muse Square (dispositif armé sur signal). Se désactive depuis la fiche dispositif.`,
+      ].join("\n\n");
+      const cfg = await loadChannelConfig(bq, String(flat(p.user_id) || ""), loc, "email").catch(() => ({}));
+      const sent = await sendEmail(cfg, { title: subject, body, recipient: contact }).catch((e: any) => ({ ok: false, error: String(e?.message || e) }));
+      if (!sent.ok) { details.push(`armed ${pid.slice(0, 8)}: échec envoi — ${String((sent as any).error || "").slice(0, 80)}`); continue; }
+
+      // L'engagement mesuré du tir — mêmes réglages que le rejeu, fenêtre = le jour visé.
+      let kpiBaseline: number | null = null;
+      try { if (metric !== "revenue_residual" && isKpiMeasurable(metric as any)) kpiBaseline = await measureKpiBaseline(bq, loc, metric as any, target); } catch { kpiBaseline = null; }
+      const commitmentId = crypto.randomUUID();
+      const patch: Partial<CommitmentRow> = {
+        user_id: String(flat(p.user_id) || ""),
+        location_id: loc,
+        status: "open",
+        verdict: null,
+        origin_kind: "signal_armed",
+        origin_action_type: origin,
+        origin_driver: null,
+        origin_factor: null,
+        origin_suppression_key: `armed:${pid}:${target}`,
+        origin_card_instance_id: null,
+        origin_affected_date: target,
+        measured_metric: metric,
+        window_kind: "day_of",
+        window_start: target,
+        window_end: target,
+        window_days_expected: 1,
+        threshold_level: "custom",
+        threshold_basis: thrBasis,
+        threshold_value: thrValue,
+        committed_action_text: String(flat(p.practice_text) || ""),
+        owner_person_name: ownerName,
+        owner_person_id: null,
+        kpi_baseline: kpiBaseline,
+      };
+      await readMergeWrite(bq, { commitmentId, transitionType: "created", create: true, patch });
+
+      // Trace en DML (jamais streaming : le nettoyage/la relecture immédiate restent possibles).
+      await bq.query({
+        query: `INSERT INTO \`${BQ_PROJECT}.analytics.dispositif_triggers\`
+                (trigger_id, practice_id, location_id, user_id, signal_key, target_date, sent_at, recipients, n_recipients, commitment_id)
+                VALUES (@tid, @pid, @loc, @uid, 'heat_tomorrow_lvl3', PARSE_DATE('%F', @d), CURRENT_TIMESTAMP(), @recips, 1, @cid)`,
+        params: { tid: crypto.randomUUID(), pid, loc, uid: String(flat(p.user_id) || ""), d: target, recips: JSON.stringify([contact]), cid: commitmentId },
+        location: "EU",
+      });
+      triggered += 1;
+      details.push(`armed ${pid.slice(0, 8)}: consigne envoyée (${contact.slice(0, 3)}…) + engagement ${commitmentId.slice(0, 8)} armé sur ${target}`);
+    } catch (e: any) {
+      details.push(`armed ${pid.slice(0, 8)}: ERREUR ${String(e?.message || e).slice(0, 100)}`);
+    }
+  }
+  void today;
+  return { scanned: ((armed as any[]) || []).length, triggered, details };
+}
 
 export const GET: APIRoute = async ({ request, url }) => {
   // Verify cron secret (Vercel sends Authorization header)
@@ -19,6 +161,10 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
+
+    // 0. Dispositifs armés sur signal (cas 1) — passe indépendante des règles, échec soft.
+    let armedRes = { scanned: 0, triggered: 0, details: [] as string[] };
+    try { armedRes = await runArmedDispositifs(bq); } catch (e: any) { armedRes.details.push("ERREUR passe armés: " + String(e?.message || e).slice(0, 120)); }
 
     // 1. Get all enabled automation rules
     const [rules] = await bq.query({
@@ -35,7 +181,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     });
 
     if (!rules || rules.length === 0) {
-      return new Response(JSON.stringify({ ok: true, dispatched: 0, message: "No active rules" }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, dispatched: 0, message: "No active rules", armed: armedRes }), { status: 200, headers: { "content-type": "application/json" } });
     }
 
     // 2. Group rules by location
@@ -92,14 +238,17 @@ export const GET: APIRoute = async ({ request, url }) => {
 
         if (matchingSignals.length === 0) continue;
 
-        // Frequency check: first_occurrence = only if no dispatch today for this rule
+        // Frequency check: first_occurrence = only if no dispatch today for this rule.
+        // 05/08 : action_log n'a JAMAIS eu de colonne metadata (schéma réel vérifié) — la
+        // requête 500-ait tout le cron ; le rule_id vit dans `reason` (colonne réelle),
+        // aligné avec l'INSERT ci-dessous.
         if (rule.frequency === "first_occurrence") {
           const [existing] = await bq.query({
             query: `
               SELECT 1 FROM \`${BQ_PROJECT}.analytics.action_log\`
               WHERE location_id = @locationId
                 AND action_key = 'auto_dispatch'
-                AND JSON_VALUE(metadata, '$.rule_id') = @ruleId
+                AND reason = @ruleId
                 AND DATE(created_at) = DATE(@today)
               LIMIT 1
             `,
@@ -213,6 +362,8 @@ export const GET: APIRoute = async ({ request, url }) => {
 
         // 8. Log dispatch
         try {
+          // 05/08 : aligné sur le schéma RÉEL d'action_log (pas de metadata/signal_type —
+          // l'insert d'origine échouait en silence) ; reason = rule_id (le pourquoi du log).
           const logTable = bq.dataset("analytics").table("action_log");
           await logTable.insert([{
             log_id: crypto.randomUUID(),
@@ -222,16 +373,15 @@ export const GET: APIRoute = async ({ request, url }) => {
             event: "auto_dispatch",
             channel: rule.channel,
             change_subtype: topSignal.change_subtype,
-            signal_type: topSignal.change_subtype,
             affected_date: todayYmd,
-            metadata: JSON.stringify({ rule_id: rule.rule_id, recipient: rule.recipient, require_approval: rule.require_approval }),
+            reason: rule.rule_id,
             created_at: new Date().toISOString(),
           }]);
         } catch (e) {}
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, dispatched: results.length, results }), { status: 200, headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, dispatched: results.length, results, armed: armedRes }), { status: 200, headers: { "content-type": "application/json" } });
   } catch (err: any) {
     console.error("[daily-dispatch] Error:", err);
     return new Response(JSON.stringify({ ok: false, error: err?.message || "Unknown error" }), { status: 500, headers: { "content-type": "application/json" } });

@@ -267,17 +267,23 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<span style="color:#9CA3AF;font-size:11px;">▾</span></button>'
             + '<div data-tb-body="di" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.7;">';
           if (!pr.length) html += '<div style="color:#9CA3AF;">Aucun sur la période — chaque verdict tenu peut en créer un (« Documenter »).</div>';
-          pr.slice(0, 6).forEach(function (p) {
+          pr.slice(0, 6).forEach(function (p, pi) {
             var running = p.replay_commitment_id && p.status !== "proven";
             var chip = p.status === "proven" ? ['prouvé', '#E6F6F0', '#059669'] : running ? ['en rejeu', '#E6F6F0', '#059669'] : ['déclaré', '#F3F4F6', '#6b7280'];
             var canAct = p.practice_id && p.origin_action_type && !p.replay_commitment_id;
             var autoHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(p.location_id || loc) + "&new=1&titre=" + encodeURIComponent(String(p.text || "").slice(0, 60)) + "&dispositif=" + encodeURIComponent(String(p.text || "").slice(0, 240));
             html += '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;">'
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>'
+              + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : '')
               + '<span style="flex:1;min-width:180px;">' + esc(String(p.text || "").slice(0, 110)) + '</span>'
               + (running && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + ' ' + frD(replayEnd) + '</span>' : '')
               + (canAct ? '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif devient prouvé">Prouver</a><span style="color:#D1D5DB;">·</span><a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>' : '')
-              + '</div>';
+              // Armer sur signal (cas 1) : seulement quand le serveur dit l'origine DÉTECTABLE
+              // (armable v1 = jours de pointe/chaleur) — jamais un bouton sur une promesse.
+              + (p.armable && !p.arm_enabled ? (canAct ? '<span style="color:#D1D5DB;">·</span>' : '') + '<a class="tb-link" href="#" data-tb-arm="' + pi + '">Armer sur signal</a>' : '')
+              + (p.arm_enabled ? '<a class="tb-link" href="#" data-tb-disarm="' + esc(p.practice_id) + '|' + esc(p.location_id || '') + '" style="font-size:11.5px;">Désarmer</a>' : '')
+              + '</div>'
+              + (p.armable && !p.arm_enabled ? '<div data-tb-arm-panel="' + pi + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>' : '');
           });
           html += '</div></div>';
 
@@ -308,6 +314,21 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           var au = j.automated || {};
           var auLines = [];
+          // Consignes d'opération actives (inc. 5) : trace réelle + prochain envoi calculé ;
+          // la définition (et Désactiver) vivent au DOSSIER — ici on supervise.
+          (au.consignes || []).forEach(function (c) {
+            var dossierHref2 = '/app/insightevent/evenement?location_id=' + encodeURIComponent(c.location_id) + '&saved_item_id=' + encodeURIComponent(c.saved_item_id);
+            var tail = c.last_sent_on
+              ? 'dernière envoyée le ' + frD(c.last_sent_on) + ' à ' + (c.last_n_recipients || 0) + ' destinataire(s)'
+              : 'prochain envoi le ' + dowFr(c.next_send) + ' ' + frD(c.next_send) + ' (J-' + c.send_offset + ')';
+            auLines.push('✉ Consigne « ' + esc(c.title) + ' »' + (j.multi_site && c.site_label ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(c.site_label) + '</span>' : '') + ' — ' + tail + ' · <a class="tb-link" style="font-size:11.5px;" href="' + dossierHref2 + '">Dossier →</a>');
+          });
+          (au.armed_dispositifs || []).forEach(function (a) {
+            var tail2 = a.n_triggers > 0 && a.last_fired
+              ? a.n_triggers + ' déclenchement' + (a.n_triggers > 1 ? 's' : '') + ' · dernier le ' + frD(a.last_fired)
+              : '0 déclenchement — en veille sur son signal';
+            auLines.push('⚡ Dispositif « ' + esc(String(a.text || '').slice(0, 60)) + ' » armé sur chaleur annoncée' + (j.multi_site && a.site_label ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(a.site_label) + '</span>' : '') + ' — ' + tail2);
+          });
           (au.snapshots_recent || []).slice(0, 2).forEach(function (d) { auLines.push('✓ Contexte du ' + dowFr(d) + ' ' + frD(d) + ' gelé (météo, concurrence, accès)'); });
           if (au.next_autoarm) auLines.push('↻ Occurrence du ' + dowFr(au.next_autoarm.occ_date) + ' ' + frD(au.next_autoarm.occ_date) + ' (' + esc(au.next_autoarm.title) + ') : s’armera seule à J-7');
           if ((au.verdicts_scheduled || []).length) auLines.push('↻ Verdict' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' jugé' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' automatiquement après ' + au.verdicts_scheduled.slice(0, 2).map(function (d) { return dowFr(d) + ' ' + frD(d); }).join(' et '));
@@ -369,6 +390,55 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 })
                 .then(function () { load(); })
                 .catch(function (e) { b.textContent = "Prouver"; alert("Erreur : " + (e && e.message ? e.message : "réessayez")); });
+            });
+          });
+
+          // ── Armer sur signal (automatisation cas 1) — panneau sur la fiche, chiffres RÉELS
+          //    du signal (fréquence 30 j, prochain jour chaud annoncé), garde-fous affichés. ──
+          function patchArm(p2, armBody, done) {
+            fetch("/api/best-practices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ practice_id: p2.practice_id, location_id: p2.location_id, arm: armBody }) })
+              .then(function (r) { return r.json(); })
+              .then(function (res) { done(res && res.ok, res && res.error); })
+              .catch(function () { done(false, "réseau"); });
+          }
+          body.querySelectorAll("[data-tb-arm]").forEach(function (b) {
+            b.addEventListener("click", function (ev) {
+              ev.preventDefault();
+              var pi = b.getAttribute("data-tb-arm");
+              var p2 = (window._tbPractices || [])[Number(pi)];
+              var panel = body.querySelector('[data-tb-arm-panel="' + pi + '"]');
+              if (!p2 || !panel) return;
+              if (panel.style.display === "block") { panel.style.display = "none"; return; }
+              var ctx = p2.arm_signal_ctx || {};
+              panel.style.display = "block";
+              panel.innerHTML = '<div class="tb-eb" style="margin-bottom:4px;">Le signal</div>'
+                + '<div style="font-size:12.5px;line-height:1.6;"><span style="font-weight:600;">Chaleur annoncée demain (niveau ≥ 3)</span>'
+                + (ctx.n_hot_30 != null ? ' — ' + ctx.n_hot_30 + ' jour' + (ctx.n_hot_30 > 1 ? 's' : '') + ' chauds sur vos 30 derniers' : '')
+                + (ctx.next_hot ? ' · prochain annoncé : ' + dowFr(ctx.next_hot) + ' ' + frD(ctx.next_hot) : ' · aucun annoncé dans l’horizon de prévision') + '</div>'
+                + '<div style="font-size:11.5px;color:#6B7280;line-height:1.6;margin:6px 0;">Garde-fous : 1 déclenchement maximum par 7 jours · à chaque tir, la consigne part par email et un engagement mesuré s’arme (vos réglages du rejeu) — chaque verdict s’ajoute au track record. La consigne ne convoque personne (achats, équipe déjà planifiée).</div>'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;">'
+                + '<input data-arm-name style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:180px;" placeholder="Destinataire (nom)" value="' + esc(p2.arm_recipient_name || '') + '">'
+                + '<input data-arm-mail style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;" placeholder="Email" value="' + esc(p2.arm_recipient_contact || '') + '">'
+                + '<button type="button" data-arm-go style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Armer ce dispositif</button>'
+                + '<span data-arm-msg style="font-size:12px;color:#B91C1C;"></span></div>';
+              panel.querySelector("[data-arm-go]").addEventListener("click", function () {
+                var nm = (panel.querySelector("[data-arm-name]").value || "").trim();
+                var em = (panel.querySelector("[data-arm-mail]").value || "").trim();
+                var msg = panel.querySelector("[data-arm-msg]");
+                if (!em || em.indexOf("@") < 0) { msg.textContent = "Un email destinataire est requis."; return; }
+                patchArm(p2, { enabled: true, recipient_name: nm || null, recipient_contact: em, channel: "email", cooldown_days: 7 }, function (ok, err) {
+                  if (ok) load(); else msg.textContent = "Erreur : " + (err || "réessayez.");
+                });
+              });
+            });
+          });
+          body.querySelectorAll("[data-tb-disarm]").forEach(function (b) {
+            b.addEventListener("click", function (ev) {
+              ev.preventDefault();
+              var parts = String(b.getAttribute("data-tb-disarm") || "").split("|");
+              patchArm({ practice_id: parts[0], location_id: parts[1] }, { enabled: false }, function (ok, err) {
+                if (ok) load(); else alert("Erreur : " + (err || "réessayez."));
+              });
             });
           });
         }

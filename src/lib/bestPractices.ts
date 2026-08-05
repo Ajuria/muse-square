@@ -53,6 +53,13 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["mechanism_factors", "STRING"],   // facteur(s) supposé(s) — vocabulaire existant quand connu (clés de classes), texte libre sinon
   ["evidence_refs", "STRING"],       // les preuves citées (jours, chiffres affichés) — jamais du vide
   ["confirmation_test", "STRING"],   // ce qui le confirmerait — la graine de la graduation en engagement
+  // Armement sur signal (automatisation cas 1, 05/08 — docs/automatisation-spec.md) : quand le
+  // signal d'origine du dispositif se déclenche, la consigne part seule + un engagement s'arme.
+  ["arm_enabled", "BOOL"],
+  ["arm_recipient_name", "STRING"],
+  ["arm_recipient_contact", "STRING"],
+  ["arm_channel", "STRING"],          // 'email' v1
+  ["arm_cooldown_days", "INT64"],     // garde-fou : 1 déclenchement max par N jours (défaut 7)
 ];
 
 export interface BestPracticeRow {
@@ -76,6 +83,12 @@ export interface BestPracticeRow {
   mechanism_factors?: string | null;
   evidence_refs?: string | null;
   confirmation_test?: string | null;
+  // Armement sur signal (05/08) — nullables : une pratique non armée reste valide sans eux.
+  arm_enabled?: boolean | null;
+  arm_recipient_name?: string | null;
+  arm_recipient_contact?: string | null;
+  arm_channel?: string | null;
+  arm_cooldown_days?: number | null;
 }
 
 // A practice as SERVED to the UI (tier computed at read; proven commitments unioned in).
@@ -105,7 +118,48 @@ export async function ensureBestPracticesTable(bq: any): Promise<void> {
     query: `ALTER TABLE \`${TABLE_FQN}\`
       ADD COLUMN IF NOT EXISTS mechanism_factors STRING,
       ADD COLUMN IF NOT EXISTS evidence_refs STRING,
-      ADD COLUMN IF NOT EXISTS confirmation_test STRING`,
+      ADD COLUMN IF NOT EXISTS confirmation_test STRING,
+      ADD COLUMN IF NOT EXISTS arm_enabled BOOL,
+      ADD COLUMN IF NOT EXISTS arm_recipient_name STRING,
+      ADD COLUMN IF NOT EXISTS arm_recipient_contact STRING,
+      ADD COLUMN IF NOT EXISTS arm_channel STRING,
+      ADD COLUMN IF NOT EXISTS arm_cooldown_days INT64`,
+    location: "EU",
+  });
+}
+
+// ── Armement sur signal (cas 1) : état porté par la pratique elle-même (définition sur
+// l'objet). Table en DML (INSERT query, jamais streaming) → l'UPDATE est sûr. ──
+export interface ArmingPatch {
+  enabled: boolean;
+  recipient_name?: string | null;
+  recipient_contact?: string | null;
+  channel?: string | null;
+  cooldown_days?: number | null;
+}
+export async function updateArming(
+  bq: any,
+  practice_id: string,
+  location_id: string,
+  arm: ArmingPatch,
+): Promise<void> {
+  await bq.query({
+    query: `UPDATE \`${TABLE_FQN}\`
+            SET arm_enabled = @enabled,
+                arm_recipient_name = COALESCE(@recipient_name, arm_recipient_name),
+                arm_recipient_contact = COALESCE(@recipient_contact, arm_recipient_contact),
+                arm_channel = COALESCE(@channel, arm_channel, 'email'),
+                arm_cooldown_days = COALESCE(@cooldown_days, arm_cooldown_days, 7)
+            WHERE practice_id = @practice_id AND location_id = @location_id`,
+    params: {
+      enabled: arm.enabled,
+      recipient_name: arm.recipient_name ?? null,
+      recipient_contact: arm.recipient_contact ?? null,
+      channel: arm.channel ?? null,
+      cooldown_days: arm.cooldown_days ?? null,
+      practice_id, location_id,
+    },
+    types: { enabled: "BOOL", recipient_name: "STRING", recipient_contact: "STRING", channel: "STRING", cooldown_days: "INT64", practice_id: "STRING", location_id: "STRING" },
     location: "EU",
   });
 }

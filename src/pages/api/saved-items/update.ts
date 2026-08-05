@@ -100,6 +100,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const kpi_family = typeof body?.kpi_family === "string" && body.kpi_family.trim() ? body.kpi_family.trim().slice(0, 120) : null;
     const kpi_target_pct = body?.kpi_target_pct != null && Number.isFinite(Number(body.kpi_target_pct)) ? Number(body.kpi_target_pct) : null;
     const kpi_target_eur = body?.kpi_target_eur != null && Number.isFinite(Number(body.kpi_target_eur)) ? Number(body.kpi_target_eur) : null;
+    // Consigne d'opération (docs/automatisation-spec.md § 3) — textes libres, offset J-1..J-7,
+    // enabled = BOOL explicite (absent ≠ false). Sémantique d'EFFACEMENT (inc. 6) : un champ
+    // texte FOURNI vide ("") = SET NULL ; absent (undefined) = intact — le formulaire envoie
+    // toujours ses 4 champs, vider puis enregistrer efface donc réellement.
+    const consigneText = (v: unknown, name: string): string | "CLEAR" | null => {
+      if (v === undefined) return null;
+      if (v === null) return "CLEAR";
+      if (typeof v !== "string") throw new HttpError(400, `Invalid field: ${name}`);
+      return v.trim() === "" ? "CLEAR" : v.trim();
+    };
+    const consigne_arrival = consigneText(body?.consigne_arrival, "consigne_arrival");
+    const consigne_store_info = consigneText(body?.consigne_store_info, "consigne_store_info");
+    const consigne_interactions = consigneText(body?.consigne_interactions, "consigne_interactions");
+    const consigne_deroule = consigneText(body?.consigne_deroule, "consigne_deroule");
+    const rawOffset = body?.consigne_send_offset;
+    const consigne_send_offset = Number.isInteger(Number(rawOffset)) && Number(rawOffset) >= 1 && Number(rawOffset) <= 7
+      ? Number(rawOffset) : null;
+    const consigne_enabled: boolean | null = typeof body?.consigne_enabled === "boolean" ? body.consigne_enabled : null;
 
     // dates: if provided, replaces the full set in saved_item_dates
     const rawDates = body?.dates;
@@ -114,7 +132,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // At least one field must be provided
     if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === null && event_type === null && launch_hour === null
         && author_person_name === null && event_nature === null && hour_start === null && hour_end === null
-        && kpi === null && kpi_family === null && kpi_target_pct === null && kpi_target_eur === null) {
+        && kpi === null && kpi_family === null && kpi_target_pct === null && kpi_target_eur === null
+        && consigne_arrival === null && consigne_store_info === null && consigne_interactions === null
+        && consigne_deroule === null && consigne_send_offset === null && consigne_enabled === null) {
       throw new HttpError(400, "No fields to update");
     }
 
@@ -225,6 +245,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
       updateParams.kpi_target_eur = kpi_target_eur;
       updateTypes.kpi_target_eur = "FLOAT64";
     }
+    const consigneSet = (name: string, v: string | "CLEAR" | null) => {
+      if (v === null) return;
+      if (v === "CLEAR") { setClauses.push(`${name} = NULL`); return; }
+      setClauses.push(`${name} = @${name}`);
+      updateParams[name] = v;
+      updateTypes[name] = "STRING";
+    };
+    consigneSet("consigne_arrival", consigne_arrival);
+    consigneSet("consigne_store_info", consigne_store_info);
+    consigneSet("consigne_interactions", consigne_interactions);
+    consigneSet("consigne_deroule", consigne_deroule);
+    if (consigne_send_offset !== null) {
+      setClauses.push("consigne_send_offset = @consigne_send_offset");
+      updateParams.consigne_send_offset = consigne_send_offset;
+      updateTypes.consigne_send_offset = "INT64";
+    }
+    if (consigne_enabled !== null) {
+      setClauses.push("consigne_enabled = @consigne_enabled");
+      updateParams.consigne_enabled = consigne_enabled;
+      updateTypes.consigne_enabled = "BOOL";
+    }
     if (selected_date !== undefined) {
       if (selected_date === "NULL") {
         setClauses.push("selected_date = NULL");
@@ -272,13 +313,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
         AND location_id = '${lid}'
     `;
 
-    const script = `
+    // 05/08 (audit owner) : la TRANSACTION ne sert que quand on remplace les dates (deux
+    // tables à tenir cohérentes). L'envelopper autour d'un UPDATE seul faisait avorter deux
+    // écritures rapprochées (« Transaction is aborted due to concurrent update ») — un clic
+    // de chip pendant une sauvegarde en vol. UPDATE simple = pas de transaction.
+    const script = dates !== null
+      ? `
       BEGIN TRANSACTION;
       ${updateQuery};
       ${deleteDatesClause}
       ${insertDatesClause}
       COMMIT TRANSACTION;
-    `;
+    `
+      : updateQuery;
 
     await bigquery.query({
       query: script,
