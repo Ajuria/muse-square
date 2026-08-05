@@ -17,6 +17,7 @@ import {
   insertBestPractice,
   listMatchedPractices,
   linkReplayCommitment,
+  updateArming,
   type BestPracticeRow,
 } from "../../../lib/bestPractices";
 
@@ -109,7 +110,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 };
 
-// ── PATCH /api/best-practices — body: { practice_id, location_id, replay_commitment_id } ──
+// ── PATCH /api/best-practices — body: { practice_id, location_id, replay_commitment_id }
+//    OU { practice_id, location_id, arm: { enabled, recipient_name?, recipient_contact?,
+//    channel?, cooldown_days? } } (armement sur signal, cas 1 — additif) ──
 export const PATCH: APIRoute = async ({ request, locals }) => {
   try {
     if (!uid(locals)) return json({ ok: false }, 401);
@@ -117,11 +120,24 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
     const practiceId = String(body?.practice_id || "").trim();
     const locationId = String(body?.location_id || "").trim();
     const commitmentId = String(body?.replay_commitment_id || "").trim();
-    if (!practiceId || !locationId || !commitmentId)
-      return json({ ok: false, error: "Missing practice_id, location_id or replay_commitment_id" }, 400);
+    const arm = body?.arm && typeof body.arm === "object" ? body.arm : null;
+    if (!practiceId || !locationId || (!commitmentId && !arm))
+      return json({ ok: false, error: "Missing practice_id, location_id, and replay_commitment_id or arm" }, 400);
     requireLocationOwnership(locals, locationId);
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
-    await linkReplayCommitment(bq, practiceId, locationId, commitmentId);
+    if (commitmentId) await linkReplayCommitment(bq, practiceId, locationId, commitmentId);
+    if (arm) {
+      if (typeof arm.enabled !== "boolean") return json({ ok: false, error: "arm.enabled (booléen) requis" }, 400);
+      const cooldown = Number.isInteger(Number(arm.cooldown_days)) && Number(arm.cooldown_days) >= 1 && Number(arm.cooldown_days) <= 30
+        ? Number(arm.cooldown_days) : null;
+      await updateArming(bq, practiceId, locationId, {
+        enabled: arm.enabled,
+        recipient_name: typeof arm.recipient_name === "string" && arm.recipient_name.trim() ? arm.recipient_name.trim().slice(0, 120) : null,
+        recipient_contact: typeof arm.recipient_contact === "string" && arm.recipient_contact.trim() ? arm.recipient_contact.trim().slice(0, 200) : null,
+        channel: arm.channel === "email" ? "email" : null,
+        cooldown_days: cooldown,
+      });
+    }
     return json({ ok: true });
   } catch (err: any) {
     return json({ ok: false, error: String(err?.message || err) }, errStatus(err));
