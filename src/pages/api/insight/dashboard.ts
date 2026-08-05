@@ -79,7 +79,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // endpoint via l'owner du journal). Contrat « fait par défaut » : le WHERE du mart passe
       // à « non déclarée pas-menée » (édit dbt côté owner, 05/08).
       bq.query({
-        query: `SELECT commitment_id, beat,
+        query: `SELECT commitment_id, beat, verdict,
                        ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_eur
                 FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
                 WHERE location_id IN UNNEST(@locs)
@@ -179,7 +179,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const judged = coms.filter((c) => c.status === "resolved" && c.verdict && c.in_period);
     const ownerByCommitment: Record<string, string> = {};
     for (const c of coms) if (c.commitment_id) ownerByCommitment[c.commitment_id] = c.owner || "—";
-    const martRows = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, gap_eur: num(r.gap_eur) }));
+    // Un verdict « confounded » est NON MESURABLE (guardrail 3 du mart) : jamais dans les €,
+    // compté à part — le mart le garde flaggé, le tableau respecte le flag.
+    const martAll = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), gap_eur: num(r.gap_eur) }));
+    const martRows = martAll.filter((r) => r.verdict !== "confounded");
+    const confoundedCount = martAll.length - martRows.length;
     const gapSum = martRows.length ? martRows.reduce((a, r) => a + (r.gap_eur ?? 0), 0) : null;
     // Tenue par personne : verdicts rendus sur la période + € mesurés de LEURS fenêtres.
     const personKey = (name: string | null): string =>
@@ -207,6 +211,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       impact: {
         gap_eur: gapSum,
         eur_windows: martRows.length,
+        confounded: confoundedCount,
         windows_judged: judged.length,
         targets_met: judged.filter((c) => /met|tenu|beat/i.test(String(c.verdict))).length,
         practices_proven: practices.filter((p) => p.status === "proven").length,
