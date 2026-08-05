@@ -98,6 +98,35 @@ première fenêtre d'envoi réelle : occurrence du 15/08, envoi J-2 jeudi 13/08.
   aussi 2 règles legacy concurrence → Slack + email owner) ; merge prod sur GO ; « affiner
   les 2 » (retours d'usage) ensuite.
 
+## Incrément 8 — les 5 lignes du jour en faits NOMMÉS + liens (AUDITÉ 05/08, à construire)
+
+Feedback owner : « conceptual crap » dévalorise le produit — un manager veut QUI est là,
+QUELLES routes/lignes, et cliquer vers la carte. Audit fait, modèles dbt LUS, pièges attrapés :
+
+1. **Accès nommé** — `semantic.vw_insight_event_mobility_disruptions` (modèle lu : grain
+   disruption_event_id × location × date, fenêtre [J-1, J+30]) porte tout en NOMMÉ :
+   `mode, route_long_name, short_name, stop_name, title_merged, delay_minutes (NUMERIC),
+   severity, is_planned_flag, nom_commune`. La ligne Accès cite la pire perturbation nommée
+   (« Ligne X — travaux, ~N min ») + le compte ; muse 08/08 = 0 ligne (le « fluide » actuel
+   était vrai). Colonne date = `disruption_date`.
+2. **Qui est là (nationalités)** — `mart.fct_region_foreign_country_profile` (modèle lu) :
+   projection SAISONNIÈRE (jamais « ce jour-là »), région en **NUTS2** (`FR10` — PAS l'INSEE
+   `11` : jointure via `dim_client_location.city_id_commune → dim_city_to_region.
+   region_code_nuts2`), season sans accent (`ete`), `accommodation_type` hétérogène (ÎdF =
+   hotels seul), ratios 0-1 (×100 à l'affichage), lignes dupliquées par la spine (DISTINCT
+   pays). **Le mart s'arrête au 30/09/2025** (pas d'ingestion Flash INSEE 2026) → la ligne
+   cite le DERNIER profil connu en le datant : « Été 2025 (hôtels, dernier connu) : 61 % de
+   nuitées étrangères en ÎdF — 1er pays : États-Unis (25 %) ». Réel vérifié.
+   PACA/Bretagne/Nouvelle-Aquitaine/Corse absents du mart → ligne omise honnêtement.
+3. **Voisins cliquables** — `map.astro` accepte `?location_id=&date=` (vérifié) : la ligne
+   Événements voisins devient un lien vers la carte du jour. Support `href` à ajouter au
+   format de question du provider (`{fact_fr, tone, action_fr, href?}`) + rendu qLine.
+4. **Météo cliquable** — cible à trancher : days (`?selected_dates=` + saved_item — la
+   surface de détail jour) ou une carte insight ; vérifier le param location avant de câbler.
+5. Lexique métier partout (« opération », jamais « occurrence »).
+
+Vérif prévue : harnais provider sur le Corner (08/08) + un lieu à perturbations réelles.
+
 ## Périmètre connexe acté (05/08)
 
 - P0a : brancher `/api/cron/bilan` dans cron-job.org (côté owner, après vérification par tir).
