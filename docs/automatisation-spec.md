@@ -98,7 +98,7 @@ première fenêtre d'envoi réelle : occurrence du 15/08, envoi J-2 jeudi 13/08.
   aussi 2 règles legacy concurrence → Slack + email owner) ; merge prod sur GO ; « affiner
   les 2 » (retours d'usage) ensuite.
 
-## Incrément 8 — les 5 lignes du jour en faits NOMMÉS + liens (AUDITÉ 05/08, à construire)
+## Incrément 8 — les 5 lignes du jour en faits NOMMÉS + liens (LIVRÉ 05/08 — labels owner : « Le public du jour », « Activité autour de vous » ; harnais Corner 7/7)
 
 Feedback owner : « conceptual crap » dévalorise le produit — un manager veut QUI est là,
 QUELLES routes/lignes, et cliquer vers la carte. Audit fait, modèles dbt LUS, pièges attrapés :

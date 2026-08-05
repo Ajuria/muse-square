@@ -22,7 +22,7 @@ const DOW_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "
 const ymdToday = () => new Date().toISOString().slice(0, 10);
 const dowOf = (ymd: string) => new Date(ymd + "T00:00:00Z").getUTCDay();
 
-export interface EvenementQuestion { key: string; fact_fr: string; tone: "ok" | "warn" | "bad" | "info"; action_fr?: string }
+export interface EvenementQuestion { key: string; fact_fr: string; tone: "ok" | "warn" | "bad" | "info"; action_fr?: string; href?: string; link_fr?: string }
 export interface EvenementDay {
   date: string; dow_fr: string; present: boolean; horizon_days: number | null;
   score: number | null; weather_label_fr: string | null;
@@ -160,7 +160,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows]] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -218,6 +218,47 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
               WHERE saved_item_id = @saved_item_id ORDER BY sent_at DESC LIMIT 5`,
       params: { saved_item_id }, location: "EU",
     }),
+    // Accès NOMMÉ (inc. 8) : les perturbations réelles des jours analysés — ligne, arrêt,
+    // retard (vue lue : grain disruption_event_id × location × date, fenêtre [J-1, J+30],
+    // colonne date = disruption_date).
+    futureDates.length ? bq.query({
+      query: `SELECT CAST(disruption_date AS STRING) AS d, mode, route_long_name, short_name,
+                     stop_name, title_merged, CAST(delay_minutes AS FLOAT64) AS delay_min,
+                     severity, is_planned_flag
+              FROM \`${PROJECT}.semantic.vw_insight_event_mobility_disruptions\`
+              WHERE location_id = @location_id
+                AND DATE(disruption_date) IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))
+              ORDER BY severity DESC LIMIT 40`,
+      params: { location_id, dates: futureDates }, types: { dates: ["STRING"] }, location: "EU",
+    }) : empty,
+    // Le public du jour — touristes étrangers (inc. 8) : projection SAISONNIÈRE (modèle lu :
+    // jamais un signal quotidien), région en NUTS2 (jointure city_id_commune → city_to_region),
+    // UN accommodation_type (hétérogène par région — leçon Île-de-France), dernière année
+    // connue (le mart s'arrête à la dernière ingestion Flash INSEE : citer daté).
+    futureDates.length ? bq.query({
+      query: `WITH reg AS (
+                SELECT r.region_code_nuts2 AS rc
+                FROM \`${PROJECT}.dims\`.dim_client_location l
+                JOIN \`${PROJECT}.dims\`.dim_city_to_region r ON r.city_id = l.city_id_commune
+                WHERE l.location_id = @location_id LIMIT 1
+              ),
+              base AS (
+                SELECT f.* FROM \`${PROJECT}.mart\`.fct_region_foreign_country_profile f, reg
+                WHERE f.region_code = reg.rc AND f.season = @season
+              ),
+              latest AS (SELECT MAX(reference_year) AS y FROM base),
+              one_acc AS (
+                SELECT accommodation_type FROM base, latest WHERE reference_year = latest.y
+                GROUP BY 1 ORDER BY (accommodation_type = 'hotels_campings') DESC, accommodation_type LIMIT 1
+              )
+              SELECT DISTINCT f.region_name, f.reference_year, f.accommodation_type,
+                     f.country_name_fr, f.pct_nonresident, f.country_share_of_nonresident
+              FROM base f, latest, one_acc
+              WHERE f.reference_year = latest.y AND f.accommodation_type = one_acc.accommodation_type
+              ORDER BY f.country_share_of_nonresident DESC LIMIT 3`,
+      params: { location_id, season: [4, 5, 6, 7, 8, 9].includes(Number(futureDates[0].slice(5, 7))) ? "ete" : "hiver" },
+      location: "EU",
+    }) : empty,
   ]);
 
   const dowExpected = new Map<number, number>();
@@ -238,6 +279,32 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   const surfByDate = new Map((surfRows as any[]).map((s) => [String(flat(s.d)), s]));
   const mobLabel = (v: number | null) => (v == null ? null : v >= 0 ? "fluide" : v >= -4 ? "perturbé" : "fortement perturbé");
   const outdoor = item.event_nature === "outdoor" || item.event_nature === "both";
+
+  // ── Inc. 8 : faits NOMMÉS. Perturbations par date (ligne/arrêt/retard) + touristes
+  //    étrangers (profil SAISONNIER, cité DATÉ — jamais présenté comme un signal du jour). ──
+  const mobByDate = new Map<string, any[]>();
+  for (const m of (mobRows as any[]) || []) {
+    const d = String(flat(m.d));
+    if (!mobByDate.has(d)) mobByDate.set(d, []);
+    mobByDate.get(d)!.push(m);
+  }
+  const ACC_FR: Record<string, string> = { hotels: "hôtels", campings: "campings", hotels_campings: "hôtels et campings" };
+  let touristesFr: string | null = null;
+  if ((forRows as any[])?.length) {
+    const f0: any = (forRows as any[])[0];
+    const seasonFr = [4, 5, 6, 7, 8, 9].includes(Number((futureDates[0] || today).slice(5, 7))) ? "été" : "hiver";
+    const pctNr = Math.round(Number(flat(f0.pct_nonresident) ?? 0) * 100);
+    const topCountries = (forRows as any[]).slice(0, 2)
+      .map((f: any) => `${String(flat(f.country_name_fr))} (${Math.round(Number(flat(f.country_share_of_nonresident) ?? 0) * 100)} %)`)
+      .join(", ");
+    touristesFr = `Touristes étrangers (${seasonFr} ${Number(flat(f0.reference_year))}, ${ACC_FR[String(flat(f0.accommodation_type))] || String(flat(f0.accommodation_type))} — dernier profil connu) : ${pctNr} % des nuitées en ${String(flat(f0.region_name))} — en tête ${topCountries}.`;
+  }
+  const mobName = (m: any): string => {
+    const t = flat(m.title_merged) != null ? String(flat(m.title_merged)).trim() : "";
+    if (t) return t.slice(0, 90);
+    return [flat(m.mode), flat(m.route_long_name) ?? flat(m.short_name), flat(m.stop_name)]
+      .filter((x) => x != null && String(x).trim()).map((x) => String(x).trim()).join(" · ").slice(0, 90) || "perturbation";
+  };
   const buildDay = (date: string): EvenementDay => {
     const s: any = surfByDate.get(date);
     const dow_fr = DOW_FR[dowOf(date)] || "";
@@ -251,25 +318,48 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     const aud = flat(s.audience_availability_label) != null ? String(flat(s.audience_availability_label)) : null;
     const vac = flat(s.vacation_name) != null ? String(flat(s.vacation_name)) : null;
     const hol = flat(s.holiday_name) != null ? String(flat(s.holiday_name)) : null;
-    qs.push({ key: "clients", tone: "info", fact_fr: `Vos clients cibles : ${aud || "profil du jour non qualifié"}${vac ? ` — ${vac}` : ""}${hol ? ` — ${hol}` : ""}.` });
+    // Le public du jour (inc. 8) : disponibilité locale + touristes étrangers NOMMÉS
+    // (profil saisonnier daté — la phrase porte son référentiel, jamais « ce jour-là »).
+    qs.push({ key: "clients", tone: "info", fact_fr: `Le public du jour : ${aud || "profil non qualifié"}${vac ? ` — ${vac}` : ""}${hol ? ` — ${hol}` : ""}.${touristesFr ? ` ${touristesFr}` : ""}` });
     const attMob = flat(s.delta_att_mobility_pct) != null ? Number(flat(s.delta_att_mobility_pct)) : null;
     const opsCar = flat(s.delta_ops_mobility_car_pct) != null ? Number(flat(s.delta_ops_mobility_car_pct)) : null;
     const cliLbl = mobLabel(attMob); const fourLbl = mobLabel(opsCar);
-    qs.push({
-      key: "acces", tone: (fourLbl && fourLbl !== "fluide") || (cliLbl && cliLbl !== "fluide") ? (fourLbl === "fortement perturbé" || cliLbl === "fortement perturbé" ? "bad" : "warn") : "ok",
-      fact_fr: `Accès — clients : ${cliLbl ?? "—"} · fournisseurs (route) : ${fourLbl ?? "—"}.`,
-      action_fr: fourLbl && fourLbl !== "fluide" ? "Prévenez vos fournisseurs — accès et livraison à anticiper." : undefined,
-    });
+    // Accès NOMMÉ (inc. 8) : la pire perturbation réelle du jour (ligne/arrêt/retard) quand
+    // il y en a — sinon le résumé fluide reste (et il est vrai : zéro ligne en base).
+    const dayMob = mobByDate.get(date) || [];
+    if (dayMob.length) {
+      const w = dayMob[0];
+      const delay = flat(w.delay_min) != null && Number(flat(w.delay_min)) > 0 ? ` — ~${Math.round(Number(flat(w.delay_min)))} min` : "";
+      const planned = flat(w.is_planned_flag) === true ? " (travaux planifiés)" : "";
+      qs.push({
+        key: "acces", tone: "warn",
+        fact_fr: `Accès : ${dayMob.length} perturbation${dayMob.length > 1 ? "s" : ""} ce jour-là — ${mobName(w)}${delay}${planned}${dayMob.length > 1 ? ` · +${dayMob.length - 1} autre${dayMob.length > 2 ? "s" : ""}` : ""}. Clients : ${cliLbl ?? "—"} · fournisseurs (route) : ${fourLbl ?? "—"}.`,
+        action_fr: fourLbl && fourLbl !== "fluide" ? "Prévenez vos fournisseurs — accès et livraison à anticiper." : undefined,
+        href: `/app/insightevent/map?location_id=${encodeURIComponent(location_id)}&date=${date}`, link_fr: "Voir sur la carte →",
+      });
+    } else {
+      qs.push({
+        key: "acces", tone: (fourLbl && fourLbl !== "fluide") || (cliLbl && cliLbl !== "fluide") ? (fourLbl === "fortement perturbé" || cliLbl === "fortement perturbé" ? "bad" : "warn") : "ok",
+        fact_fr: `Accès — clients : ${cliLbl ?? "—"} · fournisseurs (route) : ${fourLbl ?? "—"} · aucune perturbation connue ce jour-là.`,
+        action_fr: fourLbl && fourLbl !== "fluide" ? "Prévenez vos fournisseurs — accès et livraison à anticiper." : undefined,
+      });
+    }
     const e500 = Number(flat(s.events_within_500m_count) ?? 0);
     const e5k = Number(flat(s.events_within_5km_count) ?? 0);
     const eSame = Number(flat(s.events_within_5km_same_bucket_count) ?? 0);
-    qs.push({ key: "voisins", tone: "info", fact_fr: `Événements voisins : ${e500} à 500 m · ${e5k} à 5 km${eSame ? `, dont ${eSame} de votre secteur — synergie ou partage de flux possibles` : ""}.` });
+    // Activité autour de vous (label owner) — cliquable vers la carte du jour.
+    qs.push({
+      key: "voisins", tone: "info",
+      fact_fr: `Activité autour de vous : ${e500} événement${e500 > 1 ? "s" : ""} à 500 m · ${e5k} à 5 km${eSame ? `, dont ${eSame} de votre secteur — synergie ou partage de flux possibles` : ""}.`,
+      href: `/app/insightevent/map?location_id=${encodeURIComponent(location_id)}&date=${date}`, link_fr: "Voir sur la carte →",
+    });
     const wLbl = flat(s.weather_label_fr) != null ? String(flat(s.weather_label_fr)) : "—";
     const lvlMax = Math.max(Number(flat(s.lvl_rain) ?? 0), Number(flat(s.lvl_wind) ?? 0), Number(flat(s.lvl_snow) ?? 0));
     const heat = Number(flat(s.lvl_heat) ?? 0);
-    if (outdoor && lvlMax >= 3) qs.push({ key: "meteo", tone: "bad", fact_fr: `Météo : ${wLbl} (niveau ${lvlMax}) — votre dispositif est EXTÉRIEUR, directement exposé.`, action_fr: "Repli intérieur ou dispositif abrité — décision la veille." });
-    else if (outdoor && (lvlMax >= 1 || heat >= 2)) qs.push({ key: "meteo", tone: "warn", fact_fr: `Météo : ${wLbl}${heat >= 2 ? " — chaleur marquée" : ""} — dispositif extérieur, vigilance.` });
-    else qs.push({ key: "meteo", tone: "ok", fact_fr: `Météo : ${wLbl}${item.event_nature === "indoor" ? " — dispositif intérieur, exposition limitée" : ""}.` });
+    const dayHref = `/app/insightevent/days?selected_dates=${date}`;
+    if (outdoor && lvlMax >= 3) qs.push({ key: "meteo", tone: "bad", fact_fr: `Météo : ${wLbl} (niveau ${lvlMax}) — votre dispositif est EXTÉRIEUR, directement exposé.`, action_fr: "Repli intérieur ou dispositif abrité — décision la veille.", href: dayHref, link_fr: "Détail du jour →" });
+    else if (outdoor && (lvlMax >= 1 || heat >= 2)) qs.push({ key: "meteo", tone: "warn", fact_fr: `Météo : ${wLbl}${heat >= 2 ? " — chaleur marquée" : ""} — dispositif extérieur, vigilance.`, href: dayHref, link_fr: "Détail du jour →" });
+    else qs.push({ key: "meteo", tone: "ok", fact_fr: `Météo : ${wLbl}${item.event_nature === "indoor" ? " — dispositif intérieur, exposition limitée" : ""}.`, href: dayHref, link_fr: "Détail du jour →" });
     const pr = flat(s.competition_pressure_ratio) != null ? Number(flat(s.competition_pressure_ratio)) : null;
     qs.push({ key: "concurrence", tone: "info", fact_fr: pr != null ? `Concurrence : pression ×${pr.toFixed(1)} vs votre habituel.` : "Concurrence : pas de mesure ce jour-là." });
     return {

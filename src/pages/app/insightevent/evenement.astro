@@ -121,7 +121,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         function dot(t) { return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (TONE[t] || TONE.info) + ';margin-right:7px;flex:none;margin-top:5px;"></span>'; }
         function qLine(qu) {
           return '<div style="display:flex;align-items:flex-start;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;line-height:1.5;">' + dot(qu.tone)
-            + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '') + '</span></div>';
+            + '<span>' + esc(qu.fact_fr) + (qu.action_fr ? ' <span style="color:#1D3BB3;font-weight:600;">' + esc(qu.action_fr) + '</span>' : '')
+            + (qu.href ? ' <a href="' + esc(qu.href) + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;white-space:nowrap;">' + esc(qu.link_fr || 'Voir →') + '</a>' : '') + '</span></div>';
         }
 
         // ── La LISTE (mode par défaut) — la vue user_events : quand, série, track record. ──
