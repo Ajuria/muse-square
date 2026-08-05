@@ -110,15 +110,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           // ── Débloquer ──
           var db = j.debloquer || {};
+          function cta(label, href) { return '<a href="' + href + '" style="display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;text-decoration:none;white-space:nowrap;">' + label + '</a>'; }
           var rows = [];
-          if (db.to_document) rows.push(['<span style="font-weight:650;">' + db.to_document + ' verdict(s) tenu(s) non documenté(s)</span> — documentez le dispositif', 'devient un dispositif déclaré']);
-          if (db.declared_no_replay) rows.push(['<span style="font-weight:650;">' + db.declared_no_replay + ' dispositif(s) déclaré(s) sans rejeu</span> — relancez pour prouver', 'déclaré &rarr; prouvé au rejeu tenu']);
-          (db.replays_running || []).forEach(function (r) { rows.push(['<span style="color:#059669;font-weight:650;">Rejeu en cours</span> — verdict le ' + frD(r.end), 'avance tout seul']); });
-          if (!db.margin_declared) rows.push(['<span style="font-weight:650;">Déclarez votre marge</span> (une phrase dans Demander)', 'débloque le KPI profit estimé']);
-          if ((db.bilans_pending || []).length) rows.push(['<span style="font-weight:650;">' + db.bilans_pending.length + ' bilan(s) en attente</span> — ' + db.bilans_pending.map(esc).join(" · "), 'calibrent météo, accès, fréquentation']);
-          rows.push(['<span style="font-weight:650;">Vos faits durables</span> (clients, spécificités)' + (db.facts_active ? " — " + db.facts_active + " actif(s)" : ""), 'retenus, ils fondent les réponses']);
+          if (db.to_document) rows.push(['<span style="font-weight:650;">' + db.to_document + ' verdict(s) tenu(s) non documenté(s)</span>', 'devient un dispositif déclaré', cta('Documenter', '/app/insightevent/pulse')]);
+          if (db.declared_no_replay) rows.push(['<span style="font-weight:650;">' + db.declared_no_replay + ' dispositif(s) déclaré(s) sans rejeu</span>', 'déclaré &rarr; prouvé au rejeu tenu', cta('Rejouer', '#tb-disp')]);
+          (db.replays_running || []).forEach(function (r) { rows.push(['<span style="color:#059669;font-weight:650;">Rejeu en cours</span> — verdict le ' + frD(r.end), 'avance tout seul', cta('Suivre', '/app/insightevent/pulse')]); });
+          if (!db.margin_declared) rows.push(['<span style="font-weight:650;">Déclarez votre marge</span>', 'débloque le KPI profit estimé', cta('Déclarer', '/app/insightevent/prompt?q=' + encodeURIComponent('Ma marge est d’environ  %'))]);
+          (db.bilans_pending || []).slice(0, 3).forEach(function (b) { rows.push(['<span style="font-weight:650;">Bilan en attente</span> — ' + esc(b.title), 'calibre météo, accès, fréquentation', cta('Faire le bilan', '/app/insightevent/evenement?location_id=' + encodeURIComponent(b.location_id || '') + '&saved_item_id=' + encodeURIComponent(b.saved_item_id || '') + '&mode=bilan')]); });
+          rows.push(['<span style="font-weight:650;">Vos faits durables</span> (clients, spécificités)' + (db.facts_active ? " — " + db.facts_active + " actif(s)" : ""), 'retenus, ils fondent les réponses', cta('Déclarer', '/app/insightevent/prompt')]);
           html += '<div class="tb-card" style="background:#FAFBFF;border-color:rgba(29,59,179,0.25);"><div class="tb-h" style="margin-bottom:4px;">Débloquer</div><div style="font-size:12.5px;line-height:1.6;">'
-            + rows.map(function (r) { return '<div style="display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(29,59,179,0.10);"><span style="flex:1;">' + r[0] + '</span><span style="font-size:11px;color:#6B7280;">' + r[1] + '</span></div>'; }).join("")
+            + rows.map(function (r) { return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(29,59,179,0.10);"><span style="flex:1;">' + r[0] + '<span style="display:block;font-size:10.5px;color:#9CA3AF;">' + r[1] + '</span></span>' + r[2] + '</div>'; }).join("")
             + '</div></div>';
 
 
@@ -150,6 +151,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '</span>'
               + (o.ready_com && o.ready_snap ? '<span style="font-size:11px;color:#059669;font-weight:600;flex:none;">&#10003; prête (engagement + contexte)</span>' : '<span style="font-size:11px;color:#9CA3AF;flex:none;">s’arme à J-7</span>')
               + (o.owner ? '<span style="font-size:11px;color:#6B7280;flex:none;">' + esc(String(o.owner).split("·")[0].trim()) + '</span>' : "")
+              + '<a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(o.location_id || loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="font-size:11.5px;font-weight:600;color:#1D3BB3;text-decoration:none;flex:none;">Dossier &rarr;</a>'
               + '</div>';
             var rest = restBy[o.saved_item_id || o.title] || [];
             if (rest.length) {
@@ -169,6 +171,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '</span>'
               + '<span style="font-size:11px;color:#6B7280;flex:none;">fenêtre ' + frD(c.ws) + (c.we !== c.ws ? '&rarr;' + frD(c.we) : '') + '</span>'
               + (c.owner ? '<span style="font-size:11px;color:#6B7280;flex:none;">' + esc(String(c.owner).split("·")[0].trim()) + '</span>' : '')
+              + '<a href="/app/insightevent/pulse" style="font-size:11.5px;font-weight:600;color:#1D3BB3;text-decoration:none;flex:none;">Agir &rarr;</a>'
               + '</div>';
           });
           html += '</div>';
@@ -180,7 +183,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           eq.forEach(function (p) {
             var opsTxt = (p.open || []).map(function (o) {
               var title = String(o.text || "").split("—")[0].trim().slice(0, 60);
-              return '<span style="color:#1D3BB3;font-weight:600;">' + esc(title) + '</span>' + (o.we ? " (J-" + daysTo(o.we) + ")" : "");
+              var href = o.saved_item_id ? '/app/insightevent/evenement?saved_item_id=' + encodeURIComponent(o.saved_item_id) : '/app/insightevent/pulse';
+              return '<a href="' + href + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;">' + esc(title) + '</a>' + (o.we ? " (J-" + daysTo(o.we) + ")" : "");
             }).join(" · ") || '<span style="color:#9CA3AF;">rien en cours</span>';
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
               + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
@@ -195,15 +199,18 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var cutoff = new Date(Date.now() - j.period_days * 86400000).toISOString().slice(0, 10);
           var pr = (j.practices || []).filter(function (p) { return !p.date || p.date >= cutoff; });
           var proven = pr.filter(function (p) { return p.status === "proven"; });
-          html += '<div class="tb-card"><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><span class="tb-h">Dispositifs prouvés — ' + j.period_days + ' jours</span>'
+          html += '<div class="tb-card" id="tb-disp"><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><span class="tb-h">Dispositifs prouvés — ' + j.period_days + ' jours</span>'
             + '<span style="font-size:11.5px;color:#6B7280;">' + proven.length + (pr.length > proven.length ? " · " + (pr.length - proven.length) + " déclaré(s) en attente de rejeu" : "") + '</span></div>';
           if (!pr.length) html += '<div style="font-size:12.5px;color:#9CA3AF;padding:6px 0;">Aucun encore — chaque verdict tenu peut en créer un depuis le dossier (« Documenter »).</div>';
           pr.slice(0, 5).forEach(function (p) {
             html += '<div style="display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
               + '<span class="tb-chip" style="background:' + (p.status === "proven" ? "#E6F6F0" : "#F3F4F6") + ';color:' + (p.status === "proven" ? "#059669" : "#6b7280") + ';flex:none;">' + (p.status === "proven" ? "prouvé" : "déclaré") + '</span>'
               + '<span style="flex:1;">' + esc(String(p.text || "").slice(0, 120)) + '</span>'
-              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">' + frD(p.date) + '</span></div>';
+              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">' + frD(p.date) + '</span>'
+              + (p.practice_id && p.origin_action_type && !p.replay_commitment_id ? '<button type="button" data-tb-replay="' + esc(p.practice_id) + '" style="font-size:11.5px;font-weight:600;font-family:inherit;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;flex:none;" title="Crée l’engagement de rejeu (7 j, seuil +10 %) et le lie au dispositif">Rejouer</button>' : '')
+              + '</div>';
           });
+          window._tbPractices = pr;
           html += '</div>';
 
           // ── Opérations automatisées ──
@@ -224,6 +231,29 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           body.innerHTML = html;
           body.querySelectorAll("[data-tb-period]").forEach(function (b) {
             b.addEventListener("click", function () { period = Number(b.getAttribute("data-tb-period")); load(); });
+          });
+          // V1.1 « Rejouer » : POST /api/commitments (rejeu 7 j, seuil +10 %) puis PATCH
+          // /api/best-practices (replay_commitment_id) — deux endpoints existants, zéro neuf.
+          body.querySelectorAll("[data-tb-replay]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var pid = b.getAttribute("data-tb-replay");
+              var pr2 = (window._tbPractices || []).filter(function (x) { return x.practice_id === pid; })[0];
+              if (!pr2) return;
+              b.disabled = true; b.textContent = "Rejeu…";
+              fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+                location_id: pr2.location_id, origin_action_type: pr2.origin_action_type,
+                window_kind: "7d", threshold_basis: "pct", threshold_pct: 10,
+                committed_action_text: "Rejeu du dispositif : " + String(pr2.text || "").slice(0, 180),
+                owner_person_name: pr2.author || "—",
+              }) })
+                .then(function (r) { return r.json(); })
+                .then(function (c) {
+                  if (!c || !c.ok || !c.commitment_id) throw new Error((c && c.error) || "Erreur");
+                  return fetch("/api/best-practices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ practice_id: pid, location_id: pr2.location_id, replay_commitment_id: c.commitment_id }) }).then(function (r) { return r.json(); });
+                })
+                .then(function () { load(); })
+                .catch(function (e) { b.disabled = false; b.textContent = "Rejouer"; alert("Erreur : " + (e && e.message ? e.message : "réessayez")); });
+            });
           });
         }
 

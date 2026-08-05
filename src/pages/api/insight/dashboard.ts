@@ -87,7 +87,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: P, location: "EU",
       }),
       bq.query({
-        query: `SELECT practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
+        query: `SELECT practice_id, location_id, practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
                        CAST(DATE(created_at) AS STRING) AS d
                 FROM \`${PROJECT}.analytics.best_practices\`
                 WHERE location_id IN UNNEST(@locs)
@@ -103,7 +103,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { locs }, location: "EU",
       }),
       bq.query({
-        query: `SELECT si.title
+        query: `SELECT si.title, si.saved_item_id, si.location_id
                 FROM \`${PROJECT}.raw.saved_items\` si
                 LEFT JOIN (SELECT saved_item_id, MAX(date) AS last_d FROM \`${PROJECT}.raw.saved_item_dates\` GROUP BY 1) lo USING (saved_item_id)
                 WHERE si.location_id IN UNNEST(@locs)
@@ -203,9 +203,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (equipe[k]) equipe[k].gap = (equipe[k].gap ?? 0) + (r.gap_eur ?? 0);
     }
 
-    const bilans = (bilanRows as any[]).map((r) => str(r.title)).filter(Boolean);
+    const bilans = (bilanRows as any[]).map((r) => ({ title: str(r.title), saved_item_id: str(r.saved_item_id), location_id: str(r.location_id) })).filter((b) => b.title);
     const corrections = (corrRows as any[]).map((r) => str(r.correction_type)).filter(Boolean);
-    const practices = (bpRows as any[]).map((r) => ({ text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d), replay_commitment_id: str(r.replay_commitment_id), origin_action_type: str(r.origin_action_type) }));
+    const practices = (bpRows as any[]).map((r) => ({ practice_id: str(r.practice_id), location_id: str(r.location_id), text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d), replay_commitment_id: str(r.replay_commitment_id), origin_action_type: str(r.origin_action_type) }));
     // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
     // avancer ») : verdicts tenus sans dispositif du même type documenté ; déclarés sans rejeu ;
     // rejeux en cours (ceux-là avancent seuls).

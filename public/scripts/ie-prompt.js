@@ -1256,6 +1256,13 @@ if (!root) {
   });
 
   // Bind enter key
+  // Préremplissage ?q= (CTA « Déclarer » du Tableau de bord, 05/08) : pose la question dans
+  // l'input et focus — n'ENVOIE jamais tout seul.
+  (() => {
+    const q0 = new URLSearchParams(window.location.search).get("q");
+    const ta0 = qs("ie-prompt-input");
+    if (q0 && ta0 && !ta0.value) { ta0.value = q0; ta0.focus(); }
+  })();
   qs("ie-prompt-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
