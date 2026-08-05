@@ -303,6 +303,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           head2 += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
             + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Consigne d\u2019op\u00e9ration</div>'
             + '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:' + (enabled ? "#E6F6F0" : "#F3F4F6") + ';color:' + (enabled ? "#059669" : "#6b7280") + ';">Envoi automatique : ' + (enabled ? "actif" : "d\u00e9sactiv\u00e9") + '</span>'
+            + (mode === "read" ? '<a data-cs-edit style="color:#1D3BB3;font-weight:600;font-size:12.5px;cursor:pointer;">Modifier</a>' : "")
             + (enabled ? '<a data-cs-toggle style="color:#1D3BB3;font-weight:600;font-size:11.5px;cursor:pointer;">D\u00e9sactiver</a>' : "") + '</div>';
 
           var bodyHtml = "";
@@ -316,8 +317,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             if (hasConsigne) lines.push("Consigne :\n" + consigneText);
             if (it.author_person_name) lines.push("Responsable : " + it.author_person_name);
             bodyHtml += '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">'
-              + (enabled ? 'Part seule ' + sendWhen + ' (J-' + off + ') \u2014 op\u00e9ration du ' + frD(nextOcc) + ', aux participants + au responsable.' : 'Aper\u00e7u de l\u2019email \u2014 l\u2019envoi automatique est d\u00e9sactiv\u00e9.')
-              + ' <a data-cs-edit style="color:#1D3BB3;font-weight:600;cursor:pointer;">Modifier</a></div>'
+              + (enabled ? 'Part seule ' + sendWhen + ' (J-' + off + ') \u2014 op\u00e9ration du ' + frD(nextOcc) + ', aux participants + au responsable.' : 'Aper\u00e7u de l\u2019email \u2014 l\u2019envoi automatique est d\u00e9sactiv\u00e9.') + '</div>'
               + '<div style="font-size:12.5px;color:#374151;background:#F8FAFC;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;line-height:1.6;white-space:pre-line;">' + esc(lines.join("\n\n")) + '</div>';
             if (sends.length) {
               bodyHtml += '<div style="margin-top:8px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Derni\u00e8re consigne envoy\u00e9e le ' + frD(sends[0].sent_on) + ' \u00e0 ' + sends[0].n_recipients + ' destinataire(s) \u2014 op\u00e9ration du ' + frD(sends[0].occurrence_date) + '.</div>';

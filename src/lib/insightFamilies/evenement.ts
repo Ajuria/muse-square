@@ -165,6 +165,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
                      delta_att_mobility_pct, delta_ops_mobility_car_pct,
+                     delta_att_calendar_pct, delta_att_weather_total_pct,
                      events_within_500m_count, events_within_5km_count, events_within_5km_same_bucket_count,
                      competition_pressure_ratio
               FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
@@ -297,7 +298,9 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     const topCountries = (forRows as any[]).slice(0, 2)
       .map((f: any) => `${String(flat(f.country_name_fr))} (${Math.round(Number(flat(f.country_share_of_nonresident) ?? 0) * 100)} %)`)
       .join(", ");
-    touristesFr = `Touristes étrangers (${seasonFr} ${Number(flat(f0.reference_year))}, ${ACC_FR[String(flat(f0.accommodation_type))] || String(flat(f0.accommodation_type))} — dernier profil connu) : ${pctNr} % des nuitées en ${String(flat(f0.region_name))} — en tête ${topCountries}.`;
+    // Référentiel porté mais DISCRET (retour owner : la parenthèse lourde « lisait horrible »).
+    touristesFr = `Touristes étrangers : ${pctNr} % des nuitées en ${String(flat(f0.region_name))} — surtout ${topCountries} (profil ${seasonFr}, réf. ${Number(flat(f0.reference_year))}).`;
+    void ACC_FR;
   }
   const mobName = (m: any): string => {
     const t = flat(m.title_merged) != null ? String(flat(m.title_merged)).trim() : "";
@@ -315,12 +318,22 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       ], objectif: objectifFor(date) };
     }
     const qs: EvenementQuestion[] = [];
-    const aud = flat(s.audience_availability_label) != null ? String(flat(s.audience_availability_label)) : null;
     const vac = flat(s.vacation_name) != null ? String(flat(s.vacation_name)) : null;
     const hol = flat(s.holiday_name) != null ? String(flat(s.holiday_name)) : null;
-    // Le public du jour (inc. 8) : disponibilité locale + touristes étrangers NOMMÉS
-    // (profil saisonnier daté — la phrase porte son référentiel, jamais « ce jour-là »).
-    qs.push({ key: "clients", tone: "info", fact_fr: `Le public du jour : ${aud || "profil non qualifié"}${vac ? ` — ${vac}` : ""}${hol ? ` — ${hol}` : ""}.${touristesFr ? ` ${touristesFr}` : ""}` });
+    // Le public du jour (retour owner : plus jamais le libellé 101 « certains partent… ») :
+    // le CALENDRIER NOMMÉ + les effets ESTIMÉS quantifiés du jour (delta_att_*) + les
+    // touristes nommés. Chaque nombre garde son statut (estimé).
+    const attCal = flat(s.delta_att_calendar_pct) != null ? Number(flat(s.delta_att_calendar_pct)) : null;
+    const attWx = flat(s.delta_att_weather_total_pct) != null ? Number(flat(s.delta_att_weather_total_pct)) : null;
+    const sPct = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v))} %`;
+    const effets: string[] = [];
+    if (attCal != null && Math.abs(attCal) >= 1) effets.push(`calendrier ${sPct(attCal)}`);
+    if (attWx != null && Math.abs(attWx) >= 1) effets.push(`météo ${sPct(attWx)}`);
+    const calLbl = [vac, hol].filter(Boolean).join(" · ") || "jour ordinaire (hors vacances et fériés)";
+    qs.push({
+      key: "clients", tone: "info",
+      fact_fr: `Le public du jour : ${calLbl}${effets.length ? ` — effet estimé sur votre affluence : ${effets.join(" · ")}` : ""}.${touristesFr ? ` ${touristesFr}` : ""}`,
+    });
     const attMob = flat(s.delta_att_mobility_pct) != null ? Number(flat(s.delta_att_mobility_pct)) : null;
     const opsCar = flat(s.delta_ops_mobility_car_pct) != null ? Number(flat(s.delta_ops_mobility_car_pct)) : null;
     const cliLbl = mobLabel(attMob); const fourLbl = mobLabel(opsCar);
@@ -338,9 +351,14 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
         href: `/app/insightevent/map?location_id=${encodeURIComponent(location_id)}&date=${date}`, link_fr: "Voir sur la carte →",
       });
     } else {
+      // L'ABSENCE ne s'affirme que là où la vue VOIT (fenêtre [J-1, J+30]) ET quand elle ne
+      // contredit pas les indicateurs du jour — bug owner : « fortement perturbé · aucune
+      // perturbation connue » sur une date passée hors fenêtre.
+      const inMobWindow = date >= today && date <= new Date(Date.parse(today + "T12:00:00Z") + 30 * 86_400_000).toISOString().slice(0, 10);
+      const allFluide = cliLbl === "fluide" && fourLbl === "fluide";
       qs.push({
         key: "acces", tone: (fourLbl && fourLbl !== "fluide") || (cliLbl && cliLbl !== "fluide") ? (fourLbl === "fortement perturbé" || cliLbl === "fortement perturbé" ? "bad" : "warn") : "ok",
-        fact_fr: `Accès — clients : ${cliLbl ?? "—"} · fournisseurs (route) : ${fourLbl ?? "—"} · aucune perturbation connue ce jour-là.`,
+        fact_fr: `Accès — clients : ${cliLbl ?? "—"} · fournisseurs (route) : ${fourLbl ?? "—"}${inMobWindow && allFluide ? " — aucune perturbation signalée autour de votre adresse ce jour-là" : ""}.`,
         action_fr: fourLbl && fourLbl !== "fluide" ? "Prévenez vos fournisseurs — accès et livraison à anticiper." : undefined,
       });
     }
