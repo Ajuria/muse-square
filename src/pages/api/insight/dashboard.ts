@@ -1,0 +1,200 @@
+// GET /api/insight/dashboard — le Tableau de bord (proto V5 validé 04/08, onglet Piloter).
+// Six blocs, un job chacun : Impact (écart mesuré € sur fenêtres engagées jugées — mart outcomes,
+// jamais extrapolé) · Opérations en cours (occurrences à venir + engagements ouverts, cible SUR la
+// ligne, drapeaux concurrent/météo) · Équipe (par personne : opérations NOMMÉES + tenue) ·
+// Dispositifs prouvés (best_practices) · Opérations automatisées (reçu du travail des crons) ·
+// Débloquer (marge déclarée ?, bilans manquants, faits actifs).
+// GARDE-FOU (owner 04/08) : aucune métrique brute sans son verdict — pas de courbe de CA ici.
+// Période ?period=30|90|365 (défaut 30) : filtre l'AFFICHAGE des agrégats, jamais un recalcul.
+// Perf : UN lot Promise.all de 8 lectures légères (~1 aller-retour BQ de wall-clock).
+import type { APIRoute } from "astro";
+import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { eventTypeLabelFr } from "../../../lib/eventTypes";
+
+const PROJECT = "muse-square-open-data";
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const num = (v: any): number | null => (flat(v) == null ? null : Number(flat(v)));
+const str = (v: any): string | null => (flat(v) == null ? null : String(flat(v)));
+
+export const GET: APIRoute = async ({ url, locals }) => {
+  try {
+    const location_id = String(url.searchParams.get("location_id") || "").trim();
+    if (!location_id) return json(400, { ok: false, error: "location_id requis" });
+    requireLocationOwnership(locals, location_id);
+    const period = [30, 90, 365].includes(Number(url.searchParams.get("period"))) ? Number(url.searchParams.get("period")) : 30;
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
+    const P = { location_id, period };
+
+    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows]] = await Promise.all([
+      // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
+      bq.query({
+        query: `WITH occ AS (
+                  SELECT si.saved_item_id, si.title, si.event_type, si.kpi, si.kpi_family,
+                         si.kpi_target_pct, si.kpi_target_eur, si.duration_days, si.author_person_name,
+                         CAST(d.date AS STRING) AS occ_date,
+                         ROW_NUMBER() OVER (PARTITION BY si.saved_item_id ORDER BY d.date) AS occ_rank_upcoming,
+                         (SELECT COUNT(*) FROM \`${PROJECT}.raw.saved_item_dates\` a WHERE a.saved_item_id = si.saved_item_id) AS n_total,
+                         (SELECT COUNTIF(a.date < CURRENT_DATE()) FROM \`${PROJECT}.raw.saved_item_dates\` a WHERE a.saved_item_id = si.saved_item_id) AS n_past
+                  FROM \`${PROJECT}.raw.saved_items\` si
+                  JOIN \`${PROJECT}.raw.saved_item_dates\` d USING (saved_item_id, location_id)
+                  WHERE si.location_id = @location_id
+                    AND d.date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 60 DAY)
+                    AND (COALESCE(si.recurrence, 'none') != 'none' OR si.selected_date = d.date)
+                )
+                SELECT o.*,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.analytics.action_commitments\` c
+                    WHERE c.saved_item_id = o.saved_item_id AND CAST(c.window_start AS STRING) = o.occ_date) AS n_com,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.raw.saved_item_snapshots\` s
+                    WHERE s.saved_item_id = o.saved_item_id AND CAST(s.selected_date AS STRING) = o.occ_date) AS n_snap,
+                  (SELECT GREATEST(COALESCE(v.lvl_rain,0), COALESCE(v.lvl_heat,0), COALESCE(v.lvl_wind,0), COALESCE(v.lvl_snow,0), COALESCE(v.lvl_cold,0))
+                    FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\` v
+                    WHERE v.location_id = @location_id AND CAST(v.date AS STRING) = o.occ_date) AS lvl_max
+                FROM occ o ORDER BY o.occ_date LIMIT 20`,
+        params: { location_id }, location: "EU",
+      }),
+      // Engagements — dernier état par commitment (journal append-only) : ouverts + tenue période.
+      bq.query({
+        query: `WITH latest AS (
+                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id = @location_id
+                )
+                SELECT commitment_id, status, verdict, owner_person_name, committed_action_text,
+                       measured_metric, threshold_basis, threshold_value, saved_item_id,
+                       CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
+                       origin_action_type,
+                       DATE_DIFF(window_end, CURRENT_DATE(), DAY) AS days_to_end,
+                       (DATE(created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)) AS in_period
+                FROM latest WHERE rn = 1`,
+        params: P, location: "EU",
+      }),
+      // Impact € : le mart des outcomes (résolus · faits · avec verdict) sur la période.
+      bq.query({
+        query: `SELECT COUNT(*) AS n, COUNTIF(beat) AS n_beat,
+                       ROUND(SUM(window_actual_revenue - window_expected_revenue), 0) AS gap_eur
+                FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
+                WHERE location_id = @location_id
+                  AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)`,
+        params: P, location: "EU",
+      }),
+      bq.query({
+        query: `SELECT practice_text, status, author_person_name, CAST(DATE(created_at) AS STRING) AS d
+                FROM \`${PROJECT}.analytics.best_practices\`
+                WHERE location_id = @location_id
+                  AND DATE(created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)
+                ORDER BY created_at DESC LIMIT 8`,
+        params: P, location: "EU",
+      }),
+      bq.query({
+        query: `SELECT CAST(affected_date AS STRING) AS d, change_subtype, ROUND(distance_m / 1000, 1) AS km
+                FROM \`${PROJECT}.raw.competitor_alerts\`
+                WHERE location_id = @location_id
+                  AND affected_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 7 DAY)
+                ORDER BY affected_date LIMIT 10`,
+        params: { location_id }, location: "EU",
+      }),
+      bq.query({
+        query: `SELECT si.title
+                FROM \`${PROJECT}.raw.saved_items\` si
+                LEFT JOIN (SELECT saved_item_id, MAX(date) AS last_d FROM \`${PROJECT}.raw.saved_item_dates\` GROUP BY 1) lo USING (saved_item_id)
+                WHERE si.location_id = @location_id
+                  AND COALESCE(si.event_end_date, lo.last_d, si.selected_date) < CURRENT_DATE()
+                  AND NOT EXISTS (SELECT 1 FROM \`${PROJECT}.raw.event_outcomes\` o WHERE o.saved_item_id = si.saved_item_id)
+                ORDER BY COALESCE(si.event_end_date, lo.last_d, si.selected_date) DESC LIMIT 5`,
+        params: { location_id }, location: "EU",
+      }),
+      bq.query({
+        query: `SELECT correction_type FROM \`${PROJECT}.intermediate.int_consulter_corrections_current\`
+                WHERE location_id = @location_id`,
+        params: { location_id }, location: "EU",
+      }),
+      // Reçu automatisations : contextes gelés récemment (7 j) par le cron/Choisir.
+      bq.query({
+        query: `SELECT CAST(selected_date AS STRING) AS d
+                FROM \`${PROJECT}.raw.saved_item_snapshots\`
+                WHERE location_id = @location_id AND DATE(snapshotted_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+                ORDER BY selected_date LIMIT 10`,
+        params: { location_id }, location: "EU",
+      }),
+    ]);
+
+    const alerts = (alertRows as any[]).map((r) => ({ date: str(r.d), subtype: str(r.change_subtype), km: num(r.km) }));
+    const alertDates = new Set(alerts.map((a) => a.date));
+
+    const operations = (occRows as any[]).map((r) => {
+      const target = num(r.kpi_target_eur) != null ? `${num(r.kpi_target_eur)} €`
+        : num(r.kpi_target_pct) != null ? `+${Math.round(num(r.kpi_target_pct)!)} %` : null;
+      return {
+        saved_item_id: str(r.saved_item_id),
+        title: str(r.title),
+        type_label_fr: str(r.event_type) ? eventTypeLabelFr(String(str(r.event_type))) : null,
+        occ_date: str(r.occ_date),
+        occ_num: Number(num(r.n_past) ?? 0) + Number(num(r.occ_rank_upcoming) ?? 1),
+        n_total: num(r.n_total),
+        kpi: str(r.kpi), kpi_family: str(r.kpi_family), target,
+        duration_days: num(r.duration_days),
+        owner: str(r.author_person_name),
+        ready_com: Number(num(r.n_com) ?? 0) > 0,
+        ready_snap: Number(num(r.n_snap) ?? 0) > 0,
+        weather_lvl: num(r.lvl_max),
+        competitor_flag: alertDates.has(str(r.occ_date) as string),
+      };
+    });
+
+    const coms = (comRows as any[]).map((r) => ({
+      status: str(r.status), verdict: str(r.verdict), owner: str(r.owner_person_name),
+      text: str(r.committed_action_text), metric: str(r.measured_metric),
+      threshold_basis: str(r.threshold_basis), threshold_value: num(r.threshold_value),
+      saved_item_id: str(r.saved_item_id), ws: str(r.ws), we: str(r.we),
+      origin: str(r.origin_action_type), days_to_end: num(r.days_to_end),
+      in_period: flat(r.in_period) === true,
+    }));
+    const open = coms.filter((c) => c.status === "open");
+    // Tenue par personne : verdicts rendus sur la période (dernier état résolu + verdict).
+    const equipe: Record<string, { open: any[]; kept: number; judged: number }> = {};
+    for (const c of coms) {
+      const who = c.owner || "—";
+      equipe[who] = equipe[who] || { open: [], kept: 0, judged: 0 };
+      if (c.status === "open") equipe[who].open.push({ text: c.text, saved_item_id: c.saved_item_id, we: c.we, days_to_end: c.days_to_end });
+      else if (c.verdict && c.in_period) { equipe[who].judged += 1; if (/met|tenu|beat/i.test(String(c.verdict))) equipe[who].kept += 1; }
+    }
+
+    const out0 = (outRows as any[])[0] || {};
+    const bilans = (bilanRows as any[]).map((r) => str(r.title)).filter(Boolean);
+    const corrections = (corrRows as any[]).map((r) => str(r.correction_type)).filter(Boolean);
+    const practices = (bpRows as any[]).map((r) => ({ text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d) }));
+
+    return json(200, {
+      ok: true,
+      period_days: period,
+      impact: {
+        gap_eur: num(out0.gap_eur),
+        windows_judged: Number(num(out0.n) ?? 0),
+        targets_met: Number(num(out0.n_beat) ?? 0),
+        practices_proven: practices.filter((p) => p.status === "proven").length,
+        next_judgment: open.length ? open.map((c) => c.we).filter(Boolean).sort()[0] || null : null,
+      },
+      operations,
+      open_commitments: open.map((c) => ({ text: c.text, owner: c.owner, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
+      equipe: Object.entries(equipe).map(([who, e]) => ({ who, open: e.open, judged: e.judged, kept: e.kept })),
+      practices,
+      automated: {
+        snapshots_recent: (snapRows as any[]).map((r) => str(r.d)),
+        next_autoarm: operations.filter((o) => !o.ready_com && o.occ_date)
+          .map((o) => ({ title: o.title, occ_date: o.occ_date }))[0] || null,
+        verdicts_scheduled: open.map((c) => c.we).filter(Boolean).sort(),
+        competitor_alerts_7d: alerts,
+      },
+      debloquer: {
+        margin_declared: corrections.includes("declared_margin_pct"),
+        bilans_pending: bilans,
+        facts_active: corrections.length,
+      },
+    });
+  } catch (err: any) {
+    const forbidden = /FORBIDDEN/.test(String(err?.message || ""));
+    return json(forbidden ? 403 : 500, { ok: false, error: err?.message || "Erreur" });
+  }
+};

@@ -1,0 +1,201 @@
+---
+// « /tableau » — le Tableau de bord (proto V5 validé 04/08), atterrissage de l'onglet Piloter.
+// Six blocs, un job chacun : Impact (écart mesuré € — jamais extrapolé) · Opérations en cours
+// (cible SUR la ligne, drapeaux) · Équipe (opérations NOMMÉES + tenue) · Dispositifs prouvés ·
+// Opérations automatisées (reçu des crons) · Débloquer. Période 30/90/12 m = affichage seul.
+// GARDE-FOU : aucune métrique brute sans son verdict. Lieu résolu via /api/profile/locations
+// (primaire d'abord) quand l'URL n'en porte pas (lien Nav/BottomBar).
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
+import { Show } from "@clerk/astro/components";
+
+const locParam = Astro.url.searchParams.get("location_id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Tableau de bord — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="tb-root" data-loc={locParam}>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:#111827;">Tableau de bord</div>
+          <div style="font-size:12px;color:#6b7280;">Vos opérations, leurs objectifs, ce qu’elles rapportent — mesuré.</div>
+        </div>
+        <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 14px;background:#1D3BB3;border-radius:6px;font-size:13px;font-weight:500;color:#fff;text-decoration:none;white-space:nowrap;">Nouvel événement</a>
+      </div>
+      <div id="tb-body" style="font-size:13px;color:#9CA3AF;">Chargement…</div>
+      <div style="text-align:right;margin-top:8px;"><a id="tb-all" href="/app/insightevent/evenement" style="font-size:11.5px;color:#1D3BB3;text-decoration:none;font-weight:600;">Tous mes événements →</a></div>
+    </div>
+
+    <PiloterBottomBar active="piloter" />
+
+    <style is:global>
+      #tb-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      .tb-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+      .tb-h { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: #1D3BB3; }
+      .tb-chip { display: inline-flex; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 20px; }
+    </style>
+
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("tb-root");
+        var body = document.getElementById("tb-body");
+        var loc = root.getAttribute("data-loc") || "";
+        var period = 30;
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
+        function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+        var DOW3 = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+        function dowFr(iso) { var d = new Date(iso + "T00:00:00Z"); return isNaN(d.getTime()) ? "" : DOW3[d.getUTCDay()]; }
+        function daysTo(iso) { var d = new Date(iso + "T00:00:00Z"); return Math.round((d.getTime() - new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime()) / 86400000); }
+        function signEur(n) { return (Number(n) >= 0 ? "+" : "−") + frInt(n) + " €"; }
+        function initials(name) {
+          var parts = String(name || "").split(/[\s·]+/).filter(Boolean);
+          return ((parts[0] || "?")[0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+        }
+
+        function load() {
+          body.innerHTML = '<div style="font-size:13px;color:#9CA3AF;">Chargement…</div>';
+          fetch("/api/insight/dashboard?location_id=" + encodeURIComponent(loc) + "&period=" + period, { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
+              render(j);
+            })
+            .catch(function () { body.textContent = "Erreur de chargement."; });
+        }
+
+        function periodChips() {
+          return '<span style="display:inline-flex;border:1px solid rgba(0,0,0,0.12);border-radius:8px;overflow:hidden;">'
+            + [[30, "30 j"], [90, "90 j"], [365, "12 mois"]].map(function (p) {
+                var on = p[0] === period;
+                return '<button type="button" data-tb-period="' + p[0] + '" style="font-size:11px;font-family:inherit;border:none;padding:4px 10px;cursor:pointer;background:' + (on ? "#1D3BB3" : "#fff") + ';color:' + (on ? "#fff" : "#1D3BB3") + ';">' + p[1] + "</button>";
+              }).join("") + "</span>";
+        }
+
+        function render(j) {
+          var html = "";
+
+          // ── Impact ──
+          var im = j.impact || {};
+          html += '<div class="tb-card">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;"><span class="tb-h">Impact de vos opérations</span>' + periodChips() + '</div>'
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+            + '<div style="flex:2;min-width:200px;border:1px solid rgba(29,59,179,0.25);background:#FAFBFF;border-radius:8px;padding:10px 12px;">'
+            + '<div style="font-size:10.5px;text-transform:uppercase;color:#6B7280;font-weight:600;">Écart mesuré vs attendu — fenêtres engagées</div>'
+            + '<div style="font-size:20px;font-weight:700;margin-top:2px;color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
+            + '<div style="font-size:11px;color:#6B7280;">' + im.windows_judged + " fenêtre(s) jugée(s) sur " + j.period_days + " j" + (im.next_judgment ? " · prochaine : " + dowFr(im.next_judgment) + " " + frD(im.next_judgment) : "") + ' · jamais extrapolé</div></div>'
+            + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Cibles atteintes</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.targets_met + '<span style="font-size:12px;color:#9CA3AF;font-weight:500;">/' + im.windows_judged + ' jugée(s)</span></div></div>'
+            + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Dispositifs prouvés</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.practices_proven + '</div></div>'
+            + '</div></div>';
+
+          // ── Opérations en cours ──
+          var ops = j.operations || [];
+          html += '<div class="tb-card"><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><span class="tb-h">Opérations en cours</span>'
+            + '<span style="font-size:11.5px;color:#6B7280;">' + (j.open_commitments || []).length + " engagement(s) ouvert(s)" + (ops.length ? " · prochaine échéance <strong>" + dowFr(ops[0].occ_date) + " " + frD(ops[0].occ_date) + "</strong>" : "") + '</span></div>';
+          if (!ops.length && !(j.open_commitments || []).length) html += '<div style="font-size:12.5px;color:#9CA3AF;padding:6px 0;">Aucune opération en cours — créez un événement pour lancer la première.</div>';
+          ops.slice(0, 8).forEach(function (o) {
+            var kpiLbl = o.kpi === "family_revenue" ? "famille " + esc(o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs attendu" : (o.kpi || "");
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
+              + '<span style="font-size:11px;font-weight:700;color:#1D3BB3;width:44px;flex:none;">J-' + daysTo(o.occ_date) + '</span>'
+              + '<span style="flex:1;min-width:220px;"><a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="color:inherit;text-decoration:none;"><strong>' + esc(o.title) + '</strong></a>'
+              + (o.n_total > 1 ? " — occurrence " + o.occ_num + "/" + o.n_total : "")
+              + (o.target ? ' · cible ' + esc(kpiLbl) + ' <strong>' + esc(o.target) + '</strong>' : "")
+              + (o.competitor_flag ? ' <span class="tb-chip" style="background:#FEF3E2;color:#B45309;">&#9888; concurrent à proximité ce jour-là</span>' : "")
+              + (Number(o.weather_lvl) >= 3 ? ' <span class="tb-chip" style="background:#FEF2F2;color:#e24b4a;">météo niv. ' + o.weather_lvl + '</span>' : "")
+              + '</span>'
+              + (o.ready_com && o.ready_snap ? '<span style="font-size:11px;color:#059669;font-weight:600;flex:none;">&#10003; prête (engagement + contexte)</span>' : '<span style="font-size:11px;color:#9CA3AF;flex:none;">s’arme à J-7</span>')
+              + (o.owner ? '<span style="font-size:11px;color:#6B7280;flex:none;">' + esc(String(o.owner).split("·")[0].trim()) + '</span>' : "")
+              + '</div>';
+          });
+          if (ops.length > 8) html += '<div style="font-size:11px;color:#9CA3AF;padding-top:6px;">+ ' + (ops.length - 8) + ' occurrence(s) plus lointaine(s)</div>';
+          html += '</div>';
+
+          // ── Équipe ──
+          var eq = j.equipe || [];
+          html += '<div class="tb-card"><div class="tb-h" style="margin-bottom:4px;">Équipe</div>';
+          if (!eq.length) html += '<div style="font-size:12.5px;color:#9CA3AF;padding:6px 0;">Personne n’a encore reçu d’engagement — le roster Destinataires apparaît ici.</div>';
+          eq.forEach(function (p) {
+            var opsTxt = (p.open || []).map(function (o) {
+              var title = String(o.text || "").split("—")[0].trim().slice(0, 60);
+              return '<span style="color:#1D3BB3;font-weight:600;">' + esc(title) + '</span>' + (o.we ? " (J-" + daysTo(o.we) + ")" : "");
+            }).join(" · ") || '<span style="color:#9CA3AF;">rien en cours</span>';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
+              + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
+              + '<span style="flex:1;min-width:200px;"><strong>' + esc(String(p.who).split("·")[0].trim()) + '</strong>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + ' — ' + opsTxt + '</span>'
+              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">tenue : ' + (p.judged ? p.kept + "/" + p.judged : "— (0 verdict sur " + j.period_days + " j)") + '</span></div>';
+          });
+          html += '</div>';
+
+          // ── Dispositifs prouvés ──
+          var pr = j.practices || [];
+          var proven = pr.filter(function (p) { return p.status === "proven"; });
+          html += '<div class="tb-card"><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><span class="tb-h">Dispositifs prouvés — ' + j.period_days + ' jours</span>'
+            + '<span style="font-size:11.5px;color:#6B7280;">' + proven.length + (pr.length > proven.length ? " · " + (pr.length - proven.length) + " déclaré(s) en attente de rejeu" : "") + '</span></div>';
+          if (!pr.length) html += '<div style="font-size:12.5px;color:#9CA3AF;padding:6px 0;">Aucun encore — chaque verdict tenu peut en créer un depuis le dossier (« Documenter »).</div>';
+          pr.slice(0, 5).forEach(function (p) {
+            html += '<div style="display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
+              + '<span class="tb-chip" style="background:' + (p.status === "proven" ? "#E6F6F0" : "#F3F4F6") + ';color:' + (p.status === "proven" ? "#059669" : "#6b7280") + ';flex:none;">' + (p.status === "proven" ? "prouvé" : "déclaré") + '</span>'
+              + '<span style="flex:1;">' + esc(String(p.text || "").slice(0, 120)) + '</span>'
+              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">' + frD(p.date) + '</span></div>';
+          });
+          html += '</div>';
+
+          // ── Opérations automatisées ──
+          var au = j.automated || {};
+          html += '<div class="tb-card"><div class="tb-h" style="margin-bottom:4px;">Opérations automatisées</div><div style="font-size:12.5px;line-height:1.7;color:#374151;">';
+          (au.snapshots_recent || []).slice(0, 3).forEach(function (d) {
+            html += '<div style="display:flex;gap:8px;"><span style="color:#059669;flex:none;">&#10003;</span><span>Contexte du ' + dowFr(d) + " " + frD(d) + ' <strong>gelé automatiquement</strong> (météo, concurrence, accès).</span></div>';
+          });
+          if (au.next_autoarm) html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span>Occurrence du <strong>' + dowFr(au.next_autoarm.occ_date) + " " + frD(au.next_autoarm.occ_date) + '</strong> (' + esc(au.next_autoarm.title) + ') : engagement + contexte s’armeront seuls à J-7.</span></div>';
+          (au.verdicts_scheduled || []).slice(0, 2).forEach(function (d) {
+            html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span><strong>Verdict</strong> jugé automatiquement dans la nuit après le ' + dowFr(d) + " " + frD(d) + '.</span></div>';
+          });
+          var na = (au.competitor_alerts_7d || []).length;
+          if (na) html += '<div style="display:flex;gap:8px;"><span style="color:#B45309;flex:none;">&#9888;</span><span>Veille concurrent active — <strong>' + na + ' alerte(s)</strong> sur les 7 prochains jours.</span></div>';
+          if (!(au.snapshots_recent || []).length && !au.next_autoarm && !(au.verdicts_scheduled || []).length && !na) html += '<div style="color:#9CA3AF;">Rien à signaler — les automatisations s’activent avec vos opérations.</div>';
+          html += '</div></div>';
+
+          // ── Débloquer ──
+          var db = j.debloquer || {};
+          var rows = [];
+          if (!db.margin_declared) rows.push(['<strong>Déclarez votre marge</strong> (une phrase dans Demander)', 'débloque le KPI profit estimé']);
+          if ((db.bilans_pending || []).length) rows.push(['<strong>' + db.bilans_pending.length + ' bilan(s) en attente</strong> — ' + db.bilans_pending.map(esc).join(" · "), 'calibrent météo, accès, fréquentation']);
+          rows.push(['<strong>Vos faits durables</strong> (clients, spécificités)' + (db.facts_active ? " — " + db.facts_active + " actif(s)" : ""), 'retenus, ils fondent les réponses']);
+          html += '<div class="tb-card" style="background:#FAFBFF;border-color:rgba(29,59,179,0.25);"><div class="tb-h" style="margin-bottom:4px;">Débloquer</div><div style="font-size:12.5px;line-height:1.6;">'
+            + rows.map(function (r) { return '<div style="display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(29,59,179,0.10);"><span style="flex:1;">' + r[0] + '</span><span style="font-size:11px;color:#6B7280;">' + r[1] + '</span></div>'; }).join("")
+            + '</div></div>';
+
+          body.innerHTML = html;
+          body.querySelectorAll("[data-tb-period]").forEach(function (b) {
+            b.addEventListener("click", function () { period = Number(b.getAttribute("data-tb-period")); load(); });
+          });
+        }
+
+        if (loc) {
+          document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
+          document.getElementById("tb-all").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
+          load();
+        } else {
+          fetch("/api/profile/locations", { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (p) {
+              var l0 = p && p.ok && Array.isArray(p.locations) && p.locations[0];
+              if (!l0 || !l0.location_id) { body.textContent = "Aucun lieu configuré."; return; }
+              loc = String(l0.location_id);
+              document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
+              document.getElementById("tb-all").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
+              load();
+            })
+            .catch(function () { body.textContent = "Erreur de chargement."; });
+        }
+      })();
+    </script>
+  </BaseLayout>
+</Show>
