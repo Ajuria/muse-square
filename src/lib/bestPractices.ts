@@ -150,7 +150,7 @@ export async function listMatchedPractices(
                  bp.mechanism_factors, bp.confirmation_test
           FROM \`${TABLE_FQN}\` bp
           LEFT JOIN (
-            SELECT commitment_id, verdict, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+            SELECT commitment_id, verdict, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
             FROM \`${COMMITMENTS_FQN}\`
           ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
           WHERE bp.location_id = @location_id AND bp.status = 'active'
@@ -166,7 +166,7 @@ export async function listMatchedPractices(
                  'prouvee' AS tier, 'commitment' AS source, updated_at AS ts,
                  CAST(NULL AS STRING) AS mechanism_factors, CAST(NULL AS STRING) AS confirmation_test
           FROM (
-            SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
             FROM \`${COMMITMENTS_FQN}\`
             WHERE location_id = @location_id
           )
@@ -244,7 +244,7 @@ export async function listClassDispositifs(
         FROM \`${TABLE_FQN}\` bp
         LEFT JOIN (
           SELECT commitment_id, status, verdict,
-                 ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                 ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
           FROM \`${COMMITMENTS_FQN}\`
         ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
         WHERE bp.location_id = @location_id AND bp.status = 'active'

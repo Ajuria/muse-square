@@ -186,7 +186,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     }) : empty,
     bq.query({
       query: `SELECT commitment_id, CAST(window_start AS STRING) AS ws, verdict, status, threshold_value, threshold_basis
-              FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+              FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                     FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id = @saved_item_id)
               WHERE rn = 1`,
       params: { saved_item_id }, location: "EU",

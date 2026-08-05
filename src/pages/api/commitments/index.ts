@@ -173,7 +173,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       query: `
         SELECT * EXCEPT(rn) FROM (
           SELECT *, ROW_NUMBER() OVER (
-            PARTITION BY commitment_id ORDER BY updated_at DESC
+            PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC
           ) AS rn
           FROM \`${BQ_PROJECT}.analytics.action_commitments\`
           WHERE location_id = @locationId

@@ -63,7 +63,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Engagements — dernier état par commitment (journal append-only) : ouverts + tenue période.
       bq.query({
         query: `WITH latest AS (
-                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY created_at DESC) AS rn
+                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
                 SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,

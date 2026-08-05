@@ -58,7 +58,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       query: `SELECT committed_action_text, dispositif_note, retro_worked, retro_repeat,
                      window_residual_pct AS effect_pct, DATE(resolved_at) AS resolved_date
               FROM (
-                SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                 FROM \`${PROJECT}.analytics.action_commitments\`
                 WHERE location_id = @location_id AND origin_action_type = @action_type
               )
