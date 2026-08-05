@@ -45,7 +45,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       (function () {
         var root = document.getElementById("tb-root");
         var body = document.getElementById("tb-body");
-        var loc = root.getAttribute("data-loc") || "";
+        // `loc` sert aux LIENS (Nouvel événement, liste). Le fetch du tableau n'envoie
+        // location_id QUE si l'URL porte un filtre explicite — sinon l'endpoint couvre
+        // TOUS les sites du compte (le bug 05/08 : loc toujours envoyé = mono-site forcé).
+        var locFilter = root.getAttribute("data-loc") || "";
+        var loc = locFilter;
         var period = 30;
 
         function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -62,7 +66,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
         function load() {
           body.innerHTML = '<div style="font-size:13px;color:#9CA3AF;">Chargement…</div>';
-          fetch("/api/insight/dashboard?location_id=" + encodeURIComponent(loc) + "&period=" + period, { cache: "no-store" })
+          fetch("/api/insight/dashboard?period=" + period + (locFilter ? "&location_id=" + encodeURIComponent(locFilter) : ""), { cache: "no-store" })
             .then(function (r) { return r.json(); })
             .then(function (j) {
               if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
@@ -210,22 +214,21 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
         }
 
+        load();
         if (loc) {
           document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
           document.getElementById("tb-all").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
-          load();
         } else {
           fetch("/api/profile/locations", { cache: "no-store" })
             .then(function (r) { return r.json(); })
             .then(function (p) {
               var l0 = p && p.ok && Array.isArray(p.locations) && p.locations[0];
-              if (!l0 || !l0.location_id) { body.textContent = "Aucun lieu configuré."; return; }
+              if (!l0 || !l0.location_id) return;
               loc = String(l0.location_id);
               document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
               document.getElementById("tb-all").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
-              load();
             })
-            .catch(function () { body.textContent = "Erreur de chargement."; });
+            .catch(function () {});
         }
       })();
     </script>
