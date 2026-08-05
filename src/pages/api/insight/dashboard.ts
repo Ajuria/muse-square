@@ -87,11 +87,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: P, location: "EU",
       }),
       bq.query({
-        query: `SELECT practice_text, status, author_person_name, CAST(DATE(created_at) AS STRING) AS d
+        query: `SELECT practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
+                       CAST(DATE(created_at) AS STRING) AS d
                 FROM \`${PROJECT}.analytics.best_practices\`
                 WHERE location_id IN UNNEST(@locs)
-                  AND DATE(created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)
-                ORDER BY created_at DESC LIMIT 8`,
+                ORDER BY created_at DESC LIMIT 20`,
         params: P, location: "EU",
       }),
       bq.query({
@@ -203,7 +203,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const bilans = (bilanRows as any[]).map((r) => str(r.title)).filter(Boolean);
     const corrections = (corrRows as any[]).map((r) => str(r.correction_type)).filter(Boolean);
-    const practices = (bpRows as any[]).map((r) => ({ text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d) }));
+    const practices = (bpRows as any[]).map((r) => ({ text: str(r.practice_text), status: str(r.status), author: str(r.author_person_name), date: str(r.d), replay_commitment_id: str(r.replay_commitment_id), origin_action_type: str(r.origin_action_type) }));
+    // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
+    // avancer ») : verdicts tenus sans dispositif du même type documenté ; déclarés sans rejeu ;
+    // rejeux en cours (ceux-là avancent seuls).
+    const practiceTypes = new Set(practices.map((pr) => pr.origin_action_type).filter(Boolean));
+    const toDocument = coms.filter((c) => c.status === "resolved" && /met|tenu|beat/i.test(String(c.verdict || "")) && !(c.origin && practiceTypes.has(c.origin))).length;
+    const openById: Record<string, any> = {};
+    for (const c of open) if (c.commitment_id) openById[c.commitment_id] = c;
+    const replaysRunning = practices.filter((pr) => pr.replay_commitment_id && openById[pr.replay_commitment_id])
+      .map((pr) => ({ end: openById[pr.replay_commitment_id!].we }));
+    const declaredNoReplay = practices.filter((pr) => pr.status !== "proven" && !pr.replay_commitment_id).length;
 
     return json(200, {
       ok: true,
@@ -234,6 +244,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         margin_declared: corrections.includes("declared_margin_pct"),
         bilans_pending: bilans,
         facts_active: corrections.length,
+        to_document: toDocument,
+        declared_no_replay: declaredNoReplay,
+        replays_running: replaysRunning,
       },
     });
   } catch (err: any) {
