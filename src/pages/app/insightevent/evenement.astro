@@ -116,6 +116,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
         function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+        var DOW_FR_PAGE = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        function dowFr(iso) { var d = String(iso || "").slice(0, 10); return d ? (DOW_FR_PAGE[new Date(d + "T12:00:00Z").getUTCDay()] || "") : ""; }
         function signEur(n) { return (Number(n) >= 0 ? "+" : "−") + frInt(n) + " €"; }
         var TONE = { ok: "#059669", warn: "#B45309", bad: "#e24b4a", info: "#6B7280" };
         function dot(t) { return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (TONE[t] || TONE.info) + ';margin-right:7px;flex:none;margin-top:5px;"></span>'; }
