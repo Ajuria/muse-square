@@ -98,23 +98,37 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // ── Opérations en cours ──
           var ops = j.operations || [];
           html += '<div class="tb-card"><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><span class="tb-h">Opérations en cours</span>'
-            + '<span style="font-size:11.5px;color:#6B7280;">' + (j.open_commitments || []).length + " engagement(s) ouvert(s)" + (ops.length ? " · prochaine échéance <strong>" + dowFr(ops[0].occ_date) + " " + frD(ops[0].occ_date) + "</strong>" : "") + '</span></div>';
+            + '<span style="font-size:11.5px;color:#6B7280;">' + (j.open_commitments || []).length + " engagement(s) ouvert(s)" + (ops.length ? ' · prochaine échéance <span style="font-weight:650;">' + dowFr(ops[0].occ_date) + ' ' + frD(ops[0].occ_date) + '</span>' : "") + '</span></div>';
           if (!ops.length && !(j.open_commitments || []).length) html += '<div style="font-size:12.5px;color:#9CA3AF;padding:6px 0;">Aucune opération en cours — créez un événement pour lancer la première.</div>';
-          ops.slice(0, 8).forEach(function (o) {
+          // Une ligne PLEINE par événement (sa prochaine occurrence) ; la suite de la série en
+          // une ligne atténuée — 8 occurrences ≠ 8 lignes (bruit, remarque owner 04/08).
+          var seen = {};
+          var firstOps = [];
+          var restBy = {};
+          ops.forEach(function (o) {
+            var k = o.saved_item_id || o.title;
+            if (!seen[k]) { seen[k] = true; firstOps.push(o); restBy[k] = []; }
+            else restBy[k].push(o);
+          });
+          firstOps.slice(0, 8).forEach(function (o) {
             var kpiLbl = o.kpi === "family_revenue" ? "famille " + esc(o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs attendu" : (o.kpi || "");
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
               + '<span style="font-size:11px;font-weight:700;color:#1D3BB3;width:44px;flex:none;">J-' + daysTo(o.occ_date) + '</span>'
-              + '<span style="flex:1;min-width:220px;"><a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="color:inherit;text-decoration:none;"><strong>' + esc(o.title) + '</strong></a>'
+              + '<span style="flex:1;min-width:220px;"><a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="color:inherit;text-decoration:none;"><span style="font-weight:650;">' + esc(o.title) + '</span></a>'
               + (o.n_total > 1 ? " — occurrence " + o.occ_num + "/" + o.n_total : "")
-              + (o.target ? ' · cible ' + esc(kpiLbl) + ' <strong>' + esc(o.target) + '</strong>' : "")
+              + (o.target ? ' · cible ' + esc(kpiLbl) + ' <span style="font-weight:650;">' + esc(o.target) + '</span>' : "")
               + (o.competitor_flag ? ' <span class="tb-chip" style="background:#FEF3E2;color:#B45309;">&#9888; concurrent à proximité ce jour-là</span>' : "")
               + (Number(o.weather_lvl) >= 3 ? ' <span class="tb-chip" style="background:#FEF2F2;color:#e24b4a;">météo niv. ' + o.weather_lvl + '</span>' : "")
               + '</span>'
               + (o.ready_com && o.ready_snap ? '<span style="font-size:11px;color:#059669;font-weight:600;flex:none;">&#10003; prête (engagement + contexte)</span>' : '<span style="font-size:11px;color:#9CA3AF;flex:none;">s’arme à J-7</span>')
               + (o.owner ? '<span style="font-size:11px;color:#6B7280;flex:none;">' + esc(String(o.owner).split("·")[0].trim()) + '</span>' : "")
               + '</div>';
+            var rest = restBy[o.saved_item_id || o.title] || [];
+            if (rest.length) {
+              var lastD = rest[rest.length - 1].occ_date;
+              html += '<div style="display:flex;gap:10px;padding:5px 0 7px;border-bottom:1px solid #F3F4F6;font-size:11.5px;color:#9CA3AF;"><span style="width:44px;flex:none;"></span><span>' + rest.length + ' occurrence(s) suivante(s) (&rarr; ' + dowFr(lastD) + ' ' + frD(lastD) + ') — chacune s&rsquo;arme automatiquement à J-7.</span></div>';
+            }
           });
-          if (ops.length > 8) html += '<div style="font-size:11px;color:#9CA3AF;padding-top:6px;">+ ' + (ops.length - 8) + ' occurrence(s) plus lointaine(s)</div>';
           html += '</div>';
 
           // ── Équipe ──
@@ -128,7 +142,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             }).join(" · ") || '<span style="color:#9CA3AF;">rien en cours</span>';
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
               + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
-              + '<span style="flex:1;min-width:200px;"><strong>' + esc(String(p.who).split("·")[0].trim()) + '</strong>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + ' — ' + opsTxt + '</span>'
+              + '<span style="flex:1;min-width:200px;"><span style="font-weight:650;">' + esc(String(p.who).split("·")[0].trim()) + '</span>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + ' — ' + opsTxt + '</span>'
               + '<span style="font-size:11px;color:#9CA3AF;flex:none;">tenue : ' + (p.judged ? p.kept + "/" + p.judged : "— (0 verdict sur " + j.period_days + " j)") + '</span></div>';
           });
           html += '</div>';
@@ -151,23 +165,23 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var au = j.automated || {};
           html += '<div class="tb-card"><div class="tb-h" style="margin-bottom:4px;">Opérations automatisées</div><div style="font-size:12.5px;line-height:1.7;color:#374151;">';
           (au.snapshots_recent || []).slice(0, 3).forEach(function (d) {
-            html += '<div style="display:flex;gap:8px;"><span style="color:#059669;flex:none;">&#10003;</span><span>Contexte du ' + dowFr(d) + " " + frD(d) + ' <strong>gelé automatiquement</strong> (météo, concurrence, accès).</span></div>';
+            html += '<div style="display:flex;gap:8px;"><span style="color:#059669;flex:none;">&#10003;</span><span>Contexte du ' + dowFr(d) + " " + frD(d) + ' <span style="font-weight:650;">gelé automatiquement</span> (météo, concurrence, accès).</span></div>';
           });
-          if (au.next_autoarm) html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span>Occurrence du <strong>' + dowFr(au.next_autoarm.occ_date) + " " + frD(au.next_autoarm.occ_date) + '</strong> (' + esc(au.next_autoarm.title) + ') : engagement + contexte s’armeront seuls à J-7.</span></div>';
+          if (au.next_autoarm) html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span>Occurrence du <span style="font-weight:650;">' + dowFr(au.next_autoarm.occ_date) + " " + frD(au.next_autoarm.occ_date) + '</span> (' + esc(au.next_autoarm.title) + ') : engagement + contexte s’armeront seuls à J-7.</span></div>';
           (au.verdicts_scheduled || []).slice(0, 2).forEach(function (d) {
-            html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span><strong>Verdict</strong> jugé automatiquement dans la nuit après le ' + dowFr(d) + " " + frD(d) + '.</span></div>';
+            html += '<div style="display:flex;gap:8px;"><span style="color:#1D3BB3;flex:none;">&#8635;</span><span><span style="font-weight:650;">Verdict</span> jugé automatiquement dans la nuit après le ' + dowFr(d) + " " + frD(d) + '.</span></div>';
           });
           var na = (au.competitor_alerts_7d || []).length;
-          if (na) html += '<div style="display:flex;gap:8px;"><span style="color:#B45309;flex:none;">&#9888;</span><span>Veille concurrent active — <strong>' + na + ' alerte(s)</strong> sur les 7 prochains jours.</span></div>';
+          if (na) html += '<div style="display:flex;gap:8px;"><span style="color:#B45309;flex:none;">&#9888;</span><span>Veille concurrent active — <span style="font-weight:650;">' + na + ' alerte(s)</span> sur les 7 prochains jours.</span></div>';
           if (!(au.snapshots_recent || []).length && !au.next_autoarm && !(au.verdicts_scheduled || []).length && !na) html += '<div style="color:#9CA3AF;">Rien à signaler — les automatisations s’activent avec vos opérations.</div>';
           html += '</div></div>';
 
           // ── Débloquer ──
           var db = j.debloquer || {};
           var rows = [];
-          if (!db.margin_declared) rows.push(['<strong>Déclarez votre marge</strong> (une phrase dans Demander)', 'débloque le KPI profit estimé']);
-          if ((db.bilans_pending || []).length) rows.push(['<strong>' + db.bilans_pending.length + ' bilan(s) en attente</strong> — ' + db.bilans_pending.map(esc).join(" · "), 'calibrent météo, accès, fréquentation']);
-          rows.push(['<strong>Vos faits durables</strong> (clients, spécificités)' + (db.facts_active ? " — " + db.facts_active + " actif(s)" : ""), 'retenus, ils fondent les réponses']);
+          if (!db.margin_declared) rows.push(['<span style="font-weight:650;">Déclarez votre marge</span> (une phrase dans Demander)', 'débloque le KPI profit estimé']);
+          if ((db.bilans_pending || []).length) rows.push(['<span style="font-weight:650;">' + db.bilans_pending.length + ' bilan(s) en attente</span> — ' + db.bilans_pending.map(esc).join(" · "), 'calibrent météo, accès, fréquentation']);
+          rows.push(['<span style="font-weight:650;">Vos faits durables</span> (clients, spécificités)' + (db.facts_active ? " — " + db.facts_active + " actif(s)" : ""), 'retenus, ils fondent les réponses']);
           html += '<div class="tb-card" style="background:#FAFBFF;border-color:rgba(29,59,179,0.25);"><div class="tb-h" style="margin-bottom:4px;">Débloquer</div><div style="font-size:12.5px;line-height:1.6;">'
             + rows.map(function (r) { return '<div style="display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(29,59,179,0.10);"><span style="flex:1;">' + r[0] + '</span><span style="font-size:11px;color:#6B7280;">' + r[1] + '</span></div>'; }).join("")
             + '</div></div>';

@@ -83,13 +83,7 @@ const isAppShell = isApp;
           {isApp && (
             <>
               <li>
-                <a
-                  href="/app/insightevent/prompt"
-                  aria-current={isDemander ? "page" : undefined}
-                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
-                >
-                  Demander
-                </a>
+                <a href="/app/insightevent/tableau" aria-current={isPiloterTab ? "page" : undefined} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isPiloterTab ? "after:bg-primary" : "after:bg-transparent"}`}>Piloter</a>
               </li>
 
               <li>
@@ -97,7 +91,13 @@ const isAppShell = isApp;
               </li>
 
               <li>
-                <a href="/app/insightevent/tableau" aria-current={isPiloterTab ? "page" : undefined} class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isPiloterTab ? "after:bg-primary" : "after:bg-transparent"}`}>Piloter</a>
+                <a
+                  href="/app/insightevent/prompt"
+                  aria-current={isDemander ? "page" : undefined}
+                  class={`ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
+                >
+                  Explorer
+                </a>
               </li>
 
               <li class="relative" id="compte-nav-item">
@@ -168,6 +168,12 @@ const isAppShell = isApp;
       {isApp ? (
         <>
           <li>
+            <a href="/app/insightevent/tableau" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
+          </li>
+          <li>
+            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Agir</a>
+          </li>
+          <li>
             <a
               href="/app/insightevent/prompt"
               aria-current={isDemander ? "page" : undefined}
@@ -176,15 +182,8 @@ const isAppShell = isApp;
                 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
                 ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
             >
-              Demander
+              Explorer
             </a>
-          </li>
-
-          <li>
-            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Agir</a>
-          </li>
-          <li>
-            <a href="/app/insightevent/tableau" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
           </li>
 
           <li>
