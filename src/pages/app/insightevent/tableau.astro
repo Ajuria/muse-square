@@ -4,7 +4,7 @@
 // bouton — un seul bouton plein par écran : Nouvel événement ; le pli s'annonce par les OBJECTIFS,
 // pas un compte de gestes) ; (2) Cette semaine (échéances ≤ 7 j en colonnes [J-x | quoi | ›],
 // signaux compressés en chip infobulée) ; (3) volets fermés dont le titre EST la réponse —
-// Dispositifs (« Prouver · Automatiser » sur les fiches) · Équipe · Automatisé (reçu + À activer,
+// Dispositifs (« Prouver · Automatiser » sur les fiches) · Équipe · Automatisation (reçu + À activer,
 // uniquement des interrupteurs réels). Design system de l'app : police héritée, eyebrows .eb,
 // cartes ombrées — plus aucun style inventé. GARDE-FOU : aucune métrique brute sans son verdict.
 // Multi-sites par défaut (fetch SANS location_id sauf filtre URL explicite).
@@ -292,7 +292,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (na) auLines.push('⚠ Veille concurrent : ' + na + ' alerte' + (na > 1 ? "s" : "") + ' surveillée' + (na > 1 ? "s" : "") + ' sur 7 jours');
           html += '<div class="tb-card"><button type="button" class="tb-volet" data-tb-volet="au">'
             + '<span style="width:8px;height:8px;border-radius:50%;background:#059669;flex:none;"></span>'
-            + '<span style="flex:1;"><span style="font-weight:600;">Automatisé</span> — ' + auLines.length + ' action' + (auLines.length > 1 ? "s" : "") + ' exécutée' + (auLines.length > 1 ? "s" : "") + ' cette semaine · 2 à activer</span>'
+            + '<span style="flex:1;"><span style="font-weight:600;">Automatisation</span> — ' + auLines.length + ' action' + (auLines.length > 1 ? "s" : "") + ' exécutée' + (auLines.length > 1 ? "s" : "") + ' cette semaine · 2 à activer</span>'
             + '<span style="color:#9CA3AF;font-size:11px;">▾</span></button>'
             + '<div data-tb-body="au" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.8;">'
             + (auLines.length ? auLines.map(function (l) { return '<div>' + l + '</div>'; }).join("") : '<div style="color:#9CA3AF;">Rien cette semaine — les automatisations s’activent avec vos opérations.</div>')
