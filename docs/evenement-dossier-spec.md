@@ -215,6 +215,15 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   monitor.astro + events.astro SUPPRIMÉES (zéro lien entrant vérifié ; l'API insight/monitor.ts
   reste, pulse en dépend). harness-evt-0001 purgé des 4 tables (12 lignes, GO owner).
   Cron J-7 event-occurrences LIVRÉ le même jour (voir module-index).
+- **Suites du 05/08 (voir docs/tableau-de-bord-spec.md pour le détail)** : refonte nav 3 onglets
+  « Piloter · Agir · Explorer » (listes fermées, Agir = catch-all des vues de détail,
+  month/days/map démises du menu) ; Tableau de bord = atterrissage Piloter ; contrat « fait par
+  défaut » + tiebreak canonique du journal (10 sites app + 2 modèles dbt) ; grille de dates v7
+  (modèle de sélection explicite « clic = jour de LANCEMENT », couverture de durée teintée,
+  souligné vacances retiré, chip « Meilleur jour de CA » = fait calculé nommé) ; « Prouver ·
+  Automatiser » sur les fiches dispositifs (Automatiser = série récurrente pré-remplie
+  ?titre=&dispositif=) ; « Retour » = point de départ (history.back, repli tableau). TOUT EN PROD
+  (main 6b9ce09, 05/08).
 - **Grille de dates au formulaire + durée multi-jours + dépose days/month (04/08, protos v1→v4
   validés)** : le shopping de dates vit DANS MSEventForm (grille mensuelle ‹ › sur
   /api/insight/month — teinte = CA attendu par dow, pastilles météo, ★ férié, souligné vacances,
