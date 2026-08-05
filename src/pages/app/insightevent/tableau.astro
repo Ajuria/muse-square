@@ -308,6 +308,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           var au = j.automated || {};
           var auLines = [];
+          // Consignes d'opération actives (inc. 5) : trace réelle + prochain envoi calculé ;
+          // la définition (et Désactiver) vivent au DOSSIER — ici on supervise.
+          (au.consignes || []).forEach(function (c) {
+            var dossierHref2 = '/app/insightevent/evenement?location_id=' + encodeURIComponent(c.location_id) + '&saved_item_id=' + encodeURIComponent(c.saved_item_id);
+            var tail = c.last_sent_on
+              ? 'dernière envoyée le ' + frD(c.last_sent_on) + ' à ' + (c.last_n_recipients || 0) + ' destinataire(s)'
+              : 'prochain envoi le ' + dowFr(c.next_send) + ' ' + frD(c.next_send) + ' (J-' + c.send_offset + ')';
+            auLines.push('✉ Consigne « ' + esc(c.title) + ' »' + (j.multi_site && c.site_label ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(c.site_label) + '</span>' : '') + ' — ' + tail + ' · <a class="tb-link" style="font-size:11.5px;" href="' + dossierHref2 + '">Dossier →</a>');
+          });
           (au.snapshots_recent || []).slice(0, 2).forEach(function (d) { auLines.push('✓ Contexte du ' + dowFr(d) + ' ' + frD(d) + ' gelé (météo, concurrence, accès)'); });
           if (au.next_autoarm) auLines.push('↻ Occurrence du ' + dowFr(au.next_autoarm.occ_date) + ' ' + frD(au.next_autoarm.occ_date) + ' (' + esc(au.next_autoarm.title) + ') : s’armera seule à J-7');
           if ((au.verdicts_scheduled || []).length) auLines.push('↻ Verdict' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' jugé' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' automatiquement après ' + au.verdicts_scheduled.slice(0, 2).map(function (d) { return dowFr(d) + ' ' + frD(d); }).join(' et '));

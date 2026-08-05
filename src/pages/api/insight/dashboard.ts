@@ -34,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [consigneRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -145,6 +145,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   (SELECT COUNTIF(signal_routing IS NOT NULL AND TRIM(signal_routing) != '') FROM \`${PROJECT}.analytics.team_members\` WHERE user_id = @uid) AS routed_n`,
         params: { uid }, location: "EU",
       }),
+      // Consignes d'opération ACTIVES (automatisation inc. 5) : prochaine occurrence + dernière
+      // trace d'envoi réelle — le volet Automatisation ne liste que ce qui tourne, zéro dummy.
+      bq.query({
+        query: `SELECT si.saved_item_id, si.location_id, si.title, si.consigne_send_offset,
+                       CAST(nx.next_d AS STRING) AS next_occ,
+                       ls.sent_on AS last_sent_on, ls.n_recipients AS last_n
+                FROM \`${PROJECT}.raw.saved_items\` si
+                JOIN (SELECT saved_item_id, MIN(date) AS next_d FROM \`${PROJECT}.raw.saved_item_dates\`
+                      WHERE date >= CURRENT_DATE() GROUP BY 1) nx ON nx.saved_item_id = si.saved_item_id
+                LEFT JOIN (SELECT saved_item_id, CAST(DATE(sent_at) AS STRING) AS sent_on, n_recipients
+                           FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY saved_item_id ORDER BY sent_at DESC) AS rn
+                                 FROM \`${PROJECT}.analytics.consigne_sends\`)
+                           WHERE rn = 1) ls ON ls.saved_item_id = si.saved_item_id
+                WHERE si.location_id IN UNNEST(@locs) AND si.consigne_enabled = TRUE
+                ORDER BY nx.next_d LIMIT 20`,
+        params: { locs }, location: "EU",
+      }),
     ]);
 
     const siteLabel: Record<string, string> = {};
@@ -249,6 +266,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
       equipe: Object.values(equipe).map((e) => ({ who: e.label, open: e.open, judged: e.judged, kept: e.kept, gap_eur: e.gap })),
       practices,
       automated: {
+        consignes: (consigneRows as any[]).map((r) => {
+          const off = num(r.consigne_send_offset) != null ? Number(num(r.consigne_send_offset)) : 2;
+          const nextOcc = String(str(r.next_occ) || "");
+          const t = new Date(nextOcc + "T12:00:00Z");
+          t.setUTCDate(t.getUTCDate() - off);
+          return {
+            saved_item_id: str(r.saved_item_id), location_id: str(r.location_id),
+            site_label: siteLabel[String(str(r.location_id))] || null,
+            title: str(r.title), send_offset: off, next_occ: nextOcc,
+            next_send: t.toISOString().slice(0, 10),
+            last_sent_on: str(r.last_sent_on), last_n_recipients: num(r.last_n),
+          };
+        }),
         snapshots_recent: (snapRows as any[]).map((r) => str(r.d)),
         next_autoarm: operations.filter((o) => !o.ready_com && o.occ_date)
           .map((o) => ({ title: o.title, occ_date: o.occ_date }))[0] || null,
