@@ -4201,17 +4201,22 @@ if (!location_id) {
     if (open && r.action_done_status === 'fait') {
       dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action menée</span>';
     } else if (open) {
+      // Inversion 05/08 (owner) : la date de fin CLÔT l'opération et l'action compte MENÉE par
+      // défaut — l'engagement est déjà un acte explicite. Deux gestes d'exception seulement :
+      // « Fait » (exécution finie en avance — fige le statut, n'écourte JAMAIS la fenêtre de
+      // mesure) et « Pas menée » (valeur legacy pas_encore : exclue des € au mart).
       dispo = '<span data-eng-dispo-row="' + eid + '" data-eng-dispo-loc="' + loc + '" style="display:inline-flex;align-items:center;gap:8px;">'
-        + '<span style="font-size:11px;color:#9CA3AF;">Action menée ?</span>'
+        + '<span style="font-size:11px;color:#9CA3AF;">Men\u00e9e par d\u00e9faut \u00e0 l\u2019\u00e9ch\u00e9ance</span>'
         + '<button type="button" data-eng-dispo-btn="fait" class="disc-btn">Fait</button>'
-        + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (r.action_done_status === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas encore</button>'
+        + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (r.action_done_status === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas men\u00e9e</button>'
       + '</span>';
     } else if (resolved && r.action_done_status === 'fait') {
       dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action menée</span>';
+    } else if (resolved && r.action_done_status === 'pas_encore') {
+      // Seule l'exclusion EXPLICITE barre l'action (inversion 05/08) — exclue des € mesurés.
+      dispo = '<span class="ab-metric" style="text-decoration:line-through;text-decoration-color:#d1d5db;cursor:help;" title="D\u00e9clar\u00e9e non men\u00e9e — exclue des \u20ac mesur\u00e9s.">Action non men\u00e9e</span>';
     } else if (resolved) {
-      var _nd = r.action_done_status === 'pas_encore' ? 'Action non menée' : 'Action non confirmée';
-      var _ndNote = (r.verdict === 'met') ? 'La métrique a bougé sans l\'action confirmée — pas votre gain, exclu de l\'apprentissage.' : 'Action non confirmée — exclue de l\'apprentissage.';
-      dispo = '<span class="ab-metric" style="text-decoration:line-through;text-decoration-color:#d1d5db;cursor:help;" title="' + escapeHtml(_ndNote) + '">' + _nd + '</span>';
+      dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action men\u00e9e</span>';
     }
     var caveat = '';
     if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';

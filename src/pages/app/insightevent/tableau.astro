@@ -90,7 +90,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div style="flex:2;min-width:200px;border:1px solid rgba(29,59,179,0.25);background:#FAFBFF;border-radius:8px;padding:10px 12px;">'
             + '<div style="font-size:10.5px;text-transform:uppercase;color:#6B7280;font-weight:600;">Écart mesuré vs attendu — fenêtres engagées</div>'
             + '<div style="font-size:20px;font-weight:700;margin-top:2px;color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
-            + '<div style="font-size:11px;color:#6B7280;">' + im.windows_judged + " fenêtre(s) jugée(s) sur " + j.period_days + " j" + (im.next_judgment ? " · prochaine : " + dowFr(im.next_judgment) + " " + frD(im.next_judgment) : "") + ' · jamais extrapolé</div></div>'
+            + '<div style="font-size:11px;color:#6B7280;">' + im.eur_windows + ' fenêtre(s) comptée(s) · ' + im.windows_judged + ' jugée(s) sur ' + j.period_days + ' j' + (im.next_judgment ? " · prochaine : " + dowFr(im.next_judgment) + " " + frD(im.next_judgment) : "") + '</div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;">€ comptés sauf actions déclarées « pas menée » · jamais extrapolé</div></div>'
             + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Cibles atteintes</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.targets_met + '<span style="font-size:12px;color:#9CA3AF;font-weight:500;">/' + im.windows_judged + ' jugée(s)</span></div></div>'
             + '<div style="flex:1;min-width:110px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;color:#9CA3AF;font-weight:600;">Dispositifs prouvés</div><div style="font-size:20px;font-weight:700;margin-top:2px;">' + im.practices_proven + '</div></div>'
             + '</div></div>';
@@ -114,7 +115,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var kpiLbl = o.kpi === "family_revenue" ? "famille " + esc(o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs attendu" : (o.kpi || "");
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
               + '<span style="font-size:11px;font-weight:700;color:#1D3BB3;width:44px;flex:none;">J-' + daysTo(o.occ_date) + '</span>'
-              + '<span style="flex:1;min-width:220px;"><a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="color:inherit;text-decoration:none;"><span style="font-weight:650;">' + esc(o.title) + '</span></a>'
+              + '<span style="flex:1;min-width:220px;"><a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(o.location_id || loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '" style="color:inherit;text-decoration:none;"><span style="font-weight:650;">' + esc(o.title) + '</span></a>'
+              + (j.multi_site && o.site_label ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(o.site_label) + '</span>' : '')
               + (o.n_total > 1 ? " — occurrence " + o.occ_num + "/" + o.n_total : "")
               + (o.target ? ' · cible ' + esc(kpiLbl) + ' <span style="font-weight:650;">' + esc(o.target) + '</span>' : "")
               + (o.competitor_flag ? ' <span class="tb-chip" style="background:#FEF3E2;color:#B45309;">&#9888; concurrent à proximité ce jour-là</span>' : "")
@@ -128,6 +130,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               var lastD = rest[rest.length - 1].occ_date;
               html += '<div style="display:flex;gap:10px;padding:5px 0 7px;border-bottom:1px solid #F3F4F6;font-size:11.5px;color:#9CA3AF;"><span style="width:44px;flex:none;"></span><span>' + rest.length + ' occurrence(s) suivante(s) (&rarr; ' + dowFr(lastD) + ' ' + frD(lastD) + ') — chacune s&rsquo;arme automatiquement à J-7.</span></div>';
             }
+          });
+          // Les engagements ouverts SANS événement (cartes d'action : coupons, offres…) sont
+          // aussi des opérations — c'était le manque vu par l'owner (1 affichée sur 3 réelles).
+          (j.open_commitments || []).filter(function (c) { return !c.is_event; }).forEach(function (c) {
+            var title = String(c.text || "").split(String.fromCharCode(8594))[0].split(".")[0].slice(0, 90);
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
+              + '<span style="font-size:11px;font-weight:700;color:#1D3BB3;width:44px;flex:none;">' + (c.days_to_end != null && c.days_to_end >= 0 ? "J-" + c.days_to_end : "à juger") + '</span>'
+              + '<span style="flex:1;min-width:220px;"><span style="font-weight:650;">' + esc(title) + '</span>'
+              + (j.multi_site && c.site_label ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(c.site_label) + '</span>' : '')
+              + (c.threshold_value != null ? ' · seuil +' + c.threshold_value + '&nbsp;%' : '')
+              + '</span>'
+              + '<span style="font-size:11px;color:#6B7280;flex:none;">fenêtre ' + frD(c.ws) + (c.we !== c.ws ? '&rarr;' + frD(c.we) : '') + '</span>'
+              + (c.owner ? '<span style="font-size:11px;color:#6B7280;flex:none;">' + esc(String(c.owner).split("·")[0].trim()) + '</span>' : '')
+              + '</div>';
           });
           html += '</div>';
 
@@ -143,7 +159,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;flex-wrap:wrap;">'
               + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
               + '<span style="flex:1;min-width:200px;"><span style="font-weight:650;">' + esc(String(p.who).split("·")[0].trim()) + '</span>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + ' — ' + opsTxt + '</span>'
-              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">tenue : ' + (p.judged ? p.kept + "/" + p.judged : "— (0 verdict sur " + j.period_days + " j)") + '</span></div>';
+              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">tenue : ' + (p.judged ? p.kept + "/" + p.judged : "— (0 verdict sur " + j.period_days + " j)") + '</span>'
+              + (p.gap_eur != null ? '<span style="font-size:11px;font-weight:650;color:' + (p.gap_eur >= 0 ? "#059669" : "#B45309") + ';flex:none;">' + signEur(p.gap_eur) + ' mesurés</span>' : '')
+              + '</div>';
           });
           html += '</div>';
 
