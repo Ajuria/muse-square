@@ -29,11 +29,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (locFilter) requireLocationOwnership(locals, locFilter);
     const locs = locFilter ? [locFilter] : allLocs;
     if (!locs.length) return json(400, { ok: false, error: "aucun site" });
+    const uid = String((locals as any)?.clerk_user_id || "").trim();
     const period = [30, 90, 365].includes(Number(url.searchParams.get("period"))) ? Number(url.searchParams.get("period")) : 30;
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -132,6 +133,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
         params: { locs }, location: "EU",
+      }),
+      // État de config du compte (gestes d'onboarding, owner 05/08) : chaque geste n'apparaît
+      // que si le manque est RÉEL en base — jamais une checklist générique.
+      bq.query({
+        query: `SELECT
+                  (SELECT COUNT(*) FROM \`${PROJECT}.analytics.team_members\` WHERE user_id = @uid) AS team_n,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.analytics.channel_configs\` WHERE user_id = @uid AND enabled = TRUE) AS chan_n,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.raw.notification_preferences\` WHERE clerk_user_id = @uid) AS pref_n`,
+        params: { uid }, location: "EU",
       }),
     ]);
 
@@ -244,6 +254,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         competitor_alerts_7d: alerts,
       },
       debloquer: {
+        team_empty: Number(num((setupRows as any[])[0]?.team_n) ?? 0) === 0,
+        channels_missing: Number(num((setupRows as any[])[0]?.chan_n) ?? 0) === 0,
+        alerts_prefs_missing: Number(num((setupRows as any[])[0]?.pref_n) ?? 0) === 0,
         margin_declared: corrections.includes("declared_margin_pct"),
         bilans_pending: bilans,
         facts_active: corrections.length,
