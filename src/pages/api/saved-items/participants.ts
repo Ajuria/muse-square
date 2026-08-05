@@ -49,17 +49,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (!(await ownsItem(bq, saved_item_id, ctx.clerk_user_id, ctx.location_id))) {
       return jsonResponse(404, { ok: false, error: "Not found" });
     }
+    // ?date= renvoie les participants de CETTE occurrence + ceux de TOUTE la série (date NULL,
+    // inc. 6) — le cron fait la même union à l'envoi. `serie: true` distingue les deux à l'écran.
     const [rows] = await bq.query({
       query: `
-        SELECT participant_id, CAST(date AS STRING) AS date, participant_name, contact
+        SELECT participant_id, CAST(date AS STRING) AS date, participant_name, contact,
+               (date IS NULL) AS serie
         FROM (
           SELECT *, ROW_NUMBER() OVER (PARTITION BY participant_id ORDER BY updated_at DESC) AS rn
           FROM ${TABLE_FQN()}
           WHERE saved_item_id = @saved_item_id AND clerk_user_id = @clerk_user_id
         )
         WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE
-          ${date ? "AND date = DATE(@date)" : ""}
-        ORDER BY date, created_at
+          ${date ? "AND (date = DATE(@date) OR date IS NULL)" : ""}
+        ORDER BY (date IS NULL) DESC, date, created_at
       `,
       location: "EU",
       params: date ? { saved_item_id, clerk_user_id: ctx.clerk_user_id, date } : { saved_item_id, clerk_user_id: ctx.clerk_user_id },
@@ -77,10 +80,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const body = await request.json().catch(() => null);
     const saved_item_id = typeof body?.saved_item_id === "string" ? body.saved_item_id.trim() : "";
     const date = typeof body?.date === "string" ? body.date.trim() : "";
+    const serie = body?.serie === true; // inc. 6 : participant de TOUTE la série (date NULL)
     const participant_name = typeof body?.participant_name === "string" ? body.participant_name.trim().slice(0, 120) : "";
     const contact = typeof body?.contact === "string" ? body.contact.trim().slice(0, 200) : "";
     if (!saved_item_id || !participant_name) return jsonResponse(400, { ok: false, error: "saved_item_id et participant_name requis" });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonResponse(400, { ok: false, error: "date requise (Y-m-d) — le participant appartient à UNE occurrence" });
+    if (!serie && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonResponse(400, { ok: false, error: "date requise (Y-m-d) — ou serie: true pour toute la série" });
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     if (!(await ownsItem(bq, saved_item_id, ctx.clerk_user_id, ctx.location_id))) {
@@ -93,7 +97,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       saved_item_id,
       location_id: ctx.location_id,
       clerk_user_id: ctx.clerk_user_id,
-      date,
+      date: serie ? null : date,
       participant_name,
       contact: contact || null,
       deleted: false,

@@ -37,6 +37,7 @@ function buildConsigneBody(r: any, occ: string, ownerName: string): { subject: s
   const hs = flat(r.hour_start), he = flat(r.hour_end);
   parts.push(`Occurrence : ${dowFr(occ)} ${frD(occ)}` + (hs != null && he != null ? ` · ouverture au public ${hs} h – ${he} h` : ""));
   if (flat(r.consigne_arrival) != null) parts.push(`Arrivée des participants : ${String(flat(r.consigne_arrival))}`);
+  if (flat(r.consigne_deroule) != null) parts.push(`Déroulé de l'occurrence :\n${String(flat(r.consigne_deroule))}`);
   const tgtEur = flat(r.kpi_target_eur), tgtPct = flat(r.kpi_target_pct);
   const kpiLbl = String(flat(r.kpi) || "") === "family_revenue" ? `famille ${String(flat(r.kpi_family) || "")}` : "CA vs attendu";
   if (tgtEur != null || tgtPct != null) {
@@ -74,7 +75,7 @@ export const GET: APIRoute = async ({ request }) => {
                si.event_type, si.kpi, si.kpi_family, si.kpi_target_pct, si.author_person_name,
                si.kpi_target_eur, si.hour_start, si.hour_end,
                si.consigne_enabled, si.consigne_send_offset, si.consigne_arrival,
-               si.consigne_store_info, si.consigne_interactions,
+               si.consigne_store_info, si.consigne_interactions, si.consigne_deroule,
                CAST(d.date AS STRING) AS occ_date
         FROM \`${PROJECT}.raw.saved_items\` si
         JOIN \`${PROJECT}.raw.saved_item_dates\` d
@@ -210,7 +211,8 @@ export const GET: APIRoute = async ({ request }) => {
             query: `SELECT participant_name, contact
                     FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY participant_id ORDER BY updated_at DESC) AS rn
                           FROM \`${PROJECT}.raw.saved_item_participants\` WHERE saved_item_id = @sid)
-                    WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE AND date = PARSE_DATE('%F', @occ)`,
+                    WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE
+                      AND (date = PARSE_DATE('%F', @occ) OR date IS NULL)`,
             params: { sid, occ }, location: "EU",
           }),
           bq.query({

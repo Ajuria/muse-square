@@ -57,6 +57,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         var qs = new URLSearchParams(window.location.search);
         var preDates = String(qs.get("dates") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
         var wantForm = qs.get("new") === "1" || preDates.length > 0;
+        // inc. 6 : après un geste du bloc consigne, le dossier se re-rend depuis la base et
+        // revient sur le bloc (feedback = la vérité relue, pas un message).
+        var consigneScrollPending = false;
 
         function openDossier() {
           fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
@@ -246,7 +249,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var off = it.consigne_send_offset != null ? it.consigne_send_offset : 2;
           var enabled = it.consigne_enabled === true;
           var sends = j.consigne_sends || [];
-          var selOcc = future[0].slice(0, 10);
+          var SERIE = "__serie__"; // sélection « toute la série » (participants date NULL)
+          var selOcc = SERIE;
 
           function offMinus(dateIso, n) {
             var t = new Date(dateIso + "T12:00:00");
@@ -275,17 +279,22 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             return '<button type="button" data-cs-off="' + n + '" style="font-size:11px;font-family:inherit;padding:2px 9px;border:1px solid ' + (on ? "#1D3BB3" : "#E5E7EB") + ';border-radius:20px;background:' + (on ? "#EEF2FF" : "#fff") + ';color:' + (on ? "#1D3BB3" : "#374151") + ';font-weight:' + (on ? "600" : "400") + ';cursor:pointer;">J-' + n + '</button>';
           }).join(" ");
 
+          var nextOcc = future[0].slice(0, 10);
           var traceHtml;
           if (sends.length) {
             var s0 = sends[0];
             traceHtml = '<div style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Dernière consigne envoyée le ' + frD(s0.sent_on) + ' à ' + s0.n_recipients + ' destinataire(s) — occurrence du ' + frD(s0.occurrence_date) + '.</div>';
           } else if (enabled) {
-            var sendDate = offMinus(selOcc, off);
+            var sendDate = offMinus(nextOcc, off);
             var when = sendDate <= today ? "aujourd’hui" : "le " + frD(sendDate) + " (J-" + off + ")";
-            traceHtml = '<div style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Aucun envoi encore — prochain : ' + when + ' pour l’occurrence du ' + frD(selOcc) + '.</div>';
+            traceHtml = '<div style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Aucun envoi encore — prochain : ' + when + ' pour l’occurrence du ' + frD(nextOcc) + '.</div>';
           } else {
             traceHtml = '<div style="margin-top:10px;font-size:12px;color:#9CA3AF;">Envoi désactivé — aucune consigne ne part.</div>';
           }
+          // Le geste du moment quand l'envoi est coupé : une LIGNE D'ACTION (position, jamais
+          // un costume) — elle disparaît une fois l'envoi actif.
+          var nextSendIfOn = offMinus(nextOcc, off);
+          var alineHtml = enabled ? "" : '<a data-cs-toggle-aline style="display:block;color:#1D3BB3;font-size:13px;font-weight:600;line-height:1.5;cursor:pointer;margin-bottom:8px;">Activer l’envoi automatique : la consigne partira seule ' + (nextSendIfOn <= today ? "aujourd’hui" : "le " + frD(nextSendIfOn)) + ' (J-' + off + ') pour l’occurrence du ' + frD(nextOcc) + ' →</a>';
 
           function fieldRo(label, html) {
             return '<div style="margin:8px 0;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;">' + label + '</div>'
@@ -300,23 +309,25 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             ? "Ouverture au public " + it.hour_start + " h – " + it.hour_end + " h <span style=\"color:#9CA3AF;\">(vos horaires de série)</span>"
             : "<span style=\"color:#B45309;\">Horaires à compléter dans l’événement</span>";
 
-          wrap.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
+          wrap.innerHTML = alineHtml
+            + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
             + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Consigne d’opération</div>'
             + '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:' + (enabled ? "#E6F6F0" : "#F3F4F6") + ';color:' + (enabled ? "#059669" : "#6b7280") + ';">Envoi automatique : ' + (enabled ? "actif" : "désactivé") + '</span>'
-            + '<a data-cs-toggle style="color:#1D3BB3;font-weight:600;font-size:11.5px;cursor:pointer;">' + (enabled ? "Désactiver" : "Activer") + '</a></div>'
-            + '<div style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:10px;">Ce que chaque participant doit savoir avant l’occurrence. Part seule par email — ' + offChips + ' — aux participants de l’occurrence + au responsable.</div>'
+            + (enabled ? '<a data-cs-toggle style="color:#1D3BB3;font-weight:600;font-size:11.5px;cursor:pointer;">Désactiver</a>' : "") + '</div>'
+            + '<div style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:10px;">Ce que chaque participant doit savoir avant l’occurrence. Part seule par email — ' + offChips + ' — aux participants (série + occurrence) et au responsable.</div>'
             + fieldRo("Présence &amp; déroulé", hoursTxt + '<br>Arrivée des participants : <input id="evt-cs-arrival" value="' + esc(it.consigne_arrival || "") + '" placeholder="à compléter — ex. 8 h 30" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:3px 8px;width:220px;">')
+            + fieldTa("Déroulé de l’occurrence", "deroule", it.consigne_deroule, "optionnel — ex. 9 h accueil · 10 h 30 dégustation · 12 h 45 rangement…")
             + (targetTxt ? fieldRo("Objectif de l’occurrence", "Objectif : " + esc(kpiLbl2) + " " + targetTxt + " — mesuré automatiquement, verdict au fil de la série.") : "")
             + (it.dispositif ? fieldRo("Le dispositif", esc(it.dispositif).replace(/\n/g, "<br>")) : "")
             + fieldTa("À savoir sur la boutique", "store", it.consigne_store_info, "à compléter — ex. encaissement, où s’installer, qui contacter sur place…")
             + fieldTa("Interactions clients", "inter", it.consigne_interactions, "à compléter — ex. proposer la dégustation, orienter vers la famille…")
             + '<div style="display:flex;align-items:center;gap:10px;"><button type="button" data-cs-save style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Enregistrer la consigne</button><span data-cs-save-msg style="font-size:12px;color:#6B7280;"></span></div>'
             + '<div style="margin:12px 0 8px;">'
-            + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Participants — occurrence du</div>'
+            + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Participants</div>'
+            + '<button type="button" data-cs-occ="' + SERIE + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid #1D3BB3;border-radius:20px;background:#EEF2FF;color:#1D3BB3;font-weight:600;cursor:pointer;">Toute la série</button>'
             + future.slice(0, 8).map(function (d) {
                 d = d.slice(0, 10);
-                var on = d === selOcc;
-                return '<button type="button" data-cs-occ="' + d + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid ' + (on ? "#1D3BB3" : "#E5E7EB") + ';border-radius:20px;background:' + (on ? "#EEF2FF" : "#fff") + ';color:' + (on ? "#1D3BB3" : "#374151") + ';font-weight:' + (on ? "600" : "400") + ';cursor:pointer;">' + frD(d) + '</button>';
+                return '<button type="button" data-cs-occ="' + d + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;font-weight:400;cursor:pointer;">' + frD(d) + '</button>';
               }).join(" ")
             + (future.length > 8 ? '<span style="font-size:11px;color:#9CA3AF;">… ' + future.length + ' occurrences</span>' : "") + '</div>'
             + '<div data-cs-plist style="font-size:12.5px;color:#6B7280;margin:8px 0 6px;">Chargement…</div>'
@@ -325,6 +336,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             + '<input id="evt-cs-pcontact" placeholder="Email" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;">'
             + '<button type="button" data-cs-padd style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Ajouter</button>'
             + '<span data-cs-padd-msg style="font-size:12px;color:#B91C1C;"></span></div>'
+            + '<div data-cs-roster style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;"></div>'
             + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">Contacts conservés pour l’envoi des consignes uniquement — supprimables à tout moment.</div>'
             + '</div>'
             + (it.author_person_name ? '<div style="font-size:12px;color:#6B7280;">Responsable : <span style="font-weight:600;color:#374151;">' + esc(it.author_person_name) + '</span> — reçoit chaque envoi.</div>' : "")
@@ -336,14 +348,22 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           function loadParticipants(d) {
             var list = wrap.querySelector("[data-cs-plist]");
             list.textContent = "Chargement…";
-            fetch("/api/saved-items/participants?saved_item_id=" + encodeURIComponent(item) + "&date=" + encodeURIComponent(d), { cache: "no-store" })
+            var qs2 = d === SERIE ? "" : "&date=" + encodeURIComponent(d);
+            fetch("/api/saved-items/participants?saved_item_id=" + encodeURIComponent(item) + qs2, { cache: "no-store" })
               .then(function (r) { return r.json(); })
               .then(function (p) {
                 if (!p || !p.ok) { list.textContent = "Erreur de chargement des participants."; return; }
                 var rows = p.participants || [];
-                if (!rows.length) { list.innerHTML = 'Aucun participant renseigné pour le ' + frD(d) + ' — la consigne partira au responsable seul.'; return; }
+                if (d === SERIE) rows = rows.filter(function (x) { return x.serie === true; });
+                if (!rows.length) {
+                  list.innerHTML = d === SERIE
+                    ? 'Aucun participant de série — ajoutez ici ceux qui reçoivent CHAQUE occurrence (le producteur, l’équipe du samedi…).'
+                    : 'Aucun participant propre au ' + frD(d) + ' — les participants de série et le responsable recevront la consigne.';
+                  return;
+                }
                 list.innerHTML = rows.map(function (x) {
                   return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #E5E7EB;border-radius:20px;padding:4px 10px;margin:0 6px 6px 0;background:#fff;color:#374151;">' + esc(x.participant_name)
+                    + (x.serie === true && d !== SERIE ? ' <span style="color:#1D3BB3;font-size:11px;">toute la série</span>' : '')
                     + (x.contact ? ' <span style="color:#9CA3AF;">' + esc(x.contact) + '</span>' : ' <span style="color:#B45309;">sans email — ne recevra rien</span>')
                     + ' <a data-cs-pdel="' + esc(x.participant_id) + '" style="color:#9CA3AF;cursor:pointer;font-weight:600;">×</a></span>';
                 }).join("");
@@ -358,6 +378,28 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               .catch(function () { list.textContent = "Erreur de chargement des participants."; });
           }
           loadParticipants(selOcc);
+
+          // Chips roster (inc. 6) : un clic pré-remplit nom + email depuis vos contacts équipe.
+          fetch("/api/channels/team?location_id=" + encodeURIComponent(loc), { cache: "no-store" })
+            .then(function (r) { return r.json(); })
+            .then(function (t) {
+              var host = wrap.querySelector("[data-cs-roster]");
+              var items2 = (t && t.ok && t.items) || [];
+              if (!host || !items2.length) return;
+              host.innerHTML = '<span style="font-size:11px;color:#9CA3AF;">Votre équipe :</span>' + items2.map(function (m, i) {
+                var nm = ((m.first_name || "") + " " + (m.last_name || "")).trim();
+                var em = (m.channels_contact && m.channels_contact.email) || "";
+                return '<button type="button" data-cs-rpick="' + i + '" data-n="' + esc(nm) + '" data-e="' + esc(em) + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px dashed rgba(29,59,179,0.45);border-radius:20px;background:#fff;color:#1D3BB3;cursor:pointer;">' + esc(nm) + (m.role ? ' · ' + esc(m.role) : '') + (em ? '' : ' (sans email)') + '</button>';
+              }).join(" ");
+              host.querySelectorAll("[data-cs-rpick]").forEach(function (b) {
+                b.addEventListener("click", function () {
+                  document.getElementById("evt-cs-pname").value = b.getAttribute("data-n") || "";
+                  document.getElementById("evt-cs-pcontact").value = b.getAttribute("data-e") || "";
+                  document.getElementById("evt-cs-pcontact").focus();
+                });
+              });
+            })
+            .catch(function () {});
 
           wrap.querySelectorAll("[data-cs-occ]").forEach(function (b) {
             b.addEventListener("click", function () {
@@ -381,7 +423,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             if (!name) { msg.textContent = "Le nom est requis."; return; }
             msg.textContent = "";
             padd.disabled = true;
-            fetch("/api/saved-items/participants", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, date: selOcc, participant_name: name, contact: contact }) })
+            var pbody = { saved_item_id: item, participant_name: name, contact: contact };
+            if (selOcc === SERIE) pbody.serie = true; else pbody.date = selOcc;
+            fetch("/api/saved-items/participants", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(pbody) })
               .then(function (r) { return r.json(); })
               .then(function (p) {
                 padd.disabled = false;
@@ -393,37 +437,49 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               .catch(function () { padd.disabled = false; msg.textContent = "Erreur réseau."; });
           });
 
-          wrap.querySelector("[data-cs-toggle]").addEventListener("click", function () {
+          function toggleConsigne() {
             postUpdate({ consigne_enabled: !enabled }, null, function (ok, err) {
-              if (ok) { wrap.remove(); openDossier(); }
+              if (ok) { consigneScrollPending = true; openDossier(); }
               else { alert("Erreur : " + (err || "réessayez.")); }
             });
-          });
+          }
+          var tgl = wrap.querySelector("[data-cs-toggle]");
+          if (tgl) tgl.addEventListener("click", toggleConsigne);
+          var tglA = wrap.querySelector("[data-cs-toggle-aline]");
+          if (tglA) tglA.addEventListener("click", toggleConsigne);
           wrap.querySelectorAll("[data-cs-off]").forEach(function (b) {
             b.addEventListener("click", function () {
               postUpdate({ consigne_send_offset: parseInt(b.getAttribute("data-cs-off"), 10) }, b, function (ok, err) {
-                if (ok) { wrap.remove(); openDossier(); }
+                if (ok) { consigneScrollPending = true; openDossier(); }
                 else { b.disabled = false; alert("Erreur : " + (err || "réessayez.")); }
               });
             });
           });
+          // Enregistrer (inc. 6) : les 4 champs partent TOUJOURS — vider un champ l'efface
+          // réellement en base ("" = SET NULL côté update) ; le re-rendu relit la base :
+          // ce que vous voyez après = ce qui est stocké.
           var saveBtn = wrap.querySelector("[data-cs-save]");
           saveBtn.addEventListener("click", function () {
             var msg = wrap.querySelector("[data-cs-save-msg]");
-            var fields = {};
-            var arr = (document.getElementById("evt-cs-arrival").value || "").trim();
-            var sto = (document.getElementById("evt-cs-store").value || "").trim();
-            var inter = (document.getElementById("evt-cs-inter").value || "").trim();
-            if (arr) fields.consigne_arrival = arr;
-            if (sto) fields.consigne_store_info = sto;
-            if (inter) fields.consigne_interactions = inter;
-            if (!Object.keys(fields).length) { msg.style.color = "#B91C1C"; msg.textContent = "Rien à enregistrer."; return; }
+            var fields = {
+              consigne_arrival: (document.getElementById("evt-cs-arrival").value || "").trim(),
+              consigne_deroule: (document.getElementById("evt-cs-deroule").value || "").trim(),
+              consigne_store_info: (document.getElementById("evt-cs-store").value || "").trim(),
+              consigne_interactions: (document.getElementById("evt-cs-inter").value || "").trim(),
+            };
+            msg.style.color = "#6B7280";
+            msg.textContent = "Enregistrement…";
             postUpdate(fields, saveBtn, function (ok, err) {
               saveBtn.disabled = false;
-              msg.style.color = ok ? "#166534" : "#B91C1C";
-              msg.textContent = ok ? "Consigne enregistrée." : "Erreur : " + (err || "réessayez.");
+              if (ok) { consigneScrollPending = true; openDossier(); }
+              else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + (err || "réessayez."); }
             });
           });
+
+          if (consigneScrollPending) {
+            consigneScrollPending = false;
+            wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         }
 
         // ── Le dossier à 3 états (protos v2.1/v3 validés) — la même matière provider,

@@ -5900,7 +5900,8 @@
    "consigne_store_info",
    "consigne_interactions",
    "consigne_send_offset",
-   "consigne_enabled"
+   "consigne_enabled",
+   "consigne_deroule"
   ],
   "raw.school_vacations_periods": [
    "period_id",

@@ -106,7 +106,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
                      author_person_name, kpi, kpi_family, kpi_target_pct, kpi_target_eur,
                      recurrence, recurrence_dow, CAST(decision_date AS STRING) AS decision_date,
                      CAST(selected_date AS STRING) AS selected_date, CAST(event_end_date AS STRING) AS event_end_date,
-                     consigne_arrival, consigne_store_info, consigne_interactions, consigne_send_offset, consigne_enabled
+                     consigne_arrival, consigne_store_info, consigne_interactions, consigne_deroule, consigne_send_offset, consigne_enabled
               FROM \`${PROJECT}.raw.saved_items\`
               WHERE saved_item_id = @saved_item_id AND location_id = @location_id LIMIT 1`,
       params: { saved_item_id, location_id }, location: "EU",
@@ -142,6 +142,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     consigne_arrival: flat(r0.consigne_arrival) != null ? String(flat(r0.consigne_arrival)) : null,
     consigne_store_info: flat(r0.consigne_store_info) != null ? String(flat(r0.consigne_store_info)) : null,
     consigne_interactions: flat(r0.consigne_interactions) != null ? String(flat(r0.consigne_interactions)) : null,
+    consigne_deroule: flat(r0.consigne_deroule) != null ? String(flat(r0.consigne_deroule)) : null,
     consigne_send_offset: flat(r0.consigne_send_offset) != null ? Number(flat(r0.consigne_send_offset)) : null,
     consigne_enabled: flat(r0.consigne_enabled) === true,
   };
