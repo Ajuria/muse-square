@@ -113,7 +113,8 @@
       //    le détour Calendrier → comparaison. Jours de LANCEMENT candidats ; « Durée » couvre
       //    les événements multi-jours (fenêtre de mesure calée au Choisir). ──
       + '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">'
-      + '<label style="' + lbl + 'margin-bottom:0;max-width:440px;">Options de dates — cliquez les jours de lancement candidats (jusqu’à 7) ; le dossier les comparera et vous en choisirez un</label>'
+      + '<div style="max-width:440px;"><label style="' + lbl + 'margin-bottom:2px;">Options de dates</label>'
+      + '<div style="font-size:11px;color:#6B7280;line-height:1.5;">Chaque clic = un jour de LANCEMENT candidat (jusqu’à 7). La durée s’applique à chacun — à 3 jours, cliquer le 08 couvre 08→10. Le dossier comparera vos candidats, vous en choisirez un.</div></div>'
       + '<span style="font-size:12.5px;color:#374151;white-space:nowrap;">Durée : <input data-ef="duree" value="1" style="' + inp + 'width:52px;display:inline-block;text-align:center;padding:6px;"> jour(s)</span></div>'
       + '<div data-ef-chips style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
@@ -122,7 +123,7 @@
       + '<button type="button" data-ef-mnext style="font-size:13px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#1D3BB3;padding:3px 10px;cursor:pointer;">›</button></div>'
       + '<div data-ef-mctx style="font-size:11px;color:#6B7280;margin-bottom:6px;"></div>'
       + '<div data-ef-grid style="min-height:60px;"></div>'
-      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA attendu selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · souligné gris = vacances scolaires. Survolez un jour pour son contexte.</div>'
+      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA attendu selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · vacances et périodes : ligne sous le mois + survol d’un jour.</div>'
       + '<div style="margin-top:8px;"><label style="' + lbl + '">Vos candidates <span data-ef-count style="color:#1D3BB3;"></span> <span style="font-weight:400;color:#9CA3AF;text-transform:none;letter-spacing:0;">— conservées d’un mois à l’autre</span></label>'
       + '<div data-ef-picked style="display:flex;gap:8px;flex-wrap:wrap;min-height:26px;"></div></div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
@@ -191,7 +192,7 @@
       baseline.forEach(function (b) { if (b.n_days > 0 && (!best || b.expected_eur > best.expected_eur)) best = b; });
       if (best) {
         var bestDates = Object.keys(mdays).filter(function (iso) { return dowOf(iso) === best.dow && iso >= todayIso; }).sort();
-        chips.push({ label: best.label_fr.charAt(0).toUpperCase() + best.label_fr.slice(1) + "s — votre meilleur attendu (≈ " + frInt(best.expected_eur) + " €/j)", c: "#1D3BB3", bg: "#EEF2FF", dates: bestDates });
+        chips.push({ label: "Meilleur jour de CA : " + best.label_fr + " (≈ " + frInt(best.expected_eur) + " €/j, vos ventes 90 j) — tout sélectionner", c: "#1D3BB3", bg: "#EEF2FF", dates: bestDates });
       }
       Object.keys(mdays).sort().forEach(function (iso) {
         var d = mdays[iso];
@@ -234,6 +235,15 @@
       ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"].forEach(function (h) {
         out += '<div style="font-size:9.5px;font-weight:600;color:#9CA3AF;text-transform:uppercase;text-align:center;padding:2px 0;">' + h + "</div>";
       });
+      // Couverture par la durée : chaque candidat couvre [jour, jour+durée−1] — visible.
+      var covered = {};
+      var durNow = dureeVal();
+      state.picked.forEach(function (p0) {
+        for (var di = 1; di < durNow; di++) {
+          var cd = new Date(p0 + "T00:00:00Z"); cd.setUTCDate(cd.getUTCDate() + di);
+          covered[cd.toISOString().slice(0, 10)] = true;
+        }
+      });
       var cur = new Date(start);
       while (cur.toISOString().slice(0, 10) <= last) {
         var iso = cur.toISOString().slice(0, 10);
@@ -244,6 +254,7 @@
             out += '<div style="height:40px;border-radius:7px;background:#F3F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#C4C8CE;"><span style="font-size:12.5px;font-weight:600;">' + Number(iso.slice(8, 10)) + '</span><span style="font-size:8.5px;">' + (iso < todayIso ? "passé" : "—") + "</span></div>";
           } else {
             var sel = state.picked.indexOf(iso) >= 0;
+            var cov = !sel && covered[iso];
             var dotc = d.lvl >= 4 ? "#e24b4a" : d.lvl >= 2 ? "#B45309" : null;
             var b2 = baselineFor(dowOf(iso));
             var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — attendu ≈ " + frInt(b2.expected_eur) + " €" : "");
@@ -252,9 +263,9 @@
             (d.com || []).forEach(function (n) { tip += " · " + n; });
             if (d.lvl >= 2) tip += " · risque météo niv. " + d.lvl;
             out += '<div data-ef-day="' + iso + '" title="' + esc(tip) + '" style="position:relative;height:40px;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;'
-              + "background:" + (sel ? "#1D3BB3" : tintFor(iso)) + ";" + (sel ? "color:#fff;" : "color:#111827;")
+              + "background:" + (sel ? "#1D3BB3" : cov ? "rgba(29,59,179,0.22)" : tintFor(iso)) + ";" + (sel ? "color:#fff;" : "color:#111827;")
               + (d.ferie ? "outline:1.5px solid #1D3BB3;outline-offset:-1.5px;" : "")
-              + (d.vac ? "box-shadow:inset 0 -3px 0 rgba(107,114,128,0.45);" : "") + '">'
+              + '">'
               + '<span style="font-size:12.5px;font-weight:600;">' + Number(iso.slice(8, 10)) + (d.ferie ? " ★" : "") + "</span>"
               + '<span style="font-size:8.5px;' + (sel ? "color:rgba(255,255,255,0.8);" : "color:#6B7280;") + '">' + DOW3[dowOf(iso)] + "</span>"
               + (dotc ? '<span style="position:absolute;top:3px;right:4px;width:7px;height:7px;border-radius:50%;background:' + dotc + ';"></span>' : "")
@@ -366,7 +377,7 @@
       var el = q('[data-ef="' + n + '"]'); if (el) { el.addEventListener("change", refreshCible); el.addEventListener("input", refreshCible); }
     });
     var dureeEl = q('[data-ef="duree"]');
-    if (dureeEl) dureeEl.addEventListener("input", renderPicked);
+    if (dureeEl) dureeEl.addEventListener("input", function () { renderGrid(); renderPicked(); });
     q("[data-ef-mprev]").addEventListener("click", function () {
       var y = state.curY, m = state.curM - 1; if (m < 0) { m = 11; y--; }
       if (monthKey(y, m) < todayIso.slice(0, 7)) return;
