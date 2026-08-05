@@ -313,16 +313,18 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if ((au.verdicts_scheduled || []).length) auLines.push('↻ Verdict' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' jugé' + (au.verdicts_scheduled.length > 1 ? "s" : "") + ' automatiquement après ' + au.verdicts_scheduled.slice(0, 2).map(function (d) { return dowFr(d) + ' ' + frD(d); }).join(' et '));
           var na = (au.competitor_alerts_7d || []).length;
           if (na) auLines.push('⚠ Veille concurrent : ' + na + ' alerte' + (na > 1 ? "s" : "") + ' surveillée' + (na > 1 ? "s" : "") + ' sur 7 jours');
+          // « À activer » = interrupteurs réellement ÉTEINTS (vérifiés en base) — jamais une
+          // suggestion déjà activée, jamais un compte en dur (audit dummy-content 05/08).
+          var toActivate = [];
+          if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
+          if (!db.team_routing_set && !db.team_empty) toActivate.push('Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/profile?tab=comm">Configurer →</a>');
           html += '<div class="tb-card"><button type="button" class="tb-volet" data-tb-volet="au">'
             + '<span style="width:8px;height:8px;border-radius:50%;background:#059669;flex:none;"></span>'
-            + '<span style="flex:1;"><span style="font-weight:600;">Automatisation</span> — ' + auLines.length + ' action' + (auLines.length > 1 ? "s" : "") + ' exécutée' + (auLines.length > 1 ? "s" : "") + ' cette semaine · 2 à activer</span>'
+            + '<span style="flex:1;"><span style="font-weight:600;">Automatisation</span> — ' + auLines.length + ' action' + (auLines.length > 1 ? "s" : "") + ' exécutée' + (auLines.length > 1 ? "s" : "") + ' cette semaine' + (toActivate.length ? ' · ' + toActivate.length + ' à activer' : '') + '</span>'
             + '<span style="color:#9CA3AF;font-size:11px;">▾</span></button>'
             + '<div data-tb-body="au" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.8;">'
             + (auLines.length ? auLines.map(function (l) { return '<div>' + l + '</div>'; }).join("") : '<div style="color:#9CA3AF;">Rien cette semaine — les automatisations s’activent avec vos opérations.</div>')
-            + '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div>'
-            + '<p class="tb-eb" style="margin-bottom:4px;">À activer</p>'
-            + '<div>Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a></div>'
-            + '<div>Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/app/insightevent/pulse">Configurer →</a></div>'
+            + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return '<div>' + l + '</div>'; }).join("") : '')
             + '</div></div>';
 
           body.innerHTML = html;

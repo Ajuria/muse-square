@@ -140,7 +140,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `SELECT
                   (SELECT COUNT(*) FROM \`${PROJECT}.analytics.team_members\` WHERE user_id = @uid) AS team_n,
                   (SELECT COUNT(*) FROM \`${PROJECT}.analytics.channel_configs\` WHERE user_id = @uid AND enabled = TRUE) AS chan_n,
-                  (SELECT COUNT(*) FROM \`${PROJECT}.raw.notification_preferences\` WHERE clerk_user_id = @uid) AS pref_n`,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.raw.notification_preferences\` WHERE clerk_user_id = @uid) AS pref_n,
+                  (SELECT LOGICAL_OR(COALESCE(alerts_critical, FALSE)) FROM \`${PROJECT}.raw.notification_preferences\` WHERE clerk_user_id = @uid) AS alerts_on,
+                  (SELECT COUNTIF(signal_routing IS NOT NULL AND TRIM(signal_routing) != '') FROM \`${PROJECT}.analytics.team_members\` WHERE user_id = @uid) AS routed_n`,
         params: { uid }, location: "EU",
       }),
     ]);
@@ -257,6 +259,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         team_empty: Number(num((setupRows as any[])[0]?.team_n) ?? 0) === 0,
         channels_missing: Number(num((setupRows as any[])[0]?.chan_n) ?? 0) === 0,
         alerts_prefs_missing: Number(num((setupRows as any[])[0]?.pref_n) ?? 0) === 0,
+        alerts_critical_on: flat((setupRows as any[])[0]?.alerts_on) === true,
+        team_routing_set: Number(num((setupRows as any[])[0]?.routed_n) ?? 0) > 0,
         margin_declared: corrections.includes("declared_margin_pct"),
         bilans_pending: bilans,
         facts_active: corrections.length,
