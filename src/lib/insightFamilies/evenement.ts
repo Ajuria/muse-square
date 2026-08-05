@@ -105,7 +105,8 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       query: `SELECT saved_item_id, title, description, event_type, event_nature, hour_start, hour_end, duration_days,
                      author_person_name, kpi, kpi_family, kpi_target_pct, kpi_target_eur,
                      recurrence, recurrence_dow, CAST(decision_date AS STRING) AS decision_date,
-                     CAST(selected_date AS STRING) AS selected_date, CAST(event_end_date AS STRING) AS event_end_date
+                     CAST(selected_date AS STRING) AS selected_date, CAST(event_end_date AS STRING) AS event_end_date,
+                     consigne_arrival, consigne_store_info, consigne_interactions, consigne_send_offset, consigne_enabled
               FROM \`${PROJECT}.raw.saved_items\`
               WHERE saved_item_id = @saved_item_id AND location_id = @location_id LIMIT 1`,
       params: { saved_item_id, location_id }, location: "EU",
@@ -137,6 +138,12 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     selected_date: flat(r0.selected_date) != null ? String(flat(r0.selected_date)) : null,
     event_end_date: flat(r0.event_end_date) != null ? String(flat(r0.event_end_date)) : null,
     dates: (dateRows as any[]).map((d) => String(flat(d.d))),
+    // Consigne d'opération (automatisation inc. 3) — l'état réel, jamais un défaut affiché comme choisi.
+    consigne_arrival: flat(r0.consigne_arrival) != null ? String(flat(r0.consigne_arrival)) : null,
+    consigne_store_info: flat(r0.consigne_store_info) != null ? String(flat(r0.consigne_store_info)) : null,
+    consigne_interactions: flat(r0.consigne_interactions) != null ? String(flat(r0.consigne_interactions)) : null,
+    consigne_send_offset: flat(r0.consigne_send_offset) != null ? Number(flat(r0.consigne_send_offset)) : null,
+    consigne_enabled: flat(r0.consigne_enabled) === true,
   };
 
   // ── 2. Étape du dossier + dates à analyser ──
@@ -152,7 +159,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows]] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -203,6 +210,13 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
               FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id = @location_id AND item_category = @fam`,
       params: { location_id, fam: item.kpi_family }, location: "EU",
     }) : empty,
+    // Trace d'envoi de la consigne (zéro dummy : « Envoyée le … à N » = fait en base).
+    bq.query({
+      query: `SELECT CAST(occurrence_date AS STRING) AS d, CAST(DATE(sent_at) AS STRING) AS sent_on, n_recipients
+              FROM \`${PROJECT}.analytics.consigne_sends\`
+              WHERE saved_item_id = @saved_item_id ORDER BY sent_at DESC LIMIT 5`,
+      params: { saved_item_id }, location: "EU",
+    }),
   ]);
 
   const dowExpected = new Map<number, number>();
@@ -338,6 +352,10 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       found: true, item, stage, fam_avg_day_eur: famAvg,
       days, avant_date: stage === "decider" ? null : nextDate,
       apres: { rows: apresRows, serie },
+      consigne_sends: (sendRows as any[]).map((s) => ({
+        occurrence_date: String(flat(s.d) ?? ""), sent_on: String(flat(s.sent_on) ?? ""),
+        n_recipients: Number(flat(s.n_recipients) ?? 0),
+      })),
       sources: [
         "raw.saved_items × raw.saved_item_dates (l'événement, ses occurrences)",
         "semantic.vw_insight_event_day_surface (les 5 questions des jours à venir — audience, mobilité clients/fournisseurs, voisins, météo, concurrence)",
@@ -345,6 +363,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
         "mart.fct_client_sales_signals_daily (tickets, panier vs base 30 j)",
         ...(item.kpi_family ? ["raw.client_transactions (CA de la famille vs sa moyenne journalière)"] : []),
         "analytics.action_commitments (verdicts des engagements ancrés saved_item_id)",
+        "analytics.consigne_sends (traces d'envoi de la consigne d'opération)",
       ],
     },
   };

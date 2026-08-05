@@ -233,6 +233,199 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (qs.get("mode") === "bilan" && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
+        // ── Consigne d'opération (automatisation inc. 3, maquette validée 05/08) — SÉRIES
+        //    seulement (cas 2) : ce que chaque participant doit savoir, envoyée seule à J-x
+        //    par le cron event-occurrences. Tout affichage = état réel en base (enabled,
+        //    offset, participants, traces d'envoi) ; les champs vides disent « à compléter ». ──
+        function renderConsigne(j) {
+          var it = j.item || {};
+          if (!it.recurrence || it.recurrence === "none") return;
+          var today = new Date().toISOString().slice(0, 10);
+          var future = (it.dates || []).map(String).filter(function (d) { return d.slice(0, 10) >= today; });
+          if (!future.length) return;
+          var off = it.consigne_send_offset != null ? it.consigne_send_offset : 2;
+          var enabled = it.consigne_enabled === true;
+          var sends = j.consigne_sends || [];
+          var selOcc = future[0].slice(0, 10);
+
+          function offMinus(dateIso, n) {
+            var t = new Date(dateIso + "T12:00:00");
+            t.setDate(t.getDate() - n);
+            return t.toISOString().slice(0, 10);
+          }
+          function postUpdate(fields, btn, done) {
+            if (btn) btn.disabled = true;
+            var body = { saved_item_id: item };
+            Object.keys(fields).forEach(function (k) { body[k] = fields[k]; });
+            fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) { done(p && p.ok, p && p.error); })
+              .catch(function () { done(false, "réseau"); });
+          }
+
+          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : (it.kpi || "");
+          var targetTxt = it.kpi_target_eur != null ? frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? "+" + frInt(it.kpi_target_pct) + " %" : "";
+
+          var wrap = document.createElement("div");
+          wrap.id = "evt-consigne";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+
+          var offChips = [1, 2, 3].map(function (n) {
+            var on = n === off;
+            return '<button type="button" data-cs-off="' + n + '" style="font-size:11px;font-family:inherit;padding:2px 9px;border:1px solid ' + (on ? "#1D3BB3" : "#E5E7EB") + ';border-radius:20px;background:' + (on ? "#EEF2FF" : "#fff") + ';color:' + (on ? "#1D3BB3" : "#374151") + ';font-weight:' + (on ? "600" : "400") + ';cursor:pointer;">J-' + n + '</button>';
+          }).join(" ");
+
+          var traceHtml;
+          if (sends.length) {
+            var s0 = sends[0];
+            traceHtml = '<div style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Dernière consigne envoyée le ' + frD(s0.sent_on) + ' à ' + s0.n_recipients + ' destinataire(s) — occurrence du ' + frD(s0.occurrence_date) + '.</div>';
+          } else if (enabled) {
+            var sendDate = offMinus(selOcc, off);
+            var when = sendDate <= today ? "aujourd’hui" : "le " + frD(sendDate) + " (J-" + off + ")";
+            traceHtml = '<div style="margin-top:10px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Aucun envoi encore — prochain : ' + when + ' pour l’occurrence du ' + frD(selOcc) + '.</div>';
+          } else {
+            traceHtml = '<div style="margin-top:10px;font-size:12px;color:#9CA3AF;">Envoi désactivé — aucune consigne ne part.</div>';
+          }
+
+          function fieldRo(label, html) {
+            return '<div style="margin:8px 0;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;">' + label + '</div>'
+              + '<div style="font-size:12.5px;color:#374151;background:#F8FAFC;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:8px 10px;line-height:1.5;">' + html + '</div></div>';
+          }
+          function fieldTa(label, idSuffix, value, placeholder) {
+            return '<div style="margin:8px 0;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.05em;">' + label + '</div>'
+              + '<textarea id="evt-cs-' + idSuffix + '" rows="2" placeholder="' + esc(placeholder) + '" style="width:100%;box-sizing:border-box;font-size:12.5px;color:#111827;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;line-height:1.45;font-family:inherit;resize:vertical;">' + esc(value || "") + '</textarea></div>';
+          }
+
+          var hoursTxt = it.hour_start != null && it.hour_end != null
+            ? "Ouverture au public " + it.hour_start + " h – " + it.hour_end + " h <span style=\"color:#9CA3AF;\">(vos horaires de série)</span>"
+            : "<span style=\"color:#B45309;\">Horaires à compléter dans l’événement</span>";
+
+          wrap.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">'
+            + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Consigne d’opération</div>'
+            + '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:' + (enabled ? "#E6F6F0" : "#F3F4F6") + ';color:' + (enabled ? "#059669" : "#6b7280") + ';">Envoi automatique : ' + (enabled ? "actif" : "désactivé") + '</span>'
+            + '<a data-cs-toggle style="color:#1D3BB3;font-weight:600;font-size:11.5px;cursor:pointer;">' + (enabled ? "Désactiver" : "Activer") + '</a></div>'
+            + '<div style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:10px;">Ce que chaque participant doit savoir avant l’occurrence. Part seule par email — ' + offChips + ' — aux participants de l’occurrence + au responsable.</div>'
+            + fieldRo("Présence &amp; déroulé", hoursTxt + '<br>Arrivée des participants : <input id="evt-cs-arrival" value="' + esc(it.consigne_arrival || "") + '" placeholder="à compléter — ex. 8 h 30" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:3px 8px;width:220px;">')
+            + (targetTxt ? fieldRo("Objectif de l’occurrence", "Objectif : " + esc(kpiLbl2) + " " + targetTxt + " — mesuré automatiquement, verdict au fil de la série.") : "")
+            + (it.dispositif ? fieldRo("Le dispositif", esc(it.dispositif).replace(/\n/g, "<br>")) : "")
+            + fieldTa("À savoir sur la boutique", "store", it.consigne_store_info, "à compléter — ex. encaissement, où s’installer, qui contacter sur place…")
+            + fieldTa("Interactions clients", "inter", it.consigne_interactions, "à compléter — ex. proposer la dégustation, orienter vers la famille…")
+            + '<div style="display:flex;align-items:center;gap:10px;"><button type="button" data-cs-save style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Enregistrer la consigne</button><span data-cs-save-msg style="font-size:12px;color:#6B7280;"></span></div>'
+            + '<div style="margin:12px 0 8px;">'
+            + '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;">Participants — occurrence du</div>'
+            + future.slice(0, 8).map(function (d) {
+                d = d.slice(0, 10);
+                var on = d === selOcc;
+                return '<button type="button" data-cs-occ="' + d + '" style="font-size:11.5px;font-family:inherit;padding:3px 10px;border:1px solid ' + (on ? "#1D3BB3" : "#E5E7EB") + ';border-radius:20px;background:' + (on ? "#EEF2FF" : "#fff") + ';color:' + (on ? "#1D3BB3" : "#374151") + ';font-weight:' + (on ? "600" : "400") + ';cursor:pointer;">' + frD(d) + '</button>';
+              }).join(" ")
+            + (future.length > 8 ? '<span style="font-size:11px;color:#9CA3AF;">… ' + future.length + ' occurrences</span>' : "") + '</div>'
+            + '<div data-cs-plist style="font-size:12.5px;color:#6B7280;margin:8px 0 6px;">Chargement…</div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+            + '<input id="evt-cs-pname" placeholder="Nom (ex. le producteur)" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:180px;">'
+            + '<input id="evt-cs-pcontact" placeholder="Email" style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;">'
+            + '<button type="button" data-cs-padd style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Ajouter</button>'
+            + '<span data-cs-padd-msg style="font-size:12px;color:#B91C1C;"></span></div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">Contacts conservés pour l’envoi des consignes uniquement — supprimables à tout moment.</div>'
+            + '</div>'
+            + (it.author_person_name ? '<div style="font-size:12px;color:#6B7280;">Responsable : <span style="font-weight:600;color:#374151;">' + esc(it.author_person_name) + '</span> — reçoit chaque envoi.</div>' : "")
+            + traceHtml
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">La mesure, elle, est déjà automatique : un engagement s’arme seul à J-7 de chaque occurrence — verdicts cumulés au fil de la série.</div>';
+
+          body.appendChild(wrap);
+
+          function loadParticipants(d) {
+            var list = wrap.querySelector("[data-cs-plist]");
+            list.textContent = "Chargement…";
+            fetch("/api/saved-items/participants?saved_item_id=" + encodeURIComponent(item) + "&date=" + encodeURIComponent(d), { cache: "no-store" })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                if (!p || !p.ok) { list.textContent = "Erreur de chargement des participants."; return; }
+                var rows = p.participants || [];
+                if (!rows.length) { list.innerHTML = 'Aucun participant renseigné pour le ' + frD(d) + ' — la consigne partira au responsable seul.'; return; }
+                list.innerHTML = rows.map(function (x) {
+                  return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #E5E7EB;border-radius:20px;padding:4px 10px;margin:0 6px 6px 0;background:#fff;color:#374151;">' + esc(x.participant_name)
+                    + (x.contact ? ' <span style="color:#9CA3AF;">' + esc(x.contact) + '</span>' : ' <span style="color:#B45309;">sans email — ne recevra rien</span>')
+                    + ' <a data-cs-pdel="' + esc(x.participant_id) + '" style="color:#9CA3AF;cursor:pointer;font-weight:600;">×</a></span>';
+                }).join("");
+                list.querySelectorAll("[data-cs-pdel]").forEach(function (a) {
+                  a.addEventListener("click", function () {
+                    fetch("/api/saved-items/participants", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, participant_id: a.getAttribute("data-cs-pdel") }) })
+                      .then(function (r) { return r.json(); })
+                      .then(function () { loadParticipants(selOcc); });
+                  });
+                });
+              })
+              .catch(function () { list.textContent = "Erreur de chargement des participants."; });
+          }
+          loadParticipants(selOcc);
+
+          wrap.querySelectorAll("[data-cs-occ]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              selOcc = b.getAttribute("data-cs-occ");
+              wrap.querySelectorAll("[data-cs-occ]").forEach(function (x) {
+                var on = x === b;
+                x.style.borderColor = on ? "#1D3BB3" : "#E5E7EB";
+                x.style.background = on ? "#EEF2FF" : "#fff";
+                x.style.color = on ? "#1D3BB3" : "#374151";
+                x.style.fontWeight = on ? "600" : "400";
+              });
+              loadParticipants(selOcc);
+            });
+          });
+
+          var padd = wrap.querySelector("[data-cs-padd]");
+          padd.addEventListener("click", function () {
+            var name = (document.getElementById("evt-cs-pname").value || "").trim();
+            var contact = (document.getElementById("evt-cs-pcontact").value || "").trim();
+            var msg = wrap.querySelector("[data-cs-padd-msg]");
+            if (!name) { msg.textContent = "Le nom est requis."; return; }
+            msg.textContent = "";
+            padd.disabled = true;
+            fetch("/api/saved-items/participants", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, date: selOcc, participant_name: name, contact: contact }) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                padd.disabled = false;
+                if (!p || !p.ok) { msg.textContent = "Erreur : " + ((p && p.error) || "réessayez."); return; }
+                document.getElementById("evt-cs-pname").value = "";
+                document.getElementById("evt-cs-pcontact").value = "";
+                loadParticipants(selOcc);
+              })
+              .catch(function () { padd.disabled = false; msg.textContent = "Erreur réseau."; });
+          });
+
+          wrap.querySelector("[data-cs-toggle]").addEventListener("click", function () {
+            postUpdate({ consigne_enabled: !enabled }, null, function (ok, err) {
+              if (ok) { wrap.remove(); openDossier(); }
+              else { alert("Erreur : " + (err || "réessayez.")); }
+            });
+          });
+          wrap.querySelectorAll("[data-cs-off]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              postUpdate({ consigne_send_offset: parseInt(b.getAttribute("data-cs-off"), 10) }, b, function (ok, err) {
+                if (ok) { wrap.remove(); openDossier(); }
+                else { b.disabled = false; alert("Erreur : " + (err || "réessayez.")); }
+              });
+            });
+          });
+          var saveBtn = wrap.querySelector("[data-cs-save]");
+          saveBtn.addEventListener("click", function () {
+            var msg = wrap.querySelector("[data-cs-save-msg]");
+            var fields = {};
+            var arr = (document.getElementById("evt-cs-arrival").value || "").trim();
+            var sto = (document.getElementById("evt-cs-store").value || "").trim();
+            var inter = (document.getElementById("evt-cs-inter").value || "").trim();
+            if (arr) fields.consigne_arrival = arr;
+            if (sto) fields.consigne_store_info = sto;
+            if (inter) fields.consigne_interactions = inter;
+            if (!Object.keys(fields).length) { msg.style.color = "#B91C1C"; msg.textContent = "Rien à enregistrer."; return; }
+            postUpdate(fields, saveBtn, function (ok, err) {
+              saveBtn.disabled = false;
+              msg.style.color = ok ? "#166534" : "#B91C1C";
+              msg.textContent = ok ? "Consigne enregistrée." : "Erreur : " + (err || "réessayez.");
+            });
+          });
+        }
+
         // ── Le dossier à 3 états (protos v2.1/v3 validés) — la même matière provider,
         //    densité différente : Décider (colonnes candidats), Avant (les 5 questions),
         //    Après (KPI + série). Tout affichage en JJ/MM, montants frInt. ──
@@ -342,6 +535,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
           body.innerHTML = head + segHtml + deciderHtml + avantHtml + apresHtml;
           document.querySelector("#evt-head div").textContent = "Dossier d’événement";
+          renderConsigne(j);
           maybeRenderBilan(j);
 
           body.querySelectorAll("[data-ev-st]").forEach(function (b) {
