@@ -100,6 +100,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const kpi_family = typeof body?.kpi_family === "string" && body.kpi_family.trim() ? body.kpi_family.trim().slice(0, 120) : null;
     const kpi_target_pct = body?.kpi_target_pct != null && Number.isFinite(Number(body.kpi_target_pct)) ? Number(body.kpi_target_pct) : null;
     const kpi_target_eur = body?.kpi_target_eur != null && Number.isFinite(Number(body.kpi_target_eur)) ? Number(body.kpi_target_eur) : null;
+    // Consigne d'opération (docs/automatisation-spec.md § 3) — textes libres bornés,
+    // offset J-1..J-7, enabled = BOOL explicite (absent ≠ false : seul un booléen fourni met à jour).
+    const consigne_arrival = optionalString(body?.consigne_arrival, "consigne_arrival");
+    const consigne_store_info = optionalString(body?.consigne_store_info, "consigne_store_info");
+    const consigne_interactions = optionalString(body?.consigne_interactions, "consigne_interactions");
+    const rawOffset = body?.consigne_send_offset;
+    const consigne_send_offset = Number.isInteger(Number(rawOffset)) && Number(rawOffset) >= 1 && Number(rawOffset) <= 7
+      ? Number(rawOffset) : null;
+    const consigne_enabled: boolean | null = typeof body?.consigne_enabled === "boolean" ? body.consigne_enabled : null;
 
     // dates: if provided, replaces the full set in saved_item_dates
     const rawDates = body?.dates;
@@ -114,7 +123,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // At least one field must be provided
     if (title === null && description === null && decision_date === null && event_end_date === null && dates === null && selected_date === null && event_type === null && launch_hour === null
         && author_person_name === null && event_nature === null && hour_start === null && hour_end === null
-        && kpi === null && kpi_family === null && kpi_target_pct === null && kpi_target_eur === null) {
+        && kpi === null && kpi_family === null && kpi_target_pct === null && kpi_target_eur === null
+        && consigne_arrival === null && consigne_store_info === null && consigne_interactions === null
+        && consigne_send_offset === null && consigne_enabled === null) {
       throw new HttpError(400, "No fields to update");
     }
 
@@ -224,6 +235,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
       setClauses.push("kpi_target_eur = @kpi_target_eur");
       updateParams.kpi_target_eur = kpi_target_eur;
       updateTypes.kpi_target_eur = "FLOAT64";
+    }
+    if (consigne_arrival !== null) {
+      setClauses.push("consigne_arrival = @consigne_arrival");
+      updateParams.consigne_arrival = consigne_arrival;
+      updateTypes.consigne_arrival = "STRING";
+    }
+    if (consigne_store_info !== null) {
+      setClauses.push("consigne_store_info = @consigne_store_info");
+      updateParams.consigne_store_info = consigne_store_info;
+      updateTypes.consigne_store_info = "STRING";
+    }
+    if (consigne_interactions !== null) {
+      setClauses.push("consigne_interactions = @consigne_interactions");
+      updateParams.consigne_interactions = consigne_interactions;
+      updateTypes.consigne_interactions = "STRING";
+    }
+    if (consigne_send_offset !== null) {
+      setClauses.push("consigne_send_offset = @consigne_send_offset");
+      updateParams.consigne_send_offset = consigne_send_offset;
+      updateTypes.consigne_send_offset = "INT64";
+    }
+    if (consigne_enabled !== null) {
+      setClauses.push("consigne_enabled = @consigne_enabled");
+      updateParams.consigne_enabled = consigne_enabled;
+      updateTypes.consigne_enabled = "BOOL";
     }
     if (selected_date !== undefined) {
       if (selected_date === "NULL") {
