@@ -8903,6 +8903,20 @@
    "recipients",
    "n_recipients",
    "commitment_id"
+  ],
+  "analytics.import_routing_rules": [
+   "rule_id",
+   "clerk_user_id",
+   "source_location_id",
+   "source_system",
+   "invoice_regex",
+   "target_location_id",
+   "is_invoiced",
+   "priority",
+   "enabled",
+   "note",
+   "created_at",
+   "updated_at"
   ]
  }
 }
