@@ -596,7 +596,10 @@ avec la chaîne quotidienne, ce qui suffit (un rythme de vente évolue en semain
 1. Studio : `dbt build --full-refresh --select stg_client_transactions+`
    (ou Run now du job after-upload une fois le code mergé).
 2. Canal — attendu comptoir 271 factures / 176 019 €, direct 600 / 487 308 €,
-   zéro ligne Olivades sans tiers, et AUCUN autre tenant touché (channel NULL) :
+   zéro ligne Olivades sans tiers. Hors Olivades : les valeurs RAW passent telles
+   quelles (seed Kaggle = 'on_site', 196 898 lignes — pré-existant, c'est le
+   design) ; le critère est qu'AUCUN 'comptoir'/'direct' n'apparaisse hors
+   comptes rattachés :
 
 ```sql
 select channel, count(distinct invoice_number) factures,
@@ -605,10 +608,13 @@ from `muse-square-open-data.staging.stg_client_transactions`
 where source_location_id = '14379e18-2060-4b50-871d-edf0818eab8c'
 group by channel;
 
-select countif(channel is not null) as hors_perimetre  -- attendu : 0
+select channel, count(*) n   -- attendu : uniquement des valeurs raw ('on_site'), jamais comptoir/direct
 from `muse-square-open-data.staging.stg_client_transactions`
-where source_location_id != '14379e18-2060-4b50-871d-edf0818eab8c';
+where source_location_id != '14379e18-2060-4b50-871d-edf0818eab8c'
+group by channel;
 ```
+
+   VALIDÉ 06/08 ~19 h (les deux requêtes, résultats exacts ci-dessus).
 
 3. Régime — attendu : les 4 sites seed/démo `daily`, Olivades `weekly`,
    Paris `episodic` (table § 0) :
