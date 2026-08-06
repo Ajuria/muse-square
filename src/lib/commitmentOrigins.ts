@@ -133,6 +133,10 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "sales_competition_cannibalization",
   "proven_action_replication",
   "offering_mix_shift",
+
+  // Onboarding P2 (05/08) : le PREMIER test mesuré d'un compte neuf — geste du tableau
+  // « Engagez votre premier test mesuré » (MSCommitForm, fenêtre à venir, verdict auto).
+  "onboarding_first_test",
 ]);
 
 export function isCommitmentOrigin(actionType: unknown): boolean {

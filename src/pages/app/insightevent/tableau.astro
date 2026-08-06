@@ -33,6 +33,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
     <PiloterBottomBar active="piloter" />
 
+    <script is:inline src="/commit-form.js?v=11"></script>
     <style is:global>
       #tb-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 90px; color: #111827; }
       .tb-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04); margin-bottom: 12px; }
@@ -111,6 +112,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               goal_fr: "Mesurer ce site", link_fr: "Importer les premières ventes",
               href: "/app/insightevent/prompt",
             });
+          });
+          // Premier verdict guidé (onboarding P2) : des ventes existent, aucun engagement
+          // jamais pris — LE geste qui amène le premier verdict mesuré (résolution auto).
+          if (db.first_test) goals.push({
+            kind: "premier_test",
+            aline: "→ Engagez votre premier test mesuré — verdict automatique à la fin de la fenêtre",
+            sub: "une action, une fenêtre à venir — la mesure et le verdict se font seuls" + (j.multi_site && db.first_test.site_label ? " · " + db.first_test.site_label : ""),
+            goal_fr: "Obtenir votre premier verdict mesuré", link_fr: "Engager votre premier test",
+            href: "#tb-first-test",
           });
           if (db.to_document) goals.push({
             kind: "documenter",
@@ -223,6 +233,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             }
           }
           html += '</div>';
+
+          // ── Panneau « premier test » (P2) : le formulaire d'engagement PARTAGÉ, ouvert
+          //    sous l'étage 1 au clic sur le geste — même form que pulse/chat/évolution. ──
+          if (db.first_test) html += '<div id="tb-first-test" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           // ── ÉTAGE 2 : Cette semaine ──
           var ops = j.operations || [];
@@ -462,6 +476,37 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               });
             });
           });
+
+          // ── Premier test mesuré (onboarding P2) : le geste ouvre le formulaire PARTAGÉ
+          //    MSCommitForm (même form que pulse/chat) sur le site qui a des ventes ;
+          //    au succès, le tableau se recharge — le geste disparaît (un engagement existe). ──
+          if (db.first_test) {
+            body.querySelectorAll('a[href="#tb-first-test"]').forEach(function (a) {
+              a.addEventListener("click", function (ev) {
+                ev.preventDefault();
+                var panel = document.getElementById("tb-first-test");
+                if (!panel) return;
+                if (panel.style.display === "block") { panel.style.display = "none"; panel.innerHTML = ""; return; }
+                panel.style.display = "block";
+                if (!window.MSCommitForm) { panel.innerHTML = '<div style="font-size:12.5px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
+                panel.innerHTML = '<p class="tb-eb" style="margin-bottom:8px;">Votre premier test mesuré' + (db.first_test.site_label ? ' — ' + esc(db.first_test.site_label) : '') + '</p>'
+                  + '<div style="font-size:12px;color:#6B7280;line-height:1.5;margin-bottom:8px;">Décrivez UNE action et sa fenêtre à venir — la mesure s’arme seule et le verdict tombe automatiquement à la fin.</div>'
+                  + '<div data-ft-form></div>';
+                var ftHost = panel.querySelector("[data-ft-form]");
+                ftHost.innerHTML = window.MSCommitForm.buildHtml({});
+                window.MSCommitForm.wire(ftHost, {
+                  location_id: db.first_test.location_id,
+                  origin: {
+                    origin_action_type: "onboarding_first_test",
+                    origin_suppression_key: "onboarding_first_test:" + db.first_test.location_id,
+                  },
+                  onDone: function (jd) { if (jd && jd.ok) load(); },
+                  onCancel: function () { panel.style.display = "none"; panel.innerHTML = ""; },
+                });
+                panel.scrollIntoView({ behavior: "smooth", block: "start" });
+              });
+            });
+          }
         }
 
         load();

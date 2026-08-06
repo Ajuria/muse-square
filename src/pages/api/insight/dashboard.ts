@@ -340,7 +340,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       debloquer: {
         // Fraîcheur des ventes (P1) : sales_stale = le PIRE site figé (données présentes mais
         // arrêtées ≥ 7 j — un max futur, ex. seed, n'est pas figé) ; sales_missing = sites
-        // sans AUCUNE ligne. Chaque valeur affichée vient du MAX réel en base.
+        // sans AUCUNE ligne. Premier test (P2) : des ventes existent mais AUCUN engagement
+        // (hors annulés) n'a JAMAIS été pris sur le compte — le geste disparaît au premier.
         ...(() => {
           const todayYmd = new Date().toISOString().slice(0, 10);
           const lastBySite: Record<string, string> = {};
@@ -354,7 +355,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
             .filter((s) => s.stale_days >= 7)
             .sort((a, b) => b.stale_days - a.stale_days);
           const missing = locs.filter((l) => !lastBySite[l]).map((l) => ({ location_id: l, site_label: siteLabel[l] || null }));
-          return { sales_stale: staleList[0] || null, sales_missing: missing };
+          const anyCommitEver = (comRows as any[]).some((c) => String(str(c.status)) !== "cancelled");
+          const dataSite = locs.find((l) => lastBySite[l]) || null;
+          return {
+            sales_stale: staleList[0] || null,
+            sales_missing: missing,
+            first_test: !anyCommitEver && dataSite ? { location_id: dataSite, site_label: siteLabel[dataSite] || null } : null,
+          };
         })(),
         team_empty: Number(num((setupRows as any[])[0]?.team_n) ?? 0) === 0,
         channels_missing: Number(num((setupRows as any[])[0]?.chan_n) ?? 0) === 0,
