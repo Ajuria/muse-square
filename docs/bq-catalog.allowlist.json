@@ -9372,6 +9372,23 @@
    "revenue_p75",
    "iqr_ratio",
    "sales_grain"
+  ],
+  "mart.fct_location_client_patterns": [
+   "location_id",
+   "party_code",
+   "party_label",
+   "source_location_id",
+   "data_end",
+   "orders_count",
+   "first_order",
+   "last_order",
+   "span_days",
+   "median_interval_days",
+   "silence_days",
+   "lateness_ratio",
+   "total_revenue",
+   "is_cadence_established",
+   "client_state"
   ]
  }
 }
