@@ -77,6 +77,9 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     // 07/08/2026 — chantier C2 (docs/weekly-sales-spec.md) : grain SEMAINE par canal.
     "weekly_sales_hole",
     "weekly_sales_spike",
+    // 07/08/2026 — chantier C3 (docs/monthly-sales-spec.md) : grain MOIS par canal.
+    "monthly_sales_hole",
+    "monthly_sales_spike",
   ],
   apprentissage: [
     "proven_action_replication", "weekly_briefing",

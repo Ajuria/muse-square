@@ -56,6 +56,8 @@ const hasRecos = (AC: Record<string, any>, t: string) => typeof AC[t]?.recos ===
 const COUVERTS_ACQUIS = [
   "client_dormant",
   "footfall_vs_basket_decomposition",
+  "monthly_sales_hole",
+  "monthly_sales_spike",
   "weekly_sales_hole",
   "weekly_sales_spike",
   "low_competition_window",

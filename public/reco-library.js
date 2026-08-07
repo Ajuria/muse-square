@@ -332,6 +332,25 @@ window.MS_SALES_RECO_LIB = {
     ],
   },
 
+  // Mois de canal très en retrait (chantier C3, 07/08/2026 — docs/monthly-sales-spec.md).
+  // Grain mois = canal pro : le levier est la revue de COMPTES, pas l'animation du point de vente.
+  monthly_sales_hole: {
+    _default: [
+      { title: "Passez les comptes du mois en revue", description: "Qui commande d'habitude et n'a pas commandé ce mois-ci — nommer les absents.", why: "Un mois pro en retrait est la somme de comptes précis ; la revue les nomme, le grain client dit qui relancer.", tag: "Diagnostic", steps: ["Comparer les comptes du mois aux comptes habituels (top_parties des mois passés).", "Croiser avec les cartes clients (dormants) — la relance est peut-être déjà proposée.", "Noter les absents inexpliqués : ce sont les appels de la semaine."] },
+      { title: "Vérifiez les délais et les en-cours", description: "Commandes en attente, litiges, livraisons décalées — un retrait est parfois un décalage.", why: "Chez des clients en compte, un mois creux est souvent du CA déplacé, pas perdu — le confirmer évite une fausse alerte.", tag: "Opérations" },
+      { title: "Planifiez une prise de contact groupée", description: "Tournée d'appels ou visite des comptes clés du canal, datée.", why: "La relation est le levier du canal pro — une tournée datée vaut mieux qu'une inquiétude diffuse.", tag: "Relation" },
+    ],
+  },
+
+  // Mois de canal exceptionnel (chantier C3) — comprendre compte par compte, puis sécuriser.
+  monthly_sales_spike: {
+    _default: [
+      { title: "Comprenez chaque gros compte du mois", description: "Commande unique, projet, ou nouveau rythme ? Le qualifier compte par compte.", why: "Un pic pro porté par 2-3 comptes n'a de suite que si on sait lequel va recommander.", tag: "Diagnostic", steps: ["Reprendre les comptes de la carte (top_parties) un par un.", "Qualifier : ponctuel (projet) ou début de rythme (réassort attendu ?).", "Pour les rythmes naissants : noter la cadence attendue — le grain client la surveillera."] },
+      { title: "Sécurisez le réassort de ce qu'ils achètent", description: "Les références des gros comptes du mois ne doivent pas manquer au réachat.", why: "Une rupture au moment du réachat casse un rythme naissant.", tag: "Réassort" },
+      { title: "Capitalisez sur la référence", description: "Un gros compte satisfait est un argument commercial — demander le témoignage ou la mise en relation.", why: "Dans le B2B, la preuve par un pair ouvre plus de portes que la prospection froide.", tag: "Développement" },
+    ],
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [

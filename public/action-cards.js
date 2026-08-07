@@ -1873,6 +1873,51 @@
     }
   );
 
+  // monthly_sales_hole / monthly_sales_spike — grain MOIS par canal (chantier C3,
+  // docs/monthly-sales-spec.md). Payload : channel_key, month_start (ISO), ca, invoices,
+  // active_days, baseline_median, baseline_months, month_ratio, top_parties, data_end.
+  // Escalade des grains : ne tire que sur un canal jugeable au mois (pro Olivades — 2 fois
+  // en 11 mois mesuré). top_parties (les 3 comptes du mois) = le différenciateur.
+  function msMoChannelFr(a) { return a.channel_key === 'direct' ? 'clients en compte' : (a.channel_key === '__site__' ? 'du site' : String(a.channel_key || '')); }
+  function msMoFr(iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(5, 7) + '/' + d.slice(0, 4) : ''; }
+  function msMoLine(a, sens) {
+    var ca = a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') : '?';
+    var base = a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') : '?';
+    var line = msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') : ' + ca + ' €'
+      + (a.invoices != null ? ' sur ' + a.invoices + ' factures' : '') + ' — '
+      + (sens === 'hole' ? 'moins de la moitié' : 'plus du double') + ' de vos ' + (a.baseline_months || 6)
+      + ' derniers mois (médiane ' + base + ' €).';
+    if (a.top_parties) line += ' ' + (sens === 'hole' ? 'Principaux comptes du mois : ' : 'Porté par : ') + a.top_parties + '.';
+    if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+    return line;
+  }
+  reg('monthly_sales_hole', 'Mois très en retrait', 'INTELLIGENCE', '📉', '#B45309', 'action', null,
+    function(a) {
+      return {
+        context: msMoLine(a, 'hole'),
+        action: 'À faire : passer les comptes du mois en revue — qui n’a pas commandé, et pourquoi ? Le grain client (cartes clients) dit qui relancer.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Mois ' + msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') très en retrait : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA en retrait') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Revue des comptes du mois à faire ensemble.'
+      }
+    }
+  );
+  reg('monthly_sales_spike', 'Mois exceptionnel', 'INTELLIGENCE', '📈', '#0F6E56', 'action', null,
+    function(a) {
+      return {
+        context: msMoLine(a, 'spike'),
+        action: 'À faire : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et sécuriser le réassort de ce qu’ils achètent.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Mois ' + msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') exceptionnel : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA record') + (a.top_parties ? ', porté par ' + a.top_parties : '') + '. À comprendre compte par compte pour le refaire.'
+      }
+    }
+  );
+
   // ═══ CARTES DE CYCLE DE VIE DES ÉVÉNEMENTS (03/08, spec evenement-dossier § 5) ═══
   // Payload serveur (lib/eventLifecycleCards) : occurrence_date, saved_item_id, event_title,
   // dispositif, event_nature, hour_start/end, kpi(_family), weather_label_fr/lvl_*, revenue/
@@ -2900,7 +2945,8 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike'] },
+          'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
+          'monthly_sales_hole', 'monthly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},
