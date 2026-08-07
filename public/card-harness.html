@@ -42,6 +42,8 @@
       <div class="fix">window.__ieBlocksFromResponse (le VRAI adaptateur d'ie-prompt.js) → MSCardKit.renderAnswerBlocks. Vérifier : pilule registre en tête de CHAQUE réponse, gras rendu, listes rendues, chips cliquables présents.</div>
       <div class="eg-sec"><div class="eg-uc">A · WINDOW_TOP_DAYS (mes 3 meilleurs jours)</div><div id="ans-a"></div></div>
       <div class="eg-sec"><div class="eg-uc">B · DAY_WHY grounded ("et le dimanche ?")</div><div id="ans-b"></div></div>
+      <div class="eg-sec"><div class="eg-uc">PROV · Étape 1 attribution — même réponse B + sentence_provenance + facts_catalog (chips attendus)</div><div id="ans-prov"></div><div id="prov-verdict" style="font-size:12px;font-weight:700;margin-top:6px;"></div></div>
+      <div class="eg-sec"><div class="eg-uc">PROVFB · garde de couverture — provenance INCOMPLÈTE (doit rendre EXACTEMENT comme B, zéro chip)</div><div id="ans-provfb"></div><div id="provfb-verdict" style="font-size:12px;font-weight:700;margin-top:6px;"></div></div>
       <div class="eg-sec"><div class="eg-uc">C · CLARIFICATION (dates manquantes — pas de pilule, chips)</div><div id="ans-c"></div></div>
       <div class="eg-sec"><div class="eg-uc">E · COMPARE_DATES (2 dates)</div><div id="ans-e"></div></div>
       <div class="eg-sec"><div class="eg-uc">D · FAMILY-LED (footfall inline card + registre)</div><div id="ans-d"></div></div>
@@ -370,12 +372,54 @@
         answer: "<img src=x onerror=alert(2)> et du **gras <b>pas de html</b>** :\n\n- item <svg onload=alert(3)>\n- **ok** *fin*\n\nParagraphe avec ** non fermé et *italique.",
         key_facts: ["<iframe src=//evil>"], caveats: [] } }, actions: {} };
 
+    // PROV — Étape 1 attribution : la MÊME réponse grounded B, plus ce que le serveur émet désormais
+    // (sentence_provenance couvrant la réponse + facts_catalog aux libellés owner). f9 est ABSENT du
+    // catalogue exprès : un fait sans origin ne produit aucun chip, jamais un chip deviné.
+    ANSWERS.PROV = JSON.parse(JSON.stringify(ANSWERS.B));
+    ANSWERS.PROV.ai.output.sentence_provenance = [
+      { text: "La concurrence directe domine le paysage du jour : 7 événements sont recensés à moins de 500 mètres, un signal classé priorité 3.", fact_ids: ["f2"] },
+      { text: "Le score du jour reste favorable (48/100, météo acceptable), mais la carte rappelle une forte densité d'événements dans un rayon plus large.", fact_ids: ["f4", "f2"] },
+      { text: "Trois concurrents établis restent à proximité, sans lien démontré avec votre activité de ce dimanche.", fact_ids: ["f5", "f9"] }
+    ];
+    ANSWERS.PROV.ai.output.facts_catalog = [
+      { id: "f2", label: "Événements à proximité" },
+      { id: "f4", label: "Météo du jour" },
+      { id: "f5", label: "Veille concurrence" }
+    ];
+    // PROVFB — garde de couverture : provenance TRONQUÉE (la 3e phrase manque) → la concaténation ne
+    // couvre plus la réponse validée → repli sur le rendu prose actuel, à l'identique, zéro chip.
+    ANSWERS.PROVFB = JSON.parse(JSON.stringify(ANSWERS.PROV));
+    ANSWERS.PROVFB.ai.output.sentence_provenance = ANSWERS.PROV.ai.output.sentence_provenance.slice(0, 2);
+
     function renderAnswer(id, out) {
       var blocks = window.__ieBlocksFromResponse(out);
       document.getElementById(id).innerHTML = MSCardKit.renderAnswerBlocks(blocks);
     }
     renderAnswer('ans-a', ANSWERS.A);
     renderAnswer('ans-b', ANSWERS.B);
+    renderAnswer('ans-prov', ANSWERS.PROV);
+    renderAnswer('ans-provfb', ANSWERS.PROVFB);
+    // Assertions Étape 1 : PROV porte exactement les 4 chips attendus (2+1+1, f9 ignoré) et tout le
+    // texte de B ; PROVFB rend le MÊME HTML que B (repli byte-identique, zéro chip).
+    (function () {
+      var pv = document.getElementById('prov-verdict');
+      var prov = document.getElementById('ans-prov');
+      var chipTexts = [];
+      prov.querySelectorAll('span').forEach(function (s) {
+        var t = (s.textContent || '').trim();
+        if (t === 'Événements à proximité' || t === 'Météo du jour' || t === 'Veille concurrence') chipTexts.push(t);
+      });
+      var textOk = (prov.textContent || '').indexOf('sans lien démontré avec votre activité de ce dimanche') > -1;
+      var ok = chipTexts.length === 4 && textOk;
+      pv.textContent = ok ? 'PROV: PASS — 4 chips (2+1+1, f9 sans catalogue ignoré), texte intégral présent'
+        : ('PROV: FAIL — chips=' + chipTexts.length + ' texte=' + textOk);
+      pv.style.color = ok ? '#0F6E56' : '#B91C1C';
+      var fv = document.getElementById('provfb-verdict');
+      var same = document.getElementById('ans-provfb').innerHTML === document.getElementById('ans-b').innerHTML;
+      fv.textContent = same ? 'PROVFB: PASS — repli byte-identique au rendu B (garde de couverture)'
+        : 'PROVFB: FAIL — le repli diverge du rendu B';
+      fv.style.color = same ? '#0F6E56' : '#B91C1C';
+    })();
     renderAnswer('ans-c', ANSWERS.C);
     renderAnswer('ans-e', ANSWERS.E);
     renderAnswer('ans-d', ANSWERS.D);

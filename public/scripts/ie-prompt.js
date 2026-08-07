@@ -780,6 +780,40 @@ if (!root) {
       typeof primary.label === "string" && primary.label.trim()
         ? { type: "cta", url: primary.url, label: primary.label.trim() } : null;
 
+    // ── Attribution par section (Étape 1, docs/explorer-attribution-spec.md) ──────────────────
+    // Grounded MODEL answers only (producers grounded_day_claude / family_grounded_claude): the
+    // envelope carries sentence_provenance (validator-enforced) + facts_catalog (owner fr labels,
+    // resolved server-side). COVERAGE GUARD: we render from the provenance segments ONLY when their
+    // concatenation equals the whole validated answer (normalized) — any mismatch falls back to the
+    // exact current prose render, so validated text can never be dropped by this feature. Floors and
+    // non-grounded paths carry no provenance and render exactly as before.
+    const _provGrounded = producer === "grounded_day_claude" || producer === "family_grounded_claude";
+    const _provEntries = _provGrounded && Array.isArray(n.sentence_provenance)
+      ? n.sentence_provenance.filter(function (e) { return e && typeof e.text === "string" && e.text.trim() && Array.isArray(e.fact_ids); })
+      : [];
+    const _provLabelById = {};
+    (Array.isArray(n.facts_catalog) ? n.facts_catalog : []).forEach(function (c) {
+      if (c && typeof c.id === "string" && typeof c.label === "string") _provLabelById[c.id] = c.label;
+    });
+    const _provNorm = function (s) { return String(s || "").replace(/\s+/g, " ").trim(); };
+    const _provCovers = _provEntries.length > 0 && typeof answer === "string" && !!answer.trim()
+      && _provNorm(_provEntries.map(function (e) { return e.text; }).join(" ")) === _provNorm(answer);
+    // Segments: each provenance entry's text + the origin chips of the facts IT cites (deduped, max 2 —
+    // readability; a fact id absent from the catalog yields no chip, never a guessed one).
+    const _sourcedBlock = function (decorate) {
+      return {
+        type: "sourced",
+        segments: _provEntries.map(function (e) {
+          var labels = [];
+          e.fact_ids.forEach(function (id) {
+            var l = _provLabelById[id];
+            if (l && labels.indexOf(l) === -1) labels.push(l);
+          });
+          return { md: decorate ? decorate(e.text) : e.text, chips: labels.slice(0, 2) };
+        }),
+      };
+    };
+
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
@@ -839,6 +873,13 @@ if (!root) {
           .filter(Boolean);
       }
       if (headline) blocks.push({ type: "headline", text: headline });
+      // Attribution (Étape 1): chips ONLY where today's render is plain prose — when the answer parses
+      // into competitor ROWS, the approved rows presentation stays byte-identical (ADD, don't replace).
+      if (!competitorLines.length && _provCovers) {
+        blocks.push(_sourcedBlock(null));
+        if (ctaBlock) blocks.push(ctaBlock);
+        return blocks;
+      }
       if (competitorLines.length) blocks.push({ type: "rows", items: competitorLines.map(s => s.trim()) });
       if (parts[1]) blocks.push({ type: "prose", md: parts[1] });
       if (parts[2]) blocks.push({ type: "prose", md: parts[2] });
@@ -856,6 +897,15 @@ if (!root) {
         .replace(/^(Accessibilité du site\s*:)/, "**$1**")
         .replace(/^(Conditions d'exploitation\s*:)/, "**$1**");
       if (headline) blocks.push({ type: "headline", text: headline });
+      // Attribution (Étape 1): same text, same bolding, chips under each provenance segment. The
+      // coverage guard already proved the segments ARE the validated answer; otherwise the exact
+      // previous prose render runs below, unchanged.
+      if (_provCovers) {
+        blocks.push(_sourcedBlock(boldLabels));
+        if (ctaBlock) blocks.push(ctaBlock);
+        if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
+        return blocks;
+      }
       if (prose[0]) blocks.push({ type: "prose", md: prose[0] });
       const rows = prose.slice(1).map(boldLabels);
       if (rows.length) blocks.push({ type: "prose", md: rows.join("\n") });

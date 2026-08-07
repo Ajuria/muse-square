@@ -1272,6 +1272,27 @@
       return '<div style="font-size:13px;color:#111827;margin-bottom:10px;line-height:1.6;">' + mdInlineKit(esc(b.text)) + '</div>';
     },
     prose: function (b) { return mdBlockToSafeHtml(b.md); },
+    // Attribution par section (Étape 1, docs/explorer-attribution-spec.md — owner 07/08 : chip en fin
+    // de section). Each segment = validated answer text + the origin chips of the facts ITS OWN
+    // sentence_provenance entry cites (labels resolved server-side from the owner fr file). A segment
+    // with no chips renders as plain prose — no chip beats a wrong chip. Chips are display-only and
+    // NEVER upgrade the answer-level register pill.
+    sourced: function (b) {
+      var segs = Array.isArray(b.segments) ? b.segments : [];
+      return segs.map(function (s) {
+        if (!s || !s.md) return '';
+        var chips = (Array.isArray(s.chips) ? s.chips : []).filter(function (c) { return c && typeof c === 'string'; })
+          .map(function (c) {
+            return '<span style="display:inline-block;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;letter-spacing:.03em;margin-right:4px;">' + esc(c) + '</span>';
+          }).join('');
+        // Text rendered through the SAME safe pipeline as `prose` (identical typography — the chip is
+        // the only addition); the chip row pulls up against the paragraph's own 14px bottom margin.
+        return '<div>'
+          + mdBlockToSafeHtml(s.md)
+          + (chips ? '<div style="margin:-9px 0 12px 0;">' + chips + '</div>' : '')
+          + '</div>';
+      }).join('');
+    },
     // .ie-ai-list
     facts: function (b) {
       if (!b.items || !b.items.length) return '';
