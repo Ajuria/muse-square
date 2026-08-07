@@ -144,7 +144,8 @@ top_parties_monthly as (
     from (
         select
             location_id,
-            coalesce(channel, '__site__')            as channel_key,
+            -- t. obligatoire : party_directory porte AUSSI une colonne channel (étape B).
+            coalesce(t.channel, '__site__')          as channel_key,
             date_trunc(transaction_date, month)      as month_start,
             coalesce(pd.party_name, t.party_code)    as party_label,
             sum(t.revenue)                           as party_ca
