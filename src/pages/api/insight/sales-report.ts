@@ -55,6 +55,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     bq.query({ query, params, location: 'EU' }).then(([rows]) => rows as any[]);
 
   try {
+    // R2 — RAPPORT SPÉCIFIQUE mono-canal (« Boutique seule ») : un document autonome fait des
+    // seuls blocs du canal — le reste du rapport (séries site entières) MENTIRAIT sur ce
+    // périmètre, donc on ne le calcule même pas. Le canal vient du sélecteur de la page.
+    const reqChannel = typeof body?.channel === 'string' && body.channel.trim() ? body.channel.trim() : null;
+    if (reqChannel) {
+      const scopeC = body?.scope === 'group' && owned.length > 1 ? 'group' : 'site';
+      const { data } = await channelsData(bq, scopeC === 'group' ? owned : [loc], start, end, { channel_key: reqChannel });
+      if (!data.found) return json({ ok: false, error: 'NO_DATA' }, 200);
+      const labelRowsC = await q(
+        `SELECT location_label FROM \`${PROJECT}.dims.dim_client_location\` WHERE location_id = @loc`,
+        { loc }
+      );
+      return json({
+        ok: true,
+        channel_report: true,
+        channels: data,
+        channels_scope: scopeC,
+        location_id: loc,
+        location_label: labelRowsC[0]?.location_label ?? 'Votre établissement',
+        period: { start, end },
+      });
+    }
+
     // « Vos canaux » — AMORCÉE ici (jamais un aller-retour séquentiel de plus), attendue après
     // le lot principal. scope 'group' = tous les sites du compte ; défaut = le site du rapport.
     // Échec soft LOGGÉ (la section est un ajout : le rapport existant ne doit jamais en mourir —

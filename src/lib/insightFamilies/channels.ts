@@ -96,7 +96,12 @@ export async function channelsData(
   bq: any,
   locationIds: string[],
   start: string,
-  end: string
+  end: string,
+  // R2 (rapports spécifiques) : channel_key → document mono-canal. Le seuil « ≥ 2 flux »
+  // ne s'applique qu'au rapport ENRICHI (décision 12) — un rapport DEMANDÉ pour un canal
+  // existe dès que le canal a des données. Les 4 questions sont omises (un flux seul n'a
+  // pas de « d'où vient l'argent »).
+  opts: { channel_key?: string } = {}
 ): Promise<{ data: ChannelsData; facts: FamilyFact[] }> {
   const lenDays = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
   const prevEnd = shiftDays(start, -1);
@@ -168,6 +173,9 @@ export async function channelsData(
           ON pd.source_location_id = t.source_location_id AND pd.party_code = t.party_code
         WHERE t.is_invoiced AND t.location_id IN UNNEST(@locs)
           AND t.transaction_date BETWEEN @s AND @e AND t.party_code IS NOT NULL
+          -- Un tiers-canal (caisse COMPTOIR*, futur corner) est le MÉCANISME du canal,
+          -- jamais un compte client — il ne figure dans aucune liste de comptes.
+          AND COALESCE(pd.channel, '') = ''
         GROUP BY 1, 2, 3, 4
         ORDER BY ca DESC
         LIMIT 1000`),
@@ -181,6 +189,7 @@ export async function channelsData(
           ON pd.source_location_id = t.source_location_id AND pd.party_code = t.party_code
         WHERE t.is_invoiced AND t.location_id IN UNNEST(@locs)
           AND t.transaction_date BETWEEN @ps AND @pe AND t.party_code IS NOT NULL
+          AND COALESCE(pd.channel, '') = ''
         GROUP BY 1, 2, 3, 4
         ORDER BY ca DESC
         LIMIT 1000`),
@@ -196,6 +205,15 @@ export async function channelsData(
           )`, { ...P, roles: DORMANT_ROLES }),
     ]);
 
+  // R2 — mono-canal : on filtre les LIGNES à la source ; les totaux qui suivent deviennent
+  // naturellement ceux du canal (jamais un total recalculé à part — décision 10).
+  const chFilter = opts.channel_key || null;
+  const flowRowsF = chFilter ? flowRows.filter((r: any) => r.channel_key === chFilter) : flowRows;
+  const weeklyRowsF = chFilter ? weeklyRows.filter((r: any) => r.channel_key === chFilter) : weeklyRows;
+  const monthlyRowsF = chFilter ? monthlyRows.filter((r: any) => r.channel_key === chFilter) : monthlyRows;
+  const accCurF = chFilter ? accCur.filter((r: any) => r.channel_key === chFilter) : accCur;
+  const accPrevF = chFilter ? accPrev.filter((r: any) => r.channel_key === chFilter) : accPrev;
+
   const siteName = new Map<string, string>(siteRows.map((r: any) => [r.location_id, r.site_name || "Votre site"]));
   const labelMap = new Map<string, string>(
     labelRows.map((r: any) => [`${r.source_location_id}|${r.channel_key}`, r.label])
@@ -205,12 +223,12 @@ export async function channelsData(
 
   // ── Assemblage Site → Canal (un site mono-flux se présente au niveau site). ──
   const bySite = new Map<string, any[]>();
-  for (const r of flowRows) {
+  for (const r of flowRowsF) {
     if (!bySite.has(r.location_id)) bySite.set(r.location_id, []);
     bySite.get(r.location_id)!.push(r);
   }
-  const totalCa = flowRows.reduce((a: number, r: any) => a + Number(r.ca), 0);
-  const totalPrev = flowRows.reduce((a: number, r: any) => a + Number(r.prev_ca), 0);
+  const totalCa = flowRowsF.reduce((a: number, r: any) => a + Number(r.ca), 0);
+  const totalPrev = flowRowsF.reduce((a: number, r: any) => a + Number(r.prev_ca), 0);
   const evol = (ca: number, prev: number | null) =>
     prev && prev > 0 ? Math.round(((ca - prev) / prev) * 100) : null;
 
@@ -263,7 +281,8 @@ export async function channelsData(
         flows.push({ label: c.label, ca: c.ca, share_pct: c.share_pct, evol_pct: c.evol_pct, etat: c.etat });
   }
   flows.sort((a, b) => b.ca - a.ca);
-  const found = flows.length >= 2;
+  // Enrichi : ≥ 2 flux (décision 12). Mono-canal demandé : le canal existe = le rapport existe.
+  const found = chFilter ? flows.length >= 1 : flows.length >= 2;
 
   // ── Jugeabilité par canal → quels blocs et quel mode de liste de comptes. ──
   const judge = new Map<string, { weekly: boolean; monthly: boolean }>(
@@ -271,7 +290,7 @@ export async function channelsData(
   );
 
   const weeklyByChannel = new Map<string, any[]>();
-  for (const r of weeklyRows) {
+  for (const r of weeklyRowsF) {
     const k = `${r.location_id}|${r.channel_key}`;
     if (!weeklyByChannel.has(k)) weeklyByChannel.set(k, []);
     weeklyByChannel.get(k)!.push(r);
@@ -294,7 +313,7 @@ export async function channelsData(
   });
 
   const monthlyByChannel = new Map<string, any[]>();
-  for (const r of monthlyRows) {
+  for (const r of monthlyRowsF) {
     const k = `${r.location_id}|${r.channel_key}`;
     if (!monthlyByChannel.has(k)) monthlyByChannel.set(k, []);
     monthlyByChannel.get(k)!.push(r);
@@ -322,7 +341,7 @@ export async function channelsData(
 
   // ── Comptes de la période par canal à comptes. ──
   const accByChannel = new Map<string, any[]>();
-  for (const r of accCur) {
+  for (const r of accCurF) {
     const k = `${r.location_id}|${r.channel_key}`;
     if (!accByChannel.has(k)) accByChannel.set(k, []);
     accByChannel.get(k)!.push(r);
@@ -361,12 +380,12 @@ export async function channelsData(
 
   // ── Le compte qui manque : plus gros compte de la période précédente absent de celle-ci,
   //    cherché dans les canaux en écart (▼) d'abord, sinon globalement. ──
-  const curParties = new Set(accCur.map((r: any) => `${r.location_id}|${r.party_code}`));
+  const curParties = new Set(accCurF.map((r: any) => `${r.location_id}|${r.party_code}`));
   const downKeys = new Set(
     flows.filter((f) => f.etat === "down").map((f) => f.label)
   );
   let missing: QQInput["missing_top"] = null;
-  for (const r of accPrev) {
+  for (const r of accPrevF) {
     if (curParties.has(`${r.location_id}|${r.party_code}`)) continue;
     const chLabel = labelFor(r.location_id, r.channel_key);
     if (downKeys.size && !downKeys.has(chLabel)) continue;
@@ -374,7 +393,8 @@ export async function channelsData(
       missing = { label: String(r.party_label), prev_ca: r2(r.ca), channel_label: chLabel };
   }
 
-  const dormants = patternRows
+  const hasAccountChannels = accounts.length > 0;
+  const dormants = (hasAccountChannels ? patternRows : [])
     .filter((r: any) => r.client_state === "dormant")
     .map((r: any) => ({
       party_label: String(r.party_label),
@@ -383,9 +403,9 @@ export async function channelsData(
       location_id: r.location_id,
     }));
   const newByKey = new Map(
-    patternRows.filter((r: any) => r.client_state === "new").map((r: any) => [String(r.party_label), r])
+    (hasAccountChannels ? patternRows : []).filter((r: any) => r.client_state === "new").map((r: any) => [String(r.party_label), r])
   );
-  const new_accounts = accCur
+  const new_accounts = accCurF
     .filter((r: any) => newByKey.has(String(r.party_label)))
     .map((r: any) => ({
       party_label: String(r.party_label),
@@ -410,14 +430,16 @@ export async function channelsData(
       ca: r2(totalCa),
       prev_ca: totalPrev > 0 ? r2(totalPrev) : null,
       evol_pct: evol(totalCa, totalPrev),
-      invoices: flowRows.reduce((a: number, r: any) => a + Number(r.invoices), 0),
+      invoices: flowRowsF.reduce((a: number, r: any) => a + Number(r.invoices), 0),
     },
-    quatre_questions: {
-      argent: QUATRE_QUESTIONS.argent(qq),
-      marche: QUATRE_QUESTIONS.marche(qq),
-      marche_pas: QUATRE_QUESTIONS.marchePas(qq),
-      a_faire: QUATRE_QUESTIONS.aFaire(qq),
-    },
+    quatre_questions: chFilter
+      ? { argent: "", marche: "", marche_pas: "", a_faire: "" }
+      : {
+          argent: QUATRE_QUESTIONS.argent(qq),
+          marche: QUATRE_QUESTIONS.marche(qq),
+          marche_pas: QUATRE_QUESTIONS.marchePas(qq),
+          a_faire: QUATRE_QUESTIONS.aFaire(qq),
+        },
     weekly,
     monthly,
     accounts,
