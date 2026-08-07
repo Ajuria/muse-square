@@ -202,6 +202,15 @@ if (!location_id) {
       /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html) : la ligne d'action est
          l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
       .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+      /* Geste « Préciser ce compte » (carte client_dormant, spec client-patterns § R.3) —
+         chips = forme .chip-n existante rendue cliquable ; survol = teinte de la tuile
+         Intelligence ; confirmation = vert des pills (tokens). Proto validé owner 07/08. */
+      .pr-strip { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+      .pr-q { font-size:12px; color:#6B7280; }
+      .pr-chip { border:none; background:none; padding:0; cursor:pointer; font-family:inherit; }
+      .pr-chip:hover .chip-n { background:#E6F1FB; color:#185FA5; }
+      .pr-done { font-size:12px; color:var(--color-pill-green-text); margin-top:8px; }
+      .pr-err { font-size:12px; color:#B45309; margin-top:8px; }
       .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
       .disc { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
       .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:10px; padding:4px 10px; cursor:pointer; font-family:inherit; }
@@ -2021,6 +2030,7 @@ if (!location_id) {
                     + _amtHtml
                   + '</div>'
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
+                  + msPartyRoleStrip(entry.item)
                 + '</div>'
               + '</div>'
             + '</div>'
@@ -6318,6 +6328,96 @@ if (!location_id) {
       console.error(e);
     }
   })();
+
+  // GESTE « PRÉCISER CE COMPTE » (carte client_dormant — spec client-patterns § R.3, proto
+  // validé owner 07/08). Deux temps EN PLACE : qui (organisation / particulier / canal), puis
+  // comment — chaque réponse finale écrit un rôle COMPLET du vocabulaire § R via
+  // /api/analytics/party-role (MERGE annuaire + action_log). La carte se recalibre à la passe
+  // candidates suivante (2×/j) ; d'ici là, localStorage évite de reposer la question.
+  function msPartyRoleStrip(item) {
+    if (String(item.change_subtype || '') !== 'client_dormant') return '';
+    var party = String(item.party_code || '');
+    var loc = String(item.location_id || '');
+    if (!party || !loc) return '';
+    var noted = null;
+    try { noted = localStorage.getItem('ms_party_role_' + loc + '_' + party); } catch (e) {}
+    if (noted) {
+      return '<div class="pr-done">Noté : ' + escapeHtml(noted) + ' — la carte se recalibrera à la prochaine passe.</div>';
+    }
+    return '<div class="pr-strip" data-pr-strip="1" data-pr-loc="' + escapeHtml(loc) + '" data-pr-party="' + escapeHtml(party) + '">'
+      + '<span class="pr-q">Préciser ce compte — c’est :</span>'
+      + '<button type="button" class="pr-chip" data-pr-who="pro"><span class="chip-n">Une organisation</span></button>'
+      + '<button type="button" class="pr-chip" data-pr-who="consumer"><span class="chip-n">Un particulier</span></button>'
+      + '<button type="button" class="pr-chip" data-pr-who="channel"><span class="chip-n">Un canal de vente</span></button>'
+    + '</div>';
+  }
+
+  // Libellés de confirmation (aussi utilisés par le localStorage ci-dessus).
+  var MS_PR_LABELS = {
+    pro_recurring: 'commande régulièrement',
+    pro_project: 'fonctionne par projets',
+    consumer_recurring: 'particulier, achat régulier',
+    consumer: 'particulier, achat ponctuel',
+    'channel:corner': 'canal — corner / dépôt-vente',
+    'channel:commission': 'canal — commissionnaire / agent',
+    'channel:canal': 'canal de vente'
+  };
+
+  // CAPTURE (3e arg true) : les chips vivent DANS le résumé cliquable [data-consult-open]
+  // (listener d'élément) — en phase de bulle, Consulter s'ouvrirait avant nous. La capture
+  // passe d'abord ; stopPropagation empêche alors l'ouverture du panneau.
+  document.addEventListener('click', function (e) {
+    var whoBtn = e.target.closest('[data-pr-who]');
+    var roleBtn = e.target.closest('[data-pr-role]');
+    if (!whoBtn && !roleBtn) return;
+    var strip = e.target.closest('[data-pr-strip]');
+    if (!strip) return;
+    e.stopPropagation();
+
+    if (whoBtn) {
+      var who = whoBtn.getAttribute('data-pr-who');
+      var second = '';
+      if (who === 'pro') {
+        second = '<span class="pr-q">Une organisation qui :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="pro_recurring"><span class="chip-n">Commande régulièrement</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="pro_project"><span class="chip-n">Fonctionne par projets / chantiers</span></button>';
+      } else if (who === 'consumer') {
+        second = '<span class="pr-q">Un particulier qui :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="consumer_recurring"><span class="chip-n">Achète régulièrement</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="consumer"><span class="chip-n">Achat ponctuel</span></button>';
+      } else {
+        second = '<span class="pr-q">Un canal de type :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="corner"><span class="chip-n">Corner / dépôt-vente</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="commission"><span class="chip-n">Commissionnaire / agent</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="canal"><span class="chip-n">Autre canal</span></button>';
+      }
+      strip.innerHTML = second;
+      return;
+    }
+
+    var role = roleBtn.getAttribute('data-pr-role');
+    var kind = roleBtn.getAttribute('data-pr-kind') || null;
+    var loc = strip.getAttribute('data-pr-loc');
+    var party = strip.getAttribute('data-pr-party');
+    var label = MS_PR_LABELS[kind ? role + ':' + kind : role] || role;
+    strip.innerHTML = '<span class="pr-q">Enregistrement…</span>';
+    fetch('/api/analytics/party-role', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ location_id: loc, party_code: party, party_role: role, channel_kind: kind })
+    }).then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        if (j && j.ok) {
+          try { localStorage.setItem('ms_party_role_' + loc + '_' + party, label); } catch (e2) {}
+          strip.outerHTML = '<div class="pr-done">Noté : ' + escapeHtml(label) + ' — la carte se recalibrera à la prochaine passe.</div>';
+        } else {
+          strip.outerHTML = '<div class="pr-err">Enregistrement impossible — réessayez depuis la carte au prochain chargement.</div>';
+        }
+      })
+      .catch(function () {
+        strip.outerHTML = '<div class="pr-err">Enregistrement impossible — réessayez depuis la carte au prochain chargement.</div>';
+      });
+  }, true);
 
   // PÉRIMÈTRE DE CLIENTÈLE (étage 4) — un clic répond, POST vers set-catchment, puis la question
   // est remplacée EN PLACE par la confirmation. Le délai est annoncé : le recalcul du MONTANT est

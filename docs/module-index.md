@@ -130,6 +130,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `analytics/admin-page.ts` | GET | Admin HTML page (Clerk-gated) | none |
 | `analytics/card-states.ts` | GET | Per-card outcome states (30d) | `analytics.action_log` |
 | `analytics/confirm.ts` | POST | Record signal confirm/dismiss | `analytics.signal_confirmations`, `…action_log` |
+| `analytics/party-role.ts` 🆕 | POST | Qualification du RÔLE d'un compte client depuis la carte client_dormant (geste « Préciser ce compte », spec client-patterns § R.3) — vocabulaire § R validé (5 valeurs + channel_kind obligatoire pour un canal), résolution (site routé → source_location_id) via le mart clients, écriture par MERGE DML (jamais de streaming — table load-job), provenance `user_card:<user>`. Prouvé par harnais tsx 07/08 : 400×3/404/200 + ligne annuaire vérifiée puis provenance restaurée | `mart.fct_location_client_patterns` (lecture), `analytics.party_directory` (MERGE), `…action_log` |
 | `analytics/list-drafts.ts` | GET | List active saved drafts | `analytics.saved_drafts` |
 | `analytics/pending-feedback.ts` | GET | Recent draft events (7d) | `analytics.action_log` |
 | `analytics/save-draft.ts` | POST | Create/save a draft | `analytics.saved_drafts` |
