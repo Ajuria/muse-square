@@ -329,6 +329,111 @@ group by 1, 2;
 
 4. Claude fait ensuite l'increment app (§ 4) et verifie au harnais + screenshot.
 
+## R. Incrément RÔLE DES COMPTES (GO owner 07/08 — vocabulaire verrouillé)
+
+Contexte (owner, 07/08) : CHAHAN est un ARCHITECTE — apporteur de chantiers
+(1 à 3/an). Ses « 19 commandes à cadence 7 j » sont des rafales de facturation
+intra-chantier, pas un rythme de commande : la carte P4 reposait sur une
+prémisse fausse. Généralisation : le RÔLE du compte change le détecteur.
+
+**Vocabulaire (fermé, une valeur = un couple détecteur × famille d'actions)** :
+`pro_recurring` (organisation qui réapprovisionne — cadence par commande) ·
+`pro_project` (organisation par épisodes : architecte, chantier, scénographie —
+détecteur épisodes/an À CONSTRUIRE, épargné d'ici là) · `consumer_recurring`
+(particulier à achat répété — même cadence, actions B2C et cadre légal
+prospection) · `consumer` (particulier ponctuel — jamais de carte cadence) ·
+`channel` (vend POUR le compte : corner, commissionnaire — analyse canal, sort
+du grain client) · `unknown` (défaut absolu — TIRER + QUALIFIER, décision owner
+07/08). Les institutions (mairie, école, musée, association) sont des
+ORGANISATIONS : `pro_recurring` ou `pro_project` selon leur comportement —
+pas de valeur dédiée tant qu'aucun détecteur propre n'existe.
+
+**R.0 — chiffres de référence (mesurés 07/08)** : les 4 dormants n'ont AUCUNE
+fiche rapprochée (insertion, pas update) ; zéro W0 parmi les 22 clients à
+cadence → la moisson W0→consumer n'éteint aucune carte actuelle. Attendu après
+filtre : **4 cartes → 3** (CHAHAN sort par `pro_project` ; PARISIENNESOILAIN,
+HILLARYWTAYLOR, DELAURIERE restent — `unknown` tire).
+
+**R.1 — FAIT par Claude (07/08)** : `analytics.party_directory` reconstruite
+(load job --replace) avec colonne `party_role` — 485 lignes : 345 `consumer`
+(moisson W0 = particuliers tarif public, confirmé JF), 137 `unknown` (W3/W4 :
+signification NON confirmée — jamais devinée), 2 `channel` (caisses COMPTOIR*),
+1 `pro_project` (CHAHAN, provenance « owner chat 07/08 » dans source_file).
+W5 Corner → `channel` s'appliquera à l'arrivée des fichiers de vagues manquants.
+
+**R.2 — dbt (owner, Studio) — 2 edits** :
+
+Dans `mart/fct_location_client_patterns.sql`, CTE `labeled`, remplacer :
+
+```sql
+        coalesce(pd.party_name, p.party_code)   as party_label,
+```
+
+par :
+
+```sql
+        coalesce(pd.party_name, p.party_code)   as party_label,
+        coalesce(pd.party_role, 'unknown')      as party_role,
+```
+
+et dans le select final du même fichier, remplacer :
+
+```sql
+    party_label,
+    source_location_id,
+```
+
+par :
+
+```sql
+    party_label,
+    party_role,
+    source_location_id,
+```
+
+Dans `mart/fct_location_daily_action_candidates.sql`, CTE `client_dormant`,
+remplacer :
+
+```sql
+    from {{ ref('fct_location_client_patterns') }} cp
+    where cp.client_state = 'dormant'
+```
+
+par :
+
+```sql
+    from {{ ref('fct_location_client_patterns') }} cp
+    where cp.client_state = 'dormant'
+      -- Rôle du compte (owner 07/08) : la cadence par commande n'a de sens que
+      -- pour un compte qui REcommande. pro_project (rafales intra-chantier),
+      -- channel (canal de vente) et consumer (achat ponctuel) sont épargnés ;
+      -- unknown TIRE — le geste « Préciser ce client » qualifie (R.3).
+      and cp.party_role in ('pro_recurring', 'consumer_recurring', 'unknown')
+```
+
+Tests (mart schema.yml, entrée `fct_location_client_patterns`, sous `columns:`) :
+
+```yaml
+      - name: party_role
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['pro_recurring', 'pro_project', 'consumer_recurring', 'consumer', 'channel', 'unknown']
+```
+
+Run : `dbt build --select fct_location_client_patterns fct_location_daily_action_candidates`.
+Validation : la requête § 5.3 rend **3 cartes** (toutes priorité 3 — CHAHAN
+absent), et le mart porte CHAHAN `party_role='pro_project'`.
+
+**R.3 — app (Claude, après R.2)** : geste « Préciser ce client » sur la carte
+`client_dormant` — 4 choix (commandes régulières / fonctionne par projets /
+canal de vente / client particulier) → POST nouveau handler
+`api/analytics/party-role.ts` (même rail que `analytics/confirm.ts` : auth
+locals, vocabulaire validé, UPDATE `analytics.party_directory` (table load job,
+DML ok) + ligne `action_log` pour l'audit). Effet à la passe candidates
+suivante (2×/j). Module-index mis à jour dans le même commit.
+
 ## 6. Hors perimetre (queue)
 
 - Carte « nouveau client » (agregat) — ecartee v1, cf. preambule ; a reevaluer

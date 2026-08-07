@@ -1,5 +1,5 @@
 {
- "generated_date": "2026-08-06",
+ "generated_date": "2026-08-07",
  "tables": {
   "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": [
    "_airbyte_raw_id",
@@ -651,6 +651,7 @@
    "party_code",
    "party_name",
    "channel",
+   "party_role",
    "wave",
    "party_type",
    "postal_code",
@@ -3520,6 +3521,24 @@
    "enriched_mobility_city_name",
    "score_driver_label"
   ],
+  "mart.fct_location_client_patterns": [
+   "location_id",
+   "party_code",
+   "party_label",
+   "source_location_id",
+   "data_end",
+   "orders_count",
+   "first_order",
+   "last_order",
+   "span_days",
+   "median_interval_days",
+   "silence_days",
+   "lateness_ratio",
+   "total_revenue",
+   "is_cadence_established",
+   "client_state",
+   "party_role"
+  ],
   "mart.fct_location_commitment_learning": [
    "location_id",
    "factor",
@@ -4112,6 +4131,23 @@
    "delta_att_weather_cold_pct",
    "cold_vs_yesterday",
    "cold_vs_last_week"
+  ],
+  "mart.fct_location_sales_regime": [
+   "location_id",
+   "window_start",
+   "window_end",
+   "active_days",
+   "span_days",
+   "med_days_per_week",
+   "active_weeks",
+   "span_weeks",
+   "week_coverage",
+   "med_daily_txn",
+   "revenue_p25",
+   "revenue_med",
+   "revenue_p75",
+   "iqr_ratio",
+   "sales_grain"
   ],
   "mart.fct_location_weather_alerts_5d": [
    "window_start_date",
@@ -7780,6 +7816,8 @@
    "location_id",
    "source_location_id",
    "is_invoiced",
+   "party_code",
+   "channel",
    "client_id",
    "transaction_date",
    "transaction_datetime",
@@ -7796,7 +7834,6 @@
    "unit_price",
    "quantity",
    "customer_type",
-   "channel",
    "payment_method",
    "discount_flag",
    "invoice_number",
@@ -9355,40 +9392,6 @@
    "weather_code",
    "wind_gusts_10m_max",
    "wind_speed_10m_max"
-  ],
-  "mart.fct_location_sales_regime": [
-   "location_id",
-   "window_start",
-   "window_end",
-   "active_days",
-   "span_days",
-   "med_days_per_week",
-   "active_weeks",
-   "span_weeks",
-   "week_coverage",
-   "med_daily_txn",
-   "revenue_p25",
-   "revenue_med",
-   "revenue_p75",
-   "iqr_ratio",
-   "sales_grain"
-  ],
-  "mart.fct_location_client_patterns": [
-   "location_id",
-   "party_code",
-   "party_label",
-   "source_location_id",
-   "data_end",
-   "orders_count",
-   "first_order",
-   "last_order",
-   "span_days",
-   "median_interval_days",
-   "silence_days",
-   "lateness_ratio",
-   "total_revenue",
-   "is_cadence_established",
-   "client_state"
   ]
  }
 }

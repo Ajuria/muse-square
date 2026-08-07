@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-08-06",
+"generated_date": "2026-08-07",
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "c883b26",
-"table_count": 472,
-"column_count": 8411
+"table_count": 474,
+"column_count": 8443
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -2495,6 +2495,10 @@
 },
 {
 "name": "channel",
+"type": "STRING"
+},
+{
+"name": "party_role",
 "type": "STRING"
 },
 {
@@ -13494,6 +13498,71 @@
 }
 ]
 },
+"mart.fct_location_client_patterns": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "party_code",
+"type": "STRING"
+},
+{
+"name": "party_label",
+"type": "STRING"
+},
+{
+"name": "source_location_id",
+"type": "STRING"
+},
+{
+"name": "data_end",
+"type": "DATE"
+},
+{
+"name": "orders_count",
+"type": "INT64"
+},
+{
+"name": "first_order",
+"type": "DATE"
+},
+{
+"name": "last_order",
+"type": "DATE"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "median_interval_days",
+"type": "INT64"
+},
+{
+"name": "silence_days",
+"type": "INT64"
+},
+{
+"name": "lateness_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "total_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "is_cadence_established",
+"type": "BOOL"
+},
+{
+"name": "client_state",
+"type": "STRING"
+}
+]
+},
 "mart.fct_location_commitment_learning": {
 "type": "BASE TABLE",
 "columns": [
@@ -15800,6 +15869,71 @@
 {
 "name": "cold_vs_last_week",
 "type": "FLOAT64"
+}
+]
+},
+"mart.fct_location_sales_regime": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "window_start",
+"type": "DATE"
+},
+{
+"name": "window_end",
+"type": "DATE"
+},
+{
+"name": "active_days",
+"type": "INT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "med_days_per_week",
+"type": "INT64"
+},
+{
+"name": "active_weeks",
+"type": "INT64"
+},
+{
+"name": "span_weeks",
+"type": "INT64"
+},
+{
+"name": "week_coverage",
+"type": "FLOAT64"
+},
+{
+"name": "med_daily_txn",
+"type": "INT64"
+},
+{
+"name": "revenue_p25",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_med",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_p75",
+"type": "FLOAT64"
+},
+{
+"name": "iqr_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "sales_grain",
+"type": "STRING"
 }
 ]
 },
@@ -29934,6 +30068,14 @@
 "type": "BOOL"
 },
 {
+"name": "party_code",
+"type": "STRING"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
 "name": "client_id",
 "type": "STRING"
 },
@@ -29995,10 +30137,6 @@
 },
 {
 "name": "customer_type",
-"type": "STRING"
-},
-{
-"name": "channel",
 "type": "STRING"
 },
 {
