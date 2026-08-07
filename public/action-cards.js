@@ -1795,6 +1795,41 @@
     }
   );
 
+  // client_dormant — grain CLIENT (chantier C1, docs/client-patterns-spec.md). Payload :
+  // party_code, party_label, orders_count, median_interval_days, silence_days, lateness_ratio,
+  // total_revenue, first_order, last_order, data_end (dates ISO). Cadence et silence sont
+  // MESURÉS sur les factures du client — jamais de cause inventée : la carte constate la
+  // rupture de rythme et pousse la reprise de contact, elle ne dit pas pourquoi.
+  reg('client_dormant', 'Client régulier sans commande', 'INTELLIGENCE', '📇', '#0F766E', 'action', null,
+    function(a, p, d) {
+      var nb = a.orders_count != null ? Number(a.orders_count) : null;
+      var itv = a.median_interval_days != null ? Number(a.median_interval_days) : null;
+      var sil = a.silence_days != null ? Number(a.silence_days) : null;
+      var ratio = a.lateness_ratio != null ? Number(a.lateness_ratio) : null;
+      var ca = a.total_revenue != null ? Math.round(Number(a.total_revenue)) : null;
+      var who = a.party_label || a.party_code || 'Ce client';
+      var line = who + ' : ' + (nb != null ? nb + ' commandes' : 'client régulier') + (itv != null ? ', une tous les ~' + itv + ' j' : '') + ' — silencieux depuis ' + (sil != null ? sil + ' jours' : 'plusieurs semaines') + (ratio != null ? ' (' + String(ratio).replace('.', ',') + '× son rythme)' : '') + '.';
+      if (ca != null) line += ' ' + ca.toLocaleString('fr-FR') + ' € sur la période' + (a.last_order ? ', dernière commande le ' + msEvFrD(a.last_order) : '') + '.';
+      else if (a.last_order) line += ' Dernière commande le ' + msEvFrD(a.last_order) + '.';
+      if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+      return {
+        context: line,
+        action: 'À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        var who = a.party_label || a.party_code || 'client';
+        var itv = a.median_interval_days != null ? '~' + a.median_interval_days + ' j' : 'régulier';
+        return 'Note interne ' + siteName(p) + '. ' + who + ' (rythme ' + itv + ') sans commande depuis ' + (a.silence_days != null ? a.silence_days + ' jours' : 'plusieurs semaines') + '. Qui a le contact ? Reprise de contact à faire cette semaine, en direct.';
+      },
+      email: function(a, p) {
+        var who = a.party_label || a.party_code || 'client';
+        return 'Email interne ' + siteName(p) + '. Objet : ' + who + ' — rupture de rythme de commande. Silence de ' + (a.silence_days != null ? a.silence_days + ' jours' : 'plusieurs semaines') + (a.total_revenue != null ? ' sur un compte à ' + Math.round(Number(a.total_revenue)).toLocaleString('fr-FR') + ' €' : '') + '. Qui le connaît, qui le rappelle ?';
+      }
+    }
+  );
+
   // ═══ CARTES DE CYCLE DE VIE DES ÉVÉNEMENTS (03/08, spec evenement-dossier § 5) ═══
   // Payload serveur (lib/eventLifecycleCards) : occurrence_date, saved_item_id, event_title,
   // dispositif, event_nature, hour_start/end, kpi(_family), weather_label_fr/lvl_*, revenue/
@@ -2822,7 +2857,7 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'footfall_vs_basket_decomposition'] },
+          'footfall_vs_basket_decomposition', 'client_dormant'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},

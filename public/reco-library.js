@@ -301,6 +301,17 @@ window.MS_SALES_RECO_LIB = {
     ]
   },
 
+  // Client à cadence établie sans commande (chantier C1, 06/08/2026 — grain CLIENT,
+  // docs/client-patterns-spec.md). Pas de dimension driver : la carte constate une rupture
+  // de rythme, jamais sa cause — les plans font ÉTABLIR la cause avant de pousser du volume.
+  client_dormant: {
+    _default: [
+      { title: "Reprenez contact en direct — un appel, pas une relance écrite", description: "La personne qui connaît ce client l'appelle et pose la question ouvertement.", why: "Un compte régulier qui s'arrête a une raison — saisonnalité, friction, concurrent — et seul un échange direct la donne.", tag: "Relation", steps: ["Identifier qui, dans l'équipe, tient la relation avec ce client.", "L'appeler : demander simplement où il en est (pause saisonnière ? un souci ? un autre fournisseur ?).", "Noter la raison donnée — c'est elle qui décide de la suite."] },
+      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, réassort de ses références habituelles, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer un réassort ou la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
+      { title: "Si une friction sort de l'échange, traitez-la avant le volume", description: "Délais, transport, tarif, litige — régler d'abord, recommander ensuite.", why: "Relancer du volume sur une friction non traitée grille la relation ; la friction réglée, la commande revient d'elle-même.", tag: "Rétention", steps: ["Qualifier la friction exacte donnée par le client.", "La traiter ou proposer un geste — puis le dire explicitement au client.", "Reproposer ensuite une commande simple, sans pression."] },
+    ],
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [

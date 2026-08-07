@@ -17,6 +17,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "sales_traffic_not_converting",
   "sales_discount_no_lift",
   "footfall_vs_basket_decomposition",
+  "client_dormant",                // C1 (06/08/2026) — s'engager sur la relance d'un client dormant
 
   // Weather — verified present in public/action-cards.js SPECS (the four types that route to
   // the weather deep page / drill-down in insight.astro `_isWeather`).

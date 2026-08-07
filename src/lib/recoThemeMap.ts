@@ -70,6 +70,10 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     // (« Retired: redundant with sales_surge »). On l'aligne quand même — un vocabulaire qui
     // ment sur un type ment sur le suivant.
     "footfall_vs_basket_decomposition",
+    // 06/08/2026 — chantier C1 (docs/client-patterns-spec.md) : carte au grain CLIENT
+    // (client à cadence établie sans commande). Entrée ici LE MÊME JOUR que côté client
+    // (action-cards.js taxonomy) — la parité est testée (recoThemeMap.parity.test.ts).
+    "client_dormant",
   ],
   apprentissage: [
     "proven_action_replication", "weekly_briefing",
