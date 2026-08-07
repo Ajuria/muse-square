@@ -376,10 +376,15 @@
     // (sentence_provenance couvrant la réponse + facts_catalog aux libellés owner). f9 est ABSENT du
     // catalogue exprès : un fait sans origin ne produit aucun chip, jamais un chip deviné.
     ANSWERS.PROV = JSON.parse(JSON.stringify(ANSWERS.B));
+    // Forme RÉELLE (run f10c3e58 07/08) : la provenance couvre AUSSI le headline et les key_facts —
+    // la 1re et la dernière entrée ci-dessous n'appartiennent pas à la réponse et doivent être SAUTÉES
+    // par la couverture séquentielle, sans faire échouer le rendu à chips.
     ANSWERS.PROV.ai.output.sentence_provenance = [
+      { text: "Dimanche s'annonce ordinaire mais concurrentiel, avec une pression événementielle locale marquée.", fact_ids: ["f2"] },
       { text: "La concurrence directe domine le paysage du jour : 7 événements sont recensés à moins de 500 mètres, un signal classé priorité 3.", fact_ids: ["f2"] },
       { text: "Le score du jour reste favorable (48/100, météo acceptable), mais la carte rappelle une forte densité d'événements dans un rayon plus large.", fact_ids: ["f4", "f2"] },
-      { text: "Trois concurrents établis restent à proximité, sans lien démontré avec votre activité de ce dimanche.", fact_ids: ["f5", "f9"] }
+      { text: "Trois concurrents établis restent à proximité, sans lien démontré avec votre activité de ce dimanche.", fact_ids: ["f5", "f9"] },
+      { text: "7 événements à moins de 500 m - concurrence directe", fact_ids: ["f2"] }
     ];
     ANSWERS.PROV.ai.output.facts_catalog = [
       { id: "f2", label: "Événements à proximité" },

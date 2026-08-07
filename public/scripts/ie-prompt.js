@@ -796,14 +796,31 @@ if (!root) {
       if (c && typeof c.id === "string" && typeof c.label === "string") _provLabelById[c.id] = c.label;
     });
     const _provNorm = function (s) { return String(s || "").replace(/\s+/g, " ").trim(); };
-    const _provCovers = _provEntries.length > 0 && typeof answer === "string" && !!answer.trim()
-      && _provNorm(_provEntries.map(function (e) { return e.text; }).join(" ")) === _provNorm(answer);
+    // The model's provenance maps ALL surfaced claims (headline + answer + key_facts — measured on a
+    // real f10c3e58 run, 07/08). Coverage is therefore SEQUENCE-CONSUMED: walk the normalized answer
+    // and keep, in order, the entries that reconstruct it EXACTLY and COMPLETELY (headline/key_facts
+    // echoes are skipped). Any gap or leftover → null → the exact current prose render — validated
+    // text can never be dropped by this feature.
+    const _provSegs = (function () {
+      if (!_provEntries.length || typeof answer !== "string" || !answer.trim()) return null;
+      var target = _provNorm(answer);
+      var pos = 0, used = [];
+      for (var i = 0; i < _provEntries.length; i++) {
+        var t = _provNorm(_provEntries[i].text);
+        if (!t) continue;
+        var at = pos;
+        if (target.charAt(at) === " ") at += 1;
+        if (target.indexOf(t, at) === at) { used.push(_provEntries[i]); pos = at + t.length; }
+      }
+      return pos === target.length && used.length ? used : null;
+    })();
+    const _provCovers = !!_provSegs;
     // Segments: each provenance entry's text + the origin chips of the facts IT cites (deduped, max 2 —
     // readability; a fact id absent from the catalog yields no chip, never a guessed one).
     const _sourcedBlock = function (decorate) {
       return {
         type: "sourced",
-        segments: _provEntries.map(function (e) {
+        segments: (_provSegs || []).map(function (e) {
           var labels = [];
           e.fact_ids.forEach(function (id) {
             var l = _provLabelById[id];
