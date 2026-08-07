@@ -9392,6 +9392,26 @@
    "weather_code",
    "wind_gusts_10m_max",
    "wind_speed_10m_max"
+  ],
+  "mart.fct_location_channel_weekly": [
+   "location_id",
+   "channel_key",
+   "week_start",
+   "week_end",
+   "ca",
+   "active_days",
+   "invoices",
+   "data_end",
+   "weeks_observed",
+   "med_active_days",
+   "iqr_ratio",
+   "sales_grain",
+   "is_weekly_judgeable",
+   "baseline_median",
+   "baseline_weeks",
+   "week_ratio",
+   "week_state",
+   "is_run_start"
   ]
  }
 }
