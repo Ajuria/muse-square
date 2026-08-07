@@ -43,6 +43,7 @@ const locParam = Astro.url.searchParams.get("loc") || "";
       }
     </style>
 
+    <script is:inline src="/card-kit.js?v=44"></script>
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/action-cards.js?v=46"></script>
     <script is:inline>
@@ -292,14 +293,25 @@ const locParam = Astro.url.searchParams.get("loc") || "";
           + '</div>'
           + '<div style="break-inside:avoid;"><div class="rp-uc">Actions recommandées</div>'+actions+'</div>';
 
+          // « Vos canaux » (R1, docs/rapport-canaux-spec.md) — rendu partagé card-kit ;
+          // null si < 2 flux réels (la section n'existe simplement pas).
+          if (data.channels && window.MSCardKit && window.MSCardKit.renderChannels) {
+            html += '<div style="break-inside:avoid;margin-top:24px;"><div class="rp-uc">Vos canaux'
+              + (data.channels_scope === 'group' ? ' — tous vos sites' : '') + '</div>'
+              + window.MSCardKit.renderChannels(data.channels) + '</div>';
+          }
+
           docEl.innerHTML = html;
           docEl.style.display = "block";
           statusEl.style.display = "none";
+          try { document.dispatchEvent(new Event('ms-cardkit-rendered')); } catch (e) {}
         }
 
         var start = root.dataset.start, end = root.dataset.end, loc = root.dataset.loc;
         if (!start || !end) { showError("Période manquante dans l'adresse du rapport."); return; }
-        fetch("/api/insight/sales-report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date_start: start, date_end: end, location_id: loc || undefined }) })
+        var scopeParam = null;
+        try { scopeParam = new URLSearchParams(window.location.search).get("scope"); } catch (e) {}
+        fetch("/api/insight/sales-report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date_start: start, date_end: end, location_id: loc || undefined, scope: scopeParam || undefined }) })
           .then(function (r) { return r.json(); })
           .then(render)
           .catch(function () { showError("Erreur lors de la génération du rapport."); });

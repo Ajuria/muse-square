@@ -23,6 +23,7 @@ import { audienceFamily } from "./audience";
 import { salesDiscountFamily } from "./salesDiscount";
 import { salesDecompFamily } from "./salesDecomp";
 import { calendarFamily } from "./calendar";
+import { channelsProvider } from "./channels";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -206,6 +207,11 @@ export const FAMILIES: Record<string, FamilyProvider> = {
     ],
     run: calendarFamily,
   },
+  // CHANNELS — « d'où vient l'argent, qui achète » (R1, docs/rapport-canaux-spec.md).
+  // DERNIER du registre à dessein : ses motifs exigent un mot de canal (boutique/grossiste/
+  // canal) ou de compte client explicite — il ne doit rien voler aux familles ventes/
+  // fréquentation qui matchent plus tôt. Périmètre : agrégats par canal + comptes nommés.
+  channels: channelsProvider,
 };
 
 // Accent-strip + lowercase so matchers are robust to "A quel moment" (no accent, as typed) vs "À".

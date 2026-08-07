@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
 // Named-context assembly is shared with reactions-today via dayContext (one source, no fork).
 import { namedEventsRange, foreignVisitorsRange } from '../../../lib/dayContext';
+// Section « Vos canaux » (R1, docs/rapport-canaux-spec.md) — même cœur que le provider channels.
+import { channelsData } from '../../../lib/insightFamilies/channels';
 
 export const prerender = false;
 
@@ -53,6 +55,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     bq.query({ query, params, location: 'EU' }).then(([rows]) => rows as any[]);
 
   try {
+    // « Vos canaux » — AMORCÉE ici (jamais un aller-retour séquentiel de plus), attendue après
+    // le lot principal. scope 'group' = tous les sites du compte ; défaut = le site du rapport.
+    // Échec soft LOGGÉ (la section est un ajout : le rapport existant ne doit jamais en mourir —
+    // mais un échec silencieux non loggé est le piège dateResolutionQuery, donc console.error).
+    const scope = body?.scope === 'group' && owned.length > 1 ? 'group' : 'site';
+    const channelsPromise = channelsData(bq, scope === 'group' ? owned : [loc], start, end)
+      .catch((e: any) => { console.error('sales-report channels section failed:', e?.message); return null; });
     const [series, prior, sig, cats, ctx, namedEvents, foreign, actions, radius, labelRows, assoc, compRows] = await Promise.all([
       // daily series (revenue + transactions) — totals/weekday/best-worst derived in JS
       q(`SELECT transaction_date AS d, SUM(daily_revenue) AS rev, SUM(daily_transactions) AS txns
@@ -204,8 +213,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const yoyDays = Number(prior[0]?.yoy_days) || 0;
     const pct = (cur: number, base: number) => (base > 0 ? Math.round(((cur - base) / base) * 1000) / 10 : null);
 
+    const channelsRes = await channelsPromise;
+
     return json({
       ok: true,
+      // « Vos canaux » — null si < 2 flux réels (décision 12 : jamais de section à flux unique).
+      channels: channelsRes && channelsRes.data.found ? channelsRes.data : null,
+      channels_scope: scope,
       location_id: loc,
       location_label: labelRows[0]?.location_label ?? 'Votre établissement',
       period: { start, end },
