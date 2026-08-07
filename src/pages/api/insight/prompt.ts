@@ -11,6 +11,7 @@ import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
+import { FACT_ORIGIN_FR, type FactOrigin } from "../../../lib/fr/factOrigins.fr";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
 import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
@@ -48,6 +49,28 @@ const DEV_BYPASS_PROMPT = import.meta.env.DEV && process.env.MS_AUTH_BYPASS === 
 // Non-answers (profile-incomplete, no-data, missing-dates request) carry no register (null → no pill).
 // Single server-side derivation; the client renders meta.register verbatim (never re-guesses it).
 type ProvenanceRegister = "vetted" | "web" | "model";
+// Étape 1 (attribution, docs/explorer-attribution-spec.md) — default fact origin per family, applied
+// to provider facts on the family-led whitelist. DISPLAY-ONLY (chips); the validator never reads it.
+// footfall/audience are null ON PURPOSE: their facts mix measured-CA reads with BestTime ESTIMATES —
+// a family-wide « Vos ventes » chip would dress the estimate as measurement. No chip beats a wrong chip.
+const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
+  weather: "meteo",
+  offering: "ventes",
+  salesdiscount: "ventes",
+  salesdecomp: "ventes",
+  channels: "ventes",
+  competitor: "concurrence",
+  events: "evenements_proximite",
+  tourism: "tourisme",
+  calendar: "calendrier",
+  footfall: null,
+  audience: null,
+};
+// Tag a fact list with an origin (never overriding one set at the construction site).
+function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: FactOrigin | null): T[] {
+  return origin ? facts.map((f) => (f.origin ? f : { ...f, origin })) : facts;
+}
+
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
@@ -4767,7 +4790,7 @@ Règles :
         const _events = await _eventsP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
-          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
+          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type, origin: "ventes" as const }))
           : [];
         const _familyLed = !!(_famResult && _famResult.found);
         if (_familyLed) {
@@ -4794,11 +4817,11 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts, ..._events.facts] },
+              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts, ..._events.facts] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
@@ -4893,6 +4916,15 @@ Règles :
         if (ai && ai.output && typeof ai.output === "object") {
           const topCard = (grounded_payload.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
           (ai.output as any).suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
+          // Étape 1 (attribution) — facts_catalog: fact_id → owner-approved French origin LABEL, resolved
+          // server-side (the static client never maps keys). Only on a grounded MODEL pass that produced
+          // sentence_provenance (floors are provenance-less and render exactly as before). Only facts
+          // with a known origin ship — an id absent from the catalog renders no chip, never a guessed one.
+          if (ai.ok && Array.isArray((ai.output as any).sentence_provenance)) {
+            (ai.output as any).facts_catalog = grounded_payload.citable_facts
+              .filter((f) => f.origin)
+              .map((f) => ({ id: f.id, label: FACT_ORIGIN_FR[f.origin as FactOrigin] }));
+          }
         }
 
         break;
@@ -6092,6 +6124,16 @@ Règles :
             // (« Vérifié · 5 faits cités »). Absent on non-grounded paths — the pill stays plain.
             ...(Array.isArray((ai as any)?.output?.cited_fact_ids)
               ? { cited_fact_ids: (ai as any).output.cited_fact_ids }
+              : {}),
+            // Étape 1 (attribution) — per-sentence provenance + the fact→label catalog, so the client
+            // can chip each answer section. Both ADDITIVE: absent on floors and non-grounded paths,
+            // where rendering stays exactly as before. (The provenance was already produced and
+            // validator-enforced — it was simply dropped here until now.)
+            ...(Array.isArray((ai as any)?.output?.sentence_provenance) && Array.isArray((ai as any)?.output?.facts_catalog)
+              ? {
+                  sentence_provenance: (ai as any).output.sentence_provenance,
+                  facts_catalog: (ai as any).output.facts_catalog,
+                }
               : {}),
             // Native typed blocks (additive, 16/07): when a path authored them server-side (lookup
             // first), the client renders these verbatim instead of re-parsing `answer` strings.

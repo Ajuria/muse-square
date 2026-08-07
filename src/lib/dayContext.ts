@@ -154,7 +154,7 @@ export interface DayContext {
   };
   // the LLM contract: every citable fact carries its claim_type; driver is a salience RANKING (not a cause).
   llm: {
-    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' | 'observed_change' | 'observed' }>;
+    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' | 'observed_change' | 'observed'; origin?: import('./fr/factOrigins.fr').FactOrigin }>;
     driver: { value: string | null; claim_type: 'observed_ranking' };
     forbidden: string[];
   };
@@ -508,12 +508,14 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       // computed here already and dropped at this mapping — the model never saw the register its facts
       // rest on, so it could not label a causal claim with it. No other fact type gets a tier: proximity /
       // presence / acute have no measurement to be confident about.
-      ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const, tier: s.confidence_tier })),
-      ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const, tier: d.tier as Tier })),
-      ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const })),
-      ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const })),
-      ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const }] : []),
-      ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const }] : []),
+      // `origin` (Étape 1, attribution) rides only where the source is unambiguous — detected cards and
+      // named changes below stay origin-less (heterogeneous action_types: no chip beats a wrong chip).
+      ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const, tier: s.confidence_tier, origin: 'ventes' as const })),
+      ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const, tier: d.tier as Tier, origin: 'ventes' as const })),
+      ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const, origin: 'concurrence' as const })),
+      ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const, origin: 'calendrier' as const })),
+      ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const, origin: 'meteo' as const }] : []),
+      ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const, origin: 'tourisme' as const }] : []),
       ...cards.filter((c: typeof cards[number]) => isCleanFrench(c.headline_fr)).map((c: typeof cards[number]) => ({ fact_fr: c.headline_fr as string, claim_type: 'observed' as const })), // detected cards (claim-safe headline)
       ...changes.filter((c: typeof changes[number]) => c.event_label).map((c: typeof changes[number]) => ({ fact_fr: fillContextFallback('signal_change', { label: c.event_label as string }) ?? (c.event_label as string), claim_type: 'observed_change' as const })), // named changes
     ],
