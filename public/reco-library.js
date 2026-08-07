@@ -312,6 +312,26 @@ window.MS_SALES_RECO_LIB = {
     ],
   },
 
+  // Semaine de canal très en retrait (chantier C2, 07/08/2026 — docs/weekly-sales-spec.md).
+  // La carte constate un extrême (< 0,5× l'habitude), jamais sa cause — les plans font
+  // d'abord RECONSTITUER la semaine, puis agir sur ce qui se pilote au terme d'une semaine.
+  weekly_sales_hole: {
+    _default: [
+      { title: "Reconstituez la semaine avant d'agir", description: "Fermetures, absence, travaux, contexte local — poser les faits de la semaine.", why: "Un trou de moitié a presque toujours une cause concrète ; agir sans elle, c'est corriger au hasard.", tag: "Diagnostic", steps: ["Lister les jours ouverts/fermés de la semaine et qui était présent.", "Noter tout événement local ou contrainte (travaux, météo marquante, panne).", "Trancher : cause interne, externe, ou inexpliquée — c'est elle qui décide de la suite."] },
+      { title: "Ajustez les achats au creux identifié", description: "Si le creux est saisonnier ou récurrent, caler les commandes dessus.", why: "Les achats sont le levier qu'un exploitant maîtrise à ce terme — pas l'affluence.", tag: "Achats" },
+      { title: "Planifiez une animation sur le prochain creux du même type", description: "Mise en avant, offre datée, prise de parole locale — testée et mesurée.", why: "Un creux récurrent identifié devient une fenêtre d'action planifiable, pas une surprise.", tag: "Animation" },
+    ],
+  },
+
+  // Semaine de canal exceptionnelle (chantier C2) — capturer ce qui a marché.
+  weekly_sales_spike: {
+    _default: [
+      { title: "Identifiez ce qui a porté la semaine", description: "Grosse vente, client, opération, contexte — le nommer précisément.", why: "Un pic a une cause ; non identifiée, elle ne se rejouera que par hasard.", tag: "Diagnostic", steps: ["Regarder les plus grosses ventes de la semaine et qui les a faites.", "Noter ce qui différait : opération en cours, contexte, visite particulière.", "Écrire la cause en une phrase — c'est votre bonne pratique candidate."] },
+      { title: "Sécurisez le réassort de ce qui s'est vendu", description: "Les références qui ont porté le pic ne doivent pas manquer ensuite.", why: "Une rupture après un pic transforme la demande captée en frustration.", tag: "Réassort" },
+      { title: "Rejouez la cause sciemment — et mesurez", description: "Si c'est reproductible (opération, mise en avant), la reprogrammer avec un objectif.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer en le mesurant.", tag: "À reconduire" },
+    ],
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [

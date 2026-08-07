@@ -51,10 +51,13 @@ function loadClient(): { ACTION_CARDS: Record<string, any>; MS_SALES_RECO_LIB: R
 const hasRecos = (AC: Record<string, any>, t: string) => typeof AC[t]?.recos === "function";
 
 // Les types couverts (7 au 31/07, +weekend_vacation_low_comp le 01/08, +client_dormant le
-// 06/08 — C1, arrivé AVEC ses plans comme le cliquet l'exige). Ne doit que GRANDIR.
+// 06/08 — C1, +weekly_sales_hole/spike le 07/08 — C2 ; chacun arrivé AVEC ses plans comme
+// le cliquet l'exige). Ne doit que GRANDIR.
 const COUVERTS_ACQUIS = [
   "client_dormant",
   "footfall_vs_basket_decomposition",
+  "weekly_sales_hole",
+  "weekly_sales_spike",
   "low_competition_window",
   "sales_competition_cannibalization",
   "sales_discount_no_lift",

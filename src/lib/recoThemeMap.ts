@@ -74,6 +74,9 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     // (client à cadence établie sans commande). Entrée ici LE MÊME JOUR que côté client
     // (action-cards.js taxonomy) — la parité est testée (recoThemeMap.parity.test.ts).
     "client_dormant",
+    // 07/08/2026 — chantier C2 (docs/weekly-sales-spec.md) : grain SEMAINE par canal.
+    "weekly_sales_hole",
+    "weekly_sales_spike",
   ],
   apprentissage: [
     "proven_action_replication", "weekly_briefing",

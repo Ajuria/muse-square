@@ -1830,6 +1830,49 @@
     }
   );
 
+  // weekly_sales_hole / weekly_sales_spike — grain SEMAINE par canal (chantier C2,
+  // docs/weekly-sales-spec.md). Payload : channel_key, week_start/week_end (ISO), ca,
+  // active_days, baseline_median, baseline_weeks, week_ratio, data_end. Le détecteur ne
+  // tire que sur une semaine EXTRÊME (< 0,5× / > 2× la médiane des 6 précédentes) d'un
+  // canal jugeable — ~8-9 fois par an mesuré ; la carte constate, la cause s'établit.
+  function msWkChannelFr(a) { return a.channel_key === 'comptoir' ? 'comptoir' : (a.channel_key === '__site__' ? 'du site' : String(a.channel_key || '')); }
+  function msWkLine(a, sens) {
+    var ca = a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') : '?';
+    var base = a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') : '?';
+    var line = 'Semaine du ' + msEvFrD(a.week_start) + ' au ' + msEvFrD(a.week_end) + ' (' + msWkChannelFr(a) + ') : ' + ca + ' €'
+      + (a.active_days != null ? ' sur ' + a.active_days + ' jours actifs' : '') + ' — '
+      + (sens === 'hole' ? 'moins de la moitié' : 'plus du double') + ' de vos ' + (a.baseline_weeks || 6)
+      + ' dernières semaines (médiane ' + base + ' €).';
+    if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+    return line;
+  }
+  reg('weekly_sales_hole', 'Semaine très en retrait', 'INTELLIGENCE', '📉', '#B45309', 'action', null,
+    function(a) {
+      return {
+        context: msWkLine(a, 'hole'),
+        action: 'À faire : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Semaine du ' + msEvFrD(a.week_start) + ' (' + msWkChannelFr(a) + ') très en retrait : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA en retrait') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Qu’est-ce qui s’est passé cette semaine-là ? À reconstituer ensemble.'
+      }
+    }
+  );
+  reg('weekly_sales_spike', 'Semaine exceptionnelle', 'INTELLIGENCE', '📈', '#0F6E56', 'action', null,
+    function(a) {
+      return {
+        context: msWkLine(a, 'spike'),
+        action: 'À faire : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Semaine du ' + msEvFrD(a.week_start) + ' (' + msWkChannelFr(a) + ') exceptionnelle : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA record') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Qui sait ce qui a porté la semaine ? À noter pour le refaire.'
+      }
+    }
+  );
+
   // ═══ CARTES DE CYCLE DE VIE DES ÉVÉNEMENTS (03/08, spec evenement-dossier § 5) ═══
   // Payload serveur (lib/eventLifecycleCards) : occurrence_date, saved_item_id, event_title,
   // dispositif, event_nature, hour_start/end, kpi(_family), weather_label_fr/lvl_*, revenue/
@@ -2857,7 +2900,7 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'footfall_vs_basket_decomposition', 'client_dormant'] },
+          'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},
