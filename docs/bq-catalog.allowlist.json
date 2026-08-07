@@ -9412,6 +9412,27 @@
    "week_ratio",
    "week_state",
    "is_run_start"
+  ],
+  "mart.fct_location_channel_monthly": [
+   "location_id",
+   "channel_key",
+   "month_start",
+   "month_end",
+   "ca",
+   "active_days",
+   "invoices",
+   "top_parties",
+   "data_end",
+   "months_observed",
+   "iqr_ratio",
+   "sales_grain",
+   "is_weekly_judgeable",
+   "is_monthly_judgeable",
+   "baseline_median",
+   "baseline_months",
+   "month_ratio",
+   "month_state",
+   "is_run_start"
   ]
  }
 }
