@@ -47,7 +47,7 @@ if (!root) {
   function persistThreadEntry(q, out) {
     try {
       const arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]");
-      arr.push({ q: q, out: slimEnvelope(out) });
+      arr.push({ q: q, out: slimEnvelope(out), t: Date.now() });
       while (arr.length > 8) arr.shift();
       let payload = JSON.stringify(arr);
       while (payload.length > 1500000 && arr.length > 1) { arr.shift(); payload = JSON.stringify(arr); }
@@ -59,8 +59,16 @@ if (!root) {
     let arr = [];
     try { arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]"); } catch (e) { return; }
     if (!Array.isArray(arr) || !arr.length) return;
+    // R5 — auto-expiration : on ne restaure que si le DERNIER échange a moins d'une heure (un
+    // aller-retour rapport survit ; une visite du lendemain repart propre — retour owner 08/08).
+    const lastT = Number(arr[arr.length - 1]?.t ?? 0);
+    if (!lastT || Date.now() - lastT > 3600000) {
+      try { sessionStorage.removeItem(THREAD_STORE_KEY); } catch (e) { /* jamais bloquant */ }
+      return;
+    }
     qs("ie-prompt-empty")?.setAttribute("hidden", "true");
     qs("ie-thread")?.removeAttribute("hidden");
+    qs("ie-new-thread-row")?.removeAttribute("hidden");
     for (const entry of arr) {
       if (!entry || typeof entry.q !== "string" || !entry.out) continue;
       appendMsg("user", entry.q);
@@ -1156,6 +1164,7 @@ if (!root) {
 
     qs("ie-prompt-empty")?.setAttribute("hidden", "true");
     qs("ie-thread")?.removeAttribute("hidden");
+    qs("ie-new-thread-row")?.removeAttribute("hidden");
 
     // Clear input immediately after sending (ChatGPT behavior)
     ta.value = "";
@@ -1866,4 +1875,22 @@ if (!root) {
 
   refreshMemoryPanel();
   restoreThread();   // R2-3 — re-render the persisted exchanges (report round-trip no longer erases)
+
+  // R5 — « Nouvelle conversation » : purge le fil stocké + l'état de session (frame, historique),
+  // repart sur la page vide. Le frame remis à zéro compte : un follow-up (« et le dimanche ? ») ne
+  // doit jamais hériter d'une conversation effacée.
+  document.addEventListener("click", function (e) {
+    const btn = e.target && e.target.closest ? e.target.closest("[data-ie-new-thread]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    try { sessionStorage.removeItem(THREAD_STORE_KEY); } catch (e2) { /* jamais bloquant */ }
+    CONVERSATION_HISTORY = [];
+    THREAD_CONTEXT = { v: 1, location_id: LOCATION_ID, turn: 0, last: null };
+    const thread = qs("ie-thread");
+    if (thread) { thread.innerHTML = ""; thread.setAttribute("hidden", "true"); }
+    qs("ie-new-thread-row")?.setAttribute("hidden", "true");
+    qs("ie-prompt-empty")?.removeAttribute("hidden");
+    const ta = qs("ie-prompt-input");
+    if (ta) ta.focus();
+  });
   }

@@ -250,6 +250,10 @@ if (!location_id) {
           <div id="ie-memory-items"></div>
         </div>
 
+        <!-- R5 (08/08, owner) : un fil qui persiste a besoin de sa sortie — visible seulement quand un fil existe. -->
+        <div id="ie-new-thread-row" hidden style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+          <button type="button" data-ie-new-thread style="border:none;background:transparent;cursor:pointer;padding:2px 0;font-size:13px;font-weight:500;color:#0b37e5;font-family:inherit;">Nouvelle conversation</button>
+        </div>
         <section id="ie-thread" aria-live="polite" hidden>
           <!-- AI output render target -->
           <div id="ai_output_mount"></div>
@@ -2147,7 +2151,7 @@ if (!location_id) {
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/card-kit.js?v=46"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=35" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=36" defer></script>
 
   </BaseLayout>
 </Show>
