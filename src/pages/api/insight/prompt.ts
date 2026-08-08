@@ -23,6 +23,7 @@ import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
+import { getWebDayContext } from "../../../lib/ai/webContext";
 import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
@@ -3794,6 +3795,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
 
     type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic" | "grounded_day_claude" | "family_grounded_claude" | "family_deterministic";
     let producer: ProducerMeta = "deterministic";
+    let _webContext: any = null;   // ÉTAPE 5 — contexte web du jour (champ séparé, jamais la liste blanche)
     let _familyLedKey: string | null = null;   // set when a card-family provider led the day answer
     let _familyCard: { render: string; data: any } | null = null;   // full family card → rendered INLINE in the chat (the detailed answer, no click-through)
 
@@ -4861,6 +4863,27 @@ Règles :
           console.warn("[grounded] day landscape facts skipped:", e);
           return [] as Array<{ fact_fr: string; claim_type: any }>;
         });
+        // ÉTAPE 5 (08/08) — contexte web du jour, DÉCLENCHÉ seulement sur un jour PASSÉ « inexpliqué »
+        // (aucun moteur mesuré actif : sensibilités + décomposition vides — cercle 2 : on vérifie une
+        // journée à la demande, jamais un flux). Amorcé ICI sans await : le crawl court PENDANT la
+        // génération (coût = max, pas somme) ; attendu APRÈS, plafonné — jamais de latence ajoutée
+        // au-delà du plafond. Cache 30 j → instantané au 2e passage. Jamais dans la liste blanche :
+        // le web ne porte pas de tier, il ship dans un champ séparé rendu « Web — non vérifié ».
+        const _todayParis = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+        const _wantWeb =
+          effective_date < _todayParis &&
+          !(dc_day.sensitivities ?? []).some((s: any) => s.active_today) &&
+          !(dc_day.decomposition ?? []).length;
+        const _webCtxP: Promise<any> = _wantWeb
+          ? getWebDayContext(bigquery, {
+              location_id, date: effective_date,
+              // city vient de profile_raw (la ligne complète de la vue) — le VenueProfile curé ne
+              // porte pas city_name (mesuré : sans ville, l'agent web répond en prose, pas en JSON).
+              city_name: (dc_day as any).profile_raw?.city_name ?? null,
+              business_short_description: (dc_day.profile as any)?.business_description ?? (dc_day as any).profile_raw?.business_short_description ?? null,
+              driver: dc_day.llm?.driver?.value ?? null,
+            }).catch((e) => { console.warn("[webContext] chat fetch skipped:", e); return null; })
+          : Promise.resolve(null);
         let _secondaryFamFacts: any[] = [];
         try {
           // ÉTAPE 3 (planificateur, 08/08) — TOUTES les familles que la question touche (cap 3, ordre
@@ -5068,6 +5091,10 @@ Règles :
               .map((f) => ({ id: f.id, label: FACT_ORIGIN_FR[f.origin as FactOrigin] }));
           }
         }
+        // ÉTAPE 5 — le crawl a couru PENDANT la génération ; plafond 12 s au-delà, sinon on ship sans
+        // (le cache 30 j le rendra instantané au prochain passage). Vide → null, jamais une boîte vide.
+        _webContext = await Promise.race([_webCtxP, new Promise((r) => setTimeout(() => r(null), 12000))]);
+        if (_webContext && !(_webContext.takeaway || (_webContext.key_factors ?? []).length)) _webContext = null;
 
         break;
       }
@@ -6287,6 +6314,7 @@ Règles :
 
         actions,
         family_card: _familyCard,   // when present, the client renders this full card INLINE (MSCardKit) as the detailed answer
+        ...(_webContext ? { web_context: _webContext } : {}),   // ÉTAPE 5 — section « Web — non vérifié » + URLs
         top_dates,
         decision_payload,
 

@@ -647,6 +647,11 @@ if (!root) {
     if (!kit || typeof kit.renderAnswerBlocks !== "function") return "";   // card-kit.js not loaded — nothing renders without it
     const blocks = blocksFromResponse(out);
     if (!blocks.length) return "";
+    // ÉTAPE 5 — la section web (champ séparé du serveur, jamais dans la liste blanche) s'ajoute en
+    // fin de réponse jour ; absente → rien (le silence du crawl est une réponse).
+    if (out && out.web_context && (out.meta ? out.meta.resolved_horizon === "day" : false)) {
+      blocks.push({ type: "websources", data: out.web_context });
+    }
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
 

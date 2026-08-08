@@ -1387,6 +1387,26 @@
         + '<div style="font-size:15px;line-height:1.55;color:#111827;">' + mdBlockToSafeHtml(b.md) + '</div>'
         + '</div>';
     },
+    // ÉTAPE 5 — le contexte WEB du jour : boîte ambre « Web — non vérifié » (valeurs du segment web),
+    // takeaway + facteurs nommés + SOURCES CLIQUABLES (https uniquement, hostname en libellé,
+    // rel=noopener — seule place du chat où un lien externe existe). Ne monte JAMAIS la pilule.
+    websources: function (b) {
+      var d = b.data || {};
+      var factors = (Array.isArray(d.key_factors) ? d.key_factors : []).filter(Boolean);
+      var links = (Array.isArray(d.sources) ? d.sources : [])
+        .filter(function (u) { return typeof u === 'string' && u.indexOf('https://') === 0; })
+        .map(function (u) {
+          var label = u; try { label = new URL(u).hostname.replace(/^www\./, ''); } catch (e) {}
+          return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:2px 8px 0 0;font-size:11px;color:#A65A00;text-decoration:underline;">' + esc(label) + '</a>';
+        }).join('');
+      if (!d.takeaway && !factors.length) return '';
+      return '<div style="border:1px solid #EFD5A8;background:#FBF0DF;border-radius:10px;padding:10px 12px;margin:0 0 10px;">'
+        + '<div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A65A00;margin-bottom:5px;">Web — non vérifié</div>'
+        + (d.takeaway ? '<div style="font-size:14px;line-height:1.55;color:#111827;margin-bottom:4px;">' + mdInlineKit(esc(d.takeaway)) + '</div>' : '')
+        + (factors.length ? '<ul style="margin:0 0 4px 16px;padding:0;">' + factors.map(function (f) { return '<li style="font-size:13px;margin:3px 0;">' + mdInlineKit(esc(f)) + '</li>'; }).join('') + '</ul>' : '')
+        + (links ? '<div>' + links + '</div>' : '')
+        + '</div>';
+    },
     // family card — delegates to the existing renderers, unchanged
     card: function (b) {
       var fn = window.MSCardKit && window.MSCardKit[b.render];
