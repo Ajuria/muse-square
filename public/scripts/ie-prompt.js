@@ -947,14 +947,19 @@ if (!root) {
           .filter(s => s.includes(" — ") && s.match(/\d+\s*m/))
           .filter(Boolean);
       }
-      if (headline) blocks.push({ type: "headline", text: headline });
       // Attribution (Étape 1): chips ONLY where today's render is plain prose — when the answer parses
       // into competitor ROWS, the approved rows presentation stays byte-identical (ADD, don't replace).
       if (!competitorLines.length && _provCovers) {
-        blocks.push(_sourcedBlock(null));
+        // R2-5 (owner 07/08) — the block/card anatomy: lead verdict → chipped sections in the quiet
+        // card → the REAL fired action (suggested_action, server-attached) → CTA.
+        if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+        blocks.push(Object.assign(_sourcedBlock(null), { card: true }));
+        const _sa = typeof n.suggested_action === "string" && n.suggested_action.trim() ? n.suggested_action.trim() : "";
+        if (_sa) blocks.push({ type: "action", text: _sa });
         if (ctaBlock) blocks.push(ctaBlock);
         return blocks;
       }
+      if (headline) blocks.push({ type: "headline", text: headline });
       if (competitorLines.length) blocks.push({ type: "rows", items: competitorLines.map(s => s.trim()) });
       if (parts[1]) blocks.push({ type: "prose", md: parts[1] });
       if (parts[2]) blocks.push({ type: "prose", md: parts[2] });
@@ -971,16 +976,20 @@ if (!root) {
         .replace(/^(Pression concurrentielle\s*:)/, "**$1**")
         .replace(/^(Accessibilité du site\s*:)/, "**$1**")
         .replace(/^(Conditions d'exploitation\s*:)/, "**$1**");
-      if (headline) blocks.push({ type: "headline", text: headline });
       // Attribution (Étape 1): same text, same bolding, chips under each provenance segment. The
       // coverage guard already proved the segments ARE the validated answer; otherwise the exact
       // previous prose render runs below, unchanged.
       if (_provCovers) {
-        blocks.push(_sourcedBlock(boldLabels));
+        // R2-5 (owner 07/08) — block/card anatomy, same as the DAY_DIMENSION grounded path.
+        if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+        blocks.push(Object.assign(_sourcedBlock(boldLabels), { card: true }));
+        const _sa = typeof n.suggested_action === "string" && n.suggested_action.trim() ? n.suggested_action.trim() : "";
+        if (_sa) blocks.push({ type: "action", text: _sa });
         if (ctaBlock) blocks.push(ctaBlock);
         if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
         return blocks;
       }
+      if (headline) blocks.push({ type: "headline", text: headline });
       if (prose[0]) blocks.push({ type: "prose", md: prose[0] });
       const rows = prose.slice(1).map(boldLabels);
       if (rows.length) blocks.push({ type: "prose", md: rows.join("\n") });

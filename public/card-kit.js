@@ -1260,6 +1260,23 @@
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }
 
+  // Segments of a `sourced` block: validated answer text through the SAME safe pipeline as `prose`
+  // (identical typography — the chip is the only addition); the chip row pulls up against the
+  // paragraph's own 14px bottom margin. A segment with no chips renders as plain prose.
+  function sourcedSegmentsHtml(segs) {
+    return segs.map(function (s) {
+      if (!s || !s.md) return '';
+      var chips = (Array.isArray(s.chips) ? s.chips : []).filter(function (c) { return c && typeof c === 'string'; })
+        .map(function (c) {
+          return '<span style="display:inline-block;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;letter-spacing:.03em;margin-right:4px;">' + esc(c) + '</span>';
+        }).join('');
+      return '<div>'
+        + mdBlockToSafeHtml(s.md)
+        + (chips ? '<div style="margin:-9px 0 12px 0;">' + chips + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
   var AB_PRIMITIVES = {
     register: function (b) { return abRegister(b.register, b.facts_cited); },
     // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
@@ -1279,19 +1296,24 @@
     // NEVER upgrade the answer-level register pill.
     sourced: function (b) {
       var segs = Array.isArray(b.segments) ? b.segments : [];
-      return segs.map(function (s) {
-        if (!s || !s.md) return '';
-        var chips = (Array.isArray(s.chips) ? s.chips : []).filter(function (c) { return c && typeof c === 'string'; })
-          .map(function (c) {
-            return '<span style="display:inline-block;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;letter-spacing:.03em;margin-right:4px;">' + esc(c) + '</span>';
-          }).join('');
-        // Text rendered through the SAME safe pipeline as `prose` (identical typography — the chip is
-        // the only addition); the chip row pulls up against the paragraph's own 14px bottom margin.
-        return '<div>'
-          + mdBlockToSafeHtml(s.md)
-          + (chips ? '<div style="margin:-9px 0 12px 0;">' + chips + '</div>' : '')
-          + '</div>';
-      }).join('');
+      var inner = sourcedSegmentsHtml(segs);
+      // R2-5 (owner direction 07/08 : « everything upgraded to the block/card look ») — card:true wraps
+      // the chipped sections in the quiet card container (values from the existing card family: 0.5px
+      // #e5e7eb border, 10px radius). Content unchanged — the container is the only addition.
+      if (b.card && inner) {
+        return '<div style="border:0.5px solid #e5e7eb;border-radius:10px;padding:12px 14px 4px 14px;background:#fff;margin:0 0 10px 0;">' + inner + '</div>';
+      }
+      return inner;
+    },
+    // R2-5 — the REAL fired action card's line (ai.output.suggested_action — server-attached, never
+    // model-authored), as the action row of the day-answer anatomy. Blue rail values copied from the
+    // datecards primitive (#B5D4F4 / #378ADD / #0C447C) — no invented colors.
+    action: function (b) {
+      if (!b.text) return '';
+      return '<div style="border:0.5px solid #B5D4F4;border-left:3px solid #378ADD;border-radius:0 8px 8px 0;padding:9px 12px;margin:0 0 10px 0;background:#fff;">'
+        + '<div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#0C447C;margin-bottom:3px;">Action du jour</div>'
+        + '<div style="font-size:14px;line-height:1.5;color:#111827;">' + mdInlineKit(esc(b.text)) + '</div>'
+        + '</div>';
     },
     // .ie-ai-list
     facts: function (b) {

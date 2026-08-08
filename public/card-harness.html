@@ -386,6 +386,8 @@
       { text: "Trois concurrents établis restent à proximité, sans lien démontré avec votre activité de ce dimanche.", fact_ids: ["f5", "f9"] },
       { text: "7 événements à moins de 500 m - concurrence directe", fact_ids: ["f2"] }
     ];
+    // R2-5 : la carte réelle déclenchée (suggested_action serveur) → rangée « Action du jour ».
+    ANSWERS.PROV.ai.output.suggested_action = "7 événements concurrents à moins de 500 m — différenciez votre offre du jour.";
     ANSWERS.PROV.ai.output.facts_catalog = [
       { id: "f2", label: "Événements à proximité" },
       { id: "f4", label: "Météo du jour" },
@@ -415,9 +417,10 @@
         if (t === 'Événements à proximité' || t === 'Météo du jour' || t === 'Veille concurrence') chipTexts.push(t);
       });
       var textOk = (prov.textContent || '').indexOf('sans lien démontré avec votre activité de ce dimanche') > -1;
-      var ok = chipTexts.length === 4 && textOk;
-      pv.textContent = ok ? 'PROV: PASS — 4 chips (2+1+1, f9 sans catalogue ignoré), texte intégral présent'
-        : ('PROV: FAIL — chips=' + chipTexts.length + ' texte=' + textOk);
+      var actionOk = (prov.textContent || '').indexOf('Action du jour') > -1;
+      var ok = chipTexts.length === 4 && textOk && actionOk;
+      pv.textContent = ok ? 'PROV: PASS — 4 chips (2+1+1, f9 sans catalogue ignoré), texte intégral + rangée Action du jour'
+        : ('PROV: FAIL — chips=' + chipTexts.length + ' texte=' + textOk + ' action=' + actionOk);
       pv.style.color = ok ? '#0F6E56' : '#B91C1C';
       var fv = document.getElementById('provfb-verdict');
       var same = document.getElementById('ans-provfb').innerHTML === document.getElementById('ans-b').innerHTML;
