@@ -4893,11 +4893,31 @@ Règles :
             // text), instead of a generic template that reads as "nothing happened". Facts present → the
             // gap is not the story → the existing deterministic floor stays, unmodified.
             const _absence = composeHonestAbsenceFr(grounded_payload);
+            // FACTS FLOOR (07/08, retour owner : le plancher IR « Jour défavorable (catégorie C) » jette
+            // du jargon de classement au lieu d'organiser les données). Quand des faits existent, le
+            // plancher EST les faits : fact_fr VERBATIM (zéro texte inventé, vetted par construction) —
+            // performance du jour d'abord (CA réalisé, analogues), puis le contexte le plus saillant ;
+            // le bruit du feed (observed_change) est écarté. L'IR ne reste que s'il n'y a AUCUN fait
+            // exploitable (et l'absence totale de faits garde son plancher honnête dédié).
+            const _floorFacts = [
+              ..._dayPerf.facts.map((f: any) => String(f.fact_fr)),
+              ...grounded_payload.citable_facts
+                .filter((f) => f.claim_type !== "observed_change")
+                .map((f) => f.fact_fr)
+                .filter((s) => !_dayPerf.facts.some((d: any) => d.fact_fr === s)),
+            ].filter(Boolean);
             ai = _absence
               ? {
                   ok: true,
                   mode: "deterministic_honest_absence_v1",
                   output: { headline: _absence.headline, answer: _absence.answer, key_facts: [], reasons: [], caveats: [] },
+                  raw_text: "", errors: [], warnings: [],
+                }
+              : _floorFacts.length
+              ? {
+                  ok: true,
+                  mode: "deterministic_day_facts_floor_v1",
+                  output: { headline: _floorFacts[0], answer: "", key_facts: _floorFacts.slice(1, 5), reasons: [], caveats: [] },
                   raw_text: "", errors: [], warnings: [],
                 }
               : {
