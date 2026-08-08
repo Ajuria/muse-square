@@ -18,7 +18,8 @@ R3 — Quantifié : aucun « possible / plusieurs / forte » quand un chiffre ex
 R4 — Les événements ACTIFS du jour sont nommés avec leur base de classification (catégorie, audience commune) ; les voisins permanents ne servent jamais de cadre au verdict.
 R5 — Repères divergents réconciliés dans le verdict ; « variation ordinaire » / « aucune cause mesurée » sont DITES quand c'est la vérité.
 R6 — Plafond honnête : quand la donnée manque, l'answer le dit et s'arrête — zéro bluff, zéro remplissage.
-R7 — Chiffre d'abord dans le verdict ; concision (2-4 faits porteurs, pas d'inventaire).`;
+R7 — Chiffre d'abord dans le verdict ; concision (2-4 faits porteurs, pas d'inventaire).
+R8 — Une OBJECTION de l'utilisateur (« tu ne réponds pas », « c'est faux ») reçoit un traitement du DÉSACCORD — reconnaissance explicite + hypothèses vérifiables (données incomplètes ? autre date ? estimation erronée ?) — jamais une resucée de la réponse contestée.`;
 
 type Expect = { producers: string[]; maxSeconds: number; groundedChips?: boolean };
 const _FULL_BATTERY: Array<{ q: string; expect: Expect }> = [
