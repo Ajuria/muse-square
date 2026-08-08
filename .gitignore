@@ -44,3 +44,7 @@ src/lib/Chat GPT/
 .vercel/
 
 .vercel
+
+# Explorer battery run artifacts (local, per-run)
+explorer-battery-report.md
+explorer-battery-baseline.json
