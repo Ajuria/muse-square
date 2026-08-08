@@ -2487,6 +2487,53 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
     // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
     // missing and how to add it" instead of degrading into whatever template the route lands on.
+    // ── R6 (08/08, cas owner) — OBJECTION : « tu ne réponds pas / c'est faux / même réponse » après
+    // une réponse sur une date = un TOUR DE DÉSACCORD, jamais une resucée. Déterministe (zéro LLM) :
+    // reconnaissance + les 3 hypothèses vérifiables, avec la VÉRIFICATION DE COMPLÉTUDE du jour
+    // disputé exécutée en direct (transactions du jour vs même jour de semaine sur 90 j) — le premier
+    // « va chercher ce qui manque » de l'étape 4. Nombres = résultats de requête (vetted par nature).
+    {
+      const _objRe = /(tu ne reponds pas|ne reponds pas a ma question|ce n est pas ma question|pas repondu|c est faux|meme reponse|tu te repetes|tu repetes)/;
+      const _tcLast: any = (thread_context as any)?.last ?? null;
+      const _objDate: string | null = _tcLast?.used_dates?.[0] ? String(_tcLast.used_dates[0]).slice(0, 10) : null;
+      if (_objRe.test(norm(qRaw)) && Array.isArray(conversation_history) && conversation_history.length >= 2 && _objDate) {
+        let covFr = "la complétude des données de ce jour n'a pas pu être vérifiée";
+        try {
+          // Même motif que les autres early-returns (dispositifs 2303, déclarations 2396) : client
+          // local — bigquery/semanticProjectId ne sont déclarés que plus bas dans handleCore.
+          const _objBqProject = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+          const _objBq = makeBQClient(_objBqProject);
+          const [r] = await _objBq.query({
+            query: `SELECT COUNTIF(transaction_date = DATE(@d)) AS n_day,
+                           ROUND(SAFE_DIVIDE(COUNTIF(transaction_date != DATE(@d)), NULLIF(COUNT(DISTINCT IF(transaction_date != DATE(@d), transaction_date, NULL)), 0))) AS avg_dow
+                    FROM \`${_objBqProject}.raw.client_transactions\`
+                    WHERE location_id = @loc
+                      AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM DATE(@d))
+                      AND transaction_date BETWEEN DATE_SUB(DATE(@d), INTERVAL 90 DAY) AND DATE(@d)`,
+            params: { loc: location_id, d: _objDate }, location: "EU",
+          });
+          const nDay = Number(r?.[0]?.n_day ?? 0), avgDow = Number(r?.[0]?.avg_dow ?? 0);
+          if (avgDow > 0) {
+            covFr = nDay < 0.6 * avgDow
+              ? `ce jour porte ${nDay} transactions enregistrées contre ~${avgDow} un même jour de semaine habituel — la couverture EST inhabituellement basse, c'est une piste sérieuse (import partiel ?)`
+              : `ce jour porte ${nDay} transactions enregistrées contre ~${avgDow} un même jour de semaine habituel — la couverture est normale, un trou d'import est peu probable`;
+          }
+        } catch (e) { console.warn("[objection] coverage check skipped:", e); }
+        const p = _objDate.split("-");
+        const dFr = `${p[2]}/${p[1]}/${p[0]}`;
+        return sysDialogueResponse(
+          `Traitons le désaccord : la mesure du ${dFr} ne montre pas l'écart que vous décrivez`,
+          `Je comprends que ma réponse ne vous convainc pas — posons le désaccord clairement plutôt que de répéter la même analyse. Vous décrivez un écart que la mesure enregistrée du ${dFr} ne montre pas. Trois explications possibles, chacune vérifiable :\n\n` +
+          `- **Données incomplètes ce jour-là** : ${covFr}.\n` +
+          `- **Autre date** : si vous pensiez à un autre jour, donnez-le-moi (« le 25/07 ») et je refais l'analyse dessus.\n` +
+          `- **Estimation de mémoire** : si les données sont complètes et la date est la bonne, la mesure fait foi — et l'écart réel est celui que je vous ai donné.\n\n` +
+          `Dites-moi laquelle explorer, ou importez les ventes manquantes si la première piste est la bonne.`,
+          "deterministic_objection_v1",
+          null,
+        );
+      }
+    }
+
     // Item 4 (registry, 16/07): a declared metric upgrades its dimension's branch from elicit to a
     // computed ESTIMATE over measured 30-day CA (marge: CA × %, par-client: CA ÷ effectif) —
     // attributed « déclarée par X le JJ/MM/AAAA », labelled estimation, deterministic, no LLM.
