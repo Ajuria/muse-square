@@ -13,6 +13,7 @@ import { PACKAGER_PROMPT_MONTH_WINDOW_WORST_DAYS_MODE } from "../contracts/packa
 
 import { PACKAGER_PROMPT_UI_V2_FR } from "../contracts/packagerUiV2Prompt";
 import { validate_packager_output_ui_v2 } from "../contracts/packagerUiV2Validator";
+import { validate_v3_grounding } from "../contracts/v3NarrativeChecks";
 
 import {
   validate_packager_output_month_orchestrator_against_row,
@@ -168,7 +169,7 @@ export async function runAIPackagerClaude(args: {
     system_prompt = submode
       ? `INTENT OVERRIDE — PRIORITÉ ABSOLUE : Le intent de cette requête est "${submode}". Applique UNIQUEMENT le bloc de logique correspondant à cet intent dans le prompt. Ignore tout autre bloc.\n\n${PACKAGER_PROMPT_V3_NARRATIVE_FR}`
       : PACKAGER_PROMPT_V3_NARRATIVE_FR;
-    validatorFn = (output: any) => {
+    validatorFn = (output: any, row: any) => {
       const errors: string[] = [];
       if (!output || typeof output !== "object") {
         return [false, ["v3_narrative: output is not an object"]];
@@ -195,7 +196,10 @@ export async function runAIPackagerClaude(args: {
       if (!Array.isArray(output.caveats)) {
         errors.push("v3_narrative: caveats must be an array");
       }
-      return errors.length ? [false, errors] : [true, []];
+      if (errors.length) return [false, errors];
+      // Étape 2 (R4-4, 08/08) — grounding scan against the allowlisted payload: numbers (with the one
+      // sum/diff carve-out) + entities. REJECT → the caller's existing deterministic fallback ships.
+      return validate_v3_grounding(output, row);
     };
   } else if (mode === "month") {
     switch (submode) {
