@@ -42,6 +42,9 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\bsensibilite (a la |au |aux )?(meteo|pluie|chaleur|froid)/,
       /\b(impact|effet) (de la |du |des )?(meteo|pluie|chaleur|canicule|froid|neige)\b/,
       /\bquand il (pleut|fait chaud|fait froid|neige)\b/,
+      // Étape 3 (08/08) — la formulation owner « la pluie a fait fuir mes clients » : condition + verbe
+      // d'effet sur la clientèle (fuir/venir/dissuader), non couverte par les motifs CA ci-dessus.
+      /\b(pluie|chaleur|canicule|froid|neige|vent)\b.{0,50}(fait fuir|fuir|dissuade|empeche|retenu).{0,25}(clients?|visiteurs?|public|monde)/,
     ],
     run: weatherFamily,
   },
@@ -234,6 +237,20 @@ export function familyForQuestion(question: string): FamilyProvider | null {
     if (fam.match.some((re) => re.test(q))) return fam;
   }
   return null;
+}
+
+// Étape 3 (planificateur, 08/08) — TOUTES les familles que la question touche, dans l'ordre du
+// registre (= l'ordre de priorité existant : la 1re EST celle que familyForQuestion renvoyait, donc
+// lead/carte inchangés). Cap 3 : au-delà, la question est trop vague pour un fan-out utile.
+export function familiesForQuestion(question: string, cap = 3): FamilyProvider[] {
+  const q = normQ(question);
+  const out: FamilyProvider[] = [];
+  for (const key of Object.keys(FAMILIES)) {
+    const fam = FAMILIES[key];
+    if (fam.match.some((re) => re.test(q))) out.push(fam);
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 export type { FamilyResult, FamilyFact, FamilyProvider } from "./types";

@@ -21,7 +21,7 @@ import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appe
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
-import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
+import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
 import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
 import type { FamilyResult } from "../../../lib/insightFamilies";
@@ -4814,13 +4814,28 @@ Règles :
           console.warn("[grounded] day landscape facts skipped:", e);
           return [] as Array<{ fact_fr: string; claim_type: any }>;
         });
+        let _secondaryFamFacts: any[] = [];
         try {
-          // Family resolution: the question's own keywords first; on an inherited continuation with no
-          // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
-          // so the follow-up keeps the dimension the user was exploring, on the new date.
-          const _fam = familyForQuestion(qRaw)
-            ?? (frame_inherited && _frameFamily ? FAMILIES[_frameFamily] ?? null : null);
-          if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date, qRaw); }
+          // ÉTAPE 3 (planificateur, 08/08) — TOUTES les familles que la question touche (cap 3, ordre
+          // du registre : la 1re EST l'ancien gagnant unique — lead + carte inchangés, 8 assertions de
+          // routage). Les familles secondaires apportent leurs FACTS (found only, origin par famille) ;
+          // providers en PARALLÈLE (coût = max, pas somme). Continuation héritée : la famille du frame.
+          const _fams = familiesForQuestion(qRaw);
+          const _famList = _fams.length
+            ? _fams
+            : (frame_inherited && _frameFamily && FAMILIES[_frameFamily] ? [FAMILIES[_frameFamily]] : []);
+          if (_famList.length) {
+            const _famResults = await Promise.all(_famList.map((f) =>
+              f.run(bigquery, location_id, effective_date, qRaw).catch((e: any) => {
+                console.warn(`[grounded] family ${f.key} skipped:`, e);
+                return null;
+              })));
+            _famKey = _famList[0].key; _famRender = _famList[0].render; _famResult = _famResults[0];
+            _secondaryFamFacts = _famList.slice(1).flatMap((f, i) => {
+              const r = _famResults[i + 1];
+              return r && r.found ? tagFactOrigin(r.facts as any[], FAMILY_FACT_ORIGIN[f.key] ?? null) : [];
+            });
+          }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
@@ -4874,10 +4889,13 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
+              // ÉTAPE 3 : le blanking du CA remplacé par le RANG — les facts de la famille lead
+              // d'abord (la dimension demandée mène), PUIS la performance du jour (une réponse météo
+              // peut enfin dire ce que le jour a fait), puis les familles secondaires, puis le reste.
+              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
             )
-          // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
-          // family-led answer deliberately leads with its own dimension, not the day's performance.
+          // Phase 4 (amendé ÉTAPE 3) : les day-perf facts rejoignent les DEUX branches — le lead de la
+          // dimension demandée est assuré par le RANG (famille d'abord), plus jamais par exclusion.
           : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
