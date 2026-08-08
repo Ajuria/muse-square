@@ -22,7 +22,10 @@ R7 — Chiffre d'abord dans le verdict ; concision (2-4 faits porteurs, pas d'in
 R8 — Une OBJECTION de l'utilisateur (« tu ne réponds pas », « c'est faux ») reçoit un traitement du DÉSACCORD — reconnaissance explicite + hypothèses vérifiables (données incomplètes ? autre date ? estimation erronée ?) — jamais une resucée de la réponse contestée.`;
 
 type Expect = { producers: string[]; maxSeconds: number; groundedChips?: boolean };
-const _FULL_BATTERY: Array<{ q: string; expect: Expect }> = [
+// `pre` (R8) : un cas MULTI-TOURS — l'historique + le frame du tour précédent partent avec la question,
+// comme le client le fait ; le juge voit la question du tour final seulement.
+type Pre = { conversation_history: Array<{ role: string; content: string }>; last: any };
+const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Pourquoi le 18/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 35, groundedChips: true } },
   { q: "Pourquoi le 11/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 35, groundedChips: true } },
   { q: "Mon CA a chuté de 40 % samedi dernier, pourquoi ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 40, groundedChips: true } },
@@ -35,6 +38,18 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect }> = [
   { q: "Quelle est ma marge le week-end ?", expect: { producers: ["deterministic_missing_dimension_elicit_v1"], maxSeconds: 8 } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
+  // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
+  {
+    q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",
+    expect: { producers: ["deterministic_objection_v1"], maxSeconds: 8 },
+    pre: {
+      conversation_history: [
+        { role: "user", content: "Mon CA a chuté de 40 % samedi dernier, pourquoi ?" },
+        { role: "assistant", content: "Le 01/08/2026, votre CA réalisé est de 1 475 € contre un CA habituel de 1 616 €, soit −9 %." },
+      ],
+      last: { horizon: "day", intent: "DAY_WHY", used_dates: ["2026-08-01"] },
+    },
+  },
 ];
 
 // BATTERY_ONLY=n → run the nth question only (debug); default: full battery.
@@ -95,7 +110,11 @@ async function judge(q: string, answer: string): Promise<{ scores: Record<string
       const res = await fetch(`http://localhost:${PORT}/api/insight/prompt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ q: item.q, thread_context: { location_id: LOC } }),
+        body: JSON.stringify({
+          q: item.q,
+          thread_context: { v: 1, location_id: LOC, turn: item.pre ? 1 : 0, last: item.pre?.last ?? null },
+          ...(item.pre ? { conversation_history: item.pre.conversation_history } : {}),
+        }),
       });
       out = await res.json();
     } catch (e: any) { out = { _error: e?.message }; }
