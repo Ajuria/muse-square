@@ -99,6 +99,15 @@ async function measureCompetitorImpact(
   }
 }
 
+// R2-2 (07/08) — the measured competitor verdict for the DAY answers (prompt.ts parallel batch):
+// measurement + the SAME phrasing the card uses, facts only. Only the measured contrasts travel
+// (observed_difference, tiered or measured-null) — the cold-start "pas encore mesurable" line is a
+// card concern, noise in a day answer. One measurement path, never re-derived.
+export async function competitorImpactFacts(bq: any, location_id: string): Promise<FamilyFact[]> {
+  const impact = await measureCompetitorImpact(bq, location_id);
+  return competitorImpactOutputs(impact).facts.filter((f) => f.claim_type === "observed_difference");
+}
+
 // Facts + card block from the measurement — shared by both États (the measurement is about the
 // venue's days, not about which entities clear the REAL_BAR).
 function competitorImpactOutputs(impact: { days: number; contrasts: CompetitorContrast[] } | null) {

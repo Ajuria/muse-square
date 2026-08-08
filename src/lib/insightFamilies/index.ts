@@ -104,6 +104,13 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\bveille concurrentielle\b/,
       /(qui|lesquels?) (est-ce que |)je (surveille|suis)\b/,
       /(quels?|combien de) concurrents? (je |j ai |)(suis|surveille|follow)/,
+      // R2-2 (07/08) — generic « ils me prennent des clients ? » routes HERE (the measured verdict
+      // lives in this family), web discovery was inventing a competitor list. PLURAL verb only : a
+      // singular subject (« le musée d'Orsay me prend-il… ») is a NAMED entity and must keep the
+      // ENTITY_IMPACT web path (run measured : « les musées autour me prennent-ils des clients ? »
+      // → web_search inventant Marmottan/Palais de Tokyo, alors que l'impact mesuré répond).
+      /\b(me|nous) (prennent|piquent|volent)\b.{0,30}(clients?|visiteurs?|public|du monde)/,
+      /\b(les|ces) (musees|salles|lieux|etablissements|voisins|commerces)\b.{0,50}(prennent|captent|detournent).{0,30}(mes |nos |des )?(clients?|visiteurs?|public)/,
     ],
     run: competitorFamily,
   },
