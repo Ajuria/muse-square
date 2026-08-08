@@ -3026,6 +3026,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return null;
     };
 
+    let _interpretedDateFact: string | null = null;   // R4-2 — set when « <jour> dernier » resolves
     // Bare weekday on the day path → resolve within CURRENT WEEK (today excluded → tomorrow..Sunday).
     // Skipped on an inherited continuation: its weekday is FRAME-relative (next dimanche after the
     // answer's date), already injected into extracted_dates — today's-week resolution would clobber it.
@@ -3049,6 +3050,11 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const d = new Date(now);
         do { d.setUTCDate(d.getUTCDate() - 1); } while (d.getUTCDay() !== wanted_weekday);
         weekday_window_date = d.toISOString().slice(0, 10);
+        // R4-2 (juge : la substitution de date doit être DITE) — un fait citable porte l'interprétation,
+        // la règle 1quater du prompt impose de l'énoncer en tête. Déterministe, zéro invention possible.
+        const WD_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        const p = weekday_window_date.split("-");
+        _interpretedDateFact = `Date interprétée : « ${WD_FR[wanted_weekday]} dernier » = ${WD_FR[wanted_weekday]} ${p[2]}/${p[1]}/${p[0]}.`;
       } else if (wanted_weekday === todayDow) {
         // Named weekday == today → include today (only the best-remaining-day reroute excludes today).
         weekday_window_date = now.toISOString().slice(0, 10);
@@ -4814,7 +4820,7 @@ Règles :
           // so the follow-up keeps the dimension the user was exploring, on the new date.
           const _fam = familyForQuestion(qRaw)
             ?? (frame_inherited && _frameFamily ? FAMILIES[_frameFamily] ?? null : null);
-          if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
+          if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date, qRaw); }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
@@ -4831,6 +4837,10 @@ Règles :
         // quote it to REFUTE it (« vous évoquez −40 % ; la mesure dit −9 % »). Without this, echoing the
         // user's number was an ungrounded-number reject (measured: reject → reject → floor on « Mon CA
         // a chuté de 40 % samedi dernier ? »). The claim is attributed to the user, never asserted.
+        // R4-2 — the date interpretation travels as a citable fact (stated first per rule 1quater).
+        const _interpFacts = _interpretedDateFact
+          ? [{ fact_fr: _interpretedDateFact, claim_type: "observed" as const }]
+          : [];
         const _dayCaClaim = parseCaClaim(norm(qRaw));
         const _dayClaimFacts = _dayCaClaim && _dayCaClaim.claimed_pct != null
           ? [{
@@ -4868,7 +4878,7 @@ Règles :
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical

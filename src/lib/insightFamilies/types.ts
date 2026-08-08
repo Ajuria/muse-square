@@ -29,5 +29,7 @@ export interface FamilyProvider {
   title: string;                   // report section heading (French)
   render: string;                  // MSCardKit method name (e.g. "renderFootfall")
   match: RegExp[];                 // question-family routing (the prompt classifier)
-  run: (bq: any, location_id: string, date: string) => Promise<FamilyResult>;
+  // `question` (R4-1, optionnel) : la question BRUTE — un provider peut orienter son analyse sur la
+  // dimension DEMANDÉE (météo : la condition demandée prime la dominante du jour). Absent → inchangé.
+  run: (bq: any, location_id: string, date: string, question?: string) => Promise<FamilyResult>;
 }

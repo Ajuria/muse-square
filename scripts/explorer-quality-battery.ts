@@ -43,9 +43,15 @@ const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const PORT = process.argv[2] ? Number(process.argv[2]) : 4322;
 const JUDGE_MODEL = "claude-sonnet-5";
 
+// Le juge note ce que L'UTILISATEUR voit. Sur les chemins grounded/family, le client rend headline +
+// answer (+ carte famille) — PAS key_facts : les inclure faisait noter une « répétition » invisible
+// (artefact de juge mesuré au run 1). Les chemins v3/deterministic rendent leurs key_facts → inclus.
 function textOfAnswer(o: any): string {
   const out = o?.ai?.output ?? {};
-  const parts = [out.headline, typeof out.answer === "string" ? out.answer : JSON.stringify(out.answer ?? ""), ...(out.key_facts ?? [])];
+  const producer = o?.meta?.producer ?? "";
+  const renderedKeyFacts = /^grounded_day_claude$|^family_/.test(producer) ? [] : (out.key_facts ?? []);
+  const parts = [out.headline, typeof out.answer === "string" ? out.answer : JSON.stringify(out.answer ?? ""), ...renderedKeyFacts,
+    ...(o?.family_card ? ["(La carte détaillée de la famille est rendue sous la réponse — données complètes visibles.)"] : [])];
   return parts.filter(Boolean).join("\n");
 }
 
