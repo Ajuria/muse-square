@@ -3039,7 +3039,17 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     ) {
       const now = new Date();
       const todayDow = now.getUTCDay();
-      if (wanted_weekday === todayDow) {
+      // R2-4 (07/08, bug owner) — « samedi dernier » : le PRÉCÉDENT, strictement avant aujourd'hui,
+      // jamais aujourd'hui (un samedi, « samedi dernier » = il y a 7 jours — sémantique française).
+      // Couvre « <jour> dernier/passé » et « <jour> de la semaine dernière ».
+      const _lastWeekdayAsked =
+        /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(dernier|derniere|passe|passee)\b/.test(norm(qRaw)) ||
+        /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+de la semaine (derniere|passee)\b/.test(norm(qRaw));
+      if (_lastWeekdayAsked) {
+        const d = new Date(now);
+        do { d.setUTCDate(d.getUTCDate() - 1); } while (d.getUTCDay() !== wanted_weekday);
+        weekday_window_date = d.toISOString().slice(0, 10);
+      } else if (wanted_weekday === todayDow) {
         // Named weekday == today → include today (only the best-remaining-day reroute excludes today).
         weekday_window_date = now.toISOString().slice(0, 10);
       } else {
@@ -4810,6 +4820,18 @@ Règles :
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type, origin: "ventes" as const }))
           : [];
+        // R2-4 (07/08) — the question's OWN CA claim becomes a citable DECLARED fact, so the model can
+        // quote it to REFUTE it (« vous évoquez −40 % ; la mesure dit −9 % »). Without this, echoing the
+        // user's number was an ungrounded-number reject (measured: reject → reject → floor on « Mon CA
+        // a chuté de 40 % samedi dernier ? »). The claim is attributed to the user, never asserted.
+        const _dayCaClaim = parseCaClaim(norm(qRaw));
+        const _dayClaimFacts = _dayCaClaim && _dayCaClaim.claimed_pct != null
+          ? [{
+              fact_fr: `Vous évoquez dans votre question une ${_dayCaClaim.direction === "down" ? "baisse" : "hausse"} de ${String(_dayCaClaim.claimed_pct).replace(".", ",")} % de votre CA — c'est votre estimation, pas une mesure.`,
+              claim_type: "observed" as const,
+              origin: "declarations" as const,
+            }]
+          : [];
         const _familyLed = !!(_famResult && _famResult.found);
         if (_familyLed) {
           _familyLedKey = _famKey;
@@ -4839,7 +4861,7 @@ Règles :
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
