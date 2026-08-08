@@ -93,6 +93,51 @@ export async function eventDensityImpactFacts(bq: any, location_id: string): Pro
   return eventDensityImpactOutputs(impact).facts.filter((f) => f.claim_type === "observed_difference");
 }
 
+// R3-1 (08/08, retour owner : « ce que je ne sais pas, c'est quel événement a lieu CE jour et s'il
+// m'impacte ± ») — les événements ACTIFS le jour demandé, avec leur base de classification (la MÊME
+// que la carte : audience commune × catégorie), en faits citables pour la réponse jour. Descriptif
+// pur — aucun pronostic (le signe mesuré vient des contrastes de densité R2-2). Dédupliqué par LIEU
+// (le mart porte plusieurs variantes du même événement — mesuré : 3 « Silla » au Guimet), rayon 5 km,
+// top 3 par audience commune. Zéro ligne ≠ absence d'événements : la formulation reste scoping
+// « relevés » (doctrine famille events : l'absence de crawl n'est pas l'absence d'événement).
+export async function dayEventLandscapeFacts(bq: any, location_id: string, date: string): Promise<FamilyFact[]> {
+  try {
+    const [rows] = await bq.query({
+      query: `SELECT event_name, venue_name, distance_from_location_m, threat_audience_overlap_pct, industry_overlap
+              FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+              WHERE location_id = @location_id
+                AND PARSE_DATE('%Y-%m-%d', @date) BETWEEN event_date AND COALESCE(event_date_end, event_date)
+                AND distance_from_location_m <= 5000
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY venue_name ORDER BY threat_audience_overlap_pct DESC, conflict_score DESC) = 1
+              ORDER BY threat_audience_overlap_pct DESC
+              LIMIT 3`,
+      params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
+    });
+    const evs = (Array.isArray(rows) ? rows : []).filter((r: any) => r && r.event_name);
+    if (!evs.length) {
+      return [{ fact_fr: "Aucun événement actif ce jour-là parmi les événements relevés autour de vous (rayon 5 km).", claim_type: "observed" }];
+    }
+    return evs.map((r: any) => {
+      const ov = Number(r.threat_audience_overlap_pct);
+      const sameCat = r.industry_overlap === true || r.industry_overlap === "true";
+      const distM = Number(r.distance_from_location_m);
+      const dist = Number.isFinite(distM) ? (distM >= 1000 ? `${(distM / 1000).toFixed(1).replace(".", ",")} km` : `${Math.round(distM)} m`) : null;
+      const basis = Number.isFinite(ov)
+        ? (sameCat
+          ? `même catégorie que la vôtre, audience commune estimée ${Math.round(ov)} % — dispute potentielle de votre public`
+          : `catégorie différente de la vôtre, audience commune estimée ${Math.round(ov)} %`)
+        : (sameCat ? "même catégorie que la vôtre" : "catégorie différente de la vôtre");
+      return {
+        fact_fr: `Événement actif ce jour-là : « ${String(r.event_name)} » (${String(r.venue_name ?? "lieu non renseigné")}${dist ? `, à ${dist}` : ""}) — ${basis}.`,
+        claim_type: "observed" as const,
+      };
+    });
+  } catch (e: any) {
+    console.warn("[day-event-landscape] skipped:", e?.message);
+    return [];
+  }
+}
+
 async function measureEventDensityImpact(
   bq: any, location_id: string,
 ): Promise<{ days: number; contrasts: DensityContrast[] } | null> {

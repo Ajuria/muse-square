@@ -23,7 +23,7 @@ import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
 import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
-import { eventDensityImpactFacts } from "../../../lib/insightFamilies/events";
+import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
@@ -4802,6 +4802,12 @@ Règles :
           console.warn("[grounded] density impact facts skipped:", e);
           return [] as Array<{ fact_fr: string; claim_type: any }>;
         });
+        // R3-1 (08/08) — the DAY'S OWN events (name, venue, distance, classification basis) — what the
+        // operator does NOT already know, unlike the static followed-competitor distances.
+        const _dayLandscapeP = dayEventLandscapeFacts(bigquery, location_id, effective_date).catch((e) => {
+          console.warn("[grounded] day landscape facts skipped:", e);
+          return [] as Array<{ fact_fr: string; claim_type: any }>;
+        });
         try {
           // Family resolution: the question's own keywords first; on an inherited continuation with no
           // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
@@ -4816,6 +4822,7 @@ Règles :
         const _events = await _eventsP;
         const _competitorImpact = await _competitorImpactP;
         const _densityImpact = await _densityImpactP;
+        const _dayLandscape = await _dayLandscapeP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
           ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type, origin: "ventes" as const }))
@@ -4861,7 +4868,7 @@ Règles :
             )
           // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
           // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical

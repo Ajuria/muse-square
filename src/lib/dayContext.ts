@@ -235,7 +235,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       }).catch(() => [[{}]] as any[])
     : Promise.resolve([[{}]] as any[]);
 
-  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows, changeRows, cardRows] = await Promise.all([
+  const [surface, mob, disruption, weatherHead, events, foreign, tour, profileRow, commRows, weatherAcute, pubHolRows, changeRows, cardRows, foreignProfileRows] = await Promise.all([
     // day_surface — the mart's own French facts + "what's driving today". This is the SAME view
     // monitor.ts builds its entire `day` object from. SELECT * so the brain is the single reader: its
     // curated projection (opportunity/competition/weather-surface/attribution) reads named fields off the
@@ -266,8 +266,10 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       return rows || [];
     })(),
     foreignVisitorsRange(bq, loc, date, date),
-    // tourism status
-    one(`SELECT tourism_status_region AS status, COALESCE(tourism_peak_flag_region,false) AS peak
+    // tourism status + calendar day-type flags (R3-2, 08/08 — same query, zero extra round-trip)
+    one(`SELECT tourism_status_region AS status, COALESCE(tourism_peak_flag_region,false) AS peak,
+                COALESCE(is_weekend_flag,false) AS is_weekend, COALESCE(is_public_holiday_flag,false) AS is_public_holiday,
+                COALESCE(is_school_holiday_flag,false) AS is_school_holiday
          FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // venue profile — STATIC per-location "user context". Complementary, NOT a fork. Its declared
     // weather_sensitivity/seasonality are attributes, NEVER the measured Engine-2 effect (guard below).
@@ -300,6 +302,19 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     (async () => { const [r] = await bq.query({ query: `SELECT change_type, change_subtype, alert_level, score_delta, direction, event_label, distance_m FROM \`${PROJECT}.semantic.vw_insight_event_change_feed\` WHERE location_id=@loc AND affected_date=@d ORDER BY alert_level DESC, ABS(score_delta) DESC LIMIT 12`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
     // action candidates (the detected cards, claim-safe headline_fr/detail_fr):
     (async () => { const [r] = await bq.query({ query: `SELECT action_type, action_category, action_priority, confidence_tier, headline_fr, detail_fr FROM \`${PROJECT}.semantic.vw_insight_event_action_candidates\` WHERE location_id=@loc AND date=@d ORDER BY action_priority DESC LIMIT 12`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
+    // R3-3 (08/08) — profil pays étranger RÉGIONAL, quantifié (fct_region_foreign_country_profile :
+    // PROJECTION SAISONNIÈRE, pas un signal quotidien — le fait le dit ; en-tête dbt lu 08/08).
+    // Jointure par CLÉ (region_code NUTS2, jamais le libellé) ; latest ≤ date par pays (la spine ne
+    // couvre que les années ingérées — mesuré : IdF s'arrête au 30/09/2025 pour une question 2026) ;
+    // un seul accommodation_type par pays via nights (l'en-tête interdit d'agréger les types).
+    // Parts = RATIOS 0-1 (mesuré : 0.25/0.61) — conversion % à l'affichage seulement.
+    (async () => { const [r] = await bq.query({ query: `
+        SELECT p.country_name_fr, p.country_share_of_nonresident, p.pct_nonresident, p.season, p.reference_year, p.region_name, p.accommodation_type
+        FROM \`${PROJECT}.dims.dim_client_location\` l
+        JOIN \`${PROJECT}.mart.fct_region_foreign_country_profile\` p ON p.region_code = l.region_code_nuts2
+        WHERE l.location_id=@loc AND p.date <= @d
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY p.country_name_fr ORDER BY p.date DESC, p.nights_thousands DESC) = 1
+        ORDER BY p.country_share_of_nonresident DESC LIMIT 3`, params: { loc, d }, location: 'EU' }).catch(() => [[]] as any[]); return r || []; })(),
   ]);
 
   // Top-3 followed competitors, proximity-aware (threat_score is NOT distance-weighted), + rating/enriched.
@@ -482,6 +497,16 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
   // foreign origins — deduped UNION of school-holiday (foreign) + public-holiday origins.
   const foreignUnion = [...new Set([...(foreign || []), ...((pubHolRows || []).map((r: any) => flatVal(r.country)))].filter(Boolean) as string[])].map(frCountry);
 
+  // R3-3 (08/08) — the QUANTIFIED regional foreign profile fact (was « présence possible », owner:
+  // « what proportion? »). Seasonal projection named as such, window carried in the sentence (season +
+  // reference_year — the spine may lag the asked year), shares are 0-1 ratios converted at display only.
+  const _fpRows = (foreignProfileRows || []).filter((r: any) => r && r.country_name_fr && r.country_share_of_nonresident != null);
+  const _fpPct = (x: any) => `${Math.round(Number(x) * 100)} %`;
+  const _ACCOM_FR: Record<string, string> = { hotels: "hôtels", campings: "campings", hotels_campings: "hôtels et campings" };
+  const foreignProfileFact = _fpRows.length
+    ? `Repère saisonnier régional (${flatVal(_fpRows[0].region_name)}, saison ${flatVal(_fpRows[0].season) === "ete" ? "été" : "hiver"} ${flatVal(_fpRows[0].reference_year)}, ${_ACCOM_FR[String(flatVal(_fpRows[0].accommodation_type))] ?? "hébergements"}) : ${_fpPct(flatVal(_fpRows[0].pct_nonresident))} des nuitées viennent de visiteurs étrangers — premiers pays : ${_fpRows.map((r: any) => `${flatVal(r.country_name_fr)} (${_fpPct(flatVal(r.country_share_of_nonresident))})`).join(", ")}.`
+    : null;
+
   // signals — reused from detection, claim-typed, DISTINCT grain from context{} (change-grain).
   const changes = (changeRows || []).map((r: any) => ({
     change_type: flatVal(r.change_type) ?? null, change_subtype: flatVal(r.change_subtype) ?? null,
@@ -516,6 +541,12 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const, origin: 'calendrier' as const })),
       ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const, origin: 'meteo' as const }] : []),
       ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const, origin: 'tourisme' as const }] : []),
+      // R3-3 — quantified regional foreign profile (seasonal reference; window in-sentence).
+      ...(foreignProfileFact ? [{ fact_fr: foreignProfileFact, claim_type: 'observed' as const, origin: 'tourisme' as const }] : []),
+      // R3-2 — day-type calendar facts. Weekend omitted on purpose (the operator knows what day it
+      // is — « already known » test); vacances/férié carry real planning information.
+      ...((tour as any)?.is_school_holiday ? [{ fact_fr: 'Jour en vacances scolaires en France.', claim_type: 'observed_presence' as const, origin: 'calendrier' as const }] : []),
+      ...((tour as any)?.is_public_holiday ? [{ fact_fr: `Jour férié${flatVal((surface as any)?.holiday_name) ? ` : ${flatVal((surface as any).holiday_name)}` : ''}.`, claim_type: 'observed_presence' as const, origin: 'calendrier' as const }] : []),
       ...cards.filter((c: typeof cards[number]) => isCleanFrench(c.headline_fr)).map((c: typeof cards[number]) => ({ fact_fr: c.headline_fr as string, claim_type: 'observed' as const })), // detected cards (claim-safe headline)
       ...changes.filter((c: typeof changes[number]) => c.event_label).map((c: typeof changes[number]) => ({ fact_fr: fillContextFallback('signal_change', { label: c.event_label as string }) ?? (c.event_label as string), claim_type: 'observed_change' as const })), // named changes
     ],
