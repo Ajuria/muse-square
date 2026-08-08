@@ -29,6 +29,64 @@ if (!root) {
   // Each entry: { role: "user" | "assistant", content: string }
   let CONVERSATION_HISTORY = [];
 
+  // ── R2-3 (07/08, bug owner : « Générer le rapport » effaçait le fil) ────────────────────────────
+  // The thread lives only in page memory — ANY navigation (report, month, back button) erased it.
+  // Persist each successful exchange {q, out} in sessionStorage (per location, survives navigation,
+  // dies with the tab — a chat is a session artifact, not an archive). The envelope is stored WITHOUT
+  // `debug` (raw BQ rows — megabytes) except the one field the frame restore needs. Cap: last 8
+  // exchanges, ~1.5 MB guard, quota errors drop oldest and retry once, storage failures never break chat.
+  const THREAD_STORE_KEY = "ms_ie_thread_" + LOCATION_ID;
+  function slimEnvelope(out) {
+    try {
+      const s = Object.assign({}, out);
+      s.debug = out && out.debug && out.debug.thread_context_out
+        ? { thread_context_out: out.debug.thread_context_out } : undefined;
+      return s;
+    } catch (e) { return out; }
+  }
+  function persistThreadEntry(q, out) {
+    try {
+      const arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]");
+      arr.push({ q: q, out: slimEnvelope(out) });
+      while (arr.length > 8) arr.shift();
+      let payload = JSON.stringify(arr);
+      while (payload.length > 1500000 && arr.length > 1) { arr.shift(); payload = JSON.stringify(arr); }
+      try { sessionStorage.setItem(THREAD_STORE_KEY, payload); }
+      catch (e) { arr.shift(); sessionStorage.setItem(THREAD_STORE_KEY, JSON.stringify(arr)); }
+    } catch (e) { /* persistence is never critical */ }
+  }
+  function restoreThread() {
+    let arr = [];
+    try { arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]"); } catch (e) { return; }
+    if (!Array.isArray(arr) || !arr.length) return;
+    qs("ie-prompt-empty")?.setAttribute("hidden", "true");
+    qs("ie-thread")?.removeAttribute("hidden");
+    for (const entry of arr) {
+      if (!entry || typeof entry.q !== "string" || !entry.out) continue;
+      appendMsg("user", entry.q);
+      const bubble = appendMsg("ai", "");
+      try {
+        const html = renderAiOutputHtml(entry.out);
+        if (bubble && html) {
+          bubble.className = "ie-bubble-none";
+          setBubbleHtml(bubble, html);
+          decorateCommitableDecisions(bubble, entry.out);
+        } else if (bubble) {
+          bubble.textContent = (entry.out.ai && entry.out.ai.output && entry.out.ai.output.answer) || "";
+        }
+      } catch (e) { if (bubble) bubble.textContent = ""; }
+      // Rebuild the exact live-session state: frame + history, same functions as the live path.
+      updateThreadContextFromResponse(entry.out);
+      CONVERSATION_HISTORY.push({ role: "user", content: entry.q });
+      const at = entry.out.ai && entry.out.ai.output
+        ? (typeof entry.out.ai.output.answer === "string" && entry.out.ai.output.answer.trim())
+          ? entry.out.ai.output.answer.trim()
+          : (typeof entry.out.ai.output.headline === "string" ? entry.out.ai.output.headline.trim() : "")
+        : "";
+      if (at) CONVERSATION_HISTORY.push({ role: "assistant", content: at });
+    }
+  }
+
   function pickTopDatesMinimal(top_dates) {
     if (!Array.isArray(top_dates)) return [];
     return top_dates
@@ -1248,6 +1306,7 @@ if (!root) {
           setBubbleHtml(aiBubble, html);
           revealAnswerBlocks(aiBubble);   // inc ② — staggered arrival of the already-validated blocks
           decorateCommitableDecisions(aiBubble, out);   // Day 2 — décision lines become « M'engager »
+          if (out && out.ok === true) persistThreadEntry(q, out);   // R2-3 — the thread survives navigation
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
@@ -1797,4 +1856,5 @@ if (!root) {
   });
 
   refreshMemoryPanel();
+  restoreThread();   // R2-3 — re-render the persisted exchanges (report round-trip no longer erases)
   }
