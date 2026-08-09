@@ -8,7 +8,6 @@
  */
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 export const prerender = false;
 
 const location_id =
@@ -36,7 +35,6 @@ if (!location_id) {
     <div id="cp-content" style="display:none;"></div>
     <div id="cp-error" style="display:none;text-align:center;padding:80px 0;color:#c00;font-size:14px;"></div>
   </div>
-  <PiloterBottomBar active="agir" />
 </BaseLayout>
 
   <script is:inline src="/ms-loader.js?v=1"></script>

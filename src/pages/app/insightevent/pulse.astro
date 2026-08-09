@@ -3,7 +3,6 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 
 const location_id =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
@@ -364,7 +363,6 @@ if (!location_id) {
     <script is:inline src="/action-cards.js?v=46"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
-  <PiloterBottomBar active="agir" />
 
   </BaseLayout>
 <script is:inline define:vars={{ location_id }}>

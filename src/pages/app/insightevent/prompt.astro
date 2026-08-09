@@ -352,7 +352,9 @@ if (!location_id) {
         z-index: 60;
         background: #ffffff;
         border-top: none;
-        padding: 14px 0;
+        /* R8-nav : la barre basse supprimée, l'input touche le bord — respiration 16px + safe-area
+           (encoche iPhone) selon les règles d'usage des barres de saisie fixées en bas. */
+        padding: 14px 0 calc(16px + env(safe-area-inset-bottom, 0px)) 0;
       }
 
       /* center the input bar when fixed */

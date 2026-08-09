@@ -11,7 +11,6 @@
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 import { Show } from "@clerk/astro/components";
 
 const locParam = Astro.url.searchParams.get("location_id") || "";
@@ -31,7 +30,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       <div id="tb-body" style="font-size:13px;color:#9CA3AF;">Chargement…</div>
     </div>
 
-    <PiloterBottomBar active="piloter" />
 
     <script is:inline src="/commit-form.js?v=11"></script>
     <style is:global>

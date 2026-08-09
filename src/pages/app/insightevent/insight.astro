@@ -2,7 +2,6 @@
 export const prerender = false;
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 const _localsLoc =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
@@ -2145,6 +2144,5 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       }
     })();
     </script>
-    <PiloterBottomBar />
   </BaseLayout>
 </Show>
