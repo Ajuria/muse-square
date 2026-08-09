@@ -382,20 +382,25 @@ if (!root) {
 
     if (!suggestions.length) return;
 
-    var html = '';
+    // Cartes insérées UNE PAR UNE en boucle inverse : « afterend » d'une chaîne multi-éléments a un
+    // ordre d'insertion AMBIGU selon le moteur (mesuré : happy-dom inverse, navigateur préserve) —
+    // l'insertion unitaire est sans ambiguïté partout.
+    var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
+      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
         + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
           + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
           + '<p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
         + '</div>'
         + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
-      + '</a>';
+      + '</a>');
     }
 
-    anchor.insertAdjacentHTML('afterend', html);
+    for (var k = cardHtmls.length - 1; k >= 0; k--) {
+      anchor.insertAdjacentHTML('afterend', cardHtmls[k]);
+    }
 
     // The fetch can land AFTER the user switched off Planning — inject hidden in that case,
     // setMode's live query re-shows them on return to Planning.

@@ -19,16 +19,44 @@ R4 — Les événements ACTIFS du jour sont nommés avec leur base de classifica
 R5 — Repères divergents réconciliés dans le verdict ; « variation ordinaire » / « aucune cause mesurée » sont DITES quand c'est la vérité.
 R6 — Plafond honnête : quand la donnée manque, l'answer le dit et s'arrête — zéro bluff, zéro remplissage.
 R7 — Chiffre d'abord dans le verdict ; concision (2-4 faits porteurs, pas d'inventaire).
-R8 — Une OBJECTION de l'utilisateur (« tu ne réponds pas », « c'est faux ») reçoit un traitement du DÉSACCORD — reconnaissance explicite + hypothèses vérifiables (données incomplètes ? autre date ? estimation erronée ?) — jamais une resucée de la réponse contestée.`;
+R8 — Une OBJECTION de l'utilisateur (« tu ne réponds pas », « c'est faux ») reçoit un traitement du DÉSACCORD — reconnaissance explicite + hypothèses vérifiables (données incomplètes ? autre date ? estimation erronée ?) — jamais une resucée de la réponse contestée.
+R9 — VOIX : registre professionnel d'un analyste qui parle à un exploitant — phrases pleines, termes du métier, zéro remplissage (« il est important de noter », « n'hésitez pas »), zéro conseil 101 (« communiquez sur les réseaux sociaux »), zéro robotisme (listes mécaniques sans verdict). Une réponse creuse polie reste une réponse creuse.`;
 
-type Expect = { producers: string[]; maxSeconds: number; groundedChips?: boolean; webSources?: boolean };
+// ── TRAÇABILITÉ plainte → porte (le « couvre-t-il toutes mes plaintes ? » se lit ICI, jamais sur parole)
+// « very slow » (07/08)                     → budget de latence par cas (porte dure)
+// « very dumb / catégorie C » (07/08)       → producer attendu + porte anti-plancher IR (tous les cas)
+// « states facts, doesn't answer » (08/08)  → R1 + cas 1-2
+// « forte densité inventée » (08/08)        → R3
+// « concurrents statiques = useless » (08/08)→ R2 + R4 + cas 7 (verdict mesuré cannibalisation)
+// « c'est aussi les vacances » (08/08)      → cas calendrier (porte : « vacances » dans la réponse)
+// « quelle proportion de touristes » (08/08) → cas tourisme (porte : un % dans la réponse)
+// « samedi dernier = mauvais jour » (08/08)  → cas premise (porte : used_date = samedi précédent CALCULÉ)
+// « et le dimanche ? » (héritage de fil)     → cas continuation (porte : used_date = lendemain du frame)
+// « tu ne réponds pas / resucée » (08/08)    → R8 + cas objection multi-tours
+// « Orsay sans chiffres » (juge R3)          → R3 + règle chiffres-des-pages + cas Orsay
+// « jour inexpliqué sans contexte réel »     → cas 14/07 (porte : web_context + source https)
+// « no 101 / robotic crap » (08/08)          → R9
+// Comportements CLIENT (fil qui survit, Nouvelle conversation, 3 slots, chips) → suite séparée
+// src/client/explorer-ui.test.ts (happy-dom sur les VRAIS card-kit.js + ie-prompt.js).
+
+type Expect = {
+  producers: string[]; maxSeconds: number; groundedChips?: boolean; webSources?: boolean;
+  usedDate?: () => string;      // porte DATE : decision_payload.used_dates[0] doit être EXACTEMENT ceci
+  answerMatch?: RegExp;         // porte CONTENU : le texte visible doit matcher (fait attendu présent)
+};
+// Samedi précédent STRICTEMENT avant aujourd'hui (la sémantique « samedi dernier » de R2-4).
+function prevSaturdayYmd(): string {
+  const d = new Date();
+  do { d.setDate(d.getDate() - 1); } while (d.getDay() !== 6);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 // `pre` (R8) : un cas MULTI-TOURS — l'historique + le frame du tour précédent partent avec la question,
 // comme le client le fait ; le juge voit la question du tour final seulement.
 type Pre = { conversation_history: Array<{ role: string; content: string }>; last: any };
 const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Pourquoi le 18/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 35, groundedChips: true } },
   { q: "Pourquoi le 11/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 35, groundedChips: true } },
-  { q: "Mon CA a chuté de 40 % samedi dernier, pourquoi ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 40, groundedChips: true } },
+  { q: "Mon CA a chuté de 40 % samedi dernier, pourquoi ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 40, groundedChips: true, usedDate: prevSaturdayYmd } },
   { q: "Quand il pleut, je vends moins ?", expect: { producers: ["family_grounded_claude", "family_deterministic"], maxSeconds: 35 } },
   { q: "Quels produits je vends le plus ?", expect: { producers: ["family_grounded_claude", "family_deterministic"], maxSeconds: 35 } },
   { q: "À quel moment je vends le plus ?", expect: { producers: ["family_grounded_claude", "family_deterministic"], maxSeconds: 35 } },
@@ -42,6 +70,22 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // https (14/07 est en cache 30 j depuis le run E2E — déterministe et rapide ; si le cache expire,
   // le premier run peut la manquer (plafond 12 s) et le second la porte).
   { q: "Pourquoi le 14/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 40, groundedChips: true, webSources: true } },
+  // Plainte « c'est aussi les vacances » : la famille calendrier doit nommer les vacances scolaires.
+  { q: "Les vacances scolaires changent quoi pour mes ventes ?", expect: { producers: ["family_grounded_claude", "family_deterministic"], maxSeconds: 35, answerMatch: /vacances/i } },
+  // Plainte « quelle proportion » : la réponse tourisme porte un POURCENTAGE, plus jamais « possible ».
+  { q: "D'où viennent les visiteurs étrangers dans ma région ?", expect: { producers: ["family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, answerMatch: /\d+\s?%/ } },
+  // Héritage de fil : « et le dimanche ? » après un samedi doit répondre sur LE lendemain du frame.
+  {
+    q: "et le dimanche ?",
+    expect: { producers: ["grounded_day_claude", "family_grounded_claude", "family_deterministic"], maxSeconds: 40, usedDate: () => "2026-07-19" },
+    pre: {
+      conversation_history: [
+        { role: "user", content: "Pourquoi le 18/07 ?" },
+        { role: "assistant", content: "Le 18/07/2026, CA 1 150 €, −12 % vs habituel." },
+      ],
+      last: { horizon: "day", intent: "DAY_WHY", used_dates: ["2026-07-18"] },
+    },
+  },
   // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
   {
     q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",
@@ -129,6 +173,15 @@ async function judge(q: string, answer: string): Promise<{ scores: Record<string
     if (!item.expect.producers.includes(producer)) gates.push(`producer=${producer} (attendu: ${item.expect.producers.join("|")})`);
     if (seconds > item.expect.maxSeconds) gates.push(`latence ${seconds}s > ${item.expect.maxSeconds}s`);
     if (item.expect.groundedChips && !(Array.isArray(output.sentence_provenance) && Array.isArray(output.facts_catalog))) gates.push("provenance/catalog absents");
+    if (item.expect.usedDate) {
+      const want = item.expect.usedDate();
+      const got = String(out?.decision_payload?.used_dates?.[0] ?? "").slice(0, 10);
+      if (got !== want) gates.push(`date résolue ${got || "absente"} (attendu ${want})`);
+    }
+    if (item.expect.answerMatch) {
+      const full = [output.headline, typeof output.answer === "string" ? output.answer : "", ...(output.key_facts ?? [])].join("\n");
+      if (!item.expect.answerMatch.test(full)) gates.push(`contenu attendu absent (${item.expect.answerMatch})`);
+    }
     if (item.expect.webSources) {
       const w = out?.web_context;
       const okWeb = w && (w.takeaway || (w.key_factors ?? []).length) && Array.isArray(w.sources) && w.sources.some((u: string) => /^https:\/\//.test(u));
