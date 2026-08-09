@@ -21,7 +21,7 @@ R6 — Plafond honnête : quand la donnée manque, l'answer le dit et s'arrête 
 R7 — Chiffre d'abord dans le verdict ; concision (2-4 faits porteurs, pas d'inventaire).
 R8 — Une OBJECTION de l'utilisateur (« tu ne réponds pas », « c'est faux ») reçoit un traitement du DÉSACCORD — reconnaissance explicite + hypothèses vérifiables (données incomplètes ? autre date ? estimation erronée ?) — jamais une resucée de la réponse contestée.`;
 
-type Expect = { producers: string[]; maxSeconds: number; groundedChips?: boolean };
+type Expect = { producers: string[]; maxSeconds: number; groundedChips?: boolean; webSources?: boolean };
 // `pre` (R8) : un cas MULTI-TOURS — l'historique + le frame du tour précédent partent avec la question,
 // comme le client le fait ; le juge voit la question du tour final seulement.
 type Pre = { conversation_history: Array<{ role: string; content: string }>; last: any };
@@ -38,6 +38,10 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Quelle est ma marge le week-end ?", expect: { producers: ["deterministic_missing_dimension_elicit_v1"], maxSeconds: 8 } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
+  // Étape 5 — jour PASSÉ inexpliqué : la section « Web — non vérifié » doit arriver avec ≥1 source
+  // https (14/07 est en cache 30 j depuis le run E2E — déterministe et rapide ; si le cache expire,
+  // le premier run peut la manquer (plafond 12 s) et le second la porte).
+  { q: "Pourquoi le 14/07 ?", expect: { producers: ["grounded_day_claude"], maxSeconds: 40, groundedChips: true, webSources: true } },
   // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
   {
     q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",
@@ -125,6 +129,11 @@ async function judge(q: string, answer: string): Promise<{ scores: Record<string
     if (!item.expect.producers.includes(producer)) gates.push(`producer=${producer} (attendu: ${item.expect.producers.join("|")})`);
     if (seconds > item.expect.maxSeconds) gates.push(`latence ${seconds}s > ${item.expect.maxSeconds}s`);
     if (item.expect.groundedChips && !(Array.isArray(output.sentence_provenance) && Array.isArray(output.facts_catalog))) gates.push("provenance/catalog absents");
+    if (item.expect.webSources) {
+      const w = out?.web_context;
+      const okWeb = w && (w.takeaway || (w.key_factors ?? []).length) && Array.isArray(w.sources) && w.sources.some((u: string) => /^https:\/\//.test(u));
+      if (!okWeb) gates.push("section web absente ou sans source https");
+    }
     if (String(output.headline ?? "").includes("catégorie C") || String(output.answer ?? "").includes("catégorie C")) gates.push("plancher IR « catégorie C »");
     if (!String(output.headline ?? "").trim() && !String(output.answer ?? "").trim()) gates.push("réponse vide");
     const answerText = textOfAnswer(out);
