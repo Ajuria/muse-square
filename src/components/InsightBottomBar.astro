@@ -65,27 +65,9 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
     </div>
   )}
 
-  <div class="ms-bottombar-nav">
-    <a class={`ms-bottombar-item ${active === "prompt" ? "is-active" : ""}`} href={hrefPrompt} aria-label="Prompt" aria-current={active === "prompt" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <div class="ms-bottombar-label">EXPLORER</div>
-    </a>
-
-    <a class={`ms-bottombar-item ${active === "days" ? "is-active" : ""}`} href={hrefDays} aria-label="Mes dates" aria-current={active === "days" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>
-          <circle cx="12" cy="14" r="2" fill="currentColor"/>
-          <path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="ms-bottombar-label">MES DATES</div>
-    </a>
-
+  <!-- R8-nav (08/08, décision owner) : la rangée de NAVIGATION dupliquait la nav haute — supprimée.
+       La rangée d'ACTIONS (Partager choix / Enregistrer, pilotée par showActions) reste : c'est une
+       barre d'action contextuelle, pas de la navigation. Le wrapper ne rend plus rien sans elle. -->
 <script is:inline>
   (function () {
     const saveBtn = document.getElementById("cta-save");
@@ -272,9 +254,10 @@ const hrefDays   = withoutKeptParams("/app/insightevent/days");
   left: 0;
   right: 0;
   z-index: 70;
-  background: #ffffff;
-  border-top: 1px solid rgba(17,24,39,0.10);
 }
+/* R8-nav : le chrome (fond + liseré) ne vit que sur la rangée d'actions — sans elle, zéro bande vide. */
+.ms-bottombar:not(:has(.ms-bottombar-actions)) { display: none; }
+.ms-bottombar-actions { background: #ffffff; border-top: 1px solid rgba(17,24,39,0.10); }
 
 .ms-bottombar-item {
   flex: 1 1 0;
