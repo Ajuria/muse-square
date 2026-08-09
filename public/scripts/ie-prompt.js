@@ -139,7 +139,9 @@ if (!root) {
     try {
       var today = new Date();
       var dates = [];
-      for (var i = 0; i < 7; i++) {
+      // R7 (08/08, proto owner) : J−2..J+6 — les jours PASSÉS portent daily_revenue/revenue_robust_z
+      // pour l'ÉTAT A du slot contextuel (anomalie du dernier jour mesuré).
+      for (var i = -2; i < 7; i++) {
         var d = new Date(today);
         d.setDate(today.getDate() + i);
         dates.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
@@ -171,7 +173,82 @@ if (!root) {
   var SVG_ICON_USERS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
   var SVG_ICON_TARGET = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
 
+  // R7 (08/08, proto approuvé owner) — l'état vide devient 3 SLOTS : Trouver une date (inchangé) ·
+  // UNE carte contextuelle (priorité anomalie mesurée > alerte météo > repli météo générique — le
+  // sous-titre est écrit depuis les données du compte, chiffre d'abord) · Générer un rapport.
+  // Chaque clic pré-remplit le chat avec une question ÉPROUVÉE par la batterie (chemins forts).
   function buildDynamicSuggestions(data, compData) {
+    var slots = [];
+    var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    var frPct = function (n) { return (n > 0 ? '+' : '−') + Math.abs(Math.round(n)) + ' %'; };
+    var frInt = function (n) { return Math.round(n).toLocaleString('fr-FR'); };
+
+    // ── SLOT 2 · ÉTAT A : dernier jour PASSÉ mesuré avec anomalie (|z| >= 2) ──
+    var days = (data && Array.isArray(data.days)) ? data.days : [];
+    var today = new Date();
+    var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var anomaly = null;
+    for (var i = days.length - 1; i >= 0; i--) {
+      var d = days[i]; var ymd = String(d.date || '').slice(0, 10);
+      if (ymd >= todayYmd) continue;
+      if (d.daily_revenue == null || d.revenue_robust_z == null) continue;
+      if (Math.abs(Number(d.revenue_robust_z)) >= 2 && d.revenue_vs_30d_avg_pct != null) {
+        if (!anomaly || ymd > anomaly.ymd) anomaly = { ymd: ymd, d: d };
+      }
+    }
+    if (anomaly) {
+      var ad = new Date(anomaly.ymd + 'T00:00:00');
+      var pct = Number(anomaly.d.revenue_vs_30d_avg_pct);
+      var up = pct >= 0;
+      var dispD = anomaly.ymd.slice(8,10) + '/' + anomaly.ymd.slice(5,7);
+      slots.push({
+        svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M3 3v18h18v-2H5V3H3zm4 12 4-4 3 3 5-6 1.5 1.2L15 15l-3-3-4 4H7z"/></svg>',
+        text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
+        sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
+        q: 'Pourquoi le ' + dispD + ' ?',
+      });
+    } else {
+      // ── ÉTAT B : alerte météo active sur la fenêtre ──
+      var weatherDay = null;
+      for (var j = 0; j < days.length; j++) {
+        if (String(days[j].date || '').slice(0,10) >= todayYmd && Number(days[j].alert_level_max || 0) >= 2) { weatherDay = days[j]; break; }
+      }
+      if (weatherDay) {
+        var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
+        var tempMax = Number(weatherDay.temperature_2m_max || 0);
+        var precipMax = Number(weatherDay.precipitation_probability_max_pct || 0);
+        var cond = tempMax >= 30 ? 'chaleur' : (precipMax >= 60 ? 'pluie' : 'météo');
+        var condLabel = tempMax >= 30 ? 'Chaleur (' + Math.round(tempMax) + '°C)' : (precipMax >= 60 ? 'Pluie probable (' + Math.round(precipMax) + ' %)' : 'Alerte météo');
+        slots.push({
+          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
+          text: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+          sub: condLabel + ' ' + DOW_FR[wd.getDay()] + ' — votre réaction mesurée sur vos jours comparables',
+          q: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+        });
+      } else {
+        // ── ÉTAT C : repli — toujours mesurable, jamais 101 ──
+        slots.push({
+          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
+          text: 'Quel est l’effet de la météo sur mes ventes ?',
+          sub: 'Chaleur, pluie, froid — l’écart mesuré de votre CA sur vos jours comparables',
+          q: 'Quel est l’effet de la météo sur mes ventes ?',
+        });
+      }
+    }
+
+    // ── SLOT 3 : Générer un rapport (le raccourci chat, rendu visible) ──
+    var MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    var lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    slots.push({
+      svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>',
+      text: 'Générer un rapport',
+      sub: MONTHS_FR[lastMonth.getMonth()].charAt(0).toUpperCase() + MONTHS_FR[lastMonth.getMonth()].slice(1) + ', une semaine, une période — le document complet, imprimable et partageable',
+      q: 'Génère le rapport de ' + MONTHS_FR[lastMonth.getMonth()],
+    });
+    return slots;
+  }
+
+  function _legacyBuildDynamicSuggestions(data, compData) {
     if (!data || !Array.isArray(data.days) || !data.days.length) return [];
     var today = new Date();
     var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -291,34 +368,34 @@ if (!root) {
   }
 
   function renderDynamicSuggestions(suggestions) {
+    // R7 (08/08, proto approuv\u00e9 owner) \u2014 les slots rendent au look CARTE PLEINE (m\u00eames valeurs que la
+    // carte \u00ab Trouver une date \u00bb : titre 15px/500, sous-titre 13px, tuile ic\u00f4ne brand par d\u00e9faut),
+    // inject\u00e9s APR\u00c8S le formulaire finder \u2014 les 3 slots vivent sous le m\u00eame label ACTIONS.
     var container = document.getElementById('ie-prompt-suggestions-label');
-    if (!container) return;
+    var anchor = document.getElementById('ie-finder-form') || container;
+    if (!anchor) return;
+    if (container) container.style.display = 'none';   // un seul label : ACTIONS
 
     // Remove old static cards (but not finder)
     var oldCards = document.querySelectorAll('.ie-prompt-card:not(#ie-finder-card)');
     for (var i = 0; i < oldCards.length; i++) { oldCards[i].remove(); }
 
-    if (!suggestions.length) {
-      container.style.display = 'none';
-      return;
-    }
-
-    container.textContent = 'Explorez vos donn\u00e9es';
+    if (!suggestions.length) return;
 
     var html = '';
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '" style="margin-bottom:6px;border-radius:10px;">'
-        + '<div class="ie-prompt-card-icon" style="background:' + s.iconBg + ';color:' + s.iconColor + ';">' + s.svg + '</div>'
+      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
+        + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
-          + '<p class="ie-prompt-card-text" style="font-size:13px;font-weight:500;margin:0 0 2px;">' + escapeHtml(s.text) + '</p>'
-          + '<p style="font-size:11px;color:#6b7280;margin:0;">' + escapeHtml(s.sub) + '</p>'
+          + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
+          + '<p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
         + '</div>'
-        + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
+        + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
       + '</a>';
     }
 
-    container.insertAdjacentHTML('afterend', html);
+    anchor.insertAdjacentHTML('afterend', html);
 
     // The fetch can land AFTER the user switched off Planning — inject hidden in that case,
     // setMode's live query re-shows them on return to Planning.
