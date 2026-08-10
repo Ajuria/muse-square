@@ -479,6 +479,22 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   }));
   const measured = apresRows.filter((r) => r.gap_eur != null);
   const gaps = measured.map((r) => r.gap_eur as number).sort((a, b) => a - b);
+  // La série suit le KPI DÉCLARÉ (le formulaire en offre 4 : CA vs attendu, famille, tickets,
+  // panier — l'utilisateur choisit et pose sa cible). Avant : agrégée sur gap_eur (CA) quel que
+  // soit le KPI → « 1/1 au-dessus de l'attendu » s'affichait SOUS « Cible manquée » sur le même
+  // jour (cas réel Corner : famille 28 € vs cible 150 €, CA +90 €). Chaque valeur porte son unité.
+  const KPI_UNIT: Record<string, "eur" | "pct"> = { family_revenue: "eur", revenue_residual: "pct", tickets: "pct", basket: "pct" };
+  const kpiKeyItem = String(item.kpi || "revenue_residual");
+  const kpiValueOf = (r: any): number | null => {
+    if (kpiKeyItem === "family_revenue") return r.family_rev != null ? Number(r.family_rev) : null;
+    if (kpiKeyItem === "revenue_residual") return r.residual_pct != null ? Number(r.residual_pct) : null;
+    if (kpiKeyItem === "tickets") return r.tickets_delta_pct != null ? Number(r.tickets_delta_pct) : null;
+    if (kpiKeyItem === "basket") return r.basket_delta_pct != null ? Number(r.basket_delta_pct) : null;
+    return null;
+  };
+  const kpiTarget = kpiKeyItem === "family_revenue" ? item.kpi_target_eur : item.kpi_target_pct;
+  const kpiMeasured = apresRows.filter((r) => kpiValueOf(r) != null);
+  const kpiVals = kpiMeasured.map((r) => kpiValueOf(r) as number).sort((a, b) => a - b);
   const serie = isRecurring ? {
     n_occurrences: item.dates.length,
     n_measured: measured.length,
@@ -486,7 +502,37 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     median_gap_eur: gaps.length ? gaps[Math.floor(gaps.length / 2)] : null,
     sum_gap_eur: gaps.length ? gaps.reduce((a, b) => a + b, 0) : null,
     next_date: nextDate,
+    // ── Série DU KPI déclaré (unité portée, cible portée) ──
+    kpi_key: kpiKeyItem,
+    kpi_unit: KPI_UNIT[kpiKeyItem] || "pct",
+    kpi_target: kpiTarget ?? null,
+    kpi_n_measured: kpiMeasured.length,
+    kpi_n_met: kpiTarget != null ? kpiMeasured.filter((r) => (kpiValueOf(r) as number) >= Number(kpiTarget)).length : null,
+    kpi_median: kpiVals.length ? kpiVals[Math.floor(kpiVals.length / 2)] : null,
+    kpi_values: kpiMeasured.map((r) => ({ date: r.date, value: kpiValueOf(r) })),
+    // Assez d'occurrences pour lire une TENDANCE ? (2 points ne font pas une courbe.)
+    trend_readable: kpiMeasured.length >= 3,
   } : null;
+
+  // Lecture : réconcilier le KPI et le CA du jour quand ils divergent — le fait le plus utile
+  // du dossier n'était calculé nulle part (Corner : la famille sous SA moyenne, journée au-dessus
+  // de l'attendu ⇒ la hausse ne vient pas de l'opération).
+  const lastMeasured = measured.length ? measured[measured.length - 1] : null;
+  let reconciliation: string | null = null;
+  if (lastMeasured && kpiKeyItem === "family_revenue" && lastMeasured.family_rev != null && famAvg != null) {
+    const famUp = lastMeasured.family_rev >= famAvg;
+    const dayUp = (lastMeasured.gap_eur as number) > 0;
+    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait l'attendu de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
+    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous l'attendu (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
+    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de l'attendu (+${lastMeasured.gap_eur} €).`;
+  }
+  // Cible hors d'échelle : un objectif à N× l'ordinaire de la famille n'est pas une performance
+  // manquée, c'est un calibrage (fait dit, jamais un reproche).
+  let targetScale: { ratio: number; ref: number } | null = null;
+  if (kpiKeyItem === "family_revenue" && item.kpi_target_eur != null && famAvg != null && famAvg > 0) {
+    const ratio = item.kpi_target_eur / famAvg;
+    if (ratio >= 2) targetScale = { ratio: Math.round(ratio * 10) / 10, ref: famAvg };
+  }
 
   // ── 6. FACTS (liste blanche du chat — chaque nombre verbatim) ──
   const fd = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -513,7 +559,16 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     data: {
       found: true, item, stage, fam_avg_day_eur: famAvg,
       days, avant_date: stage === "decider" ? null : nextDate,
-      apres: { rows: apresRows, serie, documented: (docRows as any[])?.length ? String(flat((docRows as any[])[0].practice_id)) : null },
+      apres: {
+        rows: apresRows, serie,
+        documented: (docRows as any[])?.length ? String(flat((docRows as any[])[0].practice_id)) : null,
+        reconciliation, target_scale: targetScale,
+        // « En cours » : l'engagement ancré sur la PROCHAINE occurrence (armé ou non) — l'état
+        // vivant n'était visible nulle part sur le dossier.
+        next_commitment: nextDate && comBy.get(nextDate)
+          ? { date: nextDate, status: String(flat((comBy.get(nextDate) as any).status) || ""), verdict: flat((comBy.get(nextDate) as any).verdict) != null ? String(flat((comBy.get(nextDate) as any).verdict)) : null }
+          : (nextDate ? { date: nextDate, status: null, verdict: null } : null),
+      },
       consigne_sends: (sendRows as any[]).map((s) => ({
         occurrence_date: String(flat(s.d) ?? ""), sent_on: String(flat(s.sent_on) ?? ""),
         n_recipients: Number(flat(s.n_recipients) ?? 0),

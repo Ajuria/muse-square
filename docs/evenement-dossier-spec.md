@@ -346,3 +346,18 @@ left join outcomes o using (saved_item_id)
   donc une pratique dont le test avait été annulé n'était plus jamais testable. `replay_status`
   exposé ; un replay `cancelled` ne compte pas comme rejeu (pratique re-prouvable, comptée dans
   `declared_no_replay`).
+- **10/08 (9) — audit du dossier (owner : « it's a mess »)** : (a) **cloisonnement des
+  horizons** — `renderConsigne` et `maybeRenderBilan` faisaient `body.appendChild` : les deux
+  blocs restaient visibles quel que soit l'onglet, donc l'écran mélangeait le résultat du 08/08,
+  la consigne du 15/08 et le bilan du 08/08. Points de montage `[data-ev-mount]` : consigne →
+  panneau AVANT, bilan → panneau APRÈS (repli page si le panneau n'existe pas) ; (b) « Pour
+  mémoire » ne redit plus le dispositif (déjà en tête) ; (c) **la série suit le KPI DÉCLARÉ**
+  (le formulaire en offre 4 : CA vs attendu / famille / tickets / panier — voir mémoire
+  `kpi-declare-suit-partout`) : `serie.kpi_*` (cible, unité, n à la cible, médiane, valeurs par
+  date, `trend_readable` ≥ 3) — avant, « 1/1 au-dessus de l'attendu » (CA) s'affichait sous
+  « Cible manquée » (famille) ; (d) **Lecture** réconciliant KPI et journée quand ils divergent
+  (« la famille sous son ordinaire alors que la journée dépassait l'attendu ⇒ la hausse ne vient
+  pas de cette opération ») ; (e) **cible hors d'échelle** dite au verdict (150 € = 4,4×
+  l'ordinaire de la famille) ; (f) **« En cours »** : l'engagement de la prochaine occurrence
+  (armé / s'armera à J-7) — état invisible jusqu'ici ; (g) verdict en UN vocabulaire (plus
+  d'énum brute `missed`) ; (h) aperçu de l'email REPLIÉ (il écrasait le dossier).

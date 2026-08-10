@@ -301,7 +301,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
           wrap.innerHTML = '<div style="font-size:12.5px;color:#6B7280;">Bilan du ' + frD(bilanDate) + ' déjà enregistré.</div>' + chain;
-          body.appendChild(wrap);
+          (body.querySelector('[data-ev-mount="bilan"]') || body).appendChild(wrap);
           wireDocChain(wrap);
         }
 
@@ -351,7 +351,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             + '<div style="flex:1;min-width:200px;"><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Commentaire (optionnel)</div><textarea id="evt-bilan-com" placeholder="Observation, retour terrain…" style="width:100%;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;"></textarea></div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;"><button type="button" id="evt-bilan-send" style="font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Envoyer mon bilan</button><span id="evt-bilan-msg" style="font-size:12px;color:#6B7280;"></span></div>';
-          body.appendChild(wrap);
+          (body.querySelector('[data-ev-mount="bilan"]') || body).appendChild(wrap);
           var attInput = wrap.querySelector("#evt-bilan-att");
           if (attInput && rowB.tickets != null) attInput.addEventListener("input", function () {
             var conv = wrap.querySelector("#evt-bilan-conv");
@@ -500,9 +500,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             if (it.dispositif) lines.push("Le dispositif :\n" + it.dispositif);
             if (hasConsigne) lines.push("Consigne :\n" + consigneText);
             if (it.author_person_name) lines.push("Responsable : " + it.author_person_name);
-            bodyHtml += '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">'
-              + (enabled ? 'Part seule ' + sendWhen + ' (J-' + off + ') \u2014 op\u00e9ration du ' + frD(nextOcc) + ', aux participants + au responsable.' : 'Aper\u00e7u de l\u2019email \u2014 l\u2019envoi automatique est d\u00e9sactiv\u00e9.') + '</div>'
-              + '<div style="font-size:12.5px;color:#374151;background:#F8FAFC;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;line-height:1.6;white-space:pre-line;">' + esc(lines.join("\n\n")) + '</div>';
+            bodyHtml += '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12px;color:#6B7280;margin-bottom:6px;">'
+              + '<span>' + (enabled ? 'Part seule ' + sendWhen + ' (J-' + off + ') \u2014 op\u00e9ration du ' + frD(nextOcc) + ', aux participants + au responsable.' : 'L\u2019envoi automatique est d\u00e9sactiv\u00e9.') + '</span>'
+              + '<button type="button" data-cs-preview style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;padding:0;">Voir l\u2019aper\u00e7u de l\u2019email \u25be</button></div>'
+              + '<div data-cs-preview-body style="display:none;font-size:12.5px;color:#374151;background:#F8FAFC;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;line-height:1.6;white-space:pre-line;">' + esc(lines.join("\n\n")) + '</div>';
             if (sends.length) {
               bodyHtml += '<div style="margin-top:8px;font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Derni\u00e8re consigne envoy\u00e9e le ' + frD(sends[0].sent_on) + ' \u00e0 ' + sends[0].n_recipients + ' destinataire(s) \u2014 op\u00e9ration du ' + frD(sends[0].occurrence_date) + '.</div>';
             }
@@ -547,7 +548,14 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;">La mesure, elle, est d\u00e9j\u00e0 automatique : un engagement s\u2019arme seul \u00e0 J-7 de chaque op\u00e9ration \u2014 verdicts cumul\u00e9s au fil de la s\u00e9rie.</div>';
 
           wrap.innerHTML = head2 + bodyHtml;
-          body.appendChild(wrap);
+          (body.querySelector('[data-ev-mount="consigne"]') || body).appendChild(wrap);
+          var pvBtn = wrap.querySelector("[data-cs-preview]");
+          if (pvBtn) pvBtn.addEventListener("click", function () {
+            var pv = wrap.querySelector("[data-cs-preview-body]");
+            var open = pv.style.display === "none";
+            pv.style.display = open ? "block" : "none";
+            pvBtn.innerHTML = (open ? "Masquer l\u2019aper\u00e7u \u25b4" : "Voir l\u2019aper\u00e7u de l\u2019email \u25be");
+          });
 
           // ── C\u00e2blage commun ──
           function toggleConsigne() {
@@ -780,11 +788,12 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             j.days.forEach(function (d) { if (d.date === j.avant_date) day = d; });
             if (day) {
               var o2 = day.objectif || {};
-              avantHtml = '<div data-ev-panel="avant"' + (current !== "avant" ? ' style="display:none;"' : "") + '>'
+              avantHtml = '<div data-ev-panel="avant"' + (current !== "avant" ? ' style="display:none;"' : "") + ' data-ev-has-mount="consigne">'
                 + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Le ' + day.dow_fr + " " + frD(day.date) + ' pour votre événement</div>'
                 + (day.score != null ? '<span style="font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">Score prévu : ' + day.score + '/10</span>' : "") + '</div>'
                 + day.questions.map(qLine).join("")
-                + (o2.expected_eur != null ? '<div style="font-size:12px;color:#6B7280;margin-top:8px;">Objectif : ' + esc(kpiLbl) + (o2.apport_eur != null ? " — apport visé " + signEur(o2.apport_eur) : "") + " · attendu du jour ≈ " + frInt(o2.expected_eur) + " €" + (o2.total_eur != null ? " → total visé ≈ " + frInt(o2.total_eur) + " €" : "") + '</div>' : "") + '</div>';
+                + (o2.expected_eur != null ? '<div style="font-size:12px;color:#6B7280;margin-top:8px;">Objectif : ' + esc(kpiLbl) + (o2.apport_eur != null ? " — apport visé " + signEur(o2.apport_eur) : "") + " · attendu du jour ≈ " + frInt(o2.expected_eur) + " €" + (o2.total_eur != null ? " → total visé ≈ " + frInt(o2.total_eur) + " €" : "") + '</div>' : "")
+                + '<div data-ev-mount="consigne"></div></div>';
             }
           }
 
@@ -807,11 +816,15 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
                   : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs attendu (cible +" + frInt(it.kpi_target_pct) + " %)"
                   : "";
-                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span></div>';
+                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span>'
+                  + (j.apres.target_scale ? '<span style="display:block;font-size:11px;color:#9CA3AF;margin-top:4px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire de la famille (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</span>' : "")
+                  + '</div>';
               }
               if (last.target_met == null && it.kpi_target_eur == null && it.kpi_target_pct == null)
                 chip = '<div style="margin-bottom:8px;font-size:12px;color:#6B7280;">Aucun objectif n’était posé — le mesuré ci-dessous reste votre référence ; posez une cible à la prochaine occasion pour obtenir un verdict.</div>';
-              panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date) + (last.verdict ? " · verdict statistique de l’engagement : " + esc(last.verdict) : " · verdict statistique au bilan de l’engagement") + '</div>'
+              var VERD_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (facteur externe)" };
+              panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date)
+                + (last.verdict ? ' · <span style="cursor:help;" title="Verdict statistique de l’engagement — bande de bruit et gardes de confusion, distinct du fait « cible atteinte ».">verdict mesuré : ' + esc(VERD_FR[last.verdict] || last.verdict) + '</span>' : " · verdict à la fin de la fenêtre") + '</div>'
               // Habituel au MÊME référentiel que le CA attendu : moyenne de VOS mêmes jours de
               // semaine (90 j) quand n ≥ 4 ; repli 28 j toutes-journées du mart, DIT tel quel.
               var dowPl = (last.dow_fr || "jour").toLowerCase() + "s";
@@ -844,16 +857,24 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             var serieHtml = "";
             if (j.apres.serie) {
               var se = j.apres.serie;
+              // La série parle du KPI DÉCLARÉ (l'utilisateur le choisit à la création : CA vs
+              // attendu, famille, tickets, panier) — plus du CA quel que soit l'objectif.
+              var kUnit = function (v) { return se.kpi_unit === "eur" ? frInt(v) + " €" : (v >= 0 ? "+" : "") + Math.round(v) + " %"; };
+              var kTitle = se.kpi_target != null
+                ? (se.kpi_n_met != null ? se.kpi_n_met : 0) + "/" + se.kpi_n_measured + " occurrence(s) à la cible (" + kUnit(se.kpi_target) + ")"
+                : se.kpi_n_measured + " occurrence(s) mesurée(s)";
               serieHtml = '<div style="margin-top:12px;border-top:1px solid #F3F4F6;padding-top:10px;">'
-                + '<div style="display:flex;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:600;flex:1;">Série — ' + se.n_above + "/" + se.n_measured + ' occurrence(s) mesurée(s) au-dessus de l’attendu</div>'
-                + (se.sum_gap_eur != null ? '<div style="text-align:right;"><div style="font-size:15px;font-weight:600;color:' + (se.sum_gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + signEur(se.sum_gap_eur) + '</div><div style="font-size:10.5px;color:#9CA3AF;">mesuré · ' + se.n_measured + ' occ. — jamais extrapolé</div></div>' : "") + '</div>'
+                + '<div style="display:flex;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:600;flex:1;">Série — ' + kTitle + '</div>'
+                + (se.kpi_median != null ? '<div style="text-align:right;"><div style="font-size:15px;font-weight:600;">' + kUnit(se.kpi_median) + '</div><div style="font-size:10.5px;color:#9CA3AF;">médiane ' + esc(kpiLbl) + '</div></div>' : "") + '</div>'
+                + '<div style="font-size:11px;color:#9CA3AF;margin:2px 0 6px;">' + se.n_measured + ' mesurée(s) sur ' + se.n_occurrences + ' prévue(s)'
+                + (se.trend_readable ? "" : " — la tendance se lira à partir de 3") + (se.sum_gap_eur != null ? ' · CA du jour cumulé ' + signEur(se.sum_gap_eur) + ' vs attendu' : "") + '</div>'
                 + j.apres.rows.map(function (r) {
                     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;"><span style="width:100px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
                       + (r.gap_eur != null ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (r.gap_eur >= 0 ? "#059669" : "#B45309") + ';background:' + (r.gap_eur >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + signEur(r.gap_eur) + ' vs attendu</span>' : '<span style="font-size:11px;color:#9CA3AF;">pas de mesure</span>')
-                      + (r.family_rev != null ? '<span style="font-size:11.5px;color:#6B7280;">' + esc(it.kpi_family || "famille") + " " + frInt(r.family_rev) + " €</span>" : "")
-                      + (r.verdict ? '<span style="font-size:11px;color:#6B7280;">verdict : ' + esc(r.verdict) + '</span>' : "") + '</div>';
+                      + (r.family_rev != null ? '<span style="font-size:11.5px;font-weight:600;color:' + (r.target_met === false ? "#B45309" : r.target_met === true ? "#059669" : "#6B7280") + ';">' + esc(it.kpi_family || "famille") + " " + frInt(r.family_rev) + " €</span>" : "")
+                      + (r.verdict ? '<span style="font-size:11px;color:#6B7280;">' + esc(({ met: "cible tenue", missed: "cible manquée", confounded: "non mesurable" })[r.verdict] || r.verdict) + '</span>' : "") + '</div>';
                   }).join("")
-                + (se.next_date ? '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Prochaine occurrence : ' + frD(se.next_date) + ' — préparation en carte J-1.</div>' : "") + '</div>';
+                + '</div>';
             }
             // 10/08 (owner) : plus de bouton « Documenter » PARALLÈLE au bilan — même acte
             // (capitaliser) en deux formulaires déconnectés. Une seule voie : le bilan, qui
@@ -865,21 +886,34 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               att: { beyond: "fréquentation au-delà des attentes", conforme: "fréquentation conforme", endeca: "fréquentation en deçà" },
             };
             var lb = last && last.bilan;
+            // « Pour mémoire » ne REDIT pas le dispositif (déjà en tête de dossier) : il porte
+            // ce que la tête n'a pas — la consigne et votre vécu.
             var memoLines = [];
-            if (it.dispositif) memoLines.push('<span style="font-weight:600;">Dispositif :</span> ' + esc(String(it.dispositif).slice(0, 200)));
             if (it.consigne_store_info) memoLines.push('<span style="font-weight:600;">Consigne :</span> ' + esc(String(it.consigne_store_info).slice(0, 160)));
-            if (!it.dispositif && !it.consigne_store_info) memoLines.push('Aucune description enregistrée pour cet événement — la recette que vous écrirez ci-dessous en tiendra lieu.');
             if (lb) {
               var vecu = [BIL_FR.action[lb.action_carried], BIL_FR.weather[lb.weather], BIL_FR.mobility[lb.mobility], BIL_FR.att[lb.attendance]].filter(Boolean);
               if (vecu.length) memoLines.push('<span style="font-weight:600;">Votre bilan :</span> ' + vecu.join(" · "));
               if (lb.comment) memoLines.push('« ' + esc(String(lb.comment).slice(0, 240)) + ' »');
             }
-            var memoHtml = '<div style="background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.7;color:#374151;">'
-              + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:#9CA3AF;font-weight:600;margin-bottom:2px;">Pour mémoire — ce que c’était</div>'
-              + (memoLines.length ? memoLines.map(function (l) { return "<div>" + l + "</div>"; }).join("")
-                : '<div>Aucune description enregistrée pour cet événement — la recette que vous écrirez ci-dessous en tiendra lieu.</div>')
-              + '</div>';
-            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + memoHtml + panel + serieHtml + '</div>';
+            if (!it.dispositif && !it.consigne_store_info) memoLines.push('Aucune description enregistrée pour cet événement — la recette que vous écrirez ci-dessous en tiendra lieu.');
+            var memoHtml = memoLines.length ? '<div style="background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.7;color:#374151;">'
+              + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:#9CA3AF;font-weight:600;margin-bottom:2px;">Pour mémoire</div>'
+              + memoLines.map(function (l) { return "<div>" + l + "</div>"; }).join("")
+              + '</div>' : "";
+            // Lecture : le fait le plus utile du dossier (KPI vs journée), calculé au provider.
+            var lectureHtml = j.apres.reconciliation
+              ? '<div style="font-size:12.5px;line-height:1.6;color:#374151;margin-bottom:10px;"><span style="font-weight:600;">Lecture :</span> ' + esc(j.apres.reconciliation) + '</div>' : "";
+            // État EN COURS : l'engagement de la prochaine occurrence (invisible jusqu'ici).
+            var nc = j.apres.next_commitment;
+            var ongoingHtml = "";
+            if (nc && nc.date) {
+              var ncOpen = nc.status === "open" || nc.status === "pending";
+              ongoingHtml = '<div style="margin-top:10px;font-size:12.5px;color:' + (ncOpen ? "#1D3BB3" : "#6B7280") + ';">'
+                + (ncOpen ? '<span style="font-weight:600;">En cours :</span> prochaine occurrence le ' + frD(nc.date) + ' — engagement armé, verdict automatique à la fin de la fenêtre.'
+                  : 'Prochaine occurrence le ' + frD(nc.date) + ' — la mesure s’arme seule à J-7.') + '</div>';
+            }
+            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + memoHtml + lectureHtml + panel + serieHtml + ongoingHtml
+              + '<div data-ev-mount="bilan"></div></div>';
           }
 
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
