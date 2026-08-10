@@ -34,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -71,6 +71,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
+                       CAST(DATE(created_at) AS STRING) AS created_d,
                        DATE_DIFF(window_end, CURRENT_DATE(), DAY) AS days_to_end,
                        (DATE(created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)) AS in_period
                 FROM latest WHERE rn = 1`,
@@ -79,22 +80,50 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Impact € : le mart des outcomes, PAR commitment (le € par personne se recompose côté
       // endpoint via l'owner du journal). Contrat « fait par défaut » : le WHERE du mart passe
       // à « non déclarée pas-menée » (édit dbt côté owner, 05/08).
+      // Toujours 365 j + resolved_date : le serveur filtre en JS pour la période demandée et
+      // renvoie les lignes brutes (impact_rows) — le client dérive 30/90/365 SANS re-fetch
+      // (bascule de période instantanée ; dérivation prouvée identique au harnais 09/08).
       bq.query({
-        query: `SELECT commitment_id, beat, verdict,
+        query: `SELECT commitment_id, beat, verdict, CAST(resolved_date AS STRING) AS resolved_date,
                        ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_eur
                 FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
                 WHERE location_id IN UNNEST(@locs)
-                  AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)`,
-        params: P, location: "EU",
+                  AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)`,
+        params: { locs }, location: "EU",
       }),
+      // Tier CANONIQUE (registre de bestPractices.ts) : prouvée ssi le rejeu a verdict 'met' au
+      // dernier état — `status='proven'` n'est écrit nulle part, l'ancien test était toujours
+      // faux (« Dispositifs prouvés » structurellement à 0, attrapé au proto 09/08).
       bq.query({
-        query: `SELECT practice_id, location_id, practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
-                       arm_enabled, arm_recipient_name, arm_recipient_contact, COALESCE(arm_cooldown_days, 7) AS arm_cooldown,
-                       CAST(DATE(created_at) AS STRING) AS d
-                FROM \`${PROJECT}.analytics.best_practices\`
-                WHERE location_id IN UNNEST(@locs)
-                ORDER BY created_at DESC LIMIT 20`,
-        params: P, location: "EU",
+        query: `SELECT bp.practice_id, bp.location_id, bp.practice_text, bp.status, bp.author_person_name, bp.replay_commitment_id, bp.origin_action_type,
+                       bp.arm_enabled, bp.arm_recipient_name, bp.arm_recipient_contact, COALESCE(bp.arm_cooldown_days, 7) AS arm_cooldown,
+                       CAST(DATE(bp.created_at) AS STRING) AS d,
+                       c.status AS replay_status, c.verdict AS replay_verdict
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                LEFT JOIN (
+                  SELECT commitment_id, status, verdict,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\`
+                ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs)
+                ORDER BY bp.created_at DESC LIMIT 20`,
+        params: { locs }, location: "EU",
+      }),
+      // Comptes par tier SANS le plafond LIMIT 20 (au-delà de 20 pratiques, l'ancien compteur
+      // « prouvés » se mettait à BAISSER à chaque déclaration nouvelle).
+      bq.query({
+        query: `SELECT
+                  COUNTIF(bp.status = 'active' AND c.verdict = 'met') AS n_proven,
+                  COUNTIF(bp.status = 'active' AND c.status = 'open') AS n_rejeu,
+                  COUNTIF(bp.status = 'active' AND (c.commitment_id IS NULL OR (c.status != 'open' AND COALESCE(c.verdict, '') != 'met'))) AS n_declared
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                LEFT JOIN (
+                  SELECT commitment_id, status, verdict,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\`
+                ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs)`,
+        params: { locs }, location: "EU",
       }),
       bq.query({
         query: `SELECT location_id, CAST(affected_date AS STRING) AS d, change_subtype, ROUND(distance_m / 1000, 1) AS km
@@ -159,18 +188,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT location_id,
                        COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
-                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot
+                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot,
+                       ARRAY_AGG(CASE WHEN lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END IGNORE NULLS) AS hot_dates
                 FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
-        params: P, location: "EU",
+        params: { locs }, location: "EU",
       }),
       // Fraîcheur des ventes (onboarding P1) : dernier jour importé par site — le carburant de
       // toute mesure. Un site sans ligne = aveugle ; un site figé = cartes du jour muettes.
       bq.query({
-        query: `SELECT location_id, CAST(MAX(transaction_date) AS STRING) AS last_sale
+        query: `SELECT location_id, CAST(MAX(transaction_date) AS STRING) AS last_sale,
+                       COUNT(DISTINCT transaction_date) AS n_days, CAST(MIN(transaction_date) AS STRING) AS first_sale
                 FROM \`${PROJECT}.raw.client_transactions\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
-        params: P, location: "EU",
+        params: { locs }, location: "EU",
       }),
       // Consignes d'opération ACTIVES (automatisation inc. 5) : prochaine occurrence + dernière
       // trace d'envoi réelle — le volet Automatisation ne liste que ce qui tourne, zéro dummy.
@@ -189,6 +220,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY nx.next_d LIMIT 20`,
         params: { locs }, location: "EU",
       }),
+      // Store €/jour de classe (méthodo enjeu, dayClassRegistry) : les APPRENTISSAGES de la
+      // carte « Ce que l'app a appris de vos sites » + le prix des Occasions. Porte n ≥ 5 côté
+      // endpoint — mêmes gates que l'app. .catch [] : compte jamais batché = carte absente.
+      bq.query({
+        query: `SELECT location_id, class_key, family, n_days, ROUND(avg_gap_eur, 0) AS avg_gap_eur
+                FROM \`${PROJECT}.analytics.day_class_impacts\`
+                WHERE location_id IN UNNEST(@locs) AND n_days >= 5 AND avg_gap_eur IS NOT NULL`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const siteLabel: Record<string, string> = {};
@@ -228,8 +268,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       threshold_basis: str(r.threshold_basis), threshold_value: num(r.threshold_value),
       saved_item_id: str(r.saved_item_id), ws: str(r.ws), we: str(r.we),
       origin: str(r.origin_action_type), days_to_end: num(r.days_to_end),
+      created_d: str(r.created_d),
       in_period: flat(r.in_period) === true,
     }));
+    const todayYmd = new Date().toISOString().slice(0, 10);
     const open = coms.filter((c) => c.status === "open");
     // DEUX registres (owner 05/08) : « jugées » = TOUS les verdicts rendus (journal) ;
     // « € » = le mart seulement (contrat : non déclarée pas-menée — fait par défaut).
@@ -240,13 +282,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const c of coms) if (c.commitment_id) ownerByCommitment[c.commitment_id] = c.owner || "—";
     // Un verdict « confounded » est NON MESURABLE (guardrail 3 du mart) : jamais dans les €,
     // compté à part — le mart le garde flaggé, le tableau respecte le flag.
-    const martAll = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), gap_eur: num(r.gap_eur) }));
+    const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur) }));
+    const periodCut = new Date(Date.parse(todayYmd + "T12:00:00Z") - period * 86_400_000).toISOString().slice(0, 10);
+    const martAll = mart365.filter((r) => String(r.resolved_date || "") >= periodCut);
     const martRows = martAll.filter((r) => r.verdict !== "confounded");
     const confoundedCount = martAll.length - martRows.length;
     const gapSum = martRows.length ? martRows.reduce((a, r) => a + (r.gap_eur ?? 0), 0) : null;
+    const martGap: Record<string, number | null> = {};
+    for (const r of mart365) martGap[r.commitment_id] = r.gap_eur;
     // Tenue par personne : verdicts rendus sur la période + € mesurés de LEURS fenêtres.
     const personKey = (name: string | null): string =>
-      String(name || "—").split("·")[0].trim().toLowerCase() || "—";
+      String(name || "—").split("·")[0].trim().split(/\s+/)[0].toLowerCase() || "—";
     const equipe: Record<string, { label: string; open: any[]; kept: number; judged: number; gap: number | null }> = {};
     for (const c of coms) {
       const k = personKey(c.owner);
@@ -267,7 +313,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const trigByPractice: Record<string, { last_fired: string | null; n: number }> = {};
     for (const r of trigRows as any[]) trigByPractice[String(str(r.practice_id))] = { last_fired: str(r.last_fired), n: Number(num(r.n_triggers) ?? 0) };
     const heatBySite: Record<string, { n_hot_30: number; next_hot: string | null }> = {};
-    for (const r of heatRows as any[]) heatBySite[String(str(r.location_id))] = { n_hot_30: Number(num(r.n_hot_30) ?? 0), next_hot: str(r.next_hot) };
+    const hotDatesBySite: Record<string, string[]> = {};
+    for (const r of heatRows as any[]) {
+      const l = String(str(r.location_id));
+      heatBySite[l] = { n_hot_30: Number(num(r.n_hot_30) ?? 0), next_hot: str(r.next_hot) };
+      hotDatesBySite[l] = Array.isArray(flat(r.hot_dates)) ? (flat(r.hot_dates) as any[]).map((d) => String(flat(d))) : [];
+    }
     const ARMABLE_V1 = new Set(["structural_traffic_high"]);
     const practices = (bpRows as any[]).map((r) => {
       const pid = String(str(r.practice_id));
@@ -281,8 +332,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
         arm_cooldown: Number(num(r.arm_cooldown) ?? 7),
         arm_last_fired: trig.last_fired, arm_n_triggers: trig.n,
         arm_signal_ctx: heatBySite[locId] || null,
+        // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
+        tier: String(str(r.status)) !== "active" ? "archivee"
+          : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "rejeu"
+          : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "met" ? "prouvee"
+          : "declaree",
       };
     });
+    const practiceCounts = {
+      proven: Number(num((bpCountRows as any[])[0]?.n_proven) ?? 0),
+      rejeu: Number(num((bpCountRows as any[])[0]?.n_rejeu) ?? 0),
+      declared: Number(num((bpCountRows as any[])[0]?.n_declared) ?? 0),
+    };
     // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
     // avancer ») : verdicts tenus sans dispositif du même type documenté ; déclarés sans rejeu ;
     // rejeux en cours (ceux-là avancent seuls).
@@ -294,6 +355,65 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .map((pr) => ({ end: openById[pr.replay_commitment_id!].we }));
     const declaredNoReplay = practices.filter((pr) => pr.status !== "proven" && !pr.replay_commitment_id).length;
 
+    // Score de série : le verdict de l'occurrence PRÉCÉDENTE d'un événement récurrent.
+    for (const o of operations as any[]) {
+      o.prev_occ = null;
+      if (Number(o.n_total) > 1 && o.saved_item_id) {
+        const prevs = coms.filter((c) => c.saved_item_id === o.saved_item_id && c.status !== "cancelled" && c.ws && c.ws < todayYmd)
+          .sort((a, b) => String(b.ws).localeCompare(String(a.ws)));
+        if (prevs[0]) o.prev_occ = { verdict: prevs[0].verdict, gap_eur: prevs[0].commitment_id ? martGap[prevs[0].commitment_id] ?? null : null };
+      }
+    }
+    // Dernier verdict rendu (récence) + dernière recette PROUVÉE (verdict tenu).
+    const resolvedV = coms.filter((c) => c.status === "resolved" && c.verdict)
+      .sort((a, b) => String(b.we || "").localeCompare(String(a.we || "")));
+    const lv = resolvedV[0] || null;
+    const lastVerdict = lv ? { text: lv.text, verdict: lv.verdict, we: lv.we, gap_eur: lv.commitment_id ? martGap[lv.commitment_id] ?? null : null } : null;
+    const mr = resolvedV.filter((c) => c.verdict === "met")[0] || null;
+    const metRecipe = mr ? { text: mr.text, ws: mr.ws, we: mr.we, gap_eur: mr.commitment_id ? martGap[mr.commitment_id] ?? null : null } : null;
+    // Occasions : jours chauds réels (30 j) × fenêtres engagées — « joué » = couvert.
+    const dayClasses = (dcRows as any[]).map((r) => ({
+      location_id: String(str(r.location_id)), class_key: String(str(r.class_key)), family: String(str(r.family)),
+      n_days: Number(num(r.n_days) ?? 0), avg_gap_eur: num(r.avg_gap_eur),
+    }));
+    const activeComs = coms.filter((c) => c.status !== "cancelled");
+    let occPlayed = 0, occTotal = 0;
+    const occBySite: any[] = [];
+    for (const l of Object.keys(hotDatesBySite)) {
+      const days = hotDatesBySite[l];
+      if (!days.length) continue;
+      const missed = days.filter((d) => !activeComs.some((c) => c.location_id === l && c.ws && c.we && c.ws <= d && d <= c.we));
+      occPlayed += days.length - missed.length; occTotal += days.length;
+      occBySite.push({ location_id: l, site_label: siteLabel[l] || null, total: days.length, played: days.length - missed.length, missed_dates: missed });
+    }
+    let nextHot: string | null = null, nextHotSite: string | null = null;
+    for (const l of Object.keys(heatBySite)) {
+      const nh = heatBySite[l].next_hot;
+      if (nh && (!nextHot || nh < nextHot)) { nextHot = nh; nextHotSite = l; }
+    }
+    const heatVals = nextHotSite ? dayClasses.filter((r) => r.location_id === nextHotSite && /^heat_/.test(r.class_key)).map((r) => r.avg_gap_eur ?? 0) : [];
+    const occasions = {
+      next_hot: nextHot,
+      next_hot_site: nextHotSite,
+      next_hot_site_label: nextHotSite ? siteLabel[nextHotSite] || null : null,
+      heat_range: heatVals.length ? { mn: Math.min(...heatVals), mx: Math.max(...heatVals) } : null,
+      played: occPlayed, total: occTotal, by_site: occBySite,
+    };
+    // Apprentissages : classes d'ENVIRONNEMENT les plus fortes (les familles internes 'card',
+    // 'sales', 'suivis' sont des populations de tirs, pas des jours vécus par l'exploitant).
+    const ENV_FAMILIES = new Set(["weather", "calendar", "competition", "traffic", "events", "tourism"]);
+    const seenClass = new Set<string>();
+    const learnings = dayClasses
+      .filter((r) => ENV_FAMILIES.has(r.family) && r.avg_gap_eur != null && Math.abs(r.avg_gap_eur) >= 50)
+      .sort((a, b) => Math.abs(b.avg_gap_eur ?? 0) - Math.abs(a.avg_gap_eur ?? 0))
+      .filter((r) => (seenClass.has(r.class_key) ? false : (seenClass.add(r.class_key), true)))
+      .slice(0, 3)
+      .map((r) => ({
+        class_key: r.class_key, family: r.family, location_id: r.location_id,
+        site_label: siteLabel[r.location_id] || null, n_days: r.n_days, avg_gap_eur: r.avg_gap_eur,
+        covered: practices.some((p) => p.location_id === r.location_id && p.status === "active" && p.origin_action_type === "structural_" + r.class_key),
+      }));
+
     return json(200, {
       ok: true,
       period_days: period,
@@ -303,9 +423,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
         confounded: confoundedCount,
         windows_judged: judged.length,
         targets_met: judged.filter((c) => /met|tenu|beat/i.test(String(c.verdict))).length,
-        practices_proven: practices.filter((p) => p.status === "proven").length,
-        next_judgment: open.map((c) => c.we).filter((d) => d && String(d) >= new Date().toISOString().slice(0, 10)).sort()[0] || null,
+        // Tier canonique + compte SANS LIMIT — l'ancien `status === "proven"` n'était jamais vrai.
+        practices_proven: practiceCounts.proven,
+        next_judgment: open.map((c) => c.we).filter((d) => d && String(d) >= todayYmd).sort()[0] || null,
       },
+      // Dérivation des périodes CÔTÉ CLIENT (bascule instantanée, zéro re-fetch) : lignes mart
+      // 365 j + méta des verdicts (created_d) — égalité serveur/client prouvée au harnais 09/08.
+      impact_rows: mart365,
+      judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d })),
+      practice_counts: practiceCounts,
+      last_verdict: lastVerdict,
+      met_recipe: metRecipe,
+      occasions,
+      learnings,
+      learned_classes: dayClasses.length,
+      sales_depth: (freshRows as any[]).map((r) => ({
+        location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null,
+        n_days: Number(num(r.n_days) ?? 0), first_sale: str(r.first_sale), last_sale: str(r.last_sale),
+      })),
       multi_site: locs.length > 1,
       sites: locs.map((l) => ({ location_id: l, label: siteLabel[l] || "" })),
       operations,
@@ -334,7 +469,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         snapshots_recent: (snapRows as any[]).map((r) => str(r.d)),
         next_autoarm: operations.filter((o) => !o.ready_com && o.occ_date)
           .map((o) => ({ title: o.title, occ_date: o.occ_date }))[0] || null,
-        verdicts_scheduled: open.map((c) => c.we).filter(Boolean).sort(),
+        verdicts_scheduled: open.map((c) => c.we).filter((d) => d && String(d) >= todayYmd).sort(),
         competitor_alerts_7d: alerts,
       },
       debloquer: {

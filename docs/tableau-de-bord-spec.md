@@ -89,3 +89,28 @@ cours », « Équipe », « Dispositifs prouvés » (pas « gagnants »), « Aut
 
 UN lot `Promise.all` de 10 lectures légères (~1,6–1,9 s réel multi-sites) — budget 3 s.
 Toute lecture ajoutée entre DANS le lot, jamais en séquence.
+
+## 7. Refonte « glance » V4 (10/08/2026 — maquette Avant/Après validée par 5 tours owner)
+
+- **Forme (règles dures)** : couche 1 = CHIFFRES, points d'état et chips — aucune ligne > 6 mots,
+  UNE seule phrase visible sur la page (la ligne d'action). La prose (Lecture qui réconcilie
+  € et cibles, dernier verdict détaillé, « comment lire ») s'ouvre AU CLIC. Rangées « Cette
+  semaine » sur UNE ligne en colonnes [date · ● état · titre · chips · cible · avatar · ›],
+  rangée ENTIÈRE cliquable ; signal unique NOMMÉ (« ⚠ météo 4 » — l'infobulle seule est
+  invisible sur mobile) ; coupe au MOT ; volets à titres en chips d'état ; chevrons qui
+  tournent (aria-expanded) ; « aujourd'hui » en heure LOCALE ; Nouvel événement en contour.
+- **Période** : fetch UNIQUE à 365 j (`impact_rows` + `judged_meta`) — 30/90 dérivés côté
+  client, bascule instantanée, volets préservés. Dérivation prouvée identique au serveur.
+- **Vérité réparée** : « prouvé » lu au tier CANONIQUE (rejeu au verdict met — `status='proven'`
+  n'a jamais été écrit : le compteur était structurellement à 0) ; comptes sans LIMIT 20 ;
+  un engagement à la fenêtre finie jamais résolue = ligne « verdict en retard J+N » (plus une
+  disparition) ; verdicts programmés = dates FUTURES seulement ; Automatisation titrée
+  « N faites · M programmées » (Reçu / Programmé séparés) ; fusion des personnes par prénom.
+- **Les deux cartes moat** (voix maison, € d'abord, montant signé + mini-phrase) :
+  « **Occasions** » — signaux d'environnement × fenêtres engagées : « jusqu'à X €/j à récupérer
+  <jour chaud annoncé> → Armer », « N j sans action sur 30 · joués/total → Lesquels (dates) » ;
+  « **Ce que l'app a appris de vos sites** » — les APPRENTISSAGES eux-mêmes (« +205 €/j gagnés
+  les jours de forte affluence — joué », « 148 €/j perdus les jours de pluie → Préparer »,
+  recette prouvée → Rejouer) + ligne de provenance (j de ventes · types de jours chiffrés ·
+  verdicts) + « comment lire ». €/j = store enjeu `analytics.day_class_impacts`, porte n ≥ 5,
+  familles d'environnement seulement — estimé, jamais extrapolé.
