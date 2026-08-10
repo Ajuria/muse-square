@@ -46,7 +46,7 @@
     return '<div style="padding:12px 16px 14px;border-top:1px solid #F3F4F6;">'
       + '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:14px;">M\'engager sur une action</div>'
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Indicateur</div>'
-        + '<span style="' + chipStyle(true) + 'cursor:default;">CA vs attendu</span></div>'
+        + '<span style="' + chipStyle(true) + 'cursor:default;">CA vs votre habituel</span></div>'
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Fenêtre — quand je serai évalué</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + chip("window", "day_of", "Jour même", win === "day_of") + chip("window", "7d", "7 jours", win === "7d") + chip("window", "14d", "14 jours", win === "14d") + chip("window", "30d", "30 jours", win === "30d") + "</div></div>"
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Objectif</div>'

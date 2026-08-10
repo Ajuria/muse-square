@@ -17,7 +17,18 @@ import { MOTS_BANNIS, EVT_FR } from "./evenement.fr";
 const SURFACES = [
   "src/lib/insightFamilies/evenement.ts",
   "src/pages/app/insightevent/evenement.astro",
+  "src/pages/app/insightevent/tableau.astro",
+  "src/pages/app/insightevent/pulse.astro",
+  "src/pages/app/insightevent/insight.astro",
+  "src/lib/commitmentCopy.ts",
   "public/event-form.js",
+  "public/action-cards.js",
+  "public/card-kit.js",
+  "public/draft-workspace.js",
+  "public/commit-form.js",
+  // Le harnais de rendu DUPLIQUE la copie réelle dans ses fixtures : sans lui sous garde,
+  // il affiche des mots périmés et ment sur ce que la page dit (constaté le 10/08).
+  "public/card-harness.html",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */
@@ -36,6 +47,8 @@ function visibleStrings(src: string): string[] {
 
 // Identifiants techniques qui CONTIENNENT un mot banni sans jamais s'afficher.
 const TECHNIQUE = /expected|window_expected|_attendu|attendu_|residual|kpi_target|threshold/i;
+/** Un littéral d'UN SEUL token minuscule est une CLÉ (enum, champ), pas de la prose. */
+const estUneCle = (s: string): boolean => /^[a-z_]+$/.test(s);
 
 describe("lexique FR du dossier d'événement", () => {
   it("expose une table de mots bannis non vide", () => {
@@ -55,7 +68,7 @@ describe("lexique FR du dossier d'événement", () => {
       const src = readFileSync(new URL("../../../" + f, import.meta.url).pathname, "utf8");
       const fautes: string[] = [];
       for (const s of visibleStrings(src)) {
-        if (TECHNIQUE.test(s)) continue;
+        if (TECHNIQUE.test(s) || estUneCle(s)) continue;
         const low = s.toLowerCase();
         for (const mot of Object.keys(MOTS_BANNIS)) {
           // Frontière de mot : « attendu » ne doit pas matcher « attendue » deux fois, ni un

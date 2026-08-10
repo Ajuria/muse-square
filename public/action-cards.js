@@ -1962,7 +1962,7 @@
       var line = '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb hier ' + msEvFrD(a.occurrence_date) + ' : ';
       if (a.revenue != null && a.expected != null) {
         var g = Number(a.gap_eur || 0);
-        line += 'CA ' + Math.round(Number(a.revenue)) + ' \u20ac contre ' + Math.round(Number(a.expected)) + ' \u20ac attendu du jour (' + (g >= 0 ? '+' : '\u2212') + Math.abs(Math.round(g)) + ' \u20ac).';
+        line += 'CA ' + Math.round(Number(a.revenue)) + ' \u20ac contre ' + Math.round(Number(a.expected)) + ' \u20ac habituel du jour (' + (g >= 0 ? '+' : '\u2212') + Math.abs(Math.round(g)) + ' \u20ac).';
       } else {
         line += 'ventes pas encore ing\u00e9r\u00e9es \u2014 le mesur\u00e9 arrive avec l\u2019import.';
       }
@@ -1996,7 +1996,7 @@
       // Écart € DU JOUR (01/08) : même règle que sales_revenue_down_wow — référentiel nommé.
       var gapJ = (rev != null && exp != null) ? rev - exp : null;
       var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + exp + ' €).' : '.');
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + exp + ' €).' : '.');
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
@@ -2125,11 +2125,11 @@
       var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
       // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
-      // nommé « l'attendu du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
+      // nommé « l'habituel du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
       var expD = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
       var gapJ = (rev != null && expD != null) ? rev - expD : null;
       var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + expD + ' €).' : '.');
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + expD + ' €).' : '.');
       if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {

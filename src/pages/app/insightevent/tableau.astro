@@ -88,7 +88,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var sp = t.lastIndexOf(" ");
           return (sp > n * 0.5 ? t.slice(0, sp) : t) + "…";
         }
-        var VERDICT_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non-mesurable (écarté)" };
+        var VERDICT_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (écarté)" };
         var VERDICT_COL = { met: "#059669", missed: "#B45309", confounded: "#6b7280" };
 
         function load() {
@@ -251,7 +251,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var html = "";
           var im = impactFor(period);
           var db = j.debloquer || {};
-          var pc = j.practice_counts || { proven: 0, rejeu: 0, declared: 0 };
+          var pc = j.practice_counts || { proven: 0, en_test: 0, declared: 0 };
           var replayEnd = (db.replays_running || [])[0] ? db.replays_running[0].end : null;
 
           // ── ÉTAGE 1 : Impact — chiffres + micro-libellés ; la prose s'ouvre au clic. ──
@@ -263,24 +263,24 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
           var lecture = null;
           if (seuilsCase)
-            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs attendu) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
+            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs attendu et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — rejouez ce qui tient (Dispositifs).";
+            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — rejouez ce qui tient (Dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
-            lecture = "Fenêtres sous l’attendu (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
+            lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
           var eurTip = im.eur_windows + " fenêtre" + (im.eur_windows > 1 ? "s" : "") + " mesurée" + (im.eur_windows > 1 ? "s" : "") + (im.confounded ? " · " + im.confounded + " écartée" + (im.confounded > 1 ? "s" : "") + " (facteur externe)" : "") + " · jamais extrapolé";
           html += '<div class="tb-card" style="padding:16px;">'
             + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">'
             + '<div><div style="font-size:28px;font-weight:600;line-height:1;color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
-            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;cursor:help;" title="' + esc(eurTip) + '">vs attendu · ' + period + ' j</div></div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;cursor:help;" title="' + esc(eurTip) + '">vs habituel · ' + period + ' j</div></div>'
             + '<div><div style="font-size:28px;font-weight:600;line-height:1;">' + im.targets_met + '<span style="font-size:14px;color:#9CA3AF;font-weight:500;">/' + im.windows_judged + '</span></div>'
             + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;">cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div>'
             + (seuilsCase ? '<button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;margin-top:6px;">Seuils trop hauts ?</button>' : "")
             + '</div>'
             + '<div><div style="font-size:28px;font-weight:600;line-height:1;">' + im.practices_proven + '</div>'
-            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;">prouvé' + (im.practices_proven > 1 ? "s" : "") + (pc.rejeu ? " · " + pc.rejeu + " en test" : "") + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "") + '</div></div>'
+            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;">prouvé' + (im.practices_proven > 1 ? "s" : "") + (pc.en_test ? " · " + pc.en_test + " en test" : "") + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "") + '</div></div>'
             + '</div>';
           if (lv) html += '<button type="button" data-tb-lect style="display:flex;align-items:center;gap:6px;margin-top:12px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
             + '<span style="width:8px;height:8px;border-radius:50%;background:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';flex:none;"></span>'
@@ -288,7 +288,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (lecture || lv) {
             html += '<div id="tb-lecture" class="tb-fold">'
               + (lecture ? '<div><span style="font-weight:600;">Lecture :</span> ' + esc(lecture) + '</div>' : "")
-              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs attendu" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
+              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
               + '<div style="color:#9CA3AF;">' + esc(eurTip) + '</div>'
               + '</div>';
           }
@@ -356,7 +356,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (Number(o.weather_lvl) >= 3) sig.push("météo niv. " + o.weather_lvl);
               var sigShort = o.competitor_flag ? "⚠ concurrent" : "⚠ météo " + o.weather_lvl;
               var sigChip = sig.length ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;cursor:help;" title="' + esc(sig.join(" · ")) + '">' + (sig.length === 1 ? sigShort : "⚠ " + sig.length + " signaux") + '</span>' : "";
-              var kpiLbl = o.kpi === "family_revenue" ? "famille " + (o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs attendu" : (o.kpi || "");
+              var kpiLbl = o.kpi === "family_revenue" ? "famille " + (o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs habituel" : (o.kpi || "");
               var dossierHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(o.location_id || loc) + "&saved_item_id=" + encodeURIComponent(o.saved_item_id);
               var jsub = "", pv = o.prev_occ || null;
               if (o.n_total > 1) {
@@ -490,19 +490,19 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var listPractices = (j.practices || []).filter(function (p) { return p.tier !== "archivee"; });
           window._tbPractices = listPractices;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
-            + (pc.rejeu ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + pc.rejeu + " en test</span>" : "")
+            + (pc.en_test ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + pc.en_test + " en test</span>" : "")
             + (pc.declared ? '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") + "</span>" : "");
           html += '<div class="tb-card" id="tb-disp">' + voletHead("di", '<span style="font-weight:600;">Dispositifs</span>&nbsp; ' + diChips)
             + '<div data-tb-body="di" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.7;">';
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
           listPractices.slice(0, 6).forEach(function (p, pi) {
             var t = p.tier;
-            var chip = t === "prouvee" ? ["prouvé", "#E6F6F0", "#059669"] : t === "rejeu" ? ["en test", "#EEF2FF", "#1D3BB3"] : ["déclaré", "#F3F4F6", "#6b7280"];
+            var chip = t === "prouvee" ? ["prouvé", "#E6F6F0", "#059669"] : t === "en_test" ? ["en test", "#EEF2FF", "#1D3BB3"] : ["déclaré", "#F3F4F6", "#6b7280"];
             var canProuver = t === "declaree" && p.practice_id && p.origin_action_type && (!p.replay_commitment_id || p.replay_status === "cancelled");
             var autoHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(p.location_id || loc) + "&new=1&titre=" + encodeURIComponent(String(p.text || "").slice(0, 60)) + "&dispositif=" + encodeURIComponent(String(p.text || "").slice(0, 240));
             var sep = '<span style="color:#D1D5DB;">·</span>';
             var actions = "";
-            if (t !== "rejeu") {
+            if (t !== "en_test") {
               if (canProuver) actions += '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif passe de déclaré à prouvé">Prouver</a>' + sep;
               else if (t === "declaree" && p.replay_commitment_id) actions += '<span style="font-size:11px;color:#9CA3AF;">dernier test non concluant</span>' + sep;
               actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>';
@@ -512,7 +512,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>'
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : "")
               + '<span style="flex:1;min-width:180px;">' + esc(trunc(p.text, 110)) + '</span>'
-              + (t === "rejeu" && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + "</span>" : "")
+              + (t === "en_test" && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + "</span>" : "")
               + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;">dernier test non mesurable</span>' : "")
               + actions
               + (p.arm_enabled ? '<a class="tb-link" href="#" data-tb-disarm="' + esc(p.practice_id) + "|" + esc(p.location_id || "") + '" style="font-size:11.5px;">Désarmer</a>' : "")
@@ -660,7 +660,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             });
           });
 
-          // « Prouver » : POST /api/commitments (rejeu 7 j, seuil +10 %) puis PATCH
+          // « Prouver » : POST /api/commitments (test 7 j, seuil +10 %) puis PATCH
           // /api/best-practices (replay_commitment_id) — inchangé, puis re-fetch (état serveur).
           body.querySelectorAll("[data-tb-replay]").forEach(function (b) {
             b.addEventListener("click", function (ev) {
@@ -706,7 +706,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + '<div style="font-size:12.5px;line-height:1.6;"><span style="font-weight:600;">Chaleur annoncée demain (niveau ≥ 3)</span>'
                 + (ctx.n_hot_30 != null ? " — " + ctx.n_hot_30 + " jour" + (ctx.n_hot_30 > 1 ? "s" : "") + " chauds sur vos 30 derniers" : "")
                 + (ctx.next_hot ? " · prochain annoncé : " + dowFr(ctx.next_hot) + " " + frD(ctx.next_hot) : " · aucun annoncé dans l’horizon de prévision") + '</div>'
-                + '<div style="font-size:11.5px;color:#6B7280;line-height:1.6;margin:6px 0;">Garde-fous : 1 déclenchement maximum par 7 jours · à chaque tir, la consigne part par email et un engagement mesuré s’arme (vos réglages du rejeu) — chaque verdict s’ajoute au track record. La consigne ne convoque personne (achats, équipe déjà planifiée).</div>'
+                + '<div style="font-size:11.5px;color:#6B7280;line-height:1.6;margin:6px 0;">Garde-fous : 1 déclenchement maximum par 7 jours · à chaque tir, la consigne part par email et un engagement mesuré s’arme (vos réglages du test) — chaque verdict s’ajoute au track record. La consigne ne convoque personne (achats, équipe déjà planifiée).</div>'
                 + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;">'
                 + '<input data-arm-name style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:180px;" placeholder="Destinataire (nom)" value="' + esc(p2.arm_recipient_name || "") + '">'
                 + '<input data-arm-mail style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;" placeholder="Email" value="' + esc(p2.arm_recipient_contact || "") + '">'

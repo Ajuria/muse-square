@@ -15,13 +15,24 @@
 //  - le jargon (verdict statistique, résiduel, fenêtre) vit en infobulle, jamais en libellé.
 
 // ── Mots BANNIS → mot maison. Le garde-fou lit cette table (clé = interdit, valeur = à écrire).
-//    Ajouter une entrée ici SUFFIT à interdire le mot dans les surfaces couvertes.
+//    Ajouter une entrée ici SUFFIT à interdire le mot dans les surfaces couvertes (SURFACES du
+//    fichier de garde). Recherche insensible à la casse, sous-chaîne.
+//
+//    PORTÉE (décisions owner 10/08) :
+//    · « attendu » n'est banni QUE dans son sens de RÉFÉRENCE (« vs attendu », « l'attendu »,
+//      « attendu du jour ») — le sens PRÉVISION reste correct et autorisé (« affluence
+//      attendue demain », « effet attendu sur la fréquentation », « clientèle attendue ») ;
+//    · « cible » et « objectif » sont tous deux acceptés — aucun des deux n'est banni ;
+//    · « rejeu » est banni PARTOUT, y compris comme clé interne (owner : « ça ne veut rien
+//      dire, c'est une traduction de l'anglais ») — l'échelle est déclaré → en test → prouvé.
 export const MOTS_BANNIS: Record<string, string> = {
-  attendu: "habituel",
-  attendue: "habituelle",
-  "sur la série": "vos N derniers <jour> testés",
-  "à la cible": "à votre objectif",
-  "cible chiffrée": "objectif",
+  "vs attendu": "vs habituel",
+  "vs l’attendu": "vs votre habituel",
+  "vs l'attendu": "vs votre habituel",
+  "l’attendu": "votre habituel",
+  "l'attendu": "votre habituel",
+  "attendu du jour": "habituel du jour",
+  "sur la série": "un libellé qui dit ce que la section EST",
   rejeu: "test",
   "non-mesurable": "non mesurable",
 };

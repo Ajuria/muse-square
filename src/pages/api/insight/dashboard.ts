@@ -348,14 +348,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
         replay_status: str(r.replay_status),
         // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
         tier: String(str(r.status)) !== "active" ? "archivee"
-          : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "rejeu"
+          : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "en_test"
           : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "met" ? "prouvee"
           : "declaree",
       };
     });
     const practiceCounts = {
       proven: Number(num((bpCountRows as any[])[0]?.n_proven) ?? 0),
-      rejeu: Number(num((bpCountRows as any[])[0]?.n_rejeu) ?? 0),
+      en_test: Number(num((bpCountRows as any[])[0]?.n_rejeu) ?? 0),
       declared: Number(num((bpCountRows as any[])[0]?.n_declared) ?? 0),
     };
     // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
