@@ -124,3 +124,7 @@ Toute lecture ajoutée entre DANS le lot, jamais en séquence.
   record compris) ; 4 états par ligne : joué (dispositif actif) / **en test — verdict le JJ/MM**
   (engagement structurel OUVERT, règle de suppression du 03/08) / à défendre (gain) / M'engager.
   Ordre de page : Impact → **Cette semaine** → Occasions → Appris → volets (owner 10/08).
+- **10/08 (3) — « à récupérer » porte TOUJOURS un nombre** (owner : « How much? Don't
+  understand ») : la prochaine occasion choisit le site dont l'effet chaleur est CHIFFRÉ au
+  registre (à défaut le plus proche) ; sans € gated, la ligne dit « jour chaud annoncé —
+  impact pas encore chiffré sur ce site » (portes en infobulle), jamais une promesse nue.

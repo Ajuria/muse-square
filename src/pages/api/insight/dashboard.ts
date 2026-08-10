@@ -410,20 +410,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
       occPlayed += days.length - missed.length; occTotal += days.length;
       occBySite.push({ location_id: l, site_label: siteLabel[l] || null, total: days.length, played: days.length - missed.length, missed_dates: missed });
     }
-    let nextHot: string | null = null, nextHotSite: string | null = null;
+    // Prochaine occasion : parmi les sites avec un jour chaud annoncé, PRÉFÉRER celui dont
+    // l'effet chaleur est CHIFFRÉ au registre — « à récupérer » doit porter un nombre (owner
+    // 10/08 : « How much? Don't understand ») ; à défaut de site chiffré, le plus proche.
+    const heatRangeOf = (l: string): { mn: number; mx: number } | null => {
+      const vals: number[] = [];
+      if (impactsBySite[l]) for (const [k, imp] of impactsBySite[l]) if (/^heat_/.test(k)) vals.push(Number(imp.avg_gap_eur) || 0);
+      return vals.length ? { mn: Math.min(...vals), mx: Math.max(...vals) } : null;
+    };
+    let nextHot: string | null = null, nextHotSite: string | null = null, nextHotRange: { mn: number; mx: number } | null = null;
     for (const l of Object.keys(heatBySite)) {
       const nh = heatBySite[l].next_hot;
-      if (nh && (!nextHot || nh < nextHot)) { nextHot = nh; nextHotSite = l; }
-    }
-    const heatVals: number[] = [];
-    if (nextHotSite && impactsBySite[nextHotSite]) {
-      for (const [k, imp] of impactsBySite[nextHotSite]) if (/^heat_/.test(k)) heatVals.push(Number(imp.avg_gap_eur) || 0);
+      if (!nh) continue;
+      const rg = heatRangeOf(l);
+      const better = !nextHot || (!!rg && !nextHotRange) || (!!rg === !!nextHotRange && nh < String(nextHot));
+      if (better) { nextHot = nh; nextHotSite = l; nextHotRange = rg; }
     }
     const occasions = {
       next_hot: nextHot,
       next_hot_site: nextHotSite,
       next_hot_site_label: nextHotSite ? siteLabel[nextHotSite] || null : null,
-      heat_range: heatVals.length ? { mn: Math.min(...heatVals), mx: Math.max(...heatVals) } : null,
+      heat_range: nextHotRange,
       played: occPlayed, total: occTotal, by_site: occBySite,
     };
     // Apprentissages : impacts GATED du registre, famille 'card' exclue (populations de tirs,

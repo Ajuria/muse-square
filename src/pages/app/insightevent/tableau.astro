@@ -399,12 +399,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var occHtml = "";
           if (oc.next_hot) {
             var rg = oc.heat_range;
-            occHtml += occRow(
-              rg ? "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j" : "jour chaud", "#059669",
-              rg ? "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Jouer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé." : "Prochain jour de chaleur annoncé (niveau ≥ 3)",
+            var armLink = '<a class="tb-link" href="#tb-disp" data-tb-open="di" style="font-size:12px;white-space:nowrap;">Armer →</a>';
+            // « à récupérer » SEULEMENT avec un € mesuré (registre) — jamais une promesse nue.
+            if (rg) occHtml += occRow(
+              "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", "#059669",
+              "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Jouer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
               '<span style="font-weight:600;">à récupérer</span> ' + dowFr(oc.next_hot) + " " + frD(oc.next_hot) + " — jour chaud annoncé" + (siteChip(oc.next_hot_site_label) ? " " + siteChip(oc.next_hot_site_label) : ""),
               "Prévision réelle : prochain jour de chaleur (niveau ≥ 3) — jouable AVANT qu’il arrive",
-              '<a class="tb-link" href="#tb-disp" data-tb-open="di" style="font-size:12px;white-space:nowrap;">Armer →</a>');
+              armLink);
+            else occHtml += occRow(
+              dowFr(oc.next_hot) + " " + frD(oc.next_hot), "#1D3BB3",
+              "Prochain jour de chaleur annoncé (niveau ≥ 3)",
+              '<span style="font-weight:600;">jour chaud annoncé</span> — impact pas encore chiffré sur ce site' + (siteChip(oc.next_hot_site_label) ? " " + siteChip(oc.next_hot_site_label) : ""),
+              "L’effet chaleur de ce site n’a pas encore assez de jours mesurés pour passer les portes du registre (n ≥ 5, signal |t| ≥ 1) — le € apparaîtra quand la mesure tiendra.",
+              armLink);
           }
           var occMissed = Math.max(0, (oc.total || 0) - (oc.played || 0));
           if (occMissed) {
