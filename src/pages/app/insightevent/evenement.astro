@@ -191,11 +191,22 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (!jj.apres || !jj.apres.rows || !jj.apres.rows.length) return "";
           var link = '<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir dans vos Dispositifs →</a>';
           if (jj.apres.documented) return '<div style="margin-top:8px;font-size:12.5px;color:#6B7280;">Ce qui a marché est déjà documenté · ' + link + '</div>';
-          var needRecette = !(itC.dispositif && String(itC.dispositif).trim());
-          return '<div id="evt-doc-chain" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-            + (needRecette ? '<input id="evt-doc-recette" placeholder="La recette à retenir (une phrase)" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">' : '<span style="font-size:12.5px;color:#6B7280;">Dispositif : ' + esc(String(itC.dispositif).slice(0, 60)) + '</span>')
-            + '<button type="button" id="evt-doc-go" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">En faire un dispositif →</button>'
-            + '<span id="evt-doc-msg" style="font-size:12px;"></span></div>';
+          var hasDisp = !!(itC.dispositif && String(itC.dispositif).trim());
+          var inputCss = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;';
+          // Deux champs = le CONTRAT du dispositif (owner 10/08 : « how is this a dispositif ? ») —
+          // un geste CONCRET + son OCCASION. La structure convertit l'intention en recette ;
+          // les placeholders enseignent la grammaire. Le KPI n'a pas de champ : CA vs attendu,
+          // le défaut de toute la chaîne.
+          return '<div id="evt-doc-chain" style="margin-top:10px;">'
+            + (hasDisp
+              ? '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><span style="font-size:12.5px;color:#6B7280;">Dispositif : ' + esc(String(itC.dispositif).slice(0, 60)) + '</span>'
+              : '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">'
+                + '<div style="flex:1;min-width:200px;"><div data-doc-q="geste" style="font-size:12px;color:#6B7280;margin-bottom:4px;">Le geste, concrètement ?</div><input id="evt-doc-geste" placeholder="ex. Coupon café glacé distribué aux habitués" style="' + inputCss + '"></div>'
+                + '<div style="flex:1;min-width:200px;"><div data-doc-q="occasion" style="font-size:12px;color:#6B7280;margin-bottom:4px;">À quelle occasion ?</div><input id="evt-doc-occasion" placeholder="ex. la veille d’un jour chaud annoncé" style="' + inputCss + '"></div>')
+            + '<button type="button" id="evt-doc-go" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;white-space:nowrap;">En faire un dispositif →</button>'
+            + '<span id="evt-doc-msg" style="font-size:12px;"></span></div>'
+            + '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Classé « déclaré » dans vos Dispositifs — rien ne démarre encore.</div>'
+            + '</div>';
         }
         function wireDocChain(container) {
           var go = container.querySelector("#evt-doc-go");
@@ -204,14 +215,23 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             var jj = window._evtBilanJ || {};
             var itC = jj.item || {};
             var msg = container.querySelector("#evt-doc-msg");
-            var inp = container.querySelector("#evt-doc-recette");
-            var recette = itC.dispositif && String(itC.dispositif).trim() ? String(itC.dispositif).trim() : (inp ? inp.value.trim() : "");
-            if (!recette) { msg.style.color = "#B45309"; msg.textContent = "Écrivez la recette à retenir — un dispositif vide ne sert personne."; if (inp) inp.style.borderColor = "#B45309"; return; }
+            var hasDisp = !!(itC.dispositif && String(itC.dispositif).trim());
+            var recette;
+            if (hasDisp) recette = String(itC.dispositif).trim();
+            else {
+              var gEl = container.querySelector("#evt-doc-geste");
+              var oEl = container.querySelector("#evt-doc-occasion");
+              var g = (gEl && gEl.value || "").trim();
+              var o = (oEl && oEl.value || "").trim();
+              if (!g) { msg.style.color = "#B45309"; msg.textContent = "Dites le geste — concret, rejouable."; if (gEl) gEl.style.borderColor = "#B45309"; return; }
+              if (!o) { msg.style.color = "#B45309"; msg.textContent = "Dites l’occasion — quand ce geste se rejoue-t-il ?"; if (oEl) oEl.style.borderColor = "#B45309"; return; }
+              recette = g + " — " + o;
+            }
             var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs attendu"; }).join(" ; ");
             go.disabled = true;
             fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
               location_id: loc,
-              practice_text: recette.slice(0, 240) + " (événement « " + itC.title + " »)",
+              practice_text: recette.slice(0, 300) + " (événement « " + itC.title + " »)",
               evidence_refs: evid || null,
               confirmation_test: "La prochaine occurrence dépasse l’attendu du jour",
               origin: { origin_action_type: "event_" + (itC.event_type || "autre") },
@@ -219,12 +239,40 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               if (p && p.ok) {
                 if (jj.apres) jj.apres.documented = true;
                 var backfilled = false;
-                if (!(itC.dispositif && String(itC.dispositif).trim())) {
+                if (!hasDisp) {
                   backfilled = true;
                   itC.dispositif = recette;
                   fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, description: recette.slice(0, 240) }) }).catch(function () {});
                 }
-                container.querySelector("#evt-doc-chain").innerHTML = '<span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré — le rejeu, c’est la prochaine occurrence)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a>';
+                // Le VRAI démarrage se propose, jamais ne se lance seul : le rejeu mesuré
+                // coûte une fenêtre — c'est un choix (chaîne Prouver existante).
+                container.querySelector("#evt-doc-chain").innerHTML =
+                  '<div><span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a></div>'
+                  + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+                  + '<button type="button" id="evt-doc-test" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Le tester maintenant →</button>'
+                  + '<span style="font-size:11px;color:#9CA3AF;">rejeu mesuré 7 j, verdict automatique — votre choix, jamais lancé seul</span>'
+                  + '<span id="evt-doc-test-msg" style="font-size:12px;"></span></div>';
+                var testBtn = container.querySelector("#evt-doc-test");
+                testBtn.addEventListener("click", function () {
+                  var tmsg = container.querySelector("#evt-doc-test-msg");
+                  testBtn.disabled = true;
+                  testBtn.textContent = "Rejeu…";
+                  fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+                    location_id: loc, origin_action_type: "event_" + (itC.event_type || "autre"),
+                    window_kind: "7d", threshold_basis: "pct", threshold_pct: 10,
+                    committed_action_text: "Rejeu du dispositif : " + recette.slice(0, 180),
+                    owner_person_name: itC.author_person_name || "—",
+                  }) }).then(function (r) { return r.json(); }).then(function (c) {
+                    if (!c || !c.ok || !c.commitment_id) throw new Error((c && c.error) || "Erreur");
+                    return fetch("/api/best-practices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ practice_id: p.practice_id, location_id: loc, replay_commitment_id: c.commitment_id }) }).then(function (r) { return r.json(); });
+                  }).then(function (pr) {
+                    if (!pr || !pr.ok) throw new Error((pr && pr.error) || "Erreur");
+                    container.querySelector("#evt-doc-test").parentElement.innerHTML = '<span style="font-size:12.5px;color:#166534;">Rejeu armé — fenêtre 7 jours, verdict automatique à la fin · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Suivre →</a>';
+                  }).catch(function (e) {
+                    testBtn.disabled = false; testBtn.textContent = "Le tester maintenant →";
+                    tmsg.style.color = "#B91C1C"; tmsg.textContent = "Erreur : " + (e && e.message ? e.message : "réessayez");
+                  });
+                });
               } else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez"); go.disabled = false; }
             }).catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; go.disabled = false; });
           });

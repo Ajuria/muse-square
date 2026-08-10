@@ -318,3 +318,12 @@ left join outcomes o using (saved_item_id)
   événement SANS description est aussi enregistrée comme sa description (update `description` —
   c'est la colonne derrière `dispositif`) — au prochain passage, le rappel existe. Chip de type
   vide supprimée quand le type est inconnu.
+- **10/08 (5) — la recette au CONTRAT du dispositif** (owner : « how is this a dispositif ?
+  everything starts upon clicking ? ») : DEUX champs au lieu d'une ligne libre — « Le geste,
+  concrètement ? » + « À quelle occasion ? » (placeholders qui enseignent la grammaire ; le KPI
+  n'a pas de champ, CA vs attendu est le défaut de la chaîne). Les deux sont requis : la
+  structure convertit l'intention en recette rejouable. Microcopie sous le CTA : « Classé
+  “déclaré” — rien ne démarre encore. » Au succès, le VRAI démarrage se PROPOSE (« Le tester
+  maintenant ? » = chaîne Prouver existante : POST commitments 7 j +10 % puis PATCH
+  replay_commitment_id) — jamais lancé seul (une fenêtre de mesure est un choix, anti
+  p-hacking). La description backfillée devient « geste — occasion ».
