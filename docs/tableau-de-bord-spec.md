@@ -128,3 +128,11 @@ Toute lecture ajoutée entre DANS le lot, jamais en séquence.
   understand ») : la prochaine occasion choisit le site dont l'effet chaleur est CHIFFRÉ au
   registre (à défaut le plus proche) ; sans € gated, la ligne dit « jour chaud annoncé —
   impact pas encore chiffré sur ce site » (portes en infobulle), jamais une promesse nue.
+- **10/08 (4) — l'échelle des dispositifs en français d'exploitant** (owner : « I don't like
+  Rejeu armé ») : le registre visible devient **déclaré → en test → prouvé** (chip « en test »
+  bleu #EEF2FF/#1D3BB3, tuile « N en test », bouton « Test… », engagement créé « Test du
+  dispositif : … », fiche dispositif « en test, suivi sur Pulse » / « prouvé par un test
+  mesuré »). « Rejeu » et « armé » disparaissent des textes ; les CLÉS internes (`tier: "rejeu"`,
+  `practice_counts.rejeu`, `replay_commitment_id`) sont inchangées — renommer la donnée aurait
+  cassé le contrat sans rien apporter à l'écran. « Armer sur signal » reste (concept distinct :
+  automatisation sur signal détecté, pas l'échelle de preuve).
