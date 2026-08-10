@@ -170,6 +170,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
           if (!past.length) return;
           var bilanDate = past[past.length - 1].slice(0, 10);
+          // Le bilan ne se demande QUE sur une occurrence terminée : tant que son engagement
+          // tourne, la seule action possible est d'ajuster (page Évolution).
+          var rowB0 = ((j.apres && j.apres.rows) || []).filter(function (r) { return r.date === bilanDate; })[0];
+          if (rowB0 && (rowB0.commitment_status === "open" || rowB0.commitment_status === "pending")) return;
           window._evtBilanJ = j;
           fetch("/api/saved-items/snapshot?saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
             .then(function (r) { return r.json(); })
@@ -195,7 +199,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var inputCss = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;';
           // Deux champs = le CONTRAT du dispositif (owner 10/08 : « how is this a dispositif ? ») —
           // un geste CONCRET + son OCCASION. La structure convertit l'intention en recette ;
-          // les placeholders enseignent la grammaire. Le KPI n'a pas de champ : CA vs attendu,
+          // les placeholders enseignent la grammaire. Le KPI n'a pas de champ : CA vs votre habituel,
           // le défaut de toute la chaîne.
           return '<div id="evt-doc-chain" style="margin-top:10px;">'
             + (hasDisp
@@ -233,7 +237,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               location_id: loc,
               practice_text: recette.slice(0, 300) + " (événement « " + itC.title + " »)",
               evidence_refs: evid || null,
-              confirmation_test: "La prochaine occurrence dépasse l’attendu du jour",
+              confirmation_test: "La prochaine occurrence dépasse votre habituel du jour",
               origin: { origin_action_type: "event_" + (itC.event_type || "autre") },
             }) }).then(function (r) { return r.json(); }).then(function (p) {
               if (p && p.ok) {
@@ -469,7 +473,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             renderConsigne(j);
           }
 
-          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : (it.kpi || "");
+          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre habituel" : (it.kpi || "");
           var targetTxt = it.kpi_target_eur != null ? frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? "+" + frInt(it.kpi_target_pct) + " %" : "";
           var hoursTxt = it.hour_start != null && it.hour_end != null ? "ouverture au public " + it.hour_start + " h – " + it.hour_end + " h" : null;
           var sendDate = offMinus(nextOcc, off);
@@ -745,11 +749,11 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
             + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
             + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
-          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : it.kpi;
+          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre habituel" : it.kpi;
           var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
             + (it.kpi_target_eur != null || it.kpi_target_pct != null
               ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : " +" + frInt(it.kpi_target_pct) + " %") + '</span>'
-              : '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;" title="Aucune cible n’a été posée sur cet événement — le CA du jour reste mesuré vs votre attendu.">Sans objectif chiffré · CA suivi vs attendu</span>') + '</div>'
+              : '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#FEF3E2;color:#B45309;">Objectif non fixé</span>') + '</div>'
             + '<div style="font-size:14px;font-weight:600;">' + esc(it.title) + '</div>'
             + '<div style="font-size:12px;color:#6B7280;line-height:1.5;">' + (it.recurrence !== "none" ? "Série · " + it.dates.length + " occurrences" : "Dates : " + it.dates.map(frD).join(" · ")) + (it.author_person_name ? " · créé par " + esc(it.author_person_name) : "") + (it.dispositif ? "<br>Dispositif : " + esc(it.dispositif) : "") + '</div>';
 
@@ -769,7 +773,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 }).join("") + '</tr></thead><tbody>'
               + '<tr><td style="color:#6B7280;font-size:11px;text-transform:uppercase;padding:8px;">Objectif</td>' + j.days.map(function (d) {
                   var o = d.objectif || {};
-                  return '<td style="padding:8px;border-bottom:1px solid #F3F4F6;">' + (o.expected_eur != null ? "attendu ≈ " + frInt(o.expected_eur) + " €" + (o.total_eur != null ? "<br><strong>total ≈ " + frInt(o.total_eur) + " €</strong>" : "") : "—") + '</td>';
+                  return '<td style="padding:8px;border-bottom:1px solid #F3F4F6;">' + (o.expected_eur != null ? "habituel ≈ " + frInt(o.expected_eur) + " €" + (o.total_eur != null ? "<br><strong>total ≈ " + frInt(o.total_eur) + " €</strong>" : "") : "—") + '</td>';
                 }).join("") + '</tr>'
               + '<tr><td style="color:#6B7280;font-size:11px;text-transform:uppercase;padding:8px;vertical-align:top;">Le jour</td>' + j.days.map(function (d) {
                   return '<td style="padding:8px;border-bottom:1px solid #F3F4F6;vertical-align:top;">' + d.questions.map(qLine).join("") + '</td>';
@@ -792,7 +796,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;flex:1;">Le ' + day.dow_fr + " " + frD(day.date) + ' pour votre événement</div>'
                 + (day.score != null ? '<span style="font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">Score prévu : ' + day.score + '/10</span>' : "") + '</div>'
                 + day.questions.map(qLine).join("")
-                + (o2.expected_eur != null ? '<div style="font-size:12px;color:#6B7280;margin-top:8px;">Objectif : ' + esc(kpiLbl) + (o2.apport_eur != null ? " — apport visé " + signEur(o2.apport_eur) : "") + " · attendu du jour ≈ " + frInt(o2.expected_eur) + " €" + (o2.total_eur != null ? " → total visé ≈ " + frInt(o2.total_eur) + " €" : "") + '</div>' : "")
+                + (o2.expected_eur != null ? '<div style="font-size:12px;color:#6B7280;margin-top:8px;">Objectif : ' + esc(kpiLbl) + (o2.apport_eur != null ? " — apport visé " + signEur(o2.apport_eur) : "") + " · habituel du jour ≈ " + frInt(o2.expected_eur) + " €" + (o2.total_eur != null ? " → total visé ≈ " + frInt(o2.total_eur) + " €" : "") + '</div>' : "")
                 + '<div data-ev-mount="consigne"></div></div>';
             }
           }
@@ -821,7 +825,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   + '</div>';
               }
               if (last.target_met == null && it.kpi_target_eur == null && it.kpi_target_pct == null)
-                chip = '<div style="margin-bottom:8px;font-size:12px;color:#6B7280;">Aucun objectif n’était posé — le mesuré ci-dessous reste votre référence ; posez une cible à la prochaine occasion pour obtenir un verdict.</div>';
+                chip = '<div style="margin-bottom:8px;font-size:12.5px;color:#6B7280;">Aucun objectif n’était fixé — sans objectif, pas de verdict. Fixez-en un à la prochaine occurrence.</div>';
               var VERD_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (facteur externe)" };
               panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date)
                 + (last.verdict ? ' · <span style="cursor:help;" title="Verdict statistique de l’engagement — bande de bruit et gardes de confusion, distinct du fait « cible atteinte ».">verdict mesuré : ' + esc(VERD_FR[last.verdict] || last.verdict) + '</span>' : " · verdict à la fin de la fenêtre") + '</div>'
@@ -846,34 +850,48 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   visTag === "déclaré" ? "Tickets mesurés (vos ventes) ÷ visiteurs DÉCLARÉS dans votre bilan — la part des visiteurs qui a acheté." : "Tickets mesurés ÷ visiteurs comptés par votre flux de comptage.");
               }
               panel += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + domBox
-                + box("CA total · mesuré", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € attendu (" + signEur(last.gap_eur) + ")",
-                    "Mesuré : vos ventes importées. « Attendu » = votre CA habituel de ce jour de semaine (modèle 90 j).")
+                + box("CA total · mesuré", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € habituel (" + signEur(last.gap_eur) + ")",
+                    "Mesuré : vos ventes importées. « Habituel » = votre CA de ce jour de semaine (modèle 90 j).")
                 + (last.tickets != null ? box("Tickets de caisse · mesuré", frInt(last.tickets), "vs " + frInt(tickBase) + " " + tickLbl + (tickDelta != null ? " (" + (tickDelta >= 0 ? "+" : "") + tickDelta + " %)" : ""),
                     "Nombre de reçus distincts dans vos ventes importées ce jour-là. Habituel = " + tickLbl + (useDow ? " — même référentiel que le CA attendu" : " (repli : pas assez de " + dowPl + " mesurés)") + ".") : "")
                 + (last.basket != null ? box("Panier moyen · mesuré", String(last.basket).replace(".", ",") + " €", "vs " + String(bkBase).replace(".", ",") + " € " + bkLbl,
                     "CA ÷ tickets de vos ventes importées. Habituel = " + bkLbl + ".") : "")
                 + convBox + '</div>';
             }
+            var nc0 = j.apres.next_commitment;
             var serieHtml = "";
             if (j.apres.serie) {
               var se = j.apres.serie;
               // La série parle du KPI DÉCLARÉ (l'utilisateur le choisit à la création : CA vs
               // attendu, famille, tickets, panier) — plus du CA quel que soit l'objectif.
               var kUnit = function (v) { return se.kpi_unit === "eur" ? frInt(v) + " €" : (v >= 0 ? "+" : "") + Math.round(v) + " %"; };
-              var kTitle = se.kpi_target != null
-                ? (se.kpi_n_met != null ? se.kpi_n_met : 0) + "/" + se.kpi_n_measured + " occurrence(s) à la cible (" + kUnit(se.kpi_target) + ")"
-                : se.kpi_n_measured + " occurrence(s) mesurée(s)";
-              serieHtml = '<div style="margin-top:12px;border-top:1px solid #F3F4F6;padding-top:10px;">'
-                + '<div style="display:flex;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:600;flex:1;">Série — ' + kTitle + '</div>'
-                + (se.kpi_median != null ? '<div style="text-align:right;"><div style="font-size:15px;font-weight:600;">' + kUnit(se.kpi_median) + '</div><div style="font-size:10.5px;color:#9CA3AF;">médiane ' + esc(kpiLbl) + '</div></div>' : "") + '</div>'
-                + '<div style="font-size:11px;color:#9CA3AF;margin:2px 0 6px;">' + se.n_measured + ' mesurée(s) sur ' + se.n_occurrences + ' prévue(s)'
-                + (se.trend_readable ? "" : " — la tendance se lira à partir de 3") + (se.sum_gap_eur != null ? ' · CA du jour cumulé ' + signEur(se.sum_gap_eur) + ' vs attendu' : "") + '</div>'
-                + j.apres.rows.map(function (r) {
-                    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;"><span style="width:100px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
-                      + (r.gap_eur != null ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (r.gap_eur >= 0 ? "#059669" : "#B45309") + ';background:' + (r.gap_eur >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + signEur(r.gap_eur) + ' vs attendu</span>' : '<span style="font-size:11px;color:#9CA3AF;">pas de mesure</span>')
-                      + (r.family_rev != null ? '<span style="font-size:11.5px;font-weight:600;color:' + (r.target_met === false ? "#B45309" : r.target_met === true ? "#059669" : "#6B7280") + ';">' + esc(it.kpi_family || "famille") + " " + frInt(r.family_rev) + " €</span>" : "")
-                      + (r.verdict ? '<span style="font-size:11px;color:#6B7280;">' + esc(({ met: "cible tenue", missed: "cible manquée", confounded: "non mesurable" })[r.verdict] || r.verdict) + '</span>' : "") + '</div>';
-                  }).join("")
+              // Titre LITTÉRAL : ce que la section EST (« vos 3 derniers samedis testés »),
+              // plus « Sur la série »/« 0/3 à la cible » — un libellé qui ne dit rien est du bruit.
+              var dayPl = String(last.dow_fr || "jour").toLowerCase() + "s";
+              var sTitle = se.kpi_n_measured > 1 ? "Vos " + se.kpi_n_measured + " derniers " + dayPl + " testés"
+                : "Votre premier " + String(last.dow_fr || "jour").toLowerCase() + " testé";
+              var atGoal = se.kpi_target != null ? (se.kpi_n_met != null ? se.kpi_n_met : 0) : null;
+              serieHtml = '<div style="margin-top:14px;border-top:1px solid #F3F4F6;padding-top:12px;">'
+                + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><div style="font-size:13px;font-weight:600;flex:1;">' + sTitle + '</div>'
+                + (atGoal != null ? '<div style="font-size:12.5px;font-weight:600;color:' + (atGoal > 0 ? "#059669" : "#B45309") + ';">' + (atGoal === 0 ? "aucun n’a atteint votre objectif" : atGoal + " sur " + se.kpi_n_measured + " ont atteint votre objectif") + '</div>' : "") + '</div>'
+                + (se.trend_readable || se.n_occurrences <= se.n_measured ? "" : '<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">' + (se.n_occurrences - se.n_measured) + ' à venir — une tendance se lit à partir de 3.</div>')
+                + '<div style="margin-top:6px;">' + j.apres.rows.map(function (r) {
+                    var kv = it.kpi === "family_revenue" ? r.family_rev : it.kpi === "revenue_residual" ? r.residual_pct : it.kpi === "tickets" ? r.tickets_delta_pct : r.basket_delta_pct;
+                    var okR = r.target_met;
+                    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
+                      + '<span style="width:92px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
+                      + (kv != null
+                        ? '<span style="min-width:90px;font-weight:600;color:' + (okR === true ? "#059669" : okR === false ? "#B45309" : "#111827") + ';">' + kUnit(kv) + '</span>'
+                          + '<span style="flex:1;font-size:11.5px;color:#6B7280;">' + esc(kpiLbl) + (se.kpi_target != null ? " · objectif " + kUnit(se.kpi_target) : "") + '</span>'
+                        : '<span style="flex:1;font-size:11px;color:#9CA3AF;">pas de mesure</span>')
+                      + (r.gap_eur != null ? '<span style="font-size:11px;color:#6B7280;white-space:nowrap;">CA ' + signEur(r.gap_eur) + ' vs habituel</span>' : "")
+                      + '</div>';
+                  }).join("") + '</div>'
+                // La DÉCISION au bout : le moteur (diagnostic + move recommandé + track record
+                // par move) vit sur la page Évolution — on y renvoie, on ne le réimplémente pas.
+                + (nc0 && nc0.commitment_id && (nc0.status === "open" || nc0.status === "pending")
+                    ? '<div style="margin-top:10px;font-size:12.5px;"><a href="/app/insightevent/engagement?id=' + encodeURIComponent(nc0.commitment_id) + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;">Poursuivre, doubler, pivoter ou arrêter →</a> <span style="color:#9CA3AF;">diagnostic et move recommandé</span></div>'
+                    : "")
                 + '</div>';
             }
             // 10/08 (owner) : plus de bouton « Documenter » PARALLÈLE au bilan — même acte
@@ -904,13 +922,14 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             var lectureHtml = j.apres.reconciliation
               ? '<div style="font-size:12.5px;line-height:1.6;color:#374151;margin-bottom:10px;"><span style="font-weight:600;">Lecture :</span> ' + esc(j.apres.reconciliation) + '</div>' : "";
             // État EN COURS : l'engagement de la prochaine occurrence (invisible jusqu'ici).
-            var nc = j.apres.next_commitment;
+            var nc = nc0;
             var ongoingHtml = "";
             if (nc && nc.date) {
               var ncOpen = nc.status === "open" || nc.status === "pending";
-              ongoingHtml = '<div style="margin-top:10px;font-size:12.5px;color:' + (ncOpen ? "#1D3BB3" : "#6B7280") + ';">'
-                + (ncOpen ? '<span style="font-weight:600;">En cours :</span> prochaine occurrence le ' + frD(nc.date) + ' — engagement armé, verdict automatique à la fin de la fenêtre.'
-                  : 'Prochaine occurrence le ' + frD(nc.date) + ' — la mesure s’arme seule à J-7.') + '</div>';
+              ongoingHtml = '<div style="margin-top:12px;padding:10px 12px;background:#F8FAFC;border-radius:8px;font-size:12.5px;line-height:1.6;color:#374151;">'
+                + (ncOpen
+                  ? '<span style="font-weight:600;color:#1D3BB3;">Test en cours — ' + dowFr(nc.date) + " " + frD(nc.date) + '</span> : le verdict tombe seul à la fin. Rien à déclarer avant.'
+                  : 'Prochaine occurrence le ' + dowFr(nc.date) + " " + frD(nc.date) + ' — la mesure s’arme seule à J-7.') + '</div>';
             }
             apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + memoHtml + lectureHtml + panel + serieHtml + ongoingHtml
               + '<div data-ev-mount="bilan"></div></div>';

@@ -361,3 +361,28 @@ left join outcomes o using (saved_item_id)
   l'ordinaire de la famille) ; (f) **« En cours »** : l'engagement de la prochaine occurrence
   (armé / s'armera à J-7) — état invisible jusqu'ici ; (g) verdict en UN vocabulaire (plus
   d'énum brute `missed`) ; (h) aperçu de l'email REPLIÉ (il écrasait le dossier).
+- **10/08 (10) — AUDIT : la boucle de décision EXISTE, le dossier l'ignorait** (owner : « we had
+  this in place.. are you working from scratch ? » — oui, et la règle du dépôt est de grepper
+  `docs/module-index.md` d'abord). Ce qui existait déjà et que je réimplémentais en moins bien :
+  `adjustment_move` (`poursuivre|doubler|pivoter|stop`, libellés FR dans `lib/commitmentCopy.ts`),
+  la page **`/app/insightevent/engagement?id=`** (« Évolution de l'engagement »), le **moteur de
+  recommandation** de `public/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
+  + pas de facteur externe → pivoter ; en dessous + incomplète → poursuivre), le **track record
+  par move** (`move_stats` : « ici : 2/3 fois → objectif atteint »), le **diagnostic** (météo,
+  événements, vacances, qualité d'exécution) et le re-commit (enfant sur fenêtre fraîche +
+  soft-cancel du parent). **Décision owner : LINK OUT** — le dossier renvoie vers la page
+  Évolution, il ne duplique jamais le moteur.
+  Appliqué : (a) **le bilan ne se demande QUE sur une occurrence close** — il était gated sur
+  « date passée + non soumis » sans regarder l'engagement (sur une fenêtre longue, on demandait
+  le vécu en plein vol) ; (b) **test en cours → une seule action** : « Poursuivre, doubler,
+  pivoter ou arrêter → » vers `engagement?id=` (les rows et `next_commitment` portent désormais
+  `commitment_id`) ; (c) **la série au titre LITTÉRAL** (« Vos 3 derniers samedis testés »,
+  jamais « Sur la série » / « 0/3 à la cible »), valeur du KPI par ligne avec son objectif, et
+  **la décision AU BOUT** — plus un cul-de-sac ; (d) **« attendu » banni** de toutes les chaînes
+  visibles (dossier, provider, formulaire) au profit du mot maison **« habituel »** (standard
+  copy 27/07 : « CA réalisé / CA habituel ») ; « sans cible chiffrée » → « Objectif non fixé ».
+  **RESTE À FAIRE (gap réel identifié, non couvert)** : `adjustment_note` (« qu'avez-vous
+  changé ? ») est journalisé et **jamais partagé** — aucun lien entre un move et les
+  destinataires de la consigne (`consigne_sends`). « Documenter le changement ET le partager »
+  demande une étape « prévenir l'équipe » sur la page Évolution, via le workspace Communiquer
+  existant. + centraliser le lexique FR dans un fichier unique éditable par l'owner.

@@ -83,7 +83,7 @@
         ? '<select data-ef="owner" style="' + inp + 'cursor:pointer;">' + owners.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select>'
         : '<input data-ef="owner" placeholder="Prénom Nom" style="' + inp + '">')
       + '</div><div style="flex:1;"><label style="' + lbl + '">Objectif — le KPI que le verdict jugera</label><select data-ef="kpi" style="' + inp + 'cursor:pointer;">'
-      + '<option value="revenue_residual">CA vs attendu du jour — mesuré, verdict fort</option>'
+      + '<option value="revenue_residual">CA du jour vs votre habituel — mesuré, verdict fort</option>'
       + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs habituel (base 30 j) — verdict plus faible</option>'
@@ -123,7 +123,7 @@
       + '<button type="button" data-ef-mnext style="font-size:13px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#1D3BB3;padding:3px 10px;cursor:pointer;">›</button></div>'
       + '<div data-ef-mctx style="font-size:11px;color:#6B7280;margin-bottom:6px;"></div>'
       + '<div data-ef-grid style="min-height:60px;"></div>'
-      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA attendu selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · vacances et périodes : ligne sous le mois + survol d’un jour.</div>'
+      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA habituel selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · vacances et périodes : ligne sous le mois + survol d’un jour.</div>'
       + '<div style="margin-top:8px;"><label style="' + lbl + '">Vos candidates <span data-ef-count style="color:#1D3BB3;"></span> <span style="font-weight:400;color:#9CA3AF;text-transform:none;letter-spacing:0;">— conservées d’un mois à l’autre</span></label>'
       + '<div data-ef-picked style="display:flex;gap:8px;flex-wrap:wrap;min-height:26px;"></div></div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
@@ -257,7 +257,7 @@
             var cov = !sel && covered[iso];
             var dotc = d.lvl >= 4 ? "#e24b4a" : d.lvl >= 2 ? "#B45309" : null;
             var b2 = baselineFor(dowOf(iso));
-            var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — attendu ≈ " + frInt(b2.expected_eur) + " €" : "");
+            var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — habituel ≈ " + frInt(b2.expected_eur) + " €" : "");
             if (d.ferie) tip += " · Férié" + (d.ferie_name ? " (" + d.ferie_name + ")" : "");
             if (d.vac) tip += " · " + (d.vac_name || "Vacances scolaires");
             (d.com || []).forEach(function (n) { tip += " · " + n; });

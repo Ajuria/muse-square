@@ -463,6 +463,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       family_avg: famAvg,
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,
       commitment_status: co && flat(co.status) != null ? String(flat(co.status)) : null,
+      commitment_id: co && flat(co.commitment_id) != null ? String(flat(co.commitment_id)) : null,
     };
   }).map((r) => ({
     ...r,
@@ -522,9 +523,9 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   if (lastMeasured && kpiKeyItem === "family_revenue" && lastMeasured.family_rev != null && famAvg != null) {
     const famUp = lastMeasured.family_rev >= famAvg;
     const dayUp = (lastMeasured.gap_eur as number) > 0;
-    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait l'attendu de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
-    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous l'attendu (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
-    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de l'attendu (+${lastMeasured.gap_eur} €).`;
+    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait votre habituel de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
+    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous votre habituel (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
+    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de votre habituel (+${lastMeasured.gap_eur} €).`;
   }
   // Cible hors d'échelle : un objectif à N× l'ordinaire de la famille n'est pas une performance
   // manquée, c'est un calibrage (fait dit, jamais un reproche).
@@ -543,13 +544,13 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   });
   for (const r of measured) {
     facts.push({
-      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € attendu du jour (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
+      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre habituel du jour (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
       claim_type: "measured",
     });
   }
   if (serie && serie.n_measured > 0) {
     facts.push({
-      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de l'attendu ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
+      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de votre habituel ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
       claim_type: "measured",
     });
   }
@@ -566,8 +567,12 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
         // « En cours » : l'engagement ancré sur la PROCHAINE occurrence (armé ou non) — l'état
         // vivant n'était visible nulle part sur le dossier.
         next_commitment: nextDate && comBy.get(nextDate)
-          ? { date: nextDate, status: String(flat((comBy.get(nextDate) as any).status) || ""), verdict: flat((comBy.get(nextDate) as any).verdict) != null ? String(flat((comBy.get(nextDate) as any).verdict)) : null }
-          : (nextDate ? { date: nextDate, status: null, verdict: null } : null),
+          ? {
+              date: nextDate, status: String(flat((comBy.get(nextDate) as any).status) || ""),
+              verdict: flat((comBy.get(nextDate) as any).verdict) != null ? String(flat((comBy.get(nextDate) as any).verdict)) : null,
+              commitment_id: flat((comBy.get(nextDate) as any).commitment_id) != null ? String(flat((comBy.get(nextDate) as any).commitment_id)) : null,
+            }
+          : (nextDate ? { date: nextDate, status: null, verdict: null, commitment_id: null } : null),
       },
       consigne_sends: (sendRows as any[]).map((s) => ({
         occurrence_date: String(flat(s.d) ?? ""), sent_on: String(flat(s.sent_on) ?? ""),
