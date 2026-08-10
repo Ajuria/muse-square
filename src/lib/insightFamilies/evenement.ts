@@ -168,7 +168,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows], [dowSalesRows], [declaredRows]] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -188,7 +188,8 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     }) : empty,
     pastDates.length ? bq.query({
       query: `SELECT CAST(transaction_date AS STRING) AS d, daily_transactions, ROUND(transactions_baseline, 0) AS transactions_baseline, ROUND(transactions_delta_pct, 0) AS tdp,
-                     ROUND(avg_basket, 2) AS basket, ROUND(basket_baseline, 2) AS basket_base, ROUND(basket_delta_pct, 0) AS bdp
+                     ROUND(avg_basket, 2) AS basket, ROUND(basket_baseline, 2) AS basket_base, ROUND(basket_delta_pct, 0) AS bdp,
+                     daily_visitors
               FROM \`${PROJECT}.mart.fct_client_sales_signals_daily\`
               WHERE location_id = @location_id AND transaction_date IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))`,
       params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
@@ -274,6 +275,28 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       query: `SELECT practice_id FROM \`${PROJECT}.analytics.best_practices\`
               WHERE location_id = @location_id AND status = 'active' AND practice_text LIKE @pat LIMIT 1`,
       params: { location_id, pat: `%(événement « ${item.title} »)` }, location: "EU",
+    }).catch(() => [[]]) : empty,
+    // Habituel MÊME JOUR DE SEMAINE (90 j, jour exclu) pour tickets/panier — le référentiel du
+    // « CA attendu » ; le 28 j toutes-journées du mart reste servi en repli (n_dow < 4).
+    pastDates.length ? bq.query({
+      query: `SELECT CAST(d AS STRING) AS d, ROUND(AVG(s.daily_transactions), 0) AS tick_dow,
+                     ROUND(AVG(s.avg_basket), 2) AS basket_dow, COUNT(*) AS n_dow
+              FROM UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x)) AS d
+              JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s
+                ON s.location_id = @location_id
+               AND EXTRACT(DAYOFWEEK FROM s.transaction_date) = EXTRACT(DAYOFWEEK FROM d)
+               AND s.transaction_date BETWEEN DATE_SUB(d, INTERVAL 90 DAY) AND DATE_SUB(d, INTERVAL 1 DAY)
+              GROUP BY d`,
+      params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
+    }) : empty,
+    // Le DÉCLARÉ du bilan (visiteurs) relu — premier consommateur d'event_outcomes : la
+    // transformation (tickets/visiteurs) s'affiche dans l'Après, taguée « déclaré ».
+    pastDates.length ? bq.query({
+      query: `SELECT CAST(selected_date AS STRING) AS d, attendance_approx
+              FROM \`${PROJECT}.raw.event_outcomes\`
+              WHERE saved_item_id = @sid AND attendance_approx IS NOT NULL
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY selected_date ORDER BY submitted_at DESC) = 1`,
+      params: { sid: saved_item_id }, location: "EU",
     }).catch(() => [[]]) : empty,
   ]);
 
@@ -406,6 +429,8 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 5. L'Après : mesuré par occurrence + verdict de l'engagement ancré ──
   const resBy = new Map((resRows as any[]).map((r) => [String(flat(r.d)), r]));
   const sigBy = new Map((sigRows as any[]).map((r) => [String(flat(r.d)), r]));
+  const dowSalesBy = new Map((dowSalesRows as any[]).map((r) => [String(flat(r.d)), r]));
+  const declaredBy = new Map((declaredRows as any[]).map((r) => [String(flat(r.d)), r]));
   const famBy = new Map((famRows as any[]).map((r) => [String(flat(r.d)), r]));
   const comBy = new Map((comRows as any[]).map((c) => [String(flat(c.ws)), c]));
   const apresRows = pastDates.map((d) => {
@@ -421,6 +446,12 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       basket: sg && flat(sg.basket) != null ? Number(flat(sg.basket)) : null,
       basket_base: sg && flat(sg.basket_base) != null ? Number(flat(sg.basket_base)) : null,
       basket_delta_pct: sg && flat(sg.bdp) != null ? Number(flat(sg.bdp)) : null,
+      // Référentiel jour-de-semaine (celui du CA attendu) + registres visiteurs.
+      tickets_base_dow: dowSalesBy.get(d) && flat((dowSalesBy.get(d) as any).tick_dow) != null ? Number(flat((dowSalesBy.get(d) as any).tick_dow)) : null,
+      basket_base_dow: dowSalesBy.get(d) && flat((dowSalesBy.get(d) as any).basket_dow) != null ? Number(flat((dowSalesBy.get(d) as any).basket_dow)) : null,
+      n_dow: dowSalesBy.get(d) ? Number(flat((dowSalesBy.get(d) as any).n_dow) ?? 0) : 0,
+      visitors_measured: sg && flat(sg.daily_visitors) != null ? Number(flat(sg.daily_visitors)) : null,
+      visitors_declared: declaredBy.get(d) && flat((declaredBy.get(d) as any).attendance_approx) != null ? Number(flat((declaredBy.get(d) as any).attendance_approx)) : null,
       family_rev: fa ? Number(flat(fa.fam_rev)) : null,
       family_avg: famAvg,
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,

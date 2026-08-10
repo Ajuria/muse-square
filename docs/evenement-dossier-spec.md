@@ -300,3 +300,13 @@ left join outcomes o using (saved_item_id)
   pas de dispositif — l'ancien bouton écrivait une pratique vide ; evidence = mesuré réel ;
   succès → lien « Voir dans vos Dispositifs → »). Idempotente (`apres.documented`, clé serveur =
   suffixe « (événement « titre ») ») ; bilan déjà envoyé → l'état est dit, la chaîne reste.
+- **10/08 (3) — les nombres de l'Après sont FONCTIONNELS** (owner : « tickets puis on me
+  demande les visiteurs ? labels imprecise ») : (a) chaque box porte sa source et son
+  référentiel en infobulle, et son registre en libellé (« · mesuré » / « · déclaré ») ;
+  (b) l'« habituel » tickets/panier est au MÊME référentiel que le CA attendu — vos mêmes
+  jours de semaine (90 j), repli 28 j toutes-journées DIT tel quel si n < 4 (réel : le 28 j
+  disait −11 %, vos vendredis disent −3 %) ; (c) tickets = ACHETEURS (reçus distincts de vos
+  ventes importées) ≠ visiteurs = VENUS — la question du bilan le dit, paye en direct
+  (« ≈ X % des visiteurs ont acheté ») avec garde-fou visiteurs < tickets, et SAUTE si un
+  flux de comptage mesure déjà les visiteurs ; (d) `attendance_approx` est relu par le
+  provider → box « Transformation · déclaré » — premier consommateur réel d'event_outcomes.
