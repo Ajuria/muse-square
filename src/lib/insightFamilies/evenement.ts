@@ -150,10 +150,18 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 2. Étape du dossier + dates à analyser ──
   const today = ymdToday();
   const isRecurring = item.recurrence !== "none";
-  const pastDates = isRecurring ? item.dates.filter((d) => d < today) : (item.selected_date && item.selected_date < today ? [item.selected_date] : []);
-  const nextDate = isRecurring ? (item.dates.find((d) => d >= today) ?? null) : (item.selected_date && item.selected_date >= today ? item.selected_date : null);
+  // Un non-récurrent SANS selected_date : tant qu'il reste des dates candidates à venir on
+  // décide ; toutes passées = plus rien à décider — les dates passées FONT l'événement.
+  // (Bug réel 10/08 : « Lancement SaaS », seule date 19/06 passée + selected_date null →
+  // coincé en « decider » à vie, le mesuré de l'état Après jamais rendu.)
+  const pastDates = isRecurring ? item.dates.filter((d) => d < today)
+    : item.selected_date ? (item.selected_date < today ? [item.selected_date] : [])
+    : item.dates.filter((d) => d < today);
+  const nextDate = isRecurring ? (item.dates.find((d) => d >= today) ?? null)
+    : item.selected_date ? (item.selected_date >= today ? item.selected_date : null)
+    : (item.dates.find((d) => d >= today) ?? null);
   const stage: "decider" | "avant" | "apres" =
-    !isRecurring && !item.selected_date && item.dates.length ? "decider"
+    !isRecurring && !item.selected_date && item.dates.some((d) => d >= today) ? "decider"
     : pastDates.length ? "apres" : "avant";
   const futureDates = stage === "decider" ? item.dates.slice(0, 7) : (nextDate ? [nextDate] : []);
 

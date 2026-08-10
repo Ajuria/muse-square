@@ -274,3 +274,23 @@ from events e
 left join dates d using (saved_item_id, location_id)
 left join outcomes o using (saved_item_id)
 ```
+
+## Retours owner 10/08 — les 4 Fs (dossier)
+
+- **F1/F3 — tête par ÉTAT, jamais le modèle de données** : titre = le job (« Choisir la date — <titre> » ·
+  « Préparer — <titre> » · « Évaluer — <titre> »), sous-titre = ce que l'écran livre ; suivent le
+  changement d'onglet. Le texte « un événement porte son dispositif… » est supprimé. Promettre
+  seulement ce que le pipeline fait (pas de « enrichit vos prévisions » tant que `event_outcomes`
+  n'a pas de consommateur aval).
+- **F2 — le mesuré arrive vraiment** : bug de stage réparé (non-récurrent sans `selected_date`,
+  dates toutes passées → `apres`, plus jamais « decider » à vie). Sans cible posée : chip grise
+  « Sans objectif chiffré · CA suivi vs attendu » (plus de chip « Objectif : » sans nombre) et le
+  panneau Après le DIT (« aucun objectif n'était posé — posez une cible à la prochaine occasion »).
+- **F4 — le bilan demande AUSSI ce que vous avez fait** : question 1 « Le dispositif prévu
+  a-t-il été appliqué ? » (oui / en partie / non) quand l'événement porte un dispositif —
+  sans elle, une cible manquée est inattribuable. Colonne `action_carried` (raw.event_outcomes),
+  numérotation dynamique 3/4 questions. Le principe « ne demander que ce que la mesure ne voit
+  pas » est conservé (la concurrence reste exclue : entièrement mesurée).
+- **Hors périmètre, à trancher** : incohérence `event_end_date` (25/07) vs seule occurrence
+  (19/06) sur les événements legacy — deux surfaces, deux ancres de retard ; et le branchement
+  dbt de `stg_event_outcomes` (modèle feuille).

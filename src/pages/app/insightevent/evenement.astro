@@ -164,6 +164,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         //    via /api/saved-items/bilan (endpoint inchangé, competition_felt absent → NULL). ──
         function maybeRenderBilan(j) {
           var it = j.item || {};
+          window._evtBilanItem = it;
           var today = new Date().toISOString().slice(0, 10);
           var past = (it.dates || []).map(String).filter(function (d) { return d && d.slice(0, 10) <= today; });
           if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
@@ -180,23 +181,32 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
         function renderBilanBlock(bilanDate) {
           var chosen = {};
-          // Numérotation + surlignage des manquantes (retour owner 05/08 — « validation
-          // bruyante », même patron que le formulaire d'engagement du 26/07).
-          var BL_NUM = { weather_accuracy: 1, mobility_felt: 2, attendance_vs_expect: 3 };
-          var BL_NAME = { weather_accuracy: "la météo", mobility_felt: "l’accès", attendance_vs_expect: "la fréquentation" };
+          // F4 (owner 10/08) : le bilan demandait le CONTEXTE vécu mais jamais « avez-vous mené
+          // l'action ? » — sans elle, une cible manquée est inattribuable (météo, ou dispositif
+          // jamais appliqué ?). Posée en 1re question quand l'événement porte un dispositif.
+          var itB = window._evtBilanItem || {};
+          var askAction = !!(itB.dispositif && String(itB.dispositif).trim());
+          var BL_KEYS = (askAction ? ["action_carried"] : []).concat(["weather_accuracy", "mobility_felt", "attendance_vs_expect"]);
+          var BL_NUM = {}; BL_KEYS.forEach(function (k, i) { BL_NUM[k] = i + 1; });
+          var BL_N = BL_KEYS.length;
+          var BL_NAME = { action_carried: "le dispositif", weather_accuracy: "la météo", mobility_felt: "l’accès", attendance_vs_expect: "la fréquentation" };
           function group(key, opts) {
             return '<div data-bl-grp="' + key + '" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
               return '<button type="button" class="evt-bl-chip" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
             }).join("") + '</div>';
           }
           function qhead(key, text) {
-            return '<div data-bl-q="' + key + '" style="font-size:13px;font-weight:500;">' + BL_NUM[key] + '/3 — ' + text + '</div>';
+            return '<div data-bl-q="' + key + '" style="font-size:13px;font-weight:500;">' + BL_NUM[key] + '/' + BL_N + ' — ' + text + '</div>';
           }
           var wrap = document.createElement("div");
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
-            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">3 questions — ce que la mesure ne voit pas. Le CA, lui, est déjà mesuré ci-dessus.</div>'
+            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">' + BL_N + ' questions — ce que la mesure ne voit pas : vos conditions réelles' + (askAction ? " et ce que vous avez fait" : "") + '. Le CA, lui, est déjà mesuré ci-dessus.</div>'
+            + (askAction
+              ? qhead("action_carried", 'Le dispositif prévu a-t-il été appliqué ? <span style="font-weight:400;color:#9CA3AF;">(' + esc(String(itB.dispositif).slice(0, 60)) + ')</span>')
+                + group("action_carried", [["oui", "Oui, comme prévu"], ["partiel", "En partie"], ["non", "Non"]])
+              : "")
             + qhead("weather_accuracy", 'Les conditions météo correspondaient-elles à nos prévisions ?')
             + group("weather_accuracy", [["conforme", "Oui, conforme"], ["mieux", "Meilleures que prévu"], ["pire", "Pires que prévu"]])
             + qhead("mobility_felt", 'L’accès à votre site était-il fluide pour vos visiteurs ?')
@@ -226,7 +236,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           });
           wrap.querySelector("#evt-bilan-send").addEventListener("click", function () {
             var msg = wrap.querySelector("#evt-bilan-msg");
-            var missing = ["weather_accuracy", "mobility_felt", "attendance_vs_expect"].filter(function (k) { return !chosen[k]; });
+            var missing = BL_KEYS.filter(function (k) { return !chosen[k]; });
             if (missing.length) {
               missing.forEach(function (k) {
                 var h = wrap.querySelector('[data-bl-q="' + k + '"]');
@@ -247,6 +257,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             btn.disabled = true;
             fetch("/api/saved-items/bilan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
               saved_item_id: item, selected_date: bilanDate,
+              action_carried: chosen.action_carried || null,
               weather_accuracy: chosen.weather_accuracy, mobility_felt: chosen.mobility_felt,
               attendance_vs_expect: chosen.attendance_vs_expect,
               attendance_approx: isNaN(att) ? null : att,
@@ -579,7 +590,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
           var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : it.kpi;
           var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
-            + '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? " +" + frInt(it.kpi_target_pct) + " %" : "") + '</span></div>'
+            + (it.kpi_target_eur != null || it.kpi_target_pct != null
+              ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : " +" + frInt(it.kpi_target_pct) + " %") + '</span>'
+              : '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;" title="Aucune cible n’a été posée sur cet événement — le CA du jour reste mesuré vs votre attendu.">Sans objectif chiffré · CA suivi vs attendu</span>') + '</div>'
             + '<div style="font-size:14px;font-weight:600;">' + esc(it.title) + '</div>'
             + '<div style="font-size:12px;color:#6B7280;line-height:1.5;">' + (it.recurrence !== "none" ? "Série · " + it.dates.length + " occurrences" : "Dates : " + it.dates.map(frD).join(" · ")) + (it.author_person_name ? " · créé par " + esc(it.author_person_name) : "") + (it.dispositif ? "<br>Dispositif : " + esc(it.dispositif) : "") + '</div>';
 
@@ -645,6 +658,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   : "";
                 chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span></div>';
               }
+              if (last.target_met == null && it.kpi_target_eur == null && it.kpi_target_pct == null)
+                chip = '<div style="margin-bottom:8px;font-size:12px;color:#6B7280;">Aucun objectif n’était posé — le mesuré ci-dessous reste votre référence ; posez une cible à la prochaine occasion pour obtenir un verdict.</div>';
               panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date) + (last.verdict ? " · verdict statistique de l’engagement : " + esc(last.verdict) : " · verdict statistique au bilan de l’engagement") + '</div>'
                 + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + domBox
                 + box("CA total", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € attendu (" + signEur(last.gap_eur) + ")")
@@ -671,7 +686,20 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
           body.innerHTML = head + segHtml + deciderHtml + avantHtml + apresHtml;
-          document.querySelector("#evt-head div").textContent = "Dossier d’événement";
+          // F1/F3 (owner 10/08) : le titre dit le JOB, le sous-titre ce que ça livre — jamais
+          // le modèle de données. Promesse limitée à ce que le pipeline fait vraiment.
+          var HEAD_BY_STAGE = {
+            decider: ["Choisir la date — " + it.title, "Les jours candidats, déjà chiffrés — comparez, puis choisissez."],
+            avant: ["Préparer — " + it.title, "Le jour est chiffré ci-dessous ; la mesure s’arme seule à J-7 et le verdict tombera tout seul."],
+            apres: ["Évaluer — " + it.title, "Le résultat est mesuré ci-dessous ; votre bilan ajoute ce que la mesure ne voit pas — 2 minutes."],
+          };
+          function setHead(k) {
+            var h = HEAD_BY_STAGE[k] || HEAD_BY_STAGE.avant;
+            document.querySelector("#evt-head div").textContent = h[0];
+            var sub = document.querySelector("#evt-head div + div");
+            if (sub) sub.textContent = h[1];
+          }
+          setHead(current);
           renderConsigne(j);
           maybeRenderBilan(j);
 
@@ -680,6 +708,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               var k = b.getAttribute("data-ev-st");
               body.querySelectorAll("[data-ev-st]").forEach(function (x) { var on = x === b; x.style.background = on ? "#1D3BB3" : "#fff"; x.style.color = on ? "#fff" : "#1D3BB3"; });
               body.querySelectorAll("[data-ev-panel]").forEach(function (p) { p.style.display = p.getAttribute("data-ev-panel") === k ? "block" : "none"; });
+              setHead(k);
             });
           });
 
