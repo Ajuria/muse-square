@@ -112,5 +112,15 @@ Toute lecture ajoutée entre DANS le lot, jamais en séquence.
   « **Ce que l'app a appris de vos sites** » — les APPRENTISSAGES eux-mêmes (« +205 €/j gagnés
   les jours de forte affluence — joué », « 148 €/j perdus les jours de pluie → Préparer »,
   recette prouvée → Rejouer) + ligne de provenance (j de ventes · types de jours chiffrés ·
-  verdicts) + « comment lire ». €/j = store enjeu `analytics.day_class_impacts`, porte n ≥ 5,
-  familles d'environnement seulement — estimé, jamais extrapolé.
+  verdicts) + « comment lire ».
+- **10/08 (2) — MÊME REGISTRE que les chantiers structurels de Pulse (owner : « n'est-ce pas la
+  version €/jour des cartes structurelles ? » — si)** : les apprentissages passent par le
+  pipeline CANONIQUE `rowsToImpactsWithImmaterial` de dayClassRegistry (médiane €/j, |t| ≥ 1,
+  cohérence de signe, span ≥ 60 j, matérialité vs CA annualisé, libellés `label_fr` officiels),
+  famille 'card' exclue comme côté monitor — plus jamais un agrégat brut parallèle. €/j affiché
+  (le fait), ≈ €/an + tier en infobulle (l'enjeu, unité de Pulse). CTA d'une perte non jouée =
+  **M'engager** (MSCommitForm partagé, origin `structural_<class_key>` + clé de suppression
+  `structural:<class_key>:<location_id>` — MÊME machinerie que Pulse, suppression et track
+  record compris) ; 4 états par ligne : joué (dispositif actif) / **en test — verdict le JJ/MM**
+  (engagement structurel OUVERT, règle de suppression du 03/08) / à défendre (gain) / M'engager.
+  Ordre de page : Impact → **Cette semaine** → Occasions → Appris → volets (owner 10/08).

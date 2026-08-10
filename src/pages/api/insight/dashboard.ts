@@ -11,6 +11,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypeLabelFr } from "../../../lib/eventTypes";
+import { rowsToImpactsWithImmaterial } from "../../../lib/dayClassRegistry";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -34,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -220,13 +221,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY nx.next_d LIMIT 20`,
         params: { locs }, location: "EU",
       }),
-      // Store €/jour de classe (méthodo enjeu, dayClassRegistry) : les APPRENTISSAGES de la
-      // carte « Ce que l'app a appris de vos sites » + le prix des Occasions. Porte n ≥ 5 côté
-      // endpoint — mêmes gates que l'app. .catch [] : compte jamais batché = carte absente.
+      // Store de classes COMPLET (colonnes du pipeline registre — rowsToImpactsWithImmaterial
+      // gate lui-même : log+médiane, |t| ≥ 1, cohérence de signe, span ≥ 60 j, matérialité) :
+      // les APPRENTISSAGES de la carte « Ce que l'app a appris » + le prix des Occasions, au
+      // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
+      // .catch [] : compte jamais batché = carte absente.
       bq.query({
-        query: `SELECT location_id, class_key, family, n_days, ROUND(avg_gap_eur, 0) AS avg_gap_eur
+        query: `SELECT location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
+                       med_gap_eur, n_log, avg_log, sd_log, span_days
                 FROM \`${PROJECT}.analytics.day_class_impacts\`
-                WHERE location_id IN UNNEST(@locs) AND n_days >= 5 AND avg_gap_eur IS NOT NULL`,
+                WHERE location_id IN UNNEST(@locs)`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —
+      // dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
+      bq.query({
+        query: `SELECT location_id,
+                       SAFE_DIVIDE(SUM(daily_revenue), NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY) + 1, 0)) * 365.25 AS annual_revenue
+                FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
     ]);
@@ -371,11 +384,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const lastVerdict = lv ? { text: lv.text, verdict: lv.verdict, we: lv.we, gap_eur: lv.commitment_id ? martGap[lv.commitment_id] ?? null : null } : null;
     const mr = resolvedV.filter((c) => c.verdict === "met")[0] || null;
     const metRecipe = mr ? { text: mr.text, ws: mr.ws, we: mr.we, gap_eur: mr.commitment_id ? martGap[mr.commitment_id] ?? null : null } : null;
-    // Occasions : jours chauds réels (30 j) × fenêtres engagées — « joué » = couvert.
-    const dayClasses = (dcRows as any[]).map((r) => ({
-      location_id: String(str(r.location_id)), class_key: String(str(r.class_key)), family: String(str(r.family)),
-      n_days: Number(num(r.n_days) ?? 0), avg_gap_eur: num(r.avg_gap_eur),
-    }));
+    // Impacts de classes au REGISTRE CANONIQUE : lignes store par site → pipeline
+    // rowsToImpactsWithImmaterial (médiane €/j, eur_year annualisé, tier estimé/mesuré).
+    const annualRevBySite: Record<string, number | null> = {};
+    for (const r of annualRevRows as any[]) {
+      const v = Number(flat(r.annual_revenue));
+      annualRevBySite[String(str(r.location_id))] = Number.isFinite(v) && v > 0 ? v : null;
+    }
+    const dcBySite: Record<string, any[]> = {};
+    for (const r of dcRows as any[]) {
+      const l = String(str(r.location_id));
+      (dcBySite[l] = dcBySite[l] || []).push(r);
+    }
+    const impactsBySite: Record<string, Map<string, any>> = {};
+    for (const l of Object.keys(dcBySite)) {
+      impactsBySite[l] = rowsToImpactsWithImmaterial(dcBySite[l], annualRevBySite[l] ?? null).impacts;
+    }
     const activeComs = coms.filter((c) => c.status !== "cancelled");
     let occPlayed = 0, occTotal = 0;
     const occBySite: any[] = [];
@@ -391,7 +415,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const nh = heatBySite[l].next_hot;
       if (nh && (!nextHot || nh < nextHot)) { nextHot = nh; nextHotSite = l; }
     }
-    const heatVals = nextHotSite ? dayClasses.filter((r) => r.location_id === nextHotSite && /^heat_/.test(r.class_key)).map((r) => r.avg_gap_eur ?? 0) : [];
+    const heatVals: number[] = [];
+    if (nextHotSite && impactsBySite[nextHotSite]) {
+      for (const [k, imp] of impactsBySite[nextHotSite]) if (/^heat_/.test(k)) heatVals.push(Number(imp.avg_gap_eur) || 0);
+    }
     const occasions = {
       next_hot: nextHot,
       next_hot_site: nextHotSite,
@@ -399,20 +426,33 @@ export const GET: APIRoute = async ({ url, locals }) => {
       heat_range: heatVals.length ? { mn: Math.min(...heatVals), mx: Math.max(...heatVals) } : null,
       played: occPlayed, total: occTotal, by_site: occBySite,
     };
-    // Apprentissages : classes d'ENVIRONNEMENT les plus fortes (les familles internes 'card',
-    // 'sales', 'suivis' sont des populations de tirs, pas des jours vécus par l'exploitant).
-    const ENV_FAMILIES = new Set(["weather", "calendar", "competition", "traffic", "events", "tourism"]);
+    // Apprentissages : impacts GATED du registre, famille 'card' exclue (populations de tirs,
+    // pas des jours vécus — même filtre que les motifs structurels de Pulse), top |€/an|,
+    // un par classe. États alignés sur Pulse : couvert (dispositif actif structural_<key>) /
+    // en test (engagement OUVERT structural_<key> sur le site — règle de suppression 03/08).
+    const allImpacts: any[] = [];
+    for (const l of Object.keys(impactsBySite)) {
+      for (const [, imp] of impactsBySite[l]) {
+        if (String(imp.family || "") === "card") continue;
+        allImpacts.push({ ...imp, location_id: l });
+      }
+    }
     const seenClass = new Set<string>();
-    const learnings = dayClasses
-      .filter((r) => ENV_FAMILIES.has(r.family) && r.avg_gap_eur != null && Math.abs(r.avg_gap_eur) >= 50)
-      .sort((a, b) => Math.abs(b.avg_gap_eur ?? 0) - Math.abs(a.avg_gap_eur ?? 0))
+    const learnings = allImpacts
+      .sort((a, b) => Math.abs(b.eur_year ?? 0) - Math.abs(a.eur_year ?? 0))
       .filter((r) => (seenClass.has(r.class_key) ? false : (seenClass.add(r.class_key), true)))
       .slice(0, 3)
-      .map((r) => ({
-        class_key: r.class_key, family: r.family, location_id: r.location_id,
-        site_label: siteLabel[r.location_id] || null, n_days: r.n_days, avg_gap_eur: r.avg_gap_eur,
-        covered: practices.some((p) => p.location_id === r.location_id && p.status === "active" && p.origin_action_type === "structural_" + r.class_key),
-      }));
+      .map((r) => {
+        const test = coms.filter((c) => (c.status === "open" || c.status === "pending")
+          && c.location_id === r.location_id && c.origin === "structural_" + r.class_key)[0] || null;
+        return {
+          class_key: r.class_key, label_fr: r.label_fr, family: r.family, location_id: r.location_id,
+          site_label: siteLabel[r.location_id] || null, n_days: r.n_days, span_months: r.span_months,
+          avg_gap_eur: r.avg_gap_eur, eur_year: r.eur_year, tier_label_fr: r.tier_label_fr,
+          covered: practices.some((p) => p.location_id === r.location_id && p.status === "active" && p.origin_action_type === "structural_" + r.class_key),
+          in_test: test ? { end: test.we } : null,
+        };
+      });
 
     return json(200, {
       ok: true,
@@ -436,7 +476,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       met_recipe: metRecipe,
       occasions,
       learnings,
-      learned_classes: dayClasses.length,
+      learned_classes: new Set(allImpacts.map((r) => r.class_key)).size,
       sales_depth: (freshRows as any[]).map((r) => ({
         location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null,
         n_days: Number(num(r.n_days) ?? 0), first_sale: str(r.first_sale), last_sale: str(r.last_sale),

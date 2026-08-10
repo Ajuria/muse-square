@@ -591,7 +591,10 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
 // distinction, une classe mesurée-mais-négligeable était indiscernable d'une classe non mesurable :
 // le lecteur affichait « non séparable ou insuffisant sur votre historique », ce qui est faux — on
 // SAIT, et la réponse est « c'est négligeable ». La carte doit alors disparaître, pas s'excuser.
-function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
+// Exporté 10/08 : le tableau de bord (dashboard.ts) passe ses lignes store par CE pipeline —
+// même registre (log+médiane, |t| ≥ 1, cohérence de signe, matérialité) que les pills/chantiers,
+// jamais un agrégat brut parallèle.
+export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
     const key = String(row?.class_key ?? row?.condition ?? "");
