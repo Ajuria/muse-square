@@ -498,12 +498,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           listPractices.slice(0, 6).forEach(function (p, pi) {
             var t = p.tier;
             var chip = t === "prouvee" ? ["prouvé", "#E6F6F0", "#059669"] : t === "rejeu" ? ["en rejeu", "#E6F6F0", "#059669"] : ["déclaré", "#F3F4F6", "#6b7280"];
-            var canProuver = t === "declaree" && p.practice_id && p.origin_action_type && !p.replay_commitment_id;
+            var canProuver = t === "declaree" && p.practice_id && p.origin_action_type && (!p.replay_commitment_id || p.replay_status === "cancelled");
             var autoHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(p.location_id || loc) + "&new=1&titre=" + encodeURIComponent(String(p.text || "").slice(0, 60)) + "&dispositif=" + encodeURIComponent(String(p.text || "").slice(0, 240));
             var sep = '<span style="color:#D1D5DB;">·</span>';
             var actions = "";
             if (t !== "rejeu") {
               if (canProuver) actions += '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif devient prouvé">Prouver</a>' + sep;
+              else if (t === "declaree" && p.replay_commitment_id) actions += '<span style="font-size:11px;color:#9CA3AF;">dernier test non concluant</span>' + sep;
               actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>';
               if (p.armable && !p.arm_enabled) actions += sep + '<a class="tb-link" href="#" data-tb-arm="' + pi + '">Armer sur signal</a>';
             }

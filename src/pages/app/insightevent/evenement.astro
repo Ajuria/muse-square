@@ -244,32 +244,48 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   itC.dispositif = recette;
                   fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, description: recette.slice(0, 240) }) }).catch(function () {});
                 }
-                // Le VRAI démarrage se propose, jamais ne se lance seul : le rejeu mesuré
-                // coûte une fenêtre — c'est un choix (chaîne Prouver existante).
-                container.querySelector("#evt-doc-chain").innerHTML =
-                  '<div><span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a></div>'
+                // L'OCCASION décide la fenêtre (correctif 10/08, owner : « if no kpi is measured,
+                // the dispositif can't be tested »). Un dispositif est occasion-bound : tester
+                // sur « 7 jours à partir du clic » mesure une semaine où l'occasion n'a pas lieu.
+                // Deux branches HONNÊTES (l'armement sur signal n'existe PAS pour une origine
+                // événement — dispatch gated HEAT_DETECTABLE = structural_traffic_high) :
+                //   (a) une occurrence à venir → fenêtre ANCRÉE dessus + saved_item_id lié ;
+                //   (b) aucune → on ne propose pas de test, on le DIT et on offre la date.
+                var nextOcc = jj.avant_date || null;
+                var head = '<div><span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a></div>';
+                if (!nextOcc) {
+                  container.querySelector("#evt-doc-chain").innerHTML = head
+                    + '<div style="margin-top:8px;font-size:12.5px;color:#6B7280;">Ce dispositif attend son occasion — il se testera quand elle se présente. '
+                    + '<a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(item) + '&mode=dates" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Ajouter la prochaine date →</a></div>';
+                  return;
+                }
+                var durJ = Number(itC.duration_days) > 1 ? Number(itC.duration_days) : null;
+                container.querySelector("#evt-doc-chain").innerHTML = head
                   + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-                  + '<button type="button" id="evt-doc-test" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Le tester maintenant →</button>'
-                  + '<span style="font-size:11px;color:#9CA3AF;">rejeu mesuré 7 j, verdict automatique — votre choix, jamais lancé seul</span>'
+                  + '<button type="button" id="evt-doc-test" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Le tester à la prochaine occurrence (' + frD(nextOcc) + ') →</button>'
+                  + '<span style="font-size:11px;color:#9CA3AF;">fenêtre ancrée sur ce jour' + (durJ ? " (" + durJ + " j)" : "") + ', verdict automatique — votre choix, jamais lancé seul</span>'
                   + '<span id="evt-doc-test-msg" style="font-size:12px;"></span></div>';
                 var testBtn = container.querySelector("#evt-doc-test");
                 testBtn.addEventListener("click", function () {
                   var tmsg = container.querySelector("#evt-doc-test-msg");
                   testBtn.disabled = true;
-                  testBtn.textContent = "Rejeu…";
+                  testBtn.textContent = "Test…";
                   fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
                     location_id: loc, origin_action_type: "event_" + (itC.event_type || "autre"),
-                    window_kind: "7d", threshold_basis: "pct", threshold_pct: 10,
-                    committed_action_text: "Rejeu du dispositif : " + recette.slice(0, 180),
+                    saved_item_id: item,
+                    event_kpi: itC.kpi || null, kpi_family: itC.kpi_family || null,
+                    window_kind: "day_of", window_start_date: nextOcc, window_days: durJ,
+                    threshold_basis: "pct", threshold_pct: 10,
+                    committed_action_text: "Test du dispositif : " + recette.slice(0, 180),
                     owner_person_name: itC.author_person_name || "—",
                   }) }).then(function (r) { return r.json(); }).then(function (c) {
                     if (!c || !c.ok || !c.commitment_id) throw new Error((c && c.error) || "Erreur");
                     return fetch("/api/best-practices", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ practice_id: p.practice_id, location_id: loc, replay_commitment_id: c.commitment_id }) }).then(function (r) { return r.json(); });
                   }).then(function (pr) {
                     if (!pr || !pr.ok) throw new Error((pr && pr.error) || "Erreur");
-                    container.querySelector("#evt-doc-test").parentElement.innerHTML = '<span style="font-size:12.5px;color:#166534;">Rejeu armé — fenêtre 7 jours, verdict automatique à la fin · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Suivre →</a>';
+                    container.querySelector("#evt-doc-test").parentElement.innerHTML = '<span style="font-size:12.5px;color:#166534;">Test programmé sur le ' + frD(nextOcc) + ' — verdict automatique à la fin de la fenêtre · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Suivre →</a>';
                   }).catch(function (e) {
-                    testBtn.disabled = false; testBtn.textContent = "Le tester maintenant →";
+                    testBtn.disabled = false; testBtn.textContent = "Le tester à la prochaine occurrence (" + frD(nextOcc) + ") →";
                     tmsg.style.color = "#B91C1C"; tmsg.textContent = "Erreur : " + (e && e.message ? e.message : "réessayez");
                   });
                 });

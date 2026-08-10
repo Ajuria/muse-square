@@ -4298,10 +4298,21 @@ if (!location_id) {
   function _engModify(mount, eid){
     var ws = document.getElementById('eng-ws-' + eid); if (!ws) return;
     var r = (window._engById || {})[eid] || {};
+    var _engYmd = function (v) { return String((v && v.value) || v || "").slice(0, 10); };
     ws.style.display = 'block';
     ws.innerHTML = '<div style="padding:12px 0 8px;font-size:12px;font-weight:600;color:#374151;">Modifier l\'engagement</div>'
       + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:6px;">Mon action</div>'
       + '<textarea data-eng-edit-text style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + escapeHtml(String(r.committed_action_text || '')) + '</textarea>'
+      // Fenêtre + seuil ÉDITABLES (owner 10/08) : une fenêtre fausse (occasion absente) ne se
+      // corrigeait que par suppression + recréation. Dates en JJ/MM/AAAA à l'écran, ISO en valeur.
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — début</div>'
+        + '<input type="date" data-eng-edit-ws value="' + escapeHtml(_engYmd(r.window_start)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — fin</div>'
+        + '<input type="date" data-eng-edit-we value="' + escapeHtml(_engYmd(r.window_end)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
+        + (String(r.threshold_basis || '') === 'pct' ? '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Seuil (%)</div>'
+          + '<input type="number" min="1" max="200" data-eng-edit-thr value="' + escapeHtml(String(r.threshold_value != null ? r.threshold_value : '')) + '" style="width:90px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>' : '')
+      + '</div>'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">'
         + '<button type="button" data-eng-save style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
         + '<button type="button" data-eng-abandon style="padding:7px 14px;border-radius:6px;background:#FCEBEB;color:#b91c1c;border:1px solid #f3d0d0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Abandonner</button>'
@@ -4312,12 +4323,25 @@ if (!location_id) {
     ws.querySelector('[data-eng-save]').addEventListener('click', function(){
       var txt = String((ws.querySelector('[data-eng-edit-text]') || {}).value || '').trim();
       if (!txt) { msg.textContent = 'Action vide'; msg.style.color = '#b91c1c'; return; }
-      fetch('/api/commitments/edit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: r.location_id, committed_action_text: txt }) })
+      var wsEl = ws.querySelector('[data-eng-edit-ws]'); var weEl = ws.querySelector('[data-eng-edit-we]'); var thrEl = ws.querySelector('[data-eng-edit-thr]');
+      var nWs = String((wsEl || {}).value || '').slice(0, 10);
+      var nWe = String((weEl || {}).value || '').slice(0, 10);
+      var nThr = thrEl && String(thrEl.value || '').trim() !== '' ? Number(thrEl.value) : null;
+      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La fin de fenêtre précède son début.'; msg.style.color = '#b91c1c'; return; }
+      var payload = { commitment_id: eid, location_id: r.location_id, committed_action_text: txt };
+      if (nWs && nWs !== _engYmd(r.window_start)) payload.window_start = nWs;
+      if (nWe && nWe !== _engYmd(r.window_end)) payload.window_end = nWe;
+      if (nThr != null && nThr !== Number(r.threshold_value)) payload.threshold_value = nThr;
+      fetch('/api/commitments/edit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function(x){ return x.json(); }).then(function(j){
           if (j && j.ok) {
             r.committed_action_text = txt;
+            if (payload.window_start) r.window_start = payload.window_start;
+            if (payload.window_end) r.window_end = payload.window_end;
+            if (payload.threshold_value != null) r.threshold_value = payload.threshold_value;
             var card = mount.querySelector('[data-eng-card="' + eid + '"]'); var wEl = card && card.querySelector('.ab-what'); if (wEl) wEl.textContent = txt;
             ws.style.display = 'none'; ws.innerHTML = '';
+            if (payload.window_start || payload.window_end || payload.threshold_value != null) window.location.reload();
           } else { msg.textContent = 'Erreur : ' + ((j && j.error) || 'réessayez'); msg.style.color = '#b91c1c'; }
         }).catch(function(){ msg.textContent = 'Erreur réseau.'; msg.style.color = '#b91c1c'; });
     });

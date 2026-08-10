@@ -345,6 +345,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         arm_cooldown: Number(num(r.arm_cooldown) ?? 7),
         arm_last_fired: trig.last_fired, arm_n_triggers: trig.n,
         arm_signal_ctx: heatBySite[locId] || null,
+        replay_status: str(r.replay_status),
         // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
         tier: String(str(r.status)) !== "active" ? "archivee"
           : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "rejeu"
@@ -366,7 +367,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const c of open) if (c.commitment_id) openById[c.commitment_id] = c;
     const replaysRunning = practices.filter((pr) => pr.replay_commitment_id && openById[pr.replay_commitment_id])
       .map((pr) => ({ end: openById[pr.replay_commitment_id!].we }));
-    const declaredNoReplay = practices.filter((pr) => pr.status !== "proven" && !pr.replay_commitment_id).length;
+    // Un rejeu ANNULÉ ne compte pas comme rejeu : la pratique redevient prouvable.
+    const declaredNoReplay = practices.filter((pr) => pr.tier === "declaree" && (!pr.replay_commitment_id || pr.replay_status === "cancelled")).length;
 
     // Score de série : le verdict de l'occurrence PRÉCÉDENTE d'un événement récurrent.
     for (const o of operations as any[]) {

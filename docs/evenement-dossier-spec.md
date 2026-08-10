@@ -327,3 +327,22 @@ left join outcomes o using (saved_item_id)
   maintenant ? » = chaîne Prouver existante : POST commitments 7 j +10 % puis PATCH
   replay_commitment_id) — jamais lancé seul (une fenêtre de mesure est un choix, anti
   p-hacking). La description backfillée devient « geste — occasion ».
+- **10/08 (6) — L'OCCASION décide la fenêtre** (owner : « if no kpi is measured, the dispositif
+  can't be tested and played again ! ») : le test « 7 j à partir du clic » mesurait une semaine
+  où l'occasion du dispositif n'a PAS lieu — verdict mécaniquement produit, sémantiquement vide
+  (cas réel annulé : « mails les 3 jours avant le jour J », fenêtre 10→16/08 sans jour J).
+  Deux branches HONNÊTES — la 3e (armement sur signal) n'existe pas pour une origine événement,
+  le dispatch est gated `HEAT_DETECTABLE = {structural_traffic_high}` : (a) occurrence à venir →
+  fenêtre ANCRÉE dessus (`window_kind: day_of`, `window_start_date`, `window_days` = durée) et
+  `saved_item_id` LIÉ (l'engagement cesse d'être orphelin : visible dans Cette semaine, compté
+  dans la série) ; (b) aucune → aucun test proposé, on le DIT (« attend son occasion ») + lien
+  « Ajouter la prochaine date ».
+- **10/08 (7) — fenêtre et seuil ÉDITABLES** : `/api/commitments/edit` n'acceptait que le texte
+  et le porteur — une fenêtre fausse ne se corrigeait que par suppression + recréation. Ajout de
+  `window_start` / `window_end` / `threshold_value` (gardes : Y-m-d, fin ≥ début, ≤ 90 j, seuil
+  1-200 %, et toujours l'interdit après résolution — le gel du verdict reste la garde anti
+  p-hacking). Champs exposés dans l'éditeur de la carte engagement (Agir).
+- **10/08 (8) — un rejeu ANNULÉ ne bloque plus** : `canProuver` exigeait `!replay_commitment_id`,
+  donc une pratique dont le test avait été annulé n'était plus jamais testable. `replay_status`
+  exposé ; un replay `cancelled` ne compte pas comme rejeu (pratique re-prouvable, comptée dans
+  `declared_no_replay`).
