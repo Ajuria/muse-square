@@ -170,13 +170,69 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
           if (!past.length) return;
           var bilanDate = past[past.length - 1].slice(0, 10);
+          window._evtBilanJ = j;
           fetch("/api/saved-items/snapshot?saved_item_id=" + encodeURIComponent(item), { cache: "no-store" })
             .then(function (r) { return r.json(); })
             .then(function (sj) {
-              if (!sj || !sj.ok || sj.bilan_submitted) return;
+              if (!sj || !sj.ok) return;
+              if (sj.bilan_submitted) { renderBilanDoneBlock(bilanDate); return; }
               renderBilanBlock(bilanDate);
             })
             .catch(function () {});
+        }
+
+        // ── Chaîne bilan → dispositif (10/08) : l'output découle de l'input, jamais un bouton
+        //    frère. Idempotente (apres.documented, clé serveur) ; recette JAMAIS vide (l'ancien
+        //    bouton avait écrit « Lancement SaaS (événement « Lancement SaaS ») » — archivé) ;
+        //    le succès a un ENDROIT : lien vers vos Dispositifs. ──
+        function docChainHtml() {
+          var jj = window._evtBilanJ || {};
+          var itC = jj.item || {};
+          if (!jj.apres || !jj.apres.rows || !jj.apres.rows.length) return "";
+          var link = '<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir dans vos Dispositifs →</a>';
+          if (jj.apres.documented) return '<div style="margin-top:8px;font-size:12.5px;color:#6B7280;">Ce qui a marché est déjà documenté · ' + link + '</div>';
+          var needRecette = !(itC.dispositif && String(itC.dispositif).trim());
+          return '<div id="evt-doc-chain" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+            + (needRecette ? '<input id="evt-doc-recette" placeholder="La recette à retenir (une phrase)" style="flex:1;min-width:220px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">' : '<span style="font-size:12.5px;color:#6B7280;">Dispositif : ' + esc(String(itC.dispositif).slice(0, 60)) + '</span>')
+            + '<button type="button" id="evt-doc-go" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">En faire un dispositif →</button>'
+            + '<span id="evt-doc-msg" style="font-size:12px;"></span></div>';
+        }
+        function wireDocChain(container) {
+          var go = container.querySelector("#evt-doc-go");
+          if (!go) return;
+          go.addEventListener("click", function () {
+            var jj = window._evtBilanJ || {};
+            var itC = jj.item || {};
+            var msg = container.querySelector("#evt-doc-msg");
+            var inp = container.querySelector("#evt-doc-recette");
+            var recette = itC.dispositif && String(itC.dispositif).trim() ? String(itC.dispositif).trim() : (inp ? inp.value.trim() : "");
+            if (!recette) { msg.style.color = "#B45309"; msg.textContent = "Écrivez la recette à retenir — un dispositif vide ne sert personne."; if (inp) inp.style.borderColor = "#B45309"; return; }
+            var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs attendu"; }).join(" ; ");
+            go.disabled = true;
+            fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              location_id: loc,
+              practice_text: recette.slice(0, 240) + " (événement « " + itC.title + " »)",
+              evidence_refs: evid || null,
+              confirmation_test: "La prochaine occurrence dépasse l’attendu du jour",
+              origin: { origin_action_type: "event_" + (itC.event_type || "autre") },
+            }) }).then(function (r) { return r.json(); }).then(function (p) {
+              if (p && p.ok) {
+                if (jj.apres) jj.apres.documented = true;
+                container.querySelector("#evt-doc-chain").innerHTML = '<span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré — le rejeu, c’est la prochaine occurrence) · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a>';
+              } else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez"); go.disabled = false; }
+            }).catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; go.disabled = false; });
+          });
+        }
+        // Bilan déjà envoyé : l'état est dit, et la chaîne dispositif reste accessible.
+        function renderBilanDoneBlock(bilanDate) {
+          var chain = docChainHtml();
+          if (!chain) return;
+          var wrap = document.createElement("div");
+          wrap.id = "evt-bilan";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+          wrap.innerHTML = '<div style="font-size:12.5px;color:#6B7280;">Bilan du ' + frD(bilanDate) + ' déjà enregistré.</div>' + chain;
+          body.appendChild(wrap);
+          wireDocChain(wrap);
         }
 
         function renderBilanBlock(bilanDate) {
@@ -266,7 +322,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             }) })
               .then(function (r) { return r.json(); })
               .then(function (p) {
-                if (p && p.ok) { wrap.innerHTML = '<div style="font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Bilan enregistré — il complète la mesure pour calibrer vos prochaines recommandations.</div>'; }
+                if (p && p.ok) {
+                  wrap.innerHTML = '<div style="font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Bilan enregistré — il complète la mesure de cet événement.</div>' + docChainHtml();
+                  wireDocChain(wrap);
+                }
                 else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez."); btn.disabled = false; }
               })
               .catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; btn.disabled = false; });
@@ -680,8 +739,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   }).join("")
                 + (se.next_date ? '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Prochaine occurrence : ' + frD(se.next_date) + ' — préparation en carte J-1.</div>' : "") + '</div>';
             }
-            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + panel + serieHtml
-              + '<div style="display:flex;gap:8px;margin-top:12px;"><button type="button" data-ev-doc style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Documenter en dispositif</button><div data-ev-doc-msg style="display:none;font-size:12px;align-self:center;"></div></div></div>';
+            // 10/08 (owner) : plus de bouton « Documenter » PARALLÈLE au bilan — même acte
+            // (capitaliser) en deux formulaires déconnectés. Une seule voie : le bilan, qui
+            // enchaîne sur « En faire un dispositif ? » (voir docChainHtml).
+            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + panel + serieHtml + '</div>';
           }
 
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
@@ -753,25 +814,6 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             });
           });
 
-          // Documenter en dispositif (Après) : la fiche pré-remplie de l'événement.
-          var docBtn = body.querySelector("[data-ev-doc]");
-          if (docBtn) docBtn.addEventListener("click", function () {
-            var msg = body.querySelector("[data-ev-doc-msg]");
-            var evid = j.apres.rows.filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs attendu"; }).join(" ; ");
-            docBtn.disabled = true;
-            fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-              location_id: loc,
-              practice_text: (it.dispositif || it.title) + " (événement « " + it.title + " »)",
-              evidence_refs: evid || null,
-              confirmation_test: "La prochaine occurrence dépasse l’attendu du jour",
-              origin: { origin_action_type: "event_" + (it.event_type || "autre") },
-            }) }).then(function (r) { return r.json(); }).then(function (p) {
-              msg.style.display = "block";
-              msg.style.color = p && p.ok ? "#166534" : "#B91C1C";
-              msg.textContent = p && p.ok ? "Versé à vos bonnes pratiques — tier déclaré ; le rejeu, c’est la prochaine occurrence." : "Erreur : " + ((p && p.error) || "réessayez");
-              if (!(p && p.ok)) docBtn.disabled = false;
-            }).catch(function () { msg.style.display = "block"; msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; docBtn.disabled = false; });
-          });
         }
         // Mode CRÉATION (?new=1 ou ?dates= pré-remplies depuis la planification) — les autres
         // modes (dossier, liste) ont déjà lancé leur fetch ci-dessus.

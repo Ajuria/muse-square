@@ -294,3 +294,9 @@ left join outcomes o using (saved_item_id)
 - **Hors périmètre, à trancher** : incohérence `event_end_date` (25/07) vs seule occurrence
   (19/06) sur les événements legacy — deux surfaces, deux ancres de retard ; et le branchement
   dbt de `stg_event_outcomes` (modèle feuille).
+- **10/08 (2) — un seul acte de capitalisation** : « Documenter en dispositif » n'est plus un
+  bouton frère du bilan (owner : « semantically too close ») — l'output découle de l'input. La
+  chaîne : bilan envoyé → « En faire un dispositif ? » (recette OBLIGATOIRE si l'événement n'a
+  pas de dispositif — l'ancien bouton écrivait une pratique vide ; evidence = mesuré réel ;
+  succès → lien « Voir dans vos Dispositifs → »). Idempotente (`apres.documented`, clé serveur =
+  suffixe « (événement « titre ») ») ; bilan déjà envoyé → l'état est dit, la chaîne reste.

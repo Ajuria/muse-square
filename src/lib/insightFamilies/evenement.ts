@@ -168,7 +168,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows]] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -268,6 +268,13 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       params: { location_id, season: [4, 5, 6, 7, 8, 9].includes(Number(futureDates[0].slice(5, 7))) ? "ete" : "hiver" },
       location: "EU",
     }) : empty,
+    // Déjà documenté ? (chaîne bilan→dispositif, 10/08) — clé déterministe : le suffixe que
+    // NOTRE écrivain pose (« (événement « <titre> ») »). Idempotence de l'offre côté client.
+    pastDates.length ? bq.query({
+      query: `SELECT practice_id FROM \`${PROJECT}.analytics.best_practices\`
+              WHERE location_id = @location_id AND status = 'active' AND practice_text LIKE @pat LIMIT 1`,
+      params: { location_id, pat: `%(événement « ${item.title} »)` }, location: "EU",
+    }).catch(() => [[]]) : empty,
   ]);
 
   const dowExpected = new Map<number, number>();
@@ -468,7 +475,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     data: {
       found: true, item, stage, fam_avg_day_eur: famAvg,
       days, avant_date: stage === "decider" ? null : nextDate,
-      apres: { rows: apresRows, serie },
+      apres: { rows: apresRows, serie, documented: (docRows as any[])?.length ? String(flat((docRows as any[])[0].practice_id)) : null },
       consigne_sends: (sendRows as any[]).map((s) => ({
         occurrence_date: String(flat(s.d) ?? ""), sent_on: String(flat(s.sent_on) ?? ""),
         n_recipients: Number(flat(s.n_recipients) ?? 0),
