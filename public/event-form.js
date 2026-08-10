@@ -300,7 +300,7 @@
         }
         return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #1D3BB3;color:#1D3BB3;border-radius:8px;padding:5px 10px;background:#fff;">'
           + DOW3[dowOf(iso)] + " " + frD(iso) + endTxt
-          + (b ? ' <span style="color:#6B7280;">≈ ' + frInt(b.expected_eur) + " € attendu" + (dur > 1 ? " /j · mesure sur " + dur + " j" : "") + "</span>" : "")
+          + (b ? ' <span style="color:#6B7280;">≈ ' + frInt(b.expected_eur) + " € habituel" + (dur > 1 ? " /j · mesure sur " + dur + " j" : "") + "</span>" : "")
           + ' <span data-ef-rm="' + iso + '" style="cursor:pointer;font-weight:700;">×</span></span>';
       }).join("");
       el.querySelectorAll("[data-ef-rm]").forEach(function (x) {
@@ -336,24 +336,24 @@
             + (exp != null ? "<br><strong>Au total</strong> : " + dayLabel + " habituel ≈ " + frInt(exp) + " € (vos ventes réelles) + l’apport → ≈ <strong>" + frInt(exp + apport) + " €</strong> de journée" : "");
         }
       } else if (kpi === "revenue_residual") {
-        if (unit) unit.textContent = "% au-dessus de l’attendu du jour";
+        if (unit) unit.textContent = "% au-dessus de votre habituel du jour";
         if (tlab) tlab.textContent = "Cible :";
         if (exp != null && isFinite(t) && t > 0) {
           var app2 = Math.round(exp * t / 100);
-          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs l’attendu → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
+          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs votre habituel → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
             + "<br><strong>Au total</strong> : ≈ <strong>" + frInt(exp + app2) + " €</strong> de journée (" + dayLabel + " habituel ≈ " + frInt(exp) + " €, vos ventes réelles)";
         }
       } else {
         if (unit) unit.textContent = "% vs votre habituel (base 30 j)";
         if (tlab) tlab.textContent = "Cible :";
-        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs attendu.";
+        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs habituel.";
       }
       var c = q("[data-ef-cible]"); if (c) c.innerHTML = out;
       var dref = q("[data-ef-dowref]");
       if (dref && state.recurrence !== "none") {
         dref.innerHTML = baseline.filter(function (x) { return x.n_days > 0; }).map(function (x) {
           return x.label_fr + " ≈ " + frInt(x.expected_eur) + " €";
-        }).join(" · ") + ' <span style="color:#9CA3AF;">— attendu par jour (modèle, 90 j) ; menaces vérifiées occurrence par occurrence (carte J-1)</span>';
+        }).join(" · ") + ' <span style="color:#9CA3AF;">— CA habituel par jour (modèle, 90 j) ; menaces vérifiées occurrence par occurrence (carte J-1)</span>';
       }
     }
 

@@ -391,5 +391,14 @@ left join outcomes o using (saved_item_id)
   la date d'occurrence + le contexte événement (`saved_item_id`, dispositif) + `detail_url`
   vers le dossier. `signal_type = event_result` (inconnu du ROUTING_MAP → aucune suggestion de
   destinataire imposée, le roster reste choisi à la main : jamais un envoi mal routé).
-  **RESTE À FAIRE** : centraliser le lexique FR dans un fichier unique éditable par l'owner
-  (« attendu » a été corrigé à la main dans 3 fichiers — sans lexique, ça re-dérive).
+- **10/08 (12) — le LEXIQUE, avec son garde-fou** : `src/lib/fr/evenement.fr.ts` (convention
+  maison `*.fr.ts`, un fichier par surface, éditable par l'owner) porte `MOTS_BANNIS`
+  (attendu→habituel · « sur la série »→libellé littéral · « à la cible »→« à votre objectif » ·
+  « cible chiffrée »→objectif · rejeu→test · non-mesurable→non mesurable) et `EVT_FR` (onglets,
+  verdicts, série, en-cours, décision, partage, bilan). **Le livrable, c'est le garde-fou** :
+  `evenement.fr.guard.test.ts` scanne les chaînes VISIBLES (littéraux hors commentaires, hors
+  identifiants techniques) du provider, du dossier et du formulaire — il a attrapé **9
+  occurrences d'« attendu » que la correction à la main avait ratées** (dont le formulaire de
+  création : « % au-dessus de l'attendu du jour », « CA vs attendu ») et il MORD (réintroduction
+  volontaire → échec, vérifié). Ajouter une entrée à `MOTS_BANNIS` suffit à interdire un mot.
+  `npx vitest run src/lib/fr/`

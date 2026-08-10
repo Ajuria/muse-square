@@ -143,7 +143,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               : e.selected_date ? "Date : " + frD(e.selected_date)
               : e.last_date ? "Terminé le " + frD(e.last_date) : "Dates à choisir";
             var track = e.n_resolved
-              ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (Number(e.sum_gap_eur) >= 0 ? "#059669" : "#B45309") + ';background:' + (Number(e.sum_gap_eur) >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + (e.sum_gap_eur != null ? signEur(e.sum_gap_eur) + " vs attendu · " : "") + (e.n_beat || 0) + "/" + e.n_resolved + " tenue(s)</span>"
+              ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (Number(e.sum_gap_eur) >= 0 ? "#059669" : "#B45309") + ';background:' + (Number(e.sum_gap_eur) >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + (e.sum_gap_eur != null ? signEur(e.sum_gap_eur) + " vs habituel · " : "") + (e.n_beat || 0) + "/" + e.n_resolved + " tenue(s)</span>"
               : '<span style="font-size:11px;color:#9CA3AF;">pas encore de mesure résolue</span>';
             return '<a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(e.saved_item_id) + '" style="display:block;text-decoration:none;color:inherit;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">'
               + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">'
@@ -232,7 +232,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               if (!o) { msg.style.color = "#B45309"; msg.textContent = "Dites l’occasion — quand ce geste se rejoue-t-il ?"; if (oEl) oEl.style.borderColor = "#B45309"; return; }
               recette = g + " — " + o;
             }
-            var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs attendu"; }).join(" ; ");
+            var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs habituel"; }).join(" ; ");
             go.disabled = true;
             fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
               location_id: loc,
@@ -819,7 +819,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 var okT = last.target_met;
                 var detail = it.kpi === "family_revenue" && last.family_rev != null
                   ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
-                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs attendu (cible +" + frInt(it.kpi_target_pct) + " %)"
+                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs habituel (objectif +" + frInt(it.kpi_target_pct) + " %)"
                   : "";
                 chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span>'
                   + (j.apres.target_scale ? '<span style="display:block;font-size:11px;color:#9CA3AF;margin-top:4px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire de la famille (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</span>' : "")
@@ -854,7 +854,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 + box("CA total · mesuré", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € habituel (" + signEur(last.gap_eur) + ")",
                     "Mesuré : vos ventes importées. « Habituel » = votre CA de ce jour de semaine (modèle 90 j).")
                 + (last.tickets != null ? box("Tickets de caisse · mesuré", frInt(last.tickets), "vs " + frInt(tickBase) + " " + tickLbl + (tickDelta != null ? " (" + (tickDelta >= 0 ? "+" : "") + tickDelta + " %)" : ""),
-                    "Nombre de reçus distincts dans vos ventes importées ce jour-là. Habituel = " + tickLbl + (useDow ? " — même référentiel que le CA attendu" : " (repli : pas assez de " + dowPl + " mesurés)") + ".") : "")
+                    "Nombre de reçus distincts dans vos ventes importées ce jour-là. Habituel = " + tickLbl + (useDow ? " — même référentiel que le CA habituel" : " (repli : pas assez de " + dowPl + " mesurés)") + ".") : "")
                 + (last.basket != null ? box("Panier moyen · mesuré", String(last.basket).replace(".", ",") + " €", "vs " + String(bkBase).replace(".", ",") + " € " + bkLbl,
                     "CA ÷ tickets de vos ventes importées. Habituel = " + bkLbl + ".") : "")
                 + convBox + '</div>';
