@@ -42,6 +42,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
     </style>
 
     <script is:inline src="/event-form.js?v=7"></script>
+    <script is:inline src="/draft-workspace.js?v=5"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");
@@ -889,9 +890,14 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   }).join("") + '</div>'
                 // La DÉCISION au bout : le moteur (diagnostic + move recommandé + track record
                 // par move) vit sur la page Évolution — on y renvoie, on ne le réimplémente pas.
+                + '<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;">'
                 + (nc0 && nc0.commitment_id && (nc0.status === "open" || nc0.status === "pending")
-                    ? '<div style="margin-top:10px;font-size:12.5px;"><a href="/app/insightevent/engagement?id=' + encodeURIComponent(nc0.commitment_id) + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;">Poursuivre, doubler, pivoter ou arrêter →</a> <span style="color:#9CA3AF;">diagnostic et move recommandé</span></div>'
+                    ? '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(nc0.commitment_id) + '" style="color:#1D3BB3;font-weight:600;text-decoration:none;">Poursuivre, doubler, pivoter ou arrêter →</a><span style="color:#9CA3AF;">diagnostic et move recommandé</span>'
                     : "")
+                // Le partage : documenter ce qui change ET le dire aux destinataires — via le
+                // workspace Communiquer PARTAGÉ (roster, canaux, envoi réels), jamais un envoi maison.
+                + '<button type="button" data-ev-share style="background:none;border:none;padding:0;font-family:inherit;font-size:12.5px;color:#1D3BB3;font-weight:600;cursor:pointer;">Prévenir l’équipe →</button>'
+                + '</div><div data-ev-share-mount style="display:none;margin-top:10px;"></div>'
                 + '</div>';
             }
             // 10/08 (owner) : plus de bouton « Documenter » PARALLÈLE au bilan — même acte
@@ -953,6 +959,37 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           setHead(current);
           renderConsigne(j);
           maybeRenderBilan(j);
+
+          // « Prévenir l'équipe » (owner 10/08) : le résultat mesuré + ce qui change, adressé
+          //    aux destinataires du lieu. Le workspace partagé gère canal, roster, envoi.
+          var shareBtn = body.querySelector("[data-ev-share]");
+          if (shareBtn) shareBtn.addEventListener("click", function () {
+            var mount = body.querySelector("[data-ev-share-mount]");
+            if (!mount) return;
+            if (mount.style.display === "block") { mount.style.display = "none"; mount.innerHTML = ""; return; }
+            if (!window.MSDraftWorkspace) { mount.style.display = "block"; mount.innerHTML = '<div style="font-size:12.5px;color:#B91C1C;">Espace de rédaction indisponible — rechargez la page.</div>'; return; }
+            var rowS = null;
+            (j.apres.rows || []).forEach(function (r) { if (r.gap_eur != null) rowS = r; });
+            var kpiTxt = it.kpi === "family_revenue" && rowS && rowS.family_rev != null
+              ? "famille " + (it.kpi_family || "") + " " + frInt(rowS.family_rev) + " €" + (it.kpi_target_eur != null ? " (objectif " + frInt(it.kpi_target_eur) + " €)" : "")
+              : rowS ? "CA " + frInt(rowS.revenue) + " € (habituel " + frInt(rowS.expected) + " €)" : "";
+            var whatTxt = it.title + " — " + (rowS ? dowFr(rowS.date) + " " + frD(rowS.date) : "") + (kpiTxt ? " : " + kpiTxt : "")
+              + (rowS && rowS.target_met === false ? " — objectif manqué" : rowS && rowS.target_met === true ? " — objectif atteint" : "");
+            mount.style.display = "block";
+            window.MSDraftWorkspace.open(mount, {
+              mode: "comm",
+              location_id: it.location_id || loc,
+              signal_type: "event_result",
+              affected_date: rowS ? rowS.date : "",
+              card_what: whatTxt,
+              card_sowhat: j.apres.reconciliation || "",
+              signal: { saved_item_id: item, event_title: it.title, dispositif: it.dispositif || null },
+              artifact_mode: "post",
+              detail_url: window.location.href,
+              onClose: function () { mount.style.display = "none"; mount.innerHTML = ""; },
+            });
+            mount.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          });
 
           body.querySelectorAll("[data-ev-st]").forEach(function (b) {
             b.addEventListener("click", function () {

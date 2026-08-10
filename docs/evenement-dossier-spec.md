@@ -381,8 +381,15 @@ left join outcomes o using (saved_item_id)
   **la décision AU BOUT** — plus un cul-de-sac ; (d) **« attendu » banni** de toutes les chaînes
   visibles (dossier, provider, formulaire) au profit du mot maison **« habituel »** (standard
   copy 27/07 : « CA réalisé / CA habituel ») ; « sans cible chiffrée » → « Objectif non fixé ».
-  **RESTE À FAIRE (gap réel identifié, non couvert)** : `adjustment_note` (« qu'avez-vous
-  changé ? ») est journalisé et **jamais partagé** — aucun lien entre un move et les
-  destinataires de la consigne (`consigne_sends`). « Documenter le changement ET le partager »
-  demande une étape « prévenir l'équipe » sur la page Évolution, via le workspace Communiquer
-  existant. + centraliser le lexique FR dans un fichier unique éditable par l'owner.
+- **10/08 (11) — l'étape PARTAGE, dans Évaluer** (owner : « the share step in Evaluer page ») :
+  le résultat d'une opération ne quittait jamais l'écran — `adjustment_note` était journalisé
+  sans jamais atteindre personne. Geste « **Prévenir l'équipe →** » dans le panneau Résultat,
+  à côté de la décision, qui ouvre le workspace **PARTAGÉ** `MSDraftWorkspace` (même module que
+  Pulse et insight, `draft-workspace.js?v=5` — canaux réels, roster, envoi réel : aucun envoi
+  maison réécrit). Amorce = le résultat MESURÉ (« Corner de vente producteur — samedi 08/08 :
+  famille Branded 28 € (objectif 150 €) — objectif manqué ») + la Lecture en `card_sowhat` +
+  la date d'occurrence + le contexte événement (`saved_item_id`, dispositif) + `detail_url`
+  vers le dossier. `signal_type = event_result` (inconnu du ROUTING_MAP → aucune suggestion de
+  destinataire imposée, le roster reste choisi à la main : jamais un envoi mal routé).
+  **RESTE À FAIRE** : centraliser le lexique FR dans un fichier unique éditable par l'owner
+  (« attendu » a été corrigé à la main dans 3 fichiers — sans lexique, ça re-dérive).
