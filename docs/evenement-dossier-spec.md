@@ -310,3 +310,11 @@ left join outcomes o using (saved_item_id)
   (« ≈ X % des visiteurs ont acheté ») avec garde-fou visiteurs < tickets, et SAUTE si un
   flux de comptage mesure déjà les visiteurs ; (d) `attendance_approx` est relu par le
   provider → box « Transformation · déclaré » — premier consommateur réel d'event_outcomes.
+- **10/08 (4) — « Pour mémoire »** (owner : « je ne me souviens plus de quoi parlait
+  l'événement ; avec 5 comme ça, comment les distinguer ? ») : l'état Après ouvre sur un bloc
+  mémoire — dispositif + consigne s'ils existent, l'ABSENCE dite sinon (« aucune description
+  enregistrée — la recette en tiendra lieu »), et le BILAN RELU EN MOTS (« Votre bilan : météo
+  conforme · accès difficile » + commentaire). La boucle se ferme : une recette écrite sur un
+  événement SANS description est aussi enregistrée comme sa description (update `description` —
+  c'est la colonne derrière `dispositif`) — au prochain passage, le rappel existe. Chip de type
+  vide supprimée quand le type est inconnu.

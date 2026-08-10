@@ -289,12 +289,14 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
               GROUP BY d`,
       params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
     }) : empty,
-    // Le DÉCLARÉ du bilan (visiteurs) relu — premier consommateur d'event_outcomes : la
-    // transformation (tickets/visiteurs) s'affiche dans l'Après, taguée « déclaré ».
+    // Le DÉCLARÉ du bilan relu EN ENTIER (visiteurs, action menée, vécu, commentaire) —
+    // consommateur d'event_outcomes : transformation dans l'Après + « Pour mémoire »
+    // (owner 10/08 : « je ne me souviens plus de quoi parlait l'événement »).
     pastDates.length ? bq.query({
-      query: `SELECT CAST(selected_date AS STRING) AS d, attendance_approx
+      query: `SELECT CAST(selected_date AS STRING) AS d, attendance_approx, action_carried,
+                     weather_accuracy, mobility_felt, attendance_vs_expect, free_comment
               FROM \`${PROJECT}.raw.event_outcomes\`
-              WHERE saved_item_id = @sid AND attendance_approx IS NOT NULL
+              WHERE saved_item_id = @sid
               QUALIFY ROW_NUMBER() OVER (PARTITION BY selected_date ORDER BY submitted_at DESC) = 1`,
       params: { sid: saved_item_id }, location: "EU",
     }).catch(() => [[]]) : empty,
@@ -452,6 +454,11 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       n_dow: dowSalesBy.get(d) ? Number(flat((dowSalesBy.get(d) as any).n_dow) ?? 0) : 0,
       visitors_measured: sg && flat(sg.daily_visitors) != null ? Number(flat(sg.daily_visitors)) : null,
       visitors_declared: declaredBy.get(d) && flat((declaredBy.get(d) as any).attendance_approx) != null ? Number(flat((declaredBy.get(d) as any).attendance_approx)) : null,
+      bilan: declaredBy.get(d) ? (() => {
+        const b: any = declaredBy.get(d);
+        const sv = (k: string) => (flat(b[k]) != null ? String(flat(b[k])) : null);
+        return { action_carried: sv("action_carried"), weather: sv("weather_accuracy"), mobility: sv("mobility_felt"), attendance: sv("attendance_vs_expect"), comment: sv("free_comment") };
+      })() : null,
       family_rev: fa ? Number(flat(fa.fam_rev)) : null,
       family_avg: famAvg,
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,

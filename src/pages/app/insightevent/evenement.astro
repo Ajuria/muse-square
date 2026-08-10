@@ -218,7 +218,13 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             }) }).then(function (r) { return r.json(); }).then(function (p) {
               if (p && p.ok) {
                 if (jj.apres) jj.apres.documented = true;
-                container.querySelector("#evt-doc-chain").innerHTML = '<span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré — le rejeu, c’est la prochaine occurrence) · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a>';
+                var backfilled = false;
+                if (!(itC.dispositif && String(itC.dispositif).trim())) {
+                  backfilled = true;
+                  itC.dispositif = recette;
+                  fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ saved_item_id: item, description: recette.slice(0, 240) }) }).catch(function () {});
+                }
+                container.querySelector("#evt-doc-chain").innerHTML = '<span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré — le rejeu, c’est la prochaine occurrence)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a>';
               } else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez"); go.disabled = false; }
             }).catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; go.disabled = false; });
           });
@@ -665,7 +671,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var current = stage === "decider" ? "decider" : (stage === "apres" ? "apres" : "avant");
 
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
-            + '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr || "") + '</span>'
+            + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
             + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
           var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : it.kpi;
           var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
@@ -788,7 +794,28 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             // 10/08 (owner) : plus de bouton « Documenter » PARALLÈLE au bilan — même acte
             // (capitaliser) en deux formulaires déconnectés. Une seule voie : le bilan, qui
             // enchaîne sur « En faire un dispositif ? » (voir docChainHtml).
-            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + panel + serieHtml + '</div>';
+            var BIL_FR = {
+              action: { oui: "action menée comme prévu", partiel: "action menée en partie", non: "action non menée" },
+              weather: { conforme: "météo conforme", mieux: "météo meilleure que prévu", pire: "météo pire que prévu" },
+              mobility: { fluide: "accès fluide", difficile: "accès difficile", perturbe: "accès fortement perturbé" },
+              att: { beyond: "fréquentation au-delà des attentes", conforme: "fréquentation conforme", endeca: "fréquentation en deçà" },
+            };
+            var lb = last && last.bilan;
+            var memoLines = [];
+            if (it.dispositif) memoLines.push('<span style="font-weight:600;">Dispositif :</span> ' + esc(String(it.dispositif).slice(0, 200)));
+            if (it.consigne_store_info) memoLines.push('<span style="font-weight:600;">Consigne :</span> ' + esc(String(it.consigne_store_info).slice(0, 160)));
+            if (!it.dispositif && !it.consigne_store_info) memoLines.push('Aucune description enregistrée pour cet événement — la recette que vous écrirez ci-dessous en tiendra lieu.');
+            if (lb) {
+              var vecu = [BIL_FR.action[lb.action_carried], BIL_FR.weather[lb.weather], BIL_FR.mobility[lb.mobility], BIL_FR.att[lb.attendance]].filter(Boolean);
+              if (vecu.length) memoLines.push('<span style="font-weight:600;">Votre bilan :</span> ' + vecu.join(" · "));
+              if (lb.comment) memoLines.push('« ' + esc(String(lb.comment).slice(0, 240)) + ' »');
+            }
+            var memoHtml = '<div style="background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.7;color:#374151;">'
+              + '<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:#9CA3AF;font-weight:600;margin-bottom:2px;">Pour mémoire — ce que c’était</div>'
+              + (memoLines.length ? memoLines.map(function (l) { return "<div>" + l + "</div>"; }).join("")
+                : '<div>Aucune description enregistrée pour cet événement — la recette que vous écrirez ci-dessous en tiendra lieu.</div>')
+              + '</div>';
+            apresHtml = '<div data-ev-panel="apres"' + (current !== "apres" ? ' style="display:none;"' : "") + '>' + memoHtml + panel + serieHtml + '</div>';
           }
 
           if (avantHtml && current === "decider") avantHtml = avantHtml.replace('data-ev-panel="avant"', 'data-ev-panel="avant" style="display:none;"');
