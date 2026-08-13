@@ -29,6 +29,72 @@ if (!root) {
   // Each entry: { role: "user" | "assistant", content: string }
   let CONVERSATION_HISTORY = [];
 
+  // ── R2-3 (07/08, bug owner : « Générer le rapport » effaçait le fil) ────────────────────────────
+  // The thread lives only in page memory — ANY navigation (report, month, back button) erased it.
+  // Persist each successful exchange {q, out} in sessionStorage (per location, survives navigation,
+  // dies with the tab — a chat is a session artifact, not an archive). The envelope is stored WITHOUT
+  // `debug` (raw BQ rows — megabytes) except the one field the frame restore needs. Cap: last 8
+  // exchanges, ~1.5 MB guard, quota errors drop oldest and retry once, storage failures never break chat.
+  const THREAD_STORE_KEY = "ms_ie_thread_" + LOCATION_ID;
+  function slimEnvelope(out) {
+    try {
+      const s = Object.assign({}, out);
+      s.debug = out && out.debug && out.debug.thread_context_out
+        ? { thread_context_out: out.debug.thread_context_out } : undefined;
+      return s;
+    } catch (e) { return out; }
+  }
+  function persistThreadEntry(q, out) {
+    try {
+      const arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]");
+      arr.push({ q: q, out: slimEnvelope(out), t: Date.now() });
+      while (arr.length > 8) arr.shift();
+      let payload = JSON.stringify(arr);
+      while (payload.length > 1500000 && arr.length > 1) { arr.shift(); payload = JSON.stringify(arr); }
+      try { sessionStorage.setItem(THREAD_STORE_KEY, payload); }
+      catch (e) { arr.shift(); sessionStorage.setItem(THREAD_STORE_KEY, JSON.stringify(arr)); }
+    } catch (e) { /* persistence is never critical */ }
+  }
+  function restoreThread() {
+    let arr = [];
+    try { arr = JSON.parse(sessionStorage.getItem(THREAD_STORE_KEY) || "[]"); } catch (e) { return; }
+    if (!Array.isArray(arr) || !arr.length) return;
+    // R5 — auto-expiration : on ne restaure que si le DERNIER échange a moins d'une heure (un
+    // aller-retour rapport survit ; une visite du lendemain repart propre — retour owner 08/08).
+    const lastT = Number(arr[arr.length - 1]?.t ?? 0);
+    if (!lastT || Date.now() - lastT > 3600000) {
+      try { sessionStorage.removeItem(THREAD_STORE_KEY); } catch (e) { /* jamais bloquant */ }
+      return;
+    }
+    qs("ie-prompt-empty")?.setAttribute("hidden", "true");
+    qs("ie-thread")?.removeAttribute("hidden");
+    qs("ie-new-thread-row")?.removeAttribute("hidden");
+    for (const entry of arr) {
+      if (!entry || typeof entry.q !== "string" || !entry.out) continue;
+      appendMsg("user", entry.q);
+      const bubble = appendMsg("ai", "");
+      try {
+        const html = renderAiOutputHtml(entry.out);
+        if (bubble && html) {
+          bubble.className = "ie-bubble-none";
+          setBubbleHtml(bubble, html);
+          decorateCommitableDecisions(bubble, entry.out);
+        } else if (bubble) {
+          bubble.textContent = (entry.out.ai && entry.out.ai.output && entry.out.ai.output.answer) || "";
+        }
+      } catch (e) { if (bubble) bubble.textContent = ""; }
+      // Rebuild the exact live-session state: frame + history, same functions as the live path.
+      updateThreadContextFromResponse(entry.out);
+      CONVERSATION_HISTORY.push({ role: "user", content: entry.q });
+      const at = entry.out.ai && entry.out.ai.output
+        ? (typeof entry.out.ai.output.answer === "string" && entry.out.ai.output.answer.trim())
+          ? entry.out.ai.output.answer.trim()
+          : (typeof entry.out.ai.output.headline === "string" ? entry.out.ai.output.headline.trim() : "")
+        : "";
+      if (at) CONVERSATION_HISTORY.push({ role: "assistant", content: at });
+    }
+  }
+
   function pickTopDatesMinimal(top_dates) {
     if (!Array.isArray(top_dates)) return [];
     return top_dates
@@ -73,7 +139,9 @@ if (!root) {
     try {
       var today = new Date();
       var dates = [];
-      for (var i = 0; i < 7; i++) {
+      // R7 (08/08, proto owner) : J−2..J+6 — les jours PASSÉS portent daily_revenue/revenue_robust_z
+      // pour l'ÉTAT A du slot contextuel (anomalie du dernier jour mesuré).
+      for (var i = -2; i < 7; i++) {
         var d = new Date(today);
         d.setDate(today.getDate() + i);
         dates.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
@@ -105,7 +173,82 @@ if (!root) {
   var SVG_ICON_USERS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
   var SVG_ICON_TARGET = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
 
+  // R7 (08/08, proto approuvé owner) — l'état vide devient 3 SLOTS : Trouver une date (inchangé) ·
+  // UNE carte contextuelle (priorité anomalie mesurée > alerte météo > repli météo générique — le
+  // sous-titre est écrit depuis les données du compte, chiffre d'abord) · Générer un rapport.
+  // Chaque clic pré-remplit le chat avec une question ÉPROUVÉE par la batterie (chemins forts).
   function buildDynamicSuggestions(data, compData) {
+    var slots = [];
+    var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    var frPct = function (n) { return (n > 0 ? '+' : '−') + Math.abs(Math.round(n)) + ' %'; };
+    var frInt = function (n) { return Math.round(n).toLocaleString('fr-FR'); };
+
+    // ── SLOT 2 · ÉTAT A : dernier jour PASSÉ mesuré avec anomalie (|z| >= 2) ──
+    var days = (data && Array.isArray(data.days)) ? data.days : [];
+    var today = new Date();
+    var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    var anomaly = null;
+    for (var i = days.length - 1; i >= 0; i--) {
+      var d = days[i]; var ymd = String(d.date || '').slice(0, 10);
+      if (ymd >= todayYmd) continue;
+      if (d.daily_revenue == null || d.revenue_robust_z == null) continue;
+      if (Math.abs(Number(d.revenue_robust_z)) >= 2 && d.revenue_vs_30d_avg_pct != null) {
+        if (!anomaly || ymd > anomaly.ymd) anomaly = { ymd: ymd, d: d };
+      }
+    }
+    if (anomaly) {
+      var ad = new Date(anomaly.ymd + 'T00:00:00');
+      var pct = Number(anomaly.d.revenue_vs_30d_avg_pct);
+      var up = pct >= 0;
+      var dispD = anomaly.ymd.slice(8,10) + '/' + anomaly.ymd.slice(5,7);
+      slots.push({
+        svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M3 3v18h18v-2H5V3H3zm4 12 4-4 3 3 5-6 1.5 1.2L15 15l-3-3-4 4H7z"/></svg>',
+        text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
+        sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
+        q: 'Pourquoi le ' + dispD + ' ?',
+      });
+    } else {
+      // ── ÉTAT B : alerte météo active sur la fenêtre ──
+      var weatherDay = null;
+      for (var j = 0; j < days.length; j++) {
+        if (String(days[j].date || '').slice(0,10) >= todayYmd && Number(days[j].alert_level_max || 0) >= 2) { weatherDay = days[j]; break; }
+      }
+      if (weatherDay) {
+        var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
+        var tempMax = Number(weatherDay.temperature_2m_max || 0);
+        var precipMax = Number(weatherDay.precipitation_probability_max_pct || 0);
+        var cond = tempMax >= 30 ? 'chaleur' : (precipMax >= 60 ? 'pluie' : 'météo');
+        var condLabel = tempMax >= 30 ? 'Chaleur (' + Math.round(tempMax) + '°C)' : (precipMax >= 60 ? 'Pluie probable (' + Math.round(precipMax) + ' %)' : 'Alerte météo');
+        slots.push({
+          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
+          text: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+          sub: condLabel + ' ' + DOW_FR[wd.getDay()] + ' — votre réaction mesurée sur vos jours comparables',
+          q: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+        });
+      } else {
+        // ── ÉTAT C : repli — toujours mesurable, jamais 101 ──
+        slots.push({
+          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
+          text: 'Quel est l’effet de la météo sur mes ventes ?',
+          sub: 'Chaleur, pluie, froid — l’écart mesuré de votre CA sur vos jours comparables',
+          q: 'Quel est l’effet de la météo sur mes ventes ?',
+        });
+      }
+    }
+
+    // ── SLOT 3 : Générer un rapport (le raccourci chat, rendu visible) ──
+    var MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    var lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    slots.push({
+      svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>',
+      text: 'Générer un rapport',
+      sub: MONTHS_FR[lastMonth.getMonth()].charAt(0).toUpperCase() + MONTHS_FR[lastMonth.getMonth()].slice(1) + ', une semaine, une période — le document complet, imprimable et partageable',
+      q: 'Génère le rapport de ' + MONTHS_FR[lastMonth.getMonth()],
+    });
+    return slots;
+  }
+
+  function _legacyBuildDynamicSuggestions(data, compData) {
     if (!data || !Array.isArray(data.days) || !data.days.length) return [];
     var today = new Date();
     var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -225,34 +368,39 @@ if (!root) {
   }
 
   function renderDynamicSuggestions(suggestions) {
+    // R7 (08/08, proto approuv\u00e9 owner) \u2014 les slots rendent au look CARTE PLEINE (m\u00eames valeurs que la
+    // carte \u00ab Trouver une date \u00bb : titre 15px/500, sous-titre 13px, tuile ic\u00f4ne brand par d\u00e9faut),
+    // inject\u00e9s APR\u00c8S le formulaire finder \u2014 les 3 slots vivent sous le m\u00eame label ACTIONS.
     var container = document.getElementById('ie-prompt-suggestions-label');
-    if (!container) return;
+    var anchor = document.getElementById('ie-finder-form') || container;
+    if (!anchor) return;
+    if (container) container.style.display = 'none';   // un seul label : ACTIONS
 
     // Remove old static cards (but not finder)
     var oldCards = document.querySelectorAll('.ie-prompt-card:not(#ie-finder-card)');
     for (var i = 0; i < oldCards.length; i++) { oldCards[i].remove(); }
 
-    if (!suggestions.length) {
-      container.style.display = 'none';
-      return;
-    }
+    if (!suggestions.length) return;
 
-    container.textContent = 'Explorez vos donn\u00e9es';
-
-    var html = '';
+    // Cartes insérées UNE PAR UNE en boucle inverse : « afterend » d'une chaîne multi-éléments a un
+    // ordre d'insertion AMBIGU selon le moteur (mesuré : happy-dom inverse, navigateur préserve) —
+    // l'insertion unitaire est sans ambiguïté partout.
+    var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      html += '<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '" style="margin-bottom:6px;border-radius:10px;">'
-        + '<div class="ie-prompt-card-icon" style="background:' + s.iconBg + ';color:' + s.iconColor + ';">' + s.svg + '</div>'
+      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
+        + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
-          + '<p class="ie-prompt-card-text" style="font-size:13px;font-weight:500;margin:0 0 2px;">' + escapeHtml(s.text) + '</p>'
-          + '<p style="font-size:11px;color:#6b7280;margin:0;">' + escapeHtml(s.sub) + '</p>'
+          + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
+          + '<p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
         + '</div>'
-        + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
-      + '</a>';
+        + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
+      + '</a>');
     }
 
-    container.insertAdjacentHTML('afterend', html);
+    for (var k = cardHtmls.length - 1; k >= 0; k--) {
+      anchor.insertAdjacentHTML('afterend', cardHtmls[k]);
+    }
 
     // The fetch can land AFTER the user switched off Planning — inject hidden in that case,
     // setMode's live query re-shows them on return to Planning.
@@ -581,6 +729,11 @@ if (!root) {
     if (!kit || typeof kit.renderAnswerBlocks !== "function") return "";   // card-kit.js not loaded — nothing renders without it
     const blocks = blocksFromResponse(out);
     if (!blocks.length) return "";
+    // ÉTAPE 5 — la section web (champ séparé du serveur, jamais dans la liste blanche) s'ajoute en
+    // fin de réponse jour ; absente → rien (le silence du crawl est une réponse).
+    if (out && out.web_context && (out.meta ? out.meta.resolved_horizon === "day" : false)) {
+      blocks.push({ type: "websources", data: out.web_context });
+    }
     return kit.renderAnswerBlocks(blocks) + followRowsHtml(out && out.follow_candidates);
   }
 
@@ -780,6 +933,57 @@ if (!root) {
       typeof primary.label === "string" && primary.label.trim()
         ? { type: "cta", url: primary.url, label: primary.label.trim() } : null;
 
+    // ── Attribution par section (Étape 1, docs/explorer-attribution-spec.md) ──────────────────
+    // Grounded MODEL answers only (producers grounded_day_claude / family_grounded_claude): the
+    // envelope carries sentence_provenance (validator-enforced) + facts_catalog (owner fr labels,
+    // resolved server-side). COVERAGE GUARD: we render from the provenance segments ONLY when their
+    // concatenation equals the whole validated answer (normalized) — any mismatch falls back to the
+    // exact current prose render, so validated text can never be dropped by this feature. Floors and
+    // non-grounded paths carry no provenance and render exactly as before.
+    const _provGrounded = producer === "grounded_day_claude" || producer === "family_grounded_claude";
+    const _provEntries = _provGrounded && Array.isArray(n.sentence_provenance)
+      ? n.sentence_provenance.filter(function (e) { return e && typeof e.text === "string" && e.text.trim() && Array.isArray(e.fact_ids); })
+      : [];
+    const _provLabelById = {};
+    (Array.isArray(n.facts_catalog) ? n.facts_catalog : []).forEach(function (c) {
+      if (c && typeof c.id === "string" && typeof c.label === "string") _provLabelById[c.id] = c.label;
+    });
+    const _provNorm = function (s) { return String(s || "").replace(/\s+/g, " ").trim(); };
+    // The model's provenance maps ALL surfaced claims (headline + answer + key_facts — measured on a
+    // real f10c3e58 run, 07/08). Coverage is therefore SEQUENCE-CONSUMED: walk the normalized answer
+    // and keep, in order, the entries that reconstruct it EXACTLY and COMPLETELY (headline/key_facts
+    // echoes are skipped). Any gap or leftover → null → the exact current prose render — validated
+    // text can never be dropped by this feature.
+    const _provSegs = (function () {
+      if (!_provEntries.length || typeof answer !== "string" || !answer.trim()) return null;
+      var target = _provNorm(answer);
+      var pos = 0, used = [];
+      for (var i = 0; i < _provEntries.length; i++) {
+        var t = _provNorm(_provEntries[i].text);
+        if (!t) continue;
+        var at = pos;
+        if (target.charAt(at) === " ") at += 1;
+        if (target.indexOf(t, at) === at) { used.push(_provEntries[i]); pos = at + t.length; }
+      }
+      return pos === target.length && used.length ? used : null;
+    })();
+    const _provCovers = !!_provSegs;
+    // Segments: each provenance entry's text + the origin chips of the facts IT cites (deduped, max 2 —
+    // readability; a fact id absent from the catalog yields no chip, never a guessed one).
+    const _sourcedBlock = function (decorate) {
+      return {
+        type: "sourced",
+        segments: (_provSegs || []).map(function (e) {
+          var labels = [];
+          e.fact_ids.forEach(function (id) {
+            var l = _provLabelById[id];
+            if (l && labels.indexOf(l) === -1) labels.push(l);
+          });
+          return { md: decorate ? decorate(e.text) : e.text, chips: labels.slice(0, 2) };
+        }),
+      };
+    };
+
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
@@ -838,6 +1042,18 @@ if (!root) {
           .filter(s => s.includes(" — ") && s.match(/\d+\s*m/))
           .filter(Boolean);
       }
+      // Attribution (Étape 1): chips ONLY where today's render is plain prose — when the answer parses
+      // into competitor ROWS, the approved rows presentation stays byte-identical (ADD, don't replace).
+      if (!competitorLines.length && _provCovers) {
+        // R2-5 (owner 07/08) — the block/card anatomy: lead verdict → chipped sections in the quiet
+        // card → the REAL fired action (suggested_action, server-attached) → CTA.
+        if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+        blocks.push(Object.assign(_sourcedBlock(null), { card: true }));
+        const _sa = typeof n.suggested_action === "string" && n.suggested_action.trim() ? n.suggested_action.trim() : "";
+        if (_sa) blocks.push({ type: "action", text: _sa });
+        if (ctaBlock) blocks.push(ctaBlock);
+        return blocks;
+      }
       if (headline) blocks.push({ type: "headline", text: headline });
       if (competitorLines.length) blocks.push({ type: "rows", items: competitorLines.map(s => s.trim()) });
       if (parts[1]) blocks.push({ type: "prose", md: parts[1] });
@@ -855,6 +1071,19 @@ if (!root) {
         .replace(/^(Pression concurrentielle\s*:)/, "**$1**")
         .replace(/^(Accessibilité du site\s*:)/, "**$1**")
         .replace(/^(Conditions d'exploitation\s*:)/, "**$1**");
+      // Attribution (Étape 1): same text, same bolding, chips under each provenance segment. The
+      // coverage guard already proved the segments ARE the validated answer; otherwise the exact
+      // previous prose render runs below, unchanged.
+      if (_provCovers) {
+        // R2-5 (owner 07/08) — block/card anatomy, same as the DAY_DIMENSION grounded path.
+        if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+        blocks.push(Object.assign(_sourcedBlock(boldLabels), { card: true }));
+        const _sa = typeof n.suggested_action === "string" && n.suggested_action.trim() ? n.suggested_action.trim() : "";
+        if (_sa) blocks.push({ type: "action", text: _sa });
+        if (ctaBlock) blocks.push(ctaBlock);
+        if (clarChips) blocks.push({ type: "clarification", chips: clarChips });
+        return blocks;
+      }
       if (headline) blocks.push({ type: "headline", text: headline });
       if (prose[0]) blocks.push({ type: "prose", md: prose[0] });
       const rows = prose.slice(1).map(boldLabels);
@@ -1022,6 +1251,7 @@ if (!root) {
 
     qs("ie-prompt-empty")?.setAttribute("hidden", "true");
     qs("ie-thread")?.removeAttribute("hidden");
+    qs("ie-new-thread-row")?.removeAttribute("hidden");
 
     // Clear input immediately after sending (ChatGPT behavior)
     ta.value = "";
@@ -1181,6 +1411,7 @@ if (!root) {
           setBubbleHtml(aiBubble, html);
           revealAnswerBlocks(aiBubble);   // inc ② — staggered arrival of the already-validated blocks
           decorateCommitableDecisions(aiBubble, out);   // Day 2 — décision lines become « M'engager »
+          if (out && out.ok === true) persistThreadEntry(q, out);   // R2-3 — the thread survives navigation
         } else {
           const fallbackText =
             (typeof out?.ai?.output?.answer === "string" && out.ai.output.answer.trim()) ? out.ai.output.answer :
@@ -1730,4 +1961,23 @@ if (!root) {
   });
 
   refreshMemoryPanel();
+  restoreThread();   // R2-3 — re-render the persisted exchanges (report round-trip no longer erases)
+
+  // R5 — « Nouvelle conversation » : purge le fil stocké + l'état de session (frame, historique),
+  // repart sur la page vide. Le frame remis à zéro compte : un follow-up (« et le dimanche ? ») ne
+  // doit jamais hériter d'une conversation effacée.
+  document.addEventListener("click", function (e) {
+    const btn = e.target && e.target.closest ? e.target.closest("[data-ie-new-thread]") : null;
+    if (!btn) return;
+    e.preventDefault();
+    try { sessionStorage.removeItem(THREAD_STORE_KEY); } catch (e2) { /* jamais bloquant */ }
+    CONVERSATION_HISTORY = [];
+    THREAD_CONTEXT = { v: 1, location_id: LOCATION_ID, turn: 0, last: null };
+    const thread = qs("ie-thread");
+    if (thread) { thread.innerHTML = ""; thread.setAttribute("hidden", "true"); }
+    qs("ie-new-thread-row")?.setAttribute("hidden", "true");
+    qs("ie-prompt-empty")?.removeAttribute("hidden");
+    const ta = qs("ie-prompt-input");
+    if (ta) ta.focus();
+  });
   }

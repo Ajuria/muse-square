@@ -83,7 +83,7 @@
         ? '<select data-ef="owner" style="' + inp + 'cursor:pointer;">' + owners.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select>'
         : '<input data-ef="owner" placeholder="Prénom Nom" style="' + inp + '">')
       + '</div><div style="flex:1;"><label style="' + lbl + '">Objectif — le KPI que le verdict jugera</label><select data-ef="kpi" style="' + inp + 'cursor:pointer;">'
-      + '<option value="revenue_residual">CA vs attendu du jour — mesuré, verdict fort</option>'
+      + '<option value="revenue_residual">CA du jour vs votre habituel — mesuré, verdict fort</option>'
       + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs habituel (base 30 j) — verdict plus faible</option>'
@@ -123,7 +123,7 @@
       + '<button type="button" data-ef-mnext style="font-size:13px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#1D3BB3;padding:3px 10px;cursor:pointer;">›</button></div>'
       + '<div data-ef-mctx style="font-size:11px;color:#6B7280;margin-bottom:6px;"></div>'
       + '<div data-ef-grid style="min-height:60px;"></div>'
-      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA attendu selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · vacances et périodes : ligne sous le mois + survol d’un jour.</div>'
+      + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:6px;line-height:1.6;">Teinte = votre CA habituel selon le jour de semaine (modèle 90 j). Pastille = risque météo niveau ≥ 2 (rouge = 4) — au-delà de ~10 jours, tendance. ★ férié · vacances et périodes : ligne sous le mois + survol d’un jour.</div>'
       + '<div style="margin-top:8px;"><label style="' + lbl + '">Vos candidates <span data-ef-count style="color:#1D3BB3;"></span> <span style="font-weight:400;color:#9CA3AF;text-transform:none;letter-spacing:0;">— conservées d’un mois à l’autre</span></label>'
       + '<div data-ef-picked style="display:flex;gap:8px;flex-wrap:wrap;min-height:26px;"></div></div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
@@ -257,7 +257,7 @@
             var cov = !sel && covered[iso];
             var dotc = d.lvl >= 4 ? "#e24b4a" : d.lvl >= 2 ? "#B45309" : null;
             var b2 = baselineFor(dowOf(iso));
-            var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — attendu ≈ " + frInt(b2.expected_eur) + " €" : "");
+            var tip = DOW3[dowOf(iso)] + " " + frD(iso) + (b2 ? " — habituel ≈ " + frInt(b2.expected_eur) + " €" : "");
             if (d.ferie) tip += " · Férié" + (d.ferie_name ? " (" + d.ferie_name + ")" : "");
             if (d.vac) tip += " · " + (d.vac_name || "Vacances scolaires");
             (d.com || []).forEach(function (n) { tip += " · " + n; });
@@ -300,7 +300,7 @@
         }
         return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid #1D3BB3;color:#1D3BB3;border-radius:8px;padding:5px 10px;background:#fff;">'
           + DOW3[dowOf(iso)] + " " + frD(iso) + endTxt
-          + (b ? ' <span style="color:#6B7280;">≈ ' + frInt(b.expected_eur) + " € attendu" + (dur > 1 ? " /j · mesure sur " + dur + " j" : "") + "</span>" : "")
+          + (b ? ' <span style="color:#6B7280;">≈ ' + frInt(b.expected_eur) + " € habituel" + (dur > 1 ? " /j · mesure sur " + dur + " j" : "") + "</span>" : "")
           + ' <span data-ef-rm="' + iso + '" style="cursor:pointer;font-weight:700;">×</span></span>';
       }).join("");
       el.querySelectorAll("[data-ef-rm]").forEach(function (x) {
@@ -336,24 +336,24 @@
             + (exp != null ? "<br><strong>Au total</strong> : " + dayLabel + " habituel ≈ " + frInt(exp) + " € (vos ventes réelles) + l’apport → ≈ <strong>" + frInt(exp + apport) + " €</strong> de journée" : "");
         }
       } else if (kpi === "revenue_residual") {
-        if (unit) unit.textContent = "% au-dessus de l’attendu du jour";
+        if (unit) unit.textContent = "% au-dessus de votre habituel du jour";
         if (tlab) tlab.textContent = "Cible :";
         if (exp != null && isFinite(t) && t > 0) {
           var app2 = Math.round(exp * t / 100);
-          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs l’attendu → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
+          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs votre habituel → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
             + "<br><strong>Au total</strong> : ≈ <strong>" + frInt(exp + app2) + " €</strong> de journée (" + dayLabel + " habituel ≈ " + frInt(exp) + " €, vos ventes réelles)";
         }
       } else {
         if (unit) unit.textContent = "% vs votre habituel (base 30 j)";
         if (tlab) tlab.textContent = "Cible :";
-        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs attendu.";
+        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs habituel.";
       }
       var c = q("[data-ef-cible]"); if (c) c.innerHTML = out;
       var dref = q("[data-ef-dowref]");
       if (dref && state.recurrence !== "none") {
         dref.innerHTML = baseline.filter(function (x) { return x.n_days > 0; }).map(function (x) {
           return x.label_fr + " ≈ " + frInt(x.expected_eur) + " €";
-        }).join(" · ") + ' <span style="color:#9CA3AF;">— attendu par jour (modèle, 90 j) ; menaces vérifiées occurrence par occurrence (carte J-1)</span>';
+        }).join(" · ") + ' <span style="color:#9CA3AF;">— CA habituel par jour (modèle, 90 j) ; menaces vérifiées occurrence par occurrence (carte J-1)</span>';
       }
     }
 

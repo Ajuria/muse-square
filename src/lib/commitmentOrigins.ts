@@ -17,6 +17,11 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "sales_traffic_not_converting",
   "sales_discount_no_lift",
   "footfall_vs_basket_decomposition",
+  "client_dormant",                // C1 (06/08/2026) — s'engager sur la relance d'un client dormant
+  "weekly_sales_hole",             // C2 (07/08/2026) — s'engager après une semaine extrême (canal)
+  "weekly_sales_spike",            // C2 (07/08/2026)
+  "monthly_sales_hole",            // C3 (07/08/2026) — s'engager après un mois extrême (canal)
+  "monthly_sales_spike",           // C3 (07/08/2026)
 
   // Weather — verified present in public/action-cards.js SPECS (the four types that route to
   // the weather deep page / drill-down in insight.astro `_isWeather`).
@@ -133,6 +138,10 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "sales_competition_cannibalization",
   "proven_action_replication",
   "offering_mix_shift",
+
+  // Onboarding P2 (05/08) : le PREMIER test mesuré d'un compte neuf — geste du tableau
+  // « Engagez votre premier test mesuré » (MSCommitForm, fenêtre à venir, verdict auto).
+  "onboarding_first_test",
 ]);
 
 export function isCommitmentOrigin(actionType: unknown): boolean {

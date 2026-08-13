@@ -250,6 +250,10 @@ if (!location_id) {
           <div id="ie-memory-items"></div>
         </div>
 
+        <!-- R5 (08/08, owner) : un fil qui persiste a besoin de sa sortie — visible seulement quand un fil existe. -->
+        <div id="ie-new-thread-row" hidden style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+          <button type="button" data-ie-new-thread style="border:none;background:transparent;cursor:pointer;padding:2px 0;font-size:13px;font-weight:500;color:#0b37e5;font-family:inherit;">Nouvelle conversation</button>
+        </div>
         <section id="ie-thread" aria-live="polite" hidden>
           <!-- AI output render target -->
           <div id="ai_output_mount"></div>
@@ -348,7 +352,9 @@ if (!location_id) {
         z-index: 60;
         background: #ffffff;
         border-top: none;
-        padding: 14px 0;
+        /* R8-nav : la barre basse supprimée, l'input touche le bord — respiration 16px + safe-area
+           (encoche iPhone) selon les règles d'usage des barres de saisie fixées en bas. */
+        padding: 14px 0 calc(16px + env(safe-area-inset-bottom, 0px)) 0;
       }
 
       /* center the input bar when fixed */
@@ -513,7 +519,7 @@ if (!location_id) {
       .ie-msg-ai .ie-bubble h2{ font-size: 1.15em; }
       .ie-msg-ai .ie-bubble h3{ font-size: 1.05em; }
 
-      :root{ --ie-bottom-nav-h: 74px; }
+      :root{ --ie-bottom-nav-h: 0px; } /* R8-nav : barre de nav basse supprimée */
       #ie-bottom-nav{ position:fixed; left:0; right:0; bottom:0; z-index:50; background: #ffffff; border-top:1px solid rgba(0,0,0,0.10); height: var(--ie-bottom-nav-h); padding-bottom: env(safe-area-inset-bottom, 0px); }
       #ie-bottom-nav-inner{ max-width:620px; margin:0 auto; height: var(--ie-bottom-nav-h); display:flex; align-items:center; justify-content:space-around; }
 
@@ -2145,9 +2151,9 @@ if (!location_id) {
     </script>
 
     <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/card-kit.js?v=43"></script>
+    <script is:inline src="/card-kit.js?v=47"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=32" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=39" defer></script>
 
   </BaseLayout>
 </Show>

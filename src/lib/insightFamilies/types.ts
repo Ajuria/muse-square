@@ -13,7 +13,9 @@ import type { CitableFact } from "../ai/groundedPayload";
 // `tier` — optional, ONLY for engine-backed measured/observed_difference facts (e.g. the events
 // density-impact contrast): toGroundedDayPayload passes it through, enabling the rule-3bis tiered
 // causal register. Never default it — a tierless fact must stay tierless.
-export type FamilyFact = { fact_fr: string; claim_type: CitableFact["claim_type"]; tier?: CitableFact["tier"] };
+// `origin` (Étape 1, attribution) : clé d'origine pour le chip source du chat — optionnelle, posée par le
+// provider quand il veut primer le défaut par famille (prompt.ts FAMILY_FACT_ORIGIN). Display-only.
+export type FamilyFact = { fact_fr: string; claim_type: CitableFact["claim_type"]; tier?: CitableFact["tier"]; origin?: CitableFact["origin"] };
 
 export interface FamilyResult {
   found: boolean;
@@ -27,5 +29,7 @@ export interface FamilyProvider {
   title: string;                   // report section heading (French)
   render: string;                  // MSCardKit method name (e.g. "renderFootfall")
   match: RegExp[];                 // question-family routing (the prompt classifier)
-  run: (bq: any, location_id: string, date: string) => Promise<FamilyResult>;
+  // `question` (R4-1, optionnel) : la question BRUTE — un provider peut orienter son analyse sur la
+  // dimension DEMANDÉE (météo : la condition demandée prime la dominante du jour). Absent → inchangé.
+  run: (bq: any, location_id: string, date: string, question?: string) => Promise<FamilyResult>;
 }

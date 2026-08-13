@@ -150,17 +150,25 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 2. Étape du dossier + dates à analyser ──
   const today = ymdToday();
   const isRecurring = item.recurrence !== "none";
-  const pastDates = isRecurring ? item.dates.filter((d) => d < today) : (item.selected_date && item.selected_date < today ? [item.selected_date] : []);
-  const nextDate = isRecurring ? (item.dates.find((d) => d >= today) ?? null) : (item.selected_date && item.selected_date >= today ? item.selected_date : null);
+  // Un non-récurrent SANS selected_date : tant qu'il reste des dates candidates à venir on
+  // décide ; toutes passées = plus rien à décider — les dates passées FONT l'événement.
+  // (Bug réel 10/08 : « Lancement SaaS », seule date 19/06 passée + selected_date null →
+  // coincé en « decider » à vie, le mesuré de l'état Après jamais rendu.)
+  const pastDates = isRecurring ? item.dates.filter((d) => d < today)
+    : item.selected_date ? (item.selected_date < today ? [item.selected_date] : [])
+    : item.dates.filter((d) => d < today);
+  const nextDate = isRecurring ? (item.dates.find((d) => d >= today) ?? null)
+    : item.selected_date ? (item.selected_date >= today ? item.selected_date : null)
+    : (item.dates.find((d) => d >= today) ?? null);
   const stage: "decider" | "avant" | "apres" =
-    !isRecurring && !item.selected_date && item.dates.length ? "decider"
+    !isRecurring && !item.selected_date && item.dates.some((d) => d >= today) ? "decider"
     : pastDates.length ? "apres" : "avant";
   const futureDates = stage === "decider" ? item.dates.slice(0, 7) : (nextDate ? [nextDate] : []);
 
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows], [dowSalesRows], [declaredRows]] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -180,7 +188,8 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     }) : empty,
     pastDates.length ? bq.query({
       query: `SELECT CAST(transaction_date AS STRING) AS d, daily_transactions, ROUND(transactions_baseline, 0) AS transactions_baseline, ROUND(transactions_delta_pct, 0) AS tdp,
-                     ROUND(avg_basket, 2) AS basket, ROUND(basket_baseline, 2) AS basket_base, ROUND(basket_delta_pct, 0) AS bdp
+                     ROUND(avg_basket, 2) AS basket, ROUND(basket_baseline, 2) AS basket_base, ROUND(basket_delta_pct, 0) AS bdp,
+                     daily_visitors
               FROM \`${PROJECT}.mart.fct_client_sales_signals_daily\`
               WHERE location_id = @location_id AND transaction_date IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))`,
       params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
@@ -260,6 +269,37 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       params: { location_id, season: [4, 5, 6, 7, 8, 9].includes(Number(futureDates[0].slice(5, 7))) ? "ete" : "hiver" },
       location: "EU",
     }) : empty,
+    // Déjà documenté ? (chaîne bilan→dispositif, 10/08) — clé déterministe : le suffixe que
+    // NOTRE écrivain pose (« (événement « <titre> ») »). Idempotence de l'offre côté client.
+    pastDates.length ? bq.query({
+      query: `SELECT practice_id FROM \`${PROJECT}.analytics.best_practices\`
+              WHERE location_id = @location_id AND status = 'active' AND practice_text LIKE @pat LIMIT 1`,
+      params: { location_id, pat: `%(événement « ${item.title} »)` }, location: "EU",
+    }).catch(() => [[]]) : empty,
+    // Habituel MÊME JOUR DE SEMAINE (90 j, jour exclu) pour tickets/panier — le référentiel du
+    // « CA attendu » ; le 28 j toutes-journées du mart reste servi en repli (n_dow < 4).
+    pastDates.length ? bq.query({
+      query: `SELECT CAST(d AS STRING) AS d, ROUND(AVG(s.daily_transactions), 0) AS tick_dow,
+                     ROUND(AVG(s.avg_basket), 2) AS basket_dow, COUNT(*) AS n_dow
+              FROM UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x)) AS d
+              JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s
+                ON s.location_id = @location_id
+               AND EXTRACT(DAYOFWEEK FROM s.transaction_date) = EXTRACT(DAYOFWEEK FROM d)
+               AND s.transaction_date BETWEEN DATE_SUB(d, INTERVAL 90 DAY) AND DATE_SUB(d, INTERVAL 1 DAY)
+              GROUP BY d`,
+      params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
+    }) : empty,
+    // Le DÉCLARÉ du bilan relu EN ENTIER (visiteurs, action menée, vécu, commentaire) —
+    // consommateur d'event_outcomes : transformation dans l'Après + « Pour mémoire »
+    // (owner 10/08 : « je ne me souviens plus de quoi parlait l'événement »).
+    pastDates.length ? bq.query({
+      query: `SELECT CAST(selected_date AS STRING) AS d, attendance_approx, action_carried,
+                     weather_accuracy, mobility_felt, attendance_vs_expect, free_comment
+              FROM \`${PROJECT}.raw.event_outcomes\`
+              WHERE saved_item_id = @sid
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY selected_date ORDER BY submitted_at DESC) = 1`,
+      params: { sid: saved_item_id }, location: "EU",
+    }).catch(() => [[]]) : empty,
   ]);
 
   const dowExpected = new Map<number, number>();
@@ -391,6 +431,8 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 5. L'Après : mesuré par occurrence + verdict de l'engagement ancré ──
   const resBy = new Map((resRows as any[]).map((r) => [String(flat(r.d)), r]));
   const sigBy = new Map((sigRows as any[]).map((r) => [String(flat(r.d)), r]));
+  const dowSalesBy = new Map((dowSalesRows as any[]).map((r) => [String(flat(r.d)), r]));
+  const declaredBy = new Map((declaredRows as any[]).map((r) => [String(flat(r.d)), r]));
   const famBy = new Map((famRows as any[]).map((r) => [String(flat(r.d)), r]));
   const comBy = new Map((comRows as any[]).map((c) => [String(flat(c.ws)), c]));
   const apresRows = pastDates.map((d) => {
@@ -406,10 +448,22 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       basket: sg && flat(sg.basket) != null ? Number(flat(sg.basket)) : null,
       basket_base: sg && flat(sg.basket_base) != null ? Number(flat(sg.basket_base)) : null,
       basket_delta_pct: sg && flat(sg.bdp) != null ? Number(flat(sg.bdp)) : null,
+      // Référentiel jour-de-semaine (celui du CA attendu) + registres visiteurs.
+      tickets_base_dow: dowSalesBy.get(d) && flat((dowSalesBy.get(d) as any).tick_dow) != null ? Number(flat((dowSalesBy.get(d) as any).tick_dow)) : null,
+      basket_base_dow: dowSalesBy.get(d) && flat((dowSalesBy.get(d) as any).basket_dow) != null ? Number(flat((dowSalesBy.get(d) as any).basket_dow)) : null,
+      n_dow: dowSalesBy.get(d) ? Number(flat((dowSalesBy.get(d) as any).n_dow) ?? 0) : 0,
+      visitors_measured: sg && flat(sg.daily_visitors) != null ? Number(flat(sg.daily_visitors)) : null,
+      visitors_declared: declaredBy.get(d) && flat((declaredBy.get(d) as any).attendance_approx) != null ? Number(flat((declaredBy.get(d) as any).attendance_approx)) : null,
+      bilan: declaredBy.get(d) ? (() => {
+        const b: any = declaredBy.get(d);
+        const sv = (k: string) => (flat(b[k]) != null ? String(flat(b[k])) : null);
+        return { action_carried: sv("action_carried"), weather: sv("weather_accuracy"), mobility: sv("mobility_felt"), attendance: sv("attendance_vs_expect"), comment: sv("free_comment") };
+      })() : null,
       family_rev: fa ? Number(flat(fa.fam_rev)) : null,
       family_avg: famAvg,
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,
       commitment_status: co && flat(co.status) != null ? String(flat(co.status)) : null,
+      commitment_id: co && flat(co.commitment_id) != null ? String(flat(co.commitment_id)) : null,
     };
   }).map((r) => ({
     ...r,
@@ -426,6 +480,22 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   }));
   const measured = apresRows.filter((r) => r.gap_eur != null);
   const gaps = measured.map((r) => r.gap_eur as number).sort((a, b) => a - b);
+  // La série suit le KPI DÉCLARÉ (le formulaire en offre 4 : CA vs attendu, famille, tickets,
+  // panier — l'utilisateur choisit et pose sa cible). Avant : agrégée sur gap_eur (CA) quel que
+  // soit le KPI → « 1/1 au-dessus de l'attendu » s'affichait SOUS « Cible manquée » sur le même
+  // jour (cas réel Corner : famille 28 € vs cible 150 €, CA +90 €). Chaque valeur porte son unité.
+  const KPI_UNIT: Record<string, "eur" | "pct"> = { family_revenue: "eur", revenue_residual: "pct", tickets: "pct", basket: "pct" };
+  const kpiKeyItem = String(item.kpi || "revenue_residual");
+  const kpiValueOf = (r: any): number | null => {
+    if (kpiKeyItem === "family_revenue") return r.family_rev != null ? Number(r.family_rev) : null;
+    if (kpiKeyItem === "revenue_residual") return r.residual_pct != null ? Number(r.residual_pct) : null;
+    if (kpiKeyItem === "tickets") return r.tickets_delta_pct != null ? Number(r.tickets_delta_pct) : null;
+    if (kpiKeyItem === "basket") return r.basket_delta_pct != null ? Number(r.basket_delta_pct) : null;
+    return null;
+  };
+  const kpiTarget = kpiKeyItem === "family_revenue" ? item.kpi_target_eur : item.kpi_target_pct;
+  const kpiMeasured = apresRows.filter((r) => kpiValueOf(r) != null);
+  const kpiVals = kpiMeasured.map((r) => kpiValueOf(r) as number).sort((a, b) => a - b);
   const serie = isRecurring ? {
     n_occurrences: item.dates.length,
     n_measured: measured.length,
@@ -433,7 +503,37 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     median_gap_eur: gaps.length ? gaps[Math.floor(gaps.length / 2)] : null,
     sum_gap_eur: gaps.length ? gaps.reduce((a, b) => a + b, 0) : null,
     next_date: nextDate,
+    // ── Série DU KPI déclaré (unité portée, cible portée) ──
+    kpi_key: kpiKeyItem,
+    kpi_unit: KPI_UNIT[kpiKeyItem] || "pct",
+    kpi_target: kpiTarget ?? null,
+    kpi_n_measured: kpiMeasured.length,
+    kpi_n_met: kpiTarget != null ? kpiMeasured.filter((r) => (kpiValueOf(r) as number) >= Number(kpiTarget)).length : null,
+    kpi_median: kpiVals.length ? kpiVals[Math.floor(kpiVals.length / 2)] : null,
+    kpi_values: kpiMeasured.map((r) => ({ date: r.date, value: kpiValueOf(r) })),
+    // Assez d'occurrences pour lire une TENDANCE ? (2 points ne font pas une courbe.)
+    trend_readable: kpiMeasured.length >= 3,
   } : null;
+
+  // Lecture : réconcilier le KPI et le CA du jour quand ils divergent — le fait le plus utile
+  // du dossier n'était calculé nulle part (Corner : la famille sous SA moyenne, journée au-dessus
+  // de l'attendu ⇒ la hausse ne vient pas de l'opération).
+  const lastMeasured = measured.length ? measured[measured.length - 1] : null;
+  let reconciliation: string | null = null;
+  if (lastMeasured && kpiKeyItem === "family_revenue" && lastMeasured.family_rev != null && famAvg != null) {
+    const famUp = lastMeasured.family_rev >= famAvg;
+    const dayUp = (lastMeasured.gap_eur as number) > 0;
+    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait votre habituel de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
+    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous votre habituel (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
+    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de votre habituel (+${lastMeasured.gap_eur} €).`;
+  }
+  // Cible hors d'échelle : un objectif à N× l'ordinaire de la famille n'est pas une performance
+  // manquée, c'est un calibrage (fait dit, jamais un reproche).
+  let targetScale: { ratio: number; ref: number } | null = null;
+  if (kpiKeyItem === "family_revenue" && item.kpi_target_eur != null && famAvg != null && famAvg > 0) {
+    const ratio = item.kpi_target_eur / famAvg;
+    if (ratio >= 2) targetScale = { ratio: Math.round(ratio * 10) / 10, ref: famAvg };
+  }
 
   // ── 6. FACTS (liste blanche du chat — chaque nombre verbatim) ──
   const fd = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -444,13 +544,13 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   });
   for (const r of measured) {
     facts.push({
-      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € attendu du jour (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
+      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre habituel du jour (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
       claim_type: "measured",
     });
   }
   if (serie && serie.n_measured > 0) {
     facts.push({
-      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de l'attendu ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
+      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de votre habituel ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
       claim_type: "measured",
     });
   }
@@ -460,7 +560,20 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     data: {
       found: true, item, stage, fam_avg_day_eur: famAvg,
       days, avant_date: stage === "decider" ? null : nextDate,
-      apres: { rows: apresRows, serie },
+      apres: {
+        rows: apresRows, serie,
+        documented: (docRows as any[])?.length ? String(flat((docRows as any[])[0].practice_id)) : null,
+        reconciliation, target_scale: targetScale,
+        // « En cours » : l'engagement ancré sur la PROCHAINE occurrence (armé ou non) — l'état
+        // vivant n'était visible nulle part sur le dossier.
+        next_commitment: nextDate && comBy.get(nextDate)
+          ? {
+              date: nextDate, status: String(flat((comBy.get(nextDate) as any).status) || ""),
+              verdict: flat((comBy.get(nextDate) as any).verdict) != null ? String(flat((comBy.get(nextDate) as any).verdict)) : null,
+              commitment_id: flat((comBy.get(nextDate) as any).commitment_id) != null ? String(flat((comBy.get(nextDate) as any).commitment_id)) : null,
+            }
+          : (nextDate ? { date: nextDate, status: null, verdict: null, commitment_id: null } : null),
+      },
       consigne_sends: (sendRows as any[]).map((s) => ({
         occurrence_date: String(flat(s.d) ?? ""), sent_on: String(flat(s.sent_on) ?? ""),
         n_recipients: Number(flat(s.n_recipients) ?? 0),

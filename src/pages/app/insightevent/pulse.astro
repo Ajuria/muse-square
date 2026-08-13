@@ -3,7 +3,6 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import PiloterBottomBar from "../../../components/PiloterBottomBar.astro";
 
 const location_id =
   Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim()
@@ -202,6 +201,15 @@ if (!location_id) {
       /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html) : la ligne d'action est
          l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
       .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+      /* Geste « Préciser ce compte » (carte client_dormant, spec client-patterns § R.3) —
+         chips = forme .chip-n existante rendue cliquable ; survol = teinte de la tuile
+         Intelligence ; confirmation = vert des pills (tokens). Proto validé owner 07/08. */
+      .pr-strip { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+      .pr-q { font-size:12px; color:#6B7280; }
+      .pr-chip { border:none; background:none; padding:0; cursor:pointer; font-family:inherit; }
+      .pr-chip:hover .chip-n { background:#E6F1FB; color:#185FA5; }
+      .pr-done { font-size:12px; color:var(--color-pill-green-text); margin-top:8px; }
+      .pr-err { font-size:12px; color:#B45309; margin-top:8px; }
       .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
       .disc { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:8px 16px 12px; border-top:1px solid var(--color-border); }
       .disc-btn { font-size:12px; color:var(--color-text-secondary); background:transparent; border:1px solid var(--color-border); border-radius:10px; padding:4px 10px; cursor:pointer; font-family:inherit; }
@@ -349,13 +357,12 @@ if (!location_id) {
          <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
          page was ~166KB of dead render-blocking JS/CSS. -->
     <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/reco-library.js?v=9"></script>
+    <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=43"></script>
+    <script is:inline src="/action-cards.js?v=46"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
-  <PiloterBottomBar active="agir" />
 
   </BaseLayout>
 <script is:inline define:vars={{ location_id }}>
@@ -1954,7 +1961,7 @@ if (!location_id) {
         var _dp0 = entry.item.data_payload;
         var _dRev = _dp0.daily_revenue != null ? Number(_dp0.daily_revenue) : null;
         var _dRefV = _dp0.expected_revenue != null ? Number(_dp0.expected_revenue) : (_dp0.avg_30d != null ? Number(_dp0.avg_30d) : (_dp0.revenue_yesterday != null ? Number(_dp0.revenue_yesterday) : null));
-        var _dRefLbl = _dp0.expected_revenue != null ? 'vs l’attendu du jour' : (_dp0.avg_30d != null ? 'vs votre moyenne 30 j' : 'vs hier');
+        var _dRefLbl = _dp0.expected_revenue != null ? 'vs votre habituel du jour' : (_dp0.avg_30d != null ? 'vs votre moyenne 30 j' : 'vs hier');
         if (_dRev != null && _dRefV != null && isFinite(_dRev) && isFinite(_dRefV)) {
           var _dGap = Math.round(_dRev - _dRefV);
           var _dFg = _dGap > 0 ? 'var(--color-pill-green-text)' : '#B45309';
@@ -2021,6 +2028,7 @@ if (!location_id) {
                     + _amtHtml
                   + '</div>'
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
+                  + msPartyRoleStrip(entry.item)
                 + '</div>'
               + '</div>'
             + '</div>'
@@ -3873,7 +3881,7 @@ if (!location_id) {
     resolved.slice(0, 2).forEach(function(r) {
       var v = String(r.verdict || "");
       var b = v === "met" ? { bg: "#dcfce7", fg: "#166534", t: "Objectif atteint" }
-        : v === "missed" ? { bg: "#FEF3C7", fg: "#92400E", t: "Sous l'attendu" }
+        : v === "missed" ? { bg: "#FEF3C7", fg: "#92400E", t: "Sous votre habituel" }
         : { bg: "#F1F5F9", fg: "#475569", t: "Terminée" };
       var delta = Number(r.window_actual_revenue) - Number(r.window_expected_revenue);
       html += '<div style="padding:11px 0;' + (html ? 'border-top:1px solid #E6E8EC;' : '') + '">'
@@ -4170,7 +4178,7 @@ if (!location_id) {
     var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs attendu' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
       : escapeHtml('Fenêtre ' + _cgWin(r.window_kind) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
@@ -4180,7 +4188,7 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur la fenêtre de ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs attendu.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur la fenêtre de ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
@@ -4290,10 +4298,21 @@ if (!location_id) {
   function _engModify(mount, eid){
     var ws = document.getElementById('eng-ws-' + eid); if (!ws) return;
     var r = (window._engById || {})[eid] || {};
+    var _engYmd = function (v) { return String((v && v.value) || v || "").slice(0, 10); };
     ws.style.display = 'block';
     ws.innerHTML = '<div style="padding:12px 0 8px;font-size:12px;font-weight:600;color:#374151;">Modifier l\'engagement</div>'
       + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:6px;">Mon action</div>'
       + '<textarea data-eng-edit-text style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + escapeHtml(String(r.committed_action_text || '')) + '</textarea>'
+      // Fenêtre + seuil ÉDITABLES (owner 10/08) : une fenêtre fausse (occasion absente) ne se
+      // corrigeait que par suppression + recréation. Dates en JJ/MM/AAAA à l'écran, ISO en valeur.
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — début</div>'
+        + '<input type="date" data-eng-edit-ws value="' + escapeHtml(_engYmd(r.window_start)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — fin</div>'
+        + '<input type="date" data-eng-edit-we value="' + escapeHtml(_engYmd(r.window_end)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
+        + (String(r.threshold_basis || '') === 'pct' ? '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Seuil (%)</div>'
+          + '<input type="number" min="1" max="200" data-eng-edit-thr value="' + escapeHtml(String(r.threshold_value != null ? r.threshold_value : '')) + '" style="width:90px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>' : '')
+      + '</div>'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">'
         + '<button type="button" data-eng-save style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Enregistrer</button>'
         + '<button type="button" data-eng-abandon style="padding:7px 14px;border-radius:6px;background:#FCEBEB;color:#b91c1c;border:1px solid #f3d0d0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Abandonner</button>'
@@ -4304,12 +4323,25 @@ if (!location_id) {
     ws.querySelector('[data-eng-save]').addEventListener('click', function(){
       var txt = String((ws.querySelector('[data-eng-edit-text]') || {}).value || '').trim();
       if (!txt) { msg.textContent = 'Action vide'; msg.style.color = '#b91c1c'; return; }
-      fetch('/api/commitments/edit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: r.location_id, committed_action_text: txt }) })
+      var wsEl = ws.querySelector('[data-eng-edit-ws]'); var weEl = ws.querySelector('[data-eng-edit-we]'); var thrEl = ws.querySelector('[data-eng-edit-thr]');
+      var nWs = String((wsEl || {}).value || '').slice(0, 10);
+      var nWe = String((weEl || {}).value || '').slice(0, 10);
+      var nThr = thrEl && String(thrEl.value || '').trim() !== '' ? Number(thrEl.value) : null;
+      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La fin de fenêtre précède son début.'; msg.style.color = '#b91c1c'; return; }
+      var payload = { commitment_id: eid, location_id: r.location_id, committed_action_text: txt };
+      if (nWs && nWs !== _engYmd(r.window_start)) payload.window_start = nWs;
+      if (nWe && nWe !== _engYmd(r.window_end)) payload.window_end = nWe;
+      if (nThr != null && nThr !== Number(r.threshold_value)) payload.threshold_value = nThr;
+      fetch('/api/commitments/edit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function(x){ return x.json(); }).then(function(j){
           if (j && j.ok) {
             r.committed_action_text = txt;
+            if (payload.window_start) r.window_start = payload.window_start;
+            if (payload.window_end) r.window_end = payload.window_end;
+            if (payload.threshold_value != null) r.threshold_value = payload.threshold_value;
             var card = mount.querySelector('[data-eng-card="' + eid + '"]'); var wEl = card && card.querySelector('.ab-what'); if (wEl) wEl.textContent = txt;
             ws.style.display = 'none'; ws.innerHTML = '';
+            if (payload.window_start || payload.window_end || payload.threshold_value != null) window.location.reload();
           } else { msg.textContent = 'Erreur : ' + ((j && j.error) || 'réessayez'); msg.style.color = '#b91c1c'; }
         }).catch(function(){ msg.textContent = 'Erreur réseau.'; msg.style.color = '#b91c1c'; });
     });
@@ -6318,6 +6350,96 @@ if (!location_id) {
       console.error(e);
     }
   })();
+
+  // GESTE « PRÉCISER CE COMPTE » (carte client_dormant — spec client-patterns § R.3, proto
+  // validé owner 07/08). Deux temps EN PLACE : qui (organisation / particulier / canal), puis
+  // comment — chaque réponse finale écrit un rôle COMPLET du vocabulaire § R via
+  // /api/analytics/party-role (MERGE annuaire + action_log). La carte se recalibre à la passe
+  // candidates suivante (2×/j) ; d'ici là, localStorage évite de reposer la question.
+  function msPartyRoleStrip(item) {
+    if (String(item.change_subtype || '') !== 'client_dormant') return '';
+    var party = String(item.party_code || '');
+    var loc = String(item.location_id || '');
+    if (!party || !loc) return '';
+    var noted = null;
+    try { noted = localStorage.getItem('ms_party_role_' + loc + '_' + party); } catch (e) {}
+    if (noted) {
+      return '<div class="pr-done">Noté : ' + escapeHtml(noted) + ' — la carte se recalibrera à la prochaine passe.</div>';
+    }
+    return '<div class="pr-strip" data-pr-strip="1" data-pr-loc="' + escapeHtml(loc) + '" data-pr-party="' + escapeHtml(party) + '">'
+      + '<span class="pr-q">Préciser ce compte — c’est :</span>'
+      + '<button type="button" class="pr-chip" data-pr-who="pro"><span class="chip-n">Une organisation</span></button>'
+      + '<button type="button" class="pr-chip" data-pr-who="consumer"><span class="chip-n">Un particulier</span></button>'
+      + '<button type="button" class="pr-chip" data-pr-who="channel"><span class="chip-n">Un canal de vente</span></button>'
+    + '</div>';
+  }
+
+  // Libellés de confirmation (aussi utilisés par le localStorage ci-dessus).
+  var MS_PR_LABELS = {
+    pro_recurring: 'commande régulièrement',
+    pro_project: 'fonctionne par projets',
+    consumer_recurring: 'particulier, achat régulier',
+    consumer: 'particulier, achat ponctuel',
+    'channel:corner': 'canal — corner / dépôt-vente',
+    'channel:commission': 'canal — commissionnaire / agent',
+    'channel:canal': 'canal de vente'
+  };
+
+  // CAPTURE (3e arg true) : les chips vivent DANS le résumé cliquable [data-consult-open]
+  // (listener d'élément) — en phase de bulle, Consulter s'ouvrirait avant nous. La capture
+  // passe d'abord ; stopPropagation empêche alors l'ouverture du panneau.
+  document.addEventListener('click', function (e) {
+    var whoBtn = e.target.closest('[data-pr-who]');
+    var roleBtn = e.target.closest('[data-pr-role]');
+    if (!whoBtn && !roleBtn) return;
+    var strip = e.target.closest('[data-pr-strip]');
+    if (!strip) return;
+    e.stopPropagation();
+
+    if (whoBtn) {
+      var who = whoBtn.getAttribute('data-pr-who');
+      var second = '';
+      if (who === 'pro') {
+        second = '<span class="pr-q">Une organisation qui :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="pro_recurring"><span class="chip-n">Commande régulièrement</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="pro_project"><span class="chip-n">Fonctionne par projets / chantiers</span></button>';
+      } else if (who === 'consumer') {
+        second = '<span class="pr-q">Un particulier qui :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="consumer_recurring"><span class="chip-n">Achète régulièrement</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="consumer"><span class="chip-n">Achat ponctuel</span></button>';
+      } else {
+        second = '<span class="pr-q">Un canal de type :</span>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="corner"><span class="chip-n">Corner / dépôt-vente</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="commission"><span class="chip-n">Commissionnaire / agent</span></button>'
+          + '<button type="button" class="pr-chip" data-pr-role="channel" data-pr-kind="canal"><span class="chip-n">Autre canal</span></button>';
+      }
+      strip.innerHTML = second;
+      return;
+    }
+
+    var role = roleBtn.getAttribute('data-pr-role');
+    var kind = roleBtn.getAttribute('data-pr-kind') || null;
+    var loc = strip.getAttribute('data-pr-loc');
+    var party = strip.getAttribute('data-pr-party');
+    var label = MS_PR_LABELS[kind ? role + ':' + kind : role] || role;
+    strip.innerHTML = '<span class="pr-q">Enregistrement…</span>';
+    fetch('/api/analytics/party-role', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ location_id: loc, party_code: party, party_role: role, channel_kind: kind })
+    }).then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        if (j && j.ok) {
+          try { localStorage.setItem('ms_party_role_' + loc + '_' + party, label); } catch (e2) {}
+          strip.outerHTML = '<div class="pr-done">Noté : ' + escapeHtml(label) + ' — la carte se recalibrera à la prochaine passe.</div>';
+        } else {
+          strip.outerHTML = '<div class="pr-err">Enregistrement impossible — réessayez depuis la carte au prochain chargement.</div>';
+        }
+      })
+      .catch(function () {
+        strip.outerHTML = '<div class="pr-err">Enregistrement impossible — réessayez depuis la carte au prochain chargement.</div>';
+      });
+  }, true);
 
   // PÉRIMÈTRE DE CLIENTÈLE (étage 4) — un clic répond, POST vers set-catchment, puis la question
   // est remplacée EN PLACE par la confirmation. Le délai est annoncé : le recalcul du MONTANT est

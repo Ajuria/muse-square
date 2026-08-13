@@ -274,3 +274,131 @@ from events e
 left join dates d using (saved_item_id, location_id)
 left join outcomes o using (saved_item_id)
 ```
+
+## Retours owner 10/08 — les 4 Fs (dossier)
+
+- **F1/F3 — tête par ÉTAT, jamais le modèle de données** : titre = le job (« Choisir la date — <titre> » ·
+  « Préparer — <titre> » · « Évaluer — <titre> »), sous-titre = ce que l'écran livre ; suivent le
+  changement d'onglet. Le texte « un événement porte son dispositif… » est supprimé. Promettre
+  seulement ce que le pipeline fait (pas de « enrichit vos prévisions » tant que `event_outcomes`
+  n'a pas de consommateur aval).
+- **F2 — le mesuré arrive vraiment** : bug de stage réparé (non-récurrent sans `selected_date`,
+  dates toutes passées → `apres`, plus jamais « decider » à vie). Sans cible posée : chip grise
+  « Sans objectif chiffré · CA suivi vs attendu » (plus de chip « Objectif : » sans nombre) et le
+  panneau Après le DIT (« aucun objectif n'était posé — posez une cible à la prochaine occasion »).
+- **F4 — le bilan demande AUSSI ce que vous avez fait** : question 1 « Le dispositif prévu
+  a-t-il été appliqué ? » (oui / en partie / non) quand l'événement porte un dispositif —
+  sans elle, une cible manquée est inattribuable. Colonne `action_carried` (raw.event_outcomes),
+  numérotation dynamique 3/4 questions. Le principe « ne demander que ce que la mesure ne voit
+  pas » est conservé (la concurrence reste exclue : entièrement mesurée).
+- **Hors périmètre, à trancher** : incohérence `event_end_date` (25/07) vs seule occurrence
+  (19/06) sur les événements legacy — deux surfaces, deux ancres de retard ; et le branchement
+  dbt de `stg_event_outcomes` (modèle feuille).
+- **10/08 (2) — un seul acte de capitalisation** : « Documenter en dispositif » n'est plus un
+  bouton frère du bilan (owner : « semantically too close ») — l'output découle de l'input. La
+  chaîne : bilan envoyé → « En faire un dispositif ? » (recette OBLIGATOIRE si l'événement n'a
+  pas de dispositif — l'ancien bouton écrivait une pratique vide ; evidence = mesuré réel ;
+  succès → lien « Voir dans vos Dispositifs → »). Idempotente (`apres.documented`, clé serveur =
+  suffixe « (événement « titre ») ») ; bilan déjà envoyé → l'état est dit, la chaîne reste.
+- **10/08 (3) — les nombres de l'Après sont FONCTIONNELS** (owner : « tickets puis on me
+  demande les visiteurs ? labels imprecise ») : (a) chaque box porte sa source et son
+  référentiel en infobulle, et son registre en libellé (« · mesuré » / « · déclaré ») ;
+  (b) l'« habituel » tickets/panier est au MÊME référentiel que le CA attendu — vos mêmes
+  jours de semaine (90 j), repli 28 j toutes-journées DIT tel quel si n < 4 (réel : le 28 j
+  disait −11 %, vos vendredis disent −3 %) ; (c) tickets = ACHETEURS (reçus distincts de vos
+  ventes importées) ≠ visiteurs = VENUS — la question du bilan le dit, paye en direct
+  (« ≈ X % des visiteurs ont acheté ») avec garde-fou visiteurs < tickets, et SAUTE si un
+  flux de comptage mesure déjà les visiteurs ; (d) `attendance_approx` est relu par le
+  provider → box « Transformation · déclaré » — premier consommateur réel d'event_outcomes.
+- **10/08 (4) — « Pour mémoire »** (owner : « je ne me souviens plus de quoi parlait
+  l'événement ; avec 5 comme ça, comment les distinguer ? ») : l'état Après ouvre sur un bloc
+  mémoire — dispositif + consigne s'ils existent, l'ABSENCE dite sinon (« aucune description
+  enregistrée — la recette en tiendra lieu »), et le BILAN RELU EN MOTS (« Votre bilan : météo
+  conforme · accès difficile » + commentaire). La boucle se ferme : une recette écrite sur un
+  événement SANS description est aussi enregistrée comme sa description (update `description` —
+  c'est la colonne derrière `dispositif`) — au prochain passage, le rappel existe. Chip de type
+  vide supprimée quand le type est inconnu.
+- **10/08 (5) — la recette au CONTRAT du dispositif** (owner : « how is this a dispositif ?
+  everything starts upon clicking ? ») : DEUX champs au lieu d'une ligne libre — « Le geste,
+  concrètement ? » + « À quelle occasion ? » (placeholders qui enseignent la grammaire ; le KPI
+  n'a pas de champ, CA vs attendu est le défaut de la chaîne). Les deux sont requis : la
+  structure convertit l'intention en recette rejouable. Microcopie sous le CTA : « Classé
+  “déclaré” — rien ne démarre encore. » Au succès, le VRAI démarrage se PROPOSE (« Le tester
+  maintenant ? » = chaîne Prouver existante : POST commitments 7 j +10 % puis PATCH
+  replay_commitment_id) — jamais lancé seul (une fenêtre de mesure est un choix, anti
+  p-hacking). La description backfillée devient « geste — occasion ».
+- **10/08 (6) — L'OCCASION décide la fenêtre** (owner : « if no kpi is measured, the dispositif
+  can't be tested and played again ! ») : le test « 7 j à partir du clic » mesurait une semaine
+  où l'occasion du dispositif n'a PAS lieu — verdict mécaniquement produit, sémantiquement vide
+  (cas réel annulé : « mails les 3 jours avant le jour J », fenêtre 10→16/08 sans jour J).
+  Deux branches HONNÊTES — la 3e (armement sur signal) n'existe pas pour une origine événement,
+  le dispatch est gated `HEAT_DETECTABLE = {structural_traffic_high}` : (a) occurrence à venir →
+  fenêtre ANCRÉE dessus (`window_kind: day_of`, `window_start_date`, `window_days` = durée) et
+  `saved_item_id` LIÉ (l'engagement cesse d'être orphelin : visible dans Cette semaine, compté
+  dans la série) ; (b) aucune → aucun test proposé, on le DIT (« attend son occasion ») + lien
+  « Ajouter la prochaine date ».
+- **10/08 (7) — fenêtre et seuil ÉDITABLES** : `/api/commitments/edit` n'acceptait que le texte
+  et le porteur — une fenêtre fausse ne se corrigeait que par suppression + recréation. Ajout de
+  `window_start` / `window_end` / `threshold_value` (gardes : Y-m-d, fin ≥ début, ≤ 90 j, seuil
+  1-200 %, et toujours l'interdit après résolution — le gel du verdict reste la garde anti
+  p-hacking). Champs exposés dans l'éditeur de la carte engagement (Agir).
+- **10/08 (8) — un rejeu ANNULÉ ne bloque plus** : `canProuver` exigeait `!replay_commitment_id`,
+  donc une pratique dont le test avait été annulé n'était plus jamais testable. `replay_status`
+  exposé ; un replay `cancelled` ne compte pas comme rejeu (pratique re-prouvable, comptée dans
+  `declared_no_replay`).
+- **10/08 (9) — audit du dossier (owner : « it's a mess »)** : (a) **cloisonnement des
+  horizons** — `renderConsigne` et `maybeRenderBilan` faisaient `body.appendChild` : les deux
+  blocs restaient visibles quel que soit l'onglet, donc l'écran mélangeait le résultat du 08/08,
+  la consigne du 15/08 et le bilan du 08/08. Points de montage `[data-ev-mount]` : consigne →
+  panneau AVANT, bilan → panneau APRÈS (repli page si le panneau n'existe pas) ; (b) « Pour
+  mémoire » ne redit plus le dispositif (déjà en tête) ; (c) **la série suit le KPI DÉCLARÉ**
+  (le formulaire en offre 4 : CA vs attendu / famille / tickets / panier — voir mémoire
+  `kpi-declare-suit-partout`) : `serie.kpi_*` (cible, unité, n à la cible, médiane, valeurs par
+  date, `trend_readable` ≥ 3) — avant, « 1/1 au-dessus de l'attendu » (CA) s'affichait sous
+  « Cible manquée » (famille) ; (d) **Lecture** réconciliant KPI et journée quand ils divergent
+  (« la famille sous son ordinaire alors que la journée dépassait l'attendu ⇒ la hausse ne vient
+  pas de cette opération ») ; (e) **cible hors d'échelle** dite au verdict (150 € = 4,4×
+  l'ordinaire de la famille) ; (f) **« En cours »** : l'engagement de la prochaine occurrence
+  (armé / s'armera à J-7) — état invisible jusqu'ici ; (g) verdict en UN vocabulaire (plus
+  d'énum brute `missed`) ; (h) aperçu de l'email REPLIÉ (il écrasait le dossier).
+- **10/08 (10) — AUDIT : la boucle de décision EXISTE, le dossier l'ignorait** (owner : « we had
+  this in place.. are you working from scratch ? » — oui, et la règle du dépôt est de grepper
+  `docs/module-index.md` d'abord). Ce qui existait déjà et que je réimplémentais en moins bien :
+  `adjustment_move` (`poursuivre|doubler|pivoter|stop`, libellés FR dans `lib/commitmentCopy.ts`),
+  la page **`/app/insightevent/engagement?id=`** (« Évolution de l'engagement »), le **moteur de
+  recommandation** de `public/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
+  + pas de facteur externe → pivoter ; en dessous + incomplète → poursuivre), le **track record
+  par move** (`move_stats` : « ici : 2/3 fois → objectif atteint »), le **diagnostic** (météo,
+  événements, vacances, qualité d'exécution) et le re-commit (enfant sur fenêtre fraîche +
+  soft-cancel du parent). **Décision owner : LINK OUT** — le dossier renvoie vers la page
+  Évolution, il ne duplique jamais le moteur.
+  Appliqué : (a) **le bilan ne se demande QUE sur une occurrence close** — il était gated sur
+  « date passée + non soumis » sans regarder l'engagement (sur une fenêtre longue, on demandait
+  le vécu en plein vol) ; (b) **test en cours → une seule action** : « Poursuivre, doubler,
+  pivoter ou arrêter → » vers `engagement?id=` (les rows et `next_commitment` portent désormais
+  `commitment_id`) ; (c) **la série au titre LITTÉRAL** (« Vos 3 derniers samedis testés »,
+  jamais « Sur la série » / « 0/3 à la cible »), valeur du KPI par ligne avec son objectif, et
+  **la décision AU BOUT** — plus un cul-de-sac ; (d) **« attendu » banni** de toutes les chaînes
+  visibles (dossier, provider, formulaire) au profit du mot maison **« habituel »** (standard
+  copy 27/07 : « CA réalisé / CA habituel ») ; « sans cible chiffrée » → « Objectif non fixé ».
+- **10/08 (11) — l'étape PARTAGE, dans Évaluer** (owner : « the share step in Evaluer page ») :
+  le résultat d'une opération ne quittait jamais l'écran — `adjustment_note` était journalisé
+  sans jamais atteindre personne. Geste « **Prévenir l'équipe →** » dans le panneau Résultat,
+  à côté de la décision, qui ouvre le workspace **PARTAGÉ** `MSDraftWorkspace` (même module que
+  Pulse et insight, `draft-workspace.js?v=5` — canaux réels, roster, envoi réel : aucun envoi
+  maison réécrit). Amorce = le résultat MESURÉ (« Corner de vente producteur — samedi 08/08 :
+  famille Branded 28 € (objectif 150 €) — objectif manqué ») + la Lecture en `card_sowhat` +
+  la date d'occurrence + le contexte événement (`saved_item_id`, dispositif) + `detail_url`
+  vers le dossier. `signal_type = event_result` (inconnu du ROUTING_MAP → aucune suggestion de
+  destinataire imposée, le roster reste choisi à la main : jamais un envoi mal routé).
+- **10/08 (12) — le LEXIQUE, avec son garde-fou** : `src/lib/fr/evenement.fr.ts` (convention
+  maison `*.fr.ts`, un fichier par surface, éditable par l'owner) porte `MOTS_BANNIS`
+  (attendu→habituel · « sur la série »→libellé littéral · « à la cible »→« à votre objectif » ·
+  « cible chiffrée »→objectif · rejeu→test · non-mesurable→non mesurable) et `EVT_FR` (onglets,
+  verdicts, série, en-cours, décision, partage, bilan). **Le livrable, c'est le garde-fou** :
+  `evenement.fr.guard.test.ts` scanne les chaînes VISIBLES (littéraux hors commentaires, hors
+  identifiants techniques) du provider, du dossier et du formulaire — il a attrapé **9
+  occurrences d'« attendu » que la correction à la main avait ratées** (dont le formulaire de
+  création : « % au-dessus de l'attendu du jour », « CA vs attendu ») et il MORD (réintroduction
+  volontaire → échec, vérifié). Ajouter une entrée à `MOTS_BANNIS` suffit à interdire un mot.
+  `npx vitest run src/lib/fr/`

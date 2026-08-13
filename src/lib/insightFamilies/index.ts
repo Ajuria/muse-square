@@ -23,6 +23,7 @@ import { audienceFamily } from "./audience";
 import { salesDiscountFamily } from "./salesDiscount";
 import { salesDecompFamily } from "./salesDecomp";
 import { calendarFamily } from "./calendar";
+import { channelsProvider } from "./channels";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -41,6 +42,9 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\bsensibilite (a la |au |aux )?(meteo|pluie|chaleur|froid)/,
       /\b(impact|effet) (de la |du |des )?(meteo|pluie|chaleur|canicule|froid|neige)\b/,
       /\bquand il (pleut|fait chaud|fait froid|neige)\b/,
+      // Étape 3 (08/08) — la formulation owner « la pluie a fait fuir mes clients » : condition + verbe
+      // d'effet sur la clientèle (fuir/venir/dissuader), non couverte par les motifs CA ci-dessus.
+      /\b(pluie|chaleur|canicule|froid|neige|vent)\b.{0,50}(fait fuir|fuir|dissuade|empeche|retenu).{0,25}(clients?|visiteurs?|public|monde)/,
     ],
     run: weatherFamily,
   },
@@ -103,6 +107,13 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\bveille concurrentielle\b/,
       /(qui|lesquels?) (est-ce que |)je (surveille|suis)\b/,
       /(quels?|combien de) concurrents? (je |j ai |)(suis|surveille|follow)/,
+      // R2-2 (07/08) — generic « ils me prennent des clients ? » routes HERE (the measured verdict
+      // lives in this family), web discovery was inventing a competitor list. PLURAL verb only : a
+      // singular subject (« le musée d'Orsay me prend-il… ») is a NAMED entity and must keep the
+      // ENTITY_IMPACT web path (run measured : « les musées autour me prennent-ils des clients ? »
+      // → web_search inventant Marmottan/Palais de Tokyo, alors que l'impact mesuré répond).
+      /\b(me|nous) (prennent|piquent|volent)\b.{0,30}(clients?|visiteurs?|public|du monde)/,
+      /\b(les|ces) (musees|salles|lieux|etablissements|voisins|commerces)\b.{0,50}(prennent|captent|detournent).{0,30}(mes |nos |des )?(clients?|visiteurs?|public)/,
     ],
     run: competitorFamily,
   },
@@ -206,6 +217,11 @@ export const FAMILIES: Record<string, FamilyProvider> = {
     ],
     run: calendarFamily,
   },
+  // CHANNELS — « d'où vient l'argent, qui achète » (R1, docs/rapport-canaux-spec.md).
+  // DERNIER du registre à dessein : ses motifs exigent un mot de canal (boutique/grossiste/
+  // canal) ou de compte client explicite — il ne doit rien voler aux familles ventes/
+  // fréquentation qui matchent plus tôt. Périmètre : agrégats par canal + comptes nommés.
+  channels: channelsProvider,
 };
 
 // Accent-strip + lowercase so matchers are robust to "A quel moment" (no accent, as typed) vs "À".
@@ -221,6 +237,20 @@ export function familyForQuestion(question: string): FamilyProvider | null {
     if (fam.match.some((re) => re.test(q))) return fam;
   }
   return null;
+}
+
+// Étape 3 (planificateur, 08/08) — TOUTES les familles que la question touche, dans l'ordre du
+// registre (= l'ordre de priorité existant : la 1re EST celle que familyForQuestion renvoyait, donc
+// lead/carte inchangés). Cap 3 : au-delà, la question est trop vague pour un fan-out utile.
+export function familiesForQuestion(question: string, cap = 3): FamilyProvider[] {
+  const q = normQ(question);
+  const out: FamilyProvider[] = [];
+  for (const key of Object.keys(FAMILIES)) {
+    const fam = FAMILIES[key];
+    if (fam.match.some((re) => re.test(q))) out.push(fam);
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 export type { FamilyResult, FamilyFact, FamilyProvider } from "./types";

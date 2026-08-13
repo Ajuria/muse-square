@@ -301,6 +301,56 @@ window.MS_SALES_RECO_LIB = {
     ]
   },
 
+  // Client à cadence établie sans commande (chantier C1, 06/08/2026 — grain CLIENT,
+  // docs/client-patterns-spec.md). Pas de dimension driver : la carte constate une rupture
+  // de rythme, jamais sa cause — les plans font ÉTABLIR la cause avant de pousser du volume.
+  client_dormant: {
+    _default: [
+      { title: "Reprenez contact en direct — un appel, pas une relance écrite", description: "La personne qui connaît ce client l'appelle et pose la question ouvertement.", why: "Un compte régulier qui s'arrête a une raison — saisonnalité, friction, concurrent — et seul un échange direct la donne.", tag: "Relation", steps: ["Identifier qui, dans l'équipe, tient la relation avec ce client.", "L'appeler : demander simplement où il en est (pause saisonnière ? un souci ? un autre fournisseur ?).", "Noter la raison donnée — c'est elle qui décide de la suite."] },
+      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, réassort de ses références habituelles, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer un réassort ou la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
+      { title: "Si une friction sort de l'échange, traitez-la avant le volume", description: "Délais, transport, tarif, litige — régler d'abord, recommander ensuite.", why: "Relancer du volume sur une friction non traitée grille la relation ; la friction réglée, la commande revient d'elle-même.", tag: "Rétention", steps: ["Qualifier la friction exacte donnée par le client.", "La traiter ou proposer un geste — puis le dire explicitement au client.", "Reproposer ensuite une commande simple, sans pression."] },
+    ],
+  },
+
+  // Semaine de canal très en retrait (chantier C2, 07/08/2026 — docs/weekly-sales-spec.md).
+  // La carte constate un extrême (< 0,5× l'habitude), jamais sa cause — les plans font
+  // d'abord RECONSTITUER la semaine, puis agir sur ce qui se pilote au terme d'une semaine.
+  weekly_sales_hole: {
+    _default: [
+      { title: "Reconstituez la semaine avant d'agir", description: "Fermetures, absence, travaux, contexte local — poser les faits de la semaine.", why: "Un trou de moitié a presque toujours une cause concrète ; agir sans elle, c'est corriger au hasard.", tag: "Diagnostic", steps: ["Lister les jours ouverts/fermés de la semaine et qui était présent.", "Noter tout événement local ou contrainte (travaux, météo marquante, panne).", "Trancher : cause interne, externe, ou inexpliquée — c'est elle qui décide de la suite."] },
+      { title: "Ajustez les achats au creux identifié", description: "Si le creux est saisonnier ou récurrent, caler les commandes dessus.", why: "Les achats sont le levier qu'un exploitant maîtrise à ce terme — pas l'affluence.", tag: "Achats" },
+      { title: "Planifiez une animation sur le prochain creux du même type", description: "Mise en avant, offre datée, prise de parole locale — testée et mesurée.", why: "Un creux récurrent identifié devient une fenêtre d'action planifiable, pas une surprise.", tag: "Animation" },
+    ],
+  },
+
+  // Semaine de canal exceptionnelle (chantier C2) — capturer ce qui a marché.
+  weekly_sales_spike: {
+    _default: [
+      { title: "Identifiez ce qui a porté la semaine", description: "Grosse vente, client, opération, contexte — le nommer précisément.", why: "Un pic a une cause ; non identifiée, elle ne se rejouera que par hasard.", tag: "Diagnostic", steps: ["Regarder les plus grosses ventes de la semaine et qui les a faites.", "Noter ce qui différait : opération en cours, contexte, visite particulière.", "Écrire la cause en une phrase — c'est votre bonne pratique candidate."] },
+      { title: "Sécurisez le réassort de ce qui s'est vendu", description: "Les références qui ont porté le pic ne doivent pas manquer ensuite.", why: "Une rupture après un pic transforme la demande captée en frustration.", tag: "Réassort" },
+      { title: "Rejouez la cause sciemment — et mesurez", description: "Si c'est reproductible (opération, mise en avant), la reprogrammer avec un objectif.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer en le mesurant.", tag: "À reconduire" },
+    ],
+  },
+
+  // Mois de canal très en retrait (chantier C3, 07/08/2026 — docs/monthly-sales-spec.md).
+  // Grain mois = canal pro : le levier est la revue de COMPTES, pas l'animation du point de vente.
+  monthly_sales_hole: {
+    _default: [
+      { title: "Passez les comptes du mois en revue", description: "Qui commande d'habitude et n'a pas commandé ce mois-ci — nommer les absents.", why: "Un mois pro en retrait est la somme de comptes précis ; la revue les nomme, le grain client dit qui relancer.", tag: "Diagnostic", steps: ["Comparer les comptes du mois aux comptes habituels (top_parties des mois passés).", "Croiser avec les cartes clients (dormants) — la relance est peut-être déjà proposée.", "Noter les absents inexpliqués : ce sont les appels de la semaine."] },
+      { title: "Vérifiez les délais et les en-cours", description: "Commandes en attente, litiges, livraisons décalées — un retrait est parfois un décalage.", why: "Chez des clients en compte, un mois creux est souvent du CA déplacé, pas perdu — le confirmer évite une fausse alerte.", tag: "Opérations" },
+      { title: "Planifiez une prise de contact groupée", description: "Tournée d'appels ou visite des comptes clés du canal, datée.", why: "La relation est le levier du canal pro — une tournée datée vaut mieux qu'une inquiétude diffuse.", tag: "Relation" },
+    ],
+  },
+
+  // Mois de canal exceptionnel (chantier C3) — comprendre compte par compte, puis sécuriser.
+  monthly_sales_spike: {
+    _default: [
+      { title: "Comprenez chaque gros compte du mois", description: "Commande unique, projet, ou nouveau rythme ? Le qualifier compte par compte.", why: "Un pic pro porté par 2-3 comptes n'a de suite que si on sait lequel va recommander.", tag: "Diagnostic", steps: ["Reprendre les comptes de la carte (top_parties) un par un.", "Qualifier : ponctuel (projet) ou début de rythme (réassort attendu ?).", "Pour les rythmes naissants : noter la cadence attendue — le grain client la surveillera."] },
+      { title: "Sécurisez le réassort de ce qu'ils achètent", description: "Les références des gros comptes du mois ne doivent pas manquer au réachat.", why: "Une rupture au moment du réachat casse un rythme naissant.", tag: "Réassort" },
+      { title: "Capitalisez sur la référence", description: "Un gros compte satisfait est un argument commercial — demander le témoignage ou la mise en relation.", why: "Dans le B2B, la preuve par un pair ouvre plus de portes que la prospection froide.", tag: "Développement" },
+    ],
+  },
+
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
     _default: [

@@ -50,9 +50,16 @@ function loadClient(): { ACTION_CARDS: Record<string, any>; MS_SALES_RECO_LIB: R
 
 const hasRecos = (AC: Record<string, any>, t: string) => typeof AC[t]?.recos === "function";
 
-// Les types couverts (7 au 31/07, +weekend_vacation_low_comp le 01/08). Ne doit que GRANDIR.
+// Les types couverts (7 au 31/07, +weekend_vacation_low_comp le 01/08, +client_dormant le
+// 06/08 — C1, +weekly_sales_hole/spike le 07/08 — C2 ; chacun arrivé AVEC ses plans comme
+// le cliquet l'exige). Ne doit que GRANDIR.
 const COUVERTS_ACQUIS = [
+  "client_dormant",
   "footfall_vs_basket_decomposition",
+  "monthly_sales_hole",
+  "monthly_sales_spike",
+  "weekly_sales_hole",
+  "weekly_sales_spike",
   "low_competition_window",
   "sales_competition_cannibalization",
   "sales_discount_no_lift",
@@ -149,7 +156,11 @@ test("chat_decision_* sont les SEULS types de l'allowlist absents du registre SP
   // type NON-chat venait à manquer de SPECS, l'exclusion ci-dessous deviendrait un trou.
   const { ACTION_CARDS } = loadClient();
   const absents = [...COMMITMENT_ORIGIN_ACTION_TYPES].filter((t) => !ACTION_CARDS[t]).sort();
-  expect(absents.every((t) => t.startsWith("chat_decision_"))).toBe(true);
+  // 06/08 (constaté 07/08, rouge depuis le P2 96fc52f) : onboarding_first_test est un origin
+  // de GESTE (aline du tableau « Engagez votre premier test mesuré »), pas une carte — aucun
+  // SPECS possible, même nature que chat_decision_*. Exclusion vérifiée, pas supposée.
+  const GESTE_ORIGINS = new Set(["onboarding_first_test"]);
+  expect(absents.every((t) => t.startsWith("chat_decision_") || GESTE_ORIGINS.has(t))).toBe(true);
 });
 
 test("le câblage DÉRIVE des clés de la bibliothèque — une entrée suffit, sans second geste", () => {

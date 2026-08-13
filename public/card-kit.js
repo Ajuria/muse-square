@@ -371,6 +371,201 @@
 
   // Footfall (Bucket A) — the "when" of your business, SALES-ANCHORED. Leads on hourly revenue (your
   // money-clock), with BestTime as a secondary cross-check that gets flagged when it diverges.
+
+  // ── CHANNELS — « Vos canaux » (R1, spec docs/rapport-canaux-spec.md ; proto v5 validé owner).
+  // Données du provider channels (channelsData) : hiérarchie Groupe → Site → Canal, 4 questions,
+  // semaines (états du détecteur des cartes), mois + top comptes, listes de comptes + totaux.
+  // Une couleur par graphique + mise en avant sélective ; jamais de ~ ; fr-FR partout.
+  function msChanPie(pct) { return '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px;background:conic-gradient(#1D3BB3 ' + Math.max(0, Math.min(100, pct)) + '%, #E5E7EB 0);"></span>'; }
+  function msChanEtat(etat, label) {
+    if (!label || etat === 'stable') return '';
+    var st = etat === 'down' ? 'background:#FEE2E2;color:#991B1B;' : 'background:#E6F6F0;color:#059669;';
+    return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;' + st + '">' + esc(label) + '</span>';
+  }
+  function msChanUc(t) { return '<div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:600;margin:18px 0 10px;">' + esc(t) + '</div>'; }
+  var MSCHAN_TD = 'padding:7px 10px;border-bottom:1px solid #f3f4f6;font-size:13.5px;';
+  var MSCHAN_TDN = MSCHAN_TD + 'text-align:right;font-variant-numeric:tabular-nums;';
+  var MSCHAN_TH = 'text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:600;padding:6px 10px;border-bottom:1px solid #e5e7eb;';
+  function msChanEvol(p) {
+    if (p == null) return '<td style="' + MSCHAN_TDN + '"></td>';
+    var c = p <= -15 ? '#B45309' : (p >= 15 ? '#059669' : '#374151');
+    return '<td style="' + MSCHAN_TDN + 'color:' + c + ';font-weight:600;">' + msPct(p) + '</td>';
+  }
+  function msMoisFr(iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(5, 7) + '/' + d.slice(0, 4) : ''; }
+  function msJJMM(iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) : ''; }
+
+  function renderChannels(j) {
+    if (!j || !j.found) return '';
+    var html = '';
+    var per = 'du ' + msJJMM(j.period.start) + ' au ' + msJJMM(j.period.end);
+
+    // ── Les 4 questions ──
+    var qq = j.quatre_questions || {};
+    html += '<div style="background:#F8F9FB;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.6;">'
+      + (qq.argent ? '<b>D\u2019o\u00f9 vient l\u2019argent :</b> ' + esc(qq.argent) + '<br>' : '')
+      + (qq.marche ? '<b>Ce qui marche :</b> ' + esc(qq.marche) + '<br>' : '')
+      + (qq.marche_pas ? '<b>Ce qui ne marche pas :</b> ' + esc(qq.marche_pas) + '<br>' : '')
+      + (qq.a_faire ? '<b>\u00c0 faire :</b> ' + esc(qq.a_faire) : '')
+      + '</div>';
+
+    // ── Tableau Groupe → Site → Canal ──
+    html += '<table style="border-collapse:collapse;width:100%;margin-bottom:8px;">'
+      + '<tr><th style="' + MSCHAN_TH + '">Site / canal</th><th style="' + MSCHAN_TH + 'text-align:right;">CA</th><th style="' + MSCHAN_TH + 'text-align:right;">Part</th><th style="' + MSCHAN_TH + 'text-align:right;">vs p\u00e9riode pr\u00e9c.</th><th style="' + MSCHAN_TH + 'text-align:right;">Factures</th><th style="' + MSCHAN_TH + '">\u00c9tat</th></tr>';
+    var multiSite = j.sites.length > 1;
+    for (var si = 0; si < j.sites.length; si++) {
+      var st = j.sites[si];
+      if (multiSite || !st.single_flow) {
+        var bold = multiSite ? 'font-weight:700;' : '';
+        html += '<tr style="' + (multiSite ? 'background:#F8F9FB;' : '') + '">'
+          + '<td style="' + MSCHAN_TD + bold + '">' + esc(st.site_name) + '</td>'
+          + '<td style="' + MSCHAN_TDN + bold + '">' + frInt(Math.round(st.ca)) + ' \u20ac</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + msChanPie(st.share_pct) + st.share_pct + ' %</td>'
+          + msChanEvol(st.evol_pct)
+          + '<td style="' + MSCHAN_TDN + '">' + st.invoices + '</td>'
+          + '<td style="' + MSCHAN_TD + '">' + (st.single_flow ? msChanEtat(st.etat, st.etat_label) : '') + '</td></tr>';
+      }
+      for (var ci = 0; ci < st.channels.length; ci++) {
+        var c = st.channels[ci];
+        html += '<tr>'
+          + '<td style="' + MSCHAN_TD + 'padding-left:26px;">' + esc(c.label) + '</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + frInt(Math.round(c.ca)) + ' \u20ac</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + msChanPie(c.share_pct) + c.share_pct + ' %</td>'
+          + msChanEvol(c.evol_pct)
+          + '<td style="' + MSCHAN_TDN + '">' + c.invoices + '</td>'
+          + '<td style="' + MSCHAN_TD + '">' + msChanEtat(c.etat, c.etat_label) + '</td></tr>';
+      }
+    }
+    if (multiSite) {
+      html += '<tr style="border-top:2px solid #e5e7eb;">'
+        + '<td style="' + MSCHAN_TD + 'font-weight:700;">Total</td>'
+        + '<td style="' + MSCHAN_TDN + 'font-weight:700;">' + frInt(Math.round(j.total.ca)) + ' \u20ac</td>'
+        + '<td style="' + MSCHAN_TDN + '">100 %</td>'
+        + msChanEvol(j.total.evol_pct)
+        + '<td style="' + MSCHAN_TDN + '">' + j.total.invoices + '</td><td style="' + MSCHAN_TD + '"></td></tr>';
+    }
+    html += '</table>';
+    html += '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-bottom:6px;">P\u00e9riode ' + esc(per) + '. Pas de colonne \u00ab objectif \u00bb tant qu\u2019aucun engagement par canal n\u2019en d\u00e9clare.</div>';
+
+    // ── Semaines par canal hebdo (une couleur + mise en avant sélective) ──
+    for (var wi = 0; wi < (j.weekly || []).length; wi++) {
+      var wk = j.weekly[wi];
+      html += msChanUc(wk.label + ' \u2014 les ' + wk.weeks.length + ' semaines de la p\u00e9riode');
+      html += '<div data-chan-wkwrap="' + wi + '">'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'
+        + ['bestworst|Meilleure et pire', 'top3|3 meilleures', 'worst3|3 pires', 'remarq|Semaines remarquables'].map(function (o, oi) {
+            var p2 = o.split('|');
+            return '<button type="button" data-chan-wkmode="' + p2[0] + '" style="font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid ' + (oi === 0 ? '#1D3BB3' : '#e5e7eb') + ';background:' + (oi === 0 ? '#EEF2FF' : '#fff') + ';color:' + (oi === 0 ? '#1D3BB3' : '#374151') + ';font-family:inherit;cursor:pointer;' + (oi === 0 ? 'font-weight:600;' : '') + '">' + p2[1] + '</button>';
+          }).join('')
+        + '</div>';
+      var maxCa = 1;
+      for (var x = 0; x < wk.weeks.length; x++) maxCa = Math.max(maxCa, wk.weeks[x].ca);
+      html += '<div style="display:flex;align-items:flex-end;gap:4px;height:96px;">';
+      for (var x2 = 0; x2 < wk.weeks.length; x2++) {
+        var w = wk.weeks[x2];
+        var h = Math.max(6, Math.round((w.ca / maxCa) * 66));
+        html += '<div data-chan-wk data-ca="' + w.ca + '" data-state="' + esc(w.state) + '" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;">'
+          + '<div data-chan-val style="font-size:9px;color:#1D3BB3;font-weight:700;white-space:nowrap;visibility:hidden;">' + frInt(Math.round(w.ca)) + ' \u20ac</div>'
+          + '<div data-chan-bar style="width:100%;background:#1D3BB3;border-radius:3px 3px 0 0;opacity:.25;height:' + h + 'px;"></div>'
+          + '<div style="font-size:9px;color:#9ca3af;white-space:nowrap;">' + msJJMM(w.week_start) + '</div>'
+          + '</div>';
+      }
+      html += '</div>';
+      if (wk.typical != null) html += '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Semaine type : ' + frInt(wk.typical) + ' \u20ac (m\u00e9diane des 6 derni\u00e8res).</div>';
+      html += '</div>';
+    }
+
+    // ── Mois par canal mensuel (+ top comptes du mois) ──
+    for (var mi = 0; mi < (j.monthly || []).length; mi++) {
+      var mo = j.monthly[mi];
+      html += msChanUc(mo.label + ' \u2014 les mois, et qui les porte');
+      html += '<table style="border-collapse:collapse;width:100%;margin-bottom:8px;">'
+        + '<tr><th style="' + MSCHAN_TH + '">Mois</th><th style="' + MSCHAN_TH + 'text-align:right;">CA</th><th style="' + MSCHAN_TH + 'text-align:right;">Factures</th><th style="' + MSCHAN_TH + '">Principaux comptes</th></tr>';
+      for (var mx = 0; mx < mo.months.length; mx++) {
+        var m = mo.months[mx];
+        html += '<tr><td style="' + MSCHAN_TD + '">' + msMoisFr(m.month_start) + '</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + frInt(Math.round(m.ca)) + ' \u20ac</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + m.invoices + '</td>'
+          + '<td style="' + MSCHAN_TD + 'font-size:12px;color:#6B7280;">' + esc(m.top_parties || '') + '</td></tr>';
+      }
+      html += '<tr style="border-top:2px solid #e5e7eb;"><td style="' + MSCHAN_TD + 'font-weight:700;">Total</td>'
+        + '<td style="' + MSCHAN_TDN + 'font-weight:700;">' + frInt(Math.round(mo.total.ca)) + ' \u20ac</td>'
+        + '<td style="' + MSCHAN_TDN + 'font-weight:700;">' + mo.total.invoices + '</td><td style="' + MSCHAN_TD + '"></td></tr>'
+        + '</table>';
+    }
+
+    // ── Comptes de la période ──
+    for (var ai = 0; ai < (j.accounts || []).length; ai++) {
+      var ac = j.accounts[ai];
+      html += msChanUc(ac.label + ' \u2014 les comptes de la p\u00e9riode (' + ac.total.count + ')');
+      html += '<table style="border-collapse:collapse;width:100%;margin-bottom:8px;">'
+        + '<tr><th style="' + MSCHAN_TH + '">Compte</th><th style="' + MSCHAN_TH + 'text-align:right;">CA</th><th style="' + MSCHAN_TH + 'text-align:right;">Part du canal</th><th style="' + MSCHAN_TH + 'text-align:right;">Commandes</th></tr>';
+      for (var ax = 0; ax < ac.rows.length; ax++) {
+        var arow = ac.rows[ax];
+        html += '<tr><td style="' + MSCHAN_TD + '">' + esc(arow.label) + '</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + frInt(Math.round(arow.ca)) + ' \u20ac</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + msChanPie(arow.share_pct) + (arow.share_pct < 1 ? '&lt;1' : arow.share_pct) + ' %</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + arow.invoices + '</td></tr>';
+      }
+      if (ac.others) {
+        html += '<tr><td style="' + MSCHAN_TD + 'color:#6b7280;">Autres \u2014 ' + ac.others.count + ' comptes</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + frInt(Math.round(ac.others.ca)) + ' \u20ac</td>'
+          + '<td style="' + MSCHAN_TDN + '">' + msChanPie(ac.others.share_pct) + ac.others.share_pct + ' %</td>'
+          + '<td style="' + MSCHAN_TDN + '"></td></tr>';
+      }
+      html += '<tr style="border-top:2px solid #e5e7eb;"><td style="' + MSCHAN_TD + 'font-weight:700;">Total \u2014 ' + ac.total.count + ' comptes</td>'
+        + '<td style="' + MSCHAN_TDN + 'font-weight:700;">' + frInt(Math.round(ac.total.ca)) + ' \u20ac</td>'
+        + '<td style="' + MSCHAN_TDN + '">100 %</td>'
+        + '<td style="' + MSCHAN_TDN + 'font-weight:700;">' + ac.total.invoices + '</td></tr>'
+        + '</table>';
+    }
+
+    html += '<div style="font-size:12px;color:#6B7280;border-top:1px solid #f3f4f6;padding-top:12px;margin-top:8px;">' + esc(j.pied || '') + '</div>';
+    return html;
+  }
+
+  // Mise en avant sélective des semaines — une couleur, un critère (proto v5). Délégué une fois.
+  function msChanApplyWkMode(wrap, mode) {
+    var bars = Array.prototype.slice.call(wrap.querySelectorAll('[data-chan-wk]'));
+    if (!bars.length) return;
+    var cas = bars.map(function (b) { return Number(b.getAttribute('data-ca')); });
+    var sorted = cas.slice().sort(function (a, b) { return a - b; });
+    var on = bars.map(function () { return false; });
+    if (mode === 'bestworst') {
+      var mx = Math.max.apply(null, cas), mn = Math.min.apply(null, cas);
+      on = cas.map(function (v) { return v === mx || v === mn; });
+    } else if (mode === 'top3') {
+      var t3 = sorted.slice(-3);
+      on = cas.map(function (v) { return t3.indexOf(v) >= 0; });
+    } else if (mode === 'worst3') {
+      var w3 = sorted.slice(0, 3);
+      on = cas.map(function (v) { return w3.indexOf(v) >= 0; });
+    } else if (mode === 'remarq') {
+      on = bars.map(function (b) { var st2 = b.getAttribute('data-state'); return st2 === 'hole' || st2 === 'spike' || st2 === 'low' || st2 === 'high'; });
+    }
+    bars.forEach(function (b, i) {
+      b.querySelector('[data-chan-bar]').style.opacity = on[i] ? '1' : '.25';
+      b.querySelector('[data-chan-val]').style.visibility = on[i] ? 'visible' : 'hidden';
+    });
+    wrap.querySelectorAll('[data-chan-wkmode]').forEach(function (btn) {
+      var act = btn.getAttribute('data-chan-wkmode') === mode;
+      btn.style.borderColor = act ? '#1D3BB3' : '#e5e7eb';
+      btn.style.background = act ? '#EEF2FF' : '#fff';
+      btn.style.color = act ? '#1D3BB3' : '#374151';
+      btn.style.fontWeight = act ? '600' : '400';
+    });
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-chan-wkmode]') : null;
+      if (!btn) return;
+      var wrap = btn.closest('[data-chan-wkwrap]');
+      if (wrap) msChanApplyWkMode(wrap, btn.getAttribute('data-chan-wkmode'));
+    });
+    document.addEventListener('ms-cardkit-rendered', function () {
+      document.querySelectorAll('[data-chan-wkwrap]').forEach(function (w) { msChanApplyWkMode(w, 'bestworst'); });
+    });
+  }
+
   function renderFootfall(j) {
     if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de données de ventes horaires pour ce lieu.</div>';
     var html = '';
@@ -1065,6 +1260,23 @@
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }
 
+  // Segments of a `sourced` block: validated answer text through the SAME safe pipeline as `prose`
+  // (identical typography — the chip is the only addition); the chip row pulls up against the
+  // paragraph's own 14px bottom margin. A segment with no chips renders as plain prose.
+  function sourcedSegmentsHtml(segs) {
+    return segs.map(function (s) {
+      if (!s || !s.md) return '';
+      var chips = (Array.isArray(s.chips) ? s.chips : []).filter(function (c) { return c && typeof c === 'string'; })
+        .map(function (c) {
+          return '<span style="display:inline-block;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;letter-spacing:.03em;margin-right:4px;">' + esc(c) + '</span>';
+        }).join('');
+      return '<div>'
+        + mdBlockToSafeHtml(s.md)
+        + (chips ? '<div style="margin:-9px 0 12px 0;">' + chips + '</div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
   var AB_PRIMITIVES = {
     register: function (b) { return abRegister(b.register, b.facts_cited); },
     // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
@@ -1077,6 +1289,32 @@
       return '<div style="font-size:13px;color:#111827;margin-bottom:10px;line-height:1.6;">' + mdInlineKit(esc(b.text)) + '</div>';
     },
     prose: function (b) { return mdBlockToSafeHtml(b.md); },
+    // Attribution par section (Étape 1, docs/explorer-attribution-spec.md — owner 07/08 : chip en fin
+    // de section). Each segment = validated answer text + the origin chips of the facts ITS OWN
+    // sentence_provenance entry cites (labels resolved server-side from the owner fr file). A segment
+    // with no chips renders as plain prose — no chip beats a wrong chip. Chips are display-only and
+    // NEVER upgrade the answer-level register pill.
+    sourced: function (b) {
+      var segs = Array.isArray(b.segments) ? b.segments : [];
+      var inner = sourcedSegmentsHtml(segs);
+      // R2-5 (owner direction 07/08 : « everything upgraded to the block/card look ») — card:true wraps
+      // the chipped sections in the quiet card container (values from the existing card family: 0.5px
+      // #e5e7eb border, 10px radius). Content unchanged — the container is the only addition.
+      if (b.card && inner) {
+        return '<div style="border:0.5px solid #e5e7eb;border-radius:10px;padding:12px 14px 4px 14px;background:#fff;margin:0 0 10px 0;">' + inner + '</div>';
+      }
+      return inner;
+    },
+    // R2-5 — the REAL fired action card's line (ai.output.suggested_action — server-attached, never
+    // model-authored), as the action row of the day-answer anatomy. Blue rail values copied from the
+    // datecards primitive (#B5D4F4 / #378ADD / #0C447C) — no invented colors.
+    action: function (b) {
+      if (!b.text) return '';
+      return '<div style="border:0.5px solid #B5D4F4;border-left:3px solid #378ADD;border-radius:0 8px 8px 0;padding:9px 12px;margin:0 0 10px 0;background:#fff;">'
+        + '<div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#0C447C;margin-bottom:3px;">Action du jour</div>'
+        + '<div style="font-size:14px;line-height:1.5;color:#111827;">' + mdInlineKit(esc(b.text)) + '</div>'
+        + '</div>';
+    },
     // .ie-ai-list
     facts: function (b) {
       if (!b.items || !b.items.length) return '';
@@ -1149,6 +1387,26 @@
         + '<div style="font-size:15px;line-height:1.55;color:#111827;">' + mdBlockToSafeHtml(b.md) + '</div>'
         + '</div>';
     },
+    // ÉTAPE 5 — le contexte WEB du jour : boîte ambre « Web — non vérifié » (valeurs du segment web),
+    // takeaway + facteurs nommés + SOURCES CLIQUABLES (https uniquement, hostname en libellé,
+    // rel=noopener — seule place du chat où un lien externe existe). Ne monte JAMAIS la pilule.
+    websources: function (b) {
+      var d = b.data || {};
+      var factors = (Array.isArray(d.key_factors) ? d.key_factors : []).filter(Boolean);
+      var links = (Array.isArray(d.sources) ? d.sources : [])
+        .filter(function (u) { return typeof u === 'string' && u.indexOf('https://') === 0; })
+        .map(function (u) {
+          var label = u; try { label = new URL(u).hostname.replace(/^www\./, ''); } catch (e) {}
+          return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:2px 8px 0 0;font-size:11px;color:#A65A00;text-decoration:underline;">' + esc(label) + '</a>';
+        }).join('');
+      if (!d.takeaway && !factors.length) return '';
+      return '<div style="border:1px solid #EFD5A8;background:#FBF0DF;border-radius:10px;padding:10px 12px;margin:0 0 10px;">'
+        + '<div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A65A00;margin-bottom:5px;">Web — non vérifié</div>'
+        + (d.takeaway ? '<div style="font-size:14px;line-height:1.55;color:#111827;margin-bottom:4px;">' + mdInlineKit(esc(d.takeaway)) + '</div>' : '')
+        + (factors.length ? '<ul style="margin:0 0 4px 16px;padding:0;">' + factors.map(function (f) { return '<li style="font-size:13px;margin:3px 0;">' + mdInlineKit(esc(f)) + '</li>'; }).join('') + '</ul>' : '')
+        + (links ? '<div>' + links + '</div>' : '')
+        + '</div>';
+    },
     // family card — delegates to the existing renderers, unchanged
     card: function (b) {
       var fn = window.MSCardKit && window.MSCardKit[b.render];
@@ -1193,6 +1451,6 @@
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
   };
 })();

@@ -1795,6 +1795,129 @@
     }
   );
 
+  // client_dormant — grain CLIENT (chantier C1, docs/client-patterns-spec.md). Payload :
+  // party_code, party_label, orders_count, median_interval_days, silence_days, lateness_ratio,
+  // total_revenue, first_order, last_order, data_end (dates ISO). Cadence et silence sont
+  // MESURÉS sur les factures du client — jamais de cause inventée : la carte constate la
+  // rupture de rythme et pousse la reprise de contact, elle ne dit pas pourquoi.
+  reg('client_dormant', 'Client régulier sans commande', 'INTELLIGENCE', '📇', '#0F766E', 'action', null,
+    function(a, p, d) {
+      var nb = a.orders_count != null ? Number(a.orders_count) : null;
+      var itv = a.median_interval_days != null ? Number(a.median_interval_days) : null;
+      var sil = a.silence_days != null ? Number(a.silence_days) : null;
+      var ratio = a.lateness_ratio != null ? Number(a.lateness_ratio) : null;
+      var ca = a.total_revenue != null ? Math.round(Number(a.total_revenue)) : null;
+      var who = a.party_label || a.party_code || 'Ce client';
+      var line = who + ' : ' + (nb != null ? nb + ' commandes' : 'client régulier') + (itv != null ? ', une tous les ~' + itv + ' j' : '') + ' — silencieux depuis ' + (sil != null ? sil + ' jours' : 'plusieurs semaines') + (ratio != null ? ' (' + String(ratio).replace('.', ',') + '× son rythme)' : '') + '.';
+      if (ca != null) line += ' ' + ca.toLocaleString('fr-FR') + ' € sur la période' + (a.last_order ? ', dernière commande le ' + msEvFrD(a.last_order) : '') + '.';
+      else if (a.last_order) line += ' Dernière commande le ' + msEvFrD(a.last_order) + '.';
+      if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+      return {
+        context: line,
+        action: 'À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        var who = a.party_label || a.party_code || 'client';
+        var itv = a.median_interval_days != null ? '~' + a.median_interval_days + ' j' : 'régulier';
+        return 'Note interne ' + siteName(p) + '. ' + who + ' (rythme ' + itv + ') sans commande depuis ' + (a.silence_days != null ? a.silence_days + ' jours' : 'plusieurs semaines') + '. Qui a le contact ? Reprise de contact à faire cette semaine, en direct.';
+      },
+      email: function(a, p) {
+        var who = a.party_label || a.party_code || 'client';
+        return 'Email interne ' + siteName(p) + '. Objet : ' + who + ' — rupture de rythme de commande. Silence de ' + (a.silence_days != null ? a.silence_days + ' jours' : 'plusieurs semaines') + (a.total_revenue != null ? ' sur un compte à ' + Math.round(Number(a.total_revenue)).toLocaleString('fr-FR') + ' €' : '') + '. Qui le connaît, qui le rappelle ?';
+      }
+    }
+  );
+
+  // weekly_sales_hole / weekly_sales_spike — grain SEMAINE par canal (chantier C2,
+  // docs/weekly-sales-spec.md). Payload : channel_key, week_start/week_end (ISO), ca,
+  // active_days, baseline_median, baseline_weeks, week_ratio, data_end. Le détecteur ne
+  // tire que sur une semaine EXTRÊME (< 0,5× / > 2× la médiane des 6 précédentes) d'un
+  // canal jugeable — ~8-9 fois par an mesuré ; la carte constate, la cause s'établit.
+  function msWkChannelFr(a) { return a.channel_key === 'comptoir' ? 'comptoir' : (a.channel_key === '__site__' ? 'du site' : String(a.channel_key || '')); }
+  function msWkLine(a, sens) {
+    var ca = a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') : '?';
+    var base = a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') : '?';
+    var line = 'Semaine du ' + msEvFrD(a.week_start) + ' au ' + msEvFrD(a.week_end) + ' (' + msWkChannelFr(a) + ') : ' + ca + ' €'
+      + (a.active_days != null ? ' sur ' + a.active_days + ' jours actifs' : '') + ' — '
+      + (sens === 'hole' ? 'moins de la moitié' : 'plus du double') + ' de vos ' + (a.baseline_weeks || 6)
+      + ' dernières semaines (médiane ' + base + ' €).';
+    if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+    return line;
+  }
+  reg('weekly_sales_hole', 'Semaine très en retrait', 'INTELLIGENCE', '📉', '#B45309', 'action', null,
+    function(a) {
+      return {
+        context: msWkLine(a, 'hole'),
+        action: 'À faire : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Semaine du ' + msEvFrD(a.week_start) + ' (' + msWkChannelFr(a) + ') très en retrait : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA en retrait') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Qu’est-ce qui s’est passé cette semaine-là ? À reconstituer ensemble.'
+      }
+    }
+  );
+  reg('weekly_sales_spike', 'Semaine exceptionnelle', 'INTELLIGENCE', '📈', '#0F6E56', 'action', null,
+    function(a) {
+      return {
+        context: msWkLine(a, 'spike'),
+        action: 'À faire : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Semaine du ' + msEvFrD(a.week_start) + ' (' + msWkChannelFr(a) + ') exceptionnelle : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA record') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Qui sait ce qui a porté la semaine ? À noter pour le refaire.'
+      }
+    }
+  );
+
+  // monthly_sales_hole / monthly_sales_spike — grain MOIS par canal (chantier C3,
+  // docs/monthly-sales-spec.md). Payload : channel_key, month_start (ISO), ca, invoices,
+  // active_days, baseline_median, baseline_months, month_ratio, top_parties, data_end.
+  // Escalade des grains : ne tire que sur un canal jugeable au mois (pro Olivades — 2 fois
+  // en 11 mois mesuré). top_parties (les 3 comptes du mois) = le différenciateur.
+  function msMoChannelFr(a) { return a.channel_key === 'direct' ? 'clients en compte' : (a.channel_key === '__site__' ? 'du site' : String(a.channel_key || '')); }
+  function msMoFr(iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(5, 7) + '/' + d.slice(0, 4) : ''; }
+  function msMoLine(a, sens) {
+    var ca = a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') : '?';
+    var base = a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') : '?';
+    var line = msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') : ' + ca + ' €'
+      + (a.invoices != null ? ' sur ' + a.invoices + ' factures' : '') + ' — '
+      + (sens === 'hole' ? 'moins de la moitié' : 'plus du double') + ' de vos ' + (a.baseline_months || 6)
+      + ' derniers mois (médiane ' + base + ' €).';
+    if (a.top_parties) line += ' ' + (sens === 'hole' ? 'Principaux comptes du mois : ' : 'Porté par : ') + a.top_parties + '.';
+    if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
+    return line;
+  }
+  reg('monthly_sales_hole', 'Mois très en retrait', 'INTELLIGENCE', '📉', '#B45309', 'action', null,
+    function(a) {
+      return {
+        context: msMoLine(a, 'hole'),
+        action: 'À faire : passer les comptes du mois en revue — qui n’a pas commandé, et pourquoi ? Le grain client (cartes clients) dit qui relancer.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Mois ' + msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') très en retrait : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA en retrait') + ' vs ' + (a.baseline_median != null ? Math.round(Number(a.baseline_median)).toLocaleString('fr-FR') + ' € habituels' : 'l’habitude') + '. Revue des comptes du mois à faire ensemble.'
+      }
+    }
+  );
+  reg('monthly_sales_spike', 'Mois exceptionnel', 'INTELLIGENCE', '📈', '#0F6E56', 'action', null,
+    function(a) {
+      return {
+        context: msMoLine(a, 'spike'),
+        action: 'À faire : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et sécuriser le réassort de ce qu’ils achètent.'
+      };
+    },
+    {
+      note_interne: function(a, p) {
+        return 'Note interne ' + siteName(p) + '. Mois ' + msMoFr(a.month_start) + ' (' + msMoChannelFr(a) + ') exceptionnel : ' + (a.ca != null ? Math.round(Number(a.ca)).toLocaleString('fr-FR') + ' €' : 'CA record') + (a.top_parties ? ', porté par ' + a.top_parties : '') + '. À comprendre compte par compte pour le refaire.'
+      }
+    }
+  );
+
   // ═══ CARTES DE CYCLE DE VIE DES ÉVÉNEMENTS (03/08, spec evenement-dossier § 5) ═══
   // Payload serveur (lib/eventLifecycleCards) : occurrence_date, saved_item_id, event_title,
   // dispositif, event_nature, hour_start/end, kpi(_family), weather_label_fr/lvl_*, revenue/
@@ -1839,7 +1962,7 @@
       var line = '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb hier ' + msEvFrD(a.occurrence_date) + ' : ';
       if (a.revenue != null && a.expected != null) {
         var g = Number(a.gap_eur || 0);
-        line += 'CA ' + Math.round(Number(a.revenue)) + ' \u20ac contre ' + Math.round(Number(a.expected)) + ' \u20ac attendu du jour (' + (g >= 0 ? '+' : '\u2212') + Math.abs(Math.round(g)) + ' \u20ac).';
+        line += 'CA ' + Math.round(Number(a.revenue)) + ' \u20ac contre ' + Math.round(Number(a.expected)) + ' \u20ac habituel du jour (' + (g >= 0 ? '+' : '\u2212') + Math.abs(Math.round(g)) + ' \u20ac).';
       } else {
         line += 'ventes pas encore ing\u00e9r\u00e9es \u2014 le mesur\u00e9 arrive avec l\u2019import.';
       }
@@ -1873,7 +1996,7 @@
       // Écart € DU JOUR (01/08) : même règle que sales_revenue_down_wow — référentiel nommé.
       var gapJ = (rev != null && exp != null) ? rev - exp : null;
       var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + exp + ' €).' : '.');
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + exp + ' €).' : '.');
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
@@ -2002,11 +2125,11 @@
       var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
       // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
-      // nommé « l'attendu du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
+      // nommé « l'habituel du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
       var expD = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
       var gapJ = (rev != null && expD != null) ? rev - expD : null;
       var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'attendu du jour (' + expD + ' €).' : '.');
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + expD + ' €).' : '.');
       if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {
@@ -2822,7 +2945,8 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'footfall_vs_basket_decomposition'] },
+          'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
+          'monthly_sales_hole', 'monthly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},

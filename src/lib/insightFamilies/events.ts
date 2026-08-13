@@ -44,6 +44,100 @@ type DensityContrast = ImpactContrast & {
   label_fr: string;
 };
 
+// Facts + card block from the density measurement — ONE phrasing for the card AND the day answers.
+// Quantified deltas carry claim_type observed_difference + tier (causal upgrade only under rule 3bis);
+// a below-gate result is stated WITH its numbers (a measured null IS the verdict); cold start states WHY.
+function eventDensityImpactOutputs(impact: { days: number; contrasts: DensityContrast[] } | null) {
+  const facts: FamilyFact[] = [];
+  const rows: Array<{ label: string; verdict_fr: string; detail_fr: string; measurable: boolean }> = [];
+  if (impact && impact.contrasts.length) {
+    for (const c of impact.contrasts) {
+      const lowSide = c.lo === 0 ? "sans" : `à ≤ ${c.lo}`;
+      const detail = `${c.n_high} jours à ≥ ${c.hi} vs ${c.n_low} jours ${lowSide}`;
+      if (c.tier) {
+        const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
+        facts.push({
+          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
+          claim_type: "observed_difference",
+          tier: c.tier,
+        });
+        rows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+      } else {
+        facts.push({
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          claim_type: "observed_difference",
+        });
+        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+      }
+    }
+  } else if (impact && impact.days > 0) {
+    facts.push({
+      fact_fr: `Impact de la densité d'événements sur votre CA : pas encore mesurable — ${impact.days} jour(s) de ventes couverts, il en faut au moins ${IMPACT_MIN_SIDE * 2} avec un contraste de densité suffisant.`,
+      claim_type: "observed",
+    });
+  }
+  const block =
+    impact == null
+      ? null
+      : impact.contrasts.length
+        ? { available: true, days: impact.days, rows, note: IMPACT_NOTE_FR }
+        : { available: false, days: impact.days, reason_fr: impact.days > 0 ? `${impact.days} jour(s) de ventes couverts — mesure possible à partir de ${IMPACT_MIN_SIDE * 2} jours avec un contraste suffisant.` : "Aucune journée de ventes couverte par le paysage événementiel pour l'instant." };
+  return { facts, rows, block };
+}
+
+// R2-2 (07/08) — the measured density verdict for the DAY answers (prompt.ts parallel batch): facts
+// only, measured contrasts only (observed_difference, tiered or measured-null) — the cold-start line
+// stays a card concern. One measurement path, never re-derived.
+export async function eventDensityImpactFacts(bq: any, location_id: string): Promise<FamilyFact[]> {
+  const impact = await measureEventDensityImpact(bq, location_id);
+  return eventDensityImpactOutputs(impact).facts.filter((f) => f.claim_type === "observed_difference");
+}
+
+// R3-1 (08/08, retour owner : « ce que je ne sais pas, c'est quel événement a lieu CE jour et s'il
+// m'impacte ± ») — les événements ACTIFS le jour demandé, avec leur base de classification (la MÊME
+// que la carte : audience commune × catégorie), en faits citables pour la réponse jour. Descriptif
+// pur — aucun pronostic (le signe mesuré vient des contrastes de densité R2-2). Dédupliqué par LIEU
+// (le mart porte plusieurs variantes du même événement — mesuré : 3 « Silla » au Guimet), rayon 5 km,
+// top 3 par audience commune. Zéro ligne ≠ absence d'événements : la formulation reste scoping
+// « relevés » (doctrine famille events : l'absence de crawl n'est pas l'absence d'événement).
+export async function dayEventLandscapeFacts(bq: any, location_id: string, date: string): Promise<FamilyFact[]> {
+  try {
+    const [rows] = await bq.query({
+      query: `SELECT event_name, venue_name, distance_from_location_m, threat_audience_overlap_pct, industry_overlap
+              FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+              WHERE location_id = @location_id
+                AND PARSE_DATE('%Y-%m-%d', @date) BETWEEN event_date AND COALESCE(event_date_end, event_date)
+                AND distance_from_location_m <= 5000
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY venue_name ORDER BY threat_audience_overlap_pct DESC, conflict_score DESC) = 1
+              ORDER BY threat_audience_overlap_pct DESC
+              LIMIT 3`,
+      params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
+    });
+    const evs = (Array.isArray(rows) ? rows : []).filter((r: any) => r && r.event_name);
+    if (!evs.length) {
+      return [{ fact_fr: "Aucun événement actif ce jour-là parmi les événements relevés autour de vous (rayon 5 km).", claim_type: "observed" }];
+    }
+    return evs.map((r: any) => {
+      const ov = Number(r.threat_audience_overlap_pct);
+      const sameCat = r.industry_overlap === true || r.industry_overlap === "true";
+      const distM = Number(r.distance_from_location_m);
+      const dist = Number.isFinite(distM) ? (distM >= 1000 ? `${(distM / 1000).toFixed(1).replace(".", ",")} km` : `${Math.round(distM)} m`) : null;
+      const basis = Number.isFinite(ov)
+        ? (sameCat
+          ? `même catégorie que la vôtre, audience commune estimée ${Math.round(ov)} % — dispute potentielle de votre public`
+          : `catégorie différente de la vôtre, audience commune estimée ${Math.round(ov)} %`)
+        : (sameCat ? "même catégorie que la vôtre" : "catégorie différente de la vôtre");
+      return {
+        fact_fr: `Événement actif ce jour-là : « ${String(r.event_name)} » (${String(r.venue_name ?? "lieu non renseigné")}${dist ? `, à ${dist}` : ""}) — ${basis}.`,
+        claim_type: "observed" as const,
+      };
+    });
+  } catch (e: any) {
+    console.warn("[day-event-landscape] skipped:", e?.message);
+    return [];
+  }
+}
+
 async function measureEventDensityImpact(
   bq: any, location_id: string,
 ): Promise<{ days: number; contrasts: DensityContrast[] } | null> {
@@ -268,43 +362,10 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
     facts.push({ fact_fr: `Vous organisez : ${my_types.join(", ")}.`, claim_type: "observed" });
   }
   // ── Measured-impact facts (engine v1) — the « cannibalize? » answer from the venue's own history.
-  // Quantified deltas carry claim_type observed_difference + tier (the model may causally upgrade ONLY
-  // under rule 3bis, tier named in-sentence). A below-gate result is stated WITH its numbers — a
-  // measured null is the verdict the operator needs, not an absence of answer. Cold start (a fresh
-  // account) states WHY nothing is measurable yet. Phrasing stays associative in the fact text itself.
-  const impactRows: Array<{ label: string; verdict_fr: string; detail_fr: string; measurable: boolean }> = [];
-  if (impact && impact.contrasts.length) {
-    for (const c of impact.contrasts) {
-      const lowSide = c.lo === 0 ? "sans" : `à ≤ ${c.lo}`;
-      const detail = `${c.n_high} jours à ≥ ${c.hi} vs ${c.n_low} jours ${lowSide}`;
-      if (c.tier) {
-        const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
-        facts.push({
-          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
-          claim_type: "observed_difference",
-          tier: c.tier,
-        });
-        impactRows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
-      } else {
-        facts.push({
-          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
-          claim_type: "observed_difference",
-        });
-        impactRows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
-      }
-    }
-  } else if (impact && impact.days > 0) {
-    facts.push({
-      fact_fr: `Impact de la densité d'événements sur votre CA : pas encore mesurable — ${impact.days} jour(s) de ventes couverts, il en faut au moins ${IMPACT_MIN_SIDE * 2} avec un contraste de densité suffisant.`,
-      claim_type: "observed",
-    });
-  }
-  const impactBlock =
-    impact == null
-      ? null
-      : impact.contrasts.length
-        ? { available: true, days: impact.days, rows: impactRows, note: IMPACT_NOTE_FR }
-        : { available: false, days: impact.days, reason_fr: impact.days > 0 ? `${impact.days} jour(s) de ventes couverts — mesure possible à partir de ${IMPACT_MIN_SIDE * 2} jours avec un contraste suffisant.` : "Aucune journée de ventes couverte par le paysage événementiel pour l'instant." };
+  // Extraction R2-2 (07/08) : phrasing partagé avec les réponses jour via eventDensityImpactOutputs —
+  // même mesure, mêmes phrases, ordre des facts inchangé (poussés à la même position qu'avant).
+  const { facts: _densityImpactFacts, block: impactBlock } = eventDensityImpactOutputs(impact);
+  facts.push(..._densityImpactFacts);
 
   // The benchmark gap is a TRUE statement about our data, and it stops the model inventing attendance.
   facts.push({

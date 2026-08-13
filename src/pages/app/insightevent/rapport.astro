@@ -43,8 +43,9 @@ const locParam = Astro.url.searchParams.get("loc") || "";
       }
     </style>
 
-    <script is:inline src="/reco-library.js?v=9"></script>
-    <script is:inline src="/action-cards.js?v=43"></script>
+    <script is:inline src="/card-kit.js?v=44"></script>
+    <script is:inline src="/reco-library.js?v=12"></script>
+    <script is:inline src="/action-cards.js?v=46"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("rapport-root");
@@ -212,8 +213,46 @@ const locParam = Astro.url.searchParams.get("loc") || "";
           }).join("");
         }
 
-        function render(data) {
+        // R2 (docs/rapport-canaux-spec.md § 4) — sélecteur de rapports spécifiques : les chips
+        // sont construits depuis les FLUX RÉELS de la réponse (jamais une liste en dur).
+        function chipStyle(on) {
+          return 'font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid ' + (on ? '#1D3BB3' : '#e5e7eb')
+            + ';background:' + (on ? '#EEF2FF' : '#fff') + ';color:' + (on ? '#1D3BB3' : '#374151')
+            + ';font-family:inherit;cursor:pointer;' + (on ? 'font-weight:600;' : '');
+        }
+        function chipsHtml(data, current) {
+          var ch = data.channels;
+          if (!ch || !ch.sites) return '';
+          var chips = [{ key: '', label: 'Rapport complet' }];
+          if (ch.sites.length > 1 || data.channels_scope === 'group') chips.push({ key: 'scope:group', label: 'Tous les sites' });
+          for (var i = 0; i < ch.sites.length; i++) {
+            var st2 = ch.sites[i];
+            for (var k = 0; k < (st2.channels || []).length; k++) {
+              var c2 = st2.channels[k];
+              chips.push({ key: 'channel:' + c2.channel_key, label: c2.label + (c2.label.slice(-1) === 'e' ? ' seule' : ' seuls') });
+            }
+          }
+          return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;">' + chips.map(function (cp) {
+            return '<button type="button" data-rp-scope="' + cp.key + '" style="' + chipStyle(cp.key === current) + '">' + esc(cp.label) + '</button>';
+          }).join('') + '</div>';
+        }
+
+        // Document autonome mono-canal : SEULS les blocs du canal — les séries site entières
+        // mentiraient sur ce périmètre (l'endpoint ne les renvoie d'ailleurs pas).
+        function renderChannelOnly(data, current) {
+          var html = chipsHtml(data, current)
+            + '<div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:2px;">' + esc(data.location_label || '') + '</div>'
+            + '<div style="font-size:13px;color:#6b7280;margin-bottom:18px;">Rapport de canal — ' + fmtRange(data.period.start, data.period.end) + '</div>'
+            + (window.MSCardKit && window.MSCardKit.renderChannels ? window.MSCardKit.renderChannels(data.channels) : '');
+          docEl.innerHTML = html;
+          docEl.style.display = "block";
+          statusEl.style.display = "none";
+          try { document.dispatchEvent(new Event('ms-cardkit-rendered')); } catch (e) {}
+        }
+
+        function render(data, current) {
           if (!data || !data.ok) { showError(mapError(data && data.error)); return; }
+          if (data.channel_report) { renderChannelOnly(data, current); return; }
           var s = data.summary, c = data.context;
           var prevChip = s.vs_prev_pct != null
             ? '<span style="font-size:12px;color:#374151;background:#ECFDF5;border:1px solid #05966922;border-radius:20px;padding:5px 12px;">vs période précédente : <strong style="color:'+(s.vs_prev_pct>=0?"#059669":"#b91c1c")+';">'+(s.vs_prev_pct>=0?"+":"")+String(s.vs_prev_pct).replace(".",",")+' %</strong></span>' : "";
@@ -292,17 +331,42 @@ const locParam = Astro.url.searchParams.get("loc") || "";
           + '</div>'
           + '<div style="break-inside:avoid;"><div class="rp-uc">Actions recommandées</div>'+actions+'</div>';
 
+          if (data.channels) { html = chipsHtml(data, current || '') + html; }
+          // « Vos canaux » (R1, docs/rapport-canaux-spec.md) — rendu partagé card-kit ;
+          // null si < 2 flux réels (la section n'existe simplement pas).
+          if (data.channels && window.MSCardKit && window.MSCardKit.renderChannels) {
+            html += '<div style="break-inside:avoid;margin-top:24px;"><div class="rp-uc">Vos canaux'
+              + (data.channels_scope === 'group' ? ' — tous vos sites' : '') + '</div>'
+              + window.MSCardKit.renderChannels(data.channels) + '</div>';
+          }
+
           docEl.innerHTML = html;
           docEl.style.display = "block";
           statusEl.style.display = "none";
+          try { document.dispatchEvent(new Event('ms-cardkit-rendered')); } catch (e) {}
         }
 
         var start = root.dataset.start, end = root.dataset.end, loc = root.dataset.loc;
         if (!start || !end) { showError("Période manquante dans l'adresse du rapport."); return; }
-        fetch("/api/insight/sales-report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date_start: start, date_end: end, location_id: loc || undefined }) })
-          .then(function (r) { return r.json(); })
-          .then(render)
-          .catch(function () { showError("Erreur lors de la génération du rapport."); });
+        var scopeParam = null;
+        try { scopeParam = new URLSearchParams(window.location.search).get("scope"); } catch (e) {}
+        // load('') = rapport complet · 'scope:group' = tous les sites · 'channel:<key>' = canal seul.
+        function load(sel) {
+          statusEl.style.display = ""; docEl.style.display = "none";
+          var payload = { date_start: start, date_end: end, location_id: loc || undefined };
+          if (sel === 'scope:group' || scopeParam === 'group') payload.scope = 'group';
+          if (sel && sel.indexOf('channel:') === 0) payload.channel = sel.slice(8);
+          fetch("/api/insight/sales-report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+            .then(function (r) { return r.json(); })
+            .then(function (data) { render(data, sel || (payload.scope === 'group' ? 'scope:group' : '')); })
+            .catch(function () { showError("Erreur lors de la génération du rapport."); });
+        }
+        document.addEventListener('click', function (e) {
+          var btn = e.target && e.target.closest ? e.target.closest('[data-rp-scope]') : null;
+          if (!btn) return;
+          load(btn.getAttribute('data-rp-scope'));
+        });
+        load('');
       })();
     </script>
   </BaseLayout>

@@ -11,6 +11,7 @@ import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
+import { FACT_ORIGIN_FR, type FactOrigin } from "../../../lib/fr/factOrigins.fr";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
 import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
@@ -20,7 +21,10 @@ import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appe
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
-import { familyForQuestion, FAMILIES } from "../../../lib/insightFamilies";
+import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
+import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
+import { getWebDayContext } from "../../../lib/ai/webContext";
+import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
 import type { FamilyResult } from "../../../lib/insightFamilies";
 import { windowTopDaysDeterministic } from "../../../lib/ai/decision/top_days/window_top_days";
 import { windowWorstDaysDeterministic } from "../../../lib/ai/decision/worst_days/window_worst_days";
@@ -48,6 +52,28 @@ const DEV_BYPASS_PROMPT = import.meta.env.DEV && process.env.MS_AUTH_BYPASS === 
 // Non-answers (profile-incomplete, no-data, missing-dates request) carry no register (null → no pill).
 // Single server-side derivation; the client renders meta.register verbatim (never re-guesses it).
 type ProvenanceRegister = "vetted" | "web" | "model";
+// Étape 1 (attribution, docs/explorer-attribution-spec.md) — default fact origin per family, applied
+// to provider facts on the family-led whitelist. DISPLAY-ONLY (chips); the validator never reads it.
+// footfall/audience are null ON PURPOSE: their facts mix measured-CA reads with BestTime ESTIMATES —
+// a family-wide « Vos ventes » chip would dress the estimate as measurement. No chip beats a wrong chip.
+const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
+  weather: "meteo",
+  offering: "ventes",
+  salesdiscount: "ventes",
+  salesdecomp: "ventes",
+  channels: "ventes",
+  competitor: "concurrence",
+  events: "evenements_proximite",
+  tourism: "tourisme",
+  calendar: "calendrier",
+  footfall: null,
+  audience: null,
+};
+// Tag a fact list with an origin (never overriding one set at the construction site).
+function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: FactOrigin | null): T[] {
+  return origin ? facts.map((f) => (f.origin ? f : { ...f, origin })) : facts;
+}
+
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
@@ -2462,6 +2488,53 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // Batch 2 — ELICIT, don't degrade (generalized). Before ANY routing: a question about a dimension
     // the warehouse verifiably lacks (marge, par-client, stock, personnel) gets a clear "here's what's
     // missing and how to add it" instead of degrading into whatever template the route lands on.
+    // ── R6 (08/08, cas owner) — OBJECTION : « tu ne réponds pas / c'est faux / même réponse » après
+    // une réponse sur une date = un TOUR DE DÉSACCORD, jamais une resucée. Déterministe (zéro LLM) :
+    // reconnaissance + les 3 hypothèses vérifiables, avec la VÉRIFICATION DE COMPLÉTUDE du jour
+    // disputé exécutée en direct (transactions du jour vs même jour de semaine sur 90 j) — le premier
+    // « va chercher ce qui manque » de l'étape 4. Nombres = résultats de requête (vetted par nature).
+    {
+      const _objRe = /(tu ne reponds pas|ne reponds pas a ma question|ce n est pas ma question|pas repondu|c est faux|meme reponse|tu te repetes|tu repetes)/;
+      const _tcLast: any = (thread_context as any)?.last ?? null;
+      const _objDate: string | null = _tcLast?.used_dates?.[0] ? String(_tcLast.used_dates[0]).slice(0, 10) : null;
+      if (_objRe.test(norm(qRaw)) && Array.isArray(conversation_history) && conversation_history.length >= 2 && _objDate) {
+        let covFr = "la complétude des données de ce jour n'a pas pu être vérifiée";
+        try {
+          // Même motif que les autres early-returns (dispositifs 2303, déclarations 2396) : client
+          // local — bigquery/semanticProjectId ne sont déclarés que plus bas dans handleCore.
+          const _objBqProject = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+          const _objBq = makeBQClient(_objBqProject);
+          const [r] = await _objBq.query({
+            query: `SELECT COUNTIF(transaction_date = DATE(@d)) AS n_day,
+                           ROUND(SAFE_DIVIDE(COUNTIF(transaction_date != DATE(@d)), NULLIF(COUNT(DISTINCT IF(transaction_date != DATE(@d), transaction_date, NULL)), 0))) AS avg_dow
+                    FROM \`${_objBqProject}.raw.client_transactions\`
+                    WHERE location_id = @loc
+                      AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM DATE(@d))
+                      AND transaction_date BETWEEN DATE_SUB(DATE(@d), INTERVAL 90 DAY) AND DATE(@d)`,
+            params: { loc: location_id, d: _objDate }, location: "EU",
+          });
+          const nDay = Number(r?.[0]?.n_day ?? 0), avgDow = Number(r?.[0]?.avg_dow ?? 0);
+          if (avgDow > 0) {
+            covFr = nDay < 0.6 * avgDow
+              ? `ce jour porte ${nDay} transactions enregistrées contre ~${avgDow} un même jour de semaine habituel — la couverture EST inhabituellement basse, c'est une piste sérieuse (import partiel ?)`
+              : `ce jour porte ${nDay} transactions enregistrées contre ~${avgDow} un même jour de semaine habituel — la couverture est normale, un trou d'import est peu probable`;
+          }
+        } catch (e) { console.warn("[objection] coverage check skipped:", e); }
+        const p = _objDate.split("-");
+        const dFr = `${p[2]}/${p[1]}/${p[0]}`;
+        return sysDialogueResponse(
+          `Traitons le désaccord : la mesure du ${dFr} ne montre pas l'écart que vous décrivez`,
+          `Je comprends que ma réponse ne vous convainc pas — posons le désaccord clairement plutôt que de répéter la même analyse. Vous décrivez un écart que la mesure enregistrée du ${dFr} ne montre pas. Trois explications possibles, chacune vérifiable :\n\n` +
+          `- **Données incomplètes ce jour-là** : ${covFr}.\n` +
+          `- **Autre date** : si vous pensiez à un autre jour, donnez-le-moi (« le 25/07 ») et je refais l'analyse dessus.\n` +
+          `- **Estimation de mémoire** : si les données sont complètes et la date est la bonne, la mesure fait foi — et l'écart réel est celui que je vous ai donné.\n\n` +
+          `Dites-moi laquelle explorer, ou importez les ventes manquantes si la première piste est la bonne.`,
+          "deterministic_objection_v1",
+          null,
+        );
+      }
+    }
+
     // Item 4 (registry, 16/07): a declared metric upgrades its dimension's branch from elicit to a
     // computed ESTIMATE over measured 30-day CA (marge: CA × %, par-client: CA ÷ effectif) —
     // attributed « déclarée par X le JJ/MM/AAAA », labelled estimation, deterministic, no LLM.
@@ -3001,6 +3074,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return null;
     };
 
+    let _interpretedDateFact: string | null = null;   // R4-2 — set when « <jour> dernier » resolves
     // Bare weekday on the day path → resolve within CURRENT WEEK (today excluded → tomorrow..Sunday).
     // Skipped on an inherited continuation: its weekday is FRAME-relative (next dimanche after the
     // answer's date), already injected into extracted_dates — today's-week resolution would clobber it.
@@ -3014,7 +3088,22 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     ) {
       const now = new Date();
       const todayDow = now.getUTCDay();
-      if (wanted_weekday === todayDow) {
+      // R2-4 (07/08, bug owner) — « samedi dernier » : le PRÉCÉDENT, strictement avant aujourd'hui,
+      // jamais aujourd'hui (un samedi, « samedi dernier » = il y a 7 jours — sémantique française).
+      // Couvre « <jour> dernier/passé » et « <jour> de la semaine dernière ».
+      const _lastWeekdayAsked =
+        /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(dernier|derniere|passe|passee)\b/.test(norm(qRaw)) ||
+        /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+de la semaine (derniere|passee)\b/.test(norm(qRaw));
+      if (_lastWeekdayAsked) {
+        const d = new Date(now);
+        do { d.setUTCDate(d.getUTCDate() - 1); } while (d.getUTCDay() !== wanted_weekday);
+        weekday_window_date = d.toISOString().slice(0, 10);
+        // R4-2 (juge : la substitution de date doit être DITE) — un fait citable porte l'interprétation,
+        // la règle 1quater du prompt impose de l'énoncer en tête. Déterministe, zéro invention possible.
+        const WD_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        const p = weekday_window_date.split("-");
+        _interpretedDateFact = `Date interprétée : « ${WD_FR[wanted_weekday]} dernier » = ${WD_FR[wanted_weekday]} ${p[2]}/${p[1]}/${p[0]}.`;
+      } else if (wanted_weekday === todayDow) {
         // Named weekday == today → include today (only the best-remaining-day reroute excludes today).
         weekday_window_date = now.toISOString().slice(0, 10);
       } else {
@@ -3706,6 +3795,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
 
     type ProducerMeta = "v3_claude" | "v3_fallback_deterministic" | "v3_fallback" | "deterministic" | "grounded_day_claude" | "family_grounded_claude" | "family_deterministic";
     let producer: ProducerMeta = "deterministic";
+    let _webContext: any = null;   // ÉTAPE 5 — contexte web du jour (champ séparé, jamais la liste blanche)
     let _familyLedKey: string | null = null;   // set when a card-family provider led the day answer
     let _familyCard: { render: string; data: any } | null = null;   // full family card → rendered INLINE in the chat (the detailed answer, no click-through)
 
@@ -3760,7 +3850,7 @@ Règles :
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
 - CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse. CHIFFRES DES PAGES (hors distance) : quand la page que tu lis publie un nombre pertinent — fréquentation annuelle, capacité, tarif, horaires, dates d'exposition — CITE-LE tel quel plutôt qu'un qualificatif vague (« très fréquenté », « majoritairement touristique » sans nombre = interdit si la page donne le nombre). Aucun chiffre lu nulle part → dis-le.
 - Le **gras** est autorisé, et bienvenu pour mettre en avant un nom de commerce ou un chiffre clé (il est rendu correctement). N'emploie NI #titres, NI tableaux, NI blocs de code.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
@@ -4414,7 +4504,7 @@ Règles :
 - found = true si tu identifies une entité précise nommée, OU — pour une découverte — au moins un commerce/concurrent réel à proximité, depuis une source réelle (nom, nature, localisation).
 - answer : pour une DÉCOUVERTE (discovery=true), renseigne TOUJOURS answer, MÊME si tu n'identifies AUCUN nouveau concurrent — dans ce cas answer = ta phrase d'interprétation (ci-dessous) suivie de « Aucun nouveau concurrent correspondant n'a été identifié dans votre zone. » answer ne doit JAMAIS être vide quand discovery=true. Pour une entité nommée introuvable (discovery=false et found=false), answer = "".
 - CORRECTION PRIORITAIRE : si, plus tôt dans la conversation, l'utilisateur a corrigé son activité, sa zone, ou le sens de « nouveau », FONDE-toi sur SA correction plutôt que sur « Votre contexte » ci-dessus (qui peut être incomplet ou daté) ; reconnais-la brièvement (« Compris, vous êtes plutôt … ») et relance ta recherche en conséquence.
-- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse.
+- Pour une DÉCOUVERTE : COMMENCE par UNE phrase d'interprétation qui rend tes hypothèses visibles et corrigeables — précise (a) le sens que tu donnes à « nouveau » (par défaut : ouvert dans les ~18 derniers mois ; signale que l'utilisateur voulait peut-être dire « un concurrent que vous ne suivez pas encore »), et (b) l'activité que tu retiens pour votre commerce (voir « Votre contexte » ci-dessus) et sa base — dis explicitement « d'après ce que vous m'avez indiqué » quand le contexte contient une activité CORRIGÉE PAR VOUS (elle prime sur tout — base-toi dessus), sinon « d'après vos ventes mesurées » pour une activité MESURÉE (fiable), sinon « d'après votre profil déclaré » (potentiellement incomplet). Termine cette phrase par une invitation à corriger (« Corrigez si votre activité diffère ou si vous vouliez dire autre chose »). NE qualifie JAMAIS de « nouveau » un lieu ouvert depuis plus de 2 ans. Ensuite seulement, liste chaque commerce/concurrent pertinent (nom — localisation) avec une phrase sur sa pertinence. N'INDIQUE JAMAIS de distance chiffrée (« ~1,2 km », « à 500 m ») : la distance réelle est calculée à partir des coordonnées et affichée à côté de chaque nom — un chiffre venant de toi la contredirait. Tu peux qualifier la proximité SANS chiffre (même rue, même quartier, même arrondissement, plus éloigné). N'invente JAMAIS un commerce ni une adresse. CHIFFRES DES PAGES (hors distance) : quand la page que tu lis publie un nombre pertinent — fréquentation annuelle, capacité, tarif, horaires, dates d'exposition — CITE-LE tel quel plutôt qu'un qualificatif vague (« très fréquenté », « majoritairement touristique » sans nombre = interdit si la page donne le nombre). Aucun chiffre lu nulle part → dis-le.
 - Le **gras** est autorisé, et bienvenu pour mettre en avant un nom de commerce ou un chiffre clé (il est rendu correctement). N'emploie NI #titres, NI tableaux, NI blocs de code.
 - answer (si found) : structure la réponse en 2 ou 3 courts paragraphes séparés par un double saut de ligne dans la valeur JSON (paragraphe 1 = identification de l'entité ; paragraphe 2 = proximité et recoupement d'audience ; paragraphe 3 = conclusion d'impact). Évalue l'impact UNIQUEMENT à partir de faits vérifiables de proximité, d'audience ou de secteur. Si la proximité ou le recoupement d'audience n'est pas établi, écris explicitement qu'aucun impact matériel ne peut être établi — n'invente JAMAIS d'impact chiffré ou causal, ni de jugement ("idéal", "très positif") sans base factuelle.
 - PROXIMITÉ : compare la localisation réelle de l'entité (arrondissement/adresse trouvée sur le web) à la vôtre indiquée ci-dessus. Ne suppose JAMAIS qu'elles partagent le même secteur. Si l'entité est dans un autre arrondissement ou à plusieurs kilomètres, indique qu'aucune synergie ni concurrence de proximité ne peut être établie.
@@ -4753,21 +4843,96 @@ Règles :
           console.warn("[grounded] event facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // R2-2 (07/08) — the MEASURED impact verdicts join the day whitelist: the competitor and
+        // event-density contrasts (tiered observed_difference or measured-null) measured on THIS
+        // venue's own history. Without them the day answer narrates static proximity while the
+        // warehouse holds a signed measured answer (f10c3e58: followed-competitor activity days run
+        // +21,6 pp ABOVE normal — activity animates, it does not cannibalize). Fetched in the SAME
+        // parallel batch (costs max, not sum — perf doctrine); each leg fails soft to [].
+        const _competitorImpactP = competitorImpactFacts(bigquery, location_id).catch((e) => {
+          console.warn("[grounded] competitor impact facts skipped:", e);
+          return [] as Array<{ fact_fr: string; claim_type: any }>;
+        });
+        const _densityImpactP = eventDensityImpactFacts(bigquery, location_id).catch((e) => {
+          console.warn("[grounded] density impact facts skipped:", e);
+          return [] as Array<{ fact_fr: string; claim_type: any }>;
+        });
+        // R3-1 (08/08) — the DAY'S OWN events (name, venue, distance, classification basis) — what the
+        // operator does NOT already know, unlike the static followed-competitor distances.
+        const _dayLandscapeP = dayEventLandscapeFacts(bigquery, location_id, effective_date).catch((e) => {
+          console.warn("[grounded] day landscape facts skipped:", e);
+          return [] as Array<{ fact_fr: string; claim_type: any }>;
+        });
+        // ÉTAPE 5 (08/08) — contexte web du jour, DÉCLENCHÉ seulement sur un jour PASSÉ « inexpliqué »
+        // (aucun moteur mesuré actif : sensibilités + décomposition vides — cercle 2 : on vérifie une
+        // journée à la demande, jamais un flux). Amorcé ICI sans await : le crawl court PENDANT la
+        // génération (coût = max, pas somme) ; attendu APRÈS, plafonné — jamais de latence ajoutée
+        // au-delà du plafond. Cache 30 j → instantané au 2e passage. Jamais dans la liste blanche :
+        // le web ne porte pas de tier, il ship dans un champ séparé rendu « Web — non vérifié ».
+        const _todayParis = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+        const _wantWeb =
+          effective_date < _todayParis &&
+          !(dc_day.sensitivities ?? []).some((s: any) => s.active_today) &&
+          !(dc_day.decomposition ?? []).length;
+        const _webCtxP: Promise<any> = _wantWeb
+          ? getWebDayContext(bigquery, {
+              location_id, date: effective_date,
+              // city vient de profile_raw (la ligne complète de la vue) — le VenueProfile curé ne
+              // porte pas city_name (mesuré : sans ville, l'agent web répond en prose, pas en JSON).
+              city_name: (dc_day as any).profile_raw?.city_name ?? null,
+              business_short_description: (dc_day.profile as any)?.business_description ?? (dc_day as any).profile_raw?.business_short_description ?? null,
+              driver: dc_day.llm?.driver?.value ?? null,
+            }).catch((e) => { console.warn("[webContext] chat fetch skipped:", e); return null; })
+          : Promise.resolve(null);
+        let _secondaryFamFacts: any[] = [];
         try {
-          // Family resolution: the question's own keywords first; on an inherited continuation with no
-          // family keyword of its own ("et le dimanche ?" after a footfall answer), the FRAME's family —
-          // so the follow-up keeps the dimension the user was exploring, on the new date.
-          const _fam = familyForQuestion(qRaw)
-            ?? (frame_inherited && _frameFamily ? FAMILIES[_frameFamily] ?? null : null);
-          if (_fam) { _famKey = _fam.key; _famRender = _fam.render; _famResult = await _fam.run(bigquery, location_id, effective_date); }
+          // ÉTAPE 3 (planificateur, 08/08) — TOUTES les familles que la question touche (cap 3, ordre
+          // du registre : la 1re EST l'ancien gagnant unique — lead + carte inchangés, 8 assertions de
+          // routage). Les familles secondaires apportent leurs FACTS (found only, origin par famille) ;
+          // providers en PARALLÈLE (coût = max, pas somme). Continuation héritée : la famille du frame.
+          const _fams = familiesForQuestion(qRaw);
+          const _famList = _fams.length
+            ? _fams
+            : (frame_inherited && _frameFamily && FAMILIES[_frameFamily] ? [FAMILIES[_frameFamily]] : []);
+          if (_famList.length) {
+            const _famResults = await Promise.all(_famList.map((f) =>
+              f.run(bigquery, location_id, effective_date, qRaw).catch((e: any) => {
+                console.warn(`[grounded] family ${f.key} skipped:`, e);
+                return null;
+              })));
+            _famKey = _famList[0].key; _famRender = _famList[0].render; _famResult = _famResults[0];
+            _secondaryFamFacts = _famList.slice(1).flatMap((f, i) => {
+              const r = _famResults[i + 1];
+              return r && r.found ? tagFactOrigin(r.facts as any[], FAMILY_FACT_ORIGIN[f.key] ?? null) : [];
+            });
+          }
         } catch (e) { console.warn("[grounded] family provider skipped:", e); }
         const _identity = await _identityP;
         const _dayPerf = await _dayPerfP;
         const _practices = await _practicesP;
         const _events = await _eventsP;
+        const _competitorImpact = await _competitorImpactP;
+        const _densityImpact = await _densityImpactP;
+        const _dayLandscape = await _dayLandscapeP;
         emitStage("sales", "done");
         const _identityFacts = _identity.status === "ok"
-          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type }))
+          ? _identity.facts.map((f) => ({ fact_fr: f.fact_fr, claim_type: f.claim_type, origin: "ventes" as const }))
+          : [];
+        // R2-4 (07/08) — the question's OWN CA claim becomes a citable DECLARED fact, so the model can
+        // quote it to REFUTE it (« vous évoquez −40 % ; la mesure dit −9 % »). Without this, echoing the
+        // user's number was an ungrounded-number reject (measured: reject → reject → floor on « Mon CA
+        // a chuté de 40 % samedi dernier ? »). The claim is attributed to the user, never asserted.
+        // R4-2 — the date interpretation travels as a citable fact (stated first per rule 1quater).
+        const _interpFacts = _interpretedDateFact
+          ? [{ fact_fr: _interpretedDateFact, claim_type: "observed" as const }]
+          : [];
+        const _dayCaClaim = parseCaClaim(norm(qRaw));
+        const _dayClaimFacts = _dayCaClaim && _dayCaClaim.claimed_pct != null
+          ? [{
+              fact_fr: `Vous évoquez dans votre question une ${_dayCaClaim.direction === "down" ? "baisse" : "hausse"} de ${String(_dayCaClaim.claimed_pct).replace(".", ",")} % de votre CA — c'est votre estimation, pas une mesure.`,
+              claim_type: "observed" as const,
+              origin: "declarations" as const,
+            }]
           : [];
         const _familyLed = !!(_famResult && _famResult.found);
         if (_familyLed) {
@@ -4794,11 +4959,14 @@ Règles :
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
-              { question: qRaw, date: effective_date, extraFacts: [..._famResult!.facts, ..._identityFacts, ..._practices.facts, ..._events.facts] },
+              // ÉTAPE 3 : le blanking du CA remplacé par le RANG — les facts de la famille lead
+              // d'abord (la dimension demandée mène), PUIS la performance du jour (une réponse météo
+              // peut enfin dire ce que le jour a fait), puis les familles secondaires, puis le reste.
+              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
             )
-          // Phase 4: day-perf facts join the whitelist on NON-family-led day answers only — a
-          // family-led answer deliberately leads with its own dimension, not the day's performance.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._identityFacts, ..._dayPerf.facts, ..._practices.facts, ..._events.facts] });
+          // Phase 4 (amendé ÉTAPE 3) : les day-perf facts rejoignent les DEUX branches — le lead de la
+          // dimension demandée est assuré par le RANG (famille d'abord), plus jamais par exclusion.
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
@@ -4870,11 +5038,31 @@ Règles :
             // text), instead of a generic template that reads as "nothing happened". Facts present → the
             // gap is not the story → the existing deterministic floor stays, unmodified.
             const _absence = composeHonestAbsenceFr(grounded_payload);
+            // FACTS FLOOR (07/08, retour owner : le plancher IR « Jour défavorable (catégorie C) » jette
+            // du jargon de classement au lieu d'organiser les données). Quand des faits existent, le
+            // plancher EST les faits : fact_fr VERBATIM (zéro texte inventé, vetted par construction) —
+            // performance du jour d'abord (CA réalisé, analogues), puis le contexte le plus saillant ;
+            // le bruit du feed (observed_change) est écarté. L'IR ne reste que s'il n'y a AUCUN fait
+            // exploitable (et l'absence totale de faits garde son plancher honnête dédié).
+            const _floorFacts = [
+              ..._dayPerf.facts.map((f: any) => String(f.fact_fr)),
+              ...grounded_payload.citable_facts
+                .filter((f) => f.claim_type !== "observed_change")
+                .map((f) => f.fact_fr)
+                .filter((s) => !_dayPerf.facts.some((d: any) => d.fact_fr === s)),
+            ].filter(Boolean);
             ai = _absence
               ? {
                   ok: true,
                   mode: "deterministic_honest_absence_v1",
                   output: { headline: _absence.headline, answer: _absence.answer, key_facts: [], reasons: [], caveats: [] },
+                  raw_text: "", errors: [], warnings: [],
+                }
+              : _floorFacts.length
+              ? {
+                  ok: true,
+                  mode: "deterministic_day_facts_floor_v1",
+                  output: { headline: _floorFacts[0], answer: "", key_facts: _floorFacts.slice(1, 5), reasons: [], caveats: [] },
                   raw_text: "", errors: [], warnings: [],
                 }
               : {
@@ -4893,7 +5081,20 @@ Règles :
         if (ai && ai.output && typeof ai.output === "object") {
           const topCard = (grounded_payload.signals?.cards ?? []).find((c: any) => c && (c.headline_fr || c.detail_fr));
           (ai.output as any).suggested_action = topCard ? (topCard.headline_fr || topCard.detail_fr) : "";
+          // Étape 1 (attribution) — facts_catalog: fact_id → owner-approved French origin LABEL, resolved
+          // server-side (the static client never maps keys). Only on a grounded MODEL pass that produced
+          // sentence_provenance (floors are provenance-less and render exactly as before). Only facts
+          // with a known origin ship — an id absent from the catalog renders no chip, never a guessed one.
+          if (ai.ok && Array.isArray((ai.output as any).sentence_provenance)) {
+            (ai.output as any).facts_catalog = grounded_payload.citable_facts
+              .filter((f) => f.origin)
+              .map((f) => ({ id: f.id, label: FACT_ORIGIN_FR[f.origin as FactOrigin] }));
+          }
         }
+        // ÉTAPE 5 — le crawl a couru PENDANT la génération ; plafond 12 s au-delà, sinon on ship sans
+        // (le cache 30 j le rendra instantané au prochain passage). Vide → null, jamais une boîte vide.
+        _webContext = await Promise.race([_webCtxP, new Promise((r) => setTimeout(() => r(null), 12000))]);
+        if (_webContext && !(_webContext.takeaway || (_webContext.key_factors ?? []).length)) _webContext = null;
 
         break;
       }
@@ -6093,6 +6294,16 @@ Règles :
             ...(Array.isArray((ai as any)?.output?.cited_fact_ids)
               ? { cited_fact_ids: (ai as any).output.cited_fact_ids }
               : {}),
+            // Étape 1 (attribution) — per-sentence provenance + the fact→label catalog, so the client
+            // can chip each answer section. Both ADDITIVE: absent on floors and non-grounded paths,
+            // where rendering stays exactly as before. (The provenance was already produced and
+            // validator-enforced — it was simply dropped here until now.)
+            ...(Array.isArray((ai as any)?.output?.sentence_provenance) && Array.isArray((ai as any)?.output?.facts_catalog)
+              ? {
+                  sentence_provenance: (ai as any).output.sentence_provenance,
+                  facts_catalog: (ai as any).output.facts_catalog,
+                }
+              : {}),
             // Native typed blocks (additive, 16/07): when a path authored them server-side (lookup
             // first), the client renders these verbatim instead of re-parsing `answer` strings.
             ...(Array.isArray((ai as any)?.output?.blocks) && (ai as any).output.blocks.length
@@ -6103,6 +6314,7 @@ Règles :
 
         actions,
         family_card: _familyCard,   // when present, the client renders this full card INLINE (MSCardKit) as the detailed answer
+        ...(_webContext ? { web_context: _webContext } : {}),   // ÉTAPE 5 — section « Web — non vérifié » + URLs
         top_dates,
         decision_payload,
 

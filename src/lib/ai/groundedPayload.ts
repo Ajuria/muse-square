@@ -9,6 +9,7 @@
 
 import type { DayContext } from "../dayContext";
 import type { Tier } from "../sensitivityStore";
+import type { FactOrigin } from "../fr/factOrigins.fr";
 
 export interface CitableFact {
   id: string;                 // stable ref (f0, f1, …) — the model and the validator cite by id
@@ -16,6 +17,11 @@ export interface CitableFact {
   claim_type:
     | "measured" | "observed_difference" | "observed_proximity" | "observed_presence"
     | "observed_acute" | "observed_change" | "observed";
+  // Attribution key (Étape 1, docs/explorer-attribution-spec.md) — DISPLAY-ONLY: resolved to an
+  // owner-approved French label (lib/fr/factOrigins.fr.ts) in the response's facts_catalog so the
+  // client can chip each answer section. The validator NEVER reads it; absent origin = no chip,
+  // never a guessed one (heterogeneous facts — detected cards, changes — stay unattributed).
+  origin?: FactOrigin;
   // Confidence tier — present ONLY on the two engine-backed claim types (measured = Engine 2's
   // confidence_tier; observed_difference = the decomposition's independent-N tier). Absent everywhere
   // else: a competitor's proximity or a weather alert has no confidence register, and inventing one
@@ -63,7 +69,7 @@ function frDate(iso: string): string {
 // the facts still flow through the same grounding + validation. Never pass ungrounded/derived strings.
 export function toGroundedDayPayload(
   dc: DayContext,
-  opts: { question: string; date: string; extraFacts?: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"] }>; excludeEngines?: boolean },
+  opts: { question: string; date: string; extraFacts?: Array<{ fact_fr: string; claim_type: CitableFact["claim_type"]; origin?: FactOrigin }>; excludeEngines?: boolean },
 ): GroundedDayPayload {
   // Drafts (customer-facing copy) exclude MEASURED engine facts entirely — a revenue sensitivity
   // ("votre CA −12 % les jours de chaleur") is operator intel, never Instagram/GBP/email copy. The
@@ -78,6 +84,8 @@ export function toGroundedDayPayload(
     // Pass the tier THROUGH when the brain supplied one. Never defaulted: a fact with no tier must stay
     // tier-less so the validator's causal gate can't be satisfied by an invented register.
     ...((f as any).tier ? { tier: (f as any).tier as Tier } : {}),
+    // Same passthrough rule for origin (Étape 1): supplied at the fact's construction site or not at all.
+    ...((f as any).origin ? { origin: (f as any).origin as FactOrigin } : {}),
   }));
   return {
     horizon: "day",

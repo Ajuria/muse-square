@@ -20,6 +20,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const mobility_felt       = String(body?.mobility_felt || "").trim() || null;
     const attendance_vs_expect = String(body?.attendance_vs_expect || "").trim() || null;
     const attendance_approx   = typeof body?.attendance_approx === "number" ? body.attendance_approx : null;
+    // F4 (10/08) : « l'action prévue a-t-elle été menée ? » — la clé d'attribution que le bilan
+    // n'a jamais demandée (cible manquée : météo, ou dispositif jamais appliqué ?).
+    const rawCarried          = String(body?.action_carried || "").trim();
+    const action_carried      = ["oui", "partiel", "non"].includes(rawCarried) ? rawCarried : null;
     const free_comment        = String(body?.free_comment || "").trim() || null;
     const collection_channel  = String(body?.collection_channel || "in_app").trim();
 
@@ -36,12 +40,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         INSERT INTO \`${projectId}.raw.event_outcomes\`
         (saved_item_id, location_id, clerk_user_id, selected_date, submitted_at,
          weather_accuracy, competition_felt, mobility_felt, attendance_vs_expect,
-         attendance_approx, free_comment, collection_channel)
+         attendance_approx, free_comment, collection_channel, action_carried)
         VALUES (
           @saved_item_id, @location_id, @clerk_user_id,
           PARSE_DATE('%F', @selected_date), CURRENT_TIMESTAMP(),
           @weather_accuracy, @competition_felt, @mobility_felt, @attendance_vs_expect,
-          @attendance_approx, @free_comment, @collection_channel
+          @attendance_approx, @free_comment, @collection_channel, @action_carried
         )
       `,
       params: {
@@ -50,12 +54,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
         attendance_approx: attendance_approx ?? null,
         free_comment: free_comment ?? null,
         collection_channel,
+        action_carried,
       },
       types: {
         saved_item_id: "STRING", location_id: "STRING", clerk_user_id: "STRING",
         selected_date: "STRING", weather_accuracy: "STRING", competition_felt: "STRING",
         mobility_felt: "STRING", attendance_vs_expect: "STRING",
         attendance_approx: "INT64", free_comment: "STRING", collection_channel: "STRING",
+        action_carried: "STRING",
       },
       location: BQ_LOCATION,
     });

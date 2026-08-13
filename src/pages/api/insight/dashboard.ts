@@ -11,6 +11,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypeLabelFr } from "../../../lib/eventTypes";
+import { rowsToImpactsWithImmaterial } from "../../../lib/dayClassRegistry";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -34,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [consigneRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -71,6 +72,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
+                       CAST(DATE(created_at) AS STRING) AS created_d,
                        DATE_DIFF(window_end, CURRENT_DATE(), DAY) AS days_to_end,
                        (DATE(created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)) AS in_period
                 FROM latest WHERE rn = 1`,
@@ -79,22 +81,50 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Impact € : le mart des outcomes, PAR commitment (le € par personne se recompose côté
       // endpoint via l'owner du journal). Contrat « fait par défaut » : le WHERE du mart passe
       // à « non déclarée pas-menée » (édit dbt côté owner, 05/08).
+      // Toujours 365 j + resolved_date : le serveur filtre en JS pour la période demandée et
+      // renvoie les lignes brutes (impact_rows) — le client dérive 30/90/365 SANS re-fetch
+      // (bascule de période instantanée ; dérivation prouvée identique au harnais 09/08).
       bq.query({
-        query: `SELECT commitment_id, beat, verdict,
+        query: `SELECT commitment_id, beat, verdict, CAST(resolved_date AS STRING) AS resolved_date,
                        ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_eur
                 FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
                 WHERE location_id IN UNNEST(@locs)
-                  AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL @period DAY)`,
-        params: P, location: "EU",
+                  AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)`,
+        params: { locs }, location: "EU",
       }),
+      // Tier CANONIQUE (registre de bestPractices.ts) : prouvée ssi le rejeu a verdict 'met' au
+      // dernier état — `status='proven'` n'est écrit nulle part, l'ancien test était toujours
+      // faux (« Dispositifs prouvés » structurellement à 0, attrapé au proto 09/08).
       bq.query({
-        query: `SELECT practice_id, location_id, practice_text, status, author_person_name, replay_commitment_id, origin_action_type,
-                       arm_enabled, arm_recipient_name, arm_recipient_contact, COALESCE(arm_cooldown_days, 7) AS arm_cooldown,
-                       CAST(DATE(created_at) AS STRING) AS d
-                FROM \`${PROJECT}.analytics.best_practices\`
-                WHERE location_id IN UNNEST(@locs)
-                ORDER BY created_at DESC LIMIT 20`,
-        params: P, location: "EU",
+        query: `SELECT bp.practice_id, bp.location_id, bp.practice_text, bp.status, bp.author_person_name, bp.replay_commitment_id, bp.origin_action_type,
+                       bp.arm_enabled, bp.arm_recipient_name, bp.arm_recipient_contact, COALESCE(bp.arm_cooldown_days, 7) AS arm_cooldown,
+                       CAST(DATE(bp.created_at) AS STRING) AS d,
+                       c.status AS replay_status, c.verdict AS replay_verdict
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                LEFT JOIN (
+                  SELECT commitment_id, status, verdict,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\`
+                ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs)
+                ORDER BY bp.created_at DESC LIMIT 20`,
+        params: { locs }, location: "EU",
+      }),
+      // Comptes par tier SANS le plafond LIMIT 20 (au-delà de 20 pratiques, l'ancien compteur
+      // « prouvés » se mettait à BAISSER à chaque déclaration nouvelle).
+      bq.query({
+        query: `SELECT
+                  COUNTIF(bp.status = 'active' AND c.verdict = 'met') AS n_proven,
+                  COUNTIF(bp.status = 'active' AND c.status = 'open') AS n_rejeu,
+                  COUNTIF(bp.status = 'active' AND (c.commitment_id IS NULL OR (c.status != 'open' AND COALESCE(c.verdict, '') != 'met'))) AS n_declared
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                LEFT JOIN (
+                  SELECT commitment_id, status, verdict,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\`
+                ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs)`,
+        params: { locs }, location: "EU",
       }),
       bq.query({
         query: `SELECT location_id, CAST(affected_date AS STRING) AS d, change_subtype, ROUND(distance_m / 1000, 1) AS km
@@ -159,10 +189,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT location_id,
                        COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
-                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot
+                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot,
+                       ARRAY_AGG(CASE WHEN lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END IGNORE NULLS) AS hot_dates
                 FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
-        params: P, location: "EU",
+        params: { locs }, location: "EU",
+      }),
+      // Fraîcheur des ventes (onboarding P1) : dernier jour importé par site — le carburant de
+      // toute mesure. Un site sans ligne = aveugle ; un site figé = cartes du jour muettes.
+      bq.query({
+        query: `SELECT location_id, CAST(MAX(transaction_date) AS STRING) AS last_sale,
+                       COUNT(DISTINCT transaction_date) AS n_days, CAST(MIN(transaction_date) AS STRING) AS first_sale
+                FROM \`${PROJECT}.raw.client_transactions\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: { locs }, location: "EU",
       }),
       // Consignes d'opération ACTIVES (automatisation inc. 5) : prochaine occurrence + dernière
       // trace d'envoi réelle — le volet Automatisation ne liste que ce qui tourne, zéro dummy.
@@ -181,6 +221,156 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY nx.next_d LIMIT 20`,
         params: { locs }, location: "EU",
       }),
+      // Store de classes COMPLET (colonnes du pipeline registre — rowsToImpactsWithImmaterial
+      // gate lui-même : log+médiane, |t| ≥ 1, cohérence de signe, span ≥ 60 j, matérialité) :
+      // les APPRENTISSAGES de la carte « Ce que l'app a appris » + le prix des Occasions, au
+      // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
+      // .catch [] : compte jamais batché = carte absente.
+      bq.query({
+        query: `SELECT location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
+                       med_gap_eur, n_log, avg_log, sd_log, span_days
+                FROM \`${PROJECT}.analytics.day_class_impacts\`
+                WHERE location_id IN UNNEST(@locs)`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —
+      // dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
+      bq.query({
+        query: `SELECT location_id,
+                       SAFE_DIVIDE(SUM(daily_revenue), NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY) + 1, 0)) * 365.25 AS annual_revenue
+                FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+
+      // ═══ Lectures GLANCE (refonte Piloter 13/08 — hiérarchie « À faire → Événements
+      //     concurrents → À surveiller → savoir-faire → couverture », prototypée et validée
+      //     bloc par bloc sur les données du compte owner). Toutes dans le MÊME lot. ═══
+
+      // Tendance des fenêtres OUVERTES — dans la MÉTRIQUE DÉCLARÉE de l'engagement, jamais le
+      // CA total en dur (preuve 13/08 : CA total −16,4 % sur la fenêtre d'un engagement famille
+      // dont la métrique a TENU +510 € — deux verdicts opposés sinon ; règle kpi-declare-suit-partout).
+      bq.query({
+        query: `WITH latest AS (
+                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)),
+                o AS (SELECT l.commitment_id, l.location_id, l.window_start, l.window_end, l.measured_metric, si.kpi_family
+                      FROM latest l LEFT JOIN \`${PROJECT}.raw.saved_items\` si USING (saved_item_id)
+                      WHERE l.rn = 1 AND l.status IN ('open','pending')),
+                ca AS (SELECT o.commitment_id, COUNT(r.date) AS jours, ROUND(SUM(r.daily_revenue), 0) AS valeur, ROUND(SUM(r.expected_revenue), 0) AS reference
+                       FROM o JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                         ON r.location_id = o.location_id AND r.date BETWEEN o.window_start AND LEAST(o.window_end, CURRENT_DATE())
+                       WHERE o.measured_metric != 'family_revenue' OR o.kpi_family IS NULL GROUP BY 1),
+                fam AS (SELECT o.commitment_id, COUNT(DISTINCT t.transaction_date) AS jours, ROUND(SUM(t.revenue), 0) AS valeur,
+                               ROUND(b.avg_day * COUNT(DISTINCT t.transaction_date), 0) AS reference
+                        FROM o JOIN \`${PROJECT}.raw.client_transactions\` t
+                          ON t.location_id = o.location_id AND t.item_category = o.kpi_family
+                         AND t.transaction_date BETWEEN o.window_start AND LEAST(o.window_end, CURRENT_DATE())
+                        JOIN (SELECT location_id, item_category, SUM(revenue) / COUNT(DISTINCT transaction_date) AS avg_day
+                              FROM \`${PROJECT}.raw.client_transactions\` GROUP BY 1, 2) b
+                          ON b.location_id = o.location_id AND b.item_category = o.kpi_family
+                        WHERE o.measured_metric = 'family_revenue' AND o.kpi_family IS NOT NULL GROUP BY 1, b.avg_day)
+                SELECT commitment_id, 'ca' AS metric, jours, valeur, reference,
+                       ROUND(SAFE_DIVIDE(valeur - reference, reference) * 100, 1) AS ecart_pct FROM ca
+                UNION ALL
+                SELECT commitment_id, 'famille' AS metric, jours, valeur, reference,
+                       ROUND(SAFE_DIVIDE(valeur - reference, reference) * 100, 1) AS ecart_pct FROM fam`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Veille : état par fiche suivie. cd.deleted_at OBLIGATOIRE — sans lui la jointure exhume
+      // les doublons soft-supprimés (16/04 + 20/05) : c'est le bug d'affichage du 12/08.
+      bq.query({
+        query: `SELECT ct.location_id, cd.competitor_id, cd.competitor_name, cd.google_place_id, cd.source_url,
+                       DATE_DIFF(CURRENT_DATE(), DATE(cd.last_crawl_attempt_at), DAY) AS age_j,
+                       (SELECT COUNT(*) FROM \`${PROJECT}.raw.competitor_events\` e WHERE e.competitor_id = cd.competitor_id) AS n_evts,
+                       (SELECT COUNT(*) FROM \`${PROJECT}.raw.competitor_offering_history\` o WHERE o.competitor_id = cd.competitor_id) AS n_offres
+                FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd USING (competitor_id)
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL AND cd.deleted_at IS NULL`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Changements d'offre détectés (mart latest-vs-previous) chez les suivis.
+      bq.query({
+        query: `SELECT oc.competitor_name, oc.item, oc.change_type, oc.price_direction,
+                       oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change
+                FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` oc
+                JOIN \`${PROJECT}.raw.competitor_tracking\` ct USING (competitor_id)
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL LIMIT 8`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Base de comparaison des offres : tarifs relevés au DERNIER passage (l'absence se chiffre).
+      bq.query({
+        query: `WITH ranked AS (SELECT competitor_id, crawled_at,
+                       DENSE_RANK() OVER (PARTITION BY competitor_id ORDER BY crawled_at DESC) rn
+                  FROM (SELECT DISTINCT competitor_id, crawled_at FROM \`${PROJECT}.raw.competitor_offering_history\`))
+                SELECT COUNT(DISTINCT h.item_norm) AS n_tarifs, COUNT(DISTINCT h.competitor_id) AS n_lieux
+                FROM \`${PROJECT}.raw.competitor_offering_history\` h
+                JOIN ranked r ON r.competitor_id = h.competitor_id AND r.crawled_at = h.crawled_at AND r.rn = 1
+                JOIN \`${PROJECT}.raw.competitor_tracking\` ct ON ct.competitor_id = h.competitor_id
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL AND h.price_numeric IS NOT NULL`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Couverture de menace PAR SITE (l'agrégat compte masquait le site aveugle — retiré 13/08).
+      bq.query({
+        query: `SELECT location_id, COUNT(*) AS n_total, COUNTIF(is_followed) AS n_suivis
+                FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
+                WHERE location_id IN UNNEST(@locs) AND threat_level = 'high' GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Les trous nommés : menaces fortes NON suivies (le geste « Suivez X »).
+      bq.query({
+        query: `SELECT competitor_name, ROUND(distance_km, 1) AS km, ROUND(audience_overlap_pct) AS overlap
+                FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
+                WHERE location_id IN UNNEST(@locs) AND NOT is_followed AND threat_level = 'high'
+                ORDER BY threat_score DESC LIMIT 3`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Événements concurrents 14 j + aléas PAR NATURE (l'agrégat ment : lvl 4 peut être la
+      // chaleur pendant que le libellé dit « Ciel dégagé » — chaque aléa se nomme lui-même).
+      bq.query({
+        query: `WITH e AS (SELECT location_id, CAST(event_date AS STRING) AS d, event_name, venue_name,
+                       ROUND(distance_from_location_m) AS m, conflict_score
+                  FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+                  WHERE location_id IN UNNEST(@locs)
+                    AND event_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY))
+                SELECT e.*, v.lvl_heat, v.lvl_rain, v.lvl_wind, v.lvl_snow, v.lvl_cold
+                FROM e LEFT JOIN \`${PROJECT}.semantic.vw_insight_event_day_surface\` v
+                  ON v.location_id = e.location_id AND CAST(v.date AS STRING) = e.d
+                ORDER BY e.d, e.conflict_score DESC LIMIT 20`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // CA habituel par jour de semaine (90 j) — l'unité d'impact « votre sam ≈ 1 190 € ».
+      bq.query({
+        query: `SELECT location_id, EXTRACT(DAYOFWEEK FROM date) AS dw, ROUND(AVG(expected_revenue), 0) AS habituel
+                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                WHERE location_id IN UNNEST(@locs) AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+                GROUP BY 1, 2`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Déblocages chiffrés : événements sans objectif + cartes BLOQUÉES par la question du
+      // périmètre (liste explicite du registre : les 2 seuls types au rayon local, sur les seuls
+      // sites au périmètre inconnu — le drapeau s'éteint seul une fois la réponse donnée).
+      bq.query({
+        query: `SELECT
+                  (SELECT COUNT(DISTINCT saved_item_id) FROM \`${PROJECT}.raw.saved_items\`
+                    WHERE location_id IN UNNEST(@locs) AND kpi IS NULL) AS evts_sans_objectif,
+                  (SELECT COUNT(*) FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\` c
+                    JOIN \`${PROJECT}.dims.dim_client_location\` d USING (location_id)
+                    WHERE c.location_id IN UNNEST(@locs) AND d.client_catchment IS NULL
+                      AND c.action_type IN ('competition_proximity','high_competition_density')
+                      AND c.date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)) AS cartes_bloquees`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Cartes système des 7 prochains jours (menaces + occasions produites par les crons —
+      // invisibles sur Piloter jusqu'ici). Le libellé maison vit côté client (table type→FR).
+      bq.query({
+        query: `SELECT action_type, action_category, action_priority, CAST(date AS STRING) AS d, location_id
+                FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 7 DAY)
+                ORDER BY action_priority ASC, date ASC LIMIT 30`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const siteLabel: Record<string, string> = {};
@@ -220,8 +410,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       threshold_basis: str(r.threshold_basis), threshold_value: num(r.threshold_value),
       saved_item_id: str(r.saved_item_id), ws: str(r.ws), we: str(r.we),
       origin: str(r.origin_action_type), days_to_end: num(r.days_to_end),
+      created_d: str(r.created_d),
       in_period: flat(r.in_period) === true,
     }));
+    const todayYmd = new Date().toISOString().slice(0, 10);
     const open = coms.filter((c) => c.status === "open");
     // DEUX registres (owner 05/08) : « jugées » = TOUS les verdicts rendus (journal) ;
     // « € » = le mart seulement (contrat : non déclarée pas-menée — fait par défaut).
@@ -232,13 +424,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const c of coms) if (c.commitment_id) ownerByCommitment[c.commitment_id] = c.owner || "—";
     // Un verdict « confounded » est NON MESURABLE (guardrail 3 du mart) : jamais dans les €,
     // compté à part — le mart le garde flaggé, le tableau respecte le flag.
-    const martAll = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), gap_eur: num(r.gap_eur) }));
+    const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur) }));
+    const periodCut = new Date(Date.parse(todayYmd + "T12:00:00Z") - period * 86_400_000).toISOString().slice(0, 10);
+    const martAll = mart365.filter((r) => String(r.resolved_date || "") >= periodCut);
     const martRows = martAll.filter((r) => r.verdict !== "confounded");
     const confoundedCount = martAll.length - martRows.length;
     const gapSum = martRows.length ? martRows.reduce((a, r) => a + (r.gap_eur ?? 0), 0) : null;
+    const martGap: Record<string, number | null> = {};
+    for (const r of mart365) martGap[r.commitment_id] = r.gap_eur;
     // Tenue par personne : verdicts rendus sur la période + € mesurés de LEURS fenêtres.
     const personKey = (name: string | null): string =>
-      String(name || "—").split("·")[0].trim().toLowerCase() || "—";
+      String(name || "—").split("·")[0].trim().split(/\s+/)[0].toLowerCase() || "—";
     const equipe: Record<string, { label: string; open: any[]; kept: number; judged: number; gap: number | null }> = {};
     for (const c of coms) {
       const k = personKey(c.owner);
@@ -259,7 +455,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const trigByPractice: Record<string, { last_fired: string | null; n: number }> = {};
     for (const r of trigRows as any[]) trigByPractice[String(str(r.practice_id))] = { last_fired: str(r.last_fired), n: Number(num(r.n_triggers) ?? 0) };
     const heatBySite: Record<string, { n_hot_30: number; next_hot: string | null }> = {};
-    for (const r of heatRows as any[]) heatBySite[String(str(r.location_id))] = { n_hot_30: Number(num(r.n_hot_30) ?? 0), next_hot: str(r.next_hot) };
+    const hotDatesBySite: Record<string, string[]> = {};
+    for (const r of heatRows as any[]) {
+      const l = String(str(r.location_id));
+      heatBySite[l] = { n_hot_30: Number(num(r.n_hot_30) ?? 0), next_hot: str(r.next_hot) };
+      hotDatesBySite[l] = Array.isArray(flat(r.hot_dates)) ? (flat(r.hot_dates) as any[]).map((d) => String(flat(d))) : [];
+    }
     const ARMABLE_V1 = new Set(["structural_traffic_high"]);
     const practices = (bpRows as any[]).map((r) => {
       const pid = String(str(r.practice_id));
@@ -273,8 +474,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
         arm_cooldown: Number(num(r.arm_cooldown) ?? 7),
         arm_last_fired: trig.last_fired, arm_n_triggers: trig.n,
         arm_signal_ctx: heatBySite[locId] || null,
+        replay_status: str(r.replay_status),
+        // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
+        tier: String(str(r.status)) !== "active" ? "archivee"
+          : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "en_test"
+          : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "met" ? "prouvee"
+          : "declaree",
       };
     });
+    const practiceCounts = {
+      proven: Number(num((bpCountRows as any[])[0]?.n_proven) ?? 0),
+      en_test: Number(num((bpCountRows as any[])[0]?.n_rejeu) ?? 0),
+      declared: Number(num((bpCountRows as any[])[0]?.n_declared) ?? 0),
+    };
     // Gestes de connaissance (owner 05/08 — « les compteurs sans les gestes qui les font
     // avancer ») : verdicts tenus sans dispositif du même type documenté ; déclarés sans rejeu ;
     // rejeux en cours (ceux-là avancent seuls).
@@ -284,7 +496,101 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const c of open) if (c.commitment_id) openById[c.commitment_id] = c;
     const replaysRunning = practices.filter((pr) => pr.replay_commitment_id && openById[pr.replay_commitment_id])
       .map((pr) => ({ end: openById[pr.replay_commitment_id!].we }));
-    const declaredNoReplay = practices.filter((pr) => pr.status !== "proven" && !pr.replay_commitment_id).length;
+    // Un rejeu ANNULÉ ne compte pas comme rejeu : la pratique redevient prouvable.
+    const declaredNoReplay = practices.filter((pr) => pr.tier === "declaree" && (!pr.replay_commitment_id || pr.replay_status === "cancelled")).length;
+
+    // Score de série : le verdict de l'occurrence PRÉCÉDENTE d'un événement récurrent.
+    for (const o of operations as any[]) {
+      o.prev_occ = null;
+      if (Number(o.n_total) > 1 && o.saved_item_id) {
+        const prevs = coms.filter((c) => c.saved_item_id === o.saved_item_id && c.status !== "cancelled" && c.ws && c.ws < todayYmd)
+          .sort((a, b) => String(b.ws).localeCompare(String(a.ws)));
+        if (prevs[0]) o.prev_occ = { verdict: prevs[0].verdict, gap_eur: prevs[0].commitment_id ? martGap[prevs[0].commitment_id] ?? null : null };
+      }
+    }
+    // Dernier verdict rendu (récence) + dernière recette PROUVÉE (verdict tenu).
+    const resolvedV = coms.filter((c) => c.status === "resolved" && c.verdict)
+      .sort((a, b) => String(b.we || "").localeCompare(String(a.we || "")));
+    const lv = resolvedV[0] || null;
+    const lastVerdict = lv ? { text: lv.text, verdict: lv.verdict, we: lv.we, gap_eur: lv.commitment_id ? martGap[lv.commitment_id] ?? null : null } : null;
+    const mr = resolvedV.filter((c) => c.verdict === "met")[0] || null;
+    const metRecipe = mr ? { text: mr.text, ws: mr.ws, we: mr.we, gap_eur: mr.commitment_id ? martGap[mr.commitment_id] ?? null : null } : null;
+    // Impacts de classes au REGISTRE CANONIQUE : lignes store par site → pipeline
+    // rowsToImpactsWithImmaterial (médiane €/j, eur_year annualisé, tier estimé/mesuré).
+    const annualRevBySite: Record<string, number | null> = {};
+    for (const r of annualRevRows as any[]) {
+      const v = Number(flat(r.annual_revenue));
+      annualRevBySite[String(str(r.location_id))] = Number.isFinite(v) && v > 0 ? v : null;
+    }
+    const dcBySite: Record<string, any[]> = {};
+    for (const r of dcRows as any[]) {
+      const l = String(str(r.location_id));
+      (dcBySite[l] = dcBySite[l] || []).push(r);
+    }
+    const impactsBySite: Record<string, Map<string, any>> = {};
+    for (const l of Object.keys(dcBySite)) {
+      impactsBySite[l] = rowsToImpactsWithImmaterial(dcBySite[l], annualRevBySite[l] ?? null).impacts;
+    }
+    const activeComs = coms.filter((c) => c.status !== "cancelled");
+    let occPlayed = 0, occTotal = 0;
+    const occBySite: any[] = [];
+    for (const l of Object.keys(hotDatesBySite)) {
+      const days = hotDatesBySite[l];
+      if (!days.length) continue;
+      const missed = days.filter((d) => !activeComs.some((c) => c.location_id === l && c.ws && c.we && c.ws <= d && d <= c.we));
+      occPlayed += days.length - missed.length; occTotal += days.length;
+      occBySite.push({ location_id: l, site_label: siteLabel[l] || null, total: days.length, played: days.length - missed.length, missed_dates: missed });
+    }
+    // Prochaine occasion : parmi les sites avec un jour chaud annoncé, PRÉFÉRER celui dont
+    // l'effet chaleur est CHIFFRÉ au registre — « à récupérer » doit porter un nombre (owner
+    // 10/08 : « How much? Don't understand ») ; à défaut de site chiffré, le plus proche.
+    const heatRangeOf = (l: string): { mn: number; mx: number } | null => {
+      const vals: number[] = [];
+      if (impactsBySite[l]) for (const [k, imp] of impactsBySite[l]) if (/^heat_/.test(k)) vals.push(Number(imp.avg_gap_eur) || 0);
+      return vals.length ? { mn: Math.min(...vals), mx: Math.max(...vals) } : null;
+    };
+    let nextHot: string | null = null, nextHotSite: string | null = null, nextHotRange: { mn: number; mx: number } | null = null;
+    for (const l of Object.keys(heatBySite)) {
+      const nh = heatBySite[l].next_hot;
+      if (!nh) continue;
+      const rg = heatRangeOf(l);
+      const better = !nextHot || (!!rg && !nextHotRange) || (!!rg === !!nextHotRange && nh < String(nextHot));
+      if (better) { nextHot = nh; nextHotSite = l; nextHotRange = rg; }
+    }
+    const occasions = {
+      next_hot: nextHot,
+      next_hot_site: nextHotSite,
+      next_hot_site_label: nextHotSite ? siteLabel[nextHotSite] || null : null,
+      heat_range: nextHotRange,
+      played: occPlayed, total: occTotal, by_site: occBySite,
+    };
+    // Apprentissages : impacts GATED du registre, famille 'card' exclue (populations de tirs,
+    // pas des jours vécus — même filtre que les motifs structurels de Pulse), top |€/an|,
+    // un par classe. États alignés sur Pulse : couvert (dispositif actif structural_<key>) /
+    // en test (engagement OUVERT structural_<key> sur le site — règle de suppression 03/08).
+    const allImpacts: any[] = [];
+    for (const l of Object.keys(impactsBySite)) {
+      for (const [, imp] of impactsBySite[l]) {
+        if (String(imp.family || "") === "card") continue;
+        allImpacts.push({ ...imp, location_id: l });
+      }
+    }
+    const seenClass = new Set<string>();
+    const learnings = allImpacts
+      .sort((a, b) => Math.abs(b.eur_year ?? 0) - Math.abs(a.eur_year ?? 0))
+      .filter((r) => (seenClass.has(r.class_key) ? false : (seenClass.add(r.class_key), true)))
+      .slice(0, 3)
+      .map((r) => {
+        const test = coms.filter((c) => (c.status === "open" || c.status === "pending")
+          && c.location_id === r.location_id && c.origin === "structural_" + r.class_key)[0] || null;
+        return {
+          class_key: r.class_key, label_fr: r.label_fr, family: r.family, location_id: r.location_id,
+          site_label: siteLabel[r.location_id] || null, n_days: r.n_days, span_months: r.span_months,
+          avg_gap_eur: r.avg_gap_eur, eur_year: r.eur_year, tier_label_fr: r.tier_label_fr,
+          covered: practices.some((p) => p.location_id === r.location_id && p.status === "active" && p.origin_action_type === "structural_" + r.class_key),
+          in_test: test ? { end: test.we } : null,
+        };
+      });
 
     return json(200, {
       ok: true,
@@ -295,13 +601,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
         confounded: confoundedCount,
         windows_judged: judged.length,
         targets_met: judged.filter((c) => /met|tenu|beat/i.test(String(c.verdict))).length,
-        practices_proven: practices.filter((p) => p.status === "proven").length,
-        next_judgment: open.map((c) => c.we).filter((d) => d && String(d) >= new Date().toISOString().slice(0, 10)).sort()[0] || null,
+        // Tier canonique + compte SANS LIMIT — l'ancien `status === "proven"` n'était jamais vrai.
+        practices_proven: practiceCounts.proven,
+        next_judgment: open.map((c) => c.we).filter((d) => d && String(d) >= todayYmd).sort()[0] || null,
       },
+      // Dérivation des périodes CÔTÉ CLIENT (bascule instantanée, zéro re-fetch) : lignes mart
+      // 365 j + méta des verdicts (created_d) — égalité serveur/client prouvée au harnais 09/08.
+      impact_rows: mart365,
+      judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d })),
+      practice_counts: practiceCounts,
+      last_verdict: lastVerdict,
+      met_recipe: metRecipe,
+      occasions,
+      learnings,
+      learned_classes: new Set(allImpacts.map((r) => r.class_key)).size,
+      sales_depth: (freshRows as any[]).map((r) => ({
+        location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null,
+        n_days: Number(num(r.n_days) ?? 0), first_sale: str(r.first_sale), last_sale: str(r.last_sale),
+      })),
       multi_site: locs.length > 1,
       sites: locs.map((l) => ({ location_id: l, label: siteLabel[l] || "" })),
       operations,
-      open_commitments: open.map((c) => ({ text: c.text, owner: c.owner, site_label: c.site_label, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
+      open_commitments: open.map((c) => ({ commitment_id: c.commitment_id, text: c.text, owner: c.owner, location_id: c.location_id, site_label: c.site_label, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
       equipe: Object.values(equipe).map((e) => ({ who: e.label, open: e.open, judged: e.judged, kept: e.kept, gap_eur: e.gap })),
       practices,
       automated: {
@@ -326,10 +647,62 @@ export const GET: APIRoute = async ({ url, locals }) => {
         snapshots_recent: (snapRows as any[]).map((r) => str(r.d)),
         next_autoarm: operations.filter((o) => !o.ready_com && o.occ_date)
           .map((o) => ({ title: o.title, occ_date: o.occ_date }))[0] || null,
-        verdicts_scheduled: open.map((c) => c.we).filter(Boolean).sort(),
+        verdicts_scheduled: open.map((c) => c.we).filter((d) => d && String(d) >= todayYmd).sort(),
         competitor_alerts_7d: alerts,
       },
+      // ═══ GLANCE (refonte 13/08) — mise en forme minimale ; le client assemble l'écran. ═══
+      glance: (() => {
+        // Veille dédoublonnée par la CLÉ Google (jamais le nom : deux fiches homonymes peuvent
+        // être deux lieux, deux noms différents le même lieu). Sans clé = fiche à identifier.
+        const parLieu: Record<string, any> = {}; const sansCle: any[] = [];
+        for (const v of veilleRows as any[]) {
+          const k = str(v.google_place_id);
+          const row = { location_id: str(v.location_id), nom: str(v.competitor_name), age_j: num(v.age_j), n_evts: Number(num(v.n_evts) ?? 0), n_offres: Number(num(v.n_offres) ?? 0), a_url: !!flat(v.source_url) };
+          if (!k) { sansCle.push(row); continue; }
+          if (!parLieu[k]) parLieu[k] = { ...row, fiches: 0 };
+          parLieu[k].fiches++;
+          if (row.age_j != null && (parLieu[k].age_j == null || row.age_j < parLieu[k].age_j)) { parLieu[k].age_j = row.age_j; parLieu[k].nom = row.nom; }
+          parLieu[k].n_evts += row.n_evts; parLieu[k].n_offres += row.n_offres;
+        }
+        return {
+          tendance: (tendRows as any[]).map((r) => ({ commitment_id: str(r.commitment_id), metric: str(r.metric), jours: num(r.jours), ecart_pct: num(r.ecart_pct) })),
+          veille: { lieux: Object.values(parLieu), sans_cle: sansCle },
+          offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change) })),
+          offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
+          par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
+          trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap) })),
+          evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
+          habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
+          savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
+          cartes: (cartesRows as any[]).map((r) => ({ type: str(r.action_type), cat: str(r.action_category), prio: num(r.action_priority), d: str(r.d), location_id: str(r.location_id) })),
+        };
+      })(),
       debloquer: {
+        // Fraîcheur des ventes (P1) : sales_stale = le PIRE site figé (données présentes mais
+        // arrêtées ≥ 7 j — un max futur, ex. seed, n'est pas figé) ; sales_missing = sites
+        // sans AUCUNE ligne. Premier test (P2) : des ventes existent mais AUCUN engagement
+        // (hors annulés) n'a JAMAIS été pris sur le compte — le geste disparaît au premier.
+        ...(() => {
+          const todayYmd = new Date().toISOString().slice(0, 10);
+          const lastBySite: Record<string, string> = {};
+          for (const r of freshRows as any[]) lastBySite[String(str(r.location_id))] = String(str(r.last_sale));
+          const staleList = locs
+            .filter((l) => lastBySite[l] && lastBySite[l] < todayYmd)
+            .map((l) => ({
+              location_id: l, site_label: siteLabel[l] || null, last_sale_date: lastBySite[l],
+              stale_days: Math.round((Date.parse(todayYmd + "T12:00:00Z") - Date.parse(lastBySite[l] + "T12:00:00Z")) / 86_400_000),
+            }))
+            .filter((s) => s.stale_days >= 7)
+            .sort((a, b) => b.stale_days - a.stale_days);
+          const missing = locs.filter((l) => !lastBySite[l]).map((l) => ({ location_id: l, site_label: siteLabel[l] || null }));
+          const anyCommitEver = (comRows as any[]).some((c) => String(str(c.status)) !== "cancelled");
+          const dataSite = locs.find((l) => lastBySite[l]) || null;
+          return {
+            sales_stale: staleList[0] || null,
+            sales_missing: missing,
+            first_test: !anyCommitEver && dataSite ? { location_id: dataSite, site_label: siteLabel[dataSite] || null } : null,
+          };
+        })(),
         team_empty: Number(num((setupRows as any[])[0]?.team_n) ?? 0) === 0,
         channels_missing: Number(num((setupRows as any[])[0]?.chan_n) ?? 0) === 0,
         alerts_prefs_missing: Number(num((setupRows as any[])[0]?.pref_n) ?? 0) === 0,

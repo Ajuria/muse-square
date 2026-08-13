@@ -21,6 +21,80 @@ const dowFr = (iso: string) => DOW_FR[new Date(iso + "T12:00:00Z").getUTCDay()];
 // par (practice_id, target_date), cooldown arm_cooldown_days (défaut 7), échec soft.
 const HEAT_DETECTABLE = new Set(["structural_traffic_high"]);
 
+// ── Relance FRAÎCHEUR des ventes (onboarding P1) : un compte dont les données s'arrêtent
+// n'a ni cartes du jour ni verdicts — audit Olivades : import unique 29/07, figé au 27/07,
+// 0 verdict en 16 j. Sélection = MAX(transaction_date) réel < aujourd'hui, figé ≥ 7 j ;
+// garde = 1 email max / 7 j / site (action_log action_key='freshness_reminder') ;
+// destinataire = l'email du compte (des utilisateurs de l'app — le lien Explorer est légitime).
+// `dry=1` : liste ce qui partirait sans rien envoyer (vérification).
+async function runFreshnessReminders(bq: any, dry: boolean): Promise<{ scanned: number; sent: number; details: string[] }> {
+  const details: string[] = [];
+  let sent = 0;
+  const baseUrl = process.env.APP_BASE_URL || "https://dev.musesquare.com";
+  const [stale] = await bq.query({
+    query: `
+      WITH last AS (
+        SELECT location_id, MAX(transaction_date) AS d
+        FROM \`${BQ_PROJECT}.raw.client_transactions\` GROUP BY 1
+      ),
+      prof AS (
+        SELECT location_id, email, clerk_user_id, COALESCE(site_name, company_name) AS site
+        FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY created_at DESC) AS rn
+              FROM \`${BQ_PROJECT}.raw.insight_event_user_location_profile\` WHERE email IS NOT NULL)
+        WHERE rn = 1
+      ),
+      reminded AS (
+        SELECT DISTINCT location_id FROM \`${BQ_PROJECT}.analytics.action_log\`
+        WHERE action_key = 'freshness_reminder'
+          AND created_at > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      )
+      SELECT l.location_id, CAST(l.d AS STRING) AS last_sale,
+             DATE_DIFF(CURRENT_DATE(), l.d, DAY) AS stale_days,
+             p.email, p.clerk_user_id, p.site
+      FROM last l
+      JOIN prof p USING (location_id)
+      WHERE l.d < CURRENT_DATE()
+        AND DATE_DIFF(CURRENT_DATE(), l.d, DAY) >= 7
+        AND l.location_id NOT IN (SELECT location_id FROM reminded)
+      ORDER BY stale_days DESC LIMIT 10`,
+    location: "EU",
+  });
+  for (const r of (stale as any[]) || []) {
+    const loc = String(flat(r.location_id));
+    const site = String(flat(r.site) || "votre site");
+    const lastSale = String(flat(r.last_sale));
+    const staleDays = Number(flat(r.stale_days));
+    try {
+      if (dry) { details.push(`DRY ${site} (${loc.slice(0, 8)}): figé au ${frDfull(lastSale).slice(0, 5)}, ${staleDays} j — enverrait à ${String(flat(r.email)).slice(0, 3)}…`); continue; }
+      const subject = `Vos ventes s'arrêtent au ${frDfull(lastSale).slice(0, 5)} — ${site}`;
+      const body = [
+        `Vos données de ventes (${site}) s'arrêtent au ${dowFr(lastSale)} ${frDfull(lastSale)} — ${staleDays} jours sans données.`,
+        `Sans ventes fraîches, Muse Square ne peut ni lire vos journées récentes, ni mesurer vos opérations en cours : les cartes du jour et les verdicts restent muets.`,
+        `Le geste (2 minutes) : exportez la période manquante depuis votre caisse, puis importez le fichier dans Explorer :\n${baseUrl}/app/insightevent/prompt`,
+        `— Relance automatique de Muse Square (une par semaine au plus, tant que les données ne sont pas à jour).`,
+      ].join("\n\n");
+      const cfg = await loadChannelConfig(bq, String(flat(r.clerk_user_id) || ""), loc, "email").catch(() => ({}));
+      const res = await sendEmail(cfg, { title: subject, body, recipient: String(flat(r.email)) }).catch((e: any) => ({ ok: false, error: String(e?.message || e) }));
+      if (!res.ok) { details.push(`freshness ${site}: échec envoi — ${String((res as any).error || "").slice(0, 80)}`); continue; }
+      await bq.dataset("analytics").table("action_log").insert([{
+        log_id: crypto.randomUUID(),
+        user_id: String(flat(r.clerk_user_id) || ""),
+        location_id: loc,
+        action_key: "freshness_reminder",
+        event: "freshness_reminder",
+        affected_date: new Date().toISOString().slice(0, 10),
+        reason: `stale_${lastSale}`,
+        created_at: new Date().toISOString(),
+      }]);
+      sent += 1;
+      details.push(`freshness ${site}: relance envoyée (figé au ${frDfull(lastSale).slice(0, 5)}, ${staleDays} j)`);
+    } catch (e: any) {
+      details.push(`freshness ${loc.slice(0, 8)}: ERREUR ${String(e?.message || e).slice(0, 100)}`);
+    }
+  }
+  return { scanned: ((stale as any[]) || []).length, sent, details };
+}
+
 async function runArmedDispositifs(bq: any): Promise<{ scanned: number; triggered: number; details: string[] }> {
   const details: string[] = [];
   let triggered = 0;
@@ -166,6 +240,11 @@ export const GET: APIRoute = async ({ request, url }) => {
     let armedRes = { scanned: 0, triggered: 0, details: [] as string[] };
     try { armedRes = await runArmedDispositifs(bq); } catch (e: any) { armedRes.details.push("ERREUR passe armés: " + String(e?.message || e).slice(0, 120)); }
 
+    // 0bis. Relance fraîcheur des ventes (onboarding P1) — indépendante, échec soft.
+    const freshnessDry = url.searchParams.get("dry") === "1";
+    let freshRes = { scanned: 0, sent: 0, details: [] as string[] };
+    try { freshRes = await runFreshnessReminders(bq, freshnessDry); } catch (e: any) { freshRes.details.push("ERREUR passe fraîcheur: " + String(e?.message || e).slice(0, 120)); }
+
     // 1. Get all enabled automation rules
     const [rules] = await bq.query({
       query: `
@@ -181,7 +260,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     });
 
     if (!rules || rules.length === 0) {
-      return new Response(JSON.stringify({ ok: true, dispatched: 0, message: "No active rules", armed: armedRes }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, dispatched: 0, message: "No active rules", armed: armedRes, freshness: freshRes }), { status: 200, headers: { "content-type": "application/json" } });
     }
 
     // 2. Group rules by location
@@ -381,7 +460,7 @@ export const GET: APIRoute = async ({ request, url }) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, dispatched: results.length, results, armed: armedRes }), { status: 200, headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, dispatched: results.length, results, armed: armedRes, freshness: freshRes }), { status: 200, headers: { "content-type": "application/json" } });
   } catch (err: any) {
     console.error("[daily-dispatch] Error:", err);
     return new Response(JSON.stringify({ ok: false, error: err?.message || "Unknown error" }), { status: 500, headers: { "content-type": "application/json" } });

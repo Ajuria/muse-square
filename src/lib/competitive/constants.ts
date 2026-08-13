@@ -15,6 +15,41 @@ export const VALID_AUDIENCE = new Set([
   "local", "tourists", "mixed", "professionals", "students", "families", "seniors"
 ]);
 
+// ── Prose → taxonomie ────────────────────────────────────────────────────────
+// L'extraction Claude decrit l'audience en PROSE FRANCAISE (« Grand public, amateurs
+// de vin, touristes et locaux... ») ; la mesure de recouvrement (int_competitor_threat_profile)
+// compare des CODES par egalite stricte avec le vocabulaire des locations (« local »,
+// « tourists »...). Constat du 12/08 : 27 fiches actives sur 30 sans audience parce que
+// add-competitor filtrait la prose contre une liste anglaise fantome (« locals »,
+// « art_lovers ») qui ne matche ni la prose ni l'entrepot. Ce mapper est l'UNIQUE
+// passerelle prose → VALID_AUDIENCE ; l'ordre d'apparition dans la prose donne
+// primaire puis secondaire.
+const AUDIENCE_KEYWORDS: Array<[string, RegExp]> = [
+  ["mixed",         /grand[\s-]public|general[\s-]public|tous[\s-]publics|large[\s-]public/i],
+  ["tourists",      /tourist|touriste|international|anglophone|voyageur|visiteurs? de (paris|la ville)/i],
+  ["local",         /\blocaux\b|\blocal(e|es|s)?\b|habitant|riverain|r[ée]gional|de la r[ée]gion/i],
+  ["professionals", /professionnel|professional|architecte|d[ée]corateur|designer|entreprise|b2b|prescripteur|s[ée]minaire|congr[èe]s/i],
+  ["students",      /[ée]tudiant|student|scolaire|universitaire|acad[ée]mique/i],
+  ["families",      /famille|families|enfant|jeune[\s-]public|children/i],
+  ["seniors",       /senior|a[îi]n[ée]/i],
+];
+
+/**
+ * Extrait (primaire, secondaire) du texte libre d'audience. Retourne des codes de
+ * VALID_AUDIENCE, dans l'ordre d'apparition dans la prose ; null si rien ne matche.
+ */
+export function audiencesFromProse(prose: string | null | undefined): { primary: string | null; secondary: string | null } {
+  const text = String(prose ?? "");
+  if (!text.trim()) return { primary: null, secondary: null };
+  const hits: Array<{ code: string; idx: number }> = [];
+  for (const [code, re] of AUDIENCE_KEYWORDS) {
+    const m = text.match(re);
+    if (m && m.index !== undefined) hits.push({ code, idx: m.index });
+  }
+  hits.sort((a, b) => a.idx - b.idx);
+  return { primary: hits[0]?.code ?? null, secondary: hits[1]?.code ?? null };
+}
+
 export const BUCKET_MAP: Record<string, string> = {
   non_profit:         "institutional_activity",
   wellness:           "leisure_activity",

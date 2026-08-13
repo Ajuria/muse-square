@@ -43,7 +43,19 @@ const frDate = (iso: string | null): string | null => {
 };
 const signed = (n: number): string => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`;   // U+2212
 
-export async function weatherFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
+export async function weatherFamily(bq: any, location_id: string, date: string, question?: string): Promise<FamilyResult> {
+  // R4-1 (08/08, juge 2,6 : « la question porte sur la pluie mais la réponse développe la chaleur ») —
+  // la condition DEMANDÉE prime la dominante du jour. Parse accent-normalisé ; sans mot de condition
+  // dans la question → comportement inchangé (dominante).
+  const _qn = (question ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const ASKED_COND: Array<[RegExp, string]> = [
+    [/pluie|pleut|pluvieu|averse/, "rain"],
+    [/chaleur|canicule|chaud/, "heat"],
+    [/froid|gel(e|ee|s)?\b/, "cold"],
+    [/vent\b|rafale|tempete/, "wind"],
+    [/neige|neigeu/, "snow"],
+  ];
+  const askedFeature = ASKED_COND.find(([re]) => re.test(_qn))?.[1] ?? null;
   // 1) The signal day's dominant weather condition = the level column with the max value (>=1).
   const [condRows] = await bq.query({
     query: `SELECT lvl_heat, lvl_rain, lvl_cold, lvl_wind, lvl_snow
@@ -60,6 +72,12 @@ export async function weatherFamily(bq: any, location_id: string, date: string):
         condition = { feature, level: lvl, label_fr: COND_LABEL_FR[feature] || feature };
       }
     }
+  }
+  // R4-1 — the asked condition wins, even at level 0 today: « quand il pleut, je vends moins ? » is a
+  // question about past rain days, not about today's sky. The chain/products queries key off lvlCol
+  // and are condition-generic; the today-fact below phrases the level-0 case honestly.
+  if (askedFeature) {
+    condition = { feature: askedFeature, level: num(cond?.[WEATHER_LVL[askedFeature]]) ?? 0, label_fr: COND_LABEL_FR[askedFeature] || askedFeature };
   }
   if (!condition) {
     // No active weather on the signal day -> nothing card-specific to decompose.
@@ -181,7 +199,10 @@ export async function weatherFamily(bq: any, location_id: string, date: string):
   // ── FACTS. The chain is an ASSOCIATION -> observed_difference (see header). Below the floor there is
   // no chain and therefore NO effect fact: silence, not a hedged number.
   const facts: FamilyFact[] = [
-    { fact_fr: `Condition météo dominante aujourd'hui : ${condition.label_fr} (niveau ${condition.level} sur 4).`, claim_type: "observed_acute" },
+    condition.level >= 1
+      ? { fact_fr: `Condition météo ${askedFeature ? "analysée" : "dominante"} aujourd'hui : ${condition.label_fr} (niveau ${condition.level} sur 4).`, claim_type: "observed_acute" as const }
+      // Asked condition absent today (level 0) — the analysis is about the PAST condition days, say so.
+      : { fact_fr: `Pas de ${condition.label_fr} aujourd'hui (niveau 0 sur 4) — l'analyse porte sur vos jours de ${condition.label_fr} passés.`, claim_type: "observed" as const },
   ];
 
   if (peak && peak.date && peak.lvl >= EXTREME) {
