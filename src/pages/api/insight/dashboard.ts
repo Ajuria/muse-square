@@ -622,7 +622,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       multi_site: locs.length > 1,
       sites: locs.map((l) => ({ location_id: l, label: siteLabel[l] || "" })),
       operations,
-      open_commitments: open.map((c) => ({ text: c.text, owner: c.owner, site_label: c.site_label, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
+      open_commitments: open.map((c) => ({ commitment_id: c.commitment_id, text: c.text, owner: c.owner, location_id: c.location_id, site_label: c.site_label, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
       equipe: Object.values(equipe).map((e) => ({ who: e.label, open: e.open, judged: e.judged, kept: e.kept, gap_eur: e.gap })),
       practices,
       automated: {

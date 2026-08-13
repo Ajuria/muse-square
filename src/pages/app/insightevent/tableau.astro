@@ -179,7 +179,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               sub: "si la cible tient, déclaré devient prouvé",
               goal_fr: "Prouver un dispositif de plus",
               link_fr: "Prouver « " + String((firstDeclared && firstDeclared.text) || "dispositif").slice(0, 40) + " »",
-              href: "#tb-disp", open_volet: "di",
+              href: "#tb-sf", open_volet: "sf",
             });
           }
           if (db.team_empty) goals.push({
@@ -254,72 +254,31 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var pc = j.practice_counts || { proven: 0, en_test: 0, declared: 0 };
           var replayEnd = (db.replays_running || [])[0] ? db.replays_running[0].end : null;
 
-          // ── ÉTAGE 1 : Impact — chiffres + micro-libellés ; la prose s'ouvre au clic. ──
-          var periodSel = '<span style="display:inline-flex;gap:12px;font-size:11.5px;">'
-            + [[30, "30 j"], [90, "90 j"], [365, "12 mois"]].map(function (p) {
-                var on = p[0] === period;
-                return '<button type="button" data-tb-period="' + p[0] + '" style="font-family:inherit;border:none;background:none;padding:0;cursor:pointer;' + (on ? "color:#111827;font-weight:600;text-decoration:underline;text-underline-offset:3px;" : "color:#9CA3AF;") + '">' + p[1] + "</button>";
-              }).join("") + "</span>";
-          var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
-          var lecture = null;
-          if (seuilsCase)
-            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
-          else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — rejouez ce qui tient (Dispositifs).";
-          else if (im.gap_eur != null && im.gap_eur < 0)
-            lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
-          var lv = j.last_verdict || null;
-          var eurTip = im.eur_windows + " fenêtre" + (im.eur_windows > 1 ? "s" : "") + " mesurée" + (im.eur_windows > 1 ? "s" : "") + (im.confounded ? " · " + im.confounded + " écartée" + (im.confounded > 1 ? "s" : "") + " (facteur externe)" : "") + " · jamais extrapolé";
-          html += '<div class="tb-card" style="padding:16px;">'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
-            + '<div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">'
-            + '<div><div style="font-size:28px;font-weight:600;line-height:1;color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? "#059669" : "#B45309") + ';">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
-            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;cursor:help;" title="' + esc(eurTip) + '">vs habituel · ' + period + ' j</div></div>'
-            + '<div><div style="font-size:28px;font-weight:600;line-height:1;">' + im.targets_met + '<span style="font-size:14px;color:#9CA3AF;font-weight:500;">/' + im.windows_judged + '</span></div>'
-            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;">cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div>'
-            + (seuilsCase ? '<button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;margin-top:6px;">Seuils trop hauts ?</button>' : "")
-            + '</div>'
-            + '<div><div style="font-size:28px;font-weight:600;line-height:1;">' + im.practices_proven + '</div>'
-            + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;">prouvé' + (im.practices_proven > 1 ? "s" : "") + (pc.en_test ? " · " + pc.en_test + " en test" : "") + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "") + '</div></div>'
-            + '</div>';
-          if (lv) html += '<button type="button" data-tb-lect style="display:flex;align-items:center;gap:6px;margin-top:12px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
-            + '<span style="width:8px;height:8px;border-radius:50%;background:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';flex:none;"></span>'
-            + 'dernier verdict : <span style="font-weight:600;color:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';">' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)).split(" (")[0] + '</span> · ' + frD(lv.we) + ' <span style="font-size:10px;">▾</span></button>';
-          if (lecture || lv) {
-            html += '<div id="tb-lecture" class="tb-fold">'
-              + (lecture ? '<div><span style="font-weight:600;">Lecture :</span> ' + esc(lecture) + '</div>' : "")
-              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
-              + '<div style="color:#9CA3AF;">' + esc(eurTip) + '</div>'
-              + '</div>';
+          // ═══ REFONTE 13/08 (validée owner, maquette piloter-proto) ═══
+          // Héros = 4 TUILES chiffres · « À faire » = SEUL bloc ouvert, verbe d'abord, trié
+          // par valeur · 5 volets fermés dont l'en-tête EST la réponse (grammaire du radar :
+          // couleur = signal, fermé = réponse) · règle CTA : plein = LE geste le plus payant
+          // (au plus un), flèche = navigation. Budget : ~13 lignes au-dessus du pli.
+          var g = j.glance || {};
+          var oc = j.occasions || {};
+          var GREEN = "#059669", AMBER = "#B45309", GREY = "#9CA3AF", BLUE = "#1D3BB3";
+
+          // CA habituel par jour de semaine (l'unité d'impact « votre sam ≈ 1 190 € »).
+          var habit = {};
+          (g.habituel_dow || []).forEach(function (h) { habit[h.location_id + "|" + h.dw] = h.habituel; });
+          function habituelFor(l, iso) { var d = new Date(iso + "T00:00:00Z"); return habit[l + "|" + (d.getUTCDay() + 1)] || null; }
+          // L'aléa météo nommé par SA mesure (jamais l'agrégat : lvl 4 peut être la chaleur
+          // pendant que le libellé du jour dit « Ciel dégagé »).
+          function aleaFor(m) {
+            if (Number(m.lvl_heat) >= 3) return "forte chaleur annoncée";
+            if (Number(m.lvl_rain) >= 3) return "pluie marquée annoncée";
+            if (Number(m.lvl_snow) >= 3) return "neige annoncée";
+            if (Number(m.lvl_wind) >= 3) return "vent fort annoncé";
+            if (Number(m.lvl_cold) >= 3) return "grand froid annoncé";
+            return null;
           }
 
-          // ── À faire maintenant : LA seule phrase visible de la page. ──
-          var goals = buildGoals(j);
-          var primary = goals[0] || null;
-          var rest = goals.slice(1);
-          if (primary) {
-            html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:14px 0 12px;"></div>'
-              + '<p class="tb-eb" style="margin-bottom:3px;">À faire maintenant</p>'
-              + '<a class="tb-aline" href="' + primary.href + '">' + esc(primary.aline) + '</a>'
-              + '<div style="font-size:11px;color:#9CA3AF;">' + esc(primary.sub) + '</div>';
-            var chips = goalsChips(j, rest);
-            if (rest.length && chips.length) {
-              html += '<button type="button" id="tb-mg" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;text-align:left;">À débloquer '
-                + chips.map(function (c) { return '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + esc(c) + '</span>'; }).join("")
-                + ' <span style="font-size:10px;">▾</span></button>'
-                + '<div id="tb-mg-list" style="display:none;font-size:12.5px;line-height:2;padding-top:2px;">'
-                + rest.map(function (g) {
-                    return '<div>' + (g.goal_fr ? '<span style="font-weight:600;">' + esc(g.goal_fr) + '</span> → ' : "") + '<a class="tb-link" href="' + g.href + '"' + (g.open_volet ? ' data-tb-open="' + g.open_volet + '"' : "") + '>' + esc(g.link_fr) + '</a></div>';
-                  }).join("")
-                + '</div>';
-            }
-          }
-          html += '</div>';
-
-          // ── Panneau « premier test » (formulaire PARTAGÉ MSCommitForm, inchangé). ──
-          if (db.first_test) html += '<div id="tb-first-test" class="tb-card" style="display:none;padding:14px 16px;"></div>';
-
-          // ── ÉTAGE 2 : Cette semaine — UNE ligne par rangée, rangée entière cliquable. ──
+          // ── Opérations (découpage existant conservé). ──
           var ops = j.operations || [];
           var seen = {}, firstOps = [], restBy = {};
           ops.forEach(function (o) {
@@ -331,59 +290,160 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var laterOps = firstOps.filter(function (o) { return daysTo(o.occ_date) > 7; });
           var openComs = j.open_commitments || [];
           var weekComs = openComs.filter(function (c) { return !c.is_event && c.days_to_end != null && c.days_to_end >= 0 && c.days_to_end <= 7; });
-          // Fenêtre finie jamais résolue = une LIGNE (verdict en retard), plus une disparition.
           var overdueComs = openComs.filter(function (c) { return !c.is_event && c.days_to_end != null && c.days_to_end < 0; });
+          var tendBy = {};
+          (g.tendance || []).forEach(function (t) { tendBy[t.commitment_id] = t; });
+          var goals = buildGoals(j);
 
+          // ── À FAIRE : rangs = valeur (argent → verdicts en retard → en cours pire d'abord
+          //    → à préparer → déblocages). Une seule gouttière (58 px) : date OU pastille. ──
+          var aFaire = [];
+          goals.filter(function (gg) { return gg.kind === "documenter"; }).forEach(function (gg) {
+            var mr = j.met_recipe || null;
+            aFaire.push({ rang: 0, iso: mr ? mr.we : null, col: GREEN,
+              titre: "Documentez la recette — " + (mr ? trunc(mr.text, 44) : "votre verdict tenu"),
+              sub: "objectif atteint — écrite, elle devient un dispositif réutilisable",
+              droite: mr && mr.gap_eur != null ? '<span style="color:' + GREEN + ';font-weight:600;">' + signEur(mr.gap_eur) + '</span>' : "",
+              geste: '<a class="tb-link" href="' + gg.href + '" style="display:inline-block;font-size:12.5px;font-weight:600;color:#fff;background:' + BLUE + ';border-radius:8px;padding:6px 12px;">Documenter</a>' });
+          });
+          overdueComs.forEach(function (c) {
+            aFaire.push({ rang: 1, iso: c.we, col: AMBER, cle: [0, -Math.abs(c.days_to_end), 0],
+              titre: "Rendez le verdict — " + trunc(String(c.text || "").split(String.fromCharCode(8594))[0].split(".")[0], 46),
+              sub: "fenêtre finie le " + frD(c.we) + " — la mesure n’a pas été rendue", who: c.owner, site: c.site_label,
+              geste: '<a class="tb-link" href="/app/insightevent/pulse">Rendre →</a>' });
+          });
+          weekComs.forEach(function (c) {
+            var t = tendBy[c.commitment_id];
+            var demarre = daysTo(c.ws) > 0;
+            var titreOp = trunc(String(c.text || "").split(String.fromCharCode(8594))[0].split(".")[0], 46);
+            aFaire.push({ rang: demarre ? 3 : 2, iso: demarre ? c.ws : c.we,
+              col: demarre ? GREY : t && t.ecart_pct >= 0 ? GREEN : t ? AMBER : GREY,
+              cle: demarre ? [daysTo(c.ws), 0, 0] : [t ? t.ecart_pct : 999, c.days_to_end, 0],
+              titre: (demarre ? "Préparez " + dowFr(c.ws) + " " + frD(c.ws) + " — " : "Ajustez — ") + titreOp,
+              sub: demarre ? "la mesure s’arme seule le jour J" + (c.threshold_value != null ? " · seuil +" + c.threshold_value + " %" : "")
+                : t ? "en cours : " + (t.metric === "famille" ? "CA famille" : "CA") + " " + (t.ecart_pct >= 0 ? "+" : "−") + String(Math.abs(t.ecart_pct)).replace(".", ",") + " % vs son rythme habituel sur " + t.jours + " j"
+                : "en cours — aucun jour mesuré pour l’instant",
+              who: c.owner, site: c.site_label,
+              geste: c.commitment_id ? '<a class="tb-link" href="/app/insightevent/engagement?id=' + encodeURIComponent(c.commitment_id) + '">Ajuster →</a>' : "" });
+          });
+          week.forEach(function (o) {
+            var sig = [];
+            if (o.competitor_flag) sig.push("concurrent à proximité le jour même");
+            if (Number(o.weather_lvl) >= 3) sig.push(aleaFor({ lvl_heat: o.weather_lvl }) || "aléa météo annoncé");
+            aFaire.push({ rang: 3, iso: o.occ_date, col: o.ready_com && o.ready_snap ? GREEN : GREY,
+              cle: [daysTo(o.occ_date), 0, 0],
+              titre: "Préparez " + dowFr(o.occ_date) + " " + frD(o.occ_date) + " — " + trunc(o.title, 42),
+              sub: (o.ready_com && o.ready_snap ? "prête — consigne et contexte gelés" : "s’arme seule à J-7")
+                + (o.n_total > 1 ? " · occ. " + o.occ_num + "/" + o.n_total : "") + (sig.length ? " · " + sig.join(" · ") : ""),
+              droite: o.target ? '<span style="font-size:11px;color:#6b7280;">' + esc(o.target) + '</span>' : "",
+              who: o.owner, site: o.site_label,
+              geste: '<a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(o.location_id || loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '">Préparer →</a>' });
+          });
+          // Déblocages (verbe d'abord, le POURQUOI en sous-ligne) — gestes existants + nouveaux.
+          goals.filter(function (gg) { return gg.kind !== "documenter"; }).forEach(function (gg) {
+            aFaire.push({ rang: 4, iso: null, col: AMBER,
+              titre: String(gg.aline || "").replace(/^→\s*/, ""), sub: gg.sub || "",
+              geste: '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
+          });
+          (g.trous || []).forEach(function (tr) {
+            aFaire.push({ rang: 4, iso: null, col: AMBER,
+              titre: "Suivez " + trunc(tr.nom, 40),
+              sub: "débloque les alertes sur ses événements (à " + String(tr.km).replace(".", ",") + " km" + (tr.overlap != null ? ", " + tr.overlap + " % de public commun" : "") + ")",
+              geste: '<a class="tb-link" href="/app/insightevent/prompt?q=' + encodeURIComponent("Suivre le concurrent " + tr.nom) + '">Suivre →</a>' });
+          });
+          if ((g.savoir || {}).evts_sans_objectif) aFaire.push({ rang: 4, iso: null, col: AMBER,
+            titre: "Fixez un objectif à " + g.savoir.evts_sans_objectif + " événements",
+            sub: "sans objectif, aucun test ne peut conclure",
+            geste: '<a class="tb-link" href="/app/insightevent/evenement">Fixer →</a>' });
+          if ((g.savoir || {}).cartes_bloquees) aFaire.push({ rang: 4, iso: null, col: AMBER,
+            titre: "Précisez votre zone de clientèle",
+            sub: "débloque le chiffrage de " + g.savoir.cartes_bloquees + " cartes concurrence — une question, posée sur la carte",
+            geste: '<a class="tb-link" href="/app/insightevent/pulse">Répondre →</a>' });
+          aFaire.sort(function (a, b) {
+            if (a.rang !== b.rang) return a.rang - b.rang;
+            var ka = a.cle || [0, 0, 0], kb = b.cle || [0, 0, 0];
+            for (var ki = 0; ki < 3; ki++) if (ka[ki] !== kb[ki]) return ka[ki] - kb[ki];
+            return 0;
+          });
+
+          // ── HÉROS : 4 tuiles. ──
+          var periodSel = '<span style="display:inline-flex;gap:12px;font-size:11.5px;">'
+            + [[30, "30 j"], [90, "90 j"], [365, "12 mois"]].map(function (pp) {
+                var on = pp[0] === period;
+                return '<button type="button" data-tb-period="' + pp[0] + '" style="font-family:inherit;border:none;background:none;padding:0;cursor:pointer;' + (on ? "color:#111827;font-weight:600;text-decoration:underline;text-underline-offset:3px;" : "color:#9CA3AF;") + '">' + pp[1] + "</button>";
+              }).join("") + "</span>";
+          var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
+          var lecture = null;
+          if (seuilsCase)
+            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
+          else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
+            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — rejouez ce qui tient (Votre savoir-faire).";
+          else if (im.gap_eur != null && im.gap_eur < 0)
+            lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
+          var lv = j.last_verdict || null;
+          var eurTip = im.eur_windows + " fenêtre" + (im.eur_windows > 1 ? "s" : "") + " mesurée" + (im.eur_windows > 1 ? "s" : "") + (im.confounded ? " · " + im.confounded + " écartée" + (im.confounded > 1 ? "s" : "") + " (facteur externe)" : "") + " · jamais extrapolé";
+          var vLieux = (g.veille || {}).lieux || [];
+          var vVus = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; }).length;
+          var covSites = g.par_site || [];
+          var covTrou = covSites.some(function (c) { return Number(c.n_suivis) < Number(c.n_total); });
+          var veilleOk = vLieux.length > 0 && vVus === vLieux.length && !((g.veille || {}).sans_cle || []).length;
+          var covSub = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ") || "menaces fortes suivies";
+          var tile = function (big, bigColor, sub, subTip) {
+            return '<div style="min-width:120px;"><div style="font-size:26px;font-weight:600;line-height:1;color:' + bigColor + ';">' + big + '</div>'
+              + '<div style="font-size:10.5px;color:#9CA3AF;margin-top:5px;' + (subTip ? "cursor:help;" : "") + '"' + (subTip ? ' title="' + esc(subTip) + '"' : "") + '>' + sub + '</div></div>';
+          };
+          html += '<div class="tb-card" style="padding:16px;">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
+            + '<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;">'
+            + tile(im.gap_eur == null ? "— €" : signEur(im.gap_eur), im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER,
+                "vs habituel · " + period + " j · " + im.targets_met + "/" + im.windows_judged + " cibles tenues" + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : ""), eurTip)
+            + tile(String(aFaire.length), "#111827", "à faire", "gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages")
+            + tile((oc.played || 0) + '<span style="font-size:14px;color:#9CA3AF;font-weight:500;">/' + (oc.total || 0) + "</span>", "#111827",
+                "occasions jouées · 30 j", "Jours d’environnement (chaleur mesurée) couverts par une action engagée, sur les 30 derniers jours")
+            + tile('<span style="display:inline-flex;align-items:center;gap:7px;"><span style="width:11px;height:11px;border-radius:50%;background:' + (veilleOk && !covTrou ? GREEN : AMBER) + ';"></span>' + vVus + "/" + (vLieux.length || 0) + "</span>", "#111827",
+                "veille · " + covSub, "Lieux concurrents visités par la veille cette nuit · couverture des menaces fortes par site")
+            + '</div>';
+          if (seuilsCase) html += '<button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;margin-top:10px;">Seuils trop hauts ?</button>';
+          if (lv) html += '<button type="button" data-tb-lect style="display:flex;align-items:center;gap:6px;margin-top:10px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
+            + '<span style="width:8px;height:8px;border-radius:50%;background:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';flex:none;"></span>'
+            + 'dernier verdict : <span style="font-weight:600;color:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';">' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)).split(" (")[0] + '</span> · ' + frD(lv.we) + ' <span style="font-size:10px;">▾</span></button>';
+          if (lecture || lv) {
+            html += '<div id="tb-lecture" class="tb-fold">'
+              + (lecture ? '<div><span style="font-weight:600;">Lecture :</span> ' + esc(lecture) + '</div>' : "")
+              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
+              + '<div style="color:#9CA3AF;">' + esc(eurTip) + '</div>'
+              + '</div>';
+          }
+          html += '</div>';
+
+          // ── Panneau « premier test » (formulaire PARTAGÉ MSCommitForm, inchangé). ──
+          if (db.first_test) html += '<div id="tb-first-test" class="tb-card" style="display:none;padding:14px 16px;"></div>';
+
+          // ── À FAIRE — le seul bloc ouvert. 6 rangées visibles, le reste sous pli. ──
+          var afRow = function (r) {
+            var quand = "";
+            if (r.iso) {
+              var dj = daysTo(r.iso);
+              quand = '<span style="font-size:11px;font-weight:700;color:' + r.col + ';">' + (dj === 0 ? "auj." : dj > 0 ? "J-" + dj : "il y a " + Math.abs(dj) + " j") + '</span>'
+                + '<span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(r.iso) + " " + frD(r.iso) + '</span>';
+            } else quand = '<span style="display:flex;justify-content:center;"><span style="width:9px;height:9px;border-radius:50%;background:' + r.col + ';"></span></span>';
+            return '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto auto;gap:0 10px;align-items:center;padding:8px 8px;margin:0 -8px;border-top:1px solid #F3F4F6;font-size:13px;">'
+              + '<span>' + quand + '</span>'
+              + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(r.titre) + '</span>'
+              + (J.multi_site && r.site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(r.site) + '</span>' : "")
+              + (r.sub ? '<span style="display:block;font-size:11.5px;color:#6B7280;">' + r.sub + '</span>' : "") + '</span>'
+              + '<span style="white-space:nowrap;text-align:right;">' + (r.droite || "") + '</span>'
+              + '<span>' + (r.geste || "") + '</span></div>';
+          };
           html += '<div class="tb-card" style="padding:14px 16px;">'
-            + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;"><p class="tb-eb">Cette semaine</p><a class="tb-link" href="/app/insightevent/evenement" style="font-size:11.5px;">Tous mes événements →</a></div>';
-          if (!week.length && !weekComs.length && !overdueComs.length) {
-            html += '<div style="font-size:12.5px;color:#9CA3AF;">Rien à échéance sous 7 jours' + (laterOps.length ? " — prochaine : " + dowFr(laterOps[0].occ_date) + " " + frD(laterOps[0].occ_date) : "") + '.</div>';
-          } else {
-            html += '<div>';
-            overdueComs.forEach(function (c) {
-              var title = trunc(String(c.text || "").split(String.fromCharCode(8594))[0].split(".")[0], 80);
-              html += row3("/app/insightevent/pulse", {
-                j: "J+" + Math.abs(c.days_to_end), jColor: "#B45309",
-                dot: "#B45309", dotTip: "fenêtre finie le " + frD(c.we) + " — la mesure n’a pas été rendue",
-                title: title, titleTip: String(c.text || ""),
-                chips: siteChip(c.site_label) + '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;">verdict en retard ' + Math.abs(c.days_to_end) + ' j</span>',
-                who: c.owner,
-              });
-            });
-            week.forEach(function (o) {
-              var sig = [];
-              if (o.competitor_flag) sig.push("concurrent à proximité le jour même");
-              if (Number(o.weather_lvl) >= 3) sig.push("météo niv. " + o.weather_lvl);
-              var sigShort = o.competitor_flag ? "⚠ concurrent" : "⚠ météo " + o.weather_lvl;
-              var sigChip = sig.length ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;cursor:help;" title="' + esc(sig.join(" · ")) + '">' + (sig.length === 1 ? sigShort : "⚠ " + sig.length + " signaux") + '</span>' : "";
-              var kpiLbl = o.kpi === "family_revenue" ? "famille " + (o.kpi_family || "") : o.kpi === "revenue_residual" ? "CA vs habituel" : (o.kpi || "");
-              var dossierHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(o.location_id || loc) + "&saved_item_id=" + encodeURIComponent(o.saved_item_id);
-              var jsub = "", pv = o.prev_occ || null;
-              if (o.n_total > 1) {
-                jsub = o.occ_num + "/" + o.n_total + (pv && pv.verdict ? ' <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + (VERDICT_COL[pv.verdict] || "#6b7280") + ';" title="occ. précédente : ' + esc(VERDICT_FR[pv.verdict] || pv.verdict) + (pv.gap_eur != null && pv.verdict !== "confounded" ? " " + signEur(pv.gap_eur) : "") + '"></span>' : "");
-              }
-              var dCol = daysTo(o.occ_date);
-              html += row3(dossierHref, {
-                j: dCol === 0 ? "auj." : "J-" + dCol, jColor: "#1D3BB3", jsub: jsub,
-                dot: o.ready_com && o.ready_snap ? "#059669" : "#D1D5DB",
-                dotTip: o.ready_com && o.ready_snap ? "prête — consigne et contexte gelés" : "s’arme seule à J-7",
-                title: o.title, titleTip: o.title + (pv && pv.verdict ? " · occ. précédente : " + (VERDICT_FR[pv.verdict] || pv.verdict) : ""),
-                chips: siteChip(o.site_label) + sigChip,
-                right: o.target || "", rightTip: o.target ? "cible " + kpiLbl + " " + o.target : "",
-                who: o.owner,
-              });
-            });
-            weekComs.forEach(function (c) {
-              var title = trunc(String(c.text || "").split(String.fromCharCode(8594))[0].split(".")[0], 80);
-              html += row3("/app/insightevent/pulse", {
-                j: c.days_to_end === 0 ? "auj." : "J-" + c.days_to_end, jColor: "#1D3BB3",
-                dot: "#D1D5DB", dotTip: "fenêtre en cours " + frD(c.ws) + (c.we !== c.ws ? " → " + frD(c.we) : "") + " — verdict automatique à la fin",
-                title: title, titleTip: String(c.text || ""),
-                chips: siteChip(c.site_label),
-                right: c.threshold_value != null ? "+" + c.threshold_value + " %" : "", rightTip: c.threshold_value != null ? "seuil +" + c.threshold_value + " %" : "",
-                who: c.owner,
-              });
-            });
+            + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
+          if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
+          aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
+          if (aFaire.length > 6) {
+            html += '<button type="button" data-tb-fold="tb-af-more" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;">+ ' + (aFaire.length - 6) + ' autres ▾</button>'
+              + '<div id="tb-af-more" class="tb-fold" style="padding:0;background:none;">';
+            aFaire.slice(6).forEach(function (r) { html += afRow(r); });
             html += '</div>';
           }
           var restCount = 0, restLast = null;
@@ -394,49 +454,119 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
           html += '</div>';
 
-          // ── Occasions : les signaux d'environnement, € d'abord, une action par ligne. ──
-          var oc = j.occasions || {};
+          // ── Volets : l'en-tête EST la réponse (chips), le corps s'ouvre au clic. ──
+          var voletHead = function (id, inner) {
+            return '<button type="button" class="tb-volet" data-tb-volet="' + id + '" aria-expanded="false">'
+              + '<span style="flex:1;">' + inner + '</span>'
+              + '<span class="tb-chevron">▾</span></button>';
+          };
+
+          // ── Volet ÉVÉNEMENTS CONCURRENTS — datés, votre enjeu du jour ; collision = mention.
+          var occDates = {};
+          firstOps.concat(Object.keys(restBy).reduce(function (a, k) { return a.concat(restBy[k]); }, [])).forEach(function (o) { occDates[o.location_id + "|" + o.occ_date] = o.title; });
+          var parJour = {};
+          (g.evts14 || []).forEach(function (m) {
+            var k = m.location_id + "|" + m.d;
+            if (!parJour[k]) parJour[k] = { loc: m.location_id, d: m.d, evts: [], alea: aleaFor(m), mien: occDates[k] || null };
+            parJour[k].evts.push(m);
+          });
+          var jours = Object.keys(parJour).map(function (k) { return parJour[k]; }).sort(function (a, b) { return a.d.localeCompare(b.d); });
+          var nEvts14 = (g.evts14 || []).length;
+          var evAttention = jours.some(function (gg) { return gg.mien || gg.alea; });
+          var evChips = '<span class="tb-chip" style="background:' + (evAttention ? "#FEF3E2" : "#F3F4F6") + ';color:' + (evAttention ? AMBER : "#6b7280") + ';">' + nEvts14 + " sur 14 j</span>"
+            + (jours.filter(function (gg) { return gg.mien; }).length ? '<span class="tb-chip" style="background:#FEF3E2;color:' + AMBER + ';margin-left:4px;">' + jours.filter(function (gg) { return gg.mien; }).length + " le jour d’une de vos opérations</span>" : "");
+          html += '<div class="tb-card">' + voletHead("ev", '<span style="font-weight:600;">Événements concurrents</span>&nbsp; ' + evChips)
+            + '<div data-tb-body="ev" style="display:none;padding:0 16px 12px;font-size:13px;color:#374151;">';
+          if (!jours.length) html += '<div style="color:#9CA3AF;font-size:12.5px;">Aucun événement concurrent repéré sur vos 14 prochains jours.</div>';
+          jours.forEach(function (gg) {
+            var hab = habituelFor(gg.loc, gg.d);
+            var e0 = gg.evts[0];
+            var dj = daysTo(gg.d);
+            var detail = [];
+            if (gg.mien) detail.push("le jour de votre " + esc(trunc(gg.mien, 30)));
+            if (gg.alea) detail.push(esc(gg.alea));
+            if (!detail.length && e0.m != null) detail.push("à " + (e0.m / 1000).toFixed(1).replace(".", ",") + " km — public partiellement commun");
+            html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
+              + '<span><span style="font-size:11px;font-weight:700;color:' + (gg.mien || gg.alea ? AMBER : GREY) + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(gg.d) + " " + frD(gg.d) + '</span></span>'
+              + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(e0.lieu || "Un concurrent") + ' ouvre « ' + esc(trunc(e0.nom, 38)) + ' »' + (gg.evts.length > 1 ? " +" + (gg.evts.length - 1) : "") + '</span>'
+              + (J.multi_site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc((j.sites || []).filter(function (sx) { return sx.location_id === gg.loc; }).map(function (sx) { return sx.label; })[0] || "") + '</span>' : "")
+              + (detail.length ? '<span style="display:block;font-size:11.5px;color:' + (gg.mien || gg.alea ? AMBER : "#6B7280") + ';">' + detail.join(" · ") + '</span>' : "") + '</span>'
+              + '<span style="font-size:12px;white-space:nowrap;">' + (hab ? '<span style="color:#6B7280;">votre ' + dowFr(gg.d) + ' ≈ </span><span style="font-weight:600;">' + frInt(hab) + ' €</span>' : "") + '</span></div>';
+          });
+          html += '</div></div>';
+
+          // ── Volet À SURVEILLER — cartes système 7 j (libellé maison) + occasions chaleur. ──
+          var TYPE_FR = {
+            weather_hazard_onset: ["Aléa météo annoncé", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
+            event_new: ["Nouvel événement concurrent repéré", AMBER], competitor_event_launch: ["Lancement chez un concurrent", AMBER],
+            competitor_event_ending: ["Fin d’exposition chez un concurrent", AMBER], competitor_positioning_gap: ["Écart de positionnement face à un concurrent", AMBER],
+            competitor_reputation_strength: ["Réputation forte d’un concurrent", AMBER], competitor_positioning_brief: ["Lecture de positionnement disponible", GREY],
+            weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
+            low_competition_window: ["Fenêtre de faible concurrence", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
+            foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
+            weather_improved: ["Météo redevenue favorable", GREEN], review_solicitation: ["Moment propice aux avis clients", GREEN],
+          };
+          var parType = {};
+          (g.cartes || []).forEach(function (c) {
+            if (!parType[c.type]) parType[c.type] = { type: c.type, n: 0, d0: c.d, prio: c.prio };
+            parType[c.type].n++;
+            if (c.d < parType[c.type].d0) parType[c.type].d0 = c.d;
+          });
+          var typeLignes = Object.keys(parType).map(function (k) { return parType[k]; });
+          typeLignes.sort(function (a, b) { return (a.prio - b.prio) || a.d0.localeCompare(b.d0); });
+          var nMen = 0, nOcc2 = 0;
+          typeLignes.forEach(function (l) { var lb = TYPE_FR[l.type]; if (lb && lb[1] === AMBER) nMen++; else nOcc2++; });
+          // Occasion chaleur (contenu de l'ancienne carte Occasions — € gated registre inchangé).
           var occHtml = "";
           if (oc.next_hot) {
             var rg = oc.heat_range;
-            var armLink = '<a class="tb-link" href="#tb-disp" data-tb-open="di" style="font-size:12px;white-space:nowrap;">Armer →</a>';
-            // « à récupérer » SEULEMENT avec un € mesuré (registre) — jamais une promesse nue.
+            var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf" style="font-size:12px;white-space:nowrap;">Armer →</a>';
             if (rg) occHtml += occRow(
-              "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", "#059669",
+              "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", GREEN,
               "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Jouer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
               '<span style="font-weight:600;">à récupérer</span> ' + dowFr(oc.next_hot) + " " + frD(oc.next_hot) + " — jour chaud annoncé" + (siteChip(oc.next_hot_site_label) ? " " + siteChip(oc.next_hot_site_label) : ""),
-              "Prévision réelle : prochain jour de chaleur (niveau ≥ 3) — jouable AVANT qu’il arrive",
-              armLink);
+              "Prévision réelle : prochain jour de chaleur (niveau ≥ 3) — jouable AVANT qu’il arrive", armLink);
             else occHtml += occRow(
-              dowFr(oc.next_hot) + " " + frD(oc.next_hot), "#1D3BB3",
+              dowFr(oc.next_hot) + " " + frD(oc.next_hot), BLUE,
               "Prochain jour de chaleur annoncé (niveau ≥ 3)",
               '<span style="font-weight:600;">jour chaud annoncé</span> — impact pas encore chiffré sur ce site' + (siteChip(oc.next_hot_site_label) ? " " + siteChip(oc.next_hot_site_label) : ""),
-              "L’effet chaleur de ce site n’a pas encore assez de jours mesurés pour passer les portes du registre (n ≥ 5, signal |t| ≥ 1) — le € apparaîtra quand la mesure tiendra.",
-              armLink);
+              "L’effet chaleur de ce site n’a pas encore assez de jours mesurés pour passer les portes du registre (n ≥ 5, signal |t| ≥ 1) — le € apparaîtra quand la mesure tiendra.", armLink);
           }
           var occMissed = Math.max(0, (oc.total || 0) - (oc.played || 0));
-          if (occMissed) {
-            occHtml += occRow(
-              occMissed + " j", "#6b7280", "",
-              'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " joués</span>",
-              "Jours de chaleur des 30 derniers jours qu’aucune fenêtre engagée ne couvrait",
-              '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
-          }
-          if (occHtml) {
-            var occDetail = (oc.by_site || []).map(function (sByS) {
-              return '<div><span style="font-weight:600;">' + esc(sByS.site_label || "") + '</span> : ' + sByS.played + "/" + sByS.total + " joués"
-                + (sByS.missed_dates && sByS.missed_dates.length ? " · manqués : " + sByS.missed_dates.slice(-6).map(frD).join(", ") + (sByS.missed_dates.length > 6 ? "…" : "") : "") + "</div>";
-            }).join("");
-            html += '<div class="tb-card" style="padding:14px 16px;">'
-              + '<p class="tb-eb" style="cursor:help;margin-bottom:2px;" title="Les jours où votre environnement bouge (météo, à terme événements et concurrence), croisés avec vos fenêtres engagées — « joué » = une action mesurée couvrait ce jour. Ce que votre caisse ne voit pas.">Occasions</p>'
-              + occHtml
-              + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
-              + occDetail
-              + '<div style="color:#9CA3AF;">€/jour = médiane mesurée vs votre CA habituel, registre enjeu de l’app (n ≥ 5, signal |t| ≥ 1) — jamais extrapolé.</div>'
-              + '</div></div>';
-          }
+          if (occMissed) occHtml += occRow(
+            occMissed + " j", "#6b7280", "",
+            'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " joués</span>",
+            "Jours de chaleur des 30 derniers jours qu’aucune fenêtre engagée ne couvrait",
+            '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
+          var svChips = '<span class="tb-chip" style="background:' + (nMen ? "#FEF3E2" : "#F3F4F6") + ';color:' + (nMen ? AMBER : "#6b7280") + ';">' + nMen + (nMen > 1 ? " menaces" : " menace") + '</span>'
+            + '<span class="tb-chip" style="background:#E6F6F0;color:' + GREEN + ';margin-left:4px;">' + nOcc2 + " occasions</span>"
+            + (oc.next_hot && oc.heat_range ? '<span class="tb-chip" style="background:#E6F6F0;color:' + GREEN + ';margin-left:4px;">jour chaud ' + frD(oc.next_hot) + "</span>" : "");
+          html += '<div class="tb-card">' + voletHead("sv", '<span style="font-weight:600;">À surveiller</span>&nbsp; ' + svChips)
+            + '<div data-tb-body="sv" style="display:none;padding:0 16px 12px;font-size:13px;color:#374151;">'
+            + occHtml
+            + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
+            + (oc.by_site || []).map(function (sByS) {
+                return '<div><span style="font-weight:600;">' + esc(sByS.site_label || "") + '</span> : ' + sByS.played + "/" + sByS.total + " joués"
+                  + (sByS.missed_dates && sByS.missed_dates.length ? " · manqués : " + sByS.missed_dates.slice(-6).map(frD).join(", ") + (sByS.missed_dates.length > 6 ? "…" : "") : "") + "</div>";
+              }).join("")
+            + '<div style="color:#9CA3AF;">€/jour = médiane mesurée vs votre CA habituel, registre enjeu de l’app (n ≥ 5, signal |t| ≥ 1) — jamais extrapolé.</div></div>';
+          typeLignes.slice(0, 8).forEach(function (l) {
+            var lb = TYPE_FR[l.type] || [String(l.type).replace(/_/g, " "), GREY];
+            var dj = daysTo(l.d0);
+            html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:7px 0;border-top:1px solid #F3F4F6;">'
+              + '<span><span style="font-size:11px;font-weight:700;color:' + lb[1] + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(l.d0) + " " + frD(l.d0) + '</span></span>'
+              + '<span style="min-width:0;font-weight:600;">' + lb[0] + (l.n > 1 ? ' <span style="font-size:11.5px;color:#9CA3AF;font-weight:400;">×' + l.n + " sur la semaine</span>" : "") + '</span>'
+              + '<span><a class="tb-link" href="/app/insightevent/pulse">Voir →</a></span></div>';
+          });
+          html += '</div></div>';
 
-          // ── Ce que l'app a appris de vos sites : les apprentissages EUX-MÊMES. ──
+          // ── Volet VOTRE SAVOIR-FAIRE — apprentissages + dispositifs (échelle déclaré→en
+          //    test→prouvé) fusionnés : l'actif du compte, en un seul endroit. ──
+          var sfChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? GREEN : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
+            + (pc.en_test ? '<span class="tb-chip" style="background:#EEF2FF;color:' + BLUE + ';margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + pc.en_test + " en test</span>" : "")
+            + (pc.declared ? '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") + "</span>" : "")
+            + ((j.learned_classes || 0) ? '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + j.learned_classes + " types de jours chiffrés</span>" : "");
+
           var capHtml = "";
           window._tbLearnings = j.learnings || [];
           (j.learnings || []).forEach(function (r, li) {
@@ -463,37 +593,30 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — cible tenue, écart mesuré vs CA habituel",
               '<span style="font-weight:600;">gagnés</span> — « ' + esc(trunc(j.met_recipe.text, 55)) + ' » a tenu sa cible',
               String(j.met_recipe.text || ""),
-              '<a class="tb-link" href="#tb-disp" data-tb-open="di" style="font-size:12px;white-space:nowrap;">Rejouer →</a>');
+              '<a class="tb-link" href="#tb-sf" data-tb-open="sf" style="font-size:12px;white-space:nowrap;">Rejouer →</a>');
           }
-          if (capHtml) {
+          {
             var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
             var depthTip = (j.sales_depth || []).map(function (x) { return (x.site_label || "") + " : " + x.n_days + " j (" + frD(x.first_sale) + " → " + frD(x.last_sale) + ")"; }).join(" · ");
             var vTot = (j.judged_meta || []).length;
-            html += '<div class="tb-card" style="padding:14px 16px;">'
-              + '<p class="tb-eb" style="cursor:help;margin-bottom:2px;" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur. C’est l’actif du compte : il s’accumule et ne se transfère pas.">Ce que l’app a appris de vos sites</p>'
+            html += '<div class="tb-card" id="tb-sf">' + voletHead("sf", '<span style="font-weight:600;">Votre savoir-faire</span>&nbsp; ' + sfChips)
+              + '<div data-tb-body="sf" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.7;">'
+              + '<p class="tb-eb" style="cursor:help;margin:2px 0;" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur. C’est l’actif du compte : il s’accumule et ne se transfère pas.">Ce que l’app a appris de vos sites</p>'
               + capHtml
               + '<div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;font-size:10.5px;color:#9CA3AF;">'
               + '<span style="cursor:help;" title="' + esc(depthTip) + '">appris sur ' + depthMax + ' j de ventes · ' + (j.learned_classes || 0) + ' types de jours chiffrés · ' + vTot + ' verdicts</span>'
               + '<button type="button" data-tb-fold="tb-cap-fold" style="background:none;border:none;font-family:inherit;font-size:10.5px;color:#9CA3AF;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">comment lire</button></div>'
               + '<div id="tb-cap-fold" class="tb-fold">'
-              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et les Occasions au-dessus — sont justes.'
-              + '</div></div>';
+              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et les occasions d’À surveiller — sont justes.'
+              + '</div>';
           }
 
-          // ── ÉTAGE 3 : volets — titres en CHIPS d'état, chevron qui répond. ──
-          var voletHead = function (id, inner) {
-            return '<button type="button" class="tb-volet" data-tb-volet="' + id + '" aria-expanded="false">'
-              + '<span style="flex:1;">' + inner + '</span>'
-              + '<span class="tb-chevron">▾</span></button>';
-          };
-          // Dispositifs — registre canonique serveur (tier), comptes SANS plafond, archivées hors liste.
           var listPractices = (j.practices || []).filter(function (p) { return p.tier !== "archivee"; });
           window._tbPractices = listPractices;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (pc.en_test ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + pc.en_test + " en test</span>" : "")
             + (pc.declared ? '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") + "</span>" : "");
-          html += '<div class="tb-card" id="tb-disp">' + voletHead("di", '<span style="font-weight:600;">Dispositifs</span>&nbsp; ' + diChips)
-            + '<div data-tb-body="di" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.7;">';
+          html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Vos dispositifs</p>';
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
           listPractices.slice(0, 6).forEach(function (p, pi) {
             var t = p.tier;
@@ -520,6 +643,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + (t === "prouvee" && p.armable && p.arm_signal_ctx && p.arm_signal_ctx.n_hot_30 != null ? '<div style="font-size:11px;color:#6B7280;margin:0 0 6px;cursor:help;" title="Son signal (chaleur annoncée) a joué ' + p.arm_signal_ctx.n_hot_30 + ' j sur vos 30 derniers — armé, la recette se rejoue seule à chaque annonce.">Signal chaleur : ' + p.arm_signal_ctx.n_hot_30 + " j/30" + (p.arm_signal_ctx.next_hot ? " · prochain " + dowFr(p.arm_signal_ctx.next_hot) + " " + frD(p.arm_signal_ctx.next_hot) : "") + "</div>" : "")
               + (p.armable && !p.arm_enabled ? '<div data-tb-arm-panel="' + pi + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>' : "");
           });
+
+
           html += '</div></div>';
 
           // Équipe — chips : en cours, porteur, tenue (période affichée), € du porteur.
@@ -547,7 +672,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           html += '</div></div>';
 
-          // Automatisation — RECU vs PROGRAMMÉ séparés ; le titre ne compte que le fait.
           var au = j.automated || {};
           function consigneLine(c) {
             var dossierHref2 = "/app/insightevent/evenement?location_id=" + encodeURIComponent(c.location_id) + "&saved_item_id=" + encodeURIComponent(c.saved_item_id);
@@ -575,14 +699,42 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var toActivate = [];
           if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
           if (!db.team_routing_set && !db.team_empty) toActivate.push('Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/profile?tab=comm">Configurer →</a>');
-          var auChips = '<span class="tb-chip" style="background:' + (done.length ? "#E6F6F0" : "#F3F4F6") + ';color:' + (done.length ? "#059669" : "#6b7280") + ';">' + done.length + " faite" + (done.length > 1 ? "s" : "") + '</span>'
-            + '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-left:4px;">' + planned.length + " programmée" + (planned.length > 1 ? "s" : "") + "</span>"
-            + (toActivate.length ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;">' + toActivate.length + " à activer</span>" : "");
-          html += '<div class="tb-card">' + voletHead("au", '<span style="font-weight:600;">Automatisation</span>&nbsp; ' + auChips)
-            + '<div data-tb-body="au" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.8;">'
-            + (done.length ? '<p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
+          // ── Volet MA COUVERTURE — veille concurrents + offres + automatisations. ──
+          var covChips = covSites.map(function (c) {
+            var okc = Number(c.n_suivis) >= Number(c.n_total);
+            return '<span class="tb-chip" style="background:' + (okc ? "#E6F6F0" : "#FEF3E2") + ';color:' + (okc ? GREEN : AMBER) + ';margin-right:4px;">' + esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total + '</span>';
+          }).join("")
+            + '<span class="tb-chip" style="background:' + (veilleOk ? "#E6F6F0" : "#FEF3E2") + ';color:' + (veilleOk ? GREEN : AMBER) + ';">veille ' + vVus + "/" + (vLieux.length || 0) + '</span>'
+            + '<span class="tb-chip" style="background:' + (done.length ? "#E6F6F0" : "#F3F4F6") + ';color:' + (done.length ? GREEN : "#6b7280") + ';margin-left:4px;">' + done.length + " automatisation" + (done.length > 1 ? "s" : "") + " reçue" + (done.length > 1 ? "s" : "") + '</span>'
+            + (toActivate.length ? '<span class="tb-chip" style="background:#FEF3E2;color:' + AMBER + ';margin-left:4px;">' + toActivate.length + " à activer</span>" : "");
+          html += '<div class="tb-card">' + voletHead("co", '<span style="font-weight:600;">Ma couverture</span>&nbsp; ' + covChips)
+            + '<div data-tb-body="co" style="display:none;padding:0 16px 12px;font-size:12.5px;color:#374151;line-height:1.7;">';
+          // La veille : ce qui marche, ce qui est bloqué (cause nommée), les offres.
+          if (vLieux.length) {
+            var vusL = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; });
+            var jamaisL = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); });
+            var totE = 0, totO = 0; vusL.forEach(function (v) { totE += v.n_evts; totO += v.n_offres; });
+            if (vusL.length) html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">' + vusL.length + ' lieux visités cette nuit</span> — ' + esc(vusL.map(function (v) { return trunc(v.nom, 24); }).join(" · ")) + ' · ' + frInt(totE) + ' événements et ' + frInt(totO) + ' lignes de tarifs relevés</div>';
+            jamaisL.forEach(function (v) {
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(v.nom, 34)) + ' — jamais visité</span>' + (v.a_url ? "" : " · sans adresse web, la veille ne peut pas l’ouvrir") + '</div>';
+            });
+            ((g.veille || {}).sans_cle || []).forEach(function (v) {
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(v.nom, 34)) + '</span> — fiche sans identifiant Google, impossible de la dédoublonner</div>';
+            });
+            if ((g.offres || []).length) {
+              (g.offres || []).slice(0, 4).forEach(function (o) {
+                var lbl2 = o.change_type === "new_offering" ? "nouvelle offre" : o.change_type === "removed_offering" ? "offre retirée" : o.direction === "hausse" ? "prix en hausse" : "prix en baisse";
+                var frPrix = function (n) { return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
+                html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + (o.avant != null && o.apres != null ? " · " + frPrix(o.avant) + " € → " + frPrix(o.apres) + " €" : "") + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "") + '</div>';
+              });
+            } else if ((g.offres_base || {}).n_tarifs) {
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs comparés à chaque passage (' + g.offres_base.n_lieux + ' lieux publient leurs prix)</div>';
+            }
+          } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos menaces fortes pour que la veille tourne.</div>';
+          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. La veille passe chaque nuit sur les sites de vos concurrents suivis.</div>';
+          // Automatisations (reçu / programmé / à activer — contenu inchangé).
+          html += (done.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + (planned.length ? '<p class="tb-eb" style="margin:' + (done.length ? "8px" : "2px") + ' 0 2px;">Programmé</p>' + planned.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
-            + (!done.length && !planned.length ? '<div style="color:#9CA3AF;">Rien cette semaine — les automatisations s’activent avec vos opérations.</div>' : "")
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div></div>';
 

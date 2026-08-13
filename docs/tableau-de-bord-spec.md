@@ -136,3 +136,21 @@ Toute lecture ajoutée entre DANS le lot, jamais en séquence.
   `practice_counts.rejeu`, `replay_commitment_id`) sont inchangées — renommer la donnée aurait
   cassé le contrat sans rien apporter à l'écran. « Armer sur signal » reste (concept distinct :
   automatisation sur signal détecté, pas l'échelle de preuve).
+
+
+---
+
+## V6 — refonte « glance » (13/08, validée par maquette `public/piloter-proto.html` sur données réelles)
+
+Hiérarchie owner : **héros 4 tuiles** (Impact € · À faire N · occasions jouées x/y · veille+couverture par site)
+→ **À faire** (seul bloc ouvert : verbe d'abord, trié par valeur — argent, verdicts en retard, en cours pire
+d'abord, à préparer, déblocages ; 6 visibles, le reste sous pli ; règle CTA : plein = LE geste le plus payant,
+au plus un ; flèche = navigation) → 5 volets fermés dont l'en-tête EST la réponse (grammaire radar) :
+**Événements concurrents** (14 j, collision = mention, aléa nommé par sa mesure, enjeu = « votre sam ≈ X € »,
+pas de CTA daté) · **À surveiller** (cartes système en libellés maison type→FR + occasion chaleur € gated
+registre) · **Votre savoir-faire** (apprentissages + dispositifs fusionnés) · **Équipe** (inchangé) ·
+**Ma couverture** (veille par lieu dédoublonnée par clé Google, offres — absence DITE et chiffrée,
+automatisations Reçu/Programmé/À activer). Tendance des fenêtres ouvertes DANS LA MÉTRIQUE DÉCLARÉE
+(CA → mart résiduel ; famille → transactions vs moyenne/jour) — preuve du piège : CA total −16,4 % sur une
+fenêtre dont la métrique famille a tenu +510 €. Serveur : 27 lectures un lot, 2,3 s à chaud (budget 3 s).
+Vérité rendu : `scripts/tableau-v4-render-verify.mjs` instruit à la V6 — 30/30.
