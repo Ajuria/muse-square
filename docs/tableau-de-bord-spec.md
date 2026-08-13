@@ -184,3 +184,14 @@ Vocabulaire banni par ce cycle : « occasions jouées » (compteur rétrospectif
 Nettoyage : row3/goalsChips/.tb-row3/.tb-aline/.tb-volet supprimés (morts depuis la V7).
 Agir allégé (retrait du radar de pulse) : maquette validée, EN ATTENTE des remarques owner
 sur la section Agir avant tout démontage de pulse.astro.
+
+
+### V7.1 — registre de la veille (14/08, 3e rechute corrigée + gardée)
+« Ma couverture » → **« Ma veille concurrentielle »** (« couverture » était mon vocabulaire d'audit,
+pas celui de l'exploitant). Règle de registre désormais AU GARDE-FOU (`MOTS_BANNIS`) : l'exploitant
+lit des TROUVAILLES (« offres stables », « 2 changements d'offre ») — le TECHNIQUE du crawl ne
+s'affiche que CASSÉ (« « X » échappe à votre veille — sa page n'est plus lue »), jamais en
+inventaire sain (« 4 lieux visités cette nuit · 1 102 événements relevés » : SUPPRIMÉ). Bannis :
+« lieux visités », « jamais visité », « visités cette nuit », « à chaque passage », « dernier
+passage ». Conséquence du renommage : les AUTOMATISATIONS quittent la veille (elles n'y étaient
+que par flou du titre) → 6e rangée radar à part (Reçu / Programmé / À activer).

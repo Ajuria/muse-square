@@ -407,7 +407,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<div class="s">vs habituel · ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div></div>'
             + '<div class="tb-tile"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">' + (aFaire[0] && aFaire[0].rang === 0 && j.met_recipe && j.met_recipe.gap_eur != null ? "1 rapporte " + signEur(j.met_recipe.gap_eur) : "gestes en attente") + '</div></div>'
             + '<div class="tb-tile"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? GREEN : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
-            + '<div class="tb-tile"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille incomplète : un suivi n’a pas été visité — détail dans Ma couverture" : "veille active — tous vos suivis visités cette nuit") + '"></span>' + nTrouvailles + '</div>'
+            + '<div class="tb-tile"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Ma veille concurrentielle" : "veille active sur tous vos suivis") + '"></span>' + nTrouvailles + '</div>'
               + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "rien n’a bougé chez vos " + vLieux.length + " suivis") + '</div></div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-top:1px solid #F3F4F6;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
@@ -737,23 +737,21 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
           if (!db.team_routing_set && !db.team_empty) toActivate.push('Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/profile?tab=comm">Configurer →</a>');
           // ── Volet MA COUVERTURE — veille concurrents + offres + automatisations. ──
+          var nDefaut = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); }).length + (((g.veille || {}).sans_cle || []).length);
           var covResume = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ")
-            + " · veille " + vVus + "/" + (vLieux.length || 0)
-            + " · " + done.length + " automatisation" + (done.length > 1 ? "s" : "") + " reçue" + (done.length > 1 ? "s" : "")
-            + (toActivate.length ? " · " + toActivate.length + " à activer" : "");
-          html += voletHead("co", covTrou || !veilleOk || toActivate.length ? AMBER : GREEN, "Ma couverture", covResume)
+            + " · " + ((g.offres || []).length ? (g.offres || []).length + " changement" + ((g.offres || []).length > 1 ? "s" : "") + " d’offre" : "offres stables")
+            + (nDefaut ? " · veille en défaut sur " + nDefaut : "");
+          html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Ma veille concurrentielle", covResume)
             + '<div data-tb-body="co" class="tb-rbody" style="display:none;">';
           // La veille : ce qui marche, ce qui est bloqué (cause nommée), les offres.
           if (vLieux.length) {
-            var vusL = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; });
             var jamaisL = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); });
-            var totE = 0, totO = 0; vusL.forEach(function (v) { totE += v.n_evts; totO += v.n_offres; });
-            if (vusL.length) html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">' + vusL.length + ' lieux visités cette nuit</span> — ' + esc(vusL.map(function (v) { return trunc(v.nom, 24); }).join(" · ")) + ' · ' + frInt(totE) + ' événements et ' + frInt(totO) + ' lignes de tarifs relevés</div>';
+            // Le TECHNIQUE ne s'affiche que CASSÉ (owner 14/08) — jamais d'inventaire de crawl sain.
             jamaisL.forEach(function (v) {
-              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(v.nom, 34)) + ' — jamais visité</span>' + (v.a_url ? "" : " · sans adresse web, la veille ne peut pas l’ouvrir") + '</div>';
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">« ' + esc(trunc(v.nom, 34)) + ' » échappe à votre veille</span>' + (v.a_url ? " — sa page n’est plus lue" : " — sans adresse web, sa page n’est pas lisible") + '</div>';
             });
             ((g.veille || {}).sans_cle || []).forEach(function (v) {
-              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(v.nom, 34)) + '</span> — fiche sans identifiant Google, impossible de la dédoublonner</div>';
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">« ' + esc(trunc(v.nom, 34)) + ' » — suivi incomplet</span> — à refaire depuis la recherche concurrent</div>';
             });
             if ((g.offres || []).length) {
               (g.offres || []).slice(0, 4).forEach(function (o) {
@@ -762,13 +760,22 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + (o.avant != null && o.apres != null ? " · " + frPrix(o.avant) + " € → " + frPrix(o.apres) + " €" : "") + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "") + '</div>';
               });
             } else if ((g.offres_base || {}).n_tarifs) {
-              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs comparés à chaque passage (' + g.offres_base.n_lieux + ' lieux publient leurs prix)</div>';
+              html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs sous surveillance (' + g.offres_base.n_lieux + ' concurrents publient leurs prix)</div>';
             }
           } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos menaces fortes pour que la veille tourne.</div>';
-          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. La veille passe chaque nuit sur les sites de vos concurrents suivis.</div>';
-          // Automatisations (reçu / programmé / à activer — contenu inchangé).
-          html += (done.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
+          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages de vos concurrents suivis — événements, offres, tarifs.</div>';
+          html += '</div>';
+
+          // ── Rangée AUTOMATISATIONS — à part : ce n'est pas de la veille concurrentielle
+          //    (elles n'habitaient « Ma couverture » que parce que le titre était vague). ──
+          var auResume = done.length + " reçue" + (done.length > 1 ? "s" : "")
+            + " · " + planned.length + " programmée" + (planned.length > 1 ? "s" : "")
+            + (toActivate.length ? " · " + toActivate.length + " à activer" : "");
+          html += voletHead("au", toActivate.length ? AMBER : done.length ? GREEN : GREY, "Automatisations", auResume)
+            + '<div data-tb-body="au" class="tb-rbody" style="display:none;">'
+            + (done.length ? '<p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + (planned.length ? '<p class="tb-eb" style="margin:' + (done.length ? "8px" : "2px") + ' 0 2px;">Programmé</p>' + planned.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
+            + (!done.length && !planned.length ? '<div style="color:#9CA3AF;">Rien cette semaine — les automatisations s’activent avec vos opérations.</div>' : "")
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';

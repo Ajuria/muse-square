@@ -35,6 +35,14 @@ export const MOTS_BANNIS: Record<string, string> = {
   "sur la série": "un libellé qui dit ce que la section EST",
   rejeu: "test",
   "non-mesurable": "non mesurable",
+  // Registre technique du CRAWL (owner 14/08, 3e rechute) : l'exploitant lit des TROUVAILLES
+  // (« rien n'a bougé chez vos 4 suivis ») — le technique ne s'affiche que CASSÉ
+  // (« échappe à votre veille »), jamais en inventaire sain.
+  "lieux visités": "des trouvailles — le technique seulement s’il est cassé",
+  "jamais visité": "échappe à votre veille",
+  "visités cette nuit": "veille active sur tous vos suivis",
+  "à chaque passage": "sous surveillance",
+  "dernier passage": "sous surveillance",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.
