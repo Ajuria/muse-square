@@ -6,6 +6,7 @@ import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { randomUUID } from "crypto";
 import { discoverAgendaUrl, isHomepagePath, isAgendaPath } from "../../../lib/competitive/url-discovery";
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
+import { audiencesFromProse } from "../../../lib/competitive/constants";
 import { lookupPlace } from "../../../lib/competitive/places";
 import { VALID_INDUSTRY, BUCKET_MAP } from "../../../lib/competitive/constants";
 
@@ -174,7 +175,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
     // ── 1. Check if competitor_directory already has this entry ──
-    const [existingDir] = await bq.query({
+    // Identity by KEY first (google_place_id) — the name+city match cannot see that
+    // « Centre National d'Art et de Culture » and « Centre Pompidou » are the same venue,
+    // which is exactly how the 04/2026 duplicate fiches were born (4× Orangerie, 3× Pompidou,
+    // cleaned by soft-delete on 16/04 + 20/05). Name+city stays as the ONLY fallback when the
+    // picker carries no key (web-search confirmations).
+    const [existingDir] = await bq.query(google_place_id ? {
+      query: `
+        SELECT competitor_id, confidence_score
+        FROM \`${projectId}.raw.competitor_directory\`
+        WHERE google_place_id = @google_place_id
+          AND deleted_at IS NULL
+        ORDER BY created_at ASC
+        LIMIT 1
+      `,
+      params: { google_place_id },
+      types:  { google_place_id: "STRING" },
+      location: BQ_LOCATION,
+    } : {
       query: `
         SELECT competitor_id, confidence_score
         FROM \`${projectId}.raw.competitor_directory\`
@@ -426,14 +444,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
               if (enriched) {
                 const enrichedJson = JSON.stringify(enriched);
 
-                const VALID_AUD = new Set([
-                  "families","professionals","students","seniors","tourists",
-                  "locals","art_lovers","sports_fans","general_public",
-                ]);
-                const enrichedAudiences = (String(enriched.target_audience ?? ""))
-                  .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
-                const mappedAud1 = enrichedAudiences.find((a: string) => VALID_AUD.has(a)) || null;
-                const mappedAud2 = enrichedAudiences.filter((a: string) => VALID_AUD.has(a) && a !== mappedAud1)[0] || null;
+                // Claude repond en prose francaise ; la liste anglaise qui vivait ici
+                // (« locals », « art_lovers ») ne matchait ni la prose ni le vocabulaire de
+                // l'entrepot (« local » singulier) : 27 fiches actives sur 30 sans audience,
+                // donc sans recouvrement mesurable (constat 12/08). Le mapper canonique vit
+                // dans constants.ts, a cote de VALID_AUDIENCE.
+                const mapped = audiencesFromProse(enriched.target_audience);
+                const mappedAud1 = mapped.primary;
+                const mappedAud2 = mapped.secondary;
 
                 const positioningToIndustry: Record<string, string> = {
                   "culture": "culture", "patrimoine": "culture", "musée": "culture",
