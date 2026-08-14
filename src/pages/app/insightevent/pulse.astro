@@ -222,24 +222,41 @@ if (!location_id) {
 
       .ab-bar { display:none; }
       .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+      /* ── FIL AGIR inc 2 (maquette agir-proto validée 14/08, spec docs/agir-fil-spec.md) :
+         le conteneur-fil = les holders du triage ([data-t-cards]) et la section engagements ;
+         dedans, les cartes deviennent des RANGÉES (filet 1 px, zéro boîte). ── */
+      [data-t-cards]:not(:empty), #pls-engagement-cards:not(:empty) { background:var(--color-bg-card); border:1px solid rgba(0,0,0,0.08); border-radius:14px; overflow:hidden; }
+      [data-t-cards] .ab-card, #pls-engagement-cards .ab-card { border:none; border-top:1px solid rgba(17,24,39,0.06); border-radius:0; margin-bottom:0; box-shadow:none; transition:background 0.12s; }
+      [data-t-cards] .ab-card:first-child, #pls-engagement-cards .ab-card:first-child { border-top:none; }
+      [data-t-cards] .ab-card:hover, #pls-engagement-cards .ab-card:hover { background:#FAFBFC; }
+      /* Couleur de POSSESSION (Phase 2 cycle système/utilisateur) : les engagements sont À VOUS. */
+      #pls-engagement-cards:not(:empty) { background:#F7F9FF; box-shadow:inset 2px 0 0 #1D3BB3; margin-bottom:14px; }
+      #pls-engagement-cards .ab-card { background:transparent; }
+      #pls-engagement-cards .ab-card:hover { background:#F2F5FF; }
+      /* Médaillon-avatar : le disque devient un cercle 30 px ; anneau ambre = urgent. */
+      .ab-disc { width:30px; height:30px; border-radius:50%; background:#F4F5F7; display:flex; align-items:center; justify-content:center; flex:none; }
+      .ab-disc.urgent { box-shadow:0 0 0 2px #FDE68A; }
       .ab-card-row { display:flex; }
       .ab-bar { display:none; }
       .ab-bar.ab-threat { background:#e24b4a; }
       .ab-bar.ab-warning { background:#ef9f27; }
       .ab-bar.ab-opportunity { background:#059669; }
       .ab-inner { flex:1; min-width:0; }
-      .ab-summary { padding:14px 16px; cursor:pointer; }
+      .ab-summary { padding:18px 20px 8px; cursor:pointer; }
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
       .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
-      .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
-      .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+      .ab-what { font-size:15.5px; font-weight:650; color:#111827; line-height:1.35; margin-bottom:7px; letter-spacing:-0.01em; }
+      .ab-what[data-consult-open]:hover { color:#1D3BB3; }
+      .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
          invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
          « cause multifactorielle » + sens de la couleur en infobulle (title), signalée par le
          pointillé. Couleur du montant = sens du flux (vert = à capter, ambre = à défendre). */
       .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
-      .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
-      .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+      .amt-val { display:inline-block; font-size:19px; font-weight:700; line-height:1.1; white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; padding:4px 10px; border-radius:10px; }
+      .amt.gain .amt-val { color:#059669; background:#ECFDF5; }
+      .amt.defend .amt-val { color:#B45309; background:#FFF7ED; }
+      .amt-sub { font-size:11px; color:#9CA3AF; margin-top:3px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
       /* Décision D (18/07) : cartes action fermées à 3 lignes, « Voir plus » seulement si ça déborde. */
       .ab-sowhat.pls-clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
       .pls-more { font-size:11.5px; font-weight:600; color:#1D3BB3; cursor:pointer; margin-top:5px; }
@@ -1949,7 +1966,7 @@ if (!location_id) {
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
         if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
-        _amtHtml = '<div class="amt" title="' + escapeHtml(_aTip.join(' ')) + '">'
+        _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
         + '</div>';
@@ -1995,19 +2012,17 @@ if (!location_id) {
         // Règle 5 (01/08) : classe portée par la carte datée (enjeu direct, jamais hérité) —
         // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
         + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
-        + ' style="border-left:3px solid ' + _barColor + ';">'
+        + '>'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
             + '<div class="ab-summary">'
               + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-                + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
+                + '<div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-pills">'
                     + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
-                    + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                    + '<span class="chip-n">' + escapeHtml(_catNice) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
                   + '<div style="display:flex;align-items:flex-start;gap:12px;">'
