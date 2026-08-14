@@ -12,10 +12,14 @@ const sansCommentaires = src.replace(/\/\*[\s\S]*?\*\//g, " ").split("\n")
   .map((l) => l.replace(/(^|\s)\/\/.*$/, "$1")).join("\n");
 
 describe("fil Agir — invariants de la maquette (14/08)", () => {
-  it("le score /10 et le radar sont morts", () => {
+  it("le score /10 et le radar sont HORS ASSEMBLAGE", () => {
     expect(sansCommentaires.includes("Pourquoi ce score")).toBe(false);
-    expect(sansCommentaires.includes("renderRadarStrip")).toBe(false);
     expect(sansCommentaires.includes("Mon environnement")).toBe(false);
+    // L'assemblage ne référence plus les volets (les définitions mortes restent — leur
+    // suppression exige un outillage AST, pas un matcher d'accolades : il a avalé renderFeed
+    // et la chaîne _cg* le 14/08, attrapé par vérification du diff AVANT re-push).
+    const assemblage = src.slice(src.indexOf("root.innerHTML = pillsHtml"));
+    expect(assemblage.slice(0, 400).includes("opsStrip")).toBe(false);
   });
   it("en-tête cible : Vos cartes du jour + Piloter →", () => {
     expect(src.includes("Vos cartes du jour")).toBe(true);

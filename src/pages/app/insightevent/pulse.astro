@@ -3028,13 +3028,7 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
-  // (renderRadarStrip supprimé — radar/menus retirés, 14/08.)
-
-  // ----------------------------------------------------------------
-  // V4 NEW — Score detail (strip 1 expanded)
-  // ----------------------------------------------------------------
-  // Verdict label from the SCORE (0-10), not just the regime — a 6.4 day is not "défavorable".
-  // Regime is only the fallback when the score is missing.
+  // (renderRadarStrip supprimé — radar retiré de l'assemblage, 14/08.)
   function scoreVerdict(score, regime) {
     var s = (score != null && isFinite(Number(score))) ? Number(score) : null;
     if (s == null) return regime === "A" ? { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" } : regime === "C" ? { t: "Contexte à surveiller", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" } : { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151", ac: "#94a3b8" };
@@ -3088,13 +3082,8 @@ if (!location_id) {
     });
   }
 
-  // (renderScoreDetail supprimé — radar/menus retirés, 14/08.)
-
-  // ----------------------------------------------------------------
-  // V4 NEW — Threat summary (strip 2 expanded)
-  // ----------------------------------------------------------------
-  // (renderThreatSummary supprimé — radar/menus retirés, 14/08.)
-
+  // (renderScoreDetail supprimé — radar retiré de l'assemblage, 14/08.)
+  // (renderThreatSummary supprimé — radar retiré de l'assemblage, 14/08.)
   function renderPotentialCompetitors(topThreats) {
     if (!topThreats || !topThreats.length) {
       return '<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun concurrent potentiel d\u00e9tect\u00e9.</div>';
@@ -3237,19 +3226,450 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Change detail (strip 3 expanded)
   // ----------------------------------------------------------------
-  // (renderChangeDetail supprimé — radar/menus retirés, 14/08.)
+  // (renderChangeDetail supprimé — radar retiré de l'assemblage, 14/08.)
+  function fillOpsVolet(active, past) {
+    var body = document.getElementById("pls-ops-volet");
+    var secEl = document.querySelector("[data-ops-secondary]");
+    var chipEl = document.querySelector("[data-ops-chip]");
+    if (!body) return;
+    active = active || []; past = past || [];
+    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
+    var resolved = past.filter(function(r) { return r.status === "resolved" && r.window_actual_revenue != null && r.window_expected_revenue != null; });
+    var measuredNet = resolved.reduce(function(s, r) { return s + (Number(r.window_actual_revenue) - Number(r.window_expected_revenue)); }, 0);
+
+    // En-tête : fermé = la réponse. Chip = le trophée € mesuré (seule couleur persistante).
+    if (secEl) {
+      secEl.textContent = active.length
+        ? active.length + " en cours" + (resolved.length ? " · " + resolved.length + " mesurée" + (resolved.length > 1 ? "s" : "") : "")
+        : "Aucune opération en cours";
+    }
+    if (chipEl) {
+      var chipWrap = chipEl.parentElement;
+      if (resolved.length) {
+        chipEl.textContent = (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString("fr-FR") + " € mesurés";
+        if (chipWrap) { chipWrap.style.background = measuredNet >= 0 ? "#DCFCE7" : "#FEF3C7"; chipWrap.style.color = measuredNet >= 0 ? "#166534" : "#92400E"; }
+      } else if (chipWrap) { chipWrap.style.display = "none"; }
+    }
+
+    if (!active.length && !resolved.length) {
+      body.innerHTML = '<div style="display:flex;align-items:center;gap:14px;padding:6px 0 2px;">'
+        + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Engagez-vous sur une carte du jour : son impact sera mesuré ici, en euros.</div>'
+        + '<a href="#pls-engagement-cards" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Voir les actions du jour</a>'
+      + '</div>';
+      return;
+    }
+
+    var html = "";
+    active.slice(0, 3).forEach(function(r, i) {
+      var start = _ymd(r.window_start), end = _ymd(r.window_end);
+      var totalDays = Number(r.window_days_expected) || (start && end && parseYmdToDate(end) && parseYmdToDate(start) ? Math.round((parseYmdToDate(end) - parseYmdToDate(start)) / 86400000) : null);
+      var elapsed = start && parseYmdToDate(start) ? Math.max(0, Math.round((parseYmdToDate(todayYmd()) - parseYmdToDate(start)) / 86400000)) : null;
+      var meta = (elapsed != null && totalDays) ? "J+" + Math.min(elapsed, totalDays) + " / " + totalDays + (end ? " · verdict le " + fmtDateShort(end) : "") : "Mesure en cours";
+      var pct = (elapsed != null && totalDays) ? Math.max(3, Math.min(100, Math.round((elapsed / totalDays) * 100))) : 0;
+      html += '<div style="padding:11px 0;' + (i > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action engagée").slice(0, 110)) + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+          + plsChip("En cours", { bg: "#EEF2FF", fg: "#1D3BB3" })
+          + '<span style="font-size:12px;color:#6b7280;">' + meta + '</span>'
+        + '</div>'
+        + (pct ? '<div style="height:3px;border-radius:2px;background:#E6E8EC;margin-top:9px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;border-radius:2px;background:#1D3BB3;"></div></div>' : '')
+      + '</div>';
+    });
+    resolved.slice(0, 2).forEach(function(r) {
+      var v = String(r.verdict || "");
+      var b = v === "met" ? { bg: "#dcfce7", fg: "#166534", t: "Objectif atteint" }
+        : v === "missed" ? { bg: "#FEF3C7", fg: "#92400E", t: "Sous votre habituel" }
+        : { bg: "#F1F5F9", fg: "#475569", t: "Terminée" };
+      var delta = Number(r.window_actual_revenue) - Number(r.window_expected_revenue);
+      html += '<div style="padding:11px 0;' + (html ? 'border-top:1px solid #E6E8EC;' : '') + '">'
+        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action").slice(0, 110)) + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
+          + plsChip(b.t, b)
+          + '<span style="font-size:12px;color:#6b7280;">' + _cgEur(r.window_actual_revenue) + ' réalisés vs ' + _cgEur(r.window_expected_revenue) + ' attendus · ' + (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)).toLocaleString('fr-FR') + ' €</span>'
+        + '</div>'
+      + '</div>';
+    });
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;border-top:1px solid #E6E8EC;">'
+      + (resolved.length ? '<span style="font-size:12px;color:var(--color-text-secondary);">Mesuré au total : <span style="font-weight:600;color:' + (measuredNet >= 0 ? '#166534' : '#92400E') + ';">' + (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString('fr-FR') + ' €</span></span>' : '<span></span>')
+      + '<a href="#pls-engagement-cards" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Tout voir dans Actions du jour ↓</a>'
+    + '</div>';
+    body.innerHTML = html;
+  }
 
   // ----------------------------------------------------------------
-  // Radar v5 — Volet Performance (sales_summary du monitor, 8 jours desc)
+  // V4 NEW — Feed with CTAs
   // ----------------------------------------------------------------
-  // (renderPerfDetail supprimé — radar/menus retirés, 14/08.)
+  function renderFeed(allFeed, isMultisite, coveredTypes) {
+    coveredTypes = coveredTypes || {};
+    var _seenFeedKeys = {};
+    allFeed = allFeed.filter(function(f) {
+      var sub = String(f.change_subtype||"").toLowerCase();
+      if (coveredTypes[sub]) return false;
+      var _isWeatherSub = (sub === "weather_worsened" || sub === "weather_improved" || sub === "weather_hazard_onset");
+      var k = sub + "|" + normalizeYmd(f.affected_date) + "|" + String(f.location_label||"") + "|" + (_isWeatherSub ? "" : String(f.new_value||""));
+      if (_seenFeedKeys[k]) return false;
+      _seenFeedKeys[k] = true;
+      return true;
+    });
+    const totalCount = allFeed.length;
+    if (!totalCount) {
+      return `
+        <div style="margin-top:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span class="eb">Fil d'actualité</span>
+            <span style="font-size:11px;color:var(--color-text-muted);">0 événements</span>
+          </div>
+          <div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun changement récent.</div>
+        </div>`;
+    }
+
+    // Group by category (4 buckets)
+    const CATEGORY_ORDER = [
+      { key: "mobility", label: "Mobilit\u00e9", match: (a) => String(a?.change_subtype||"").startsWith("mobility_") },
+      { key: "competition", label: "Concurrence", match: (a) => { const s = String(a?.change_subtype||""); return s === "event_new" || s === "competitor_event_launch" || s === "competitor_event_ending" || s === "competitor_audience_conflict" || s === "competition_pressure_spike" || s === "mega_event_activation" || s === "mega_event_end"; } },
+      { key: "weather", label: "M\u00e9t\u00e9o", match: (a) => { const s = String(a?.change_subtype||""); return s === "weather_worsened" || s === "weather_improved" || s === "weather_hazard_onset"; } },
+      { key: "context", label: "Contexte", match: (a) => true },
+    ];
+
+    const categoryBuckets = new Map();
+    for (const cat of CATEGORY_ORDER) categoryBuckets.set(cat.key, []);
+    for (const a of allFeed) {
+      for (const cat of CATEGORY_ORDER) {
+        if (cat.match(a)) { categoryBuckets.get(cat.key).push(a); break; }
+      }
+    }
+
+    // Dedupe recurring/duplicate signals within each bucket: one entry per event (label+venue)
+    // or per signal (type+date), keeping the higher alert level, then the occurrence nearest today.
+    const feedDedupKey = (a) => { const lbl = String(a?.event_label || "").trim().toLowerCase(); return lbl ? ("e:" + lbl + "|" + String(a?.event_venue_name || "").trim().toLowerCase()) : ("s:" + String(a?.change_subtype || "") + "|" + normalizeYmd(a?.affected_date)); };
+    const _feedDateDist = (a) => { const d = parseYmdToDate(normalizeYmd(a?.affected_date)); const t = parseYmdToDate(todayYmd()); return (d && t) ? Math.abs((d - t) / 86400000) : 9999; };
+    for (const cat of CATEGORY_ORDER) {
+      const items = categoryBuckets.get(cat.key);
+      const m = new Map();
+      for (const a of items) {
+        const k = feedDedupKey(a);
+        const ex = m.get(k);
+        if (!ex) { m.set(k, a); continue; }
+        const lvlDiff = (Number(a?.alert_level) || 0) - (Number(ex?.alert_level) || 0);
+        if (lvlDiff > 0 || (lvlDiff === 0 && _feedDateDist(a) < _feedDateDist(ex))) m.set(k, a);
+      }
+      categoryBuckets.set(cat.key, Array.from(m.values()));
+    }
+    const dedupedTotal = CATEGORY_ORDER.reduce((n, cat) => n + categoryBuckets.get(cat.key).length, 0);
+
+    const showAll = window.__plsV4FeedShowAll === true;
+    const categoryEntries = CATEGORY_ORDER
+      .map(cat => [cat, categoryBuckets.get(cat.key)])
+      .filter(([, items]) => items.length > 0);
+    const displayed = categoryEntries;
+
+    function feedTypePill(a) {
+      const sub = String(a?.change_subtype || "").toLowerCase();
+      const dir = String(a?.direction || "").toLowerCase();
+      const lvl = Number(a?.alert_level || 0);
+      const P = (label, bg, fg) => '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + bg + ';color:' + fg + ';text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(label) + '</span>';
+      const RISK = "var(--color-pill-risk-bg)"; const RISK_T = "var(--color-pill-risk-text)";
+      const WARN = "var(--color-pill-warn-bg)"; const WARN_T = "var(--color-pill-warn-text)";
+      const INFO = "var(--color-pill-info-bg)"; const INFO_T = "var(--color-pill-info-text)";
+      const LOW = "var(--color-pill-source-low-bg)"; const LOW_T = "var(--color-pill-source-low-text)";
+      const GREEN = "var(--color-pill-green-bg)"; const GREEN_T = "var(--color-pill-green-text)";
+      if (sub === "competitor_audience_conflict") return P("Conflit audience", RISK, RISK_T);
+      if (sub === "competitor_event_launch") return P("Lancement", RISK, RISK_T);
+      if (sub === "competition_pressure_spike") { const oldN = Number(a?.old_value||0); const newN = Number(a?.new_value||0); return newN > oldN ? P("Pression \u2191", RISK, RISK_T) : P("Pression \u2193", GREEN, GREEN_T); }
+      if (sub === "mega_event_activation") return P("M\u00e9ga-\u00e9v\u00e9nement", RISK, RISK_T);
+      if (sub === "mega_event_end") return P("Fin m\u00e9ga-\u00e9v\u00e9n.", GREEN, GREEN_T);
+      if (sub === "weather_hazard_onset" || sub === "weather_worsened") return P("M\u00e9t\u00e9o", WARN, WARN_T);
+      if (sub === "weather_improved") return P("M\u00e9t\u00e9o \u2713", GREEN, GREEN_T);
+      if (sub === "mobility_disruption" || sub === "mobility_disruption_planned") {
+        const mode = String(a?.mobility_mode || "").toLowerCase();
+        const label = mode === "road" ? "Mobilit\u00e9" : "Mobilit\u00e9";
+        return P(label, WARN, WARN_T) + ' ' + feedModeIcon(a?.mobility_mode);
+      }
+      if (sub === "mobility_disruption_resolved") return P("Mobilit\u00e9 \u2713", GREEN, GREEN_T) + ' ' + feedModeIcon(a?.mobility_mode);
+      if (sub === "calendar_audience_shift") return P("Audience", INFO, INFO_T);
+      if (sub === "regime_change") return P("Contexte", WARN, WARN_T);
+      if (sub === "event_new") return P("Nouvel événement", LOW, LOW_T);
+      if (sub === "score_up") return P("Score \u2191", GREEN, GREEN_T);
+      if (sub === "score_down") return P("Score \u2193", RISK, RISK_T);
+      if (sub === "ranking_up") return P("Classement \u2191", LOW, LOW_T);
+      if (sub === "ranking_down") return P("Classement \u2193", LOW, LOW_T);
+      if (sub === "competitor_event_ending") return P("Fin prochaine", GREEN, GREEN_T);
+      if (sub === "competitor_review_surge") return P("Avis \u2191", WARN, WARN_T);
+      if (sub === "competitor_review_drop") return P("Avis \u2193", GREEN, GREEN_T);
+      if (sub === "competitor_hours_change") return P("Horaires", WARN, WARN_T);
+      if (sub === "competitor_new_offering") return P("Offre", WARN, WARN_T);
+      if (sub === "competitor_sold_out") return P("Complet", GREEN, GREEN_T);
+      if (sub === "competitor_content_spike") return P("Contenu \u2191", WARN, WARN_T);
+      if (sub === "competitor_content_silent") return P("Silence", GREEN, GREEN_T);
+      if (sub === "institution_campaign_detected") return P("Campagne", INFO, INFO_T);
+      if (sub === "media_mention_detected") return P("M\u00e9dia", INFO, INFO_T);
+      return P("Signal", LOW, LOW_T);
+    }
+
+    function feedItemCta(a) {
+      const sub = String(a?.change_subtype || "").toLowerCase();
+      if (sub === "event_new") return { label: "Suivre", action: "follow" };
+      return { label: "Consulter", action: "insight" };
+    }
+
+    function feedBorderColor(a) {
+      const lvl = Number(a?.alert_level || 0);
+      const dir = String(a?.direction || "").toLowerCase();
+      const sub = String(a?.change_subtype || "").toLowerCase();
+      if (lvl >= 4) return "var(--color-dot-audience)";
+      if (lvl >= 3) return "var(--color-pill-risk-border)";
+      if (dir === "up" || dir === "improved" || sub.endsWith("_resolved") || sub.endsWith("_end") || sub.endsWith("_ending")) return "var(--color-pill-green-text)";
+      if (lvl >= 2) return "var(--color-pill-warn-border)";
+      return "var(--color-dot-neutral)";
+    }
+
+    const groupsHtml = displayed.map(([cat, catItems]) => {
+      const groupLabel = cat.label + " (" + catItems.length + ")";
+
+      const locLabels = new Set(catItems.map(a => a?.location_label).filter(Boolean));
+      const showLocPill = isMultisite && locLabels.size > 1;
+
+      // Sort by alert_level DESC, then soonest date first (date-aware, forward-looking).
+      const sorted = [...catItems].sort((a, b) => {
+        const lvlDiff = (Number(b?.alert_level)||0) - (Number(a?.alert_level)||0);
+        if (lvlDiff !== 0) return lvlDiff;
+        return String(a?.affected_date||"").localeCompare(String(b?.affected_date||""));
+      });
+      const maxVisible = showAll ? Math.min(sorted.length, 10) : 5;
+      const visible = sorted.slice(0, maxVisible);
+
+      const itemsHtml = visible.map((a, idx) => {
+        const line1 = feedLine1(a);
+        if (!line1) return "";
+        const line2 = feedLine2(a);
+        const line4 = feedLine4(a);
+        const cta = feedItemCta(a);
+        const locPill = showLocPill && a?.location_label ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:#EFF6FF;color:#1e40af;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(a.location_label) + '</span>' : "";
+        var _ad = normalizeYmd(a?.affected_date);
+        var _today = todayYmd();
+        var _datePillLabel = "";
+        if (_ad === _today) _datePillLabel = "Aujourd\u2019hui";
+        else { var _dt = parseYmdToDate(_ad); if (_dt) { var _diff = Math.round((_dt - parseYmdToDate(_today)) / 86400000); if (_diff === 1) _datePillLabel = "Demain"; else if (_diff === -1) _datePillLabel = "Hier"; else if (_diff > 1 && _diff <= 7) _datePillLabel = new Intl.DateTimeFormat("fr-FR", {weekday:"short",day:"numeric"}).format(_dt); else _datePillLabel = new Intl.DateTimeFormat("fr-FR", {day:"numeric",month:"short"}).format(_dt); } }
+        var datePill = _datePillLabel ? '<span style="font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;background:#f3f4f6;color:#6b7280;text-transform:uppercase;letter-spacing:0.03em;">' + escapeHtml(_datePillLabel) + '</span>' : "";
+
+        const ctaHtml = (() => {
+          if (!cta) return "";
+          const sub = String(a?.change_subtype || "").toLowerCase();
+          if (sub === "event_new") {
+            const uid = escapeHtml(String(a?.entity_id || idx));
+            return '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;align-self:center;">'
+              + '<button type="button" data-feed-follow="' + uid + '" data-follow-label="' + escapeHtml(a?.event_label || '') + '" data-follow-venue="' + escapeHtml(a?.event_venue_name || '') + '" data-follow-city="' + escapeHtml(a?.city_name || '') + '" data-follow-date="' + escapeHtml(normalizeYmd(a?.affected_date) || '') + '" data-follow-industry="' + escapeHtml(a?.industry_code || '') + '" style="padding:5px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">Suivre \u2192</button>'
+              + '<button type="button" data-feed-enrich="' + uid + '" data-enrich-label="' + escapeHtml(a?.event_label || '') + '" data-enrich-venue="' + escapeHtml(a?.event_venue_name || '') + '" data-enrich-city="' + escapeHtml(a?.city_name || '') + '" data-enrich-distance="' + (a?.distance_m != null ? Math.round(Number(a.distance_m)) : '') + '" data-enrich-industry="' + escapeHtml(a?.industry_code || '') + '" data-enrich-uid="' + escapeHtml(a?.entity_id || '') + '" style="font-size:10px;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;">Voir plus \u2192</button>'
+            + '</div>';
+          }
+          var feedDate = normalizeYmd(a?.affected_date) || '';
+          var feedSub = String(a?.change_subtype || '');
+          var feedLocId = a?.location_id || location_id;
+          return '<a href="/app/insightevent/insight?type=' + encodeURIComponent(feedSub) + '&date=' + encodeURIComponent(feedDate) + '&location_id=' + encodeURIComponent(feedLocId) + '" style="flex-shrink:0;align-self:center;font-size:11px;font-weight:600;color:#1D3BB3;cursor:pointer;white-space:nowrap;font-family:inherit;text-decoration:none;">Consulter \u2192</a>';
+        })();
+
+        return `
+          <div class="tlrow">
+            <span class="tldot"></span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">${datePill}${locPill}</div>
+            <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);margin:0 0 2px;">${escapeHtml(line1)}</div>
+            ${line2 ? `<div style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(line2)}</div>` : ""}
+            ${line4 ? `<div style="font-size:11px;color:var(--color-text-muted);margin-top:4px;display:flex;align-items:center;gap:6px;">${line4}</div>` : ""}
+            <div data-feed-enrich-panel="${idx}" style="display:none;margin-top:8px;"></div>
+            <div style="margin-top:6px;">${ctaHtml}</div>
+          </div>`;
+      }).filter(Boolean).join("");
+
+      if (!itemsHtml) return "";
+
+      return `
+        <div style="margin-bottom:18px;">
+          <p class="eb" style="margin:0 0 10px;">${escapeHtml(groupLabel)}</p>
+          <div class="tl">${itemsHtml}</div>
+        </div>`;
+    }).filter(Boolean).join("");
+
+    const hasHidden = !showAll && categoryEntries.some(([, items]) => items.length > 5);
+    const showAllBtn = hasHidden
+      ? `<button type="button" id="pls-v4-feed-show-all" style="display:block;width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:500;color:#3b82f6;cursor:pointer;font-family:inherit;">Voir plus (top 10 par catégorie)</button>`
+      : "";
+
+    return `
+      <div style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span class="eb">Fil d'actualité</span>
+          <span style="font-size:11px;color:var(--color-text-muted);">${dedupedTotal} ${dedupedTotal > 1 ? "signaux" : "signal"}</span>
+        </div>
+        <div>
+          <div id="feed-engagements-log"></div>
+          ${groupsHtml}
+        </div>
+        ${showAllBtn}
+      </div>`;
+  }
 
   // ----------------------------------------------------------------
-  // Radar v5 — Volet Concurrence : où sont-ils (carte) + ce qu'ils font (activité)
+  // Main render — V4 REWRITE: pills → alerts → 3 radar strips → feed
   // ----------------------------------------------------------------
-  // (renderConcurrenceDetail supprimé — radar/menus retirés, 14/08.)
+  // Session goal state — ONE weekly goal across all sites (the aggregate and any
+  // site picked in the header dropdown). Sticky across reloads via localStorage;
+  // falls back to a genuine single-site server goal. Drives the "Goal pass" reorder.
+  var _activeGoalKey = "";
+  var _goalInit = false;
+  var _engagementLocs = []; // sites the current view covers (in-view aggregate sites, or the single viewed site) — engagements are fetched for exactly these, like system cards
+  function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
+  // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
+  function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
+  function _cgWin(k){ if (k === 'day_of') return 'le jour même'; var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j'; }
+  function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
+  // indicative % above "habituel" needed to validate the objective — the z threshold
+  // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
+  function _cgTargetPct(z, days){ return Math.max(1, Math.round((Number(z) || 1) * 0.19 / Math.sqrt(days || 7) * 100)); }
+  function _cgVerdict(r){
+    if (r.status === 'open') return { bg:'#EEF2FF', fg:'#1D3BB3', label:'En cours', strike:false, p:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' };
+    if (r.status === 'pending') return { bg:'#F3F4F6', fg:'#6b7280', label:'Attente de ventes', strike:false, p:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' };
+    if (r.status === 'expired') return { bg:'#F3F4F6', fg:'#9ca3af', label:'Non résolu', strike:true, p:'<circle cx="12" cy="12" r="9"/><path d="M5 5 19 19"/>' };
+    if (r.verdict === 'met') return { bg:'#DCFCE7', fg:'#166534', label:'Atteint', strike:false, p:'<path d="M20 6 9 17l-5-5"/>' };
+    if (r.verdict === 'missed') return { bg:'#FCEBEB', fg:'#b91c1c', label:'Manqué', strike:false, p:'<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>' };
+    return { bg:'#FEF3E2', fg:'#B45309', label:'Non concluant', strike:false, p:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/>' };
+  }
+  function _cgIcon(p, c){ return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
+  function _cgDdIcon(p){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
+  // Agir menu per state: open/pending → Consulter l'évolution · Modifier;
+  // resolved/expired → Consulter l'évolution · Répliquer. (Consulter l'évolution always first.)
+  function _cgAgirMenu(eid, status){
+    var see = '<button type="button" data-eng-evo="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon ab-dd-icon-see">' + _cgDdIcon('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>') + '</div><div><div class="ab-dd-label">Consulter l\'évolution</div><div class="ab-dd-desc">Suivi jour par jour</div></div></button>';
+    var body;
+    if (status === 'open' || status === 'pending') {
+      body = see + '<button type="button" data-eng-modify="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>') + '</div><div><div class="ab-dd-label">Modifier</div><div class="ab-dd-desc">Ajuster ou abandonner</div></div></button>';
+    } else {
+      body = see + '<button type="button" data-eng-replicate="' + eid + '" class="ab-dd-item"><div class="ab-dd-icon">' + _cgDdIcon('<path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/>') + '</div><div><div class="ab-dd-label">Répliquer</div><div class="ab-dd-desc">Reprendre cette action</div></div></button>';
+    }
+    return '<div data-eng-agir-menu="' + eid + '" class="ab-agir-dropdown" style="display:none;">' + body + '</div>';
+  }
+  // Full engagement ACTION card — the SAME .ab-card anatomy as a system card (card_type=
+  // engagement): pills, what/sowhat, verdict pill + owner, Agir menu per state, "Action
+  // menée ?" disposition wired to /api/commitments/disposition, 5-state pills + amber dot.
+  function _cgActionCardHtml(r, i){
+    var eid = escapeHtml(String(r.commitment_id || ''));
+    var loc = escapeHtml(String(r.location_id || ''));
+    var v = _cgVerdict(r);
+    var open = r.status === 'open' || r.status === 'pending';
+    var resolved = r.status === 'resolved';
+    var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
+    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Fenêtre close' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    var pct = r.window_residual_pct;
+    // Measurable, card-specific objective vs past performance: a concrete € target above
+    // "votre habituel" (the window baseline captured at creation), + the % to clear it.
+    var _days = r.window_days_expected || 7;
+    var _base = r.window_expected_revenue != null ? Number(_cgFv(r.window_expected_revenue)) : null;
+    // Base 'pct' (objectif libre) : le % du titre est EXACTEMENT celui fixé par l'utilisateur ;
+    // legacy residual_z : traduction indicative (constante globale) comme avant.
+    var _ypct = (r.threshold_basis === 'pct' && r.threshold_value != null)
+      ? Math.round(Number(_cgFv(r.threshold_value)))
+      : _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
+    var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
+    // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
+    // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
+    var _titre = String(r.committed_action_text || '');
+    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
+      : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
+      : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
+      : escapeHtml('Fenêtre ' + _cgWin(r.window_kind) + '.');
+    // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
+    // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
+    // rien de mesuré → pas de bloc (le « 1 % » inventé par le plancher de _cgTargetPct disparaît).
+    var _amt = '';
+    if (r.status === 'resolved' && pct != null) {
+      var _rPos = Number(pct) >= 0;
+      var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
+      var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur la fenêtre de ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
+        + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
+        + '<div class="amt-sub">' + _rLbl + '</div>'
+      + '</div>';
+    } else if (r.status !== 'expired' && r.threshold_value != null) {
+      _amt = '<div class="amt" title="' + escapeHtml('Objectif : +' + _ypct + ' % vs votre CA habituel' + (_uplift ? ', soit +' + _cgEur(_uplift) + '/jour' : '') + ' sur ' + _cgWin(r.window_kind) + '. Bleu : rien n\'est mesuré encore.') + '">'
+        + '<div class="amt-val" style="color:#1D3BB3;">' + (_uplift ? '+' + _cgEur(_uplift) + '/jour' : '+' + _ypct + ' %') + '</div>'
+        + '<div class="amt-sub">votre objectif</div>'
+      + '</div>';
+    }
+    var vStyle = 'background:' + v.bg + ';color:' + v.fg + ';font-weight:600;' + (v.strike ? 'text-decoration:line-through;text-decoration-color:#d1d5db;' : '');
+    var pill = '<span class="ab-metric" style="' + vStyle + '">' + _cgIcon(v.p, v.fg) + v.label + (amber ? '<span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;margin-left:2px;"></span>' : '') + '</span>';
+    var locLabel = (window._engLocLabels && window._engLocLabels[String(r.location_id || '')]) || '';
+    // disposition — R3 (proto 27/07) : fusionnée DANS la strip (2 rangées au lieu de 3), mêmes
+    // data-eng-dispo-* (le handler passe par closest('[data-eng-dispo-row]'), inchangé).
+    // « Fait » répondu → coche verte (repli validé) ; « pas_encore » garde les boutons (l'état
+    // doit encore pouvoir passer à Fait — c'est la capture du documenter loop).
+    var dispo = '';
+    if (open && r.action_done_status === 'fait') {
+      dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action menée</span>';
+    } else if (open) {
+      // Inversion 05/08 (owner) : la date de fin CLÔT l'opération et l'action compte MENÉE par
+      // défaut — l'engagement est déjà un acte explicite. Deux gestes d'exception seulement :
+      // « Fait » (exécution finie en avance — fige le statut, n'écourte JAMAIS la fenêtre de
+      // mesure) et « Pas menée » (valeur legacy pas_encore : exclue des € au mart).
+      dispo = '<span data-eng-dispo-row="' + eid + '" data-eng-dispo-loc="' + loc + '" style="display:inline-flex;align-items:center;gap:8px;">'
+        + '<span style="font-size:11px;color:#9CA3AF;">Men\u00e9e par d\u00e9faut \u00e0 l\u2019\u00e9ch\u00e9ance</span>'
+        + '<button type="button" data-eng-dispo-btn="fait" class="disc-btn">Fait</button>'
+        + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (r.action_done_status === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas men\u00e9e</button>'
+      + '</span>';
+    } else if (resolved && r.action_done_status === 'fait') {
+      dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action menée</span>';
+    } else if (resolved && r.action_done_status === 'pas_encore') {
+      // Seule l'exclusion EXPLICITE barre l'action (inversion 05/08) — exclue des € mesurés.
+      dispo = '<span class="ab-metric" style="text-decoration:line-through;text-decoration-color:#d1d5db;cursor:help;" title="D\u00e9clar\u00e9e non men\u00e9e — exclue des \u20ac mesur\u00e9s.">Action non men\u00e9e</span>';
+    } else if (resolved) {
+      dispo = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;">' + _cgIcon('<path d="M20 6 9 17l-5-5"/>', '#166534') + 'Action men\u00e9e</span>';
+    }
+    var caveat = '';
+    if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';
+    else if (r.verdict === 'confounded') caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9888;</span><span>' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre en vacances scolaires — impossible de distinguer l\'action du calendrier.</span></div>';
+    var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification') : (r.retro_worked ? 'Documenté' : 'À documenter');
+    var _stageBg = (_stage === 'À documenter') ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
+    var _stageFg = (_stage === 'À documenter') ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
+    // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.
+    if (r.status === 'cancelled') {
+      _stage = (r.adjustment_move === 'stop') ? 'Arrêtée' : (r.__hasChild ? 'Ajustée' : 'Annulée');
+      _stageBg = '#F1EFE8'; _stageFg = '#5f5e5a';
+    }
+    var _initials = String(r.owner_person_name || '').trim().split(/\s+/).map(function(w){ return w.charAt(0); }).slice(0, 2).join('').toUpperCase() || '—';
+    return '<div class="ab-card" data-eng-card="' + eid + '" data-eng-loc="' + loc + '" style="background:#F6F8FE;border-left:3px solid #1D3BB3;">'
+      + '<div class="ab-card-row">'
+        + '<div class="ab-bar" style="background:' + v.fg + ';"></div>'
+        + '<div class="ab-inner">'
+          + '<div class="ab-summary"><div style="display:flex;align-items:flex-start;gap:12px;">'
+            + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
+            + '<div style="flex:1;min-width:0;">'
+              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
+              + '<div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;">'
+                + '<div style="flex:1;min-width:0;">'
+                  + '<div class="ab-what">' + escapeHtml(_titre) + '</div>'
+                  + '<div class="ab-sowhat">' + sowhat + '</div>'
+                + '</div>'
+                + _amt
+              + '</div>'
+            + '</div></div></div>'
+          + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
+            + pill + '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(29,59,179,.12);color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;">' + escapeHtml(_initials) + '</span><span style="font-size:12px;color:#374151;">' + escapeHtml(String(r.owner_person_name || '')) + '</span></span>'
+            + dispo
+            + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+              + (open
+                  ? '<button type="button" data-eng-modify="' + eid + '" class="pls-cta-sec" title="Modifier la fen\u00eatre ou l\u2019objectif">Modifier</button>'
+                    + '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-pri" title="Poursuivre, doubler, pivoter ou arr\u00eater \u2014 diagnostic et move recommand\u00e9">Ajuster</button>'
+                  : '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-sec" title="Consulter l\u2019\u00e9volution">\u00c9volution</button>'
+                    + '<button type="button" data-eng-replicate="' + eid + '" class="pls-cta-pri" title="Rejouer ce qui a march\u00e9">R\u00e9pliquer</button>')
+            + '</span>'
+          + '</div>'
+          + caveat
+          + '<div class="ab-workspace" id="eng-ws-' + eid + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }
   // Wiring for the injected engagement action cards (own namespace, attached after inject).
-  // (_engCloseMenus supprimé — radar/menus retirés, 14/08.)
+  function _engCloseMenus(mount){ mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }
   function wireEngagementCards(mount){
     mount.querySelectorAll('[data-eng-evo]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
     mount.querySelectorAll('[data-eng-dispo-row] [data-eng-dispo-btn]').forEach(function(btn){
@@ -3262,8 +3682,8 @@ if (!location_id) {
         fetch('/api/commitments/disposition', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: eid, location_id: loc, action_done_status: status }) }).then(function(r){ return r.json(); }).catch(function(){});
       });
     });
-    mount.querySelectorAll('[data-eng-modify]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engModify(mount, b.getAttribute('data-eng-modify')); }); });
-    mount.querySelectorAll('[data-eng-replicate]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engReplicate(mount, b.getAttribute('data-eng-replicate')); }); });
+    mount.querySelectorAll('[data-eng-modify]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engCloseMenus(mount); _engModify(mount, b.getAttribute('data-eng-modify')); }); });
+    mount.querySelectorAll('[data-eng-replicate]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); _engCloseMenus(mount); _engReplicate(mount, b.getAttribute('data-eng-replicate')); }); });
     if (!window.__engCloserBound) { window.__engCloserBound = true; document.addEventListener('click', function(){ document.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }); }
   }
   function _engModify(mount, eid){
@@ -3713,7 +4133,6 @@ if (!location_id) {
         var more = document.createElement('button');
         more.type = 'button';
         more.setAttribute('data-t-more', si);
-        // Maquette 14/08 : le pli se lit « aussi aujourd'hui » — un filet, pas un lien nu.
         more.style.cssText = 'display:block;width:100%;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;background:none;border:none;border-top:1px solid rgba(17,24,39,0.06);cursor:pointer;padding:8px 2px;font-family:inherit;text-align:center;';
         more.textContent = 'aussi aujourd\u2019hui \u2014 ' + (siteCtx.length - 3) + ' carte' + (siteCtx.length - 3 > 1 ? 's' : '') + ' \u25be';
         more.addEventListener('click', function() {
@@ -3776,8 +4195,7 @@ if (!location_id) {
         fin.textContent = 'Vous \u00eates \u00e0 jour \u2014 ' + nAll + ' carte' + (nAll > 1 ? 's' : '') + ' ce jour.';
         mount.appendChild(fin);
       })();
-      // Maquette 14/08 — filet « Nouveau depuis votre derni\u00e8re visite » : premi\u00e8re
-      // visite du JOUR (localStorage), pos\u00e9 au-dessus du premier bloc de cartes.
+      // Maquette 14/08 — filet « Nouveau depuis votre derni\u00e8re visite » (1re visite du jour).
       (function () {
         try {
           var k = 'ms_agir_last_visit';
