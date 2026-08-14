@@ -1,0 +1,63 @@
+// GARDE-FOU DU FIL AGIR — les invariants de la maquette validée 14/08 (docs/agir-fil-spec.md),
+// vérifiés sur la SOURCE d'émission de pulse.astro. Leçon des deux dérives visuelles du 14/08 :
+// « vérifié » sans comparer à la maquette n'est pas vérifié. Ce test est le premier étage ;
+// le harnais de rendu happy-dom (boot complet + payload monitor réel) est l'étage suivant.
+// Un faux positif se lève en alignant l'émission sur la maquette — jamais en effaçant l'assertion.
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+
+const src = readFileSync(new URL("../pages/app/insightevent/pulse.astro", import.meta.url).pathname, "utf8");
+// Chaînes visibles seulement (hors commentaires) pour les assertions d'ABSENCE.
+const sansCommentaires = src.replace(/\/\*[\s\S]*?\*\//g, " ").split("\n")
+  .map((l) => l.replace(/(^|\s)\/\/.*$/, "$1")).join("\n");
+
+describe("fil Agir — invariants de la maquette (14/08)", () => {
+  it("le score /10 et le radar sont morts", () => {
+    expect(sansCommentaires.includes("Pourquoi ce score")).toBe(false);
+    expect(sansCommentaires.includes("renderRadarStrip")).toBe(false);
+    expect(sansCommentaires.includes("Mon environnement")).toBe(false);
+  });
+  it("en-tête cible : Vos cartes du jour + Piloter →", () => {
+    expect(src.includes("Vos cartes du jour")).toBe(true);
+    expect(src.includes("/app/insightevent/tableau")).toBe(true);
+  });
+  it("sections titrées, engagements d'abord", () => {
+    const iEng = src.indexOf(">Vos engagements<");
+    // L'en-tête de SECTION du brief (style 650) — les fallbacks « feed vide » ont le leur.
+    const iJour = src.indexOf('rgba(17,24,39,0.60);">Actions du jour<', iEng);
+    expect(iEng).toBeGreaterThan(-1);
+    expect(iJour).toBeGreaterThan(-1);
+    expect(iEng).toBeLessThan(iJour);
+  });
+  it("les menus déroulants Agir sont morts (contextuel ET engagement)", () => {
+    expect(sansCommentaires.includes("Agir \\u25be")).toBe(false);
+    expect(sansCommentaires.includes("Piloter \\u25be")).toBe(false);
+    expect(sansCommentaires.includes("Piloter ▾")).toBe(false);
+    expect(sansCommentaires.includes("data-eng-agir-toggle")).toBe(false);
+  });
+  it("grammaire CTA : gestes directs (liste fermée) + Communiquer", () => {
+    for (const cls of ['class="pls-cta-pri"', 'class="pls-cta-sec"']) expect(src.includes(cls)).toBe(true);
+    expect(src.includes(">Communiquer</button>")).toBe(true);
+    // Geste bleu = dernier du pied (l'ordre d'émission : sec avant pri).
+    expect(src.indexOf("_commEntry2\n                + _commitEntry")).toBeGreaterThan(-1);
+  });
+  it("possession : conteneur engagements bleu pâle + liseré", () => {
+    expect(src.includes("#pls-engagement-cards:not(:empty) { background:#F7F9FF")).toBe(true);
+  });
+  it("peau de fil : conteneur = holders du triage, cartes sans boîte", () => {
+    expect(src.includes("[data-t-cards]:not(:empty)")).toBe(true);
+    expect(src.includes("border-top:1px solid rgba(17,24,39,0.06); border-radius:0")).toBe(true);
+  });
+  it("€ héros : pastille teintée gain/defend, 19px tabulaire", () => {
+    expect(src.includes(".amt.gain .amt-val")).toBe(true);
+    expect(src.includes("font-variant-numeric:tabular-nums")).toBe(true);
+  });
+  it("fin de fil + filet Nouveau + pli « aussi aujourd'hui »", () => {
+    expect(src.includes("Vous \\u00eates \\u00e0 jour")).toBe(true);
+    expect(src.includes("Nouveau depuis votre derni\\u00e8re visite")).toBe(true);
+    expect(src.includes("aussi aujourd\\u2019hui")).toBe(true);
+  });
+  it("chrome hors maquette mort : progression, Besoin d'aide", () => {
+    expect(sansCommentaires.includes("ab-help-global")).toBe(false);
+  });
+});
