@@ -2103,20 +2103,20 @@ if (!location_id) {
     var progressPct = Math.round((completedCount / top.length) * 100);
  
     return '<div style="margin-bottom:20px;" id="daily-brief-section">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
+      // ── SECTIONS TITRÉES (maquette fil validée 14/08) : VOS ENGAGEMENTS d'abord (cartes
+      //    utilisateur, possession bleue), puis ACTIONS DU JOUR. L'en-tête engagements ne
+      //    s'affiche que si renderEngagements a rendu des cartes (il le révèle lui-même).
+      + '<div id="pls-eng-head" style="display:none;align-items:baseline;justify-content:space-between;margin-bottom:6px;">'
+        + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Vos engagements</span>'
+        + '<span id="pls-eng-count" style="font-size:11px;color:#9CA3AF;"></span>'
+      + '</div>'
+      + '<div id="pls-engagement-cards" style="margin-bottom:16px;"></div>'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">'
+        + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Actions du jour</span>'
         + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
       + '</div>'
       + feedbackCardsHtml
-      + '<div id="pls-engagement-cards"></div>'
       + (cardsHtml ? '<div id="pls-triage"></div>' + cardsHtml : '')
-      + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
-        + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;">'
-          + '<div style="height:100%;background:#059669;width:' + progressPct + '%;border-radius:2px;transition:width 0.3s;"></div>'
-        + '</div>'
-        + '<span style="font-size:10px;color:#6B7280;">' + completedCount + '/' + top.length + '</span>'
-      + '</div>'
-      + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
       + '<div id="pls-structural"></div>'
       + '<div id="pls-past-actions" style="margin-top:18px;"></div>'
     + '</div>';
@@ -4259,10 +4259,13 @@ if (!location_id) {
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
             + pill + '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(29,59,179,.12);color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;">' + escapeHtml(_initials) + '</span><span style="font-size:12px;color:#374151;">' + escapeHtml(String(r.owner_person_name || '')) + '</span></span>'
             + dispo
-            + '<span style="margin-left:auto;display:inline-flex;align-items:center;"><div style="position:relative;display:inline-block;">'
-              + '<button type="button" data-eng-agir-toggle="' + eid + '" class="agir-btn">Piloter ▾</button>'
-              + _cgAgirMenu(eid, r.status)
-            + '</div></span>'
+            + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+              + (open
+                  ? '<button type="button" data-eng-modify="' + eid + '" class="pls-cta-sec" title="Modifier la fen\u00eatre ou l\u2019objectif">Modifier</button>'
+                    + '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-pri" title="Poursuivre, doubler, pivoter ou arr\u00eater \u2014 diagnostic et move recommand\u00e9">Ajuster</button>'
+                  : '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-sec" title="Consulter l\u2019\u00e9volution">\u00c9volution</button>'
+                    + '<button type="button" data-eng-replicate="' + eid + '" class="pls-cta-pri" title="Rejouer ce qui a march\u00e9">R\u00e9pliquer</button>')
+            + '</span>'
           + '</div>'
           + caveat
           + '<div class="ab-workspace" id="eng-ws-' + eid + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -4426,9 +4429,9 @@ if (!location_id) {
     var eng = _structActiveCommit(imp);
     var state = eng ? 'En amélioration' : 'Actif';
     var btn = eng
-      ? '<button type="button" class="agir-btn" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
-      : '<button type="button" class="agir-btn" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
-    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '" style="border-left:3px solid ' + bar + ';">'
+      ? '<button type="button" class="pls-cta-sec" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
+      : '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
         + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>'
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
@@ -4460,9 +4463,9 @@ if (!location_id) {
     // (dispositif.astro, provider partagé) — le bouton y navigue. data-struct-doc (Documenter
     // en workspace) reste câblé pour les usages futurs, plus émis ici.
     var btn = ident
-      ? '<button type="button" data-struct-page="' + key + '" class="agir-btn">Reproduire le dispositif</button>'
-      : '<button type="button" data-struct-commit="' + key + '" class="agir-btn">M’engager</button>';
-    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '" style="border-left:3px solid ' + bar + ';">'
+      ? '<button type="button" data-struct-page="' + key + '" class="pls-cta-pri">Reproduire le dispositif</button>'
+      : '<button type="button" data-struct-commit="' + key + '" class="pls-cta-pri">M’engager</button>';
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '">'
       + '<div class="ab-summary">'
         + '<div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>'
         + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
@@ -4829,6 +4832,12 @@ if (!location_id) {
     // system cards. Separate persistent fetch, so the daily-candidate regen never wipes them.
     var mount = document.getElementById('pls-engagement-cards');
     if (!mount) return;
+    var _engHead = document.getElementById('pls-eng-head');
+    var _engCount = document.getElementById('pls-eng-count');
+    var _engReveal = function (n) {
+      if (_engHead) _engHead.style.display = n > 0 ? 'flex' : 'none';
+      if (_engCount) _engCount.textContent = n > 0 ? String(n) : '';
+    };
     var locs = (locationIds || []).filter(Boolean);
     if (!locs.length) { mount.innerHTML = ''; return; }
     Promise.all(locs.map(function(loc){
@@ -4859,8 +4868,8 @@ if (!location_id) {
       var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
       // Radar v5 — le volet Opérations est le résumé hélicoptère de CES items (aucun 2e fetch).
       if (typeof fillOpsVolet === 'function') fillOpsVolet(_active, _past);
-      var _enHdr = '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:0 0 10px 2px;">Vos actions en cours</div>';
-      mount.innerHTML = _active.length ? (_enHdr + _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('')) : '';
+      mount.innerHTML = _active.length ? _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('') : '';
+      _engReveal(_active.length);
       wireEngagementCards(mount);
       applySowhatClamp(mount);
       if (pastMount) {
