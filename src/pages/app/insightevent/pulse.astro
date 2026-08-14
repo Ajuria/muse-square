@@ -5405,23 +5405,16 @@ if (!location_id) {
     // Le seul \u00e9l\u00e9ment color\u00e9 du header est la vigilance m\u00e9t\u00e9o quand elle existe.
     const _vAlert = Number(currentDay.alert_level_max || 0);
     const _vAlertSv = _vAlert > 0 ? sevStyle(_vAlert >= 3 ? "alerte" : "attention") : null;
-    const verdictHtml = `<div style="margin-top:26px;margin-bottom:16px;padding-top:22px;border-top:1px solid var(--color-border);">`
-      + `<div data-hero-toggle style="cursor:pointer;">`
-        + `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</p>`
-        + `<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">`
-          + `<div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">${_vScore ? Number(score).toFixed(1) : "\u2014"}</span>${_vScore ? `<span style="font-size:16px;color:var(--color-text-muted);">/10</span>` : ""}</div>`
-          + `<div style="flex:1;min-width:220px;">`
-            + `<p style="font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">${escapeHtml(verdictLine)}</p>`
-            + (weekRankShort ? `<p style="font-size:12px;color:var(--color-text-secondary);margin:4px 0 0;">${escapeHtml(weekRankShort)}</p>` : "")
-          + `</div>`
-        + `</div>`
-        + `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">`
-          + `<span style="font-size:12px;color:#1D3BB3;font-weight:500;display:inline-flex;align-items:center;gap:4px;">Pourquoi ce score <svg data-hero-chevron viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg></span>`
-          + (_vAlertSv ? plsChip("Vigilance niv. " + _vAlert, _vAlertSv) : "")
-        + `</div>`
-      + `</div>`
-      + `<div data-hero-body style="display:none;padding-top:14px;">`
-        + `<div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;padding:2px 14px 14px;">${renderScoreDetail(currentDay, days)}</div>`
+    // EN-TÊTE (maquette agir-proto validée 14/08) : titre + date + aléa EN MOTS + Piloter →.
+    // Le score /10 est RETIRÉ (owner 14/08) — agrégat qui cachait ses composantes ; la
+    // priorité de cette page est portée par l'enjeu € des cartes, l'état vit sur Piloter.
+    const verdictHtml = `<div style="margin-top:22px;margin-bottom:14px;padding-top:20px;border-top:1px solid var(--color-border);">`
+      + `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">`
+        + `<span style="font-size:20px;font-weight:650;letter-spacing:-0.01em;color:var(--color-text-primary);">Vos cartes du jour</span>`
+        + `<span style="font-size:12.5px;color:var(--color-text-secondary);">${escapeHtml(fmtDateLong(selectedDate))}</span>`
+        + (_vAlertSv ? `<span style="font-size:12.5px;font-weight:600;color:${_vAlertSv.fg};">${_vAlert >= 3 ? "vigilance m\u00e9t\u00e9o forte" : "vigilance m\u00e9t\u00e9o"}</span>` : "")
+        + `<span style="flex:1;"></span>`
+        + `<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;white-space:nowrap;">Piloter \u2192</a>`
       + `</div>`
     + `</div>`;
 
@@ -5464,8 +5457,9 @@ if (!location_id) {
       : "";
 
     // Assemble
-    root.innerHTML = pillsHtml + verdictHtml +
-      `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${opsStrip}${perfStrip}${concStrip}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+    // Radar retiré (14/08) : ses trois volets vivent sur Piloter (héros + Événements
+    // concurrents + Ma veille concurrentielle) — les hooks ops sont gardés contre null.
+    root.innerHTML = pillsHtml + verdictHtml + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
     applySowhatClamp(root);
 
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
