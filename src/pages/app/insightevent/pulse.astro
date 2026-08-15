@@ -381,7 +381,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=46"></script>
+    <script is:inline src="/action-cards.js?v=47"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -1831,7 +1831,7 @@ if (!location_id) {
       // insuffisant » là où la zone montant dit « votre réponse le débloque » — deux messages
       // contradictoires sur la même carte. D'où le needs_catchment !== true dans la condition.
       if (!enj && a && a.needs_catchment !== true && a.enjeu_reason_fr) {
-        pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;">' + escapeHtml(String(a.enjeu_reason_fr)) + '</span>');
+        pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;cursor:help;text-decoration:underline dotted rgba(156,163,175,0.6);text-underline-offset:2px;" title="' + escapeHtml(String(a.enjeu_reason_fr)) + '">pas encore chiffr\u00e9</span>');
       }
       return pills.join('');
     }
@@ -3572,8 +3572,8 @@ if (!location_id) {
     // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     var _titre = String(r.committed_action_text || '');
-    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
-      : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
+    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
+      : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
       : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
       : escapeHtml('Fenêtre ' + _cgWin(r.window_kind) + '.');
@@ -3611,7 +3611,7 @@ if (!location_id) {
       // « Fait » (exécution finie en avance — fige le statut, n'écourte JAMAIS la fenêtre de
       // mesure) et « Pas menée » (valeur legacy pas_encore : exclue des € au mart).
       dispo = '<span data-eng-dispo-row="' + eid + '" data-eng-dispo-loc="' + loc + '" style="display:inline-flex;align-items:center;gap:8px;">'
-        + '<span style="font-size:11px;color:#9CA3AF;">Men\u00e9e par d\u00e9faut \u00e0 l\u2019\u00e9ch\u00e9ance</span>'
+        + '<span style="font-size:11px;color:#9CA3AF;cursor:help;text-decoration:underline dotted rgba(156,163,175,0.6);text-underline-offset:2px;" title="Si vous ne d\u00e9clarez rien, l\u2019action est consid\u00e9r\u00e9e comme men\u00e9e \u00e0 l\u2019\u00e9ch\u00e9ance de la fen\u00eatre \u2014 le verdict mesure alors son effet.">men\u00e9e par d\u00e9faut</span>'
         + '<button type="button" data-eng-dispo-btn="fait" class="disc-btn">Fait</button>'
         + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (r.action_done_status === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas men\u00e9e</button>'
       + '</span>';
@@ -3645,7 +3645,7 @@ if (!location_id) {
               + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
               + '<div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;">'
                 + '<div style="flex:1;min-width:0;">'
-                  + '<div class="ab-what">' + escapeHtml(_titre) + '</div>'
+                  + '<div class="ab-what" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + escapeHtml(_titre) + '">' + escapeHtml(_titre) + '</div>'
                   + '<div class="ab-sowhat">' + sowhat + '</div>'
                 + '</div>'
                 + _amt
@@ -3806,7 +3806,7 @@ if (!location_id) {
     return null;
   }
 
-  function _structRowHtml(imp, key) {
+  function _structRowHtml(imp, key, coinPorte) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
     var pillBg = pos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
@@ -3823,7 +3823,9 @@ if (!location_id) {
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
         + '</span>'
-        + '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>'
+        + (coinPorte
+            ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
+            : '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -3835,6 +3837,24 @@ if (!location_id) {
   // infobulle (amendement 2), CTA par registre (amendement 7) : identification -> « Reproduire
   // le dispositif » (Documenter), correctif -> « M'engager ». data-t-h="0" : un motif non
   // traité est actionnable aujourd'hui — le tri unique horizon puis |coin| fait le reste.
+  // Médaillon famille des cartes structurelles (owner 15/08 : « pas d'icônes sur certaines
+  // cartes = incohérent ») — même .ab-disc que les cartes datées, glyphe par famille.
+  var STRUCT_FAM_GLYPH = {
+    weather: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.9 4.9l1.4 1.4"/><path d="M17.7 17.7l1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.9 19.1l1.4-1.4"/><path d="M17.7 6.3l1.4-1.4"/>',
+    competition: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    suivis: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    tourism: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+    events: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    mobility: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/>',
+    traffic: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    sales: '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'
+  };
+  function _structDiscHtml(fam) {
+    var g = STRUCT_FAM_GLYPH[fam] || '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1"/>';
+    return '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + g + '</svg></div>';
+  }
+
   function _structFullCardHtml(imp, key) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
@@ -3857,6 +3877,7 @@ if (!location_id) {
         + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
         + '<span class="chip-n">' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + '</span></div>'
         + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+          + _structDiscHtml(imp.family)
           + '<div style="flex:1;min-width:0;">'
             + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
             + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
@@ -4082,7 +4103,7 @@ if (!location_id) {
         + '</div>'
         + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
         + (_compactImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
-        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key); }).join('')
+        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, !!_siteCls[String(x.imp.class_key || '')]); }).join('')
         + '</div>';
     });
     mount.innerHTML = html;

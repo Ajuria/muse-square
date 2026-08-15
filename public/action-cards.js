@@ -279,7 +279,7 @@
       var comp = Number(d.events_within_5km_count || 0);
       var pr = Number(d.competition_pressure_ratio || 0);
       var alert = Number(d.alert_level_max || 0);
-      var parts = ['Score ' + score + '/10'];
+      var parts = [];  // le score interne ne sort plus en clair (owner 15/08)
       if (alert === 0) parts.push('m\u00e9t\u00e9o favorable');
       else if (alert <= 1) parts.push('m\u00e9t\u00e9o acceptable');
       if (pr > 0 && pr < 0.8) parts.push('concurrence faible (' + comp + ' \u00e9v\u00e9n. \u00e0 5 km)');
@@ -482,7 +482,8 @@
       var t = temp(d.temperature_2m_max);
       var wind = Number(d.wind_speed_10m_max || 0);
       var impactRaw = Number(d.impact_weather_pct || 0);
-      var line = days + 'j cons\u00e9cutifs de mauvais temps. ' + weather;
+      // « consécutifs » commence à 2 (owner 15/08) — 1 jour = météo dégradée, sans compteur.
+      var line = (Number(days) >= 2 ? days + ' jours cons\u00e9cutifs de mauvais temps. ' : 'M\u00e9t\u00e9o d\u00e9grad\u00e9e aujourd\u2019hui. ') + weather;
       if (t) line += ', ' + t;
       if (wind > 0) line += ', vent ' + Math.round(wind) + ' km/h';
       line += '.';
@@ -508,7 +509,6 @@
       var line = 'Le facteur de risque dominant a chang\u00e9';
       if (from && to) line += ' : ' + from + ' \u2192 ' + to;
       else if (to) line += ' : ' + to;
-      line += '. Score ' + score + '/10.';
       if (to === 'Concurrence' || to === 'competition') { var edge = userEdge(p); if (edge) line += ' Votre atout : ' + trunc(edge, 80) + '.'; }
       if (to === 'M\u00e9t\u00e9o' || to === 'weather') { if (weatherSens(p)) line += ' Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e \u2014 impact direct.'; }
       return line;
@@ -524,8 +524,7 @@
       var score = num(d.opportunity_score_final_local);
       var comp = Number(d.events_within_5km_count || 0);
       var edge = userEdge(p);
-      var line = 'Score ' + score + '/10. ' + (d.weather_label_fr || '') + ', ' + comp + ' \u00e9v\u00e9nements \u00e0 5 km.';
-      line += ' Conditions favorables pour le week-end.';
+      var line = 'Conditions favorables pour le week-end' + (d.weather_label_fr ? ' \u2014 ' + d.weather_label_fr.toLowerCase() : '') + ', ' + comp + ' \u00e9v\u00e9nements \u00e0 5 km.';
       if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
       var aud = audLabel(p); if (aud) line += ' Votre cible (' + aud + ') est disponible le week-end.';
       var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
@@ -778,7 +777,6 @@
       var line = 'M\u00e9daille';
       if (from && to) line += ' ' + from + ' \u2192 ' + to;
       else if (to) line += ' ' + to;
-      line += '. Score ' + score + '/10.';
       if (to === 'A') line += ' Journ\u00e9e de haut niveau \u2014 maximisez votre visibilit\u00e9.';
       return line;
     },
