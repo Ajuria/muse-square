@@ -666,11 +666,14 @@
     function t(key, vars) { var s = COPY[key] || ''; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split('{' + k + '}').join(vars[k]); return s; }
 
     // dual-line chart: CA réalisé (solid+area) vs CA habituel (dashed)
-    function chart(series) {
+    function chart(series, goalPct) {
       var pts = series.filter(function (d) { return d.has_data; });
       if (pts.length < 2) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
       var W = 760, H = 200, padL = 46, padT = 10, padB = 26, plotW = W - padL - 8, plotH = H - padT - padB;
-      var all = []; pts.forEach(function (d) { all.push(d.daily_revenue, d.expected_revenue); });
+      // Ligne d'objectif (owner 15/08) : l'habituel du jour +X % — le « suis-je au-dessus de
+      // mon objectif ? » se lit sur la courbe, plus seulement dans l'en-tête.
+      var goalOf = (goalPct != null) ? function (d) { return d.expected_revenue * (1 + goalPct / 100); } : null;
+      var all = []; pts.forEach(function (d) { all.push(d.daily_revenue, d.expected_revenue); if (goalOf) all.push(goalOf(d)); });
       var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
       var span = (mx - mn) || 1; mn = Math.max(0, mn - span * 0.12); mx = mx + span * 0.12;
       var n = series.length;
@@ -691,13 +694,17 @@
       var dots = '';
       if (bi >= 0) dots += '<circle cx="' + xOf(bi).toFixed(1) + '" cy="' + yOf(series[bi].daily_revenue).toFixed(1) + '" r="3.5" fill="#059669"/>';
       if (wi >= 0 && wi !== bi) dots += '<circle cx="' + xOf(wi).toFixed(1) + '" cy="' + yOf(series[wi].daily_revenue).toFixed(1) + '" r="3.5" fill="#b91c1c"/>';
+      var goalSeg = [];
+      if (goalOf) series.forEach(function (d, i) { if (d.has_data) goalSeg.push(xOf(i).toFixed(1) + ',' + yOf(goalOf(d)).toFixed(1)); });
       var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid + gaps
         + '<path d="' + area + '" fill="#1D3BB3" fill-opacity="0.07"/>'
         + '<polyline points="' + expSeg.join(' ') + '" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/>'
+        + (goalSeg.length ? '<polyline points="' + goalSeg.join(' ') + '" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4" opacity="0.85"/>' : '')
         + '<polyline points="' + realLine + '" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>' + dots + lbl + '</svg>';
       var legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;">'
         + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>' + esc(t('chart_realized')) + '</span>'
-        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>' + esc(t('chart_habituel')) + '</span></div>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>' + esc(t('chart_habituel')) + '</span>'
+        + (goalSeg.length ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4"/></svg>objectif</span>' : '') + '</div>'
         + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
       return svg + legend;
     }
@@ -800,7 +807,11 @@
     var _subGoal = (cm.threshold_basis === 'pct' && cm.threshold_value != null)
       ? Math.round(Number(cm.threshold_value))
       : Math.max(1, Math.round((cm.threshold_level === 'net' ? 1.5 : 1.0) * 0.19 / Math.sqrt(cm.window_days_expected || 7) * 100));
-    var sub = t('subtitle', { pct: _subGoal, window: winLbl });
+    // K déjà résolu plus bas ; ici on ne lit que data.kpi (même valeur) pour nommer le référentiel.
+    var _kSub = data.kpi || null;
+    var sub = (_kSub && _kSub.metric !== 'revenue_residual' && _kSub.goal_pct != null)
+      ? t('subtitle_kpi', { pct: Math.round(Number(_kSub.goal_pct)), window: winLbl, kpi: (_kSub.metric === 'family_revenue' && _kSub.family ? 'CA famille \u00ab ' + _kSub.family + ' \u00bb' : _kSub.label_fr) })
+      : t('subtitle', { pct: _subGoal, window: winLbl });
     // Owner + when (remark #1): who committed and when, + when the action was marked done.
     var _ownerDate = '';
     if (cm.owner_person_name || cm.created_at) {
@@ -819,6 +830,9 @@
       + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
       + '</div>';
 
+    // Bloc KPI-vrai : décidé AVANT le headline — la barre % ne s'émet pas quand la jauge est là.
+    var K = data.kpi || null;
+    var _kpiActive = !!(K && (K.realized != null || K.goal != null || K.baseline != null));
     var headline, big;
     if (!received.length) {
       var _z = cm.threshold_level === 'net' ? 1.5 : 1.0;
@@ -834,8 +848,14 @@
       var _obj = _ouplift != null
         ? t('q1_objective_eur', { uplift: intfr(_ouplift), pct: _ytgt })
         : t('q1_objective_pct', { pct: _ytgt });
-      headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">' + esc(_obj) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + esc(t('q1_window_started')) + '</div>';
+      if (_kpiActive && K.metric !== 'revenue_residual') {
+        // KPI non-CA : la phrase d'objectif en € de CA total serait le MAUVAIS référentiel —
+        // la cible exacte vit dans la jauge (kFmt + famille), le texte reste neutre.
+        headline = '<div style="font-size:13px;color:#6b7280;">' + esc(t('q1_window_started')) + '</div>';
+      } else {
+        headline = '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;">' + esc(_obj) + '</div>'
+          + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + esc(t('q1_window_started')) + '</div>';
+      }
     } else {
       var _basePct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0); // situation (total residual)
       var _ctxPct = (windowHoliday && hn && hn.pct != null) ? hn.pct : 0;                                // holiday/context portion
@@ -878,7 +898,7 @@
         ? t('q1_attrib_split', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct), ctx: (_ctxPct >= 0 ? '+' : '') + fr(_ctxPct) })
         : t('q1_attrib_solo', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
       headline = '<div style="font-size:16px;font-weight:600;color:' + _stCol + ';">' + esc(_stTxt) + '</div>'
-        + _bar
+        + (_kpiActive ? '' : _bar)
         + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:14px;">' + esc(_attrib) + '</div>'
         + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';
     }
@@ -948,8 +968,126 @@
         + '<div style="margin-top:10px;padding:12px 14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:10px;font-size:13px;color:#1D3BB3;font-weight:600;line-height:1.5;">' + consigne + '</div>'
         + '<div style="font-size:11px;color:#9ca3af;margin-top:6px;">Suivi aussi depuis la carte engagement de votre page Pulse → « Consulter l’évolution ».</div>';
     }
-    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + holidayNote + enjeuBlock()
-      + '<div style="margin-top:16px;">' + (received.length < 2 ? j1Block() : chart(series)) + '</div></div>';
+    // ── Mesure KPI-vrai (owner 15/08, proto engagement-kpi-proto validé) : jauge demi-cercle
+    // tricolore (< habituel rouge · [habituel, objectif[ orange · >= objectif vert) + points
+    // pairs réels. data.kpi absent → rendu historique inchangé (repli honnête).
+    function kFmt(v, m) {
+      if (v == null) return '\u2014';
+      if (m === 'conversion') return (Number(v) * 100).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
+      if (m === 'transactions' || m === 'footfall') return Math.round(Number(v)).toLocaleString('fr-FR');
+      return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: v < 100 ? 1 : 0, maximumFractionDigits: v < 100 ? 1 : 0 }) + ' \u20ac';
+    }
+    function kBand(k) {
+      if (k.realized == null) return '#9CA3AF';
+      if (k.baseline != null && k.realized < k.baseline) return '#b91c1c';
+      if (k.goal != null) return k.realized >= k.goal ? '#059669' : '#B45309';
+      return '#059669';
+    }
+    function kGauge(k) {
+      var col = kBand(k);
+      var mx = Math.max(k.goal || 0, k.realized || 0, k.baseline || 0) * 1.12 || 1;
+      function ang(v) { return Math.PI * (1 - Math.max(0, Math.min(1, v / mx))); }
+      function gx(a2, r) { return (160 + r * Math.cos(a2)).toFixed(1); }
+      function gy(a2, r) { return (150 - r * Math.sin(a2)).toFixed(1); }
+      var R = 106, g = '<path d="M 54 150 A 106 106 0 0 1 266 150" fill="none" stroke="#F3F4F6" stroke-width="20" stroke-linecap="round"/>';
+      if (k.realized != null && k.realized > 0) g += '<path d="M 54 150 A 106 106 0 0 1 ' + gx(ang(k.realized), R) + ' ' + gy(ang(k.realized), R) + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-linecap="round"/>';
+      if (k.baseline != null) {
+        var aB = ang(k.baseline);
+        g += '<line x1="' + gx(aB, R - 13) + '" y1="' + gy(aB, R - 13) + '" x2="' + gx(aB, R + 13) + '" y2="' + gy(aB, R + 13) + '" stroke="#9CA3AF" stroke-width="2"/>'
+          + '<text x="' + gx(aB, R + 24) + '" y="' + gy(aB, R + 24) + '" font-size="9" fill="#9CA3AF" text-anchor="middle">habituel</text>';
+      }
+      if (k.goal != null) {
+        var aG = ang(k.goal);
+        g += '<line x1="' + gx(aG, R - 14) + '" y1="' + gy(aG, R - 14) + '" x2="' + gx(aG, R + 14) + '" y2="' + gy(aG, R + 14) + '" stroke="#1D3BB3" stroke-width="3"/>'
+          + '<text x="' + gx(aG, R + 26) + '" y="' + gy(aG, R + 26) + '" font-size="9.5" font-weight="650" fill="#1D3BB3" text-anchor="middle">objectif</text>';
+      }
+      var center, subCtr;
+      if (k.realized == null) {
+        center = '<text x="160" y="116" font-size="21" font-weight="700" fill="#9CA3AF" text-anchor="middle">\u2014</text>';
+        subCtr = k.goal != null ? 'cible ' + kFmt(k.goal, k.metric) : 'mesure \u00e0 venir';
+      } else {
+        center = '<text x="160" y="116" font-size="22" font-weight="700" fill="' + col + '" text-anchor="middle" style="font-variant-numeric:tabular-nums;">' + esc(kFmt(k.realized, k.metric)) + '</text>';
+        if (k.goal != null) {
+          var dlt = k.realized - k.goal;
+          var dv = Math.abs(k.metric === 'conversion' ? dlt * 100 : dlt);
+          subCtr = (dlt >= 0 ? '+' : '\u2212') + dv.toLocaleString('fr-FR', { maximumFractionDigits: dv < 10 ? 1 : 0 })
+            + (k.metric === 'conversion' ? ' pt' : (k.metric === 'transactions' || k.metric === 'footfall') ? '' : ' \u20ac')
+            + (dlt >= 0 ? ' au-dessus de' : ' sous') + ' l\u2019objectif';
+        } else { subCtr = 'sans objectif d\u00e9clar\u00e9 (ancien format)'; }
+      }
+      var famLbl = k.metric === 'family_revenue' && k.family ? 'CA famille \u00ab ' + k.family + ' \u00bb \u00b7 \u20ac par jour' : k.label_fr;
+      return '<svg viewBox="0 0 320 160" style="width:290px;height:auto;flex:none;">' + g + center
+        + '<text x="160" y="134" font-size="10.5" fill="#374151" text-anchor="middle">' + esc(subCtr) + '</text>'
+        + '<text x="160" y="150" font-size="9.5" fill="#9ca3af" text-anchor="middle">' + esc(famLbl) + '</text></svg>';
+    }
+    function kDots(k) {
+      var col = kBand(k);
+      var pts = k.day_of ? (k.peers || []) : (k.daily || []);
+      if (!pts.length) return '';
+      function jourFr2(iso) { return ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
+      var cap = k.day_of
+        ? 'vos ' + pts.length + ' derniers ' + jourFr2(k.daily && k.daily.length ? k.daily[0].date : (k.peers[k.peers.length - 1] || {}).date || '') + 's \u00b7 gros point = le jour mesur\u00e9'
+        : 'les ' + pts.length + ' journ\u00e9es de la fen\u00eatre \u00b7 la jauge = leur moyenne';
+      var vals = pts.map(function (p2) { return p2.v; });
+      if (k.realized != null && k.day_of) vals.push(k.realized);
+      if (k.goal != null) vals.push(k.goal);
+      if (k.baseline != null) vals.push(k.baseline);
+      var mn = Math.min.apply(null, vals), mxv = Math.max.apply(null, vals);
+      var span = (mxv - mn) || 1; mn -= span * 0.07; mxv += span * 0.07; span = mxv - mn;
+      function X(v) { return (16 + (v - mn) / span * 388).toFixed(1); }
+      var g = '<line x1="12" y1="26" x2="408" y2="26" stroke="#E5E7EB" stroke-width="2"/>';
+      pts.forEach(function (p2) { g += '<circle cx="' + X(p2.v) + '" cy="26" r="3.4" fill="#D1D5DB"><title>' + esc(msDateFr(p2.date) + ' \u00b7 ' + kFmt(p2.v, k.metric)) + '</title></circle>'; });
+      if (k.baseline != null) g += '<line x1="' + X(k.baseline) + '" y1="16" x2="' + X(k.baseline) + '" y2="36" stroke="#9CA3AF" stroke-width="1.6"/><text x="' + X(k.baseline) + '" y="10" font-size="8.5" fill="#9CA3AF" text-anchor="middle">habituel</text>';
+      if (k.goal != null) g += '<line x1="' + X(k.goal) + '" y1="14" x2="' + X(k.goal) + '" y2="38" stroke="#1D3BB3" stroke-width="2.4"/><text x="' + X(k.goal) + '" y="50" font-size="9" font-weight="650" fill="#1D3BB3" text-anchor="middle">objectif</text>';
+      if (k.realized != null && k.day_of) g += '<circle cx="' + X(k.realized) + '" cy="26" r="6.5" fill="' + col + '"><title>' + esc('le jour mesur\u00e9 \u00b7 ' + kFmt(k.realized, k.metric)) + '</title></circle>';
+      return '<div style="flex:1;min-width:280px;"><svg viewBox="0 0 420 54" style="width:100%;height:auto;">' + g + '</svg><div style="font-size:10.5px;color:#9CA3AF;margin-top:4px;">' + esc(cap) + '</div></div>';
+    }
+    function kpiChart(k) {
+      var pts = k.daily || [];
+      if (pts.length < 2) return '';
+      var W = 760, H = 200, padL = 46, padT = 10, padB = 26, plotW = W - padL - 8, plotH = H - padT - padB;
+      var all = pts.map(function (p2) { return p2.v; });
+      if (k.baseline != null) all.push(k.baseline);
+      if (k.goal != null) all.push(k.goal);
+      var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+      var span = (mx - mn) || 1; mn = Math.max(0, mn - span * 0.12); mx = mx + span * 0.12;
+      var n = pts.length;
+      var xOf = function (i) { return padL + (n === 1 ? plotW / 2 : i * plotW / (n - 1)); };
+      var yOf = function (v) { return padT + plotH - (v - mn) / ((mx - mn) || 1) * plotH; };
+      var isPct = k.metric === 'conversion';
+      var grid = '', ticks = 4;
+      for (var g2 = 0; g2 <= ticks; g2++) {
+        var val = mn + (mx - mn) * g2 / ticks, y = yOf(val);
+        var tick = isPct ? (val * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %' : Math.round(val).toLocaleString('fr-FR');
+        grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + tick + '</text>';
+      }
+      var seg = pts.map(function (p2, i) { return xOf(i).toFixed(1) + ',' + yOf(p2.v).toFixed(1); });
+      var lbl = '', step = Math.ceil(n / 8);
+      for (var i2 = 0; i2 < n; i2 += step) lbl += '<text x="' + xOf(i2).toFixed(1) + '" y="' + (H - 8) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + parseInt(String(pts[i2].date).slice(8, 10), 10) + '</text>';
+      function flat2(v, colr, dash, o) { var y2 = yOf(v).toFixed(1); return '<line x1="' + padL + '" y1="' + y2 + '" x2="' + (W - 8) + '" y2="' + y2 + '" stroke="' + colr + '" stroke-width="1.6" stroke-dasharray="' + dash + '"' + (o ? ' opacity="' + o + '"' : '') + '/>'; }
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid
+        + (k.baseline != null ? flat2(k.baseline, '#9ca3af', '5,4') : '')
+        + (k.goal != null ? flat2(k.goal, '#1D3BB3', '3,4', '0.85') : '')
+        + '<polyline points="' + seg.join(' ') + '" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>' + lbl + '</svg>';
+      var famLbl2 = k.metric === 'family_revenue' && k.family ? 'CA famille \u00ab ' + k.family + ' \u00bb' : k.label_fr;
+      return svg + '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;flex-wrap:wrap;">'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>' + esc(famLbl2) + '</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>habituel</span>'
+        + (k.goal != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4"/></svg>objectif</span>' : '') + '</div>';
+    }
+    var kBlock = _kpiActive
+      ? '<div style="display:flex;gap:26px;align-items:center;flex-wrap:wrap;margin-top:14px;">' + kGauge(K) + kDots(K) + '</div>'
+      : '';
+
+    // La jauge remplace la barre % (même travail, bon référentiel) — la barre reste le repli
+    // quand le bloc KPI est absent. Courbe : non-K1 multi-jours → unité KPI ; K1 → courbe CA
+    // historique + ligne d'objectif ; jour-m\u00eame → jauge + pairs (une courbe d'1 point ment).
+    var chartArea;
+    if (K && K.day_of) chartArea = (open && !received.length) ? j1Block() : '';
+    else if (K && K.metric !== 'revenue_residual' && (K.daily || []).length >= 2) chartArea = kpiChart(K);
+    else chartArea = (received.length < 2 ? j1Block() : chart(series, K && K.goal_pct != null ? K.goal_pct : null));
+    var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + kBlock + holidayNote + enjeuBlock()
+      + (chartArea ? '<div style="margin-top:16px;">' + chartArea + '</div>' : '') + '</div>';
 
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
     var q4 = captureHtml(cm, open);

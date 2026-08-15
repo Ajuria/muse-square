@@ -18,6 +18,8 @@ export const EVOL_COPY = {
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
   subtitle: "Objectif : +{pct} % de CA vs habituel · sous {window}",
+  // Variante KPI-vrai (owner 15/08) : le sous-titre nomme le KPI DÉCLARÉ, jamais « CA » en dur.
+  subtitle_kpi: "Objectif : +{pct} % de {kpi} vs habituel · sous {window}",
   owner_line: "Engagé par {name} · le {date}",
   done_suffix: " · action menée le {date}",
 
