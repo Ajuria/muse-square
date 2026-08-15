@@ -3655,6 +3655,7 @@ if (!location_id) {
             + pill + '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(29,59,179,.12);color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;">' + escapeHtml(_initials) + '</span><span style="font-size:12px;color:#374151;">' + escapeHtml(String(r.owner_person_name || '')) + '</span></span>'
             + dispo
             + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+              + '<button type="button" data-eng-comm="' + eid + '" data-eng-comm-loc="' + escapeHtml(String(r.location_id || '')) + '" data-eng-comm-what="' + escapeHtml(_titre) + '" class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur cet engagement">Communiquer</button>'
               + (open
                   ? '<button type="button" data-eng-modify="' + eid + '" class="pls-cta-sec" title="Modifier la fen\u00eatre ou l\u2019objectif">Modifier</button>'
                     + '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-pri" title="Poursuivre, doubler, pivoter ou arr\u00eater \u2014 diagnostic et move recommand\u00e9">Ajuster</button>'
@@ -3671,6 +3672,31 @@ if (!location_id) {
   // Wiring for the injected engagement action cards (own namespace, attached after inject).
   function _engCloseMenus(mount){ mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }
   function wireEngagementCards(mount){
+    // Communiquer sur engagement (owner 15/08) : workspace partagé dans eng-ws-<eid>.
+    mount.querySelectorAll('[data-eng-comm]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var eid = b.getAttribute('data-eng-comm');
+        var ws = document.getElementById('eng-ws-' + eid);
+        if (!ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        if (!window.MSDraftWorkspace) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Espace de r\u00e9daction indisponible \u2014 rechargez la page.</div>'; return; }
+        window.MSDraftWorkspace.open(ws, {
+          location_id: b.getAttribute('data-eng-comm-loc') || '',
+          signal_type: 'engagement',
+          affected_date: '',
+          card_what: b.getAttribute('data-eng-comm-what') || '',
+          card_sowhat: '',
+          signal: {},
+          artifact_mode: 'post',
+          severity: '',
+          channel: 'note_interne',
+          prof: {}, day: {},
+          onStatus: function(st) { if (st === 'drafted') { b.style.color = '#1D3BB3'; b.textContent = 'Brouillon \u270e'; } }
+        });
+      });
+    });
     mount.querySelectorAll('[data-eng-evo]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
     mount.querySelectorAll('[data-eng-dispo-row] [data-eng-dispo-btn]').forEach(function(btn){
       btn.addEventListener('click', function(e){
@@ -3886,7 +3912,9 @@ if (!location_id) {
         + '</div>'
         + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;">' + btn + '</span></div>'
+      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+        + '<button type="button" data-struct-comm="' + key + '" class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur ce motif">Communiquer</button>'
+        + btn + '</span></div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
     + '</div>';
   }
@@ -3951,6 +3979,32 @@ if (!location_id) {
           location_id: imp.location_id,
           origin: origin,
           onSaved: function() { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Documenté — ajouté à vos bonnes pratiques. Le dispositif se précise avec chaque journée expliquée.</div>'; }
+        });
+      });
+    });
+    // Communiquer sur motif structurel (owner 15/08) : même workspace partagé que les
+    // cartes datées — signal_type structural_<classe>, seed replié si inconnu du seeder.
+    scope.querySelectorAll('[data-struct-comm]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var key = b.getAttribute('data-struct-comm');
+        var imp = _impByKey(key);
+        var ws = scope.querySelector('[data-struct-ws="' + key + '"]');
+        if (!imp || !ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        if (!window.MSDraftWorkspace) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Espace de r\u00e9daction indisponible \u2014 rechargez la page.</div>'; return; }
+        window.MSDraftWorkspace.open(ws, {
+          location_id: imp.location_id,
+          signal_type: 'structural_' + String(imp.class_key || ''),
+          affected_date: '',
+          card_what: String(imp.title_fr || ''),
+          card_sowhat: String(imp.sowhat_fr || '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
+          signal: imp,
+          artifact_mode: 'post',
+          severity: '',
+          channel: 'note_interne',
+          prof: {}, day: {},
+          onStatus: function(st) { if (st === 'drafted') { b.style.color = '#1D3BB3'; b.textContent = 'Brouillon \u270e'; } }
         });
       });
     });
