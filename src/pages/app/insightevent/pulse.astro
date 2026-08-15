@@ -3656,7 +3656,7 @@ if (!location_id) {
             + dispo
             + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
               + (open
-                  ? '<button type="button" data-eng-modify="' + eid + '" class="pls-cta-sec" title="Modifier la fen\u00eatre ou l\u2019objectif">Modifier</button>'
+                  ? '<button type="button" data-eng-comm="' + eid + '" data-eng-comm-loc="' + escapeHtml(String(r.location_id || '')) + '" data-eng-comm-what="' + escapeHtml(_titre) + '" class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur cet engagement">Communiquer</button>'
                     + '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-pri" title="Poursuivre, doubler, pivoter ou arr\u00eater \u2014 diagnostic et move recommand\u00e9">Ajuster</button>'
                   : '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-sec" title="Consulter l\u2019\u00e9volution">\u00c9volution</button>'
                     + '<button type="button" data-eng-replicate="' + eid + '" class="pls-cta-pri" title="Rejouer ce qui a march\u00e9">R\u00e9pliquer</button>')
@@ -3671,6 +3671,32 @@ if (!location_id) {
   // Wiring for the injected engagement action cards (own namespace, attached after inject).
   function _engCloseMenus(mount){ mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }
   function wireEngagementCards(mount){
+    // Communiquer sur engagement ouvert (owner 15/08 : les 2 CTA = Communiquer + Ajuster,
+    // Modifier mort — on ne modifie pas la carte, Ajuster porte déjà le geste).
+    mount.querySelectorAll('[data-eng-comm]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var eid = b.getAttribute('data-eng-comm');
+        var ws = document.getElementById('eng-ws-' + eid);
+        if (!ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        if (!window.MSDraftWorkspace) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Espace de r\u00e9daction indisponible \u2014 rechargez la page.</div>'; return; }
+        window.MSDraftWorkspace.open(ws, {
+          location_id: b.getAttribute('data-eng-comm-loc') || '',
+          signal_type: 'engagement',
+          affected_date: '',
+          card_what: b.getAttribute('data-eng-comm-what') || '',
+          card_sowhat: '',
+          signal: {},
+          artifact_mode: 'post',
+          severity: '',
+          channel: 'note_interne',
+          prof: {}, day: {},
+          onStatus: function(st) { if (st === 'drafted') { b.style.color = '#1D3BB3'; b.textContent = 'Brouillon \u270e'; } }
+        });
+      });
+    });
     mount.querySelectorAll('[data-eng-evo]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
     mount.querySelectorAll('[data-eng-dispo-row] [data-eng-dispo-btn]').forEach(function(btn){
       btn.addEventListener('click', function(e){
