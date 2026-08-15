@@ -897,7 +897,15 @@
       var _attrib = (_ctxPct !== 0)
         ? t('q1_attrib_split', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct), ctx: (_ctxPct >= 0 ? '+' : '') + fr(_ctxPct) })
         : t('q1_attrib_solo', { action: (_actionPct >= 0 ? '+' : '') + fr(_actionPct) });
-      headline = '<div style="font-size:16px;font-weight:600;color:' + _stCol + ';">' + esc(_stTxt) + '</div>'
+      // Référentiel du verdict (15/08) : jugé sur le KPI déclaré (bande de bruit incluse) ou
+      // sur le CA-résiduel historique — l'infobulle le dit, jamais un verdict muet.
+      var _vbTip = '';
+      if (!open && cm.verdict) {
+        _vbTip = cm.verdict_basis === 'kpi'
+          ? ' title="' + esc('Verdict rendu sur votre KPI d\u00e9clar\u00e9 (' + ((K && K.label_fr) || 'KPI') + ')' + (cm.kpi_noise_se != null ? ', bande de bruit \u00b1' + cm.kpi_noise_se : '') + '. Un objectif d\u00e9pass\u00e9 de moins que le bruit du lieu reste \u00ab non concluant \u00bb.') + '"'
+          : ' title="' + esc('Verdict rendu sur le CA vs normale (machinerie historique).') + '"';
+      }
+      headline = '<div' + _vbTip + ' style="font-size:16px;font-weight:600;color:' + _stCol + ';' + (_vbTip ? 'cursor:help;' : '') + '">' + esc(_stTxt) + '</div>'
         + (_kpiActive ? '' : _bar)
         + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:14px;">' + esc(_attrib) + '</div>'
         + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';

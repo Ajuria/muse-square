@@ -18,7 +18,7 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
-import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, kpiDeltaPct as kpiDeltaPctFn } from "./kpiRegistry";
+import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "./kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "./sensitivityFeatures.json";
 
@@ -207,6 +207,7 @@ export async function resolveCommitment(
   // la bande de bruit par KPI n'est pas établie (décision étape 3). Échec soft → null.
   let kpiWindowValue: number | null = null;
   let kpiDeltaPct: number | null = null;
+  let kpiDailySd: number | null = null;
   const kpiKey = String(snap.measured_metric || "revenue_residual") as any;
   if (kpiKey === "family_revenue") {
     // K8 (événements, 03/08) : la famille vit sur l'ÉVÉNEMENT ancré (saved_items.kpi_family,
@@ -221,19 +222,44 @@ export async function resolveCommitment(
         const win = await measureFamilyRevenueMean(bq, String(snap.location_id), famName, String(snap.window_start), String(snap.window_end));
         kpiWindowValue = win ? win.value : null;
         kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+        kpiDailySd = await measureFamilyDailySd(bq, String(snap.location_id), famName, String(snap.window_start)).catch(() => null);
       }
     } catch { kpiWindowValue = null; kpiDeltaPct = null; }
   } else if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
     try {
       kpiWindowValue = await measureKpiWindow(bq, String(snap.location_id), kpiKey, String(snap.window_start), String(snap.window_end));
       kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
-    } catch { kpiWindowValue = null; kpiDeltaPct = null; }
+      kpiDailySd = await measureKpiDailySd(bq, String(snap.location_id), kpiKey, String(snap.window_start)).catch(() => null);
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; kpiDailySd = null; }
+  }
+
+  // 8. Verdict par KPI (chantier 15/08) : quand le commitment déclare un KPI non-K1 avec un
+  // objectif 'pct' ET que la mesure est complète (baseline + fenêtre + bande de bruit), le
+  // verdict est rendu dans SON unité — même structure que K1 : SE de la moyenne fenêtre
+  // corrigée par LE MÊME VIF (une seule formule d'autocorrélation), portes asymétriques
+  // (bruit + vacances) sur les « met » seulement. Mesure incomplète → verdict CA conservé
+  // et verdict_basis le DIT ('revenue_residual') — jamais un verdict KPI deviné.
+  let kpiNoiseSe: number | null = null;
+  let verdictBasis = "revenue_residual";
+  if (
+    kpiKey !== "revenue_residual" && String(snap.threshold_basis || "") === "pct" &&
+    snap.kpi_baseline != null && kpiWindowValue != null && snap.threshold_value != null
+  ) {
+    kpiNoiseSe = kpiDailySd != null ? round3((kpiDailySd / Math.sqrt(expectedCount)) * Math.sqrt(vifVal)) : null;
+    const kpiGoal = Number(snap.kpi_baseline) * (1 + Number(snap.threshold_value) / 100);
+    verdict = kpiVerdict({
+      realized: kpiWindowValue, baseline: Number(snap.kpi_baseline), goal: kpiGoal,
+      se: kpiNoiseSe, materialConfound: materialShare >= MATERIAL_SHARE,
+    });
+    verdictBasis = "kpi";
   }
 
   return {
     patch: {
       kpi_window_value: kpiWindowValue,
       kpi_delta_pct: kpiDeltaPct,
+      kpi_noise_se: kpiNoiseSe,
+      verdict_basis: verdictBasis,
       status: "resolved",
       verdict,
       resolved_at: nowIso,
@@ -254,6 +280,6 @@ export async function resolveCommitment(
       ctx_material_confound: ctxMaterialConfound,
       window_active_factors: windowActiveFactors,
     },
-    note: `${verdict} — z=${zCorr.toFixed(2)} (raw ${zRaw.toFixed(2)}, ρ=${rho.toFixed(2)}, vif=${vifVal.toFixed(2)}), share=${materialShare.toFixed(2)}`,
+    note: `${verdict} [${verdictBasis}] — z=${zCorr.toFixed(2)} (raw ${zRaw.toFixed(2)}, ρ=${rho.toFixed(2)}, vif=${vifVal.toFixed(2)}), share=${materialShare.toFixed(2)}${kpiNoiseSe != null ? `, kpi_se=${kpiNoiseSe}` : ""}`,
   };
 }

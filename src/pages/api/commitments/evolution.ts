@@ -190,6 +190,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // owner + when (header) and the goal reference for "vs objectif".
       created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
       threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
+      // Verdict par KPI (15/08) : le référentiel qui a JUGÉ + la bande de bruit — la page le dit.
+      verdict_basis: snap.verdict_basis ?? null,
+      kpi_noise_se: snap.kpi_noise_se != null ? Number(flat(snap.kpi_noise_se)) : null,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
       // Enjeu d'origine gelé à la création (26/07) — rendu VERBATIM par le bloc Enjeu du doc
       // (tier_label_fr tel quel : pill et page alignées par construction). Null → pas de bloc.

@@ -204,7 +204,9 @@
    "creation_enjeu_class_key",
    "creation_enjeu_entangled",
    "creation_enjeu_inherited",
-   "saved_item_id"
+   "saved_item_id",
+   "kpi_noise_se",
+   "verdict_basis"
   ],
   "analytics.action_log": [
    "log_id",
