@@ -131,6 +131,7 @@ check("rangées dispositifs marquées par la clé", (payload.practices || []).so
 
 // ── Inc 3-5 (audit 15/08) : veille exploitable, registres purs, zéro soupe de tirets. ──
 check("zéro « joués » à l'écran (mot banni)", txt().indexOf(" joués") < 0 && txt().indexOf("jouable") < 0);
+if (rawHtml.indexOf("Préparer →") >= 0) check("Préparer porte mode=preparer (vue préparation, pas Évaluer)", rawHtml.indexOf("&mode=preparer") >= 0);
 check("événement concurrent : l'aléa météo du jour n'y est plus", (() => {
   // la rangée ev ne contient plus « annoncée » (l'aléa) — le mot reste permis ailleurs (occasion).
   const evBody = body.querySelector('[data-tb-body="ev"]');

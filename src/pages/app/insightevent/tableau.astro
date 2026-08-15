@@ -334,7 +334,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + (o.n_total > 1 ? " · occ. " + o.occ_num + "/" + o.n_total : "") + (sig.length ? " · " + sig.join(" · ") : ""),
               droite: o.target ? '<span style="font-size:11px;color:#6b7280;">' + esc(o.target) + '</span>' : "",
               who: o.owner, site: o.site_label,
-              geste: '<a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(o.location_id || loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '">Préparer →</a>' });
+              geste: '<a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(o.location_id || loc) + '&saved_item_id=' + encodeURIComponent(o.saved_item_id) + '&mode=preparer">Préparer →</a>' });
           });
           // Déblocages (verbe d'abord, le POURQUOI en sous-ligne) — gestes existants + nouveaux.
           goals.filter(function (gg) { return gg.kind !== "documenter"; }).forEach(function (gg) {

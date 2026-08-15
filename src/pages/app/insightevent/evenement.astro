@@ -167,8 +167,17 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var it = j.item || {};
           window._evtBilanItem = it;
           var today = new Date().toISOString().slice(0, 10);
-          var past = (it.dates || []).map(String).filter(function (d) { return d && d.slice(0, 10) <= today; });
-          if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
+          // Terminée = date passée, ou aujourd'hui avec l'heure de fin dépassée (Paris). Sans
+          // heure de fin connue, le jour même ne compte pas — on ne demande pas un vécu à venir.
+          var _hParis = Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "numeric", hour12: false }).format(new Date()));
+          function occOver(d) {
+            var dd = String(d).slice(0, 10);
+            if (dd < today) return true;
+            if (dd > today) return false;
+            return it.hour_end != null && _hParis >= Number(it.hour_end);
+          }
+          var past = (it.dates || []).map(String).filter(function (d) { return d && occOver(d); });
+          if (!past.length && it.selected_date && occOver(it.selected_date)) past = [String(it.selected_date).slice(0, 10)];
           if (!past.length) return;
           var bilanDate = past[past.length - 1].slice(0, 10);
           // Le bilan ne se demande QUE sur une occurrence terminée : tant que son engagement
@@ -746,6 +755,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (j.avant_date) states.push(["avant", "Avant"]);
           if (j.apres && j.apres.rows.length) states.push(["apres", "Après"]);
           var current = stage === "decider" ? "decider" : (stage === "apres" ? "apres" : "avant");
+          // ?mode=preparer (audit 15/08) : le geste « Préparer » de Piloter ouvre l'état AVANT
+          // (consigne gelée + contexte + objectif) même quand une occurrence passée existe —
+          // on ne fait pas évaluer hier à qui vient préparer demain.
+          if (qs.get("mode") === "preparer" && j.avant_date) current = "avant";
 
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
             + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
@@ -959,6 +972,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           setHead(current);
           renderConsigne(j);
           maybeRenderBilan(j);
+          if (qs.get("mode") === "preparer") {
+            var _csM = body.querySelector('[data-ev-mount="consigne"]');
+            if (_csM && _csM.scrollIntoView) setTimeout(function () { _csM.scrollIntoView({ behavior: "smooth", block: "center" }); }, 250);
+          }
 
           // « Prévenir l'équipe » (owner 10/08) : le résultat mesuré + ce qui change, adressé
           //    aux destinataires du lieu. Le workspace partagé gère canal, roster, envoi.
