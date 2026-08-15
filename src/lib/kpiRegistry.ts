@@ -11,8 +11,9 @@
 //    codée 'revenue_residual' en dur avant l'étape 3 — pas de colonne kpi_key doublon, règle SST).
 //  - 'revenue_residual' (K1) garde SA machinerie (residual z, VIF, verdict — commitmentResolve.ts) ;
 //    ce registre ne mesure QUE les KPIs non-K1, en colonnes additives kpi_* (baseline / window /
-//    delta). Le verdict à bande de bruit reste K1-only tant que les variances par KPI ne sont pas
-//    établies (décision étape 3) — les kpi_* sont la matière de ce futur verdict par KPI.
+//    delta / noise_se). Verdict par KPI LIVRÉ (15/08) : bande de bruit = sd journalier 30 j
+//    pré-fenêtre (measureKpiDailySd) → SE = sd/√n × √VIF (LE MÊME VIF que K1) ; kpiVerdict (pur,
+//    testé) rend met/missed/confounded avec les portes asymétriques de K1 (bruit + vacances).
 //  - 'reputation' (K7) : AUCUNE série temporelle de VOTRE note Google dans l'entrepôt (vérifié
 //    24/07 — seuls les concurrents suivis en ont une) → clé posée, mesure NULL, jamais un chiffre
 //    inventé. S'active quand une source own-rating existera (GBP connect).
