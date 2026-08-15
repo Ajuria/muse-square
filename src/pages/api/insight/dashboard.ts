@@ -292,10 +292,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Changements d'offre détectés (mart latest-vs-previous) chez les suivis.
       bq.query({
         query: `SELECT oc.competitor_name, oc.item, oc.change_type, oc.price_direction,
-                       oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change
+                       oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change,
+                       oc.new_price_qualifier, CAST(DATE(oc.current_crawled_at) AS STRING) AS vu_le,
+                       COALESCE(cd.tarifs_url, cd.source_url) AS src_url
                 FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` oc
                 JOIN \`${PROJECT}.raw.competitor_tracking\` ct USING (competitor_id)
-                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL LIMIT 8`,
+                LEFT JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                  ON cd.competitor_id = oc.competitor_id AND cd.deleted_at IS NULL
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
+                ORDER BY oc.current_crawled_at DESC LIMIT 8`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Base de comparaison des offres : tarifs relevés au DERNIER passage (l'absence se chiffre).
@@ -670,7 +675,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         return {
           tendance: (tendRows as any[]).map((r) => ({ commitment_id: str(r.commitment_id), metric: str(r.metric), jours: num(r.jours), ecart_pct: num(r.ecart_pct) })),
           veille: { lieux: Object.values(parLieu), sans_cle: sansCle },
-          offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change) })),
+          offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change), qualif: str(r.new_price_qualifier), vu_le: str(r.vu_le), src_url: str(r.src_url) })),
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city) })),

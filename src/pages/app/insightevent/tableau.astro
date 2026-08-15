@@ -525,8 +525,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var dj = daysTo(gg.d);
             var detail = [];
             if (gg.mien) detail.push("le jour de votre " + esc(trunc(gg.mien, 30)));
-            if (gg.alea) detail.push(esc(gg.alea));
-            if (!detail.length && e0.m != null) detail.push("à " + (e0.m / 1000).toFixed(1).replace(".", ",") + " km — public partiellement commun");
+            // Registre (audit 15/08) : l'aléa météo du JOUR n'a rien à faire sous l'événement
+            // DU CONCURRENT — il vit sur Prochaine occasion / À surveiller. Distance toujours dite.
+            if (e0.m != null) detail.push("à " + (e0.m / 1000).toFixed(1).replace(".", ",") + " km — public partiellement commun");
             html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
               + '<span><span style="font-size:11px;font-weight:700;color:' + (gg.mien || gg.alea ? AMBER : GREY) + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(gg.d) + " " + frD(gg.d) + '</span></span>'
               + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(e0.lieu || "Un concurrent") + ' ouvre « ' + esc(trunc(e0.nom, 38)) + ' »' + (gg.evts.length > 1 ? " +" + (gg.evts.length - 1) : "") + '</span>'
@@ -565,9 +566,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_armTarget ? ' data-tb-goto="' + esc(_armTarget.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Armer →</a>';
             if (rg) occHtml += occRow(
               "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", GREEN,
-              "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Jouer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
+              "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Activer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
               '<span style="font-weight:600;">à récupérer</span> ' + dowFr(oc.next_hot) + " " + frD(oc.next_hot) + " — jour chaud annoncé" + (siteChip(oc.next_hot_site_label) ? " " + siteChip(oc.next_hot_site_label) : ""),
-              "Prévision réelle : prochain jour de chaleur (niveau ≥ 3) — jouable AVANT qu’il arrive", armLink);
+              "Prévision réelle : prochain jour de chaleur (niveau ≥ 3) — actionnable AVANT qu’il arrive", armLink);
             else occHtml += occRow(
               dowFr(oc.next_hot) + " " + frD(oc.next_hot), BLUE,
               "Prochain jour de chaleur annoncé (niveau ≥ 3)",
@@ -577,7 +578,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var occMissed = Math.max(0, (oc.total || 0) - (oc.played || 0));
           if (occMissed) occHtml += occRow(
             occMissed + " j", "#6b7280", "",
-            'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " joués</span>",
+            'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " couverts par une action</span>",
             "Jours de chaleur des 30 derniers jours qu’aucune fenêtre engagée ne couvrait",
             '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
           var svResume = nMen + (nMen > 1 ? " menaces" : " menace") + " · " + nOcc2 + " occasions"
@@ -587,7 +588,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + occHtml
             + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
             + (oc.by_site || []).map(function (sByS) {
-                return '<div><span style="font-weight:600;">' + esc(sByS.site_label || "") + '</span> : ' + sByS.played + "/" + sByS.total + " joués"
+                return '<div><span style="font-weight:600;">' + esc(sByS.site_label || "") + '</span> : ' + sByS.played + "/" + sByS.total + " couverts"
                   + (sByS.missed_dates && sByS.missed_dates.length ? " · manqués : " + sByS.missed_dates.slice(-6).map(frD).join(", ") + (sByS.missed_dates.length > 6 ? "…" : "") : "") + "</div>";
               }).join("")
             + '<div style="color:#9CA3AF;">€/jour = médiane mesurée vs votre CA habituel, registre enjeu de l’app (n ≥ 5, signal |t| ≥ 1) — jamais extrapolé.</div></div>';
@@ -615,7 +616,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + (r.eur_year != null ? " — ≈ " + signEur(r.eur_year) + "/an (" + (r.tier_label_fr || "estimé") + ")" : "")
               + ". Registre enjeu de l’app — jamais extrapolé.";
             var action;
-            if (r.covered) action = '<span class="tb-chip" style="background:#E6F6F0;color:#059669;">joué — dispositif en place</span>';
+            if (r.covered) action = '<span class="tb-chip" style="background:#E6F6F0;color:#059669;">couvert — dispositif en place</span>';
             else if (r.in_test) action = '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">en test — verdict le ' + frD(r.in_test.end) + '</span>';
             else if (gain) action = '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">à défendre</span>';
             else action = '<a class="tb-link" href="#" data-tb-engage="' + li + '" style="font-size:12px;white-space:nowrap;">M’engager →</a>';
@@ -668,7 +669,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var actions = "";
             if (t !== "en_test") {
               if (canProuver) actions += '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif passe de déclaré à prouvé">Prouver</a>' + sep;
-              else if (t === "declaree" && p.replay_commitment_id) actions += '<span style="font-size:11px;color:#9CA3AF;">dernier test non concluant</span>' + sep;
+
               actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>';
               if (p.armable && !p.arm_enabled) actions += sep + '<a class="tb-link" href="#" data-tb-arm="' + pi + '">Armer sur signal</a>';
             }
@@ -677,11 +678,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : "")
               + '<span style="flex:1;min-width:180px;">' + esc(trunc(p.text, 110)) + '</span>'
               + (t === "en_test" && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + "</span>" : "")
-              + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;">dernier test non mesurable</span>' : "")
+              + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;" title="Le dernier rejeu n\u2019a pas permis de conclure \u2014 relancez un test sur une fen\u00eatre propre.">dernier test non concluant</span>' : "")
               + actions
               + (p.arm_enabled ? '<a class="tb-link" href="#" data-tb-disarm="' + esc(p.practice_id) + "|" + esc(p.location_id || "") + '" style="font-size:11.5px;">Désarmer</a>' : "")
               + '</div>'
-              + (t === "prouvee" && p.armable && p.arm_signal_ctx && p.arm_signal_ctx.n_hot_30 != null ? '<div style="font-size:11px;color:#6B7280;margin:0 0 6px;cursor:help;" title="Son signal (chaleur annoncée) a joué ' + p.arm_signal_ctx.n_hot_30 + ' j sur vos 30 derniers — armé, la recette se rejoue seule à chaque annonce.">Signal chaleur : ' + p.arm_signal_ctx.n_hot_30 + " j/30" + (p.arm_signal_ctx.next_hot ? " · prochain " + dowFr(p.arm_signal_ctx.next_hot) + " " + frD(p.arm_signal_ctx.next_hot) : "") + "</div>" : "")
+              + (t === "prouvee" && p.armable && p.arm_signal_ctx && p.arm_signal_ctx.n_hot_30 != null ? '<div style="font-size:11px;color:#6B7280;margin:0 0 6px;cursor:help;" title="Son signal (chaleur annoncée) s\u2019est pr\u00e9sent\u00e9 ' + p.arm_signal_ctx.n_hot_30 + ' j sur vos 30 derniers — armé, la recette se rejoue seule à chaque annonce.">Signal chaleur : ' + p.arm_signal_ctx.n_hot_30 + " j/30" + (p.arm_signal_ctx.next_hot ? " · prochain " + dowFr(p.arm_signal_ctx.next_hot) + " " + frD(p.arm_signal_ctx.next_hot) : "") + "</div>" : "")
               + (p.armable && !p.arm_enabled ? '<div data-tb-arm-panel="' + pi + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>' : "");
           });
 
@@ -699,6 +700,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           html += voletHead("eq", eqOpenN ? GREEN : GREY, "Équipe", eqResume)
             + '<div data-tb-body="eq" class="tb-rbody" style="display:none;">';
           eq.forEach(function (p) {
+            // Nettoyage (audit 15/08) : un « porteur » sans nom ET sans rien = pas une rangée
+            // (la soupe « — · rien en cours · tenue — ») ; sans nom AVEC des choses = « Sans porteur ».
+            var whoName = String(p.who || "").split("·")[0].trim();
+            var isAnon = !whoName || whoName === "—" || whoName === "\u2014";
+            if (isAnon && !(p.open || []).length && !p.judged) return;
+            if (isAnon) p = Object.assign({}, p, { who: "Sans porteur" });
             var opsTxt = (p.open || []).map(function (o) {
               var title = String(o.text || "").split("—")[0].trim().slice(0, 50);
               var href = o.saved_item_id ? "/app/insightevent/evenement?saved_item_id=" + encodeURIComponent(o.saved_item_id) : "/app/insightevent/pulse";
@@ -707,7 +714,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap;">'
               + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
               + '<span style="flex:1;min-width:180px;"><span style="font-weight:600;">' + esc(String(p.who).split("·")[0].trim()) + '</span>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + " — " + opsTxt + '</span>'
-              + '<span style="font-size:11px;color:#9CA3AF;flex:none;">tenue ' + (p.judged ? p.kept + "/" + p.judged : "—") + '</span>'
+              + (p.judged ? '<span style="font-size:11px;color:#9CA3AF;flex:none;" title="Cibles tenues / fen\u00eatres jug\u00e9es sur la p\u00e9riode">tenue ' + p.kept + "/" + p.judged + '</span>' : "")
               + (p.gap_eur != null ? '<span style="font-size:11px;font-weight:600;color:' + (p.gap_eur >= 0 ? "#059669" : "#B45309") + ';flex:none;">' + signEur(p.gap_eur) + "</span>" : "")
               + '</div>';
           });
@@ -761,7 +768,17 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               (g.offres || []).slice(0, 4).forEach(function (o) {
                 var lbl2 = o.change_type === "new_offering" ? "nouvelle offre" : o.change_type === "removed_offering" ? "offre retirée" : o.direction === "hausse" ? "prix en hausse" : "prix en baisse";
                 var frPrix = function (n) { return Number(n).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
-                html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + (o.avant != null && o.apres != null ? " · " + frPrix(o.avant) + " € → " + frPrix(o.apres) + " €" : "") + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "") + '</div>';
+                // Le prix qui compte selon le cas : avant→après (changement), prix constaté
+                // (nouvelle offre), dernier prix connu (retirée) — qualificatif conservé.
+                var prix = "";
+                if (o.avant != null && o.apres != null) prix = " · " + frPrix(o.avant) + " € → " + frPrix(o.apres) + " €";
+                else if (o.change_type === "new_offering" && o.apres != null) prix = " · " + frPrix(o.apres) + " €" + (o.qualif ? " (" + esc(o.qualif) + ")" : "");
+                else if (o.change_type === "removed_offering" && o.avant != null) prix = " · était " + frPrix(o.avant) + " €";
+                html += '<div style="padding:2px 0;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + prix
+                  + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "")
+                  + (o.vu_le ? ' <span style="font-size:11px;color:#9CA3AF;">· vu le ' + frD(o.vu_le) + '</span>' : "")
+                  + (o.src_url ? ' · <a class="tb-link" style="font-size:11.5px;" href="' + esc(o.src_url) + '" target="_blank" rel="noopener">leur page →</a>' : "")
+                  + '</div>';
               });
             } else if ((g.offres_base || {}).n_tarifs) {
               html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs sous surveillance (' + g.offres_base.n_lieux + ' concurrents publient leurs prix)</div>';

@@ -129,6 +129,23 @@ if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli ch
 if (payload.debloquer && payload.debloquer.declared_no_replay) check("Prouver cible SON dispositif (data-tb-goto)", rawHtml.indexOf("data-tb-goto=") >= 0);
 check("rangées dispositifs marquées par la clé", (payload.practices || []).some((pp) => pp.tier !== "archivee") ? rawHtml.indexOf("data-tb-prid=") >= 0 : true);
 
+// ── Inc 3-5 (audit 15/08) : veille exploitable, registres purs, zéro soupe de tirets. ──
+check("zéro « joués » à l'écran (mot banni)", txt().indexOf(" joués") < 0 && txt().indexOf("jouable") < 0);
+check("événement concurrent : l'aléa météo du jour n'y est plus", (() => {
+  // la rangée ev ne contient plus « annoncée » (l'aléa) — le mot reste permis ailleurs (occasion).
+  const evBody = body.querySelector('[data-tb-body="ev"]');
+  return evBody ? evBody.textContent.indexOf("annoncée") < 0 : true;
+})());
+if ((g.offres || []).length) {
+  check("veille : chaque offre porte sa date de constat", txt().indexOf("vu le ") >= 0);
+  check("veille : lien source quand l'URL existe", (g.offres || []).some((o) => o.src_url) ? rawHtml.indexOf("leur page →") >= 0 : true);
+}
+check("dispositifs : un seul statut de dernier test", txt().indexOf("dernier test non mesurable") < 0);
+check("équipe : zéro rangée « — » fantôme", (() => {
+  const eqBody = body.querySelector('[data-tb-body="eq"]');
+  return eqBody ? eqBody.textContent.indexOf("tenue —") < 0 : true;
+})());
+
 // ── Interactions : bascule 90 j — dérivation instantanée + volet PRÉSERVÉ. ──
 const btn90 = body.querySelector('[data-tb-period="90"]');
 btn90.click(); await tick();
