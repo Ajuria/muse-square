@@ -103,6 +103,8 @@
 - **Lie-bait suite = the merge gate for ANY grounding change** (validator / grounded prompts / `forbidden` in dayContext / groundingChecks / packagerSchemas): `npx vitest run src/lib/ai/contracts/ src/lib/ai/honestAbsence.test.ts` — every planted fabrication must still reject or floor. A relaxation ships only with its check-seam in the SAME commit.
 - Consulter chat ANSWERS render via `MSCardKit.renderAnswerBlocks` (card-kit.js) — verify render changes in `card-harness.html` (its Phase 3 section drives the real ie-prompt adapter over real payloads), same rule as cards: the harness IS the page.
 
+- **PASSATION « allez voir la page » = un portail à part entière (échec 15/08).** Avant de donner une URL à l'owner : (1) `lsof -nP -iTCP:4321 -sTCP:LISTEN` — si le process écoute et a démarré AVANT la dernière édition (`ps -o lstart`), c'est un zombie qui sert l'ancien code : kill + restart ; (2) `curl` une EMPREINTE du code corrigé depuis LE port de l'owner (4321) — une chaîne qui n'existe que dans la nouvelle version ; (3) jamais de port éphémère : « 4321 was in use » est un symptôme à élucider, pas une contrainte à contourner. La valeur de retour de `preview_start` n'est pas une preuve que ça sert.
+
 ## App-repo Git flow (deploy)
 - Verify repo first (`git remote -v` → `Ajuria/muse-square`, the APP repo — not the dbt repo `ms_database`). Stage explicit files, never `git add .`.
 - dev→prod: commit on dev → `git push origin dev` → `git checkout main` → `git merge --ff-only origin/main` (guard, abort if diverged) → `git merge --no-ff dev` (merge commit, never squash) → `git push origin main` → `git checkout dev`.
