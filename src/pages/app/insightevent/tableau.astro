@@ -200,7 +200,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               sub: "si la cible tient, déclaré devient prouvé",
               goal_fr: "Prouver un dispositif de plus",
               link_fr: "Prouver « " + String((firstDeclared && firstDeclared.text) || "dispositif").slice(0, 40) + " »",
-              href: "#tb-sf", open_volet: "sf",
+              href: "#tb-sf", open_volet: "sf", goto: firstDeclared ? firstDeclared.practice_id : null,
             });
           }
           if (db.team_empty) goals.push({
@@ -340,13 +340,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           goals.filter(function (gg) { return gg.kind !== "documenter"; }).forEach(function (gg) {
             aFaire.push({ rang: 4, iso: null, col: AMBER,
               titre: String(gg.aline || "").replace(/^→\s*/, ""), sub: gg.sub || "",
-              geste: '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
+              geste: '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + (gg.goto ? ' data-tb-goto="' + esc(gg.goto) + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
           });
           (g.trous || []).forEach(function (tr) {
             aFaire.push({ rang: 4, iso: null, col: AMBER,
               titre: "Suivez " + trunc(tr.nom, 40),
               sub: "débloque les alertes sur ses événements (à " + String(tr.km).replace(".", ",") + " km" + (tr.overlap != null ? ", " + tr.overlap + " % de public commun" : "") + ")",
-              geste: '<a class="tb-link" href="/app/insightevent/prompt?q=' + encodeURIComponent("Suivre le concurrent " + tr.nom) + '">Suivre →</a>' });
+              geste: tr.place_id
+                ? '<button type="button" class="tb-link" data-tb-follow="' + esc(tr.place_id) + '" data-tb-follow-nom="' + esc(tr.nom) + '" data-tb-follow-city="' + esc(tr.city || "") + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;" title="Ajoute ' + esc(tr.nom) + ' \u00e0 votre veille \u2014 lecture chaque nuit d\u00e8s ce soir">Suivre →</button>'
+                : '<a class="tb-link" href="/app/insightevent/prompt?q=' + encodeURIComponent("Suivre le concurrent " + tr.nom) + '">Suivre →</a>' });
           });
           if ((g.savoir || {}).evts_sans_objectif) aFaire.push({ rang: 4, iso: null, col: AMBER,
             titre: "Fixez un objectif à " + g.savoir.evts_sans_objectif + " événements",
@@ -547,9 +549,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           };
           var parType = {};
           (g.cartes || []).forEach(function (c) {
-            if (!parType[c.type]) parType[c.type] = { type: c.type, n: 0, d0: c.d, prio: c.prio };
+            if (!parType[c.type]) parType[c.type] = { type: c.type, n: 0, d0: c.d, prio: c.prio, loc0: c.location_id };
             parType[c.type].n++;
-            if (c.d < parType[c.type].d0) parType[c.type].d0 = c.d;
+            if (c.d < parType[c.type].d0) { parType[c.type].d0 = c.d; parType[c.type].loc0 = c.location_id; }
           });
           var typeLignes = Object.keys(parType).map(function (k) { return parType[k]; });
           typeLignes.sort(function (a, b) { return (a.prio - b.prio) || a.d0.localeCompare(b.d0); });
@@ -559,7 +561,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var occHtml = "";
           if (oc.next_hot) {
             var rg = oc.heat_range;
-            var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf" style="font-size:12px;white-space:nowrap;">Armer →</a>';
+            var _armTarget = (j.practices || []).filter(function (p) { return p.armable && !p.arm_enabled && p.tier !== "archivee"; })[0];
+            var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_armTarget ? ' data-tb-goto="' + esc(_armTarget.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Armer →</a>';
             if (rg) occHtml += occRow(
               "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", GREEN,
               "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Jouer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
@@ -594,7 +597,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:7px 0;border-top:1px solid #F3F4F6;">'
               + '<span><span style="font-size:11px;font-weight:700;color:' + lb[1] + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(l.d0) + " " + frD(l.d0) + '</span></span>'
               + '<span style="min-width:0;font-weight:600;">' + lb[0] + (l.n > 1 ? ' <span style="font-size:11.5px;color:#9CA3AF;font-weight:400;">×' + l.n + " sur la semaine</span>" : "") + '</span>'
-              + '<span><a class="tb-link" href="/app/insightevent/pulse">Voir →</a></span></div>';
+              + '<span><a class="tb-link" href="/app/insightevent/insight?type=' + encodeURIComponent(l.type) + '&date=' + encodeURIComponent(l.d0) + '&location_id=' + encodeURIComponent(l.loc0 || loc) + '" title="Ouvre la carte du ' + frD(l.d0) + '">Voir →</a></span></div>';
           });
           html += '</div>';
 
@@ -630,7 +633,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — cible tenue, écart mesuré vs CA habituel",
               '<span style="font-weight:600;">gagnés</span> — « ' + esc(trunc(j.met_recipe.text, 55)) + ' » a tenu sa cible',
               String(j.met_recipe.text || ""),
-              '<a class="tb-link" href="#tb-sf" data-tb-open="sf" style="font-size:12px;white-space:nowrap;">Rejouer →</a>');
+              (function () { var _pv = (j.practices || []).filter(function (p) { return p.tier === "prouvee"; })[0];
+                return '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_pv ? ' data-tb-goto="' + esc(_pv.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Rejouer →</a>'; })());
           }
           {
             var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
@@ -668,7 +672,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>';
               if (p.armable && !p.arm_enabled) actions += sep + '<a class="tb-link" href="#" data-tb-arm="' + pi + '">Armer sur signal</a>';
             }
-            html += '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;">'
+            html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;">'
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>'
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : "")
               + '<span style="flex:1;min-width:180px;">' + esc(trunc(p.text, 110)) + '</span>'
@@ -807,11 +811,43 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             });
           });
           body.querySelectorAll("[data-tb-open]").forEach(function (a) {
-            a.addEventListener("click", function () {
+            a.addEventListener("click", function (ev) {
               var v = body.querySelector('[data-tb-body="' + a.getAttribute("data-tb-open") + '"]');
               if (v) { v.style.display = "block"; openVolets[a.getAttribute("data-tb-open")] = true; }
               var btn = body.querySelector('[data-tb-volet="' + a.getAttribute("data-tb-open") + '"]');
               if (btn) btn.setAttribute("aria-expanded", "true");
+              // Ciblage (audit 15/08) : le geste aboutit \u00e0 SON dispositif \u2014 d\u00e9filement
+              // centr\u00e9 + ouverture du panneau du rang (Prouver/Armer), plus d'ancre \u00e0 chasse.
+              var gid = a.getAttribute("data-tb-goto");
+              if (gid) {
+                ev.preventDefault();
+                var row = body.querySelector('[data-tb-prid="' + gid + '"]');
+                if (row) {
+                  row.scrollIntoView({ behavior: "smooth", block: "center" });
+                  row.style.background = "#F5F7FF"; setTimeout(function () { row.style.background = ""; }, 2400);
+                  var trig = row.querySelector('[data-tb-replay]') || row.querySelector('[data-tb-arm]');
+                  if (trig) trig.click();
+                }
+              }
+            });
+          });
+          // Suivre en un clic (audit 15/08) : la cl\u00e9 voyage \u2014 POST add-competitor, v\u00e9rit\u00e9 relue.
+          body.querySelectorAll("[data-tb-follow]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              if (b.disabled) return;
+              b.disabled = true; b.textContent = "Ajout\u2026";
+              fetch("/api/competitive/add-competitor", {
+                method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  location_id: loc,
+                  competitor_name: b.getAttribute("data-tb-follow-nom") || "",
+                  city: b.getAttribute("data-tb-follow-city") || "",
+                  google_place_id: b.getAttribute("data-tb-follow") || "",
+                }),
+              }).then(function (r) { return r.json(); }).then(function (jj) {
+                if (jj && jj.ok) { b.textContent = "Suivi \u2713"; b.style.color = "#059669"; b.title = "Dans votre veille \u2014 premi\u00e8re lecture cette nuit"; }
+                else { b.disabled = false; b.textContent = "Suivre \u2192"; alert("Ajout impossible : " + ((jj && jj.error) || "r\u00e9essayez")); }
+              }).catch(function () { b.disabled = false; b.textContent = "Suivre \u2192"; });
             });
           });
           body.querySelectorAll("[data-tb-lect]").forEach(function (b) {

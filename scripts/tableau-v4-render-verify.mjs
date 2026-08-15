@@ -119,6 +119,16 @@ check("technique seulement CASSÉ", vDefaut ? txt().indexOf("échappe à votre v
 if (!(g.offres || []).length && (g.offres_base || {}).n_tarifs) check("offres : absence DITE et chiffrée", txt().indexOf("rien n’a bougé") >= 0 && txt().indexOf(String(g.offres_base.n_tarifs) + " tarifs sous surveillance") >= 0);
 check("Automatisations = rangée à part", body.querySelectorAll(".tb-rv").length === 6 && txt().indexOf("Automatisations") >= 0, body.querySelectorAll(".tb-rv").length + " rangées");
 
+// ── Câblages purs (audit owner 15/08) : chaque geste aboutit à sa cible. ──
+const rawHtml = body.innerHTML;
+check("À surveiller : zéro « Voir » générique vers /pulse", rawHtml.indexOf('href="/app/insightevent/pulse">Voir') < 0);
+if ((g.cartes || []).length) check("À surveiller : liens profonds insight?type=", rawHtml.indexOf("/app/insightevent/insight?type=") >= 0);
+const trousWithKey = (g.trous || []).filter((t) => t.place_id);
+if (trousWithKey.length) check("Suivre = bouton un-clic (clé présente)", rawHtml.indexOf("data-tb-follow=") >= 0);
+if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli chat conservé", rawHtml.indexOf("Suivre le concurrent") >= 0);
+if (payload.debloquer && payload.debloquer.declared_no_replay) check("Prouver cible SON dispositif (data-tb-goto)", rawHtml.indexOf("data-tb-goto=") >= 0);
+check("rangées dispositifs marquées par la clé", (payload.practices || []).some((pp) => pp.tier !== "archivee") ? rawHtml.indexOf("data-tb-prid=") >= 0 : true);
+
 // ── Interactions : bascule 90 j — dérivation instantanée + volet PRÉSERVÉ. ──
 const btn90 = body.querySelector('[data-tb-period="90"]');
 btn90.click(); await tick();
