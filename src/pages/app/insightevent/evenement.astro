@@ -163,9 +163,50 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         //    attentes (non mesurée pour la plupart des lieux). La concurrence saute : seule
         //    dimension déjà entièrement mesurée par le pipeline. Écrit dans raw.event_outcomes
         //    via /api/saved-items/bilan (endpoint inchangé, competition_felt absent → NULL). ──
+        // ── Porte objectif (owner 16/08) : « toute page de mesure PORTE un objectif ». Un
+        //    événement sans cible n'a pas droit au bilan — on fixe l'objectif D'ABORD, en place
+        //    (update.ts accepte kpi/kpi_target_*), puis le dossier se re-rend depuis la base.
+        function renderFixObjectifBlock(it) {
+          var wrap = document.createElement("div");
+          wrap.id = "evt-bilan";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+          var kpiSet = !!it.kpi;
+          var isFam = it.kpi === "family_revenue";
+          var kpiLbl3 = isFam ? "CA famille " + (it.kpi_family ? "\u00ab " + it.kpi_family + " \u00bb" : "") + " (\u20ac)"
+            : it.kpi === "tickets" ? "tickets vs habituel (+%)"
+            : it.kpi === "basket" ? "panier moyen vs habituel (+%)"
+            : "CA du jour vs votre habituel (+%)";
+          wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#B45309;font-weight:600;margin-bottom:4px;">Objectif \u00e0 fixer</div>'
+            + '<div style="font-size:12.5px;color:#374151;margin-bottom:10px;">Sans objectif, aucun verdict ne peut juger vos occurrences \u2014 fixez-le, la mesure fait le reste.' + (kpiSet ? "" : " KPI par d\u00e9faut : CA du jour vs votre habituel (modifiable ensuite).") + '</div>'
+            + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+            + '<span style="font-size:12.5px;color:#6B7280;">' + kpiLbl3 + ' :</span>'
+            + '<input data-fx-val type="number" min="1" step="1" placeholder="' + (isFam ? "ex. 150" : "ex. 10") + '" style="width:90px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">'
+            + '<span style="font-size:13px;color:#374151;">' + (isFam ? "\u20ac" : "%") + '</span>'
+            + '<button type="button" data-fx-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Fixer l\u2019objectif</button>'
+            + '<span data-fx-msg style="font-size:12px;color:#B45309;"></span></div>';
+          (body.querySelector('[data-ev-mount="bilan"]') || body).appendChild(wrap);
+          wrap.querySelector("[data-fx-save]").addEventListener("click", function () {
+            var v = Number(String(wrap.querySelector("[data-fx-val]").value || "").replace(",", "."));
+            var msg = wrap.querySelector("[data-fx-msg]");
+            if (!isFinite(v) || v <= 0) { msg.textContent = "Cible requise (nombre positif)."; return; }
+            msg.style.color = "#6B7280"; msg.textContent = "Enregistrement\u2026";
+            var payload = { saved_item_id: item, kpi: it.kpi || "revenue_residual", kpi_family: isFam ? (it.kpi_family || null) : null };
+            if (isFam) payload.kpi_target_eur = v; else payload.kpi_target_pct = v;
+            fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+              .then(function (r2) { return r2.json(); })
+              .then(function (jj) {
+                if (jj && jj.ok) { openDossier(); }
+                else { msg.style.color = "#B45309"; msg.textContent = (jj && jj.error) || "R\u00e9essayez."; }
+              }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "R\u00e9essayez."; });
+          });
+        }
+
         function maybeRenderBilan(j) {
           var it = j.item || {};
           window._evtBilanItem = it;
+          // Porte objectif : pas de cible -> pas de bilan (on ne demande pas un v\u00e9cu qu'aucun
+          // verdict ne pourra juger) ; le bloc \u00ab Objectif \u00e0 fixer \u00bb prend la place.
+          if (it.kpi_target_eur == null && it.kpi_target_pct == null) { renderFixObjectifBlock(it); return; }
           var today = new Date().toISOString().slice(0, 10);
           // Terminée = date passée, ou aujourd'hui avec l'heure de fin dépassée (Paris). Sans
           // heure de fin connue, le jour même ne compte pas — on ne demande pas un vécu à venir.
