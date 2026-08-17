@@ -47,6 +47,21 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     SELECT ROUND(AVG(daily_avg_basket), 2) basket FROM \`${P}.mart.fct_client_daily_performance\`
     WHERE location_id = @l AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`, params: { l: OWNER }, location: "EU" });
 
+  // Votre audience (profil) — le référent du comparatif « même public que vous ».
+  const [[prof]] = await bq.query({ query: `
+    SELECT ANY_VALUE(primary_audience_1) a1, ANY_VALUE(primary_audience_2) a2
+    FROM \`${P}.raw.insight_event_user_location_profile\` WHERE location_id = @l`, params: { l: OWNER }, location: "EU" });
+
+  // Faits du DERNIER TEST par dispositif (rejeu : dates, KPI, réalisé vs cible, verdict).
+  const [tests] = await bq.query({ query: `
+    SELECT bp.practice_id, c.verdict, c.measured_metric, c.kpi_window_value, c.kpi_baseline,
+           c.threshold_basis, c.threshold_value, CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we
+    FROM \`${P}.analytics.best_practices\` bp
+    JOIN (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+          FROM \`${P}.analytics.action_commitments\`) c
+      ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+    WHERE bp.status = 'active'`, location: "EU" }).catch(() => [[]]);
+
   // Libellés sites.
   const [ln] = await bq.query({ query: `SELECT location_id, ANY_VALUE(company_name) nom FROM \`${P}.raw.insight_event_user_location_profile\` GROUP BY 1`, location: "EU" });
   const siteName: Record<string, string> = {};
@@ -72,6 +87,14 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
       n_tarifs: Number(flat(r.n_tarifs)) || 0,
     })),
     mon_panier: me && flat(me.basket) != null ? Number(flat(me.basket)) : null,
+    mon_audience: prof ? { a1: flat(prof.a1), a2: flat(prof.a2) } : {},
+    tests: (tests as any[]).map((r) => ({
+      practice_id: String(flat(r.practice_id)), verdict: flat(r.verdict), metric: flat(r.measured_metric),
+      realized: flat(r.kpi_window_value) != null ? Number(flat(r.kpi_window_value)) : null,
+      baseline: flat(r.kpi_baseline) != null ? Number(flat(r.kpi_baseline)) : null,
+      basis: flat(r.threshold_basis), value: flat(r.threshold_value) != null ? Number(flat(r.threshold_value)) : null,
+      ws: String(flat(r.ws) || ""), we: String(flat(r.we) || ""),
+    })),
     site_of: siteName,
   };
   writeFileSync(new URL("../public/piloter-autour-proto-data.js", import.meta.url).pathname,
