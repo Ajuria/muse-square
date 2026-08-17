@@ -199,7 +199,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               aline: "→ Prouver un dispositif de plus — une exécution mesurée suffit",
               sub: "si la cible tient, déclaré devient prouvé",
               goal_fr: "Prouver un dispositif de plus",
-              link_fr: "Prouver « " + String((firstDeclared && firstDeclared.text) || "dispositif").slice(0, 40) + " »",
+              link_fr: "Prouver",
               href: "#tb-sf", open_volet: "sf", goto: firstDeclared ? firstDeclared.practice_id : null,
             });
           }
@@ -228,7 +228,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             kind: "marge",
             aline: "→ Déclarer votre marge — débloque le KPI profit",
             sub: "un chiffre, ici même — rien d’autre",
-            goal_fr: "Débloquer le KPI profit", link_fr: "Déclarer votre marge",
+            goal_fr: "Débloquer le KPI profit", link_fr: "Déclarer",
             inline: "marge",
           });
           return goals;
@@ -409,10 +409,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div class="tb-hero">'
             + '<div class="tb-tile"><p class="tb-eb">Impact · ' + period + ' j</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
               + '<div class="s">vs habituel · ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div></div>'
-            + '<div class="tb-tile"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">' + (aFaire[0] && aFaire[0].rang === 0 && j.met_recipe && j.met_recipe.gap_eur != null ? "1 rapporte " + signEur(j.met_recipe.gap_eur) : "gestes en attente") + '</div></div>'
+            + (aFaire[0] && aFaire[0].rang === 0 && j.met_recipe && j.met_recipe.gap_eur != null
+              // L'argent d'abord (owner 17/08) : le € classe, le compte suit.
+              ? '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n" style="color:' + (j.met_recipe.gap_eur >= 0 ? GREEN : AMBER) + ';">' + signEur(j.met_recipe.gap_eur) + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">à prendre · ' + aFaire.length + ' gestes en attente</div></div>'
+              : '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">gestes en attente</div></div>')
             + '<div class="tb-tile"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? GREEN : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
-            + '<div class="tb-tile"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Ma veille concurrentielle" : "veille active sur tous vos suivis") + '"></span>' + nTrouvailles + '</div>'
-              + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "rien n’a bougé chez vos " + vLieux.length + " suivis") + '</div></div>'
+            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;color:' + GREEN + ';line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Ma veille concurrentielle" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
+              + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "vos " + vLieux.length + " suivis · lus cette nuit") + '</div></div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-top:1px solid #F3F4F6;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
           if (lv) html += '<button type="button" data-tb-lect style="display:inline-flex;align-items:center;gap:6px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
@@ -437,8 +440,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var quand = "";
             if (r.iso) {
               var dj = daysTo(r.iso);
-              quand = '<span style="font-size:11px;font-weight:700;color:' + r.col + ';">' + (dj === 0 ? "auj." : dj > 0 ? "J-" + dj : "il y a " + Math.abs(dj) + " j") + '</span>'
-                + '<span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(r.iso) + " " + frD(r.iso) + '</span>';
+              // UNE forme temporelle (owner 17/08) : la relative s'affiche, l'absolue vit en infobulle.
+              quand = '<span style="font-size:11px;font-weight:700;color:' + r.col + ';cursor:help;" title="' + dowFr(r.iso) + ' ' + frD(r.iso) + '">' + (dj === 0 ? "auj." : dj > 0 ? "J-" + dj : "il y a " + Math.abs(dj) + " j") + '</span>';
             } else quand = '<span style="display:flex;justify-content:center;"><span style="width:9px;height:9px;border-radius:50%;background:' + r.col + ';"></span></span>';
             return '<div class="tb-af">'
               + '<span>' + quand + '</span>'

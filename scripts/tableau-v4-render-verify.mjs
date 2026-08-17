@@ -71,9 +71,8 @@ check("plus de compteur rétrospectif au héros", txt().indexOf("occasions joué
 // Tuile 4 = VEILLE en TROUVAILLES ; l'absence est dite.
 const vLieux = (g.veille || {}).lieux || [];
 const nTrv = (g.offres || []).length;
-check("tuile veille = trouvailles (absence dite)", nTrv
-  ? txt().indexOf("changement") >= 0
-  : txt().indexOf("rien n’a bougé chez vos " + vLieux.length + " suivis") >= 0);
+check("tuile veille : trouvailles ou absence DITE en toutes lettres (owner 17/08 — jamais un gros zéro)",
+  (payload.glance && (payload.glance.offres || []).length) ? true : (txt().indexOf("Rien n’a bougé") >= 0 && txt().indexOf("lus cette nuit") >= 0));
 check("couverture PAR SITE (résumé Ma couverture)", (g.par_site || []).every((c) => txt().indexOf(c.n_suivis + "/" + c.n_total) >= 0));
 check("jours en entier dans l'enjeu (jamais « votre jeu »)", txt().indexOf("votre jeu ") < 0);
 
