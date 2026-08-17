@@ -13,20 +13,20 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Concept | LE mot | Interdits (attrapés en vrai) |
 |---|---|---|
 | Une pratique qui marche, réutilisable | **dispositif** | recette (en nom de section), méthode, playbook |
-| Statuts d'un dispositif | **déclaré · en test · prouvé** | validé, certifié |
+| Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; « écarté » = testé, cible manquée — pas rejouable tel quel ; mot déjà en prod) | déclaré, validé, certifié |
 | Ce que l'utilisateur promet de faire et mesurer | **engagement** | commitment, pari |
 | Une date d'une série mesurée | **occurrence** | instance, itération |
 | Événement récurrent | **série** | campagne |
-| Le jugement automatique d'une fenêtre | **verdict** (atteint · manqué · non concluant) | score, résultat final |
+| Le jugement automatique sur la cible | **cible/objectif : atteint · manqué · non concluant** | score, résultat final |
 | L'objectif chiffré | **cible** / **objectif** | target, seuil (réservé aux réglages) |
-| La période mesurée | **fenêtre** (de mesure) | période de test |
-| La référence de comparaison | **votre habituel** | l'attendu, la normale (sauf « CA vs normale » legacy K1) |
-| Ce que vaut un motif à l'année | **enjeu** (infobulle seulement) | potentiel, opportunité € |
+| La période mesurée | **date / dates de l'opération** (owner 17/08) | fenêtre de mesure, période de test |
+| La référence de comparaison | **votre résultat habituel** (forme jour : « votre jeudi habituel ») | l'attendu, la normale (sauf « CA vs normale » legacy K1) |
+| Ce que vaut un motif à l'année | **enjeu annualisé** (infobulle seulement) | potentiel, opportunité € |
 | Surveillance des concurrents | **veille** / **vos suivis** | couverture, tracking, crawl |
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
 | Un concurrent surveillé | **suivi** | tracké, monitored |
 | Zone autour d'un site | **votre périmètre** | catchment, zone de chalandise (à confirmer) |
-| Jour favorable détecté | **occasion** (Prochaine occasion · Vos prochaines occasions) | fenêtre de la semaine, momentum |
+| Contexte favorable détecté | **occasion** (Prochaine occasion · Vos prochaines occasions) | fenêtre de la semaine, momentum, jour favorable |
 | Jour non couvert par une action | **couvert / sans action** | joué, manqué (réservé au verdict) |
 | Déclenchement automatique | **Automatiser** (série OU signal — la condition se choisit dans le flux) | Armer, Armer sur signal |
 | Message à l'équipe | **Communiquer** | partager, notifier (notification = réglage) |
@@ -49,9 +49,20 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 7. **Absence dite et chiffrée** (« Prix stables — 10 tarifs comparés, rien à la lecture de cette
    nuit ») — jamais un zéro nu ni une section vide.
 
-## Arbitrages ouverts (owner)
+## Arbitrages tranchés (owner 17/08)
 
-- « Documentez la **recette** » (copie validée en prod) vs « dispositif » partout : garder
-  « recette » comme verbe familier de CE CTA, ou aligner ?
-- « **armée** » (état d'une occurrence dont la mesure est programmée — frise, chips) : garder,
-  ou « programmée » ?
+- « Documentez la recette » → **« Documentez vos résultats »** (proposition owner retenue ;
+  « knowledge base » écarté — anglicisme). Le bouton reste « Documenter → ».
+- « armée » → **« Dispositif actif »** (parmi les deux candidats owner ; « Opération en cours »
+  reste le NOM DE SECTION — un état de carte ne peut pas porter le même nom que sa section).
+  Frise : « ◌ = dispositif actif, mesure au jour J ».
+
+## Balayage de copie à faire (suite de ces décisions)
+
+- « déclaré(e) » affiché → « en test » ; dernier test cible manquée → « écarté ».
+- « fenêtre » (sens période mesurée) → « date(s) de l'opération » — carte par carte, le mot
+  « fenêtre » au sens occasion est déjà banni (« vos prochaines occasions »).
+- « vs habituel » nu → « vs votre résultat habituel » là où la place le permet ; les formes
+  jour (« votre jeudi habituel ≈ 1 221 € ») restent.
+- « Documentez la recette » → « Documentez vos résultats » (action-cards + tableau).
+- « Armée · J-x » (chips) et « ◌ armée » (frise) → « Dispositif actif ».
