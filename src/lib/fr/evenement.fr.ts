@@ -75,6 +75,12 @@ export const MOTS_BANNIS: Record<string, string> = {
   "leur page →": "Consulter →",
   "Sa page →": "Consulter →",
   "Vos dispositifs": "Mes dispositifs",
+  // Fiche concurrent enrichie (owner 17/08 soir) : les labels tranchés.
+  "Ce qu’il met en avant": "Actualité commerciale",
+  "Ce qu'il met en avant": "Actualité commerciale",
+  "Son offre poussée": "Autres offres et produits",
+  "Sa proposition :": "Proposition de valeur :",
+  "Son public :": "Publics/Clients visés :",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

@@ -38,6 +38,10 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Occurrence passée dont la mesure est annulée | **passée sans mesure** | verdict en attente (faux si aucune mesure) |
 | Lire la page externe d'un tiers (concurrent, source) | **Consulter →** (label déjà en prod — Consulter la source) | leur page, Sa page, Voir, Ouvrir |
 | La section des dispositifs | **Mes dispositifs** (première personne, aligné « Mon positionnement » — owner 17/08) | Vos dispositifs, Votre savoir-faire |
+| Ce que vaut l'offre d'un concurrent (fiche enrichie) | **Proposition de valeur** puis **Offre** (la table prix/articles) | Sa proposition, Son offre & ses prix |
+| Les publics d'un concurrent face aux vôtres | **Publics/Clients visés** | Son public |
+| La communication du moment d'un concurrent (lecture web) | **Actualité commerciale** | Ce qu'il met en avant |
+| Ses offres hors actualité (pass, promos relevées) | **Autres offres et produits** | Son offre poussée |
 
 ## Règles de rédaction (héritées des décisions owner)
 
