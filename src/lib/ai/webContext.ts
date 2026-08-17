@@ -119,3 +119,81 @@ export async function getWebDayContext(bq: any, input: WebDayContextInput): Prom
   }
   return { takeaway, key_factors, sources, cached: false };
 }
+
+// ── ACTUALITÉ COMMERCIALE d'un suivi (chantier fiche enrichie, validé owner 17/08) ────────────
+// Même doctrine que le contexte de jour : le web ne porte JAMAIS de tier, chaque affirmation
+// garde son URL. Cache 7 j SUR LA FICHE annuaire (raw.competitor_directory.commercial_news_json,
+// même motif que auto_enriched_description / competitive_analysis_json — pas de table fourche).
+// Rafraîchi par le balayage nocturne de snapshot-competitors (cap 2 suivis/nuit) — jamais un
+// crawl à l'ouverture d'une page.
+
+export interface CompetitorCommercialNews {
+  lead: string | null;
+  mises_en_avant: Array<{ titre: string; detail: string; dates: string | null }>;
+  autres_offres: string | null;
+  sources: string[];
+  read_at: string | null;
+  cached: boolean;
+}
+
+const NEWS_SYSTEM_FR = `Tu es un analyste concurrentiel pour un lieu culturel/commerce en France. On te donne le NOM d'un concurrent suivi et SES pages officielles (programme, tarifs). Tu lis le web (en priorité ces pages) pour dire son ACTUALITÉ COMMERCIALE du moment : expositions ou événements phares (avec dates), offres ou tarifs poussés (avec prix), nouveautés. EXIGENCES : chaque élément porte un NOM PROPRE et, quand la page les donne, une date, un prix ou un chiffre — jamais de généralité ni de conseil. Registre professionnel, phrases nominales courtes, en français. Tu réponds UNIQUEMENT avec du JSON valide, sans texte ni backticks : {"lead": string|null, "mises_en_avant": [{"titre": string, "detail": string, "dates": string|null}], "autres_offres": string|null, "sources": [string]}. "lead" = UNE phrase : ce que sa communication pousse d'abord. 2 à 4 mises en avant maximum. Si tu ne trouves rien de fiable, mets des valeurs nulles/vides. Ne fabrique jamais.`;
+
+export async function getCompetitorCommercialNews(bq: any, args: {
+  competitor_id: string; competitor_name: string; urls: string[]; force?: boolean;
+}): Promise<CompetitorCommercialNews | null> {
+  const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  // 1. Cache sur la fiche (7 j).
+  try {
+    const [[row]] = await bq.query({
+      query: `SELECT commercial_news_json, CAST(commercial_news_at AS STRING) AS at,
+                     TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), commercial_news_at, DAY) AS age_j
+              FROM \`${BQ_PROJECT}.raw.competitor_directory\`
+              WHERE competitor_id = @id AND deleted_at IS NULL LIMIT 1`,
+      params: { id: args.competitor_id }, location: "EU",
+    });
+    const ageJ = row && flatv(row.age_j) != null ? Number(flatv(row.age_j)) : null;
+    if (!args.force && row && flatv(row.commercial_news_json) && ageJ != null && ageJ < 7) {
+      const cachedParsed = JSON.parse(String(flatv(row.commercial_news_json)));
+      return { ...cachedParsed, read_at: String(flatv(row.at) || ""), cached: true };
+    }
+  } catch (e) {
+    console.warn("[commercialNews] cache read failed:", e);
+  }
+  // 2. Lecture web (même runtime que le contexte de jour).
+  let parsed: any = {};
+  try {
+    const { text: raw } = await callClaudeWithWebSearch({
+      system: NEWS_SYSTEM_FR,
+      userText: `Concurrent suivi : ${args.competitor_name}. Ses pages officielles : ${args.urls.filter(Boolean).join(" · ")}. Quelle est son actualité commerciale en ce moment ?`,
+      model: modelFor("enrichment"),
+      maxUses: 5,
+      timeoutMs: 120_000, // 30 s par défaut — trop court pour plusieurs recherches
+    });
+    const m = raw.match(/(\{[\s\S]*\})/);
+    parsed = JSON.parse(m ? m[1] : raw.replace(/```json|```/g, "").trim());
+  } catch (e) {
+    console.warn("[commercialNews] crawl failed:", e);
+    return null;
+  }
+  const news: CompetitorCommercialNews = {
+    lead: typeof parsed.lead === "string" ? stripCite(parsed.lead) || null : null,
+    mises_en_avant: (Array.isArray(parsed.mises_en_avant) ? parsed.mises_en_avant : [])
+      .map((x: any) => ({ titre: stripCite(x?.titre), detail: stripCite(x?.detail), dates: x?.dates ? stripCite(x.dates) : null }))
+      .filter((x: any) => x.titre).slice(0, 4),
+    autres_offres: typeof parsed.autres_offres === "string" ? stripCite(parsed.autres_offres) || null : null,
+    sources: (Array.isArray(parsed.sources) ? parsed.sources : []).map(stripCite).filter((s: string) => /^https:\/\//.test(s)).slice(0, 4),
+    read_at: new Date().toISOString(),
+    cached: false,
+  };
+  // 3. Écriture cache sur la fiche (colonnes posées par migration 17/08 + ALTER du balayage).
+  if (news.lead || news.mises_en_avant.length) {
+    const { read_at, cached, ...payload } = news;
+    bq.query({
+      query: `UPDATE \`${BQ_PROJECT}.raw.competitor_directory\`
+              SET commercial_news_json = @j, commercial_news_at = CURRENT_TIMESTAMP()
+              WHERE competitor_id = @id`,
+      params: { j: JSON.stringify(payload), id: args.competitor_id }, location: "EU",
+    }).catch((err: any) => console.warn("[commercialNews] cache write failed:", err?.message));
+  }
+  return news;
+}

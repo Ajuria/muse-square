@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — Profil stratégique dans la grammaire engagement (GL Events, données réelles)</title>
+<style>
+  body { margin:0; background:#fff; font-family:-apple-system,system-ui,"Segoe UI",sans-serif; color:#111827; }
+  .wrap { max-width:760px; margin:28px auto 80px; padding:0 18px; }
+  .sec { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; font-weight:600; margin:22px 0 10px; }
+  .card { background:#fff; border:0.5px solid #e5e7eb; border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.55; }
+  .chip { font-size:10.5px; font-weight:600; border-radius:20px; padding:2px 9px; white-space:nowrap; display:inline-flex; }
+  .lien { color:#1D3BB3; font-weight:650; text-decoration:none; font-size:13px; }
+  .muted { color:#9CA3AF; font-size:11.5px; }
+  table { border-collapse:collapse; width:100%; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#9ca3af; font-weight:600; padding:6px 10px; border-bottom:1px solid #e5e7eb; }
+  td { font-size:12.5px; padding:7px 10px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="root"></div>
+  <div id="err" style="display:none;color:#B91C1C;padding:30px;text-align:center;">Données introuvables — relancez scripts/competitor-proto-harness.ts.</div>
+</div>
+<script src="competitor-proto-data.js?v=1"></script>
+<script>
+(function () {
+  var D = window.COMPETITOR_PROTO;
+  if (!D) { document.getElementById('err').style.display = 'block'; return; }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  var AMBER = '#B45309', GREEN = '#059669', BLUE = '#1D3BB3';
+  var P = D.profil, dir = P.directory || {}, th = P.threat || {}, an = P.analysis || {}, us = P.user || {};
+  var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'clientèle locale', mixed: 'clientèle mixte', students: 'étudiants', seniors: 'seniors' };
+  var MEN_FR = { low: 'menace faible', moderate: 'menace modérée', high: 'menace forte' };
+  var REL_FR = { direct_competitor: 'concurrent direct', indirect_competitor: 'concurrent indirect', complementary: 'complémentaire', substitute: 'substitut' };
+  var SIGNAL_FR = { premium_eux: ['eux plus cher', '#FEF3E2', AMBER], premium_vous: ['vous plus cher', '#FEF3E2', AMBER], parite: ['parité', '#F3F4F6', '#6b7280'], gap_eux: ['eux seulement', '#FEF3E2', AMBER], gap_vous: ['vous seulement', '#E6F6F0', GREEN] };
+  var html = '';
+
+  // ── EN-TÊTE DOCUMENT (grammaire engagement : liseré bleu, kicker, titre 21, sous-titre 13). ──
+  var siteNm = String(us.company_name || 'Muse Square');
+  html += '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
+    + '<div style="display:flex;align-items:baseline;font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Profil stratégique'
+    + '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(siteNm) + '</span></div>'
+    + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(dir.competitor_name || '—') + '</div>'
+    + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">'
+    + [dir.address, dir.city].filter(Boolean).map(esc).join(', ')
+    + (th.distance_km != null ? ' · à ' + String(Math.round(th.distance_km * 10) / 10).replace('.', ',') + ' km' : '')
+    + (dir.google_rating != null ? ' · ★ ' + String(dir.google_rating).replace('.', ',') : '')
+    + '</div>'
+    + '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">'
+    + (REL_FR[an.relationship_type] ? esc(REL_FR[an.relationship_type]) : '')
+    + (th.threat_level ? ' · ' + esc(MEN_FR[th.threat_level] || th.threat_level) : '')
+    + '</div></div>';
+
+  // ── LE VERDICT d'abord (17px 600 — comme le headline de l'engagement). ──
+  if (an.verdict) html += '<div style="font-size:17px;font-weight:600;color:#111827;line-height:1.4;margin-bottom:6px;">' + esc(an.verdict) + '</div>';
+
+  // ── OFFRE ──
+  html += '<div class="sec">Offre</div><div class="card">';
+  if (an.value_prop_theirs) html += '<div><b>Proposition de valeur :</b> ' + esc(an.value_prop_theirs) + '</div>';
+  if (an.value_prop_yours) html += '<div style="color:#6b7280;margin-top:4px;"><b style="color:#374151;">La vôtre :</b> ' + esc(an.value_prop_yours) + '</div>';
+  var prix = an.price_comparison || [];
+  if (prix.length) {
+    html += '<table style="margin-top:10px;"><tr><th>Catégorie</th><th>Eux</th><th>Vous</th><th></th></tr>';
+    prix.forEach(function (r2) {
+      var sg = SIGNAL_FR[r2.signal] || null;
+      html += '<tr><td style="font-weight:650;">' + esc(r2.category || '') + '</td>'
+        + '<td>' + (r2.their_item ? esc(r2.their_item) + (r2.their_price ? ' · <b>' + esc(r2.their_price) + '</b>' : '') : '<span class="muted">—</span>') + '</td>'
+        + '<td>' + (r2.your_item ? esc(r2.your_item) + (r2.your_price ? ' · <b>' + esc(r2.your_price) + '</b>' : '') : '<span class="muted">—</span>') + '</td>'
+        + '<td>' + (sg ? '<span class="chip" style="background:' + sg[1] + ';color:' + sg[2] + ';">' + sg[0] + '</span>' : '') + '</td></tr>'
+        + (r2.reading ? '<tr><td colspan="4" style="font-size:11.5px;color:#6B7280;border-bottom:1px solid #e5e7eb;padding-top:0;">' + esc(r2.reading) + '</td></tr>' : '');
+    });
+    html += '</table>';
+  }
+  if ((an.product_gaps || []).length) html += '<div style="font-size:12px;color:#6B7280;margin-top:8px;"><b style="color:#374151;">Ils ont, vous n’avez pas :</b> ' + an.product_gaps.map(esc).join(' · ') + '</div>';
+  if ((an.product_complements || []).length) html += '<div style="font-size:12px;color:#6B7280;margin-top:4px;"><b style="color:#374151;">Complémentaires (pas concurrents) :</b> ' + an.product_complements.map(esc).join(' · ') + '</div>';
+  html += '</div>';
+
+  // ── PUBLICS/CLIENTS VISÉS ──
+  html += '<div class="sec">Publics/Clients visés</div><div class="card">';
+  var mes = [us.primary_audience_1, us.primary_audience_2].filter(Boolean);
+  html += '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">';
+  [[dir.primary_audience, 'principal'], [dir.secondary_audience, 'secondaire']].forEach(function (pa) {
+    if (!pa[0]) return;
+    var commun = mes.indexOf(pa[0]) >= 0;
+    html += '<span class="chip" style="background:' + (commun ? '#FEF3E2' : '#F3F4F6') + ';color:' + (commun ? AMBER : '#6b7280') + ';">' + esc(AUD_FR[pa[0]] || pa[0]) + ' (' + pa[1] + ')' + (commun ? ' — commun avec vous' : '') + '</span>';
+  });
+  html += '<span class="muted">le vôtre : ' + mes.map(function (a2) { return esc(AUD_FR[a2] || a2); }).join(' · ') + '</span></div>';
+  if (th.audience_overlap_pct != null) html += '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Recouvrement mesuré : <b>' + Math.round(th.audience_overlap_pct) + ' %</b>' + (th.seasonality_alignment ? ' · mêmes saisons' : '') + '</div>';
+  if (an.segment_overlap) html += '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + esc(an.segment_overlap) + '</div>';
+  html += '</div>';
+
+  // ── DIFFÉRENCIATION ──
+  html += '<div class="sec">Différenciation</div><div class="card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">';
+  html += '<div><div style="font-weight:650;margin-bottom:4px;">Eux</div>' + (an.differentiation_theirs || []).map(function (x) { return '<div style="font-size:12px;color:#374151;padding:3px 0;border-top:1px solid #f0f2f5;">' + esc(x) + '</div>'; }).join('') + '</div>';
+  html += '<div><div style="font-weight:650;margin-bottom:4px;">Vous</div>' + (an.differentiation_yours || []).map(function (x) { return '<div style="font-size:12px;color:#374151;padding:3px 0;border-top:1px solid #f0f2f5;">' + esc(x) + '</div>'; }).join('') + '</div>';
+  html += '</div>';
+  if ((an.parity_gaps || []).length) html += '<div style="font-size:12px;color:' + AMBER + ';margin-top:8px;"><b>Table stakes qu’ils ont et pas vous :</b> ' + an.parity_gaps.map(esc).join(' · ') + '</div>';
+  html += '</div>';
+
+  // ── ACTUALITÉ COMMERCIALE (lecture web hebdo — absence dite pour ce suivi). ──
+  html += '<div class="sec">Actualité commerciale <span style="text-transform:none;letter-spacing:0;font-weight:500;">Web — non vérifié</span></div><div class="card">';
+  if (D.actu && (D.actu.mises_en_avant || []).length) {
+    if (D.actu.lead) html += '<div style="color:#374151;">' + esc(D.actu.lead) + '</div>';
+    D.actu.mises_en_avant.forEach(function (m2) {
+      html += '<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid #f0f2f5;font-size:12.5px;">'
+        + '<span style="width:7px;height:7px;border-radius:50%;background:' + BLUE + ';flex:none;"></span>'
+        + '<span style="min-width:0;flex:1;"><b>' + esc(m2.titre) + '</b>'
+        + (m2.dates ? ' <span class="chip" style="background:#EEF2FF;color:' + BLUE + ';">' + esc(m2.dates) + '</span>' : '')
+        + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(m2.detail) + '</span></span></div>';
+    });
+  } else html += '<div class="muted" style="font-size:12.5px;">Pas encore lue — la veille de nuit lit chaque suivi une fois par semaine (ce suivi passe cette semaine).</div>';
+  html += '</div>';
+
+  // ── GESTES (labels existants seulement). ──
+  html += '<div style="display:flex;gap:14px;margin-top:22px;align-items:center;">'
+    + '<a class="lien" href="#">Communiquer →</a>'
+    + (dir.source_url ? '<a class="lien" href="' + esc(dir.source_url) + '" target="_blank" rel="noopener">Consulter →</a>' : '')
+    + '<span class="muted" style="margin-left:auto;">analyse générée le ' + (function (ts) { var d2 = String(ts || D.captured_at).slice(0, 10).split('-'); return d2.length === 3 ? d2[2] + '/' + d2[1] : ''; })(null) + ' · sa fiche se relit chaque nuit</span>'
+    + '</div>';
+
+  document.getElementById('root').innerHTML = html;
+})();
+</script>
+</body>
+</html>
