@@ -29,8 +29,8 @@
   <div id="root"></div>
   <div id="err" style="display:none;color:#B91C1C;padding:30px;text-align:center;">Données introuvables — relancez les deux harnais proto.</div>
 </div>
-<script src="piloter-autour-proto-data.js?v=3"></script>
-<script src="piloter-full-proto-data.js?v=9"></script>
+<script src="piloter-autour-proto-data.js?v=4"></script>
+<script src="piloter-full-proto-data.js?v=10"></script>
 <script>
 (function () {
   var D = window.AUTOUR_PROTO, F = window.PILOTER_FULL;
@@ -42,7 +42,7 @@
   var html = '';
 
   // ══ 1 · HÉROS — UN SEUL VERT (l'Impact, mesuré). Potentiel = encre, prospectif = bleu. ══
-  html += '<span class="fix">1 · Couleurs — un seul vert : le mesuré</span><div class="hero">';
+  html += '<span class="fix">Correctif 1 — couleurs</span><div class="hero">';
   (F.tiles || []).forEach(function (t) {
     var k = t.k.toUpperCase(), n = t.n, sub = t.s, col = INK;
     if (k.indexOf('IMPACT') === 0) col = GREEN;
@@ -55,7 +55,7 @@
   html += '</div>';
 
   // ══ 2 · À FAIRE — CTA = verbe seul, € avec son référentiel. ══
-  html += '<span class="fix">2 · CTA verbes + € avec référentiel</span><div class="card">';
+  html += '<span class="fix">Correctif 2 — CTA et montants</span><div class="card">';
   function verbOnly(g2) { var w = String(g2 || '').replace(/[«»"]/g, '').trim().split(/\s+/)[0].replace(/→/g, '').trim(); return w ? w + ' →' : '→'; }
   (F.afaire || []).slice(0, 4).forEach(function (r) {
     var eur = '';
@@ -68,7 +68,7 @@
   html += '</div>';
 
   // ══ 3 · SÉRIE — la légende NOMME ce qu'elle attend. ══
-  html += '<span class="fix">3 · Frise — l’attente est nommée</span><div class="card">';
+  html += '<span class="fix">Correctif 3 — frise de série</span><div class="card">';
   var serie = F.serie || { occ: [] };
   html += '<div style="font-weight:650;">Corner de vente producteur <span class="muted">· série</span></div>';
   (function () {
@@ -80,27 +80,30 @@
       if (o.verdict === 'missed') g += '<circle cx="' + x + '" cy="18" r="7" fill="#b91c1c"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">✗</text>';
       else if (o.verdict === 'met') g += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">✓</text>';
       else if (o.status === 'open' || o.status === 'pending') g += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
-      else if (o.d <= today) g += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"/>';
+      else if (o.d <= today) g += '<circle cx="' + x + '" cy="18" r="6" fill="none" stroke="#9CA3AF" stroke-width="2"/>';
       else g += '<circle cx="' + x + '" cy="18" r="3.5" fill="#E5E7EB"/>';
       g += '<text x="' + x + '" y="40" font-size="8.5" fill="#9CA3AF" text-anchor="middle">' + frD(o.d) + '</text>';
     });
     html += '<svg viewBox="0 0 330 46" style="width:100%;max-width:360px;height:auto;">' + g + '</svg>';
   })();
-  html += '<div class="muted" style="margin-top:6px;">✗ cible manquée · ✓ cible tenue · <b style="color:#6B7280;">● journée passée — verdict dès réception des ventes du jour</b> · ◌ dispositif actif — mesure au jour J · petits points = planifiées</div></div>';
+  html += '<div class="muted" style="margin-top:6px;">✗ cible manquée · ✓ cible tenue · <b style="color:#6B7280;">○ passée sans mesure (la mesure du 15/08 a été annulée)</b> · ◌ dispositif actif — mesure au jour J · petits points = planifiées</div></div>';
 
   // ══ 4+5+6 · MON POSITIONNEMENT — COMPARATIF (vous = le référent), signaux NOMMÉS, zéro méta. ══
-  html += '<span class="fix">4·5·6 · Mon positionnement — comparatif, nommé, sans méta</span><div class="card">';
+  html += '<span class="fix">Correctifs 4·5·6 — Mon positionnement</span><div class="card">';
   var fiches = (D.fiches || []).slice().sort(function (a, b) { return (b.note || 0) - (a.note || 0); });
   var notes = fiches.map(function (f) { return f.note; }).filter(function (v) { return v != null; }).sort();
   var medNote = notes.length ? notes[Math.floor(notes.length / 2)] : null;
   var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'locale', mixed: 'mixte', students: 'étudiants', seniors: 'seniors' };
   var mesAud = [D.mon_audience.a1, D.mon_audience.a2].filter(Boolean);
-  html += '<div style="font-size:13px;">Votre public : <b>' + mesAud.map(function (a) { return AUD_FR[a] || a; }).join(' + ') + '</b> — chaque suivi est positionné PAR RAPPORT À VOUS.</div>'
+  html += '<div style="font-size:13px;">Votre public : <b>' + mesAud.map(function (a) { return AUD_FR[a] || a; }).join(' + ') + '</b></div>'
     + '<div class="li" style="font-size:10.5px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;border-top:none;"><span style="min-width:150px;">Suivi</span><span style="min-width:120px;">Public vs vous</span><span style="min-width:150px;">Réputation</span><span>Prix</span></div>';
   fiches.forEach(function (f) {
     var overlap = mesAud.indexOf(f.audience) >= 0 ? ['même public', '#FEF3E2', AMBER] : f.audience === 'mixed' ? ['partiellement commun', '#F3F4F6', '#6b7280'] : ['public différent', '#E6F6F0', GREEN];
+    var _maxN = Math.max.apply(null, notes), _minN = Math.min.apply(null, notes);
+    var repLbl = f.note == null ? null : f.note >= _maxN - 0.05 ? ['parmi les mieux notés', '#FEF3E2', AMBER]
+      : f.note <= _minN + 0.05 ? ['le moins bien noté de vos suivis', '#F3F4F6', '#6b7280'] : ['dans la moyenne', '#F3F4F6', '#6b7280'];
     var rep = f.note == null ? '<span class="muted">pas encore relevée</span>'
-      : '<span style="font-weight:700;">★ ' + String(f.note).replace('.', ',') + '</span> <span class="pos" style="background:' + (f.note >= medNote ? '#FEF3E2' : '#F3F4F6') + ';color:' + (f.note >= medNote ? AMBER : '#6b7280') + ';">' + (f.note > medNote ? 'au-dessus' : f.note < medNote ? 'en-dessous' : 'médiane') + ' des suivis</span>';
+      : '<span style="font-weight:700;">★ ' + String(f.note).replace('.', ',') + '</span> <span class="pos" style="background:' + repLbl[1] + ';color:' + repLbl[2] + ';">' + repLbl[0] + '</span>';
     var prix = f.p_min == null ? '<span class="muted">non publiés</span>'
       : '<span>' + String(f.p_min).replace('.', ',') + '–' + String(f.p_max).replace('.', ',') + ' €</span> <span class="pos" style="background:#F3F4F6;color:#6b7280;">' + (f.p_min >= 30 ? 'premium' : 'accessible') + '</span>';
     html += '<div class="li"><span style="min-width:150px;font-weight:650;">' + esc(String(f.nom).length > 26 ? String(f.nom).slice(0, 24) + '…' : f.nom) + '</span>'
@@ -111,12 +114,18 @@
   var hautes = fiches.filter(function (f) { return f.note != null && f.note >= 4.5; }).map(function (f) { return String(f.nom).split(' - ')[0].replace('Musée national des arts asiatiques', 'Guimet').replace("Musée de l'Orangerie", 'l’Orangerie'); });
   html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div>';
   if (hautes.length) html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + AMBER + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>' + esc(hautes.join(' et ')) + '</b> tiennent ★ ≥ 4,5 — regardez ce qu’ils mettent en avant sur leurs pages.</span><a class="cta" href="#">Comparer →</a></div>';
-  html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>Votre différenciation</b> — votre comparaison face aux suivis est prête (public, offre, prix).</span><a class="cta" href="#">Lire →</a></div>'
+  html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span><span style="min-width:0;flex:1;">Votre produit phare : <b>Dark chocolate Lg</b> — 3 % de votre CA. 3 suivis comparables sur ce terrain — voyez ce qu\u2019ils poussent en face.</span><a class="cta" href="#">Comparer →</a></div>'
     + '<div class="li" style="opacity:0.55;"><span style="width:8px;height:8px;border-radius:50%;background:' + AMBER + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>[Nom du suivi]</b> mord sur votre offre — <span class="muted">sera NOMMÉ par le payload enrichi ; une ligne qui ne peut pas nommer ne s’affiche pas</span></span></div>';
   html += '</div>';
 
   // ══ 7 · VOS DISPOSITIFS — poignée + LE FAIT du dernier test + un geste par état. ══
-  html += '<span class="fix">7 · Vos dispositifs — le fait du test, pas une phrase brute</span><div class="card">';
+  html += '<span class="fix">Correctif 7 — Vos dispositifs</span><div class="card">';
+  (function () {
+    var nP = (D.practices || []).filter(function (p) { return p.tier === 'prouvee'; }).length;
+    var nE = (D.practices || []).filter(function (p) { return p.tier === 'ecartee'; }).length;
+    var nT = (D.practices || []).filter(function (p) { return p.tier !== 'prouvee' && p.tier !== 'ecartee' && p.tier !== 'archivee'; }).length;
+    html += '<div style="font-size:13px;margin-bottom:4px;">Vos manières de faire, jugées sur vos ventes — <b>' + nP + ' prouvée' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écartée' + (nE > 1 ? 's' : '') + '</b>. Prouvée = rejouable ; écartée = à ajuster avant de retester.</div>';
+  })();
   var testBy = {};
   (D.tests || []).forEach(function (t) { testBy[t.practice_id] = t; });
   function kpiFmt(v, m) {
@@ -126,7 +135,12 @@
     return frI(v) + ' €';
   }
   var KPI_N = { transactions: 'tickets/jour', conversion: 'taux de conversion', revenue_residual: 'CA/j', family_revenue: 'CA famille/j' };
-  function shortName(txt) { var t = String(txt || '').split('—')[0].split('(')[0].split(',')[0].trim(); return t.length > 46 ? t.slice(0, 43) + '…' : t; }
+  function shortName(txt) {
+    var t = String(txt || '').split('—')[0].split('(')[0].split(',')[0].trim();
+    if (t.length <= 48) return t;
+    var cut = t.slice(0, 48);
+    return cut.slice(0, cut.lastIndexOf(' ')) + '…';
+  }
   (D.practices || []).filter(function (p) { return p.tier !== 'archivee'; }).slice(0, 3).forEach(function (p) {
     var t = testBy[p.practice_id];
     var st = p.tier === 'prouvee' ? ['prouvé', '#E6F6F0', GREEN] : p.tier === 'ecartee' ? ['écarté', '#FEF3E2', AMBER] : ['en test', '#EEF2FF', BLUE];
@@ -141,9 +155,11 @@
     html += '<div class="li" style="align-items:flex-start;"><span class="chip" style="background:' + st[1] + ';color:' + st[2] + ';margin-top:2px;">' + st[0] + '</span>'
       + '<span style="min-width:0;flex:1;"><span style="font-weight:650;" title="' + esc(p.text) + '">' + esc(shortName(p.text)) + '</span>'
       + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(fact) + '</span></span>'
-      + '<a class="cta" href="#">' + (p.tier === 'prouvee' ? 'Rejouer' : 'Prouver') + ' →</a><a class="cta" style="margin-left:12px;" href="#">Automatiser →</a></div>';
+      + (p.tier === 'prouvee' ? '<a class="cta" href="#">Automatiser →</a>'
+         : (t && t.realized == null && t.ws ? '<span class="cta" style="color:#9CA3AF;font-weight:500;">verdict après le ' + frD(t.we) + '</span>'
+         : '<a class="cta" href="#">Prouver →</a>')) + '</div>';
   });
-  html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div><div class="eb">À transformer en dispositif</div>';
+  html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div><div class="eb">À transformer en dispositif</div><div class="muted" style="margin-bottom:2px;">Ces motifs chiffrés n\u2019ont pas encore de réponse chez vous — engagez-la, elle deviendra un dispositif.</div>';
   (D.learnings || []).slice(0, 3).forEach(function (l) {
     var pos = Number(l.eur_year) > 0;
     html += '<div class="li"><span style="font-weight:700;color:' + (pos ? GREEN : AMBER) + ';white-space:nowrap;">' + (pos ? '+' : '−') + frI(l.avg_gap_eur) + ' €/j</span>'
@@ -153,7 +169,7 @@
   html += '</div>';
 
   // ══ 8 · AUTOMATISATIONS — la liste de ce qui tourne seul, pas un journal. ══
-  html += '<span class="fix">8 · Automatisations — ce qui tourne, pas le journal</span><div class="card">';
+  html += '<span class="fix">Correctif 8 — Automatisations</span><div class="card">';
   html += '<div class="li"><span class="chip" style="background:#E6F6F0;color:' + GREEN + ';">active</span>'
     + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Corner de vente producteur</span>'
     + '<span style="display:block;font-size:11.5px;color:#6B7280;">Série hebdomadaire — prochaine mesure samedi 22/08 · dernier verdict : cible manquée (08/08)</span></span>'
@@ -166,7 +182,7 @@
     + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Coupon café glacé — au signal chaleur</span>'
     + '<span style="display:block;font-size:11.5px;color:#6B7280;">Éligible : se lancerait seul quand la chaleur est annoncée (2 dispositifs éligibles)</span></span>'
     + '<a class="cta" href="#">Automatiser →</a></div>';
-  html += '<div class="muted" style="margin-top:8px;">Les événements de bas niveau (contexte gelé, mesure J-7) vivent dans la chronologie du dossier concerné — plus ici.</div></div>';
+  html += '</div>';
 
   document.getElementById('root').innerHTML = html;
 })();

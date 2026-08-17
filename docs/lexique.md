@@ -34,6 +34,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Ouvrir le dossier d'une série/événement | **Dossier →** | Voir, Ouvrir |
 | Préparer une occurrence à venir | **Préparer →** | — |
 | Rendre le vécu d'une occurrence passée | **Bilan →** | feedback, débrief |
+| Position d'une note parmi les suivis | **parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis** | au-dessus/en-dessous de la médiane, percentile |
+| Occurrence passée dont la mesure est annulée | **passée sans mesure** | verdict en attente (faux si aucune mesure) |
 
 ## Règles de rédaction (héritées des décisions owner)
 
