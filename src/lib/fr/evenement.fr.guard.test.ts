@@ -37,6 +37,7 @@ const SURFACES = [
   "public/agir-proto.html",
   "public/fiche-enrich-proto.html",
   "public/competitor-proto.html",
+  "src/pages/app/insightevent/competitor.astro",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

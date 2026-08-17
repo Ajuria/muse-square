@@ -77,7 +77,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // ── Parallel fetch: directory, threat profile, user profile, alerts, events ──
-    const [dirRows, threatRows, userRows, alertRows, eventRows] = await Promise.all([
+    const [dirRows, threatRows, userRows, alertRows, eventRows, newsRows] = await Promise.all([
       // 1. Competitor directory (semantic layer)
       bq.query({
         query: `
@@ -188,6 +188,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
         types: { location_id: "STRING", competitor_id: "STRING" },
         location: BQ_LOCATION,
       }),
+      // 6. Cache actu commerciale (raw — la vue dbt n'expose pas ces colonnes de cache).
+      bq.query({
+        query: `SELECT commercial_news_json, CAST(commercial_news_at AS STRING) AS commercial_news_at
+                FROM \`${projectId}.raw.competitor_directory\`
+                WHERE competitor_id = @competitor_id AND deleted_at IS NULL LIMIT 1`,
+        params: { competitor_id },
+        types: { competitor_id: "STRING" },
+        location: BQ_LOCATION,
+      }).catch(() => [[]]),
     ]);
 
     const directory = (dirRows[0] ?? [])[0] ?? null;
@@ -431,6 +440,22 @@ ${userItemsJson}`;
         enriched:              userEnriched,
       } : null,
       analysis: competitiveAnalysis,
+      // Actualité commerciale (lecture web hebdo, cache 7 j sur la fiche) — parsée ICI, la page
+      // reste bête ; JSON illisible = section absente, jamais un throw.
+      actu: (() => {
+        try {
+          const newsRow = ((newsRows as any[])[0] ?? [])[0] ?? {};
+          const n = JSON.parse(String(newsRow.commercial_news_json || "null"));
+          if (!n) return null;
+          return {
+            lead: n.lead || null,
+            mises: (Array.isArray(n.mises_en_avant) ? n.mises_en_avant : []).slice(0, 4),
+            autres_offres: n.autres_offres || null,
+            sources: (Array.isArray(n.sources) ? n.sources : []).slice(0, 4),
+            lu_le: newsRow.commercial_news_at || null,
+          };
+        } catch { return null; }
+      })(),
       alerts,
       events,
     }), {

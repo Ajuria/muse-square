@@ -243,9 +243,10 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       const pn4 = coBody3.querySelector('[data-tb-fiche-panel="' + chev.getAttribute("data-tb-fiche") + '"]');
       check("clic chevron : le panneau s'ouvre", !!pn4 && pn4.style.display === "block");
     }
-    check("chaque fiche à clé porte « Profil stratégique → » vers /competitor?id=",
+    check("fiche = UN CTA « Consulter → » vers le profil INTERNE (owner 17/08 : plus de lien externe direct)",
       fAll3.filter((f) => f.cid).every((f) => (coBody3 ? coBody3.innerHTML : "").indexOf("/app/insightevent/competitor?id=" + encodeURIComponent(f.cid)) >= 0)
-      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") >= 0);
+      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") < 0
+      && !(coBody3 && Array.from(coBody3.querySelectorAll("a")).some((a) => /Consulter/.test(a.textContent) && /^https?:/.test(a.getAttribute("href") || "") && a.closest("[data-tb-fiche-panel]") == null)));
     check("recouvrement mesuré affiché quand le mart le porte", fAll3.some((f) => f.overlap_pct != null)
       ? (coBody3 ? coBody3.textContent : "").indexOf("Recouvrement mesuré") >= 0 : true);
   }
