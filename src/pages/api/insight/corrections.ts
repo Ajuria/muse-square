@@ -47,6 +47,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const correction_type = requireString(body?.correction_type, "correction_type") as CorrectionType;
     if (!VALID_TYPES.includes(correction_type)) return json(400, { ok: false, error: "correction_type invalide" });
 
+    // Déclaration DIRECTE (champ inline Piloter, 16/08) : body.value numérique → même
+    // écriture que le chemin chat (assert/supersede + prior_value), bornes par métrique.
+    if (body?.value != null) {
+      if (correction_type !== "declared_margin_pct" && correction_type !== "declared_client_count") {
+        return json(400, { ok: false, error: "value non supporté pour ce type" });
+      }
+      const v = Number(String(body.value).replace(",", "."));
+      if (!Number.isFinite(v)) return json(400, { ok: false, error: "Valeur invalide" });
+      if (correction_type === "declared_margin_pct" && (v < 1 || v > 90)) return json(400, { ok: false, error: "Marge attendue entre 1 et 90 %" });
+      if (correction_type === "declared_client_count" && (v < 1 || v > 100000)) return json(400, { ok: false, error: "Valeur hors bornes" });
+      const prior = (await getActiveCorrections(location_id)).find((c) => c.correction_type === correction_type);
+      await appendCorrectionEvent({
+        location_id,
+        event_action: prior ? "supersede" : "assert",
+        correction_type,
+        correction_text: String(v),
+        prior_value: prior ? prior.correction_text : null,
+        source: "piloter_inline",
+        declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
+      });
+      return json(200, { ok: true, declared: true, value: v });
+    }
+
     // Clearing is an EVENT, not a delete — the history (the learning corpus) stays intact.
     const existing = (await getActiveCorrections(location_id)).find((c) => c.correction_type === correction_type);
     if (!existing) return json(200, { ok: true, cleared: false });   // already inactive; nothing to do

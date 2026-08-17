@@ -227,9 +227,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (!db.margin_declared) goals.push({
             kind: "marge",
             aline: "→ Déclarer votre marge — débloque le KPI profit",
-            sub: "une phrase dans Explorer, c’est tout",
-            goal_fr: "Débloquer le KPI profit", link_fr: "Déclarer votre marge (une phrase)",
-            href: "/app/insightevent/prompt?q=" + encodeURIComponent("Ma marge est d’environ  %"),
+            sub: "un chiffre, ici même — rien d’autre",
+            goal_fr: "Débloquer le KPI profit", link_fr: "Déclarer votre marge",
+            inline: "marge",
           });
           return goals;
         }
@@ -340,7 +340,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           goals.filter(function (gg) { return gg.kind !== "documenter"; }).forEach(function (gg) {
             aFaire.push({ rang: 4, iso: null, col: AMBER,
               titre: String(gg.aline || "").replace(/^→\s*/, ""), sub: gg.sub || "",
-              geste: '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + (gg.goto ? ' data-tb-goto="' + esc(gg.goto) + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
+              geste: gg.inline === "marge"
+                ? '<button type="button" class="tb-link" data-tb-marge style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</button>'
+                : '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + (gg.goto ? ' data-tb-goto="' + esc(gg.goto) + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
           });
           (g.trous || []).forEach(function (tr) {
             aFaire.push({ rang: 4, iso: null, col: AMBER,
@@ -846,6 +848,43 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   if (trig) trig.click();
                 }
               }
+            });
+          });
+          // Marge inline (16/08) : le chiffre se d\u00e9clare ICI \u2014 POST corrections {value},
+          // m\u00eame \u00e9criture que le chat (assert/supersede) ; la rangée devient la v\u00e9rit\u00e9 relue.
+          body.querySelectorAll("[data-tb-marge]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var row = b.closest(".tb-af");
+              if (!row) return;
+              var ex = row.nextElementSibling;
+              if (ex && ex.getAttribute && ex.getAttribute("data-tb-marge-panel") != null) { ex.remove(); return; }
+              var pan = document.createElement("div");
+              pan.setAttribute("data-tb-marge-panel", "");
+              pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
+              pan.innerHTML = '<span style="font-size:12.5px;color:#374151;">Votre marge moyenne :</span>'
+                + '<input type="number" min="1" max="90" step="0.5" placeholder="ex. 60" style="width:80px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span>'
+                + '<button type="button" data-tb-marge-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+                + '<span data-tb-marge-msg style="font-size:12px;color:#B45309;"></span>';
+              row.parentNode.insertBefore(pan, row.nextSibling);
+              var inp = pan.querySelector("input"); inp.focus();
+              pan.querySelector("[data-tb-marge-save]").addEventListener("click", function () {
+                var v = String(inp.value || "").trim();
+                var msg = pan.querySelector("[data-tb-marge-msg]");
+                if (!v) { msg.textContent = "Entrez un chiffre."; return; }
+                msg.style.color = "#6B7280"; msg.textContent = "Enregistrement\u2026";
+                fetch("/api/insight/corrections", {
+                  method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ location_id: loc, correction_type: "declared_margin_pct", value: v }),
+                }).then(function (r2) { return r2.json(); }).then(function (jj) {
+                  if (jj && jj.ok) {
+                    pan.remove();
+                    row.innerHTML = '<span><span style="display:flex;justify-content:center;"><span style="width:9px;height:9px;border-radius:50%;background:#059669;display:inline-block;"></span></span></span>'
+                      + '<span style="min-width:0;"><span class="t">Marge d\u00e9clar\u00e9e : ' + String(jj.value).replace(".", ",") + ' %</span>'
+                      + '<span class="u">le KPI profit se d\u00e9bloque \u2014 modifiable \u00e0 tout moment dans Explorer</span></span>'
+                      + '<span class="v"></span><span class="a"></span>';
+                  } else { msg.style.color = "#B45309"; msg.textContent = (jj && jj.error) || "R\u00e9essayez."; }
+                }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "R\u00e9essayez."; });
+              });
             });
           });
           // Suivre en un clic (audit 15/08) : la cl\u00e9 voyage \u2014 POST add-competitor, v\u00e9rit\u00e9 relue.
