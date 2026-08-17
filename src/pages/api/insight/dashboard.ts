@@ -474,10 +474,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        cd.google_rating_count avis, cd.primary_audience audience,
                        COALESCE(cd.tarifs_url, cd.source_url) url,
                        MIN(h.price_numeric) p_min, MAX(h.price_numeric) p_max,
-                       COUNT(DISTINCT h.item_norm) n_tarifs
+                       COUNT(DISTINCT h.item_norm) n_tarifs,
+                       ANY_VALUE(cd.secondary_audience) audience2,
+                       ANY_VALUE(cd.competitive_analysis_json) ana_json,
+                       ANY_VALUE(cd.commercial_news_json) news_json,
+                       CAST(ANY_VALUE(cd.commercial_news_at) AS STRING) news_at,
+                       ANY_VALUE(tp.audience_overlap_pct) overlap_pct,
+                       ANY_VALUE(tp.distance_km) km
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+                LEFT JOIN \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
+                  ON tp.location_id = ct.location_id AND tp.competitor_id = ct.competitor_id
                 LEFT JOIN \`${PROJECT}.raw.competitor_offering_history\` h
                   ON h.competitor_id = ct.competitor_id AND h.price_numeric IS NOT NULL
                 WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
@@ -839,11 +847,38 @@ export const GET: APIRoute = async ({ url, locals }) => {
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
           // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
-          fiches: (ficheRows as any[]).map((r) => ({
-            location_id: str(r.location_id), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
-            note: num(r.note), avis: num(r.avis), audience: str(r.audience), url: str(r.url),
-            p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
-          })),
+          fiches: (ficheRows as any[]).map((r) => {
+            // Fiche enrichie (validé owner 17/08) : analyse competitor-profile + actu commerciale,
+            // parsées ICI — la page reste bête, un JSON illisible = section absente, jamais un throw.
+            let ana: any = null, actu: any = null;
+            try {
+              const a = JSON.parse(String(str(r.ana_json) || "null"));
+              if (a) ana = {
+                value_prop: a.value_prop_theirs || null,
+                prix: (Array.isArray(a.price_comparison) ? a.price_comparison : []).slice(0, 4).map((x: any) => ({
+                  cat: x.category || null, eux: x.their_item || null, eux_prix: x.their_price || null,
+                  vous: x.your_item || null, vous_prix: x.your_price || null, signal: x.signal || null, lecture: x.reading || null,
+                })),
+                gaps: (Array.isArray(a.product_gaps) ? a.product_gaps : []).slice(0, 3),
+              };
+            } catch { /* analyse illisible → absente */ }
+            try {
+              const n = JSON.parse(String(str(r.news_json) || "null"));
+              if (n) actu = {
+                lead: n.lead || null,
+                mises: (Array.isArray(n.mises_en_avant) ? n.mises_en_avant : []).slice(0, 4),
+                autres_offres: n.autres_offres || null,
+                sources: (Array.isArray(n.sources) ? n.sources : []).slice(0, 4),
+                lu_le: str(r.news_at),
+              };
+            } catch { /* actu illisible → absente */ }
+            return {
+              location_id: str(r.location_id), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
+              note: num(r.note), avis: num(r.avis), audience: str(r.audience), audience2: str(r.audience2), url: str(r.url),
+              p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
+              overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
+            };
+          }),
           audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),
           gap_facts: (gapRows as any[]).map((r) => {
             let pl: any = {};

@@ -208,6 +208,45 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       wanted.every((w) => auTxt.indexOf(w) >= 0), wanted.join(",") || "aucun label — rien à vérifier");
   }
 }
+// ── Fiche ENRICHIE (validé owner 17/08 soir) : panneau dépliable Offre · Publics · Actualité. ──
+{
+  const coBody3 = body.querySelector('[data-tb-body="co"]');
+  const fAll3 = ((payload.glance || {}).fiches || []);
+  if (fAll3.length) {
+    const panels = coBody3 ? Array.from(coBody3.querySelectorAll("[data-tb-fiche-panel]")) : [];
+    check("fiches : un panneau dépliable par fiche, fermé par défaut",
+      panels.length === Math.min(fAll3.length, 8 * new Set(fAll3.map((f) => f.location_id)).size)
+      && panels.every((p) => p.style.display === "none"), panels.length + " panneaux");
+    const withActu = fAll3.find((f) => f.actu && (f.actu.mises || []).length);
+    if (withActu) {
+      const pn = coBody3.querySelector('[data-tb-fiche-panel="' + withActu.nom + '"]');
+      check("fiche avec actu (" + withActu.nom.slice(0, 20) + "…) : les 3 sections + registre web",
+        !!pn && pn.textContent.indexOf("Offre") >= 0 && pn.textContent.indexOf("Publics/Clients visés") >= 0
+        && pn.textContent.indexOf("Actualité commerciale") >= 0 && pn.textContent.indexOf("Web — non vérifié") >= 0
+        && pn.textContent.indexOf(withActu.actu.mises[0].titre.slice(0, 24)) >= 0);
+      check("fiche avec actu : sources cliquables", !!pn && pn.querySelectorAll('a[href^="https://"]').length >= 1);
+    }
+    const withAna = fAll3.find((f) => f.analyse && f.analyse.value_prop);
+    if (withAna) {
+      const pn2 = coBody3.querySelector('[data-tb-fiche-panel="' + withAna.nom + '"]');
+      check("fiche avec analyse : Proposition de valeur rendue", !!pn2 && pn2.textContent.indexOf("Proposition de valeur") >= 0);
+    }
+    const without = fAll3.find((f) => !f.actu);
+    if (without) {
+      const pn3 = coBody3.querySelector('[data-tb-fiche-panel="' + without.nom + '"]');
+      check("fiche sans actu : absence DITE (jamais une section vide)", !!pn3 && pn3.textContent.indexOf("Pas encore lue") >= 0);
+    }
+    // Dépli réel : cliquer le chevron ouvre le panneau.
+    const chev = coBody3 ? coBody3.querySelector("[data-tb-fiche]") : null;
+    if (chev) {
+      chev.click();
+      const pn4 = coBody3.querySelector('[data-tb-fiche-panel="' + chev.getAttribute("data-tb-fiche") + '"]');
+      check("clic chevron : le panneau s'ouvre", !!pn4 && pn4.style.display === "block");
+    }
+    check("recouvrement mesuré affiché quand le mart le porte", fAll3.some((f) => f.overlap_pct != null)
+      ? (coBody3 ? coBody3.textContent : "").indexOf("Recouvrement mesuré") >= 0 : true);
+  }
+}
 // Labels externes STREAMLINÉS (owner 17/08 soir) : lire une page externe = « Consulter → » partout.
 check("fiches/offres : « Consulter → » (jamais « Sa page » ni « leur page »)",
   body.innerHTML.indexOf("Sa page \u2192") < 0 && body.innerHTML.indexOf("leur page \u2192") < 0 && body.innerHTML.indexOf("leur page →") < 0

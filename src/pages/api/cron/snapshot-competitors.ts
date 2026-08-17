@@ -3,6 +3,9 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
+import { waitUntil } from "@vercel/functions";
+import { getCompetitorCommercialNews } from "../../../lib/ai/webContext";
+import { GET as competitorProfileGET } from "../competitive/competitor-profile";
 
 export const prerender = false;
 
@@ -264,6 +267,67 @@ async function runSnapshots() {
   }
 }
 
+// ── Enrichissement de fiche (validé owner 17/08) : actualité commerciale (lecture web, cache 7 j
+//    sur la fiche) + analyse concurrentielle (competitor-profile EXISTANT — il génère et cache
+//    competitive_analysis_json s'il manque). Cap 2 suivis par nuit (motif crawl-best-in-class
+//    ?n=1) : tous les suivis d'un compte cyclent en quelques nuits, jamais un run > budget Vercel.
+async function runFicheEnrichment() {
+  const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+  const bq = makeBQClient(projectId);
+  const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  // Colonnes du cache (idempotent — la migration du 17/08 les a posées, ceci garde les env neufs).
+  await bq.query({
+    query: `ALTER TABLE \`${projectId}.raw.competitor_directory\`
+            ADD COLUMN IF NOT EXISTS commercial_news_json STRING,
+            ADD COLUMN IF NOT EXISTS commercial_news_at TIMESTAMP`,
+    location: "EU",
+  }).catch((e: any) => console.warn("[fiche-enrich] ALTER:", e?.message));
+  // Candidats : suivis VIVANTS dont l'actu a > 7 j (ou jamais lue) OU sans analyse cachée —
+  // les plus anciens d'abord. Le clerk_user_id du suiveur sert au competitor-profile (auth locals).
+  const [rows] = await bq.query({
+    query: `SELECT ct.location_id, cd.competitor_id, cd.competitor_name,
+                   cd.source_url, cd.tarifs_url,
+                   (cd.competitive_analysis_json IS NULL AND cd.auto_enriched_description IS NOT NULL) AS needs_analysis,
+                   (cd.commercial_news_at IS NULL
+                    OR cd.commercial_news_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)) AS needs_news,
+                   (SELECT ANY_VALUE(clerk_user_id) FROM \`${projectId}.raw.insight_event_user_location_profile\` p
+                    WHERE p.location_id = ct.location_id) AS clerk_user_id
+            FROM \`${projectId}.raw.competitor_tracking\` ct
+            JOIN \`${projectId}.raw.competitor_directory\` cd
+              ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+            WHERE ct.deleted_at IS NULL
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY cd.competitor_id ORDER BY ct.created_at) = 1
+            ORDER BY cd.commercial_news_at IS NULL DESC, cd.commercial_news_at
+            LIMIT 6`,
+    location: "EU",
+  });
+  const todo = (rows as any[]).filter((r) => flatv(r.needs_analysis) || flatv(r.needs_news)).slice(0, 2);
+  console.log(`[fiche-enrich] ${todo.length} suivi(s) cette nuit`);
+  for (const r of todo) {
+    const cid = String(flatv(r.competitor_id));
+    const nom = String(flatv(r.competitor_name) || "");
+    try {
+      if (flatv(r.needs_news)) {
+        const urls = [flatv(r.source_url), flatv(r.tarifs_url)].filter(Boolean).map(String);
+        if (urls.length) {
+          const news = await getCompetitorCommercialNews(bq, { competitor_id: cid, competitor_name: nom, urls });
+          console.log(`[fiche-enrich] actu ${nom}: ${news ? (news.mises_en_avant || []).length + " mises en avant" : "vide"}`);
+        }
+      }
+      if (flatv(r.needs_analysis) && flatv(r.clerk_user_id)) {
+        // Le VRAI endpoint (446 lignes) — il génère + cache l'analyse si absente. Invocation
+        // directe avec les locals du suiveur (même motif que les harnais).
+        const locals = { clerk_user_id: String(flatv(r.clerk_user_id)), location_id: String(flatv(r.location_id)) };
+        const res = await competitorProfileGET({ url: new URL("http://cron/api/competitive/competitor-profile?id=" + encodeURIComponent(cid)), locals } as any);
+        const j = JSON.parse(await (res as any).text());
+        console.log(`[fiche-enrich] analyse ${nom}: ${j.ok ? (j.analysis ? "générée/cachée" : "sans matière") : j.error}`);
+      }
+    } catch (e: any) {
+      console.error(`[fiche-enrich] ${nom}:`, e?.message);
+    }
+  }
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -272,8 +336,9 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  // Fire and forget — respond immediately, process in background
-  runSnapshots().catch((e) => console.error("[snapshot-competitors] background error:", e?.message));
+  // Réponse immédiate ; les deux travaux vivent derrière la réponse (waitUntil — motif maison).
+  waitUntil(runSnapshots().catch((e) => console.error("[snapshot-competitors] background error:", e?.message)));
+  waitUntil(runFicheEnrichment().catch((e) => console.error("[fiche-enrich] background error:", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

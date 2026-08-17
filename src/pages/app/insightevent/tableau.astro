@@ -1013,6 +1013,57 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             (g.audiences || []).forEach(function (a2) { _audMoi[a2.location_id] = [a2.a1, a2.a2].filter(Boolean); });
             // Toute COMPARAISON se joue \u00c0 L'INT\u00c9RIEUR d'un site (owner 17/08) : r\u00e9putation,
             // public, lignes de valeur \u2014 jamais un suivi d'un site compar\u00e9 \u00e0 ceux d'un autre.
+            var SIGNAL_FR = { premium_eux: ['eux plus cher', '#FEF3E2', AMBER], premium_vous: ['vous plus cher', '#FEF3E2', AMBER], parite: ['parit\u00e9', '#F3F4F6', '#6b7280'], gap_eux: ['eux seulement', '#FEF3E2', AMBER], gap_vous: ['vous seulement', '#E6F6F0', GREEN] };
+            var _frDT = function (ts) { var d2 = String(ts || '').slice(0, 10).split('-'); return d2.length === 3 ? d2[2] + '/' + d2[1] : ''; };
+            // Le panneau de fiche enrichie (proto valid\u00e9 owner 17/08) : Offre \u00b7 Publics/Clients vis\u00e9s \u00b7 Actualit\u00e9 commerciale.
+            var _fichePanel = function (f2, mes) {
+              var h2 = '';
+              // 1 \u00b7 OFFRE (competitor-profile, analyse cach\u00e9e).
+              h2 += '<p class="tb-eb" style="margin:8px 0 2px;">Offre</p>';
+              if (f2.analyse) {
+                if (f2.analyse.value_prop) h2 += '<div style="font-size:12px;color:#374151;"><b>Proposition de valeur :</b> ' + esc(f2.analyse.value_prop) + '</div>';
+                (f2.analyse.prix || []).forEach(function (r2) {
+                  var sg = SIGNAL_FR[r2.signal] || null;
+                  h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;flex-wrap:wrap;">'
+                    + '<span style="min-width:150px;font-weight:650;">' + esc(r2.cat || '') + '</span>'
+                    + '<span>' + (r2.eux ? esc(r2.eux) + (r2.eux_prix ? ' \u00b7 <b>' + esc(r2.eux_prix) + '</b>' : '') : '<span style="color:#9CA3AF;">rien chez eux</span>') + '</span>'
+                    + '<span style="color:#6B7280;">' + (r2.vous ? 'vous : ' + esc(r2.vous) + (r2.vous_prix ? ' \u00b7 <b>' + esc(r2.vous_prix) + '</b>' : '') : 'rien chez vous') + '</span>'
+                    + (sg ? '<span class="tb-chip" style="background:' + sg[1] + ';color:' + sg[2] + ';">' + sg[0] + '</span>' : '')
+                    + (r2.lecture ? '<span style="flex-basis:100%;font-size:11px;color:#6B7280;">' + esc(r2.lecture) + '</span>' : '')
+                    + '</div>';
+                });
+                if ((f2.analyse.gaps || []).length) h2 += '<div style="font-size:11px;color:#6B7280;margin-top:2px;"><b style="color:#374151;">Ils ont, vous n\u2019avez pas :</b> ' + f2.analyse.gaps.map(esc).join(' \u00b7 ') + '</div>';
+              } else h2 += '<div style="font-size:11px;color:#9CA3AF;">Analyse pas encore g\u00e9n\u00e9r\u00e9e \u2014 la veille de nuit la produit cette semaine (2 suivis par nuit).</div>';
+              // 2 \u00b7 PUBLICS/CLIENTS VIS\u00c9S + le recouvrement MESUR\u00c9 (mart menace).
+              h2 += '<p class="tb-eb" style="margin:10px 0 2px;">Publics/Clients vis\u00e9s</p><div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:12px;">';
+              [[f2.audience, 'principal'], [f2.audience2, 'secondaire']].forEach(function (pa) {
+                if (!pa[0]) return;
+                var commun = mes.indexOf(pa[0]) >= 0;
+                h2 += '<span class="tb-chip" style="background:' + (commun ? '#FEF3E2' : '#F3F4F6') + ';color:' + (commun ? AMBER : '#6b7280') + ';">' + esc(AUD_FR[pa[0]] || pa[0]) + ' (' + pa[1] + ')' + (commun ? ' \u2014 commun avec vous' : '') + '</span>';
+              });
+              h2 += '<span style="font-size:11px;color:#9CA3AF;">le v\u00f4tre : ' + (mes.map(function (a2) { return esc(AUD_FR[a2] || a2); }).join(' \u00b7 ') || 'non renseign\u00e9 au profil') + '</span></div>';
+              if (f2.overlap_pct != null) h2 += '<div style="font-size:11px;color:#6B7280;margin-top:2px;">Recouvrement mesur\u00e9 : <b>' + Math.round(f2.overlap_pct) + ' %</b>' + (f2.km != null ? ' \u00b7 \u00e0 ' + String(Math.round(f2.km * 10) / 10).replace('.', ',') + ' km' : '') + '</div>';
+              // 3 \u00b7 ACTUALIT\u00c9 COMMERCIALE (lecture web, cache 7 j) \u2014 registre Web non v\u00e9rifi\u00e9.
+              h2 += '<p class="tb-eb" style="margin:10px 0 2px;">Actualit\u00e9 commerciale <span style="text-transform:none;letter-spacing:0;font-weight:500;color:#9CA3AF;">Web \u2014 non v\u00e9rifi\u00e9' + (f2.actu && f2.actu.lu_le ? ' \u00b7 lu le ' + _frDT(f2.actu.lu_le) : '') + '</span></p>';
+              if (f2.actu) {
+                if (f2.actu.lead) h2 += '<div style="font-size:12px;color:#374151;">' + esc(f2.actu.lead) + '</div>';
+                (f2.actu.mises || []).forEach(function (m2) {
+                  h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
+                    + '<span style="width:7px;height:7px;border-radius:50%;background:' + BLUE + ';flex:none;position:relative;top:-1px;"></span>'
+                    + '<span style="min-width:0;flex:1;"><b>' + esc(m2.titre || '') + '</b>'
+                    + (m2.dates ? ' <span class="tb-chip" style="background:#EEF2FF;color:' + BLUE + ';">' + esc(m2.dates) + '</span>' : '')
+                    + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(m2.detail || '') + '</span></span></div>';
+                });
+                if (f2.actu.autres_offres) h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
+                  + '<span style="width:7px;height:7px;border-radius:50%;background:' + AMBER + ';flex:none;position:relative;top:-1px;"></span>'
+                  + '<span style="min-width:0;flex:1;"><b style="color:' + AMBER + ';">Autres offres et produits</b>'
+                  + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(f2.actu.autres_offres) + '</span></span></div>';
+                if ((f2.actu.sources || []).length) h2 += '<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Sources : ' + f2.actu.sources.map(function (u2) {
+                  return '<a class="tb-link" style="font-weight:500;font-size:11px;" href="' + esc(u2) + '" target="_blank" rel="noopener">' + esc(String(u2).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]) + '</a>';
+                }).join(' \u00b7 ') + '</div>';
+              } else h2 += '<div style="font-size:11px;color:#9CA3AF;">Pas encore lue \u2014 la veille de nuit lit chaque suivi une fois par semaine.</div>';
+              return h2;
+            };
             var parSite = {};
             fiches.forEach(function (f2) { (parSite[f2.location_id] = parSite[f2.location_id] || []).push(f2); });
             Object.keys(parSite).sort(function (a2, b2) { return String((parSite[a2][0] || {}).site || "").localeCompare(String((parSite[b2][0] || {}).site || "")); }).forEach(function (sid) {
@@ -1046,7 +1097,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (f2._pub ? '<span class="tb-chip" style="background:' + f2._pub[1] + ';color:' + f2._pub[2] + ';" title="' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '">' + f2._pub[0] + '</span>' : '')
                   + prix
                   + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">Consulter \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible \u2014 \u00e0 r\u00e9parer</span>')
-                  + '</div>';
+                  + '<a href="#" data-tb-fiche="' + esc(f2.nom) + '" style="color:#9CA3AF;text-decoration:none;font-size:14px;padding:0 2px;" title="Offre \u00b7 publics \u00b7 actualit\u00e9 commerciale">\u203a</a>'
+                  + '</div>'
+                  + '<div data-tb-fiche-panel="' + esc(f2.nom) + '" style="display:none;padding:2px 0 10px 8px;border-left:2px solid #EEF2FF;margin:0 0 4px 4px;">' + _fichePanel(f2, _audMoi[sid] || []) + '</div>';
               });
               // Lignes de VALEUR du SITE (owner 17/08) \u2014 d\u00e9duites des donn\u00e9es, jamais leur redite.
               var memeP = fs2.filter(function (f2) { return f2._pub && f2._pub[0] === 'm\u00eame public que vous' && f2.note != null; });
@@ -1256,6 +1309,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             });
           });
           // Suivre en un clic (audit 15/08) : la cl\u00e9 voyage \u2014 POST add-competitor, v\u00e9rit\u00e9 relue.
+          body.querySelectorAll("[data-tb-fiche]").forEach(function (b) {
+            b.addEventListener("click", function (ev) {
+              ev.preventDefault();
+              var pn = body.querySelector('[data-tb-fiche-panel="' + (b.getAttribute("data-tb-fiche") || "").replace(/"/g, '\\"') + '"]');
+              if (pn) pn.style.display = pn.style.display === "none" ? "block" : "none";
+            });
+          });
           body.querySelectorAll("[data-tb-follow]").forEach(function (b) {
             b.addEventListener("click", function () {
               if (b.disabled) return;
