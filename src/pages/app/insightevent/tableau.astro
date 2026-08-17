@@ -873,6 +873,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + " : " + (tx.verdict === "met" ? "cible tenue" : tx.verdict === "missed" ? "cible manquée" : "non concluant (facteur externe)");
           };
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
+          var _siteLbl = function (lid) { return ((j.sites || []).filter(function (sx) { return sx.location_id === lid; })[0] || {}).label || ""; };
           var _nomDsp = function (txt2, max2) {
             var n2 = String(txt2 || "").split("\u2014")[0].split("(")[0].trim();
             if (n2.length > max2) { var c2 = n2.slice(0, max2); n2 = c2.slice(0, c2.lastIndexOf(" ")) + "\u2026"; }
@@ -898,6 +899,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;flex-wrap:wrap;">'
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';margin-top:2px;">' + chip[0] + '</span>'
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-top:2px;">actif au signal</span>' : "")
+              + (siteChip(_siteLbl(p.location_id)) ? '<span style="margin-top:2px;">' + siteChip(_siteLbl(p.location_id)) + '</span>' : "")
               + '<span style="flex:1;min-width:180px;"><span style="font-weight:600;" title="' + esc(p.text) + '">' + esc(_nm) + '</span>'
               + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(_factDsp(p)) + '</span></span>'
               + actions
@@ -957,20 +959,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var nomS = String(m2.event_title || m2.texte || "").split("\u2014")[0].trim().slice(0, 50);
             var nxt = (m2.occ || []).filter(function (o2) { return o2.status === "open" || o2.status === "pending"; })[0];
             var lastV = (m2.occ || []).filter(function (o2) { return o2.verdict === "met" || o2.verdict === "missed"; }).slice(-1)[0];
-            autoRows.push(_autoRow("active", "Mesure &amp; verdict", esc(nomS),
+            autoRows.push(_autoRow("active", "Mesure &amp; verdict", esc(nomS) + (siteChip(m2.site) ? " " + siteChip(m2.site) : ""),
               "D\u00e9clencheur : <b>chaque " + (nxt ? dowFull(nxt.d) : "occurrence") + "</b> (s\u00e9rie) \u2014 la mesure se lance au jour J, le verdict tombe seul."
               + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + "." : "")
               + (lastV ? " Dernier verdict : cible " + (lastV.verdict === "met" ? "tenue" : "manqu\u00e9e") + " (" + frD(lastV.d) + ")." : ""),
               "/app/insightevent/evenement?location_id=" + encodeURIComponent(m2.location_id) + "&saved_item_id=" + encodeURIComponent(m2.saved_item_id || ""), "Dossier"));
           });
           (au.consignes || []).forEach(function (c) {
-            autoRows.push(_autoRow("active", "Communication", 'Consigne \u00ab ' + esc(String(c.title || "").slice(0, 40)) + ' \u00bb',
+            autoRows.push(_autoRow("active", "Communication", 'Consigne \u00ab ' + esc(String(c.title || "").slice(0, 40)) + ' \u00bb' + (siteChip(c.site_label) ? " " + siteChip(c.site_label) : ""),
               "D\u00e9clencheur : <b>J-" + (c.send_offset != null ? c.send_offset : "?") + " avant chaque occurrence</b> \u2014 la consigne part \u00e0 l\u2019\u00e9quipe."
               + (c.last_sent_on ? " Derni\u00e8re envoy\u00e9e le " + frD(c.last_sent_on) + " \u00e0 " + (c.last_n_recipients || 0) + " destinataire(s)." : c.next_send ? " Prochain envoi " + dowFull(c.next_send) + " " + frD(c.next_send) + "." : ""),
               "/app/insightevent/evenement?location_id=" + encodeURIComponent(c.location_id) + "&saved_item_id=" + encodeURIComponent(c.saved_item_id || ""), "Dossier"));
           });
           (au.armed_dispositifs || []).forEach(function (a2) {
-            autoRows.push(_autoRow("active", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(a2.text, 50)),
+            autoRows.push(_autoRow("active", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(a2.text, 50)) + (siteChip(a2.site_label) ? " " + siteChip(a2.site_label) : ""),
               "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne part seule la veille."
               + (a2.n_triggers > 0 && a2.last_fired ? " " + a2.n_triggers + " d\u00e9clenchement" + (a2.n_triggers > 1 ? "s" : "") + ", dernier le " + frD(a2.last_fired) + "." : " Aucun d\u00e9clenchement encore \u2014 en veille sur son signal."),
               null, ""));
@@ -981,7 +983,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               "/notifications", "R\u00e9gler"));
           }
           listPractices.filter(function (px) { return px.armable && !px.arm_enabled; }).slice(0, 2).forEach(function (px) {
-            autoRows.push(_autoRow("possible", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(px.text, 50)),
+            autoRows.push(_autoRow("possible", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(px.text, 50)) + (siteChip(_siteLbl(px.location_id)) ? " " + siteChip(_siteLbl(px.location_id)) : ""),
               "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne partirait seule la veille, la mesure suivrait au jour J."
               + ' <a class="tb-link" href="#tb-sf" data-tb-open="sf" data-tb-goto="' + esc(px.practice_id || "") + '" style="font-size:12px;white-space:nowrap;">Automatiser \u2192</a>',
               null, ""));

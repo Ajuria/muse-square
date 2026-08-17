@@ -168,6 +168,15 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       return links.length <= 1;
     }), rows.map((r) => r.querySelectorAll("a.tb-link").length).join(","));
     check("dispositifs : zéro « rejouable » (owner : réutilisable)", sfHtml.indexOf("rejouable") < 0 && sfHtml.indexOf("se rejoue") < 0);
+    // Multi-sites : chaque rangée dit SON site (pastille — règle de la page).
+    if (payload.multi_site) {
+      const lblOf = (lid) => ((payload.sites || []).find((sx) => sx.location_id === lid) || {}).label || "";
+      const rows2 = Array.from(sfBody.querySelectorAll("[data-tb-prid]"));
+      const practs2 = (payload.practices || []).filter((pp) => pp.tier !== "archivee").slice(0, 6);
+      check("dispositifs : pastille site sur chaque rangée (multi-sites)",
+        practs2.every((pp) => !lblOf(pp.location_id) || rows2.some((r) => r.textContent.indexOf(lblOf(pp.location_id)) >= 0)),
+        practs2.map((pp) => lblOf(pp.location_id) || "?").join(","));
+    }
   }
 }
 // 8. Automatisations : rangées QUOI + DÉCLENCHEUR, plus de journal Reçu/Programmé.
@@ -189,6 +198,15 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
   const hasCandidate = (payload.practices || []).some((pp) => pp.tier !== "archivee" && pp.armable && !pp.arm_enabled);
   if (hasCandidate) check("automatisations : rangée « possible » AVEC CTA Automatiser → (data-tb-goto)",
     auBody && auBody.innerHTML.indexOf("possible") >= 0 && Array.from(auBody.querySelectorAll("a[data-tb-goto]")).length >= 1);
+  if (payload.multi_site && hasAuto) {
+    const lblOf2 = (lid) => ((payload.sites || []).find((sx) => sx.location_id === lid) || {}).label || "";
+    const wanted = ((payload.glance.mesures || []).filter((m) => m.kind === "serie").map((m) => m.site))
+      .concat(((payload.automated || {}).consignes || []).map((c) => c.site_label))
+      .concat(((payload.automated || {}).armed_dispositifs || []).map((a) => a.site_label))
+      .filter(Boolean);
+    check("automatisations : pastille site sur les rangées (multi-sites — régression réparée)",
+      wanted.every((w) => auTxt.indexOf(w) >= 0), wanted.join(",") || "aucun label — rien à vérifier");
+  }
 }
 // Labels externes STREAMLINÉS (owner 17/08 soir) : lire une page externe = « Consulter → » partout.
 check("fiches/offres : « Consulter → » (jamais « Sa page » ni « leur page »)",
