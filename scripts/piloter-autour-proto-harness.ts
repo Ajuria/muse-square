@@ -32,6 +32,21 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
       AND event_date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY)
     ORDER BY conflict_score DESC, event_date LIMIT 14`, params: { locs }, location: "EU" });
 
+  // Fiches par suivi (v2 « Mon positionnement ») : note, avis, audience, fourchette de tarifs.
+  const [fiches] = await bq.query({ query: `
+    SELECT cd.competitor_name nom, cd.google_rating note, cd.google_rating_count avis,
+           cd.primary_audience audience, COALESCE(cd.tarifs_url, cd.source_url) url,
+           MIN(h.price_numeric) p_min, MAX(h.price_numeric) p_max, COUNT(DISTINCT h.item_norm) n_tarifs
+    FROM \`${P}.raw.competitor_tracking\` ct
+    JOIN \`${P}.raw.competitor_directory\` cd ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+    LEFT JOIN \`${P}.raw.competitor_offering_history\` h ON h.competitor_id = ct.competitor_id AND h.price_numeric IS NOT NULL
+    WHERE ct.location_id = @l AND ct.deleted_at IS NULL
+    GROUP BY 1,2,3,4,5`, params: { l: OWNER }, location: "EU" });
+  // Votre référence : panier moyen 30 j (référentiel DIT différent — pas comparé aux billets).
+  const [[me]] = await bq.query({ query: `
+    SELECT ROUND(AVG(daily_avg_basket), 2) basket FROM \`${P}.mart.fct_client_daily_performance\`
+    WHERE location_id = @l AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`, params: { l: OWNER }, location: "EU" });
+
   // Libellés sites.
   const [ln] = await bq.query({ query: `SELECT location_id, ANY_VALUE(company_name) nom FROM \`${P}.raw.insight_event_user_location_profile\` GROUP BY 1`, location: "EU" });
   const siteName: Record<string, string> = {};
@@ -49,6 +64,14 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     occasions: j.occasions || {}, practices: j.practices || [], learnings: j.learnings || [],
     equipe: j.equipe || [], automated: j.automated || {},
     mesures: g.mesures || [],
+    fiches: (fiches as any[]).map((r) => ({
+      nom: String(flat(r.nom) || ""), note: flat(r.note) != null ? Number(flat(r.note)) : null,
+      avis: flat(r.avis) != null ? Number(flat(r.avis)) : null, audience: String(flat(r.audience) || ""),
+      url: flat(r.url) ? String(flat(r.url)) : null,
+      p_min: flat(r.p_min) != null ? Number(flat(r.p_min)) : null, p_max: flat(r.p_max) != null ? Number(flat(r.p_max)) : null,
+      n_tarifs: Number(flat(r.n_tarifs)) || 0,
+    })),
+    mon_panier: me && flat(me.basket) != null ? Number(flat(me.basket)) : null,
     site_of: siteName,
   };
   writeFileSync(new URL("../public/piloter-autour-proto-data.js", import.meta.url).pathname,

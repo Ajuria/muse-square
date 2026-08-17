@@ -33,7 +33,7 @@
   <div id="root"></div>
   <div id="err" style="display:none;color:#B91C1C;padding:30px;text-align:center;">Données introuvables — relancez scripts/piloter-autour-proto-harness.ts.</div>
 </div>
-<script src="piloter-autour-proto-data.js?v=1"></script>
+<script src="piloter-autour-proto-data.js?v=2"></script>
 <script>
 (function () {
   var D = window.AUTOUR_PROTO;
@@ -86,23 +86,40 @@
   });
   html += '<div class="muted" style="margin-top:8px;">La carte du périmètre reste au sommet du panneau sur la vraie page (vignette « Ouvrir la carte »).</div></div>';
 
-  // ── OUVERT : Mon positionnement — la réponse d'abord, la base explicite. ──
+  // ── OUVERT : Mon positionnement v2 — fiches par suivi, ON NOMME OU ON SE TAIT. ──
+  var fiches = (D.fiches || []).slice().sort(function (a, b) { return (b.note || 0) - (a.note || 0); });
+  var pMax = Math.max.apply(null, fiches.map(function (f) { return f.p_max || 0; }).concat([1]));
+  var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'clientèle locale', mixed: 'clientèle mixte', students: 'étudiants', seniors: 'seniors' };
+  function prixBar(f) {
+    if (f.p_min == null) return '<span class="muted">tarifs non publiés sur sa page</span>';
+    var x1 = (f.p_min / pMax) * 100, x2 = Math.max((f.p_max / pMax) * 100, x1 + 2);
+    return '<span style="display:inline-flex;align-items:center;gap:8px;min-width:220px;">'
+      + '<span style="position:relative;width:120px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
+      + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
+      + '<span style="font-size:11.5px;color:#374151;white-space:nowrap;">' + String(f.p_min).replace('.', ',') + ' – ' + String(f.p_max).replace('.', ',') + ' € · ' + f.n_tarifs + ' tarifs</span></span>';
+  }
+  var hautesNotes = fiches.filter(function (f) { return f.note != null && f.note >= 4.5; });
   html += '<div class="panel"><div class="ph"><span class="dot" style="background:' + (casse ? AMBER : GREEN) + ';"></span>Mon positionnement <span class="muted" style="margin-left:auto;">ouvert</span></div>'
     + '<div class="lead">' + (chg
       ? '<b>' + chg + ' changements détectés</b> chez vos suivis depuis la dernière lecture.'
-      : '<b>Prix stables chez vos ' + vLieux.length + ' suivis</b> — ' + nTarifs + ' tarifs comparés, aucun changement à la lecture de cette nuit.')
-    + (casse ? ' <span style="color:#B45309;font-weight:600;">' + casse + ' suivi' + (casse > 1 ? 's' : '') + ' n’est plus lisible — à réparer.</span>' : '')
+      : '<b>Prix stables chez vos ' + vLieux.length + ' suivis</b> — ' + nTarifs + ' tarifs comparés, rien à la lecture de cette nuit.')
+    + (hautesNotes.length ? ' ' + hautesNotes.map(function (f) { return f.nom.split(' - ')[0]; }).slice(0, 2).join(' et ') + ' tiennent une note \u2265 4,5 — regardez ce qu\u2019ils mettent en avant.' : '')
+    + (casse ? ' <span style="color:#B45309;font-weight:600;">' + casse + ' suivi' + (casse > 1 ? 's' : '') + ' n\u2019est plus lisible — à réparer.</span>' : '')
     + '</div>';
-  function posLine(cond, dotCol, txt, cta) {
-    if (!cond) return '';
-    return '<div class="li"><span class="dot" style="background:' + dotCol + ';margin-top:5px;"></span><span style="min-width:0;">' + txt + '</span><a class="go" href="#">' + cta + ' →</a></div>';
-  }
-  html += posLine(byType.competitor_positioning_gap, AMBER, '<b>Un concurrent mord sur votre offre</b> — le détail nomme qui, et sur quoi.', 'Lire')
-    + posLine(byType.competitor_positioning_brief, BLUE, '<b>Votre comparaison face aux suivis est prête</b> — où vous êtes différencié, où vous êtes attaquable.', 'Lire')
-    + posLine(byType.competitor_reputation_strength, AMBER, '<b>Réputation forte</b> chez ' + (byType.competitor_reputation_strength > 1 ? byType.competitor_reputation_strength + ' concurrents suivis' : 'un concurrent suivi') + ' — leur note monte, comparez ce qu’ils mettent en avant.', 'Voir')
-    + posLine(byType.event_new, GREY, '<b>Nouvel événement repéré</b> chez un concurrent suivi.', 'Voir')
-    + posLine(byType.competitor_event_ending, GREEN, '<b>Fin d’exposition</b> chez un concurrent — fenêtre de report de flux vers vous.', 'Voir');
-  html += '<div class="muted" style="margin-top:8px;">' + vLieux.length + ' fiches concurrent enrichies (audiences, offres, événements) alimentent cette comparaison — c’est votre base de différenciation.</div></div>';
+  // Votre référence — référentiel DIT (un panier de boutique ne se compare pas à un billet).
+  if (D.mon_panier != null) html += '<div class="li" style="background:#F7F9FF;border-radius:8px;padding:8px 10px;border-top:none;"><b>Vous — Muse Square</b><span class="muted">panier moyen ' + String(D.mon_panier).replace('.', ',') + ' € (30 j) · référentiel différent des billets d\u2019entrée — comparez la dynamique, pas le montant</span></div>';
+  fiches.forEach(function (f) {
+    html += '<div class="li" style="align-items:center;flex-wrap:wrap;">'
+      + '<span style="min-width:170px;font-weight:650;">' + esc(f.nom.length > 30 ? f.nom.slice(0, 28) + '…' : f.nom) + '</span>'
+      + '<span style="min-width:110px;">' + (f.note != null ? '<b>\u2605 ' + String(f.note).replace('.', ',') + '</b> <span class="muted">' + (f.avis != null ? '· ' + frI(f.avis) + ' avis' : '') + '</span>' : '<span class="muted">note pas encore relevée</span>') + '</span>'
+      + '<span class="chip" style="background:#F3F4F6;color:#6b7280;">' + esc(AUD_FR[f.audience] || f.audience || '?') + '</span>'
+      + prixBar(f)
+      + (f.url ? '<a class="go" href="' + esc(f.url) + '" target="_blank" rel="noopener">Sa page →</a>' : '<span class="muted" style="margin-left:auto;">sans page lisible — à réparer</span>')
+      + '</div>';
+  });
+  html += '<div style="margin-top:10px;padding:9px 12px;background:#F8FAFC;border:1px dashed #D1D5DB;border-radius:8px;font-size:11.5px;color:#6B7280;">'
+    + '<b style="color:#374151;">Ce qu\u2019il met en avant</b> — enrichi par la lecture web de sa page (l\u2019infra d\u2019enrichissement existante) : expositions phares, offres poussées, arguments prix. <span style="color:#9CA3AF;">À brancher — aucune ligne concurrent en base aujourd\u2019hui, l\u2019emplacement est celui-ci.</span></div>'
+    + '</div>';
 
   // ── OUVERT : Vos prochaines occasions (panneau de la tuile « Prochaine occasion »security). ──
   var WINDOW_TYPES = { foreign_tourism_signal: 'afflux de visiteurs étrangers', review_solicitation: 'moment propice aux avis clients', low_competition_window: 'fenêtre de faible concurrence', audience_shift_opportunity: 'bascule de clientèle à saisir', weekend_opportunity: 'week-end favorable', calendar_audience_shift: 'calendrier favorable' };
