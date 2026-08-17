@@ -44,8 +44,47 @@
     + '<a class="lien" style="margin-left:auto;font-size:12px;" href="' + esc(f.url) + '" target="_blank" rel="noopener">Consulter →</a>'
     + '</div></div>';
 
-  // ── LE NOUVEAU BLOC : « Ce qu'il met en avant » — la lecture web de ses pages ──
-  html += '<span class="fix">Le nouveau bloc — Ce qu’il met en avant</span><div class="card">';
+  var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'clientèle locale', mixed: 'clientèle mixte', students: 'étudiants', seniors: 'seniors' };
+  var SIGNAL_FR = { premium_eux: ['eux plus cher', '#FEF3E2', AMBER], premium_vous: ['vous plus cher', '#FEF3E2', AMBER], parite: ['parité', '#F3F4F6', '#6b7280'], gap_eux: ['eux seulement', '#FEF3E2', AMBER], gap_vous: ['vous seulement', '#E6F6F0', GREEN] };
+  var pr = D.profil, mn = D.menace;
+
+  // ── 1 · EN TÊTE (owner) : son offre & ses prix — depuis competitor-profile EXISTANT (analyse cachée). ──
+  html += '<span class="fix">1 — Son offre &amp; ses prix (competitor-profile existant, réutilisé)</span><div class="card">';
+  if (pr) {
+    if (pr.value_prop_theirs) html += '<div style="font-size:12.5px;color:#374151;margin-bottom:6px;"><span style="font-weight:650;">Sa proposition :</span> ' + esc(pr.value_prop_theirs) + '</div>';
+    (pr.price_comparison || []).forEach(function (r2) {
+      var sg = SIGNAL_FR[r2.signal] || null;
+      html += '<div style="display:flex;align-items:baseline;gap:8px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
+        + '<span style="min-width:170px;font-weight:650;">' + esc(r2.category || '') + '</span>'
+        + '<span style="min-width:140px;">' + (r2.their_item ? esc(r2.their_item) + (r2.their_price ? ' · <b>' + esc(r2.their_price) + '</b>' : '') : '<span class="muted">rien chez eux</span>') + '</span>'
+        + '<span style="min-width:110px;">' + (r2.your_item ? 'vous : ' + esc(r2.your_item) + (r2.your_price ? ' · <b>' + esc(r2.your_price) + '</b>' : '') : '<span class="muted">rien chez vous</span>') + '</span>'
+        + (sg ? '<span class="chip" style="background:' + sg[1] + ';color:' + sg[2] + ';">' + sg[0] + '</span>' : '')
+        + (r2.reading ? '<span style="display:block;flex-basis:100%;font-size:11.5px;color:#6B7280;">' + esc(r2.reading) + '</span>' : '')
+        + '</div>';
+    });
+    if (!(pr.price_comparison || []).length) html += '<div class="muted">Aucun article comparable relevé entre vos deux offres.</div>';
+    if ((pr.product_gaps || []).length) html += '<div style="font-size:11.5px;color:#6B7280;margin-top:6px;"><span style="font-weight:650;color:#374151;">Ils ont, vous n’avez pas :</span> ' + pr.product_gaps.map(esc).join(' · ') + '</div>';
+  } else {
+    html += '<div class="muted">Analyse pas encore générée pour ce suivi — elle se génère à la première lecture (batch hebdo prévu).</div>';
+  }
+  html += '</div>';
+
+  // ── 2 · PUBLICS CROISÉS (owner) : ses publics principal/secondaire VS les vôtres + le mesuré. ──
+  html += '<span class="fix">2 — Publics croisés</span><div class="card">';
+  var mesAud = [D.moi.a1, D.moi.a2].filter(Boolean);
+  var croise = function (a2) { return mesAud.indexOf(a2) >= 0; };
+  html += '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12.5px;">'
+    + '<span style="font-weight:650;">Son public :</span>'
+    + (f.aud1 ? '<span class="chip" style="background:' + (croise(f.aud1) ? '#FEF3E2' : '#F3F4F6') + ';color:' + (croise(f.aud1) ? AMBER : '#6b7280') + ';">' + esc(AUD_FR[f.aud1] || f.aud1) + ' (principal)' + (croise(f.aud1) ? ' — commun avec vous' : '') + '</span>' : '')
+    + (f.aud2 ? '<span class="chip" style="background:' + (croise(f.aud2) ? '#FEF3E2' : '#F3F4F6') + ';color:' + (croise(f.aud2) ? AMBER : '#6b7280') + ';">' + esc(AUD_FR[f.aud2] || f.aud2) + ' (secondaire)' + (croise(f.aud2) ? ' — commun avec vous' : '') + '</span>' : '')
+    + '<span class="muted">le vôtre : ' + mesAud.map(function (a2) { return esc(AUD_FR[a2] || a2); }).join(' · ') + '</span>'
+    + '</div>';
+  if (mn && mn.overlap_pct != null) html += '<div style="font-size:11.5px;color:#6B7280;margin-top:4px;">Recouvrement mesuré : <b>' + String(Math.round(mn.overlap_pct)) + ' %</b>' + (mn.km != null ? ' · à ' + String(mn.km).replace('.', ',') + ' km' : '') + ' <span class="muted">(profil de menace du mart)</span></div>';
+  if (pr && pr.segment_overlap) html += '<div style="font-size:11.5px;color:#6B7280;margin-top:4px;">' + esc(pr.segment_overlap) + '</div>';
+  html += '</div>';
+
+  // ── 3 · « Ce qu'il met en avant » — la lecture web de ses pages ──
+  html += '<span class="fix">3 — Ce qu’il met en avant (lecture web)</span><div class="card">';
   html += '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px;">'
     + '<span style="font-weight:650;">Ce qu’il met en avant</span>'
     + '<span class="muted">Web — non vérifié · lu le ' + luLe + '</span></div>';

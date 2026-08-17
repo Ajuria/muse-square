@@ -9,6 +9,7 @@ import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { makeBQClient } from "../src/lib/bq";
 import { callClaudeWithWebSearch } from "../src/lib/ai/runtime/claude";
+import { GET as profileGET } from "../src/pages/api/competitive/competitor-profile";
 
 const P = "muse-square-open-data";
 const OWNER = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
@@ -21,17 +22,31 @@ const SYSTEM_FR = `Tu es un analyste concurrentiel pour un lieu culturel/commerc
 (async () => {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || P);
   const [rows] = await bq.query({
-    query: `SELECT cd.competitor_name nom, cd.google_place_id pid, cd.source_url, cd.tarifs_url,
-                   cd.google_rating note, cd.google_rating_count avis, cd.primary_audience aud
+    query: `SELECT cd.competitor_id cid, cd.competitor_name nom, cd.google_place_id pid, cd.source_url, cd.tarifs_url,
+                   cd.google_rating note, cd.google_rating_count avis,
+                   cd.primary_audience aud1, cd.secondary_audience aud2
             FROM \`${P}.raw.competitor_tracking\` ct
             JOIN \`${P}.raw.competitor_directory\` cd
               ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
             WHERE ct.location_id = @l AND ct.deleted_at IS NULL AND cd.competitor_name = 'GL Events'`,
     params: { l: OWNER }, location: "EU",
   });
+  // Mon profil (le référent du croisement de publics).
+  const [[me]] = await bq.query({
+    query: `SELECT clerk_user_id, ANY_VALUE(primary_audience_1) a1, ANY_VALUE(primary_audience_2) a2
+            FROM \`${P}.raw.insight_event_user_location_profile\` WHERE location_id = @l GROUP BY 1 LIMIT 1`,
+    params: { l: OWNER }, location: "EU",
+  });
   const f = (rows as any[])[0];
   if (!f) throw new Error("suivi GL Events introuvable");
   const nom = String(flat(f.nom));
+  // Le VRAI competitor-profile (446 lignes existantes) : génère + cache competitive_analysis_json
+  // si absent — verdict, recouvrement de publics, table de prix. On RÉUTILISE, on ne recode pas.
+  const locals = { clerk_user_id: String(flat(me.clerk_user_id)), location_id: OWNER };
+  const profRes = await profileGET({ url: new URL("http://l/api/competitive/competitor-profile?id=" + encodeURIComponent(String(flat(f.cid)))), locals } as any);
+  const prof = JSON.parse(await (profRes as any).text());
+  if (!prof.ok) console.warn("competitor-profile KO:", prof.error);
+  const ana = prof.competitive_analysis || prof.analysis || null;
   const urls = [flat(f.source_url), flat(f.tarifs_url)].filter(Boolean).map(String);
 
   const t0 = Date.now();
@@ -54,8 +69,17 @@ const SYSTEM_FR = `Tu es un analyste concurrentiel pour un lieu culturel/commerc
     fiche: {
       nom, note: flat(f.note) != null ? Number(flat(f.note)) : null,
       avis: flat(f.avis) != null ? Number(flat(f.avis)) : null,
-      aud: String(flat(f.aud) || ""), url: urls[0] || null,
+      aud1: String(flat(f.aud1) || ""), aud2: String(flat(f.aud2) || ""), url: urls[0] || null,
     },
+    moi: { a1: String(flat(me.a1) || ""), a2: String(flat(me.a2) || "") },
+    menace: prof.threat ? { overlap_pct: prof.threat.audience_overlap_pct ?? null, km: prof.threat.distance_km ?? null } : null,
+    profil: ana ? {
+      verdict: ana.verdict || null, segment_overlap: ana.segment_overlap || null,
+      value_prop_theirs: ana.value_prop_theirs || null,
+      price_comparison: Array.isArray(ana.price_comparison) ? ana.price_comparison.slice(0, 6) : [],
+      product_gaps: Array.isArray(ana.product_gaps) ? ana.product_gaps.slice(0, 4) : [],
+      relationship_type: ana.relationship_type || null,
+    } : null,
     enrich: {
       lead: parsed.lead || null,
       mises_en_avant: Array.isArray(parsed.mises_en_avant) ? parsed.mises_en_avant.slice(0, 4) : [],
