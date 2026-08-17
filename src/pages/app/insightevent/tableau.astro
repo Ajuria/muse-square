@@ -700,8 +700,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var TYPE_FR = {
             weather_hazard_onset: ["Aléa météo annoncé", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
             event_new: ["Nouvel événement concurrent repéré", AMBER], competitor_event_launch: ["Lancement chez un concurrent", AMBER],
-            competitor_event_ending: ["Fin d’exposition chez un concurrent", AMBER], competitor_positioning_gap: ["Écart de positionnement face à un concurrent", AMBER],
-            competitor_reputation_strength: ["Réputation forte d’un concurrent", AMBER], competitor_positioning_brief: ["Lecture de positionnement disponible", GREY],
+            competitor_event_ending: ["Fin d’exposition chez un concurrent", AMBER], competitor_positioning_gap: ["Un concurrent mord sur votre offre", AMBER],
+            competitor_reputation_strength: ["Réputation forte d’un concurrent", AMBER], competitor_positioning_brief: ["Votre comparaison face aux suivis est prête", GREY],
             weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
             low_competition_window: ["Fenêtre de faible concurrence", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
             foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
@@ -722,7 +722,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (oc.next_hot) {
             var rg = oc.heat_range;
             var _armTarget = (j.practices || []).filter(function (p) { return p.armable && !p.arm_enabled && p.tier !== "archivee"; })[0];
-            var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_armTarget ? ' data-tb-goto="' + esc(_armTarget.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Armer →</a>';
+            var armLink = '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_armTarget ? ' data-tb-goto="' + esc(_armTarget.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Automatiser →</a>';
             if (rg) occHtml += occRow(
               "jusqu’à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j", GREEN,
               "Vos jours de chaleur passés vous ont coûté de " + frInt(Math.abs(Math.max(rg.mn, rg.mx))) + " à " + frInt(Math.abs(Math.min(rg.mn, rg.mx))) + " €/j vs votre CA habituel (médiane, registre enjeu). Activer le dispositif ce jour-là, c’est ça à reprendre — estimé, jamais extrapolé.",
@@ -829,15 +829,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (t !== "en_test") {
               if (canProuver) actions += '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif passe de déclaré à prouvé">Prouver</a>' + sep;
 
-              actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : armement J-7, contexte, verdicts — tout seul">Automatiser</a>';
-              if (p.armable && !p.arm_enabled) actions += sep + '<a class="tb-link" href="#" data-tb-arm="' + pi + '">Armer sur signal</a>';
+              if (p.armable && !p.arm_enabled) actions += '<a class="tb-link" href="#" data-tb-arm="' + pi + '" data-tb-arm-serie="' + esc(autoHref) + '" title="En série (calendrier) ou au signal (jours chauds annoncés) — la condition se choisit dans le panneau">Automatiser</a>';
+              else actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : mesure J-7, contexte, verdicts — tout seul">Automatiser</a>';
             }
             html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;">'
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>'
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : "")
               + '<span style="flex:1;min-width:180px;">' + esc(trunc(p.text, 110)) + '</span>'
               + (t === "en_test" && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + "</span>" : "")
-              + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;" title="Le dernier rejeu n\u2019a pas permis de conclure \u2014 relancez un test sur une fen\u00eatre propre.">dernier test non concluant</span>' : "")
+              + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;" title="Le dernier test n\u2019a pas permis de conclure \u2014 relancez un test sur une fen\u00eatre propre.">dernier test non concluant</span>' : "")
               + actions
               + (p.arm_enabled ? '<a class="tb-link" href="#" data-tb-disarm="' + esc(p.practice_id) + "|" + esc(p.location_id || "") + '" style="font-size:11.5px;">Désarmer</a>' : "")
               + '</div>'
@@ -1179,7 +1179,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (panel.style.display === "block") { panel.style.display = "none"; return; }
               var ctx = p2.arm_signal_ctx || {};
               panel.style.display = "block";
-              panel.innerHTML = '<div class="tb-eb" style="margin-bottom:4px;">Le signal</div>'
+              var serieHref = b.getAttribute("data-tb-arm-serie") || "";
+              panel.innerHTML = (serieHref
+                  ? '<div class="tb-eb" style="margin-bottom:4px;">Comment automatiser ?</div>'
+                    + '<div style="font-size:12.5px;line-height:1.7;margin-bottom:8px;"><a class="tb-link" href="' + serieHref + '">En série (calendrier) →</a>'
+                    + ' <span style="color:#9CA3AF;">· ou au signal, ci-dessous :</span></div>'
+                  : '')
+                + '<div class="tb-eb" style="margin-bottom:4px;">Le signal</div>'
                 + '<div style="font-size:12.5px;line-height:1.6;"><span style="font-weight:600;">Chaleur annoncée demain (niveau ≥ 3)</span>'
                 + (ctx.n_hot_30 != null ? " — " + ctx.n_hot_30 + " jour" + (ctx.n_hot_30 > 1 ? "s" : "") + " chauds sur vos 30 derniers" : "")
                 + (ctx.next_hot ? " · prochain annoncé : " + dowFr(ctx.next_hot) + " " + frD(ctx.next_hot) : " · aucun annoncé dans l’horizon de prévision") + '</div>'
@@ -1187,7 +1193,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;">'
                 + '<input data-arm-name style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:180px;" placeholder="Destinataire (nom)" value="' + esc(p2.arm_recipient_name || "") + '">'
                 + '<input data-arm-mail style="font-size:12.5px;font-family:inherit;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;width:220px;" placeholder="Email" value="' + esc(p2.arm_recipient_contact || "") + '">'
-                + '<button type="button" data-arm-go style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Armer ce dispositif</button>'
+                + '<button type="button" data-arm-go style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;">Automatiser ce dispositif</button>'
                 + '<span data-arm-msg style="font-size:12px;color:#B91C1C;"></span></div>';
               panel.querySelector("[data-arm-go]").addEventListener("click", function () {
                 var nm = (panel.querySelector("[data-arm-name]").value || "").trim();

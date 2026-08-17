@@ -43,6 +43,16 @@ export const MOTS_BANNIS: Record<string, string> = {
   "visités cette nuit": "veille active sur tous vos suivis",
   "à chaque passage": "sous surveillance",
   "dernier passage": "sous surveillance",
+  // Rechutes du 17/08 (owner : « WE HAVE A LANGUAGE IN PLACE ») — le concept s'appelle
+  // DISPOSITIF ; « Armer » meurt (la condition vit DANS Automatiser) ; les teasers
+  // abstraits meurent (on NOMME le concurrent et le fait, ou on ne dit rien).
+  "Vos recettes": "Vos dispositifs",
+  "Armer sur signal": "Automatiser (le signal est une condition du flux)",
+  "Armer →": "Automatiser →",
+  "lecture de positionnement": "les faits nommés (concurrent, chiffres) — jamais un teaser",
+  "écart de positionnement": "nommer le concurrent et l'écart concret",
+  "fenêtres de la semaine": "vos prochaines occasions",
+  "Ma couverture": "Ma veille concurrentielle",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

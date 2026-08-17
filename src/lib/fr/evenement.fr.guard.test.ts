@@ -29,6 +29,12 @@ const SURFACES = [
   // Le harnais de rendu DUPLIQUE la copie réelle dans ses fixtures : sans lui sous garde,
   // il affiche des mots périmés et ment sur ce que la page dit (constaté le 10/08).
   "public/card-harness.html",
+  // Maquettes (owner 17/08) : elles portent la copie que l'owner VALIDE — un mot inventé
+  // en maquette devient un mot en prod ; le garde-fou mord donc dès la maquette.
+  "public/piloter-full-proto.html",
+  "public/piloter-autour-proto.html",
+  "public/piloter-ops-proto.html",
+  "public/agir-proto.html",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

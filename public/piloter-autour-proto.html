@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — « Autour de vous » réorganisé : Compétitivité / Processus métiers</title>
+<style>
+  body { margin:0; background:#F6F7F9; font-family:-apple-system,system-ui,"Segoe UI",sans-serif; color:#111827; }
+  .wrap { max-width:800px; margin:24px auto 70px; padding:0 16px; }
+  .sec { font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:#111827; font-weight:700; margin:26px 0 10px; }
+  .eb { font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:rgba(17,24,39,0.45); font-weight:600; margin:0 0 8px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; }
+  .grid.two { grid-template-columns:repeat(2,1fr); }
+  .rb { background:#fff; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:11px 13px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
+  .rb .hd { display:flex; align-items:center; gap:7px; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:#6B7280; font-weight:600; }
+  .rb .num { font-size:17px; font-weight:700; margin-top:5px; }
+  .rb .num .u { font-size:11.5px; font-weight:500; color:#6B7280; margin-left:4px; }
+  .rb .rs2 { font-size:10.5px; color:#9CA3AF; margin-top:3px; line-height:1.5; }
+  .panel { background:#fff; border:1px solid rgba(0,0,0,0.08); border-radius:12px; padding:14px 16px; box-shadow:0 1px 2px rgba(16,24,40,0.04); margin-bottom:14px; font-size:13px; line-height:1.6; }
+  .panel .ph { display:flex; align-items:center; gap:8px; font-weight:650; font-size:13px; margin-bottom:8px; }
+  .lead { font-size:13px; color:#111827; }
+  .lead b { font-weight:650; }
+  .li { display:flex; align-items:baseline; gap:8px; padding:7px 0; border-top:1px solid #F5F6F8; font-size:12.5px; }
+  .li .go { margin-left:auto; color:#1D3BB3; font-weight:650; font-size:12px; white-space:nowrap; text-decoration:none; }
+  .chip { font-size:10.5px; font-weight:600; border-radius:20px; padding:2px 9px; white-space:nowrap; display:inline-flex; }
+  .muted { color:#9CA3AF; font-size:11px; }
+  .dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eb" style="font-size:13px;color:#111827;text-transform:none;letter-spacing:0;">Proto — « Autour de vous » réorganisé <span style="color:#9CA3AF;font-weight:400;">· données réelles, chaque carte montrée OUVERTE</span></p>
+  <div id="root"></div>
+  <div id="err" style="display:none;color:#B91C1C;padding:30px;text-align:center;">Données introuvables — relancez scripts/piloter-autour-proto-harness.ts.</div>
+</div>
+<script src="piloter-autour-proto-data.js?v=1"></script>
+<script>
+(function () {
+  var D = window.AUTOUR_PROTO;
+  if (!D) { document.getElementById('err').style.display = 'block'; return; }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function frI(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString('fr-FR'); }
+  function frD(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : ''; }
+  function dowFr(iso) { return ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date(iso + 'T12:00:00Z').getUTCDay()]; }
+  var AMBER = '#B45309', GREEN = '#059669', BLUE = '#1D3BB3', GREY = '#9CA3AF';
+  var html = '';
+
+  // ════ COMPÉTITIVITÉ ════
+  html += '<p class="sec">Compétitivité</p>';
+
+  // Données : activité périmètre.
+  var evts = D.evts || [];
+  var opDates = {};
+  (D.mesures || []).forEach(function (m) { (m.occ || []).forEach(function (o) { opDates[o.d] = true; }); if (m.ws) opDates[m.ws] = true; });
+  var nRisk = evts.filter(function (e) { return e.score >= 2; }).length;
+  var nColl = evts.filter(function (e) { return opDates[e.d]; }).length;
+  // Données : positionnement.
+  var vLieux = (D.veille.lieux || []);
+  var nTarifs = (D.offres_base || {}).n_tarifs || 0;
+  var chg = (D.offres || []).length;
+  var maxAge = Math.max.apply(null, vLieux.map(function (v) { return v.age_j == null ? 99 : v.age_j; }).concat([0]));
+  var casse = vLieux.filter(function (v) { return v.age_j == null || v.age_j > 1; }).length + ((D.veille.sans_cle || []).length);
+  var byType = {};
+  (D.cartes || []).forEach(function (c) { byType[c.type] = (byType[c.type] || 0) + 1; });
+  var nPosSignals = (byType.competitor_positioning_gap || 0) + (byType.competitor_reputation_strength || 0) + (byType.event_new || 0) + (byType.competitor_event_ending || 0) + (byType.competitor_positioning_brief || 0);
+
+  html += '<div class="grid two">'
+    + '<div class="rb"><div class="hd"><span class="dot" style="background:' + (nColl ? AMBER : GREY) + ';"></span>Activité dans votre périmètre</div>'
+    + '<div class="num">' + evts.length + '<span class="u">événements · 14 j</span></div>'
+    + '<div class="rs2">' + nRisk + ' à risque élevé · ' + (nColl ? nColl + ' le jour d’une de vos opérations' : 'aucune collision avec vos opérations') + '</div></div>'
+    + '<div class="rb"><div class="hd"><span class="dot" style="background:' + (casse ? AMBER : GREEN) + ';"></span>Mon positionnement</div>'
+    + '<div class="num" style="font-size:14px;line-height:1.3;padding-top:3px;">' + (chg ? chg + ' changements chez vos suivis' : 'Prix stables chez vos ' + vLieux.length + ' suivis') + '</div>'
+    + '<div class="rs2">' + nTarifs + ' tarifs comparés · ' + nPosSignals + ' signaux de position à lire</div></div>'
+    + '</div>';
+
+  // ── OUVERT : Activité dans votre périmètre — classée par RISQUE, pas par date. ──
+  html += '<div class="panel"><div class="ph"><span class="dot" style="background:' + (nColl ? AMBER : GREY) + ';"></span>Activité dans votre périmètre <span class="muted" style="margin-left:auto;">ouvert</span></div>'
+    + '<div class="lead">' + evts.length + ' événements sous 14 jours autour de vos sites — <b>classés par risque de cannibalisation</b> (audience commune + secteur + proximité + collision de date), plus jamais une liste chronologique.</div>';
+  evts.slice().sort(function (a, b) { return (b.score + (opDates[b.d] ? 2 : 0)) - (a.score + (opDates[a.d] ? 2 : 0)); }).forEach(function (e) {
+    var coll = opDates[e.d];
+    html += '<div class="li">'
+      + '<span class="chip" style="background:' + (e.score >= 3 || coll ? '#FEF3E2' : '#F3F4F6') + ';color:' + (e.score >= 3 || coll ? AMBER : '#6b7280') + ';">risque ' + e.score + '/4' + (coll ? ' · collision' : '') + '</span>'
+      + '<span style="min-width:0;"><b>' + esc(e.lieu) + '</b> — ' + esc(e.nom.length > 42 ? e.nom.slice(0, 39) + '…' : e.nom)
+      + '<span class="muted" style="display:block;">' + dowFr(e.d) + ' ' + frD(e.d) + (e.m != null ? ' · à ' + (e.m / 1000).toFixed(1).replace('.', ',') + ' km' : '') + (coll ? ' · <span style="color:#B45309;font-weight:600;">le jour de votre Corner</span>' : '') + '</span></span>'
+      + '<a class="go" href="#">Consulter →</a></div>';
+  });
+  html += '<div class="muted" style="margin-top:8px;">La carte du périmètre reste au sommet du panneau sur la vraie page (vignette « Ouvrir la carte »).</div></div>';
+
+  // ── OUVERT : Mon positionnement — la réponse d'abord, la base explicite. ──
+  html += '<div class="panel"><div class="ph"><span class="dot" style="background:' + (casse ? AMBER : GREEN) + ';"></span>Mon positionnement <span class="muted" style="margin-left:auto;">ouvert</span></div>'
+    + '<div class="lead">' + (chg
+      ? '<b>' + chg + ' changements détectés</b> chez vos suivis depuis la dernière lecture.'
+      : '<b>Prix stables chez vos ' + vLieux.length + ' suivis</b> — ' + nTarifs + ' tarifs comparés, aucun changement à la lecture de cette nuit.')
+    + (casse ? ' <span style="color:#B45309;font-weight:600;">' + casse + ' suivi' + (casse > 1 ? 's' : '') + ' n’est plus lisible — à réparer.</span>' : '')
+    + '</div>';
+  function posLine(cond, dotCol, txt, cta) {
+    if (!cond) return '';
+    return '<div class="li"><span class="dot" style="background:' + dotCol + ';margin-top:5px;"></span><span style="min-width:0;">' + txt + '</span><a class="go" href="#">' + cta + ' →</a></div>';
+  }
+  html += posLine(byType.competitor_positioning_gap, AMBER, '<b>Un concurrent mord sur votre offre</b> — le détail nomme qui, et sur quoi.', 'Lire')
+    + posLine(byType.competitor_positioning_brief, BLUE, '<b>Votre comparaison face aux suivis est prête</b> — où vous êtes différencié, où vous êtes attaquable.', 'Lire')
+    + posLine(byType.competitor_reputation_strength, AMBER, '<b>Réputation forte</b> chez ' + (byType.competitor_reputation_strength > 1 ? byType.competitor_reputation_strength + ' concurrents suivis' : 'un concurrent suivi') + ' — leur note monte, comparez ce qu’ils mettent en avant.', 'Voir')
+    + posLine(byType.event_new, GREY, '<b>Nouvel événement repéré</b> chez un concurrent suivi.', 'Voir')
+    + posLine(byType.competitor_event_ending, GREEN, '<b>Fin d’exposition</b> chez un concurrent — fenêtre de report de flux vers vous.', 'Voir');
+  html += '<div class="muted" style="margin-top:8px;">' + vLieux.length + ' fiches concurrent enrichies (audiences, offres, événements) alimentent cette comparaison — c’est votre base de différenciation.</div></div>';
+
+  // ── OUVERT : Vos prochaines occasions (panneau de la tuile « Prochaine occasion »security). ──
+  var WINDOW_TYPES = { foreign_tourism_signal: 'afflux de visiteurs étrangers', review_solicitation: 'moment propice aux avis clients', low_competition_window: 'fenêtre de faible concurrence', audience_shift_opportunity: 'bascule de clientèle à saisir', weekend_opportunity: 'week-end favorable', calendar_audience_shift: 'calendrier favorable' };
+  var byDay = {};
+  (D.cartes || []).forEach(function (c) { if (WINDOW_TYPES[c.type]) { (byDay[c.d] = byDay[c.d] || []).push(WINDOW_TYPES[c.type]); } });
+  var oc = D.occasions || {};
+  html += '<div class="panel"><div class="ph"><span class="dot" style="background:' + GREEN + ';"></span>Vos prochaines occasions <span class="muted" style="margin-left:8px;">(le panneau qu’ouvre la tuile « Prochaine occasion »)</span><span class="muted" style="margin-left:auto;">ouvert</span></div>'
+    + '<div class="lead">Digéré par <b>jour et décision</b> — plus jamais « type ×N ».</div>';
+  var days = Object.keys(byDay).sort().slice(0, 4);
+  days.forEach(function (d) {
+    var isHot = oc.next_hot === d;
+    var parts = byDay[d].filter(function (v, i2, a) { return a.indexOf(v) === i2; }).slice(0, 3);
+    if (isHot && oc.heat_range) parts.unshift('jour chaud (jusqu’à ' + frI(Math.min(oc.heat_range.mn, oc.heat_range.mx)) + ' €/j à récupérer' + (oc.next_hot_site_label ? ', ' + oc.next_hot_site_label : '') + ')');
+    html += '<div class="li"><span class="chip" style="background:' + (isHot ? '#E6F6F0' : '#F3F4F6') + ';color:' + (isHot ? GREEN : '#6b7280') + ';">' + dowFr(d) + ' ' + frD(d) + '</span>'
+      + '<span style="min-width:0;">' + esc(parts.join(' + ')) + (isHot ? ' — <b>votre meilleure fenêtre de la semaine</b>' : '') + '</span>'
+      + '<a class="go" href="#">' + (isHot ? 'Préparer' : 'Consulter') + ' →</a></div>';
+  });
+  if (oc.total) html += '<div class="muted" style="margin-top:8px;">' + (oc.played || 0) + '/' + oc.total + ' jours de chaleur couverts par une action sur 30 j — les fenêtres non couvertes sont là pour ça.</div>';
+  html += '</div>';
+
+  // ════ PROCESSUS MÉTIERS ════
+  html += '<p class="sec">Processus métiers</p>';
+  var practices = D.practices || [];
+  var nProuv = practices.filter(function (p) { return p.tier === 'prouvee'; }).length;
+  var nDecl = practices.filter(function (p) { return p.tier === 'declaree'; }).length;
+  var nTest = practices.filter(function (p) { return p.tier === 'en_test'; }).length;
+  var learnings = D.learnings || [];
+  var eq = D.equipe || [];
+  var nOpen = eq.reduce(function (a, p2) { return a + (p2.open || []).length; }, 0);
+  var au = D.automated || {};
+  var nProg = (au.verdicts_scheduled || []).length + (au.next_autoarm ? 1 : 0);
+
+  html += '<div class="grid">'
+    + '<div class="rb"><div class="hd"><span class="dot" style="background:' + (nProuv ? GREEN : GREY) + ';"></span>Vos dispositifs</div><div class="num">' + nProuv + '<span class="u">prouvée' + (nProuv > 1 ? 's' : '') + '</span></div><div class="rs2">' + nDecl + ' déclarées' + (nTest ? ' · ' + nTest + ' en test' : '') + ' · ' + learnings.length + ' apprentissages chiffrés</div></div>'
+    + '<div class="rb"><div class="hd"><span class="dot" style="background:' + GREEN + ';"></span>Automatisations</div><div class="num">' + ((au.snapshots_recent || []).length || 0) + '<span class="u">reçue' + (((au.snapshots_recent || []).length || 0) > 1 ? 's' : '') + '</span></div><div class="rs2">' + nProg + ' programmées</div></div>'
+    + '<div class="rb"><div class="hd"><span class="dot" style="background:' + (nOpen ? GREEN : GREY) + ';"></span>Équipe</div><div class="num">' + nOpen + '<span class="u">en cours</span></div><div class="rs2">' + eq.map(function (p2) { return esc(String(p2.who).split('·')[0].trim()); }).filter(Boolean).slice(0, 2).join(' · ') + '</div></div>'
+    + '</div>';
+
+  // ── OUVERT : Vos dispositifs — prouvées d'abord, chemin vers « prouvé » explicite. ──
+  html += '<div class="panel"><div class="ph"><span class="dot" style="background:' + (nProuv ? GREEN : GREY) + ';"></span>Vos dispositifs <span class="muted" style="margin-left:auto;">ouvert</span></div>'
+    + '<div class="lead">' + (nProuv ? '<b>' + nProuv + ' dispositif' + (nProuv > 1 ? 's' : '') + ' prouvée' + (nProuv > 1 ? 's' : '') + '</b> — rejouables.' : '<b>Aucune dispositif prouvée encore</b> — ' + nDecl + ' déclarées attendent leur test : une exécution mesurée qui tient sa cible suffit.') + '</div>';
+  practices.filter(function (p) { return p.tier !== 'archivee'; }).slice(0, 4).forEach(function (p2) {
+    var t2 = String(p2.text || '').split('—')[0].split('(')[0].trim();
+    html += '<div class="li"><span class="chip" style="background:' + (p2.tier === 'prouvee' ? '#E6F6F0' : p2.tier === 'en_test' ? '#EEF2FF' : '#F3F4F6') + ';color:' + (p2.tier === 'prouvee' ? GREEN : p2.tier === 'en_test' ? BLUE : '#6b7280') + ';">' + (p2.tier === 'prouvee' ? 'prouvée' : p2.tier === 'en_test' ? 'en test' : 'déclarée') + '</span>'
+      + '<span style="min-width:0;">' + esc(t2.length > 58 ? t2.slice(0, 55) + '…' : t2) + '</span>'
+      + '<a class="go" href="#">' + (p2.tier === 'prouvee' ? 'Rejouer' : 'Prouver') + ' →</a></div>';
+  });
+  html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div><div class="eb">Ce que l’app a appris de vos sites</div>';
+  learnings.slice(0, 4).forEach(function (l) {
+    var pos = Number(l.eur_year) > 0;
+    html += '<div class="li"><span style="font-weight:700;color:' + (pos ? GREEN : AMBER) + ';white-space:nowrap;">' + (pos ? '+' : '') + frI(l.avg_gap_eur) + ' €/j</span>'
+      + '<span style="min-width:0;">' + (pos ? 'gagnés' : 'perdus') + ' ' + esc(l.label_fr) + ' <span class="chip" style="background:#F3F4F6;color:#6b7280;">' + esc(l.site_label) + '</span></span>'
+      + (l.covered ? '<span class="chip" style="background:#E6F6F0;color:' + GREEN + ';margin-left:auto;">couvert — dispositif en place</span>' : '<a class="go" href="#">M’engager →</a>') + '</div>';
+  });
+  html += '</div>';
+
+  // ── OUVERT : Équipe + Automatisations (compact). ──
+  html += '<div class="grid two" style="align-items:start;">';
+  html += '<div class="panel" style="margin-bottom:0;"><div class="ph"><span class="dot" style="background:' + (nOpen ? GREEN : GREY) + ';"></span>Équipe <span class="muted" style="margin-left:auto;">ouvert</span></div>';
+  eq.forEach(function (p2) {
+    var who = String(p2.who || '').split('·')[0].trim();
+    if ((!who || who === '—') && !(p2.open || []).length) return;
+    html += '<div class="li"><b>' + esc(who || 'Sans porteur') + '</b><span style="min-width:0;" class="muted">' + ((p2.open || []).length ? (p2.open || []).length + ' en cours' : 'rien en cours') + (p2.gap_eur != null ? ' · ' + (p2.gap_eur >= 0 ? '+' : '−') + frI(p2.gap_eur) + ' €' : '') + '</span></div>';
+  });
+  html += '</div>';
+  html += '<div class="panel" style="margin-bottom:0;"><div class="ph"><span class="dot" style="background:' + GREEN + ';"></span>Automatisations <span class="muted" style="margin-left:auto;">ouvert</span></div>'
+    + '<div class="li"><span class="dot" style="background:' + GREEN + ';margin-top:5px;"></span><span>Contextes d’occurrence gelés automatiquement (' + ((au.snapshots_recent || []).length || 0) + ' reçus)</span></div>'
+    + (au.next_autoarm ? '<div class="li"><span class="dot" style="background:' + BLUE + ';margin-top:5px;"></span><span>Prochaine occurrence : mesure programmée seule à J-7</span></div>' : '')
+    + ((au.verdicts_scheduled || []).length ? '<div class="li"><span class="dot" style="background:' + BLUE + ';margin-top:5px;"></span><span>' + (au.verdicts_scheduled || []).length + ' verdict' + ((au.verdicts_scheduled || []).length > 1 ? 's' : '') + ' jugé' + ((au.verdicts_scheduled || []).length > 1 ? 's' : '') + ' automatiquement à l’échéance</span></div>' : '')
+    + '</div>';
+  html += '</div>';
+
+  document.getElementById('root').innerHTML = html;
+})();
+</script>
+</body>
+</html>
