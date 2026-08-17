@@ -31,6 +31,95 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 }
 
+
+// ── KPI déclaré : série jour + pairs + objectif, dans l'unité de measured_metric ─────────
+// Aligné sur le harnais du proto validé (scripts/engagement-kpi-proto-harness.ts). K1 lit les
+// lignes residual déjà chargées (zéro requête en plus) ; K2-K6 lisent la colonne du registre
+// dans fct_client_daily_performance ; K8 (famille) rejoint saved_items.kpi_family.
+const PERF_TABLE = `${BQ_PROJECT}.mart.fct_client_daily_performance`;
+const KPI_DAY_COL: Record<string, string> = {
+  footfall: "daily_visitors", conversion: "daily_conversion_rate", basket: "daily_avg_basket",
+  transactions: "daily_transactions", discount: "daily_discount_total",
+};
+const KPI_LABEL: Record<string, string> = {
+  revenue_residual: "CA vs normale", footfall: "visiteurs/jour", conversion: "taux de conversion",
+  basket: "panier moyen", transactions: "tickets/jour", discount: "\u20ac remis\u00e9s/jour", family_revenue: "CA famille/jour",
+};
+const kpiRound = (v: number): number => (Math.abs(v) < 10 ? Math.round(v * 1000) / 1000 : Math.round(v * 10) / 10);
+
+async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], today: string) {
+  const metric = String(snap.measured_metric || "revenue_residual");
+  const loc = String(snap.location_id);
+  // FENÊTRE STOCKÉE, jamais la convention legacy « jour de création » du bloc series : un
+  // day_of ancré sur un événement (window_start = jour de l'événement, ex. 22/08 créé le 15/08)
+  // se mesure SUR ce jour — le harnais a attrapé le bloc en train de « mesurer » la création.
+  const wsSnap = String(flat(snap.window_start) || "").slice(0, 10);
+  const weSnap = String(flat(snap.window_end) || "").slice(0, 10);
+  const ws = wsSnap || dates[0], we = weSnap || dates[dates.length - 1];
+  const dayOf = snap.window_kind === "day_of";
+  let baseline = snap.kpi_baseline != null ? Number(flat(snap.kpi_baseline)) : null;
+  let realized = snap.kpi_window_value != null ? Number(flat(snap.kpi_window_value)) : null;
+  let family: string | null = null;
+  let daily: { date: string; v: number }[] = [];
+  let peers: { date: string; v: number }[] = [];
+
+  if (metric === "family_revenue") {
+    if (snap.saved_item_id) {
+      const [f] = await bq.query({ query: `SELECT kpi_family FROM \`${BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @s LIMIT 1`, params: { s: String(snap.saved_item_id) }, location: "EU" });
+      family = f[0] ? String(flat((f[0] as any).kpi_family) || "") || null : null;
+    }
+    if (!family) return null; // pas de famille rattachée -> pas de bloc (jamais un chiffre d'une autre famille)
+    const [dr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND item_category=@f AND transaction_date BETWEEN @a AND @b GROUP BY 1 ORDER BY 1`,
+      params: { l: loc, f: family, a: bq.date(ws), b: bq.date(we) }, location: "EU" });
+    daily = (dr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) }));
+    if (dayOf) {
+      const [pr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND item_category=@f AND transaction_date < @a AND transaction_date <= @t AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM @a) GROUP BY 1 ORDER BY 1 DESC LIMIT 8`,
+        params: { l: loc, f: family, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
+      peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
+    }
+  } else if (KPI_DAY_COL[metric]) {
+    const col = KPI_DAY_COL[metric];
+    const [dr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, ${col} v FROM \`${PERF_TABLE}\` WHERE location_id=@l AND transaction_date BETWEEN @a AND @b AND ${col} IS NOT NULL ORDER BY 1`,
+      params: { l: loc, a: bq.date(ws), b: bq.date(we) }, location: "EU" });
+    daily = (dr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) }));
+    if (dayOf) {
+      const [pr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, ${col} v FROM \`${PERF_TABLE}\` WHERE location_id=@l AND transaction_date < @a AND transaction_date <= @t AND ${col} IS NOT NULL AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM @a) ORDER BY 1 DESC LIMIT 8`,
+        params: { l: loc, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
+      peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
+    }
+  } else {
+    // K1 : CA/j réalisé + habituel depuis les lignes residual DÉJÀ chargées.
+    const dd = rrows.map((x) => ({ date: String(flat(x.date)), v: Number(flat(x.daily_revenue)), e: Number(flat(x.expected_revenue)) }));
+    daily = dd.map(({ date, v }) => ({ date, v }));
+    const past = dd.filter((x) => x.date <= today);
+    if (past.length) {
+      if (realized == null) realized = kpiRound(past.reduce((s, x) => s + x.v, 0) / past.length);
+      if (baseline == null) baseline = kpiRound(past.reduce((s, x) => s + x.e, 0) / past.length);
+    }
+    if (baseline == null && snap.window_expected_revenue != null && snap.window_days_expected) {
+      baseline = kpiRound(Number(flat(snap.window_expected_revenue)) / Number(snap.window_days_expected));
+    }
+    if (dayOf) {
+      const [pr] = await bq.query({ query: `SELECT CAST(date AS STRING) d, daily_revenue v FROM \`${RESIDUAL}\` WHERE location_id=@l AND date < @a AND date <= @t AND EXTRACT(DAYOFWEEK FROM date) = EXTRACT(DAYOFWEEK FROM @a) ORDER BY 1 DESC LIMIT 8`,
+        params: { l: loc, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
+      peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
+    }
+  }
+
+  daily = daily.filter((x) => x.date <= today); // jours futurs jamais mesur\u00e9s
+  if (ws > today) realized = null;
+  if (realized == null && ws <= today && daily.length) realized = kpiRound(daily.reduce((s, x) => s + x.v, 0) / daily.length);
+
+  const basis = String(snap.threshold_basis || "");
+  const thr = snap.threshold_value != null ? Number(flat(snap.threshold_value)) : null;
+  const days = Number(snap.window_days_expected) || (dayOf ? 1 : 7);
+  let goal: number | null = null, goal_pct: number | null = null;
+  if (basis === "pct" && thr != null && baseline != null) { goal_pct = thr; goal = kpiRound(baseline * (1 + thr / 100)); }
+  else if (basis === "residual_z" && thr != null && baseline != null) { goal_pct = Math.max(1, Math.round(thr * 0.19 / Math.sqrt(days) * 100)); goal = kpiRound(baseline * (1 + goal_pct / 100)); }
+
+  return { metric, label_fr: KPI_LABEL[metric] || metric, family, day_of: dayOf, baseline, realized, goal, goal_pct, daily, peers };
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
@@ -101,6 +190,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // owner + when (header) and the goal reference for "vs objectif".
       created_at: flat(snap.created_at), action_done_at: flat(snap.action_done_at),
       threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
+      // Verdict par KPI (15/08) : le référentiel qui a JUGÉ + la bande de bruit — la page le dit.
+      verdict_basis: snap.verdict_basis ?? null,
+      kpi_noise_se: snap.kpi_noise_se != null ? Number(flat(snap.kpi_noise_se)) : null,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
       // Enjeu d'origine gelé à la création (26/07) — rendu VERBATIM par le bloc Enjeu du doc
       // (tier_label_fr tel quel : pill et page alignées par construction). Null → pas de bloc.
@@ -115,6 +207,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
     const asOf = parisDate(new Date().toISOString());
     const extras = await assembleEvolutionExtras(bq, snap, asOf);
+
+    // ── Bloc KPI-vrai (owner 15/08, proto engagement-kpi-proto validé) : la mesure dans le KPI
+    // DÉCLARÉ (measured_metric) — jauge tricolore + points pairs + courbe en unité KPI. Jours
+    // FUTURS toujours exclus (le seed démo porte des ventes au-delà d'aujourd'hui : un jour
+    // futur n'est jamais « mesuré »). Échec de mesure → champs null, jamais un chiffre inventé.
+    const kpi = await buildKpiBlock(bq, snap, dates, rrows as any[], asOf).catch(() => null);
 
     // Move "how" hit-rates for this action type (fct_location_action_moves) — feeds the diagnosis advice.
     let move_stats: { move: string; attempts: number; hits: number }[] = [];
@@ -149,7 +247,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
-    return json({ ok: true, commitment, series, move_stats, best_in_class, site_name, ...extras });
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

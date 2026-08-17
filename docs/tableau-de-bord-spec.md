@@ -154,3 +154,44 @@ automatisations Reçu/Programmé/À activer). Tendance des fenêtres ouvertes DA
 (CA → mart résiduel ; famille → transactions vs moyenne/jour) — preuve du piège : CA total −16,4 % sur une
 fenêtre dont la métrique famille a tenu +510 €. Serveur : 27 lectures un lot, 2,3 s à chaud (budget 3 s).
 Vérité rendu : `scripts/tableau-v4-render-verify.mjs` instruit à la V6 — 30/30.
+
+
+---
+
+## V7 — système visuel (14/08, validé sur maquette `public/piloter-proto.html` screenshotée)
+
+Trois surfaces, plus jamais de boîtes vides empilées :
+1. **Héros insécable** — grille CSS stricte 4 colonnes à séparateurs verticaux (jamais de flex-wrap),
+   anatomie de tuile unique (étiquette petites-caps → nombre 26 px → UNE sous-ligne 11,5 px sans
+   troncature de sens). Tuiles : Impact € (seul accent couleur) · À faire N · **Prochaine occasion**
+   (PROSPECTIF : prochain jour d'environnement annoncé, € gated registre « jusqu'à X €/j » —
+   le compteur rétrospectif joué/manqué du héros est SUPPRIMÉ, il vit dans À surveiller) ·
+   **Veille = TROUVAILLES** (« 0 — rien n'a bougé chez vos N suivis » : l'absence est une
+   information ; le technique n'est que la couleur de pastille, ambre = veille cassée).
+   Pied de carte : dernier verdict + « Seuils trop hauts ? » alignés, plus jamais flottants.
+2. **À faire en table** — colonnes fixes [quand 56 · quoi · valeur 88 · action 148], rangées 46 px,
+   troncature AU MOT, CTA tous alignés à droite, un seul bouton plein (.tb-btnp).
+3. **Radar = UNE surface** — les 5 volets sont des rangées [pastille 8 px · libellé 15 px ·
+   résumé texte gris · chevron] d'une seule carte (.tb-rv/.tb-rbody) ; chips-soupes remplacées
+   par des résumés en texte ; couleur = pastille d'état seulement. La **vignette-carte du radar
+   d'Agir** (anneaux SVG, réutilisée telle quelle) ouvre le volet Événements concurrents et pointe
+   vers /app/insightevent/map (Leaflet jamais chargé sur Piloter) ; ses compteurs parlent AU
+   RÉFÉRENTIEL du volet (les 14 jours listés dessous). Jours EN ENTIER quand ils forment une
+   phrase (« votre jeudi habituel ≈ 1 140 € » — « jeu » se lisait « votre jeu »).
+
+Vocabulaire banni par ce cycle : « occasions jouées » (compteur rétrospectif opaque),
+« lieux visités cette nuit » en tuile (résultat technique — le stratégique est la trouvaille).
+Nettoyage : row3/goalsChips/.tb-row3/.tb-aline/.tb-volet supprimés (morts depuis la V7).
+Agir allégé (retrait du radar de pulse) : maquette validée, EN ATTENTE des remarques owner
+sur la section Agir avant tout démontage de pulse.astro.
+
+
+### V7.1 — registre de la veille (14/08, 3e rechute corrigée + gardée)
+« Ma couverture » → **« Ma veille concurrentielle »** (« couverture » était mon vocabulaire d'audit,
+pas celui de l'exploitant). Règle de registre désormais AU GARDE-FOU (`MOTS_BANNIS`) : l'exploitant
+lit des TROUVAILLES (« offres stables », « 2 changements d'offre ») — le TECHNIQUE du crawl ne
+s'affiche que CASSÉ (« « X » échappe à votre veille — sa page n'est plus lue »), jamais en
+inventaire sain (« 4 lieux visités cette nuit · 1 102 événements relevés » : SUPPRIMÉ). Bannis :
+« lieux visités », « jamais visité », « visités cette nuit », « à chaque passage », « dernier
+passage ». Conséquence du renommage : les AUTOMATISATIONS quittent la veille (elles n'y étaient
+que par flou du titre) → 6e rangée radar à part (Reçu / Programmé / À activer).

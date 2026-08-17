@@ -222,24 +222,45 @@ if (!location_id) {
 
       .ab-bar { display:none; }
       .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+      /* ── FIL AGIR inc 2 (maquette agir-proto validée 14/08, spec docs/agir-fil-spec.md) :
+         le conteneur-fil = les holders du triage ([data-t-cards]) et la section engagements ;
+         dedans, les cartes deviennent des RANGÉES (filet 1 px, zéro boîte). ── */
+      [data-t-cards]:not(:empty), #pls-engagement-cards:not(:empty) { background:var(--color-bg-card); border:1px solid rgba(0,0,0,0.08); border-radius:14px; overflow:hidden; }
+      [data-t-cards] .ab-card, #pls-engagement-cards .ab-card { border:none; border-top:1px solid rgba(17,24,39,0.06); border-radius:0; margin-bottom:0; box-shadow:none; transition:background 0.12s; }
+      [data-t-cards] .ab-card:first-child, #pls-engagement-cards .ab-card:first-child { border-top:none; }
+      [data-t-cards] .ab-card:hover, #pls-engagement-cards .ab-card:hover { background:#FAFBFC; }
+      /* Couleur de POSSESSION (Phase 2 cycle système/utilisateur) : les engagements sont À VOUS. */
+      #pls-engagement-cards:not(:empty) { background:#F7F9FF; box-shadow:inset 2px 0 0 #1D3BB3; margin-bottom:14px; }
+      #pls-engagement-cards .ab-card { background:transparent; }
+      #pls-engagement-cards .ab-card:hover { background:#F2F5FF; }
+      /* Médaillon-avatar : le disque devient un cercle 30 px ; anneau ambre = urgent. */
+      .ab-disc { width:30px; height:30px; border-radius:50%; background:#F4F5F7; display:flex; align-items:center; justify-content:center; flex:none; }
+      .pls-cta-sec { background:none; border:none; padding:0; font-family:inherit; font-size:12.5px; font-weight:500; color:#6B7280; cursor:pointer; }
+      .pls-cta-sec:hover { color:#374151; }
+      .pls-cta-pri { background:none; border:none; padding:0; font-family:inherit; font-size:12.5px; font-weight:650; color:#1D3BB3; cursor:pointer; }
+      .pls-cta-pri:hover { text-decoration:underline; text-underline-offset:3px; }
+      .ab-disc.urgent { box-shadow:0 0 0 2px #FDE68A; }
       .ab-card-row { display:flex; }
       .ab-bar { display:none; }
       .ab-bar.ab-threat { background:#e24b4a; }
       .ab-bar.ab-warning { background:#ef9f27; }
       .ab-bar.ab-opportunity { background:#059669; }
       .ab-inner { flex:1; min-width:0; }
-      .ab-summary { padding:14px 16px; cursor:pointer; }
+      .ab-summary { padding:18px 20px 8px; cursor:pointer; }
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
       .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
-      .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
-      .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+      .ab-what { font-size:15.5px; font-weight:650; color:#111827; line-height:1.35; margin-bottom:7px; letter-spacing:-0.01em; }
+      .ab-what[data-consult-open]:hover { color:#1D3BB3; }
+      .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
          invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
          « cause multifactorielle » + sens de la couleur en infobulle (title), signalée par le
          pointillé. Couleur du montant = sens du flux (vert = à capter, ambre = à défendre). */
       .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
-      .amt-val { font-size:16px; font-weight:600; line-height:1.1; white-space:nowrap; }
-      .amt-sub { font-size:10.5px; color:#9CA3AF; margin-top:2px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+      .amt-val { display:inline-block; font-size:19px; font-weight:700; line-height:1.1; white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; padding:4px 10px; border-radius:10px; }
+      .amt.gain .amt-val { color:#059669; background:#ECFDF5; }
+      .amt.defend .amt-val { color:#B45309; background:#FFF7ED; }
+      .amt-sub { font-size:11px; color:#9CA3AF; margin-top:3px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
       /* Décision D (18/07) : cartes action fermées à 3 lignes, « Voir plus » seulement si ça déborde. */
       .ab-sowhat.pls-clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
       .pls-more { font-size:11.5px; font-weight:600; color:#1D3BB3; cursor:pointer; margin-top:5px; }
@@ -360,7 +381,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=46"></script>
+    <script is:inline src="/action-cards.js?v=47"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -785,7 +806,7 @@ if (!location_id) {
       return "Acc\u00e8s au site potentiellement impact\u00e9";
     }
 
-    if (sub === "ranking_up")   { var _ru = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle monte de " + _ru + " place" + (_ru > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — meilleure fenêtre commerciale qu’avant."; }
+    if (sub === "ranking_up")   { var _ru = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle monte de " + _ru + " place" + (_ru > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — meilleure occasion commerciale qu’avant."; }
     if (sub === "ranking_down") { var _rd2 = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle recule de " + _rd2 + " place" + (_rd2 > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — fenêtre commerciale moins favorable qu’avant."; }
     if (sub === "competitor_event_launch") {
       return `\u00c9v\u00e9nement concurrent ouvert aujourd\u2019hui${km ? " \u00b7 " + km : ""}`;
@@ -1678,7 +1699,7 @@ if (!location_id) {
       if (!followedCount) {
         return '<div style="margin-bottom:20px;">'
           + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-            + '<span style="f<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
+            + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Actions du jour</span>'
             + '<span style="font-size:11px;color:#9ca3af;">1 action</span>'
           + '</div>'
           + '<div class="ab-card"><div class="ab-card-row"><div class="ab-bar" style="background:#1D3BB3;"></div><div class="ab-inner">'
@@ -1707,7 +1728,7 @@ if (!location_id) {
       }
       return '<div style="margin-bottom:20px;">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-          + '<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
+          + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Actions du jour</span>'
         + '</div>'
         + '<div class="ab-zero"><span style="font-size:18px;">\u2713</span><span>Aucune action requise \u2014 votre journ\u00e9e est sous contr\u00f4le</span></div>'
       + '</div>';
@@ -1810,7 +1831,7 @@ if (!location_id) {
       // insuffisant » là où la zone montant dit « votre réponse le débloque » — deux messages
       // contradictoires sur la même carte. D'où le needs_catchment !== true dans la condition.
       if (!enj && a && a.needs_catchment !== true && a.enjeu_reason_fr) {
-        pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;">' + escapeHtml(String(a.enjeu_reason_fr)) + '</span>');
+        pills.unshift('<span class="ab-metric" style="background:transparent;border:0;color:#9CA3AF;font-size:11px;padding-left:0;cursor:help;text-decoration:underline dotted rgba(156,163,175,0.6);text-underline-offset:2px;" title="' + escapeHtml(String(a.enjeu_reason_fr)) + '">pas encore chiffr\u00e9</span>');
       }
       return pills.join('');
     }
@@ -1863,15 +1884,13 @@ if (!location_id) {
       // clique en croyant ouvrir le formulaire. Reprise du prototype validé. Le libellé revient
       // à sa valeur normale dès la réponse (window.__msCatchmentAnswer, via data-catchment-dd-desc).
       var _needsCatch = entry.item.needs_catchment === true && !_agirPositive;
-      var _commitEntry = '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="ab-dd-item">'
-        + '<div class="ab-dd-icon ab-dd-icon-send">' + (_agirPositive ? '\ud83d\udca1' : '\ud83c\udfaf') + '</div>'
-        + '<div><div class="ab-dd-label">' + (_agirPositive ? 'Enrichir vos bonnes pratiques' : 'M\u2019engager') + '</div>'
-          + '<div class="ab-dd-desc"' + (_needsCatch ? ' data-catchment-dd-desc="' + escapeHtml(String(entry.item.location_id || '')) + '"' : '') + '>'
-          + (_agirPositive
-              ? 'Garder ce qui a march\u00e9 \u2014 et le rejouer'
-              : (_needsCatch ? 'Une question d\u2019abord, puis action, objectif et responsable'
-                             : 'Fixer une action, un objectif et un responsable')) + '</div></div>'
-      + '</button>';
+      // Bouton DIRECT du geste principal (le menu Agir est mort — 14/08) : même data-agir-commit,
+      // même handler (qui intercale déjà l'étape périmètre quand needs_catchment). Libellé =
+      // liste fermée : Répondre (question) / Enrichir (bonne pratique) / M'engager (défaut).
+      var _commitEntry = '<button type="button" data-agir-commit="' + cardIdx + '"' + _agirPositive + ' class="pls-cta-pri" title="'
+        + (_agirPositive ? 'Garder ce qui a march\u00e9 \u2014 et le rejouer'
+           : (_needsCatch ? 'Une question d\u2019abord, puis action, objectif et responsable' : 'Fixer une action, un objectif et un responsable')) + '">'
+        + (_needsCatch ? 'R\u00e9pondre' : (_agirPositive ? 'Enrichir' : 'M\u2019engager')) + '</button>';
       // MENU UNIQUE (owner 03/08) : 3 entrées partout — [geste principal du registre] ·
       // Consulter la source · Communiquer en interne. « Proposer une offre » et « Créer une
       // notification » ne sont plus des entrées de menu : ce sont des SOUS-MODES du workspace
@@ -1882,23 +1901,11 @@ if (!location_id) {
       var _offerAttr = t.barClass === 'ab-opportunity' ? ' data-agir-offer-channel="' + escapeHtml(pubChannel) + '"' : '';
       var _notifyAttr = _isInternalAlert ? ' data-agir-notify-el="1"' : '';
       var _commAlert = _isInternalAlert && commChannels.length === 0;
+      // data-ab-draft-card vit ICI : l'état « Brouillon » repeint le bouton Communiquer.
       var _commEntry2 = _commAlert
-        ? '<button type="button" data-agir-alert="' + cardIdx + '"' + _offerAttr + _notifyAttr + ' class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-send">\ud83d\udd14</div>'
-          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Pr\u00e9venir l\u2019équipe maintenant</div></div>'
-        + '</button>'
-        : '<button type="button" data-agir-comm="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal"' + _offerAttr + _notifyAttr + ' class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-comm">\u270f\ufe0f</div>'
-          + '<div><div class="ab-dd-label">Communiquer en interne</div><div class="ab-dd-desc">Briefer l\u2019\u00e9quipe sur ce signal</div></div>'
-        + '</button>';
-      var menuHtml = '<div data-agir-menu="' + cardIdx + '" class="ab-agir-dropdown">'
-        + _commitEntry
-        + '<button type="button" data-agir-consult="' + cardIdx + '" class="ab-dd-item">'
-          + '<div class="ab-dd-icon ab-dd-icon-see">\ud83d\udd0d</div>'
-          + '<div><div class="ab-dd-label">Consulter la source</div><div class="ab-dd-desc">V\u00e9rifier les faits avant de s\u2019engager</div></div>'
-        + '</button>'
-        + _commEntry2
-      + '</div>';
+        ? '<button type="button" data-agir-alert="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '"' + _offerAttr + _notifyAttr + ' class="pls-cta-sec" title="Pr\u00e9venir l\u2019\u00e9quipe maintenant">Communiquer</button>'
+        : '<button type="button" data-agir-comm="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" data-agir-channel="' + escapeHtml(sendChannel) + '" data-agir-intent="internal"' + _offerAttr + _notifyAttr + ' class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur ce signal">Communiquer</button>';
+      // (menu Agir supprimé — Consulter la source = clic sur le titre, data-consult-open.)
 
       var _sw = t.sowhat;
       var _swText = '';
@@ -1949,7 +1956,7 @@ if (!location_id) {
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
         if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
-        _amtHtml = '<div class="amt" title="' + escapeHtml(_aTip.join(' ')) + '">'
+        _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
         + '</div>';
@@ -1995,19 +2002,17 @@ if (!location_id) {
         // Règle 5 (01/08) : classe portée par la carte datée (enjeu direct, jamais hérité) —
         // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
         + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
-        + ' style="border-left:3px solid ' + _barColor + ';">'
+        + '>'
         + '<div class="ab-card-row">'
           + '<div class="ab-bar ' + t.barClass + '"></div>'
           + '<div class="ab-inner">'
             + '<div class="ab-summary">'
               + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-                + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
+                + '<div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-pills">'
                     + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
-                    + '<span class="chip-n">' + escapeHtml(t.urgencyPill.label) + '</span>'
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                    + '<span class="chip-n">' + escapeHtml(_catNice) + '</span>'
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
                   + '</div>'
                   + '<div style="display:flex;align-items:flex-start;gap:12px;">'
@@ -2041,13 +2046,10 @@ if (!location_id) {
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
               + _dispoHtml
               + metricsHtml
-              + '<span style="margin-left:auto;display:inline-flex;align-items:center;">'
-                + '<div style="position:relative;display:inline-block;" data-agir-wrap="' + cardIdx + '">'
-                  + '<button type="button" data-agir-toggle="' + cardIdx + '" data-ab-draft-card="' + cardIdx + '" class="agir-btn">'
-                    + (statusLabel ? escapeHtml(statusLabel) : 'Agir \u25be')
-                  + '</button>'
-                  + menuHtml
-                + '</div>'
+              + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+                + (statusLabel ? '<span style="font-size:12px;color:#9CA3AF;">' + escapeHtml(statusLabel) + '</span>' : '')
+                + _commEntry2
+                + _commitEntry
               + '</span>'
             + '</div>'
             + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -2101,20 +2103,20 @@ if (!location_id) {
     var progressPct = Math.round((completedCount / top.length) * 100);
  
     return '<div style="margin-bottom:20px;" id="daily-brief-section">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<span style="font-size:12px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-secondary);">Actions du jour</span>'
+      // ── SECTIONS TITRÉES (maquette fil validée 14/08) : VOS ENGAGEMENTS d'abord (cartes
+      //    utilisateur, possession bleue), puis ACTIONS DU JOUR. L'en-tête engagements ne
+      //    s'affiche que si renderEngagements a rendu des cartes (il le révèle lui-même).
+      + '<div id="pls-eng-head" style="display:none;align-items:baseline;justify-content:space-between;margin-bottom:6px;">'
+        + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Vos engagements</span>'
+        + '<span id="pls-eng-count" style="font-size:11px;color:#9CA3AF;"></span>'
+      + '</div>'
+      + '<div id="pls-engagement-cards" style="margin-bottom:16px;"></div>'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">'
+        + '<span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Actions du jour</span>'
         + '<span style="font-size:11px;color:#9ca3af;">' + escapeHtml(countLabel) + '</span>'
       + '</div>'
       + feedbackCardsHtml
-      + '<div id="pls-engagement-cards"></div>'
       + (cardsHtml ? '<div id="pls-triage"></div>' + cardsHtml : '')
-      + '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 4px;">'
-        + '<div style="flex:1;height:3px;background:#E5E7EB;border-radius:2px;overflow:hidden;">'
-          + '<div style="height:100%;background:#059669;width:' + progressPct + '%;border-radius:2px;transition:width 0.3s;"></div>'
-        + '</div>'
-        + '<span style="font-size:10px;color:#6B7280;">' + completedCount + '/' + top.length + '</span>'
-      + '</div>'
-      + '<a href="#" class="ab-help-link" style="display:block;margin-top:12px;font-size:11px;color:#1D3BB3;text-decoration:none;font-weight:500;" id="ab-help-global">Besoin d\u2019aide pour agir ? \u2192</a>'
       + '<div id="pls-structural"></div>'
       + '<div id="pls-past-actions" style="margin-top:18px;"></div>'
     + '</div>';
@@ -2916,15 +2918,7 @@ if (!location_id) {
       });
     }
 
-    // ---- Help link → concierge overlay ----
-    var helpLink = document.getElementById("ab-help-global");
-    if (helpLink) {
-      helpLink.addEventListener("click", function(e) {
-        e.preventDefault();
-        var overlay = document.getElementById("ab-help-overlay");
-        if (overlay) overlay.classList.add("is-open");
-      });
-    }
+    // (lien « Besoin d'aide » retiré de l'émission — 14/08.)
  
     // Concierge form cancel / submit
     var cancelBtn = document.getElementById("ab-help-cancel");
@@ -3034,40 +3028,7 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
-  function renderRadarStrip(id, iconKey, primary, secondary, expandedHtml, isFirst, opts) {
-    opts = opts || {};
-    var _accent = opts.accent || "";
-    var _chip = opts.chip || null;
-    var _togglePad = _accent ? "13px 14px 13px 11px" : "13px 14px";
-    var _accentCss = _accent ? ("border-left:3px solid " + _accent + ";") : "";
-    var _chipHtml = _chip ? plsChip(_chip.label, _chip, true) : "";
-    const ICONS = {
-      "chart-line": '<path d="M4 19h16"/><path d="M4 14l4-4 4 3 6-7"/>',
-      "swords": '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/><path d="M14.32 17.32l3.68 3.68 3-3-3.365-3.365"/><path d="M10 5.5L8 3H3v5l3 2.5"/>',
-      "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
-      "clipboard-check": '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
-      "banknote": '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>'
-    };
-    const iconPaths = ICONS[iconKey] || "";
-    return `<div style="${isFirst ? "" : "border-top:1px solid var(--color-border);"}">`
-      + `<div data-radar-toggle="${escapeHtml(id)}" style="display:flex;align-items:center;gap:11px;padding:${_togglePad};${_accentCss}cursor:pointer;">`
-        + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-text-secondary);flex-shrink:0;">${iconPaths}</svg>`
-        + `<div style="flex:1;min-width:0;">`
-          + `<p style="font-size:14px;color:var(--color-text-primary);margin:0;">${primary}</p>`
-          + (secondary ? `<p style="font-size:12px;color:var(--color-text-secondary);margin:1px 0 0;">${secondary}</p>` : "")
-        + `</div>`
-        + _chipHtml
-        + `<svg data-radar-chevron="${escapeHtml(id)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--color-text-muted);flex-shrink:0;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg>`
-      + `</div>`
-      + `<div data-radar-body="${escapeHtml(id)}" style="display:none;padding:0 14px 14px;">${expandedHtml}</div>`
-    + `</div>`;
-  }
-
-  // ----------------------------------------------------------------
-  // V4 NEW — Score detail (strip 1 expanded)
-  // ----------------------------------------------------------------
-  // Verdict label from the SCORE (0-10), not just the regime — a 6.4 day is not "défavorable".
-  // Regime is only the fallback when the score is missing.
+  // (renderRadarStrip supprimé — radar retiré de l'assemblage, 14/08.)
   function scoreVerdict(score, regime) {
     var s = (score != null && isFinite(Number(score))) ? Number(score) : null;
     if (s == null) return regime === "A" ? { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" } : regime === "C" ? { t: "Contexte à surveiller", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" } : { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151", ac: "#94a3b8" };
@@ -3121,299 +3082,8 @@ if (!location_id) {
     });
   }
 
-  function renderScoreDetail(day, days) {
-    const score = day.opportunity_score;
-    const regime = String(day.opportunity_regime || "B").toUpperCase();
-    const rd = scoreVerdict(score, regime);
-
-    // weekRank: position of this day among all days sorted by score DESC
-    const sorted = [...days].filter(d => d.opportunity_score != null).sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0));
-    const rankIdx = sorted.findIndex(d => normalizeYmd(d.date) === normalizeYmd(day.date));
-    const rank = rankIdx >= 0 ? rankIdx + 1 : null;
-    const total = sorted.length;
-    let weekRankLabel = "";
-    if (rank === 1) weekRankLabel = "Meilleur jour";
-    else if (rank === total) weekRankLabel = "Jour le moins favorable";
-    else if (rank != null) weekRankLabel = `${rank}e sur ${total} jours`;
-
-    const scoreColor = "#1D3BB3";
-
-    // Context tags from daily_signal_summary_fr — filter to user-facing only
-    const rawTags = Array.isArray(day.daily_signal_summary_fr) ? day.daily_signal_summary_fr : [];
-    const TAG_BLOCKLIST = [
-      "concurrence", "concurrence présente", "preuves complètes", "preuves incomplètes",
-      "evidence_complete", "evidence_incomplete", "competition_present",
-      "weather_alert_present", "weather_impact_present",
-      "fenêtre stable", "fenêtre mixte", "fenêtre volatile",
-      "stable_window", "mixed_window", "volatile_window",
-      "weather_risk_present", "competition_spike_present",
-    ];
-    const tags = rawTags.filter(t => {
-      if (!t) return false;
-      const lower = String(t).toLowerCase();
-      return !TAG_BLOCKLIST.some(blocked => lower === blocked || lower.includes(blocked));
-    });
-    const holidayTag = day.holiday_name || null;
-    const vacationTag = day.vacation_name || null;
-
-    let tagsHtml = "";
-    const tagItems = [];
-    if (holidayTag) tagItems.push(plsChip(holidayTag, { bg: "#fef2f2", fg: "#991b1b" }));
-    if (vacationTag) tagItems.push(plsChip(vacationTag, { bg: "#faf5ff", fg: "#6b21a8" }));
-    for (const t of tags) {
-      if (t) tagItems.push(plsChip(t, { bg: "#f3f4f6", fg: "#374151" }));
-    }
-    if (tagItems.length) {
-      tagsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${tagItems.join("")}</div>`;
-    }
-
-    // Weather — promoted to a daily météo row (label + temp + alert level)
-    let weatherHtml = "";
-    const alertMax = Number(day.alert_level_max || 0);
-    if (day.weather_label_fr) {
-      const wLabel = day.weather_label_fr;
-      const tMin = day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : null;
-      const tMax = day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : null;
-      const tempStr = (tMin != null && tMax != null) ? `${tMin}° – ${tMax}°` : (tMax != null ? `${tMax}°` : "");
-      const wRead = alertMax > 0 ? `Vigilance niv. ${alertMax}` : "Conditions favorables à la sortie";
-      const wIcon = alertMax > 0
-        ? '<path d="M7 18a4 4 0 1 1 .5-7.97A5 5 0 0 1 17 11h.5a3.5 3.5 0 0 1 0 7H7z"/><path d="M9 21l-.4 1M13 21l-.4 1"/>'
-        : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
-      weatherHtml = `
-        <div>
-          <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:600;margin-bottom:9px;">Météo</div>
-          <div style="display:flex;align-items:center;gap:11px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;color:var(--color-text-secondary);flex-shrink:0;">${wIcon}</svg>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">${escapeHtml(wLabel)}${tempStr ? ` · ${tempStr}` : ""}</div>
-              <div style="font-size:12px;color:var(--color-text-secondary);margin-top:1px;">${wRead}</div>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    // Foot traffic card — Google Places style, 2h slots
-    let ftHtml = "";
-    const ftRank = Number(day.ft_day_rank_max || 0);
-    const ftMax = Number(day.ft_day_max || 0);
-    const ftMean = Number(day.ft_day_mean || 0);
-    const ftPeak = day.ft_peak_hour;
-    const ftQuiet = day.ft_quiet_hour;
-    const ftBusyH = Number(day.ft_busy_hours_count || 0);
-    const ftHourly = Array.isArray(day.ft_hourly_raw) ? day.ft_hourly_raw : null;
-    if (ftRank > 0) {
-      const rankLabel = ftRank === 1 ? "1er sur 7"
-        : ftRank === 2 ? "2e sur 7"
-        : ftRank === 3 ? "3e sur 7"
-        : ftRank + "e sur 7";
-      const rankBg = ftRank <= 2 ? "#E1F5EE" : ftRank >= 6 ? "#FCEBEB" : "var(--color-background-secondary)";
-      const rankColor = ftRank <= 2 ? "#0F6E56" : ftRank >= 6 ? "#A32D2D" : "var(--color-text-secondary)";
-
-      const isToday = normalizeYmd(day.date) === todayYmd();
-      const currentHour = isToday ? new Date().getHours() : -1;
-
-      // Current busyness KPI
-      let nowPct = null;
-      if (isToday && ftHourly && currentHour >= 6 && currentHour <= 23) {
-        nowPct = Number(ftHourly[currentHour - 6] || 0);
-      }
-      const kpiValue = nowPct != null ? nowPct : ftMax;
-      const kpiLabel = nowPct != null ? "en ce moment" : "pic estim\u00e9";
-
-      // 2h slots: 6h-8h, 8h-10h, ... 20h-22h
-      let dayBarsHtml = "";
-      if (ftHourly && ftHourly.length >= 18) {
-        for (let s = 6; s <= 20; s += 2) {
-          const v1 = Number(ftHourly[s - 6] || 0);
-          const v2 = Number(ftHourly[s - 6 + 1] || 0);
-          const mx = Math.max(v1, v2);
-          const barH = Math.max(3, Math.round((mx / 100) * 76));
-          const containsCurrent = currentHour >= s && currentHour < s + 2;
-          const barColor = containsCurrent ? "#EF9F27" : "rgba(24,95,165," + (0.2 + (mx / 100) * 0.8).toFixed(2) + ")";
-          dayBarsHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
-            + '<div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;min-height:15px;">' + mx + '%</div>'
-            + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + barH + 'px;background:' + barColor + ';"></div>'
-            + '<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px;">' + s + 'h</div>'
-          + '</div>';
-        }
-      }
-
-      // Weekly bars
-      const DOW_FR = ["LUN","MAR","MER","JEU","VEN","SAM","DIM"];
-      const weekBarsHtml = [...days].sort((a, b) => {
-        const da = parseYmdToDate(normalizeYmd(a.date));
-        const db = parseYmdToDate(normalizeYmd(b.date));
-        return da - db;
-      }).map(d => {
-        const dMax = Number(d.ft_day_max || 0);
-        if (!dMax) return "";
-        const dt = parseYmdToDate(normalizeYmd(d.date));
-        const dowIdx = dt ? (dt.getUTCDay() + 6) % 7 : 0;
-        const isCurrent = normalizeYmd(d.date) === normalizeYmd(day.date);
-        const wBarH = Math.max(16, Math.round((dMax / 100) * 56));
-        return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
-          + '<div style="font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:3px;">' + dMax + '%</div>'
-          + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + wBarH + 'px;background:' + (isCurrent ? '#185FA5' : '#cbd5e1') + ';"></div>'
-          + '<div style="font-size:10px;margin-top:4px;font-weight:' + (isCurrent ? '500' : '400') + ';color:' + (isCurrent ? '#185FA5' : 'var(--color-text-tertiary)') + ';">' + DOW_FR[dowIdx] + '</div>'
-        + '</div>';
-      }).filter(Boolean).join("");
-
-      const peakLabel = ftPeak != null ? ftPeak + "h \u2013 " + ((ftPeak + 1) % 24) + "h" : null;
-
-      ftHtml = `
-        <div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;margin-top:12px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;">
-            <span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">\ud83d\udeb6 Fr\u00e9quentation</span>
-            <span style="display:inline-flex;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${rankBg};color:${rankColor};">${escapeHtml(rankLabel)}</span>
-          </div>
-          <div style="padding:8px 16px 0;display:flex;align-items:baseline;gap:8px;">
-            <span style="font-size:28px;font-weight:500;color:var(--color-text-primary);">${kpiValue}</span>
-            <span style="font-size:14px;color:var(--color-text-secondary);">%</span>
-            <span style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(kpiLabel)}</span>
-          </div>
-          <div style="padding:2px 16px 12px;font-size:12px;color:var(--color-text-tertiary);">Moyenne : ${ftMean}% \u00b7 Pic estim\u00e9 : ${ftMax}%</div>
-          <div id="ft-view-day" style="display:block;">
-            ${dayBarsHtml ? '<div style="display:flex;align-items:flex-end;gap:6px;padding:0 16px;height:90px;">' + dayBarsHtml + '</div>' : '<div style="padding:8px 16px;font-size:12px;color:var(--color-text-tertiary);">Donn\u00e9es horaires indisponibles</div>'}
-          </div>
-          <div id="ft-view-week" style="display:none;">
-            <div style="display:flex;align-items:flex-end;gap:6px;padding:8px 16px 4px;height:70px;">${weekBarsHtml}</div>
-          </div>
-          <div style="display:flex;border-top:0.5px solid var(--color-border-tertiary);margin-top:14px;">
-            <button type="button" data-ft-tab="day" style="flex:1;padding:10px;font-size:12px;font-weight:500;color:#185FA5;background:none;border:none;border-bottom:2px solid #185FA5;cursor:pointer;font-family:inherit;text-align:center;">Aujourd\u2019hui</button>
-            <button type="button" data-ft-tab="week" style="flex:1;padding:10px;font-size:12px;font-weight:500;color:var(--color-text-secondary);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;text-align:center;">Semaine</button>
-          </div>
-          <div style="display:flex;border-top:0.5px solid var(--color-border-tertiary);">
-            ${peakLabel ? '<div style="flex:1;padding:10px 16px;"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Pic habituel</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">' + escapeHtml(peakLabel) + '</div></div>' : ''}
-            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border-tertiary);"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Heure creuse</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${ftQuiet != null ? ftQuiet + 'h' : '\u2014'}</div></div>
-            <div style="flex:1;padding:10px 16px;border-left:0.5px solid var(--color-border-tertiary);"><div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;">Heures charg\u00e9es</div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${ftBusyH}h</div></div>
-          </div>
-        </div>`;
-    }
-
-    // \u2500\u2500 Radar v5: "Pourquoi ce score" drivers \u2014 the reveal opens on the WHY, chips carry the
-    // direction. Score/rank/verdict live in the always-visible hero (never repeated here).
-    const _drvRow = (label, value, chip, last) =>
-      `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;${last ? "" : "border-bottom:1px solid #E6E8EC;"}">`
-        + `<div style="min-width:0;">`
-          + `<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">${label}</div>`
-          + `<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">${value}</div>`
-        + `</div>`
-        + (chip ? plsChip(chip.label, chip) : "")
-      + `</div>`;
-
-    // M\u00e9t\u00e9o driver
-    let _wVal = "Donn\u00e9es indisponibles", _wChip = null;
-    if (day.weather_label_fr) {
-      const _tMin = day.temperature_2m_min != null ? Math.round(Number(day.temperature_2m_min)) : null;
-      const _tMax = day.temperature_2m_max != null ? Math.round(Number(day.temperature_2m_max)) : null;
-      const _tStr = (_tMin != null && _tMax != null) ? `${_tMin}\u00b0 \u2013 ${_tMax}\u00b0` : (_tMax != null ? `${_tMax}\u00b0` : "");
-      _wVal = escapeHtml(day.weather_label_fr) + (_tStr ? ` \u00b7 ${_tStr}` : "");
-      if (alertMax > 0) {
-        const _wSv = sevStyle(alertMax >= 3 ? "alerte" : "attention");
-        _wChip = { label: `Vigilance niv. ${alertMax}`, bg: _wSv.bg, fg: _wSv.fg };
-      }
-    }
-
-    // Fr\u00e9quentation driver (chip colors = the ft card's own rank colors)
-    let _fVal = "Donn\u00e9es indisponibles", _fChip = null;
-    if (ftRank > 0) {
-      _fVal = `Pic estim\u00e9 ${ftMax} % \u00e0 ${ftPeak != null ? ftPeak + "h" : "\u2014"}`;
-      const _fBg = ftRank <= 2 ? "#E1F5EE" : ftRank >= 6 ? "#FCEBEB" : "#F1F5F9";
-      const _fFg = ftRank <= 2 ? "#0F6E56" : ftRank >= 6 ? "#A32D2D" : "#475569";
-      _fChip = { label: `${ftRank}e sur 7`, bg: _fBg, fg: _fFg };
-    }
-
-    // \u00c9v\u00e9nements autour driver (the old Environnement strip's pressure logic, relocated)
-    const _e500 = Number(day.events_within_500m_count || 0);
-    const _e5km = Number(day.events_within_5km_count || 0);
-    const _eRatioRaw = day.competition_pressure_ratio;
-    const _eRatio = Number(_eRatioRaw);
-    const _eHasRatio = (_eRatioRaw != null && Number.isFinite(_eRatio) && _eRatio > 0);
-    const _eBase = Boolean(day.has_valid_baseline_flag);
-    let _eVal = _e5km > 0
-      ? [(_e500 > 0 ? _e500 + " \u00e0 moins de 500 m" : ""), _e5km + " \u00e0 5 km"].filter(Boolean).join(" \u00b7 ")
-      : "Aucun \u00e9v\u00e9nement d\u00e9tect\u00e9";
-    let _eChip = null;
-    if (_eHasRatio) {
-      const _eLvl = (_eBase && _eRatio > 1.2) ? "alerte" : (_eBase && _eRatio < 0.8) ? "favorable" : "neutre";
-      const _eSv = sevStyle(_eLvl);
-      _eChip = { label: "Pression \u00d7" + _eRatio.toFixed(1).replace(".", ","), bg: _eSv.bg, fg: _eSv.fg };
-    }
-
-    // Calendrier driver (holiday + vacation + the filtered context tags)
-    const _cParts = [holidayTag, vacationTag].filter(Boolean).concat(tags);
-    const _cVal = _cParts.length ? _cParts.map(escapeHtml).join(" \u00b7 ") : "Aucun temps fort";
-    const _cChip = holidayTag
-      ? { label: "F\u00e9ri\u00e9", bg: "#fef2f2", fg: "#991b1b" }
-      : (vacationTag ? { label: "Vacances", bg: "#faf5ff", fg: "#6b21a8" } : null);
-
-    const driversHtml =
-      `<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin-bottom:2px;">Pourquoi ce score</div>`
-      + _drvRow("M\u00e9t\u00e9o", _wVal, _wChip, false)
-      + _drvRow("Fr\u00e9quentation", _fVal, _fChip, false)
-      + _drvRow("\u00c9v\u00e9nements autour", _eVal, _eChip, false)
-      + _drvRow("Calendrier", _cVal, _cChip, true);
-
-    return `
-      <div style="padding-top:0;">
-        <div data-score-panel="score" style="display:block;">
-          ${driversHtml}
-          ${ftHtml}
-          <div style="padding-top:12px;text-align:right;">
-            <button type="button" data-score-tab="fiabilite" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:12px;color:#9CA3AF;">Fiabilit\u00e9 des alertes <span data-fiabilite-badge style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#f3f4f6;color:#9ca3af;"></span> \u2192</button>
-          </div>
-        </div>
-        <div data-score-panel="fiabilite" style="display:none;padding-top:14px;">
-          <div style="padding-bottom:10px;"><button type="button" data-score-tab="score" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:#1D3BB3;">\u2190 Retour</button></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <div>
-              <div style="font-size:12px;color:#6b7280;margin-bottom:2px;">Pr\u00e9cision globale</div>
-              <div data-fiabilite-global style="display:flex;align-items:baseline;gap:4px;">
-                <span class="pls-sk" style="display:inline-block;width:90px;height:14px;"></span>
-              </div>
-            </div>
-            <div style="font-size:10px;color:#9ca3af;text-align:right;line-height:1.5;" data-fiabilite-meta>30 derniers jours</div>
-          </div>
-          <div data-fiabilite-bars></div>
-          <div style="margin-top:14px;padding:10px 12px;background:#f8fafc;border-radius:8px;font-size:11px;color:#6b7280;line-height:1.5;">
-            Nos alertes sont compar\u00e9es automatiquement aux conditions r\u00e9elles observ\u00e9es. Plus la pr\u00e9cision est \u00e9lev\u00e9e, plus vos recommandations sont fiables.
-          </div>
-        </div>
-      </div>`;
-  }
-
-  // ----------------------------------------------------------------
-  // V4 NEW — Threat summary (strip 2 expanded)
-  // ----------------------------------------------------------------
-  function renderThreatSummary(competitorSignals, selectedDate, followedCount, topThreats) {
-    var followedHtml = renderFollowedCompetitorsList(competitorSignals, followedCount, competitorSignals._followedCompetitors || []);
-    var potentialsHtml = renderPotentialCompetitors(topThreats || []);
-    var followedLabel = "Suivis" + (followedCount > 0 ? " (" + followedCount + ")" : "");
-    var potentialLabel = "Potentiels" + (topThreats && topThreats.length > 0 ? " (" + topThreats.length + ")" : "");
-    if (!followedCount) {
-      return '<div>'
-        + followedHtml
-        + '<div style="padding-top:0;">'
-          + '<div style="font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:10px;">Concurrents potentiels \u00b7 ' + ((topThreats || []).length) + '</div>'
-          + potentialsHtml
-        + '</div>'
-      + '</div>';
-    }
-    return '<div>'
-      + '<div style="display:flex;gap:0;border-bottom:1px solid #f3f4f6;margin-bottom:12px;">'
-        + '<button type="button" data-comp-tab="suivis" style="padding:10px 0;margin-right:22px;font-size:13px;font-weight:500;color:#1D3BB3;background:none;border:none;border-bottom:2px solid #1D3BB3;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(followedLabel)+'</button>'
-        + '<button type="button" data-comp-tab="potentiels" style="padding:10px 0;font-size:13px;font-weight:500;color:#94A3B8;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;font-family:inherit;">'+escapeHtml(potentialLabel)+'</button>'
-      + '</div>'
-      + '<div data-comp-panel="suivis" style="display:block;">' + followedHtml
-        + '<div style="padding:10px 0 0;display:flex;justify-content:space-between;align-items:center;">'
-          + '<a href="/app/insightevent/prompt" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:4px;">+ Ajouter un concurrent</a>'
-          + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#9CA3AF;text-decoration:none;">G\u00e9rer mes suivis \u2192</a>'
-        + '</div>'
-      + '</div>'
-      + '<div data-comp-panel="potentiels" style="display:none;">' + potentialsHtml + '</div>'
-    + '</div>';
-  }
-
+  // (renderScoreDetail supprimé — radar retiré de l'assemblage, 14/08.)
+  // (renderThreatSummary supprimé — radar retiré de l'assemblage, 14/08.)
   function renderPotentialCompetitors(topThreats) {
     if (!topThreats || !topThreats.length) {
       return '<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun concurrent potentiel d\u00e9tect\u00e9.</div>';
@@ -3556,280 +3226,7 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // V4 NEW — Change detail (strip 3 expanded)
   // ----------------------------------------------------------------
-  function renderChangeDetail(day, topThreats) {
-    const count500 = Number(day.events_within_500m_count || 0);
-    const count5km = Number(day.events_within_5km_count || 0);
-    const pressureRatio = Number(day.competition_pressure_ratio || 0);
-    const hasBaseline = Boolean(day.has_valid_baseline_flag);
-
-    let pressureLabel = "";
-    let pressureBg = "#f3f4f6";
-    let pressureFg = "#374151";
-    if (count5km === 0) {
-      pressureLabel = "";
-    } else if (hasBaseline && pressureRatio > 1.2) {
-      pressureLabel = "Sup\u00e9rieur \u00e0 la moyenne";
-      pressureBg = "#fee2e2"; pressureFg = "#991b1b";
-    } else if (hasBaseline && pressureRatio < 0.8) {
-      pressureLabel = "Inf\u00e9rieur \u00e0 la moyenne";
-      pressureBg = "#dcfce7"; pressureFg = "#166534";
-    } else if (hasBaseline) {
-      pressureLabel = "Dans la moyenne";
-    }
-
-    const AUDIENCE_FR = {
-      local: "r\u00e9sidents locaux", professionals: "professionnels",
-      tourists: "touristes", students: "\u00e9tudiants",
-      families: "familles", seniors: "seniors",
-      general_public: "grand public", art_lovers: "amateurs d'art",
-      mixed: "public mixte"
-    };
-
-    const INDUSTRY_TIER_FR = {
-      direct: "M\u00eame secteur",
-      partial: "Secteur proche",
-      contextual: "Secteur diff\u00e9rent"
-    };
-
-    const THREAT_BADGE = {
-      high:     { bg: "#fee2e2", fg: "#991b1b", t: "Menace \u00e9lev\u00e9e" },
-      moderate: { bg: "#fef3c7", fg: "#92400e", t: "Menace mod\u00e9r\u00e9e" },
-      low:      { bg: "#f3f4f6", fg: "#6b7280", t: "Menace faible" },
-    };
-
-    function renderThreatCard(tc) {
-      const name = tc.competitor_name || "Concurrent";
-      const distKm = tc.distance_km != null ? Number(tc.distance_km).toFixed(1) : null;
-      const badge = THREAT_BADGE[tc.threat_level] || THREAT_BADGE.low;
-      const indLabel = INDUSTRY_TIER_FR[tc.industry_match_tier] || "";
-
-      const locAuds = [tc.location_primary_audience_1, tc.location_primary_audience_2].filter(Boolean);
-      const compAuds = [tc.competitor_primary_audience, tc.competitor_secondary_audience].filter(Boolean);
-      const sharedAuds = compAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
-
-      let audLine = "";
-      if (sharedAuds.length > 0) {
-        audLine = "Cible les m\u00eames audiences : " + sharedAuds.join(", ");
-      } else if (compAuds.length > 0) {
-        audLine = "Cible : " + compAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
-      }
-
-      const initials = name.split(" ").map(w => (w[0] || "")).join("").slice(0, 2).toUpperCase();
-
-      const detailParts = [];
-      if (tc.competitor_industry_code) detailParts.push("Secteur : " + escapeHtml(tc.competitor_industry_code));
-      if (tc.competitor_google_rating) detailParts.push("\u2605 " + tc.competitor_google_rating + (tc.competitor_google_rating_count ? " \u00b7 " + Number(tc.competitor_google_rating_count).toLocaleString("fr-FR") + " avis" : ""));
-
-      return '<div class="ms-threat-card" style="background:#fff;border:0.5px solid #E8EDF5;border-radius:10px;overflow:hidden;margin-bottom:6px;">'
-        + '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;">'
-          + '<div style="width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-              + '<span style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
-              + (distKm ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(distKm + ' km') + '</span>' : '')
-            + '</div>'
-            + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-              + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
-              + (indLabel ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(indLabel) + '</span>' : '')
-            + '</div>'
-            + (audLine ? '<div style="font-size:11px;color:#374151;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
-          + '</div>'
-          + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">'
-            + '<button type="button" data-follow-threat="' + escapeHtml(tc.competitor_id) + '" data-follow-name="' + escapeHtml(name) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;">Suivre \u2192</button>'
-            + (detailParts.length ? '<button type="button" data-threat-expand style="font-size:10px;color:#1D3BB3;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;">Voir plus \u2192</button>' : '')
-          + '</div>'
-        + '</div>'
-        + (detailParts.length ? '<div data-threat-detail style="display:none;padding:0 14px 10px;font-size:11px;color:#6b7280;border-top:0.5px solid #F3F4F6;">'
-          + '<div style="padding-top:8px;">' + detailParts.map(p => '<div style="padding:2px 0;">' + p + '</div>').join('') + '</div>'
-        + '</div>' : '')
-      + '</div>';
-    }
-
-    const threatsHtml = Array.isArray(topThreats) && topThreats.length > 0
-      ? '<div style="margin-top:14px;border-top:0.5px solid #F3F4F6;padding-top:10px;">'
-        + '<div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#374151;margin-bottom:8px;">Concurrents potentiels</div>'
-        + topThreats.map(tc => renderThreatCard(tc)).join('')
-      + '</div>'
-      : '';
-
-    var _pressHtml = "";
-    if (pressureLabel) {
-      _pressHtml = '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin-bottom:9px;">Pression</div>'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">'
-          + '<span style="font-size:12px;font-weight:500;padding:3px 10px;border-radius:20px;background:' + pressureBg + ';color:' + pressureFg + ';">' + pressureLabel + '</span>'
-          + '<span style="font-size:12px;color:#6b7280;">' + (count500 > 0 ? count500 + ' \u00e0 moins de 500 m \u00b7 ' : '') + count5km + ' \u00e0 5 km</span>'
-        + '</div>';
-    }
-    return '<div style="padding-top:12px;">'
-      + _pressHtml
-      + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin-bottom:9px;">Carte</div>'
-      + '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid var(--color-border-tertiary);border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;">'
-        + '<div style="position:relative;height:120px;background:#EBEEF2;">'
-          + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
-            + '<circle cx="200" cy="60" r="50" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
-            + '<circle cx="200" cy="60" r="22" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
-            + '<circle cx="200" cy="60" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
-          + '</svg>'
-          + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:5px 10px;">Ouvrir la carte →</span>'
-        + '</div>'
-        + '<div style="padding:11px 14px;font-size:12px;color:var(--color-text-secondary);">' + count500 + ' à moins de 500 m · ' + count5km + ' à 5 km</div>'
-      + '</button>'
-    + '</div>';
-  }
-
-  // ----------------------------------------------------------------
-  // Radar v5 — Volet Performance (sales_summary du monitor, 8 jours desc)
-  // ----------------------------------------------------------------
-  function renderPerfDetail(ss, missing) {
-    if (missing) {
-      return '<div style="font-size:13px;color:#6B7280;line-height:1.5;padding:8px 0 2px;">Données de ventes indisponibles pour le moment — rechargez la page.</div>';
-    }
-    if (!Array.isArray(ss) || !ss.length) {
-      return '<div style="display:flex;align-items:center;gap:14px;padding:8px 0 2px;">'
-        + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Importez vos ventes (CSV) pour suivre votre chiffre d’affaires ici, jour par jour.</div>'
-        + '<a href="/app/insightevent/prompt" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Importer mes ventes</a>'
-      + '</div>';
-    }
-    var latest = ss[0];
-    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
-    var latestYmd = _ymd(latest.date);
-    var rows = "";
-    var _row = function(label, value, chip, last) {
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;' + (last ? '' : 'border-bottom:1px solid #E6E8EC;') + '">'
-        + '<div style="min-width:0;"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">' + label + '</div>'
-        + '<div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">' + value + '</div></div>'
-        + (chip ? plsChip(chip.label, chip) : '')
-      + '</div>';
-    };
-    var _pctChip = function(pct, colored) {
-      if (!Number.isFinite(pct)) return null;
-      var sv = sevStyle(colored ? (pct >= 0 ? "favorable" : "alerte") : "neutre");
-      return { label: (pct >= 0 ? "+" : "−") + Math.abs(Math.round(pct)) + " %", bg: sv.bg, fg: sv.fg };
-    };
-    var _z = Number(latest.revenue_robust_z);
-    var _out = Number.isFinite(_z) && Math.abs(_z) >= 2;
-    rows += _row("CA réalisé — " + fmtDateShort(latestYmd),
-      _cgEur(latest.daily_revenue) + (latest.revenue_30d_avg != null ? " · moyenne 30 j : " + _cgEur(latest.revenue_30d_avg) : ""),
-      _pctChip(Number(latest.revenue_vs_30d_avg_pct), _out), false);
-    if (latest.revenue_same_weekday_last_week != null) {
-      rows += _row("vs même jour, semaine passée",
-        _cgEur(latest.revenue_same_weekday_last_week) + " réalisés ce jour-là",
-        _pctChip(Number(latest.revenue_vs_last_week_pct), false), false);
-    }
-    var _basket = Number(latest.avg_basket);
-    var _tx = Number(latest.daily_transactions || 0);
-    rows += _row("Panier moyen",
-      (Number.isFinite(_basket) ? _basket.toFixed(2).replace(".", ",") + " €" : "—") + (_tx > 0 ? " · " + _tx + " ventes" : ""),
-      null, true);
-
-    // Barres CA — 7 derniers jours, chronologique, dernier jour en bleu data.
-    var week = ss.slice(0, 7).slice().reverse();
-    var maxRev = Math.max.apply(null, week.map(function(r) { return Number(r.daily_revenue) || 0; })) || 1;
-    var DOW_FR = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
-    var barsHtml = week.map(function(r) {
-      var ymd = _ymd(r.date);
-      var dt = parseYmdToDate(ymd);
-      var dow = dt ? DOW_FR[(dt.getUTCDay() + 6) % 7] : "";
-      var rev = Number(r.daily_revenue) || 0;
-      var h = Math.max(16, Math.round((rev / maxRev) * 52));
-      var isLatest = ymd === latestYmd;
-      return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;">'
-        + '<div style="font-size:10px;font-weight:500;color:' + (isLatest ? '#185FA5' : 'var(--color-text-secondary)') + ';margin-bottom:3px;">' + Math.round(rev).toLocaleString('fr-FR') + '</div>'
-        + '<div style="width:100%;border-radius:3px 3px 0 0;height:' + h + 'px;background:' + (isLatest ? '#185FA5' : '#cbd5e1') + ';"></div>'
-        + '<div style="font-size:10px;margin-top:4px;' + (isLatest ? 'font-weight:500;color:#185FA5;' : 'color:var(--color-text-muted);') + '">' + dow + '</div>'
-      + '</div>';
-    }).join("");
-    var barsCard = '<div style="background:#fff;border:0.5px solid var(--color-border);border-radius:12px;overflow:hidden;margin-top:10px;">'
-      + '<div style="padding:14px 16px 0;"><span style="font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:var(--color-text-secondary);">CA (€) — 7 derniers jours</span></div>'
-      + '<div style="display:flex;align-items:flex-end;gap:6px;padding:12px 16px 4px;height:78px;">' + barsHtml + '</div>'
-      + '<div style="padding:6px 16px 12px;font-size:11px;color:var(--color-text-muted);">Dernière journée importée : ' + escapeHtml(fmtDateShort(latestYmd)) + '</div>'
-    + '</div>';
-
-    return '<div style="padding-top:2px;">' + rows + barsCard
-      + '<div style="padding-top:12px;text-align:right;"><a href="/app/insightevent/rapport" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">Rapport de ventes →</a></div>'
-    + '</div>';
-  }
-
-  // ----------------------------------------------------------------
-  // Radar v5 — Volet Concurrence : où sont-ils (carte) + ce qu'ils font (activité)
-  // ----------------------------------------------------------------
-  function renderConcurrenceDetail(signals, followed, followedCount) {
-    if (!followedCount && (!followed || !followed.length)) {
-      // Réutilise l'invite "Rechercher un concurrent" existante (état vide).
-      return renderFollowedCompetitorsList([], 0, []);
-    }
-    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
-
-    // Où sont-ils — la VRAIE carte : le bouton data-radar-carte (déjà câblé) bascule Pulse en
-    // vue « carte » qui rend /app/insightevent/map en iframe (concurrents suivis + événements,
-    // leaflet auto-chargé par la page carte — jamais rechargé ici, cf. commentaire ~l.332).
-    var mapHtml = '<button type="button" data-radar-carte style="width:100%;display:block;text-align:left;background:none;border:0.5px solid var(--color-border);border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;margin-top:2px;">'
-      + '<div style="position:relative;height:120px;background:#EBEEF2;">'
-        + '<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
-          + '<circle cx="200" cy="60" r="50" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
-          + '<circle cx="200" cy="60" r="22" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
-          + '<circle cx="200" cy="60" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
-        + '</svg>'
-        + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:0.5px solid var(--color-border);border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:5px 10px;">Ouvrir la carte →</span>'
-      + '</div>'
-      + '<div style="padding:11px 14px;font-size:12px;color:var(--color-text-secondary);">' + followedCount + ' concurrent' + (followedCount > 1 ? 's' : '') + ' suivi' + (followedCount > 1 ? 's' : '') + ' et les événements autour — carte complète</div>'
-    + '</button>';
-
-    // Ce qu'ils font — activité réelle par concurrent suivi (signals ±7 j + expositions actives).
-    var byComp = new Map();
-    (signals || []).forEach(function(s) {
-      var cid = s.competitor_id || "unknown";
-      if (!byComp.has(cid)) byComp.set(cid, []);
-      byComp.get(cid).push(s);
-    });
-    var rowsHtml = (followed || []).map(function(fc, idx) {
-      var name = fc.competitor_name || "Concurrent";
-      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
-      var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1).replace(".", ",") : null;
-      var sigs = byComp.get(fc.competitor_id) || [];
-      var active = sigs.filter(function(s) { return s.is_active; });
-      var upcoming = sigs.filter(function(s) { return s.is_upcoming && !s.is_active; });
-      var lines = [];
-      active.slice(0, 3).forEach(function(s) {
-        var end = _ymd(s.event_date_end);
-        var endTxt = (end && end !== _ymd(s.event_date)) ? " — jusqu'au " + fmtDateShort(end) : "";
-        lines.push("« " + escapeHtml(s.event_name || "") + " »" + endTxt);
-      });
-      upcoming.slice(0, Math.max(0, 3 - lines.length)).forEach(function(s) {
-        lines.push("« " + escapeHtml(s.event_name || "") + " » — le " + fmtDateShort(_ymd(s.event_date)));
-      });
-      var extra = active.length + upcoming.length - lines.length;
-      var actHtml = lines.length
-        ? '<div style="font-size:12px;color:#374151;margin-top:4px;line-height:1.55;">' + lines.map(function(l) { return "<div>" + l + "</div>"; }).join("") + (extra > 0 ? '<div style="color:#9CA3AF;">+ ' + extra + ' autres</div>' : "") + "</div>"
-        : '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Aucun événement détecté (±7 j)</div>';
-      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:11px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-        + '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
-        + '<div style="flex:1;min-width:0;">'
-          + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-            + '<span style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
-            + (distKm ? '<span style="font-size:11px;color:#8A909A;">' + distKm + ' km</span>' : '')
-            + (THREAT_CHIP_FR[fc.threat_level] ? threatChipHtml(fc.threat_level) : '')
-          + '</div>'
-          + actHtml
-        + '</div>'
-        + '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(fc.competitor_id) + '" style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;text-decoration:none;">Profil →</a>'
-      + '</div>';
-    }).join("");
-
-    return '<div style="padding-top:2px;">' + mapHtml
-      + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;font-weight:500;margin:14px 0 2px;">Ce qu’ils font</div>'
-      + rowsHtml
-      + '<div style="padding:8px 0 0;display:flex;justify-content:space-between;align-items:center;">'
-        + '<a href="/app/insightevent/prompt" style="font-size:12px;color:#1D3BB3;text-decoration:none;font-weight:500;">+ Ajouter un concurrent (via Consulter)</a>'
-        + '<a href="/app/insightevent/suivis" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Gérer mes suivis →</a>'
-      + '</div>'
-    + '</div>';
-  }
-
-  // ----------------------------------------------------------------
-  // Radar v5 — Volet Opérations : résumé hélicoptère des commitments (mêmes items que les
-  // cartes "Vos actions en cours" — rempli par le .then du fetch /api/commitments existant).
-  // ----------------------------------------------------------------
+  // (renderChangeDetail supprimé — radar retiré de l'assemblage, 14/08.)
   function fillOpsVolet(active, past) {
     var body = document.getElementById("pls-ops-volet");
     var secEl = document.querySelector("[data-ops-secondary]");
@@ -4160,7 +3557,7 @@ if (!location_id) {
     var open = r.status === 'open' || r.status === 'pending';
     var resolved = r.status === 'resolved';
     var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
-    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Fenêtre close' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Dates pass\u00e9es' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
     var pct = r.window_residual_pct;
     // Measurable, card-specific objective vs past performance: a concrete € target above
     // "votre habituel" (the window baseline captured at creation), + the % to clear it.
@@ -4175,11 +3572,11 @@ if (!location_id) {
     // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     var _titre = String(r.committed_action_text || '');
-    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
-      : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + ' · réévaluation automatique.')
+    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
+      : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
       : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
-      : escapeHtml('Fenêtre ' + _cgWin(r.window_kind) + '.');
+      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
     // rien de mesuré → pas de bloc (le « 1 % » inventé par le plancher de _cgTargetPct disparaît).
@@ -4188,7 +3585,7 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur la fenêtre de ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
@@ -4214,7 +3611,7 @@ if (!location_id) {
       // « Fait » (exécution finie en avance — fige le statut, n'écourte JAMAIS la fenêtre de
       // mesure) et « Pas menée » (valeur legacy pas_encore : exclue des € au mart).
       dispo = '<span data-eng-dispo-row="' + eid + '" data-eng-dispo-loc="' + loc + '" style="display:inline-flex;align-items:center;gap:8px;">'
-        + '<span style="font-size:11px;color:#9CA3AF;">Men\u00e9e par d\u00e9faut \u00e0 l\u2019\u00e9ch\u00e9ance</span>'
+        + '<span style="font-size:11px;color:#9CA3AF;cursor:help;text-decoration:underline dotted rgba(156,163,175,0.6);text-underline-offset:2px;" title="Si vous ne d\u00e9clarez rien, l\u2019action est consid\u00e9r\u00e9e comme men\u00e9e \u00e0 l\u2019\u00e9ch\u00e9ance de la fen\u00eatre \u2014 le verdict mesure alors son effet.">men\u00e9e par d\u00e9faut</span>'
         + '<button type="button" data-eng-dispo-btn="fait" class="disc-btn">Fait</button>'
         + '<button type="button" data-eng-dispo-btn="pas_encore" class="disc-btn"' + (r.action_done_status === 'pas_encore' ? ' style="opacity:1;font-weight:700;"' : '') + '>Pas men\u00e9e</button>'
       + '</span>';
@@ -4248,7 +3645,7 @@ if (!location_id) {
               + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
               + '<div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;">'
                 + '<div style="flex:1;min-width:0;">'
-                  + '<div class="ab-what">' + escapeHtml(_titre) + '</div>'
+                  + '<div class="ab-what" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + escapeHtml(_titre) + '">' + escapeHtml(_titre) + '</div>'
                   + '<div class="ab-sowhat">' + sowhat + '</div>'
                 + '</div>'
                 + _amt
@@ -4257,10 +3654,13 @@ if (!location_id) {
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
             + pill + '<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:22px;height:22px;border-radius:50%;background:rgba(29,59,179,.12);color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;">' + escapeHtml(_initials) + '</span><span style="font-size:12px;color:#374151;">' + escapeHtml(String(r.owner_person_name || '')) + '</span></span>'
             + dispo
-            + '<span style="margin-left:auto;display:inline-flex;align-items:center;"><div style="position:relative;display:inline-block;">'
-              + '<button type="button" data-eng-agir-toggle="' + eid + '" class="agir-btn">Piloter ▾</button>'
-              + _cgAgirMenu(eid, r.status)
-            + '</div></span>'
+            + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+              + (open
+                  ? '<button type="button" data-eng-comm="' + eid + '" data-eng-comm-loc="' + escapeHtml(String(r.location_id || '')) + '" data-eng-comm-what="' + escapeHtml(_titre) + '" class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur cet engagement">Communiquer</button>'
+                    + '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-pri" title="Poursuivre, doubler, pivoter ou arr\u00eater \u2014 diagnostic et move recommand\u00e9">Ajuster</button>'
+                  : '<button type="button" data-eng-evo="' + eid + '" class="pls-cta-sec" title="Consulter l\u2019\u00e9volution">\u00c9volution</button>'
+                    + '<button type="button" data-eng-replicate="' + eid + '" class="pls-cta-pri" title="Rejouer ce qui a march\u00e9">R\u00e9pliquer</button>')
+            + '</span>'
           + '</div>'
           + caveat
           + '<div class="ab-workspace" id="eng-ws-' + eid + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -4271,13 +3671,30 @@ if (!location_id) {
   // Wiring for the injected engagement action cards (own namespace, attached after inject).
   function _engCloseMenus(mount){ mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ m.style.display = 'none'; }); }
   function wireEngagementCards(mount){
-    mount.querySelectorAll('[data-eng-agir-toggle]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
+    // Communiquer sur engagement ouvert (owner 15/08 : les 2 CTA = Communiquer + Ajuster,
+    // Modifier mort — on ne modifie pas la carte, Ajuster porte déjà le geste).
+    mount.querySelectorAll('[data-eng-comm]').forEach(function(b){
+      b.addEventListener('click', function(e){
         e.stopPropagation();
-        var eid = btn.getAttribute('data-eng-agir-toggle');
-        var menu = mount.querySelector('[data-eng-agir-menu="' + eid + '"]');
-        mount.querySelectorAll('[data-eng-agir-menu]').forEach(function(m){ if (m !== menu) m.style.display = 'none'; });
-        if (menu) menu.style.display = (!menu.style.display || menu.style.display === 'none') ? 'block' : 'none';
+        var eid = b.getAttribute('data-eng-comm');
+        var ws = document.getElementById('eng-ws-' + eid);
+        if (!ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        if (!window.MSDraftWorkspace) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Espace de r\u00e9daction indisponible \u2014 rechargez la page.</div>'; return; }
+        window.MSDraftWorkspace.open(ws, {
+          location_id: b.getAttribute('data-eng-comm-loc') || '',
+          signal_type: 'engagement',
+          affected_date: '',
+          card_what: b.getAttribute('data-eng-comm-what') || '',
+          card_sowhat: '',
+          signal: {},
+          artifact_mode: 'post',
+          severity: '',
+          channel: 'note_interne',
+          prof: {}, day: {},
+          onStatus: function(st) { if (st === 'drafted') { b.style.color = '#1D3BB3'; b.textContent = 'Brouillon \u270e'; } }
+        });
       });
     });
     mount.querySelectorAll('[data-eng-evo]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
@@ -4306,9 +3723,9 @@ if (!location_id) {
       // Fenêtre + seuil ÉDITABLES (owner 10/08) : une fenêtre fausse (occasion absente) ne se
       // corrigeait que par suppression + recréation. Dates en JJ/MM/AAAA à l'écran, ISO en valeur.
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">'
-        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — début</div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Dates de l\u2019op\u00e9ration — d\u00e9but</div>'
         + '<input type="date" data-eng-edit-ws value="' + escapeHtml(_engYmd(r.window_start)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
-        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — fin</div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Dates de l\u2019op\u00e9ration — fin</div>'
         + '<input type="date" data-eng-edit-we value="' + escapeHtml(_engYmd(r.window_end)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
         + (String(r.threshold_basis || '') === 'pct' ? '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Seuil (%)</div>'
           + '<input type="number" min="1" max="200" data-eng-edit-thr value="' + escapeHtml(String(r.threshold_value != null ? r.threshold_value : '')) + '" style="width:90px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>' : '')
@@ -4327,7 +3744,7 @@ if (!location_id) {
       var nWs = String((wsEl || {}).value || '').slice(0, 10);
       var nWe = String((weEl || {}).value || '').slice(0, 10);
       var nThr = thrEl && String(thrEl.value || '').trim() !== '' ? Number(thrEl.value) : null;
-      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La fin de fenêtre précède son début.'; msg.style.color = '#b91c1c'; return; }
+      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La date de fin pr\u00e9c\u00e8de le d\u00e9but.'; msg.style.color = '#b91c1c'; return; }
       var payload = { commitment_id: eid, location_id: r.location_id, committed_action_text: txt };
       if (nWs && nWs !== _engYmd(r.window_start)) payload.window_start = nWs;
       if (nWe && nWe !== _engYmd(r.window_end)) payload.window_end = nWe;
@@ -4415,7 +3832,7 @@ if (!location_id) {
     return null;
   }
 
-  function _structRowHtml(imp, key) {
+  function _structRowHtml(imp, key, coinPorte) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
     var pillBg = pos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
@@ -4424,15 +3841,17 @@ if (!location_id) {
     var eng = _structActiveCommit(imp);
     var state = eng ? 'En amélioration' : 'Actif';
     var btn = eng
-      ? '<button type="button" class="agir-btn" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
-      : '<button type="button" class="agir-btn" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
-    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '" style="border-left:3px solid ' + bar + ';">'
+      ? '<button type="button" class="pls-cta-sec" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
+      : '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
         + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>'
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
         + '</span>'
-        + '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>'
+        + (coinPorte
+            ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
+            : '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -4444,6 +3863,24 @@ if (!location_id) {
   // infobulle (amendement 2), CTA par registre (amendement 7) : identification -> « Reproduire
   // le dispositif » (Documenter), correctif -> « M'engager ». data-t-h="0" : un motif non
   // traité est actionnable aujourd'hui — le tri unique horizon puis |coin| fait le reste.
+  // Médaillon famille des cartes structurelles (owner 15/08 : « pas d'icônes sur certaines
+  // cartes = incohérent ») — même .ab-disc que les cartes datées, glyphe par famille.
+  var STRUCT_FAM_GLYPH = {
+    weather: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.9 4.9l1.4 1.4"/><path d="M17.7 17.7l1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.9 19.1l1.4-1.4"/><path d="M17.7 6.3l1.4-1.4"/>',
+    competition: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    suivis: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    tourism: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+    events: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    mobility: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/>',
+    traffic: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    sales: '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'
+  };
+  function _structDiscHtml(fam) {
+    var g = STRUCT_FAM_GLYPH[fam] || '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1"/>';
+    return '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + g + '</svg></div>';
+  }
+
   function _structFullCardHtml(imp, key) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
@@ -4458,14 +3895,15 @@ if (!location_id) {
     // (dispositif.astro, provider partagé) — le bouton y navigue. data-struct-doc (Documenter
     // en workspace) reste câblé pour les usages futurs, plus émis ici.
     var btn = ident
-      ? '<button type="button" data-struct-page="' + key + '" class="agir-btn">Reproduire le dispositif</button>'
-      : '<button type="button" data-struct-commit="' + key + '" class="agir-btn">M’engager</button>';
-    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '" style="border-left:3px solid ' + bar + ';">'
+      ? '<button type="button" data-struct-page="' + key + '" class="pls-cta-pri">Reproduire le dispositif</button>'
+      : '<button type="button" data-struct-commit="' + key + '" class="pls-cta-pri">M’engager</button>';
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '">'
       + '<div class="ab-summary">'
         + '<div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>'
         + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
         + '<span class="chip-n">' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + '</span></div>'
         + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+          + _structDiscHtml(imp.family)
           + '<div style="flex:1;min-width:0;">'
             + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
             + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
@@ -4474,7 +3912,9 @@ if (!location_id) {
         + '</div>'
         + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;">' + btn + '</span></div>'
+      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+        + '<button type="button" data-struct-comm="' + key + '" class="pls-cta-sec" title="Briefer l\u2019\u00e9quipe sur ce motif">Communiquer</button>'
+        + btn + '</span></div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
     + '</div>';
   }
@@ -4539,6 +3979,32 @@ if (!location_id) {
           location_id: imp.location_id,
           origin: origin,
           onSaved: function() { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#166534;">Documenté — ajouté à vos bonnes pratiques. Le dispositif se précise avec chaque journée expliquée.</div>'; }
+        });
+      });
+    });
+    // Communiquer sur motif structurel (owner 15/08) : même workspace partagé que les
+    // cartes datées — signal_type structural_<classe>, seed replié si inconnu du seeder.
+    scope.querySelectorAll('[data-struct-comm]').forEach(function(b) {
+      b.addEventListener('click', function() {
+        var key = b.getAttribute('data-struct-comm');
+        var imp = _impByKey(key);
+        var ws = scope.querySelector('[data-struct-ws="' + key + '"]');
+        if (!imp || !ws) return;
+        if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
+        ws.style.display = 'block';
+        if (!window.MSDraftWorkspace) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Espace de r\u00e9daction indisponible \u2014 rechargez la page.</div>'; return; }
+        window.MSDraftWorkspace.open(ws, {
+          location_id: imp.location_id,
+          signal_type: 'structural_' + String(imp.class_key || ''),
+          affected_date: '',
+          card_what: String(imp.title_fr || ''),
+          card_sowhat: String(imp.sowhat_fr || '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
+          signal: imp,
+          artifact_mode: 'post',
+          severity: '',
+          channel: 'note_interne',
+          prof: {}, day: {},
+          onStatus: function(st) { if (st === 'drafted') { b.style.color = '#1D3BB3'; b.textContent = 'Brouillon \u270e'; } }
         });
       });
     });
@@ -4691,7 +4157,7 @@ if (!location_id) {
         + '</div>'
         + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
         + (_compactImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
-        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key); }).join('')
+        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, !!_siteCls[String(x.imp.class_key || '')]); }).join('')
         + '</div>';
     });
     mount.innerHTML = html;
@@ -4742,13 +4208,13 @@ if (!location_id) {
         var more = document.createElement('button');
         more.type = 'button';
         more.setAttribute('data-t-more', si);
-        more.style.cssText = 'font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:2px 2px 0;font-family:inherit;';
-        more.textContent = 'Voir ' + (siteCtx.length - 3) + ' autre' + (siteCtx.length - 3 > 1 ? 's' : '') + ' action' + (siteCtx.length - 3 > 1 ? 's' : '');
+        more.style.cssText = 'display:block;width:100%;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;background:none;border:none;border-top:1px solid rgba(17,24,39,0.06);cursor:pointer;padding:8px 2px;font-family:inherit;text-align:center;';
+        more.textContent = 'aussi aujourd\u2019hui \u2014 ' + (siteCtx.length - 3) + ' carte' + (siteCtx.length - 3 > 1 ? 's' : '') + ' \u25be';
         more.addEventListener('click', function() {
           var open = more.getAttribute('data-open') === '1';
           holder.querySelectorAll('[data-t-folded]').forEach(function(c) { c.style.display = open ? 'none' : ''; });
           more.setAttribute('data-open', open ? '0' : '1');
-          more.textContent = open ? ('Voir ' + (siteCtx.length - 3) + ' autre' + (siteCtx.length - 3 > 1 ? 's' : '') + ' action' + (siteCtx.length - 3 > 1 ? 's' : '')) : 'Voir moins';
+          more.textContent = open ? ('aussi aujourd\u2019hui \u2014 ' + (siteCtx.length - 3) + ' carte' + (siteCtx.length - 3 > 1 ? 's' : '') + ' \u25be') : 'replier \u25b4';
         });
         holder.after(more);
       }
@@ -4795,6 +4261,31 @@ if (!location_id) {
       _triageState.sortEnjeu = !_triageState.sortEnjeu;
       paintChips();
       mount.querySelectorAll('[data-t-block]').forEach(function(block) { _triageSortSite(block); });
+      // Maquette 14/08 — fin de fil : l'état « à jour » (compte réel des cartes du jour).
+      (function () {
+        var nAll = ctxCards.length;
+        if (!nAll) return;
+        var fin = document.createElement('div');
+        fin.style.cssText = 'text-align:center;padding:14px;color:#9CA3AF;font-size:12px;';
+        fin.textContent = 'Vous \u00eates \u00e0 jour \u2014 ' + nAll + ' carte' + (nAll > 1 ? 's' : '') + ' ce jour.';
+        mount.appendChild(fin);
+      })();
+      // Maquette 14/08 — filet « Nouveau depuis votre derni\u00e8re visite » (1re visite du jour).
+      (function () {
+        try {
+          var k = 'ms_agir_last_visit';
+          var last = localStorage.getItem(k) || '';
+          var today = new Date(); var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+          var ymd = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+          if (last && last < ymd && ctxCards.length) {
+            var nl = document.createElement('div');
+            nl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:4px 4px 8px;color:#1D3BB3;font-size:11.5px;font-weight:600;';
+            nl.innerHTML = '<span style="flex:1;height:1px;background:#1D3BB3;opacity:0.35;"></span>Nouveau depuis votre derni\u00e8re visite<span style="flex:1;height:1px;background:#1D3BB3;opacity:0.35;"></span>';
+            mount.insertBefore(nl, mount.firstChild);
+          }
+          localStorage.setItem(k, ymd);
+        } catch (e) {}
+      })();
       _triageApplyFilters(mount);
     });
     _wireStructRows(mount);
@@ -4827,6 +4318,12 @@ if (!location_id) {
     // system cards. Separate persistent fetch, so the daily-candidate regen never wipes them.
     var mount = document.getElementById('pls-engagement-cards');
     if (!mount) return;
+    var _engHead = document.getElementById('pls-eng-head');
+    var _engCount = document.getElementById('pls-eng-count');
+    var _engReveal = function (n) {
+      if (_engHead) _engHead.style.display = n > 0 ? 'flex' : 'none';
+      if (_engCount) _engCount.textContent = n > 0 ? String(n) : '';
+    };
     var locs = (locationIds || []).filter(Boolean);
     if (!locs.length) { mount.innerHTML = ''; return; }
     Promise.all(locs.map(function(loc){
@@ -4857,8 +4354,8 @@ if (!location_id) {
       var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
       // Radar v5 — le volet Opérations est le résumé hélicoptère de CES items (aucun 2e fetch).
       if (typeof fillOpsVolet === 'function') fillOpsVolet(_active, _past);
-      var _enHdr = '<div style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin:0 0 10px 2px;">Vos actions en cours</div>';
-      mount.innerHTML = _active.length ? (_enHdr + _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('')) : '';
+      mount.innerHTML = _active.length ? _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('') : '';
+      _engReveal(_active.length);
       wireEngagementCards(mount);
       applySowhatClamp(mount);
       if (pastMount) {
@@ -5345,44 +4842,7 @@ if (!location_id) {
     // score" (renderScoreDetail) ; carte → volet Concurrence. renderChangeDetail/renderThreatSummary
     // restent définis (non appelés) tant que la v5 n'est pas validée en réel.
 
-    // Volet 1 : Opérations en cours — rempli par le fetch /api/commitments de renderEngagements
-    // (mêmes données que les cartes "Vos actions en cours" plus bas ; le volet est le résumé
-    // hélicoptère, jamais un 2e fetch). Hooks: [data-ops-secondary]/[data-ops-chip]/#pls-ops-volet.
-    const opsStrip = renderRadarStrip("ops", "clipboard-check", "Opérations en cours",
-      '<span data-ops-secondary><span class="pls-sk" style="display:inline-block;width:130px;height:10px;vertical-align:middle;"></span></span>',
-      '<div id="pls-ops-volet"><div style="padding:6px 0 2px;"><div class="pls-sk" style="height:12px;width:70%;margin-bottom:9px;"></div><div class="pls-sk" style="height:10px;width:45%;"></div></div></div>',
-      true, { chip: { label: '<span data-ops-chip></span>', bg: "transparent", fg: "#475569" } });
-
-    // Volet 2 : Performance de l'entreprise — sales_summary du monitor (8 derniers jours de CA).
-    const _ss = Array.isArray(data.sales_summary) ? data.sales_summary : [];
-    // undefined = payload antérieur au champ (vieux serveur / vieux cache) — on dit
-    // « indisponible », jamais « aucune donnée » (faux pour un compte qui a des ventes).
-    const _ssMissing = (data.sales_summary === undefined);
-    const _ssLatest = _ss.length ? _ss[0] : null;
-    let perfSecondary = _ssMissing ? "Données de ventes indisponibles" : "Aucune donnée de ventes", perfChip = null, perfAccent = "";
-    if (_ssLatest) {
-      const _ssIsToday = normalizeYmd(_ssLatest.date) === todayYmd();
-      const _ssTx = Number(_ssLatest.daily_transactions || 0);
-      perfSecondary = "CA " + (_ssIsToday ? "du jour" : "du " + fmtDateShort(normalizeYmd(_ssLatest.date)))
-        + " : " + _cgEur(_ssLatest.daily_revenue) + (_ssTx > 0 ? " · " + _ssTx + " ventes" : "");
-      const _ssPct = Number(_ssLatest.revenue_vs_30d_avg_pct);
-      const _ssZ = Number(_ssLatest.revenue_robust_z);
-      if (Number.isFinite(_ssPct)) {
-        // Couleur seulement hors bande (|z| >= 2) — un jour normal reste neutre.
-        const _ssOut = Number.isFinite(_ssZ) && Math.abs(_ssZ) >= 2;
-        const _ssSv = sevStyle(_ssOut ? (_ssPct >= 0 ? "favorable" : "alerte") : "neutre");
-        perfChip = { label: (_ssPct >= 0 ? "+" : "−") + Math.abs(Math.round(_ssPct)) + " % vs moy. 30 j", bg: _ssSv.bg, fg: _ssSv.fg };
-        if (_ssOut) perfAccent = _ssSv.ac;
-      }
-    }
-    const perfStrip = renderRadarStrip("perf", "banknote", "Performance de l'entreprise",
-      escapeHtml(perfSecondary), renderPerfDetail(_ss, _ssMissing), false, { chip: perfChip });
-
-    // Volet 3 : Concurrence — que font-ils, où sont-ils (la découverte vit dans Consulter).
-    // Chip/threat logic réutilisée telle quelle ; accent seulement en conflit (couleur = signal).
-    const concStrip = renderRadarStrip("conc", "target", "Concurrence", threatSecondary,
-      renderConcurrenceDetail(competitorSignals, data._followed_competitors || [], followedCount),
-      false, { chip: threatChip });
+    // (volets radar supprimés — leur contenu vit sur Piloter V7, 14/08.)
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
@@ -5396,7 +4856,7 @@ if (!location_id) {
     const _vBestWeekday = _vBestDt ? ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"][((_vBestDt.getUTCDay()+6)%7)] : "";
     // ↓↓↓ EDITABLE COPY ↓↓↓
     const verdictLine = (_vIsBest || !_vBestWeekday)
-      ? `${regimeLabel}. Meilleure fenêtre de la semaine.`
+      ? `${regimeLabel}. Meilleure occasion de la semaine.`
       : `${regimeLabel}. ${_vBestWeekday.charAt(0).toUpperCase() + _vBestWeekday.slice(1)} est plus favorable cette semaine.`;
     // ↑↑↑ EDITABLE COPY ↑↑↑
     const _vScore = (score != null && Number.isFinite(Number(score)));
@@ -5405,23 +4865,16 @@ if (!location_id) {
     // Le seul \u00e9l\u00e9ment color\u00e9 du header est la vigilance m\u00e9t\u00e9o quand elle existe.
     const _vAlert = Number(currentDay.alert_level_max || 0);
     const _vAlertSv = _vAlert > 0 ? sevStyle(_vAlert >= 3 ? "alerte" : "attention") : null;
-    const verdictHtml = `<div style="margin-top:26px;margin-bottom:16px;padding-top:22px;border-top:1px solid var(--color-border);">`
-      + `<div data-hero-toggle style="cursor:pointer;">`
-        + `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#1D3BB3;font-weight:500;margin:0;">${escapeHtml(fmtDateLong(selectedDate))}</p>`
-        + `<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-top:12px;">`
-          + `<div style="flex-shrink:0;"><span style="font-size:46px;font-weight:600;line-height:0.85;letter-spacing:-0.02em;color:var(--color-text-primary);">${_vScore ? Number(score).toFixed(1) : "\u2014"}</span>${_vScore ? `<span style="font-size:16px;color:var(--color-text-muted);">/10</span>` : ""}</div>`
-          + `<div style="flex:1;min-width:220px;">`
-            + `<p style="font-size:19px;font-weight:600;line-height:1.4;margin:0;letter-spacing:-0.01em;color:var(--color-text-primary);">${escapeHtml(verdictLine)}</p>`
-            + (weekRankShort ? `<p style="font-size:12px;color:var(--color-text-secondary);margin:4px 0 0;">${escapeHtml(weekRankShort)}</p>` : "")
-          + `</div>`
-        + `</div>`
-        + `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">`
-          + `<span style="font-size:12px;color:#1D3BB3;font-weight:500;display:inline-flex;align-items:center;gap:4px;">Pourquoi ce score <svg data-hero-chevron viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;transition:transform 0.15s;"><path d="M6 9l6 6 6-6"/></svg></span>`
-          + (_vAlertSv ? plsChip("Vigilance niv. " + _vAlert, _vAlertSv) : "")
-        + `</div>`
-      + `</div>`
-      + `<div data-hero-body style="display:none;padding-top:14px;">`
-        + `<div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;padding:2px 14px 14px;">${renderScoreDetail(currentDay, days)}</div>`
+    // EN-TÊTE (maquette agir-proto validée 14/08) : titre + date + aléa EN MOTS + Piloter →.
+    // Le score /10 est RETIRÉ (owner 14/08) — agrégat qui cachait ses composantes ; la
+    // priorité de cette page est portée par l'enjeu € des cartes, l'état vit sur Piloter.
+    const verdictHtml = `<div style="margin-top:22px;margin-bottom:14px;padding-top:20px;border-top:1px solid var(--color-border);">`
+      + `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">`
+        + `<span style="font-size:20px;font-weight:650;letter-spacing:-0.01em;color:var(--color-text-primary);">Vos cartes du jour</span>`
+        + `<span style="font-size:12.5px;color:var(--color-text-secondary);">${escapeHtml(fmtDateLong(selectedDate))}</span>`
+        + (_vAlertSv ? `<span style="font-size:12.5px;font-weight:600;color:${_vAlertSv.fg};">${_vAlert >= 3 ? "vigilance m\u00e9t\u00e9o forte" : "vigilance m\u00e9t\u00e9o"}</span>` : "")
+        + `<span style="flex:1;"></span>`
+        + `<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;white-space:nowrap;">Piloter \u2192</a>`
       + `</div>`
     + `</div>`;
 
@@ -5464,8 +4917,9 @@ if (!location_id) {
       : "";
 
     // Assemble
-    root.innerHTML = pillsHtml + verdictHtml +
-      `<div style="margin-bottom:20px;"><p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:0 0 10px;">Mon environnement</p><div style="background:var(--color-bg-recessed);border:1px solid var(--color-border);border-radius:10px;overflow:hidden;">${opsStrip}${perfStrip}${concStrip}</div></div>` + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+    // Radar retiré (14/08) : ses trois volets vivent sur Piloter (héros + Événements
+    // concurrents + Ma veille concurrentielle) — les hooks ops sont gardés contre null.
+    root.innerHTML = pillsHtml + verdictHtml + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
     applySowhatClamp(root);
 
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed

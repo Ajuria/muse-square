@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -292,10 +292,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Changements d'offre détectés (mart latest-vs-previous) chez les suivis.
       bq.query({
         query: `SELECT oc.competitor_name, oc.item, oc.change_type, oc.price_direction,
-                       oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change
+                       oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change,
+                       oc.new_price_qualifier, CAST(DATE(oc.current_crawled_at) AS STRING) AS vu_le,
+                       COALESCE(cd.tarifs_url, cd.source_url) AS src_url
                 FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` oc
                 JOIN \`${PROJECT}.raw.competitor_tracking\` ct USING (competitor_id)
-                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL LIMIT 8`,
+                LEFT JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                  ON cd.competitor_id = oc.competitor_id AND cd.deleted_at IS NULL
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
+                ORDER BY oc.current_crawled_at DESC LIMIT 8`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Base de comparaison des offres : tarifs relevés au DERNIER passage (l'absence se chiffre).
@@ -319,10 +324,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }).catch(() => [[]]),
       // Les trous nommés : menaces fortes NON suivies (le geste « Suivez X »).
       bq.query({
-        query: `SELECT competitor_name, ROUND(distance_km, 1) AS km, ROUND(audience_overlap_pct) AS overlap
-                FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
-                WHERE location_id IN UNNEST(@locs) AND NOT is_followed AND threat_level = 'high'
-                ORDER BY threat_score DESC LIMIT 3`,
+        query: `SELECT tp.location_id, tp.competitor_name, ROUND(tp.distance_km, 1) AS km, ROUND(tp.audience_overlap_pct) AS overlap,
+                       cd.google_place_id, cd.city
+                FROM \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                  ON cd.competitor_id = tp.competitor_id AND cd.deleted_at IS NULL
+                WHERE tp.location_id IN UNNEST(@locs) AND NOT tp.is_followed AND tp.threat_level = 'high'
+                  -- Vérité LIVE (16/08) : le mart est nocturne — un suivi créé aujourd'hui, ou un
+                  -- doublon fusionné, ne doit pas laisser un « trou » fantôme. Exclusion si un
+                  -- suivi VIVANT du même site existe sur CETTE entrée ou sur une entrée vivante
+                  -- partageant la même clé google_place_id.
+                  AND NOT EXISTS (
+                    SELECT 1 FROM \`${PROJECT}.raw.competitor_tracking\` ct2
+                    JOIN \`${PROJECT}.raw.competitor_directory\` cd2
+                      ON cd2.competitor_id = ct2.competitor_id AND cd2.deleted_at IS NULL
+                    WHERE ct2.location_id = tp.location_id AND ct2.deleted_at IS NULL
+                      AND (cd2.competitor_id = cd.competitor_id
+                           OR (cd.google_place_id IS NOT NULL AND cd2.google_place_id = cd.google_place_id)))
+                ORDER BY tp.threat_score DESC LIMIT 3`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Événements concurrents 14 j + aléas PAR NATURE (l'agrégat ment : lvl 4 peut être la
@@ -369,6 +388,151 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE location_id IN UNNEST(@locs)
                   AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 7 DAY)
                 ORDER BY action_priority ASC, date ASC LIMIT 30`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Mini-jauges (owner 16/08) : engagements OUVERTS + réalisé-à-date dans le KPI DÉCLARÉ —
+      // une seule requête (K1 residual / K2-K6 perf / K8 famille), jours futurs jamais comptés.
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, measured_metric, threshold_basis, threshold_value,
+                           threshold_level, window_start, window_end, window_days_expected, kpi_baseline,
+                           saved_item_id, committed_action_text,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open'),
+                k1 AS (
+                  SELECT c.commitment_id, AVG(r.daily_revenue) realized, AVG(r.expected_revenue) exp_base
+                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                    ON r.location_id = c.location_id
+                   AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
+                kp AS (
+                  SELECT c.commitment_id, AVG(CASE c.measured_metric
+                    WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
+                    WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
+                    WHEN 'discount' THEN p.daily_discount_total END) realized
+                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
+                    ON p.location_id = c.location_id
+                   AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount') GROUP BY 1),
+                fam AS (
+                  SELECT c.commitment_id, SUM(t.revenue) / COUNT(DISTINCT t.transaction_date) realized
+                  FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
+                  JOIN \`${PROJECT}.raw.client_transactions\` t
+                    ON t.location_id = c.location_id AND t.item_category = si.kpi_family
+                   AND t.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric = 'family_revenue' GROUP BY 1)
+                SELECT c.commitment_id, c.location_id, c.measured_metric, c.threshold_basis, c.threshold_value,
+                       c.threshold_level, c.window_days_expected, c.kpi_baseline, c.committed_action_text,
+                       CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we,
+                       COALESCE(k1.realized, kp.realized, fam.realized) realized, k1.exp_base,
+                       c.saved_item_id, si.kpi_family, si.recurrence, si.title AS event_title,
+                       (SELECT ANY_VALUE(company_name) FROM \`${PROJECT}.raw.insight_event_user_location_profile\` pr WHERE pr.location_id = c.location_id) AS site_label
+                FROM cm c LEFT JOIN k1 USING (commitment_id) LEFT JOIN kp USING (commitment_id) LEFT JOIN fam USING (commitment_id)
+                LEFT JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Cartes « fenêtre multi-jours » (proto 17/08) : la mini-courbe veut le KPI PAR JOUR —
+      // fenêtres ouvertes de plus d'un jour, jours futurs exclus.
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, measured_metric, window_start, window_end, saved_item_id,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open' AND window_end > window_start)
+                SELECT c.commitment_id, CAST(r.date AS STRING) d, r.daily_revenue v
+                FROM cm c JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                  ON r.location_id = c.location_id AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual'
+                UNION ALL
+                SELECT c.commitment_id, CAST(p.transaction_date AS STRING) d,
+                       CASE c.measured_metric WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
+                            WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
+                            WHEN 'discount' THEN p.daily_discount_total END v
+                FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
+                  ON p.location_id = c.location_id AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount')
+                UNION ALL
+                SELECT c.commitment_id, CAST(t.transaction_date AS STRING) d, SUM(t.revenue) v
+                FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
+                JOIN \`${PROJECT}.raw.client_transactions\` t
+                  ON t.location_id = c.location_id AND t.item_category = si.kpi_family
+                 AND t.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                WHERE c.measured_metric = 'family_revenue'
+                GROUP BY 1, 2, c.measured_metric
+                ORDER BY 1, 2`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Fiches par suivi (« Mon positionnement », proto validé 17/08) : note Google + avis,
+      // audience, fourchette de tarifs relevés, page lue — les absences restent des NULL dits.
+      bq.query({
+        query: `SELECT ct.location_id, cd.competitor_name nom, cd.google_rating note,
+                       cd.google_rating_count avis, cd.primary_audience audience,
+                       COALESCE(cd.tarifs_url, cd.source_url) url,
+                       MIN(h.price_numeric) p_min, MAX(h.price_numeric) p_max,
+                       COUNT(DISTINCT h.item_norm) n_tarifs
+                FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                  ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+                LEFT JOIN \`${PROJECT}.raw.competitor_offering_history\` h
+                  ON h.competitor_id = ct.competitor_id AND h.price_numeric IS NOT NULL
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
+                GROUP BY 1, 2, 3, 4, 5, 6`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Cartes « série » (proto 17/08) : la frise = dates STOCKÉES (raw.saved_item_dates) +
+      // verdict par occurrence (dernier snapshot du commitment de la date).
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, saved_item_id,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open' AND saved_item_id IS NOT NULL),
+                occ_v AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT saved_item_id, CAST(window_start AS STRING) d, verdict, status,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`)
+                  WHERE rn = 1 AND status != 'cancelled')
+                SELECT DISTINCT c.commitment_id, CAST(sd.date AS STRING) d, v.verdict, v.status AS occ_status
+                FROM cm c
+                JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id AND si.recurrence != 'none'
+                JOIN \`${PROJECT}.raw.saved_item_dates\` sd ON sd.saved_item_id = c.saved_item_id
+                LEFT JOIN occ_v v ON v.saved_item_id = c.saved_item_id AND v.d = CAST(sd.date AS STRING)
+                ORDER BY 1, 2`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Votre public par site (référent du comparatif « même public que vous », 17/08).
+      bq.query({
+        query: `SELECT location_id, ANY_VALUE(primary_audience_1) a1, ANY_VALUE(primary_audience_2) a2
+                FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Produit phare (payload réel de la carte gap du jour) — la ligne « offre signature ».
+      bq.query({
+        query: `SELECT location_id, data_payload
+                FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\`
+                WHERE location_id IN UNNEST(@locs) AND action_type = 'competitor_positioning_gap'
+                  AND date = CURRENT_DATE()`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Faits du DERNIER TEST par dispositif (rejeu : dates, KPI, réalisé vs cible, verdict).
+      bq.query({
+        query: `SELECT bp.practice_id, c.verdict, c.measured_metric, c.kpi_window_value, c.kpi_baseline,
+                       c.threshold_basis, c.threshold_value, c.status AS test_status,
+                       CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                JOIN (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                      FROM \`${PROJECT}.analytics.action_commitments\`) c
+                  ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs) AND bp.status = 'active'`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
     ]);
@@ -476,9 +640,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         arm_signal_ctx: heatBySite[locId] || null,
         replay_status: str(r.replay_status),
         // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
+        // Statuts owner 17/08 : en test (ex-déclaré fusionné) · prouvé (cible atteinte) ·
+        // écarté (cible manquée proprement — pas rejouable tel quel) ; non concluant → en test.
         tier: String(str(r.status)) !== "active" ? "archivee"
           : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "en_test"
           : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "met" ? "prouvee"
+          : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "missed" ? "ecartee"
           : "declaree",
       };
     });
@@ -667,14 +834,52 @@ export const GET: APIRoute = async ({ url, locals }) => {
         return {
           tendance: (tendRows as any[]).map((r) => ({ commitment_id: str(r.commitment_id), metric: str(r.metric), jours: num(r.jours), ecart_pct: num(r.ecart_pct) })),
           veille: { lieux: Object.values(parLieu), sans_cle: sansCle },
-          offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change) })),
+          offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change), qualif: str(r.new_price_qualifier), vu_le: str(r.vu_le), src_url: str(r.src_url) })),
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
-          trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap) })),
-          evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
+          trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
+          // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
+          fiches: (ficheRows as any[]).map((r) => ({
+            location_id: str(r.location_id), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
+            note: num(r.note), avis: num(r.avis), audience: str(r.audience), url: str(r.url),
+            p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
+          })),
+          audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),
+          gap_facts: (gapRows as any[]).map((r) => {
+            let pl: any = {};
+            try { pl = JSON.parse(String(str(r.data_payload) || "{}")); } catch { /* payload illisible → ligne absente */ }
+            return { location_id: str(r.location_id), item: pl.top_item_description || null,
+                     share: pl.top_item_revenue_share != null ? Number(pl.top_item_revenue_share) : null };
+          }),
+          tests: (testRows as any[]).map((r) => ({
+            practice_id: str(r.practice_id), verdict: str(r.verdict), metric: str(r.measured_metric),
+            realized: num(r.kpi_window_value), baseline: num(r.kpi_baseline),
+            basis: str(r.threshold_basis), value: num(r.threshold_value), test_status: str(r.test_status),
+            ws: str(r.ws), we: str(r.we),
+          })),
+          evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), score: num(r.conflict_score), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
           savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
           cartes: (cartesRows as any[]).map((r) => ({ type: str(r.action_type), cat: str(r.action_category), prio: num(r.action_priority), d: str(r.d), location_id: str(r.location_id) })),
+          // Opérations en cours (proto validé 17/08) — 3 variantes : occurrence / fenêtre / série.
+          mesures: (mesRows as any[]).map((r) => {
+            const cid = str(r.commitment_id);
+            const daily = (mesDailyRows as any[]).filter((x) => str(x.commitment_id) === cid && flat(x.v) != null)
+              .map((x) => ({ d: str(x.d), v: Number(flat(x.v)) }));
+            const occ = (serieRows as any[]).filter((x) => str(x.commitment_id) === cid)
+              .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status) }));
+            return {
+              commitment_id: cid, location_id: str(r.location_id),
+              metric: str(r.measured_metric) || "revenue_residual",
+              basis: str(r.threshold_basis), value: num(r.threshold_value), level: str(r.threshold_level),
+              days: num(r.window_days_expected), baseline: num(r.kpi_baseline) ?? num(r.exp_base),
+              realized: num(r.realized), ws: str(r.ws), we: str(r.we),
+              texte: str(r.committed_action_text),
+              famille: str(r.kpi_family), site: str(r.site_label), event_title: str(r.event_title), saved_item_id: str(r.saved_item_id),
+              kind: occ.length ? "serie" : (str(r.ws) === str(r.we) ? "occurrence" : "fenetre"),
+              daily, occ,
+            };
+          }),
         };
       })(),
       debloquer: {

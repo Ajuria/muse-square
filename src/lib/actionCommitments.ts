@@ -22,7 +22,7 @@ const TABLE_NAME = "action_commitments";
 const TABLE_FQN = `${BQ_PROJECT}.${DATASET}.${TABLE_NAME}`;
 
 export type TransitionType =
-  | "created" | "disposition" | "resolved" | "expired" | "retro" | "cancelled" | "edited";
+  | "created" | "disposition" | "resolved" | "expired" | "retro" | "cancelled" | "edited" | "kpi_verdict";
 
 // Canonical column set: [name, BigQuery type], in DDL order. Single source for
 // the interface below, the INSERT column list, the VALUES params, and the typed
@@ -98,6 +98,10 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["kpi_baseline", "FLOAT64"],
   ["kpi_window_value", "FLOAT64"],
   ["kpi_delta_pct", "FLOAT64"],
+  // Verdict par KPI (chantier 15/08) : SE corrigée autocorrélation de la moyenne fenêtre
+  // (bande de bruit du KPI déclaré) + référentiel qui a JUGÉ ('kpi' | 'revenue_residual').
+  ["kpi_noise_se", "FLOAT64"],
+  ["verdict_basis", "STRING"],
   // Gel de l'enjeu d'ORIGINE (26/07, page évolution J1 — proto evolution-j1-proto.html) : les
   // champs VERBATIM de la pill de la carte au moment du M'engager. La page évolution rend
   // tier_label_fr TEL QUEL → pill et page ne peuvent pas diverger, par construction.
@@ -177,6 +181,8 @@ export interface CommitmentRow {
   kpi_baseline: number | null;           // moyenne journalière 30 j avant fenêtre, unité de measured_metric
   kpi_window_value: number | null;       // moyenne journalière de la fenêtre, même unité
   kpi_delta_pct: number | null;          // (window − baseline) / |baseline|, en %
+  kpi_noise_se: number | null;           // SE fenêtre du KPI (sd/√n × √VIF), unité du KPI
+  verdict_basis: string | null;          // 'kpi' | 'revenue_residual' — qui a jugé
   // Enjeu d'origine gelé à la création (26/07) — champs VERBATIM de la pill de la carte,
   // rendus tels quels par la page évolution (bloc Enjeu). Null = carte sans enjeu.
   creation_enjeu_eur_year: number | null;

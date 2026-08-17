@@ -11,8 +11,9 @@
 //    codée 'revenue_residual' en dur avant l'étape 3 — pas de colonne kpi_key doublon, règle SST).
 //  - 'revenue_residual' (K1) garde SA machinerie (residual z, VIF, verdict — commitmentResolve.ts) ;
 //    ce registre ne mesure QUE les KPIs non-K1, en colonnes additives kpi_* (baseline / window /
-//    delta). Le verdict à bande de bruit reste K1-only tant que les variances par KPI ne sont pas
-//    établies (décision étape 3) — les kpi_* sont la matière de ce futur verdict par KPI.
+//    delta / noise_se). Verdict par KPI LIVRÉ (15/08) : bande de bruit = sd journalier 30 j
+//    pré-fenêtre (measureKpiDailySd) → SE = sd/√n × √VIF (LE MÊME VIF que K1) ; kpiVerdict (pur,
+//    testé) rend met/missed/confounded avec les portes asymétriques de K1 (bruit + vacances).
 //  - 'reputation' (K7) : AUCUNE série temporelle de VOTRE note Google dans l'entrepôt (vérifié
 //    24/07 — seuls les concurrents suivis en ont une) → clé posée, mesure NULL, jamais un chiffre
 //    inventé. S'active quand une source own-rating existera (GBP connect).
@@ -179,6 +180,60 @@ export async function measureKpiWindow(bq: any, location_id: string, key: KpiKey
   if (!isKpiMeasurable(key)) return null;
   const res = await kpiMean(bq, location_id, key, window_start, window_end);
   return res ? res.value : null;
+}
+
+/** Écart-type JOURNALIER du KPI sur les 30 j pré-fenêtre (même convention que la baseline).
+ *  >= 5 jours requis, sinon null — jamais une bande de bruit inventée sur 2 points. */
+export async function measureKpiDailySd(bq: any, location_id: string, key: KpiKey, window_start: string): Promise<number | null> {
+  const expr = KPI_EXPR[key];
+  if (!expr) return null;
+  const col = expr.replace(/^AVG\(/, "").replace(/\)$/, "");
+  const end = new Date(window_start + "T00:00:00Z"); end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
+  const rows = await bq.query({
+    query: `SELECT STDDEV_SAMP(${col}) AS sd, COUNT(${col}) AS n FROM \`${PERF}\`
+            WHERE location_id = @location_id AND transaction_date BETWEEN @start AND @end`,
+    params: { location_id, start: bq.date(start.toISOString().slice(0, 10)), end: bq.date(end.toISOString().slice(0, 10)) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const row = (rows as any[])[0];
+  const sd = Number(row?.sd ?? NaN), n = Number(row?.n ?? 0);
+  return Number.isFinite(sd) && n >= 5 ? sd : null;
+}
+
+/** Variante K8 : écart-type des CA JOURNALIERS d'une famille sur les 30 j pré-fenêtre. */
+export async function measureFamilyDailySd(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+  const end = new Date(window_start + "T00:00:00Z"); end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
+  const rows = await bq.query({
+    query: `SELECT STDDEV_SAMP(v) AS sd, COUNT(*) AS n FROM (
+              SELECT SUM(revenue) AS v FROM \`${PROJECT}.raw.client_transactions\`
+              WHERE location_id = @location_id AND item_category = @family
+                AND transaction_date BETWEEN @start AND @end
+              GROUP BY transaction_date)`,
+    params: { location_id, family, start: bq.date(start.toISOString().slice(0, 10)), end: bq.date(end.toISOString().slice(0, 10)) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const row = (rows as any[])[0];
+  const sd = Number(row?.sd ?? NaN), n = Number(row?.n ?? 0);
+  return Number.isFinite(sd) && n >= 5 ? sd : null;
+}
+
+/** Verdict par KPI (chantier 15/08) — PURE, miroir exact de la structure K1 :
+ *  provisoire = fenêtre >= objectif ; portes ASYMÉTRIQUES sur les « met » seulement
+ *  (un raté n'est jamais requalifié) : (a) hausse vs habituel indistinguable du bruit
+ *  (< 1 × SE corrigée autocorrélation) -> confounded, comme le z<1.0 du chemin pct-K1 ;
+ *  (b) part vacances matérielle -> confounded, même porte que K1. */
+export function kpiVerdict(args: {
+  realized: number; baseline: number; goal: number;
+  se: number | null;             // sd_journalier/racine(n) x racine(VIF) — null = bande inconnue
+  materialConfound: boolean;     // material_holiday_share >= MATERIAL_SHARE (calcul K1 réutilisé)
+}): "met" | "missed" | "confounded" {
+  const provisional = args.realized >= args.goal ? "met" : "missed";
+  if (provisional === "missed") return "missed";
+  if (args.se != null && args.realized - args.baseline < 1.0 * args.se) return "confounded";
+  if (args.materialConfound) return "confounded";
+  return "met";
 }
 
 export function kpiDeltaPct(baseline: number | null, windowValue: number | null): number | null {

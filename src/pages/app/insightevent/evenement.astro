@@ -163,12 +163,62 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         //    attentes (non mesurée pour la plupart des lieux). La concurrence saute : seule
         //    dimension déjà entièrement mesurée par le pipeline. Écrit dans raw.event_outcomes
         //    via /api/saved-items/bilan (endpoint inchangé, competition_felt absent → NULL). ──
+        // ── Porte objectif (owner 16/08) : « toute page de mesure PORTE un objectif ». Un
+        //    événement sans cible n'a pas droit au bilan — on fixe l'objectif D'ABORD, en place
+        //    (update.ts accepte kpi/kpi_target_*), puis le dossier se re-rend depuis la base.
+        function renderFixObjectifBlock(it) {
+          var wrap = document.createElement("div");
+          wrap.id = "evt-bilan";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+          var kpiSet = !!it.kpi;
+          var isFam = it.kpi === "family_revenue";
+          var kpiLbl3 = isFam ? "CA famille " + (it.kpi_family ? "\u00ab " + it.kpi_family + " \u00bb" : "") + " (\u20ac)"
+            : it.kpi === "tickets" ? "tickets vs habituel (+%)"
+            : it.kpi === "basket" ? "panier moyen vs habituel (+%)"
+            : "CA du jour vs votre habituel (+%)";
+          wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#B45309;font-weight:600;margin-bottom:4px;">Objectif \u00e0 fixer</div>'
+            + '<div style="font-size:12.5px;color:#374151;margin-bottom:10px;">Sans objectif, aucun verdict ne peut juger vos occurrences \u2014 fixez-le, la mesure fait le reste.' + (kpiSet ? "" : " KPI par d\u00e9faut : CA du jour vs votre habituel (modifiable ensuite).") + '</div>'
+            + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+            + '<span style="font-size:12.5px;color:#6B7280;">' + kpiLbl3 + ' :</span>'
+            + '<input data-fx-val type="number" min="1" step="1" placeholder="' + (isFam ? "ex. 150" : "ex. 10") + '" style="width:90px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">'
+            + '<span style="font-size:13px;color:#374151;">' + (isFam ? "\u20ac" : "%") + '</span>'
+            + '<button type="button" data-fx-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Fixer l\u2019objectif</button>'
+            + '<span data-fx-msg style="font-size:12px;color:#B45309;"></span></div>';
+          (body.querySelector('[data-ev-mount="bilan"]') || body).appendChild(wrap);
+          wrap.querySelector("[data-fx-save]").addEventListener("click", function () {
+            var v = Number(String(wrap.querySelector("[data-fx-val]").value || "").replace(",", "."));
+            var msg = wrap.querySelector("[data-fx-msg]");
+            if (!isFinite(v) || v <= 0) { msg.textContent = "Cible requise (nombre positif)."; return; }
+            msg.style.color = "#6B7280"; msg.textContent = "Enregistrement\u2026";
+            var payload = { saved_item_id: item, kpi: it.kpi || "revenue_residual", kpi_family: isFam ? (it.kpi_family || null) : null };
+            if (isFam) payload.kpi_target_eur = v; else payload.kpi_target_pct = v;
+            fetch("/api/saved-items/update", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+              .then(function (r2) { return r2.json(); })
+              .then(function (jj) {
+                if (jj && jj.ok) { openDossier(); }
+                else { msg.style.color = "#B45309"; msg.textContent = (jj && jj.error) || "R\u00e9essayez."; }
+              }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "R\u00e9essayez."; });
+          });
+        }
+
         function maybeRenderBilan(j) {
           var it = j.item || {};
           window._evtBilanItem = it;
+          // Porte objectif : pas de cible -> pas de bilan (on ne demande pas un v\u00e9cu qu'aucun
+          // verdict ne pourra juger) ; le bloc \u00ab Objectif \u00e0 fixer \u00bb prend la place.
+          if (it.kpi_target_eur == null && it.kpi_target_pct == null) { renderFixObjectifBlock(it); return; }
           var today = new Date().toISOString().slice(0, 10);
-          var past = (it.dates || []).map(String).filter(function (d) { return d && d.slice(0, 10) <= today; });
-          if (!past.length && it.selected_date && String(it.selected_date).slice(0, 10) <= today) past = [String(it.selected_date).slice(0, 10)];
+          // Terminée = date passée, ou aujourd'hui avec l'heure de fin dépassée (Paris). Sans
+          // heure de fin connue, le jour même ne compte pas — on ne demande pas un vécu à venir.
+          var _hParis = Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "numeric", hour12: false }).format(new Date()));
+          function occOver(d) {
+            var dd = String(d).slice(0, 10);
+            if (dd < today) return true;
+            if (dd > today) return false;
+            return it.hour_end != null && _hParis >= Number(it.hour_end);
+          }
+          var past = (it.dates || []).map(String).filter(function (d) { return d && occOver(d); });
+          if (!past.length && it.selected_date && occOver(it.selected_date)) past = [String(it.selected_date).slice(0, 10)];
           if (!past.length) return;
           var bilanDate = past[past.length - 1].slice(0, 10);
           // Le bilan ne se demande QUE sur une occurrence terminée : tant que son engagement
@@ -194,7 +244,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var jj = window._evtBilanJ || {};
           var itC = jj.item || {};
           if (!jj.apres || !jj.apres.rows || !jj.apres.rows.length) return "";
-          var link = '<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir dans vos Dispositifs →</a>';
+          var link = '<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Mes dispositifs →</a>';
           if (jj.apres.documented) return '<div style="margin-top:8px;font-size:12.5px;color:#6B7280;">Ce qui a marché est déjà documenté · ' + link + '</div>';
           var hasDisp = !!(itC.dispositif && String(itC.dispositif).trim());
           var inputCss = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;';
@@ -210,7 +260,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 + '<div style="flex:1;min-width:200px;"><div data-doc-q="occasion" style="font-size:12px;color:#6B7280;margin-bottom:4px;">À quelle occasion ?</div><input id="evt-doc-occasion" placeholder="ex. la veille d’un jour chaud annoncé" style="' + inputCss + '"></div>')
             + '<button type="button" id="evt-doc-go" style="font-size:13px;font-weight:500;color:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:6px 12px;background:transparent;cursor:pointer;font-family:inherit;white-space:nowrap;">En faire un dispositif →</button>'
             + '<span id="evt-doc-msg" style="font-size:12px;"></span></div>'
-            + '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Classé « déclaré » dans vos Dispositifs — rien ne démarre encore.</div>'
+            + '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Classé « en test » dans Mes dispositifs — rien ne démarre encore.</div>'
             + '</div>';
         }
         function wireDocChain(container) {
@@ -228,7 +278,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               var oEl = container.querySelector("#evt-doc-occasion");
               var g = (gEl && gEl.value || "").trim();
               var o = (oEl && oEl.value || "").trim();
-              if (!g) { msg.style.color = "#B45309"; msg.textContent = "Dites le geste — concret, rejouable."; if (gEl) gEl.style.borderColor = "#B45309"; return; }
+              if (!g) { msg.style.color = "#B45309"; msg.textContent = "Dites le geste — concret, réutilisable."; if (gEl) gEl.style.borderColor = "#B45309"; return; }
               if (!o) { msg.style.color = "#B45309"; msg.textContent = "Dites l’occasion — quand ce geste se rejoue-t-il ?"; if (oEl) oEl.style.borderColor = "#B45309"; return; }
               recette = g + " — " + o;
             }
@@ -257,7 +307,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 //   (a) une occurrence à venir → fenêtre ANCRÉE dessus + saved_item_id lié ;
                 //   (b) aucune → on ne propose pas de test, on le DIT et on offre la date.
                 var nextOcc = jj.avant_date || null;
-                var head = '<div><span style="font-size:12.5px;color:#166534;">Versé à vos Dispositifs (tier déclaré)' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a></div>';
+                var head = '<div><span style="font-size:12.5px;color:#166534;">Versé à Mes dispositifs — en test' + (backfilled ? " — et gardée comme description de l’événement" : "") + ' · </span><a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Voir →</a></div>';
                 if (!nextOcc) {
                   container.querySelector("#evt-doc-chain").innerHTML = head
                     + '<div style="margin-top:8px;font-size:12.5px;color:#6B7280;">Ce dispositif attend son occasion — il se testera quand elle se présente. '
@@ -746,6 +796,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           if (j.avant_date) states.push(["avant", "Avant"]);
           if (j.apres && j.apres.rows.length) states.push(["apres", "Après"]);
           var current = stage === "decider" ? "decider" : (stage === "apres" ? "apres" : "avant");
+          // ?mode=preparer (audit 15/08) : le geste « Préparer » de Piloter ouvre l'état AVANT
+          // (consigne gelée + contexte + objectif) même quand une occurrence passée existe —
+          // on ne fait pas évaluer hier à qui vient préparer demain.
+          if (qs.get("mode") === "preparer" && j.avant_date) current = "avant";
 
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
             + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
@@ -959,6 +1013,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           setHead(current);
           renderConsigne(j);
           maybeRenderBilan(j);
+          if (qs.get("mode") === "preparer") {
+            var _csM = body.querySelector('[data-ev-mount="consigne"]');
+            if (_csM && _csM.scrollIntoView) setTimeout(function () { _csM.scrollIntoView({ behavior: "smooth", block: "center" }); }, 250);
+          }
 
           // « Prévenir l'équipe » (owner 10/08) : le résultat mesuré + ce qui change, adressé
           //    aux destinataires du lieu. Le workspace partagé gère canal, roster, envoi.

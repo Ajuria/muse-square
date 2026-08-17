@@ -35,6 +35,46 @@ export const MOTS_BANNIS: Record<string, string> = {
   "sur la série": "un libellé qui dit ce que la section EST",
   rejeu: "test",
   "non-mesurable": "non mesurable",
+  // Registre technique du CRAWL (owner 14/08, 3e rechute) : l'exploitant lit des TROUVAILLES
+  // (« rien n'a bougé chez vos 4 suivis ») — le technique ne s'affiche que CASSÉ
+  // (« échappe à votre veille »), jamais en inventaire sain.
+  "lieux visités": "des trouvailles — le technique seulement s’il est cassé",
+  "jamais visité": "échappe à votre veille",
+  "visités cette nuit": "veille active sur tous vos suivis",
+  "à chaque passage": "sous surveillance",
+  "dernier passage": "sous surveillance",
+  // Rechutes du 17/08 (owner : « WE HAVE A LANGUAGE IN PLACE ») — le concept s'appelle
+  // DISPOSITIF ; « Armer » meurt (la condition vit DANS Automatiser) ; les teasers
+  // abstraits meurent (on NOMME le concurrent et le fait, ou on ne dit rien).
+  "Vos recettes": "Mes dispositifs",
+  "Armer sur signal": "Automatiser (le signal est une condition du flux)",
+  "Armer →": "Automatiser →",
+  "lecture de positionnement": "les faits nommés (concurrent, chiffres) — jamais un teaser",
+  "écart de positionnement": "nommer le concurrent et l'écart concret",
+  "fenêtres de la semaine": "vos prochaines occasions",
+  "Ma couverture": "Ma veille concurrentielle",
+  // Balayage 17/08 (lexique owner) : la période mesurée = les DATES de l'opération ; le moment
+  // favorable = une OCCASION ; l'état programmé = Dispositif actif ; « déclaré » (statut de
+  // dispositif) fusionné dans « en test » ; le CTA de capture nomme les résultats.
+  "Documentez la recette": "Documentez vos résultats",
+  "Fenêtre close": "Dates passées",
+  "fenêtre favorable": "occasion favorable",
+  "Fenêtre favorable": "Occasion favorable",
+  "Fenêtre rare": "Occasion rare",
+  "fenêtre rare": "occasion rare",
+  "meilleure fenêtre": "meilleure occasion",
+  "Meilleure fenêtre": "Meilleure occasion",
+  "sur toute la fenêtre": "sur les jours de l'opération",
+  "Armée ·": "Dispositif actif ·",
+  "(armée)": "(dispositif actif)",
+  // Owner 17/08 (correctif Autour de vous) : ce qui est prouvé se RÉUTILISE — jamais « rejouable ».
+  rejouable: "réutilisable",
+  "se rejoue seule": "se relance seul",
+  // Owner 17/08 soir : zéro label neuf — lire une page externe = « Consulter → » (label déjà
+  // en prod, Consulter la source) ; sections à la première personne (« Mes dispositifs »).
+  "leur page →": "Consulter →",
+  "Sa page →": "Consulter →",
+  "Vos dispositifs": "Mes dispositifs",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.
