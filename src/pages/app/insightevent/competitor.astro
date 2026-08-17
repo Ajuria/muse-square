@@ -151,6 +151,17 @@ if (!location_id) {
             });
             h2 += '</table>';
           }
+          var tarifs = d.tarifs || [];
+          if (tarifs.length) {
+            h2 += '<div style="font-size:12px;font-weight:650;color:#374151;margin-top:10px;">Tarifs relev\u00e9s par votre veille <span style="font-weight:500;color:#9CA3AF;">(' + tarifs.length + ' article' + (tarifs.length > 1 ? 's' : '') + ', dernier relev\u00e9 le ' + String(tarifs[0].vu_le || '').slice(8, 10) + '/' + String(tarifs[0].vu_le || '').slice(5, 7) + ')</span></div>';
+            tarifs.slice(0, 6).forEach(function (t2) {
+              h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0;border-top:1px solid #f0f2f5;font-size:12.5px;">'
+                + '<span style="min-width:0;flex:1;">' + esc(t2.item) + (t2.qualif ? ' <span style="color:#9CA3AF;font-size:11px;">(' + esc(t2.qualif) + ')</span>' : '') + '</span>'
+                + '<span style="font-weight:650;white-space:nowrap;">' + String(t2.prix).replace('.', ',') + ' \u20ac</span></div>';
+            });
+          } else if (!(an.price_comparison || []).length) {
+            h2 += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;">Aucun tarif relev\u00e9 sur ses pages par la veille de nuit \u2014 tarifs non publi\u00e9s ou page tarifs absente du suivi.</div>';
+          }
           if ((an.product_gaps || []).length) h2 += '<div style="font-size:12px;color:#6B7280;margin-top:8px;"><b style="color:#374151;">Ils ont, vous n\u2019avez pas :</b> ' + an.product_gaps.map(esc).join(' \u00b7 ') + '</div>';
           if ((an.product_complements || []).length) h2 += '<div style="font-size:12px;color:#6B7280;margin-top:4px;"><b style="color:#374151;">Compl\u00e9mentaires (pas concurrents) :</b> ' + an.product_complements.map(esc).join(' \u00b7 ') + '</div>';
           return h2 || '<span style="color:#9CA3AF;font-size:12.5px;">Rien \u00e0 comparer encore \u2014 l\u2019analyse arrive avec la veille de nuit.</span>';

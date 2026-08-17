@@ -52,6 +52,26 @@ check("actu réelle rendue (Guimet a été lu cette nuit)", payload.actu && payl
 check("recouvrement mesuré quand le mart le porte", payload.threat && payload.threat.audience_overlap_pct != null ? t.indexOf("Recouvrement mesuré") >= 0 : true);
 check("ancienne UI morte : zéro onglet cp-tab, zéro icône ti-", c.innerHTML.indexOf("cp-tab") < 0 && c.innerHTML.indexOf("ti ti-") < 0);
 check("gestes : Communiquer → + Consulter → (externe) — labels existants seulement", t.indexOf("Communiquer →") >= 0 && (payload.directory.source_url ? t.indexOf("Consulter →") >= 0 : true) && t.indexOf("Sa page") < 0 && t.indexOf("Profil stratégique →") < 0);
+check("offre : tarifs RELEVÉS rendus ou absence DITE", (payload.tarifs || []).length
+  ? t.indexOf("Tarifs relevés par votre veille") >= 0 && t.indexOf(payload.tarifs[0].item.slice(0, 16)) >= 0
+  : ((payload.analysis && (payload.analysis.price_comparison || []).length) ? true : t.indexOf("Aucun tarif relevé") >= 0),
+  (payload.tarifs || []).length + " relevés");
+
+// 2e sujet : un suivi AVEC relevés réels (Domaine de Tavernel) — la liste de prix mesurés s'affiche.
+{
+  const [[r2]] = await bq.query({
+    query: `SELECT cd.competitor_id cid, ANY_VALUE(ct.location_id) lid FROM \`${P}.raw.competitor_directory\` cd
+            JOIN \`${P}.raw.competitor_tracking\` ct ON ct.competitor_id = cd.competitor_id AND ct.deleted_at IS NULL
+            WHERE cd.competitor_name = 'Domaine de Tavernel' AND cd.deleted_at IS NULL GROUP BY 1 LIMIT 1`,
+    location: "EU",
+  });
+  if (r2) {
+    const [[u2]] = await bq.query({ query: `SELECT ANY_VALUE(clerk_user_id) uid FROM \`${P}.raw.insight_event_user_location_profile\` WHERE location_id = @l`, params: { l: String(flat(r2.lid)) }, location: "EU" });
+    const res2 = await profileGET({ url: new URL("http://l/x?id=" + encodeURIComponent(String(flat(r2.cid)))), locals: { clerk_user_id: String(flat(u2.uid)), location_id: String(flat(r2.lid)) } });
+    const p2 = JSON.parse(await res2.text());
+    check("Tavernel : relevés réels dans la réponse (N articles prix)", p2.ok && (p2.tarifs || []).length >= 5, (p2.tarifs || []).length + " articles");
+  }
+}
 
 console.log(fails ? `\n${fails} ÉCHEC(S)` : "\nTOUT VERT");
 process.exit(fails ? 1 : 0);

@@ -77,7 +77,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     // ── Parallel fetch: directory, threat profile, user profile, alerts, events ──
-    const [dirRows, threatRows, userRows, alertRows, eventRows, newsRows] = await Promise.all([
+    const [dirRows, threatRows, userRows, alertRows, eventRows, newsRows, tarifRows] = await Promise.all([
       // 1. Competitor directory (semantic layer)
       bq.query({
         query: `
@@ -193,6 +193,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `SELECT commercial_news_json, CAST(commercial_news_at AS STRING) AS commercial_news_at
                 FROM \`${projectId}.raw.competitor_directory\`
                 WHERE competitor_id = @competitor_id AND deleted_at IS NULL LIMIT 1`,
+        params: { competitor_id },
+        types: { competitor_id: "STRING" },
+        location: BQ_LOCATION,
+      }).catch(() => [[]]),
+      // 7. Tarifs RELEVÉS par la veille (offering_history — dernier prix par article, mesuré).
+      bq.query({
+        query: `SELECT item_norm, ARRAY_AGG(item ORDER BY crawled_at DESC LIMIT 1)[OFFSET(0)] item,
+                       ARRAY_AGG(price_numeric ORDER BY crawled_at DESC LIMIT 1)[OFFSET(0)] prix,
+                       ARRAY_AGG(price_qualifier ORDER BY crawled_at DESC LIMIT 1)[OFFSET(0)] qualif,
+                       CAST(DATE(MAX(crawled_at)) AS STRING) vu_le
+                FROM \`${projectId}.raw.competitor_offering_history\`
+                WHERE competitor_id = @competitor_id AND price_numeric IS NOT NULL
+                GROUP BY item_norm ORDER BY prix DESC LIMIT 8`,
         params: { competitor_id },
         types: { competitor_id: "STRING" },
         location: BQ_LOCATION,
@@ -440,6 +453,12 @@ ${userItemsJson}`;
         enriched:              userEnriched,
       } : null,
       analysis: competitiveAnalysis,
+      // Tarifs relevés (veille nocturne) — le MESURÉ, jamais du modèle.
+      tarifs: ((tarifRows as any[])[0] ?? []).map((r: any) => ({
+        item: String(r.item ?? r.item_norm ?? ""), prix: r.prix != null ? Number(r.prix) : null,
+        qualif: r.qualif != null ? String(r.qualif) : null,
+        vu_le: r.vu_le?.value ?? r.vu_le ?? null,
+      })).filter((t: any) => t.item && t.prix != null),
       // Actualité commerciale (lecture web hebdo, cache 7 j sur la fiche) — parsée ICI, la page
       // reste bête ; JSON illisible = section absente, jamais un throw.
       actu: (() => {
