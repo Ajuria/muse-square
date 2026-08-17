@@ -475,6 +475,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        COALESCE(cd.tarifs_url, cd.source_url) url,
                        MIN(h.price_numeric) p_min, MAX(h.price_numeric) p_max,
                        COUNT(DISTINCT h.item_norm) n_tarifs,
+                       ANY_VALUE(cd.competitor_id) cid,
                        ANY_VALUE(cd.secondary_audience) audience2,
                        ANY_VALUE(cd.competitive_analysis_json) ana_json,
                        ANY_VALUE(cd.commercial_news_json) news_json,
@@ -873,7 +874,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
               };
             } catch { /* actu illisible → absente */ }
             return {
-              location_id: str(r.location_id), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
+              location_id: str(r.location_id), cid: str(r.cid), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
               note: num(r.note), avis: num(r.avis), audience: str(r.audience), audience2: str(r.audience2), url: str(r.url),
               p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
               overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
