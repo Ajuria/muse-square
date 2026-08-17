@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -390,6 +390,47 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY action_priority ASC, date ASC LIMIT 30`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Mini-jauges (owner 16/08) : engagements OUVERTS + réalisé-à-date dans le KPI DÉCLARÉ —
+      // une seule requête (K1 residual / K2-K6 perf / K8 famille), jours futurs jamais comptés.
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, measured_metric, threshold_basis, threshold_value,
+                           threshold_level, window_start, window_end, window_days_expected, kpi_baseline,
+                           saved_item_id, committed_action_text,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open'),
+                k1 AS (
+                  SELECT c.commitment_id, AVG(r.daily_revenue) realized, AVG(r.expected_revenue) exp_base
+                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                    ON r.location_id = c.location_id
+                   AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
+                kp AS (
+                  SELECT c.commitment_id, AVG(CASE c.measured_metric
+                    WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
+                    WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
+                    WHEN 'discount' THEN p.daily_discount_total END) realized
+                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
+                    ON p.location_id = c.location_id
+                   AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount') GROUP BY 1),
+                fam AS (
+                  SELECT c.commitment_id, SUM(t.revenue) / COUNT(DISTINCT t.transaction_date) realized
+                  FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
+                  JOIN \`${PROJECT}.raw.client_transactions\` t
+                    ON t.location_id = c.location_id AND t.item_category = si.kpi_family
+                   AND t.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  WHERE c.measured_metric = 'family_revenue' GROUP BY 1)
+                SELECT c.commitment_id, c.location_id, c.measured_metric, c.threshold_basis, c.threshold_value,
+                       c.threshold_level, c.window_days_expected, c.kpi_baseline, c.committed_action_text,
+                       CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we,
+                       COALESCE(k1.realized, kp.realized, fam.realized) realized, k1.exp_base
+                FROM cm c LEFT JOIN k1 USING (commitment_id) LEFT JOIN kp USING (commitment_id) LEFT JOIN fam USING (commitment_id)`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const siteLabel: Record<string, string> = {};
@@ -694,6 +735,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
           savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
           cartes: (cartesRows as any[]).map((r) => ({ type: str(r.action_type), cat: str(r.action_category), prio: num(r.action_priority), d: str(r.d), location_id: str(r.location_id) })),
+          // Mini-jauges des engagements en mesure (owner 16/08) — réalisé-à-date en KPI déclaré.
+          mesures: (mesRows as any[]).map((r) => ({
+            commitment_id: str(r.commitment_id), location_id: str(r.location_id),
+            metric: str(r.measured_metric) || "revenue_residual",
+            basis: str(r.threshold_basis), value: num(r.threshold_value), level: str(r.threshold_level),
+            days: num(r.window_days_expected), baseline: num(r.kpi_baseline) ?? num(r.exp_base),
+            realized: num(r.realized), ws: str(r.ws), we: str(r.we),
+            texte: str(r.committed_action_text),
+          })),
         };
       })(),
       debloquer: {

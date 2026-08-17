@@ -448,11 +448,49 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span class="v">' + (r.droite || "") + '</span>'
               + '<span class="a">' + (r.geste || "") + '</span></div>';
           };
+          // Mini-jauge (owner 16/08) : demi-cercle 120px, tricolore POSITION (règle évolution) —
+          // < habituel rouge · entre habituel et objectif orange · >= objectif vert · sans mesure gris.
+          function miniGauge(m) {
+            var goalPct = m.basis === "pct" && m.value != null ? m.value
+              : m.basis === "residual_z" && m.value != null ? Math.max(1, Math.round(m.value * 0.19 / Math.sqrt(m.days || 7) * 100)) : null;
+            var goal = goalPct != null && m.baseline != null ? m.baseline * (1 + goalPct / 100) : null;
+            var col = m.realized == null ? "#9CA3AF"
+              : (m.baseline != null && m.realized < m.baseline) ? "#b91c1c"
+              : (goal != null ? (m.realized >= goal ? "#059669" : "#B45309") : "#059669");
+            var mx = Math.max(goal || 0, m.realized || 0, m.baseline || 0) * 1.12 || 1;
+            function ang(v) { return Math.PI * (1 - Math.max(0, Math.min(1, v / mx))); }
+            function gx(a2, r) { return (60 + r * Math.cos(a2)).toFixed(1); }
+            function gy(a2, r) { return (56 - r * Math.sin(a2)).toFixed(1); }
+            var R = 40, g = '<path d="M 20 56 A 40 40 0 0 1 100 56" fill="none" stroke="#F3F4F6" stroke-width="9" stroke-linecap="round"/>';
+            if (m.realized != null && m.realized > 0) g += '<path d="M 20 56 A 40 40 0 0 1 ' + gx(ang(m.realized), R) + ' ' + gy(ang(m.realized), R) + '" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round"/>';
+            if (m.baseline != null) { var aB = ang(m.baseline); g += '<line x1="' + gx(aB, R - 6) + '" y1="' + gy(aB, R - 6) + '" x2="' + gx(aB, R + 6) + '" y2="' + gy(aB, R + 6) + '" stroke="#9CA3AF" stroke-width="1.6"/>'; }
+            if (goal != null) { var aG = ang(goal); g += '<line x1="' + gx(aG, R - 7) + '" y1="' + gy(aG, R - 7) + '" x2="' + gx(aG, R + 7) + '" y2="' + gy(aG, R + 7) + '" stroke="#1D3BB3" stroke-width="2.2"/>'; }
+            var isPct = m.metric === "conversion";
+            var vTxt = m.realized == null ? "\u2014" : isPct ? (m.realized * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"
+              : (m.metric === "transactions" || m.metric === "footfall") ? Math.round(m.realized).toLocaleString("fr-FR")
+              : frInt(m.realized) + " \u20ac";
+            g += '<text x="60" y="48" font-size="13" font-weight="700" fill="' + (m.realized == null ? "#9CA3AF" : col) + '" text-anchor="middle" style="font-variant-numeric:tabular-nums;">' + vTxt + '</text>';
+            return '<svg viewBox="0 0 120 62" style="width:104px;height:auto;flex:none;" role="img">' + g + '</svg>';
+          }
+          var mesures = (g.mesures || []);
+          var KPI_MINI_FR = { revenue_residual: "CA/j vs habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
+
           html += '<div class="tb-card" style="padding:14px 16px;">'
             + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
             + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
           if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
           aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
+          if (mesures.length) {
+            html += '<div style="height:1px;background:rgba(0,0,0,0.06);margin:12px 0 8px;"></div><p class="tb-eb" style="margin-bottom:2px;">En mesure</p>';
+            mesures.forEach(function (m) {
+              var dj = m.we ? daysTo(m.we) : null;
+              html += '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '" style="display:flex;align-items:center;gap:12px;padding:6px 0;text-decoration:none;color:inherit;" title="Consulter l\u2019\u00e9volution compl\u00e8te">'
+                + miniGauge(m)
+                + '<span style="flex:1;min-width:0;"><span style="display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(trunc(String(m.texte || "").split("\u2014")[0], 60)) + '</span>'
+                + '<span style="display:block;font-size:11px;color:#9CA3AF;">' + esc(KPI_MINI_FR[m.metric] || m.metric) + (m.realized == null ? ' \u00b7 mesure d\u00e8s le ' + frD(m.ws) : '') + (dj != null ? ' \u00b7 verdict ' + (dj <= 0 ? "imminent" : frD(m.we)) : '') + '</span></span>'
+                + '<span class="tb-link" style="font-size:12px;white-space:nowrap;">\u00c9volution \u2192</span></a>';
+            });
+          }
           if (aFaire.length > 6) {
             html += '<button type="button" data-tb-fold="tb-af-more" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;">+ ' + (aFaire.length - 6) + ' autres ▾</button>'
               + '<div id="tb-af-more" class="tb-fold" style="padding:0;background:none;">';

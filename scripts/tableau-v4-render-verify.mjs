@@ -128,6 +128,10 @@ if (trousWithKey.length) check("Suivre = bouton un-clic (clé présente)", rawHt
 if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli chat conservé", rawHtml.indexOf("Suivre le concurrent") >= 0);
 if (payload.debloquer && payload.debloquer.declared_no_replay) check("Prouver cible SON dispositif (data-tb-goto)", rawHtml.indexOf("data-tb-goto=") >= 0);
 check("rangées dispositifs marquées par la clé", (payload.practices || []).some((pp) => pp.tier !== "archivee") ? rawHtml.indexOf("data-tb-prid=") >= 0 : true);
+if ((g.mesures || []).length) {
+  check("En mesure : mini-jauge par engagement ouvert", txt().indexOf("En mesure") >= 0 && rawHtml.indexOf('viewBox="0 0 120 62"') >= 0);
+  check("En mesure : lien vers la page évolution", Array.from(body.querySelectorAll("a")).some((aa) => String(aa.getAttribute("href") || "").indexOf("/app/insightevent/engagement?id=") >= 0));
+}
 
 // ── Inc 3-5 (audit 15/08) : veille exploitable, registres purs, zéro soupe de tirets. ──
 check("zéro « joués » à l'écran (mot banni)", txt().indexOf(" joués") < 0 && txt().indexOf("jouable") < 0);
