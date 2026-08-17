@@ -65,11 +65,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       /* ── Système visuel validé (maquette piloter-proto, 14/08) ──
          héros = grille STRICTE (jamais de wrap), anatomie de tuile unique ;
          À faire = table à colonnes fixes ; volets = rangées d'UNE surface (radar). */
-      .tb-hero { display: grid; grid-template-columns: 1.2fr 0.65fr 1.32fr 1.1fr; }
-      .tb-tile { padding: 16px 18px 14px; border-left: 1px solid #F3F4F6; min-width: 0; }
-      .tb-tile:first-child { border-left: none; }
-      .tb-tile .n { font-size: 26px; font-weight: 650; line-height: 1.1; margin-top: 6px; letter-spacing: -0.01em; }
-      .tb-tile .s { font-size: 11.5px; color: #6B7280; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tb-hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+      /* Héros (proto validé 17/08) : chaque tuile est SA carte — grille, plus de séparateurs. */
+      @media (max-width: 640px) { .tb-hero { grid-template-columns: repeat(2, 1fr); } }
+      .tb-tile { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); min-width: 0; transition: border-color .12s; }
+      .tb-tile:hover { border-color: #C7D2FE; }
+      .tb-tile .n { font-size: 21px; font-weight: 700; line-height: 1.15; margin-top: 5px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
+      .tb-tile .s { font-size: 10.5px; color: #6B7280; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .tb-af { display: grid; grid-template-columns: 56px minmax(0,1fr) 88px 148px; gap: 0 12px; align-items: center; min-height: 46px; padding: 6px 0; border-top: 1px solid #F3F4F6; }
       .tb-af .t { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .tb-af .u { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
@@ -420,8 +422,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // information. Le technique n'est que la COULEUR de pastille (ambre = veille cassée).
           var nTrouvailles = (g.offres || []).length;
           var veilleCassee = vLieux.length > 0 && vVus < vLieux.length;
-          html += '<div class="tb-card">'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px 0;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div class="tb-hero">'
             + '<div class="tb-tile"><p class="tb-eb">Impact · ' + period + ' j</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
               + '<div class="s">vs habituel · ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div></div>'
@@ -433,20 +434,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;color:' + GREEN + ';line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Ma veille concurrentielle" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
               + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "vos " + vLieux.length + " suivis · lus cette nuit") + '</div></div>'
             + '</div>'
-            + '<div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-top:1px solid #F3F4F6;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
+            + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
           if (lv) html += '<button type="button" data-tb-lect style="display:inline-flex;align-items:center;gap:6px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
             + '<span style="width:8px;height:8px;border-radius:50%;background:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';flex:none;"></span>'
             + 'dernier verdict : <span style="font-weight:600;color:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';">' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)).split(" (")[0] + '</span> · ' + frD(lv.we) + ' <span style="font-size:10px;">▾</span></button>';
           if (seuilsCase) html += '<button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;">Seuils trop hauts ?</button>';
           html += '<span style="flex:1;"></span><span style="font-size:11px;color:#9CA3AF;">jamais extrapolé — chaque € vient d’une fenêtre mesurée</span></div>';
           if (lecture || lv) {
-            html += '<div id="tb-lecture" class="tb-fold" style="margin:0 18px 14px;">'
+            html += '<div id="tb-lecture" class="tb-fold" style="margin:6px 0 0;">'
               + (lecture ? '<div><span style="font-weight:600;">Lecture :</span> ' + esc(lecture) + '</div>' : "")
               + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
               + '<div style="color:#9CA3AF;">' + esc(eurTip) + '</div>'
               + '</div>';
           }
-          html += '</div>';
+          html += '<div style="height:14px;"></div>';
 
           // ── Panneau « premier test » (formulaire PARTAGÉ MSCommitForm, inchangé). ──
           if (db.first_test) html += '<div id="tb-first-test" class="tb-card" style="display:none;padding:14px 16px;"></div>';
