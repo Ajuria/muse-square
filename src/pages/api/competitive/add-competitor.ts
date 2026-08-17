@@ -186,7 +186,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         FROM \`${projectId}.raw.competitor_directory\`
         WHERE google_place_id = @google_place_id
           AND deleted_at IS NULL
-        ORDER BY created_at ASC
+        ORDER BY (source_url IS NOT NULL) DESC, created_at ASC
         LIMIT 1
       `,
       params: { google_place_id },
@@ -204,7 +204,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             OR LOWER(city) LIKE CONCAT(LOWER(@city), '%')
           )
           AND deleted_at IS NULL
-        ORDER BY created_at ASC
+        ORDER BY (source_url IS NOT NULL) DESC, created_at ASC
         LIMIT 1
       `,
       params: { competitor_name, city: resolvedCity },

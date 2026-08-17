@@ -324,12 +324,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }).catch(() => [[]]),
       // Les trous nommés : menaces fortes NON suivies (le geste « Suivez X »).
       bq.query({
-        query: `SELECT tp.competitor_name, ROUND(tp.distance_km, 1) AS km, ROUND(tp.audience_overlap_pct) AS overlap,
+        query: `SELECT tp.location_id, tp.competitor_name, ROUND(tp.distance_km, 1) AS km, ROUND(tp.audience_overlap_pct) AS overlap,
                        cd.google_place_id, cd.city
                 FROM \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
-                LEFT JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = tp.competitor_id AND cd.deleted_at IS NULL
                 WHERE tp.location_id IN UNNEST(@locs) AND NOT tp.is_followed AND tp.threat_level = 'high'
+                  -- Vérité LIVE (16/08) : le mart est nocturne — un suivi créé aujourd'hui, ou un
+                  -- doublon fusionné, ne doit pas laisser un « trou » fantôme. Exclusion si un
+                  -- suivi VIVANT du même site existe sur CETTE entrée ou sur une entrée vivante
+                  -- partageant la même clé google_place_id.
+                  AND NOT EXISTS (
+                    SELECT 1 FROM \`${PROJECT}.raw.competitor_tracking\` ct2
+                    JOIN \`${PROJECT}.raw.competitor_directory\` cd2
+                      ON cd2.competitor_id = ct2.competitor_id AND cd2.deleted_at IS NULL
+                    WHERE ct2.location_id = tp.location_id AND ct2.deleted_at IS NULL
+                      AND (cd2.competitor_id = cd.competitor_id
+                           OR (cd.google_place_id IS NOT NULL AND cd2.google_place_id = cd.google_place_id)))
                 ORDER BY tp.threat_score DESC LIMIT 3`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
@@ -678,7 +689,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change), qualif: str(r.new_price_qualifier), vu_le: str(r.vu_le), src_url: str(r.src_url) })),
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
-          trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city) })),
+          trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
           evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
           savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
