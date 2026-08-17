@@ -27,7 +27,7 @@ export const EVOL_COPY = {
   q1_title: "Situation par rapport à l'objectif ?",
   q1_agg_pos: "+{pct} % au-dessus du CA habituel",
   q1_agg_neg: "{pct} % en-dessous du CA habituel",
-  q1_window: "sur toute la fenêtre ({days} jours)",
+  q1_window: "sur les {days} jours de l'opération",
   q1_days: "{up} jours sur {total} au-dessus du CA habituel",
   q1_best_worst: "meilleur : {bDate} (+{bPct} %) · moins bon : {wDate} ({wPct} %)",
   // open state (mid-window)
@@ -38,7 +38,7 @@ export const EVOL_COPY = {
   // shown before any window day has data — the measurable goal as a DAILY uplift (easy to read)
   q1_objective_eur: "Augmenter le CA de +{uplift} €/jour (+{pct} % vs CA habituel)",
   q1_objective_pct: "Augmenter le CA de +{pct} % vs votre CA habituel",
-  q1_window_started: "La fenêtre a démarré — le suivi jour par jour apparaîtra ici au fil des ventes.",
+  q1_window_started: "L'opération a démarré — le suivi jour par jour apparaîtra ici au fil des ventes.",
 
   // ── ① LEAD = THE DECISION (Engine-1/2 contrast, not "situation"). NEW — OWNER: voice-pass these.
   // Causal-safe: the effect ABOVE what the context explains, never "votre action a généré". {pct}
@@ -86,9 +86,9 @@ export const EVOL_COPY = {
   // just "what's happening / expected on the window", which is the useful signal on a
   // forward window. The per-driver measured engine stays queued.
   q2_title: "Qu'est-ce qui a influencé ?",
-  q2_caveat: "Signaux observés sur la fenêtre — corrélations, pas des causes établies.",
+  q2_caveat: "Signaux observés sur les dates de l'opération — corrélations, pas des causes établies.",
   ctx_impact_weather: "Jours frais ou pluvieux — {cool} € en moyenne, vs {mild} € par temps doux (90 j).",
-  ctx_calendar_holiday: "Vacances scolaires — {n} jours sur la fenêtre.",
+  ctx_calendar_holiday: "Vacances scolaires — {n} jours sur les dates de l'opération.",
   ctx_tourism_high: "Affluence touristique {status} sur la période.",
   ctx_tourism_foreign: "Clientèle internationale attendue : {list}.",
   ctx_events_named: "À proximité : {list}.",
@@ -115,7 +115,7 @@ export const EVOL_COPY = {
   diag_ext_title: "Contexte externe",
   diag_ext_chip_obs: "observé",
   diag_ext_chip_meas: "mesuré",
-  diag_ext_none: "Rien de notable observé sur la fenêtre.",
+  diag_ext_none: "Rien de notable observé sur les dates de l'opération.",
   diag_ext_weather: "{n} j de temps perturbé",
   diag_ext_events: "{n} événement(s) à proximité",
   diag_ext_holiday: "{n} j de vacances",
@@ -139,7 +139,7 @@ export const EVOL_COPY = {
   move_doubler: "Doubler la mise",
   move_doubler_d: "Plus de ce qui marche.",
   move_pivoter: "Pivoter",
-  move_pivoter_d: "Changer l'approche, puis remesurer sur une nouvelle fenêtre.",
+  move_pivoter_d: "Changer l'approche, puis remesurer sur de nouvelles dates.",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",

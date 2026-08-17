@@ -596,9 +596,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         arm_signal_ctx: heatBySite[locId] || null,
         replay_status: str(r.replay_status),
         // Tier canonique (bestPractices.ts) : prouvée ssi rejeu au verdict 'met' (dernier état).
+        // Statuts owner 17/08 : en test (ex-déclaré fusionné) · prouvé (cible atteinte) ·
+        // écarté (cible manquée proprement — pas rejouable tel quel) ; non concluant → en test.
         tier: String(str(r.status)) !== "active" ? "archivee"
           : str(r.replay_commitment_id) && String(str(r.replay_status)) === "open" ? "en_test"
           : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "met" ? "prouvee"
+          : str(r.replay_commitment_id) && String(str(r.replay_verdict)) === "missed" ? "ecartee"
           : "declaree",
       };
     });

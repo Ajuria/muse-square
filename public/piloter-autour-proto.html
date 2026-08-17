@@ -134,7 +134,7 @@
     var parts = byDay[d].filter(function (v, i2, a) { return a.indexOf(v) === i2; }).slice(0, 3);
     if (isHot && oc.heat_range) parts.unshift('jour chaud (jusqu’à ' + frI(Math.min(oc.heat_range.mn, oc.heat_range.mx)) + ' €/j à récupérer' + (oc.next_hot_site_label ? ', ' + oc.next_hot_site_label : '') + ')');
     html += '<div class="li"><span class="chip" style="background:' + (isHot ? '#E6F6F0' : '#F3F4F6') + ';color:' + (isHot ? GREEN : '#6b7280') + ';">' + dowFr(d) + ' ' + frD(d) + '</span>'
-      + '<span style="min-width:0;">' + esc(parts.join(' + ')) + (isHot ? ' — <b>votre meilleure fenêtre de la semaine</b>' : '') + '</span>'
+      + '<span style="min-width:0;">' + esc(parts.join(' + ')) + (isHot ? ' — <b>votre meilleure occasion de la semaine</b>' : '') + '</span>'
       + '<a class="go" href="#">' + (isHot ? 'Préparer' : 'Consulter') + ' →</a></div>';
   });
   if (oc.total) html += '<div class="muted" style="margin-top:8px;">' + (oc.played || 0) + '/' + oc.total + ' jours de chaleur couverts par une action sur 30 j — les fenêtres non couvertes sont là pour ça.</div>';

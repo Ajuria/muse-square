@@ -149,7 +149,7 @@
     return '<svg viewBox="0 0 180 60" style="width:172px;height:auto;flex:none;">' + g + '</svg>';
   }
 
-  // ── Variante 3 : SÉRIE — frise d'occurrences réelle (✗ manquée / ● mesurée / ◌ armée / · planifiée). ──
+  // ── Variante 3 : SÉRIE — frise d'occurrences réelle (✗ manquée / ● mesurée / ◌ dispositif actif / · planifiée). ──
   function frise(occ) {
     var g = '', n = occ.length;
     function X(i) { return (14 + i * (300 / Math.max(1, n - 1))).toFixed(1); }
@@ -179,7 +179,7 @@
     var goal1 = real.basis === 'pct' && real.value != null && real.baseline != null ? Math.round(real.baseline * (1 + real.value / 100) * 10) / 10 : null;
     ops.push({ wide: false, html:
       '<div class="t">' + esc(String(real.texte || '').split('—')[0].trim()) + '</div>'
-      + '<div style="display:flex;gap:5px;flex-wrap:wrap;"><span class="chip" style="background:#EEF2FF;color:#1D3BB3;">Armée · J-' + daysTo(real.ws) + '</span><span class="chip" style="background:#F3F4F6;color:#6b7280;">Muse Square</span><span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">CA famille « Branded »</span></div>'
+      + '<div style="display:flex;gap:5px;flex-wrap:wrap;"><span class="chip" style="background:#EEF2FF;color:#1D3BB3;">Dispositif actif · J-' + daysTo(real.ws) + '</span><span class="chip" style="background:#F3F4F6;color:#6b7280;">Muse Square</span><span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">CA famille « Branded »</span></div>'
       + '<div class="body">' + gaugeOcc({ realized: real.realized, baseline: real.baseline, goal: goal1 }) + '<div class="meta">Occurrence du ' + dowFr(real.ws) + ' ' + frD(real.ws) + ' — la mesure démarre seule, verdict jugé après le ' + frD(real.we) + '.</div></div>'
       + '<div class="foot"><span class="muted">rien à faire d’ici là</span><a class="cta" href="#">Ajuster →</a></div>' });
   }
@@ -207,8 +207,8 @@
       + '<div style="display:flex;gap:5px;flex-wrap:wrap;"><span class="chip" style="background:#F3F4F6;color:#6b7280;">' + jug.length + '/' + D.serie.occ.length + ' jugées · ' + tenues + ' tenue' + (tenues > 1 ? 's' : '') + '</span><span class="chip" style="background:#F3F4F6;color:#6b7280;">Muse Square</span><span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">cible ' + frI(D.serie.cible) + ' € · famille « ' + esc(D.serie.famille || '') + ' »</span></div>'
       + '<div class="body">' + frise(D.serie.occ)
       + '<div class="meta">Chaque occurrence est jugée seule — la série cumule les verdicts, jamais une moyenne. '
-      + (next ? 'Prochaine : ' + dowFr(next.d) + ' ' + frD(next.d) + ' (armée).' : '') + '</div></div>'
-      + '<div class="foot"><span class="muted">✗ manquée · ✓ tenue · ● grise = mesurée, verdict en attente · ◌ armée · petits points = planifiées</span><a class="cta" href="#">Dossier →</a></div>' });
+      + (next ? 'Prochaine : ' + dowFr(next.d) + ' ' + frD(next.d) + ' (dispositif actif).' : '') + '</div></div>'
+      + '<div class="foot"><span class="muted">✗ manquée · ✓ tenue · ● grise = mesurée, verdict en attente · ◌ dispositif actif · petits points = planifiées</span><a class="cta" href="#">Dossier →</a></div>' });
   }
   document.getElementById('ops').innerHTML = ops.map(function (o) { return '<div class="op' + (o.wide ? ' wide' : '') + '">' + o.html + '</div>'; }).join('');
 

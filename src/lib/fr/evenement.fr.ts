@@ -53,6 +53,20 @@ export const MOTS_BANNIS: Record<string, string> = {
   "écart de positionnement": "nommer le concurrent et l'écart concret",
   "fenêtres de la semaine": "vos prochaines occasions",
   "Ma couverture": "Ma veille concurrentielle",
+  // Balayage 17/08 (lexique owner) : la période mesurée = les DATES de l'opération ; le moment
+  // favorable = une OCCASION ; l'état programmé = Dispositif actif ; « déclaré » (statut de
+  // dispositif) fusionné dans « en test » ; le CTA de capture nomme les résultats.
+  "Documentez la recette": "Documentez vos résultats",
+  "Fenêtre close": "Dates passées",
+  "fenêtre favorable": "occasion favorable",
+  "Fenêtre favorable": "Occasion favorable",
+  "Fenêtre rare": "Occasion rare",
+  "fenêtre rare": "occasion rare",
+  "meilleure fenêtre": "meilleure occasion",
+  "Meilleure fenêtre": "Meilleure occasion",
+  "sur toute la fenêtre": "sur les jours de l'opération",
+  "Armée ·": "Dispositif actif ·",
+  "(armée)": "(dispositif actif)",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

@@ -806,7 +806,7 @@ if (!location_id) {
       return "Acc\u00e8s au site potentiellement impact\u00e9";
     }
 
-    if (sub === "ranking_up")   { var _ru = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle monte de " + _ru + " place" + (_ru > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — meilleure fenêtre commerciale qu’avant."; }
+    if (sub === "ranking_up")   { var _ru = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle monte de " + _ru + " place" + (_ru > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — meilleure occasion commerciale qu’avant."; }
     if (sub === "ranking_down") { var _rd2 = Math.abs(Number(ov||0) - Number(nv||0)); return "Elle recule de " + _rd2 + " place" + (_rd2 > 1 ? "s" : "") + " dans le classement d’attractivité de votre région — fenêtre commerciale moins favorable qu’avant."; }
     if (sub === "competitor_event_launch") {
       return `\u00c9v\u00e9nement concurrent ouvert aujourd\u2019hui${km ? " \u00b7 " + km : ""}`;
@@ -3557,7 +3557,7 @@ if (!location_id) {
     var open = r.status === 'open' || r.status === 'pending';
     var resolved = r.status === 'resolved';
     var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
-    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Fenêtre close' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Dates pass\u00e9es' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
     var pct = r.window_residual_pct;
     // Measurable, card-specific objective vs past performance: a concrete € target above
     // "votre habituel" (the window baseline captured at creation), + the % to clear it.
@@ -3576,7 +3576,7 @@ if (!location_id) {
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
       : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
-      : escapeHtml('Fenêtre ' + _cgWin(r.window_kind) + '.');
+      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
     // rien de mesuré → pas de bloc (le « 1 % » inventé par le plancher de _cgTargetPct disparaît).
@@ -3585,7 +3585,7 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur la fenêtre de ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
@@ -3723,9 +3723,9 @@ if (!location_id) {
       // Fenêtre + seuil ÉDITABLES (owner 10/08) : une fenêtre fausse (occasion absente) ne se
       // corrigeait que par suppression + recréation. Dates en JJ/MM/AAAA à l'écran, ISO en valeur.
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">'
-        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — début</div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Dates de l\u2019op\u00e9ration — d\u00e9but</div>'
         + '<input type="date" data-eng-edit-ws value="' + escapeHtml(_engYmd(r.window_start)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
-        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Fenêtre — fin</div>'
+        + '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Dates de l\u2019op\u00e9ration — fin</div>'
         + '<input type="date" data-eng-edit-we value="' + escapeHtml(_engYmd(r.window_end)) + '" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>'
         + (String(r.threshold_basis || '') === 'pct' ? '<div><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">Seuil (%)</div>'
           + '<input type="number" min="1" max="200" data-eng-edit-thr value="' + escapeHtml(String(r.threshold_value != null ? r.threshold_value : '')) + '" style="width:90px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;color:#111827;background:#f9fafb;"></div>' : '')
@@ -3744,7 +3744,7 @@ if (!location_id) {
       var nWs = String((wsEl || {}).value || '').slice(0, 10);
       var nWe = String((weEl || {}).value || '').slice(0, 10);
       var nThr = thrEl && String(thrEl.value || '').trim() !== '' ? Number(thrEl.value) : null;
-      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La fin de fenêtre précède son début.'; msg.style.color = '#b91c1c'; return; }
+      if (nWs && nWe && nWe < nWs) { msg.textContent = 'La date de fin pr\u00e9c\u00e8de le d\u00e9but.'; msg.style.color = '#b91c1c'; return; }
       var payload = { commitment_id: eid, location_id: r.location_id, committed_action_text: txt };
       if (nWs && nWs !== _engYmd(r.window_start)) payload.window_start = nWs;
       if (nWe && nWe !== _engYmd(r.window_end)) payload.window_end = nWe;
@@ -4856,7 +4856,7 @@ if (!location_id) {
     const _vBestWeekday = _vBestDt ? ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"][((_vBestDt.getUTCDay()+6)%7)] : "";
     // ↓↓↓ EDITABLE COPY ↓↓↓
     const verdictLine = (_vIsBest || !_vBestWeekday)
-      ? `${regimeLabel}. Meilleure fenêtre de la semaine.`
+      ? `${regimeLabel}. Meilleure occasion de la semaine.`
       : `${regimeLabel}. ${_vBestWeekday.charAt(0).toUpperCase() + _vBestWeekday.slice(1)} est plus favorable cette semaine.`;
     // ↑↑↑ EDITABLE COPY ↑↑↑
     const _vScore = (score != null && Number.isFinite(Number(score)));

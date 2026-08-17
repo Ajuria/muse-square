@@ -1308,11 +1308,11 @@
   // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
   // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
   function renderWeatherWindow(j) {
-    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de fenêtre météo prolongée à venir.</div>';
+    if (!j || !j.ok || !j.found) return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Pas de pr\u00e9vision m\u00e9t\u00e9o prolongée à venir.</div>';
     var html = '';
     if (j.lead) html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
     if (j.window && j.window.strip && j.window.strip.length) {
-      html += '<div style="font-size:12px;color:#6B7280;margin:8px 0 0;">La fenêtre :</div>'
+      html += '<div style="font-size:12px;color:#6B7280;margin:8px 0 0;">Les jours :</div>'
         + msStrip(j.window.strip.map(function (s) {
           return { top: s.day, mid: (s.temp || ('niv. ' + s.level)), highlight: !!s.peak, tone: 'warn' };
         }));

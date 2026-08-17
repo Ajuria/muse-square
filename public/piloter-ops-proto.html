@@ -103,7 +103,7 @@
       realized: real.realized, baseline: real.baseline,
       goal: goalPct != null && real.baseline != null ? Math.round(real.baseline * (1 + goalPct / 100) * 10) / 10 : null,
       ws: real.ws, we: real.we, wsLbl: dowFr(real.ws) + ' ' + frD(real.ws),
-      state: real.realized == null ? 'Armée · J-' + daysTo(real.ws) : 'En mesure',
+      state: real.realized == null ? 'Dispositif actif · J-' + daysTo(real.ws) : 'En mesure',
       stateBg: '#EEF2FF', stateFg: '#1D3BB3',
       sub: 'Armée — la mesure démarre ' + dowFr(real.ws) + ' ' + frD(real.ws) + ' · verdict jugé automatiquement après le ' + frD(real.we),
     });
