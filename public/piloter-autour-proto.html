@@ -29,7 +29,7 @@
   <div id="root"></div>
   <div id="err" style="display:none;color:#B91C1C;padding:30px;text-align:center;">Données introuvables — relancez les deux harnais proto.</div>
 </div>
-<script src="piloter-autour-proto-data.js?v=4"></script>
+<script src="piloter-autour-proto-data.js?v=5"></script>
 <script src="piloter-full-proto-data.js?v=10"></script>
 <script>
 (function () {
@@ -57,11 +57,21 @@
   // ══ 2 · À FAIRE — CTA = verbe seul, € avec son référentiel. ══
   html += '<span class="fix">Correctif 2 — CTA et montants</span><div class="card">';
   function verbOnly(g2) { var w = String(g2 || '').replace(/[«»"]/g, '').trim().split(/\s+/)[0].replace(/→/g, '').trim(); return w ? w + ' →' : '→'; }
+  // Le sous-titre dit LE BÉNÉFICE du geste (owner 17/08), pas la mécanique.
+  var BENEFICE = {
+    'Documenter': 'vos +510 € deviennent rejouables — le dispositif resservira aux prochains jours de chaleur',
+    'Préparer': 'la consigne part à votre équipe — le jour se joue sans vous derrière',
+    'Bilan': 'votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables d\u2019une occurrence à l\u2019autre',
+    'Prouver': 'une cible tenue et le dispositif devient rejouable en un clic',
+    'Déclarer': 'débloque le KPI profit sur toutes vos mesures',
+    'Fixer': 'sans cible, aucun verdict — la fixer rend ces 4 événements jugeables'
+  };
   (F.afaire || []).slice(0, 4).forEach(function (r) {
+    var verbe = verbOnly(r.geste).replace(' \u2192', '');
     var eur = '';
     if (/510/.test(r.droite)) eur = '<span style="font-weight:700;">+510 €</span> <span class="muted">gagnés — à documenter</span>';
     else if (/150/.test(r.droite)) eur = '<span style="font-weight:700;">150 €</span> <span class="muted">cible</span>';
-    html += '<div class="li"><span style="min-width:0;flex:1;"><span style="font-weight:600;">' + esc(r.titre) + '</span><span class="muted" style="display:block;">' + esc(r.sub) + '</span></span>'
+    html += '<div class="li"><span style="min-width:0;flex:1;"><span style="font-weight:600;">' + esc(r.titre) + '</span><span class="muted" style="display:block;">' + esc(BENEFICE[verbe] || r.sub) + '</span></span>'
       + (eur ? '<span style="white-space:nowrap;font-size:12.5px;">' + eur + '</span>' : '')
       + '<a class="cta" href="#">' + esc(verbOnly(r.geste)) + '</a></div>';
   });
@@ -111,10 +121,20 @@
       + '<span style="min-width:150px;">' + rep + '</span><span>' + prix + '</span>'
       + (f.url ? '<a class="cta" href="' + esc(f.url) + '" target="_blank" rel="noopener">Sa page →</a>' : '<span class="cta" style="color:#B45309;font-weight:500;font-size:11px;">page illisible — à réparer</span>') + '</div>';
   });
-  var hautes = fiches.filter(function (f) { return f.note != null && f.note >= 4.5; }).map(function (f) { return String(f.nom).split(' - ')[0].replace('Musée national des arts asiatiques', 'Guimet').replace("Musée de l'Orangerie", 'l’Orangerie'); });
   html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div>';
-  if (hautes.length) html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + AMBER + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>' + esc(hautes.join(' et ')) + '</b> tiennent ★ ≥ 4,5 — regardez ce qu’ils mettent en avant sur leurs pages.</span><a class="cta" href="#">Comparer →</a></div>';
-  html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span><span style="min-width:0;flex:1;">Votre produit phare : <b>Dark chocolate Lg</b> — 3 % de votre CA. 3 suivis comparables sur ce terrain — voyez ce qu\u2019ils poussent en face.</span><a class="cta" href="#">Comparer →</a></div>'
+  // La VALEUR déduite du tableau, pas sa redite : le seul suivi qui vise VOTRE public est
+  // aussi le moins bien noté — c'est un avantage à jouer, dit tel quel.
+  (function () {
+    var memePublic = fiches.filter(function (f) { return mesAud.indexOf(f.audience) >= 0; });
+    if (memePublic.length === 1 && memePublic[0].note != null) {
+      var mp = memePublic[0];
+      var minNote = Math.min.apply(null, notes);
+      if (mp.note <= minNote + 0.05) {
+        html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + GREEN + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>' + esc(mp.nom) + '</b> est le seul suivi à viser votre public (' + esc(AUD_FR[mp.audience] || mp.audience) + ') — et le moins bien noté (★ ' + String(mp.note).replace('.', ',') + '). <b>Votre avantage réputation est à jouer auprès de ce public</b> : sollicitez vos avis clients ces jours-ci.</span><a class="cta" href="#">Communiquer →</a></div>';
+      }
+    }
+  })();
+  html += '<div class="li"><span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span><span style="min-width:0;flex:1;">Aucun produit ne vous définit : votre premier (<b>Dark chocolate Lg</b>) ne fait que 3 % de votre CA. <b>Face à des voisins à identité forte (expositions phares), une offre signature vous rendrait identifiable</b> — la comparaison montre ce que chacun pousse.</span><a class="cta" href="#">Comparer →</a></div>'
     + '<div class="li" style="opacity:0.55;"><span style="width:8px;height:8px;border-radius:50%;background:' + AMBER + ';flex:none;"></span><span style="min-width:0;flex:1;"><b>[Nom du suivi]</b> mord sur votre offre — <span class="muted">sera NOMMÉ par le payload enrichi ; une ligne qui ne peut pas nommer ne s’affiche pas</span></span></div>';
   html += '</div>';
 
@@ -124,7 +144,7 @@
     var nP = (D.practices || []).filter(function (p) { return p.tier === 'prouvee'; }).length;
     var nE = (D.practices || []).filter(function (p) { return p.tier === 'ecartee'; }).length;
     var nT = (D.practices || []).filter(function (p) { return p.tier !== 'prouvee' && p.tier !== 'ecartee' && p.tier !== 'archivee'; }).length;
-    html += '<div style="font-size:13px;margin-bottom:4px;">Vos manières de faire, jugées sur vos ventes — <b>' + nP + ' prouvée' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écartée' + (nE > 1 ? 's' : '') + '</b>. Prouvée = rejouable ; écartée = à ajuster avant de retester.</div>';
+    html += '<div style="font-size:13px;margin-bottom:4px;">Vos dispositifs, jugés selon leurs résultats — <b>' + nP + ' prouvé' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écarté' + (nE > 1 ? 's' : '') + '</b>. Prouvé = rejouable ; écarté = à ajuster avant de retester.</div>';
   })();
   var testBy = {};
   (D.tests || []).forEach(function (t) { testBy[t.practice_id] = t; });
@@ -168,19 +188,22 @@
   });
   html += '</div>';
 
-  // ══ 8 · AUTOMATISATIONS — la liste de ce qui tourne seul, pas un journal. ══
+  // ══ 8 · AUTOMATISATIONS — chaque rangée : QUOI est automatisé + SUR QUEL DÉCLENCHEUR. ══
   html += '<span class="fix">Correctif 8 — Automatisations</span><div class="card">';
   html += '<div class="li"><span class="chip" style="background:#E6F6F0;color:' + GREEN + ';">active</span>'
+    + '<span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">Mesure &amp; verdict</span>'
     + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Corner de vente producteur</span>'
-    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Série hebdomadaire — prochaine mesure samedi 22/08 · dernier verdict : cible manquée (08/08)</span></span>'
+    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Déclencheur : <b>chaque samedi</b> (série hebdomadaire) — la mesure se lance au jour J, le verdict tombe seul. Prochaine : samedi 22/08 · dernier verdict : cible manquée (08/08).</span></span>'
     + '<a class="cta" href="#">Dossier →</a></div>';
   html += '<div class="li"><span class="chip" style="background:#E6F6F0;color:' + GREEN + ';">active</span>'
-    + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Alerte concurrent sur vos jours d’opération</span>'
-    + '<span style="display:block;font-size:11.5px;color:#6B7280;">2 alertes en surveillance sur 7 jours — la dernière : Orangerie le jour de votre Corner</span></span>'
+    + '<span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">Communication</span>'
+    + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Alerte concurrent</span>'
+    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Déclencheur : <b>un concurrent programme un événement sur un de vos jours d\u2019opération</b> — vous recevez un email. Dernière : Orangerie, le jour de votre Corner.</span></span>'
     + '<a class="cta" href="#">Régler →</a></div>';
-  html += '<div class="li" style="opacity:0.8;"><span class="chip" style="background:#F3F4F6;color:#6b7280;">possible</span>'
-    + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Coupon café glacé — au signal chaleur</span>'
-    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Éligible : se lancerait seul quand la chaleur est annoncée (2 dispositifs éligibles)</span></span>'
+  html += '<div class="li" style="opacity:0.85;"><span class="chip" style="background:#F3F4F6;color:#6b7280;">possible</span>'
+    + '<span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">Dispositif prêt à l\u2019emploi</span>'
+    + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Coupon café glacé</span>'
+    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Déclencheur : <b>chaleur annoncée pour le lendemain</b> — la consigne partirait seule la veille, la mesure suivrait au jour J.</span></span>'
     + '<a class="cta" href="#">Automatiser →</a></div>';
   html += '</div>';
 
