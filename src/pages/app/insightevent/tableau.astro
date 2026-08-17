@@ -1034,6 +1034,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 });
                 if ((f2.analyse.gaps || []).length) h2 += '<div style="font-size:11px;color:#6B7280;margin-top:2px;"><b style="color:#374151;">Ils ont, vous n\u2019avez pas :</b> ' + f2.analyse.gaps.map(esc).join(' \u00b7 ') + '</div>';
               } else h2 += '<div style="font-size:11px;color:#9CA3AF;">Analyse pas encore g\u00e9n\u00e9r\u00e9e \u2014 la veille de nuit la produit cette semaine (2 suivis par nuit).</div>';
+              if (f2.actu && f2.actu.autres_offres) h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
+                + '<span style="width:7px;height:7px;border-radius:50%;background:' + AMBER + ';flex:none;position:relative;top:-1px;"></span>'
+                + '<span style="min-width:0;flex:1;"><b style="color:' + AMBER + ';">Autres offres et produits</b> <span style="font-size:10px;color:#9CA3AF;">Web \u2014 non v\u00e9rifi\u00e9</span>'
+                + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(f2.actu.autres_offres) + '</span></span></div>';
               // 2 \u00b7 PUBLICS/CLIENTS VIS\u00c9S + le recouvrement MESUR\u00c9 (mart menace).
               h2 += '<p class="tb-eb" style="margin:10px 0 2px;">Publics/Clients vis\u00e9s</p><div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:12px;">';
               [[f2.audience, 'principal'], [f2.audience2, 'secondaire']].forEach(function (pa) {
@@ -1054,10 +1058,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                     + (m2.dates ? ' <span class="tb-chip" style="background:#EEF2FF;color:' + BLUE + ';">' + esc(m2.dates) + '</span>' : '')
                     + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(m2.detail || '') + '</span></span></div>';
                 });
-                if (f2.actu.autres_offres) h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
-                  + '<span style="width:7px;height:7px;border-radius:50%;background:' + AMBER + ';flex:none;position:relative;top:-1px;"></span>'
-                  + '<span style="min-width:0;flex:1;"><b style="color:' + AMBER + ';">Autres offres et produits</b>'
-                  + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(f2.actu.autres_offres) + '</span></span></div>';
                 if ((f2.actu.sources || []).length) h2 += '<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Sources : ' + f2.actu.sources.map(function (u2) {
                   return '<a class="tb-link" style="font-weight:500;font-size:11px;" href="' + esc(u2) + '" target="_blank" rel="noopener">' + esc(String(u2).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]) + '</a>';
                 }).join(' \u00b7 ') + '</div>';

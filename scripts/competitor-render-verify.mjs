@@ -52,10 +52,14 @@ check("actu réelle rendue (Guimet a été lu cette nuit)", payload.actu && payl
 check("recouvrement mesuré quand le mart le porte", payload.threat && payload.threat.audience_overlap_pct != null ? t.indexOf("Recouvrement mesuré") >= 0 : true);
 check("ancienne UI morte : zéro onglet cp-tab, zéro icône ti-", c.innerHTML.indexOf("cp-tab") < 0 && c.innerHTML.indexOf("ti ti-") < 0);
 check("gestes : Communiquer → + Consulter → (externe) — labels existants seulement", t.indexOf("Communiquer →") >= 0 && (payload.directory.source_url ? t.indexOf("Consulter →") >= 0 : true) && t.indexOf("Sa page") < 0 && t.indexOf("Profil stratégique →") < 0);
-check("offre : tarifs RELEVÉS rendus ou absence DITE", (payload.tarifs || []).length
-  ? t.indexOf("Tarifs relevés par votre veille") >= 0 && t.indexOf(payload.tarifs[0].item.slice(0, 16)) >= 0
+const hasWebOffres = payload.actu && payload.actu.autres_offres;
+check("offre : tarifs RELEVÉS ou offres web DANS la carte Offre — absence dite seulement si RIEN",
+  (payload.tarifs || []).length ? t.indexOf("Tarifs relevés par votre veille") >= 0
+  : hasWebOffres ? (t.indexOf("Autres offres et produits") >= 0 && t.indexOf("Aucun tarif relevé") < 0
+      && t.indexOf("Autres offres et produits") < t.indexOf("Actualité commerciale"))
   : ((payload.analysis && (payload.analysis.price_comparison || []).length) ? true : t.indexOf("Aucun tarif relevé") >= 0),
-  (payload.tarifs || []).length + " relevés");
+  (payload.tarifs || []).length + " relevés · web: " + (hasWebOffres ? "oui" : "non"));
+check("les prix lus au web apparaissent (Guimet : 15/12 €)", hasWebOffres ? t.indexOf(String(hasWebOffres).slice(0, 24)) >= 0 : true);
 
 // 2e sujet : un suivi AVEC relevés réels (Domaine de Tavernel) — la liste de prix mesurés s'affiche.
 {
